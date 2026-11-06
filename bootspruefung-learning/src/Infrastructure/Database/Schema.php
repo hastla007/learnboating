@@ -1,0 +1,717 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Infrastructure\Database;
+
+/**
+ * Tabellendefinitionen (Konzept Kap. 5 und 7.3). Format passend für dbDelta():
+ * ein Feld pro Zeile, „PRIMARY KEY  (id)“ mit zwei Leerzeichen, benannte KEYs.
+ * Fremdschlüssel verwaltet dbDelta() nicht; sie stehen in foreignKeys() und
+ * werden vom Migrator separat ergänzt.
+ */
+final class Schema
+{
+    /** Alle Tabellen ohne Präfix, in Anlagereihenfolge. */
+    public const TABLES = [
+        // Content
+        'course', 'module', 'course_module', 'question', 'question_revision', 'answer', 'module_question',
+        'media', 'content_media', 'exam_rule', 'exam_blueprint', 'exam_paper', 'exam_paper_question',
+        'navigation_task', 'navigation_task_course', 'navigation_question', 'praxis_task',
+        'video_module', 'video_lesson', 'video_lesson_step', 'video_lesson_question',
+        'radio_scenario', 'radio_text', 'radio_vocabulary', 'device', 'device_lesson', 'device_step',
+        // Import und Audit
+        'import_batch', 'import_item_log', 'audit_log',
+        // Lernende
+        'attempt', 'attempt_answer', 'progress', 'favorite', 'exam_session', 'exam_session_question',
+        'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
+        // Zugang und Verkauf
+        'entitlement', 'access_rule', 'product_access',
+    ];
+
+    public function __construct(private readonly string $prefix, private readonly string $charsetCollate)
+    {
+    }
+
+    public function table(string $name): string
+    {
+        return $this->prefix.'bp_'.$name;
+    }
+
+    /** @return array<string,string> Tabellenname ohne Präfix => CREATE TABLE */
+    public function definitions(): array
+    {
+        $src = self::sourceColumns();
+        $ts = "  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,";
+
+        $defs = [
+            'course' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  code varchar(64) NOT NULL,
+  name varchar(255) NOT NULL,
+  description longtext NULL,
+  course_type varchar(20) NOT NULL DEFAULT 'full',
+  language varchar(10) NOT NULL DEFAULT 'de-DE',
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  UNIQUE KEY code (code),
+  KEY status (status)",
+            'module' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  code varchar(64) NOT NULL,
+  name varchar(255) NOT NULL,
+  description longtext NULL,
+  version varchar(64) NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  UNIQUE KEY code (code)",
+            'course_module' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  course_id bigint(20) unsigned NOT NULL,
+  module_id bigint(20) unsigned NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  required tinyint(1) NOT NULL DEFAULT 1,
+  rules longtext NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY course_module (course_id,module_id),
+  KEY module_id (module_id)",
+            'question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  official_number varchar(32) NULL,
+  content_role varchar(64) NULL,
+  language varchar(10) NOT NULL DEFAULT 'de-DE',
+  active tinyint(1) NOT NULL DEFAULT 1,
+  source_module varchar(64) NULL,
+  current_revision_id bigint(20) unsigned NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY role_number (content_role,official_number),
+  KEY current_revision_id (current_revision_id)",
+            'question_revision' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  question_id bigint(20) unsigned NOT NULL,
+  revision_no int(11) NOT NULL,
+  source_hash char(71) NOT NULL,
+  package_id varchar(64) NULL,
+  question_type varchar(32) NOT NULL,
+  question_text longtext NOT NULL,
+  topic varchar(255) NULL,
+  subtopic varchar(255) NULL,
+  competency varchar(255) NULL,
+  smart_category varchar(255) NULL,
+  scope varchar(64) NULL,
+  image_required tinyint(1) NOT NULL DEFAULT 0,
+  feedback_correct longtext NULL,
+  feedback_incorrect longtext NULL,
+  source_catalog varchar(255) NULL,
+  source_version varchar(64) NULL,
+  source_question_id varchar(64) NULL,
+  source_page varchar(40) NULL,
+  editorial_status varchar(20) NOT NULL DEFAULT 'draft',
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+  rights_owner varchar(255) NULL,
+  license_reference longtext NULL,
+  valid_from date NULL,
+  valid_to date NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY question_revision (question_id,revision_no),
+  KEY question_hash (question_id,source_hash),
+  KEY publish (question_id,editorial_status,valid_from,valid_to)",
+            'answer' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  revision_id bigint(20) unsigned NOT NULL,
+  answer_key varchar(16) NOT NULL,
+  answer_text longtext NOT NULL,
+  is_correct tinyint(1) NOT NULL DEFAULT 0,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  UNIQUE KEY revision_key (revision_id,answer_key)",
+            'module_question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  module_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  sort_order int(11) NULL,
+  required tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY  (id),
+  UNIQUE KEY module_question (module_id,question_id),
+  KEY question_id (question_id)",
+            'media' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  attachment_id bigint(20) unsigned NULL,
+  storage_key varchar(255) NULL,
+  package_path varchar(255) NOT NULL,
+  media_type varchar(20) NOT NULL DEFAULT 'image',
+  mime_type varchar(100) NOT NULL,
+  size bigint(20) unsigned NOT NULL DEFAULT 0,
+  sha256 char(64) NOT NULL,
+  alt_text varchar(255) NULL,
+  caption longtext NULL,
+  description longtext NULL,
+  source_text longtext NULL,
+  source_url varchar(2048) NULL,
+  rights_owner varchar(255) NULL,
+  license_reference longtext NULL,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+  vector_source varchar(255) NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY sha256 (sha256)",
+            'content_media' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  object_type varchar(32) NOT NULL,
+  object_id bigint(20) unsigned NOT NULL,
+  media_id bigint(20) unsigned NOT NULL,
+  role varchar(32) NOT NULL DEFAULT 'question',
+  sort_order int(11) NOT NULL DEFAULT 0,
+  caption_override longtext NULL,
+  alt_override varchar(255) NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY object_media (object_type,object_id,media_id,role),
+  KEY media_id (media_id)",
+            'exam_rule' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  course_id bigint(20) unsigned NOT NULL,
+  version varchar(64) NOT NULL,
+  valid_from date NULL,
+  valid_until date NULL,
+  time_limit_seconds int(11) NOT NULL,
+  passing_rule longtext NOT NULL,
+  verified tinyint(1) NOT NULL DEFAULT 0,
+  verified_by bigint(20) unsigned NULL,
+  verified_at datetime NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  UNIQUE KEY course_version (course_id,version)",
+            'exam_blueprint' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  rule_id bigint(20) unsigned NOT NULL,
+  module_id bigint(20) unsigned NOT NULL,
+  question_count int(11) NOT NULL,
+  rules longtext NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY rule_module (rule_id,module_id),
+  KEY module_id (module_id)",
+            'exam_paper' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  course_id bigint(20) unsigned NOT NULL,
+  paper_number int(11) NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  copied_from varchar(191) NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  UNIQUE KEY course_paper (course_id,paper_number)",
+            'exam_paper_question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  paper_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  position int(11) NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY paper_position (paper_id,position),
+  KEY question_id (question_id)",
+            'navigation_task' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  task_number int(11) NOT NULL,
+  scenario_text longtext NOT NULL,
+  hint longtext NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  source_text varchar(2048) NULL,
+  source_version varchar(64) NULL,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id)",
+            'navigation_task_course' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  task_id bigint(20) unsigned NOT NULL,
+  course_id bigint(20) unsigned NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  UNIQUE KEY task_course (task_id,course_id),
+  KEY course_id (course_id)",
+            'navigation_question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  task_id bigint(20) unsigned NOT NULL,
+  question_number int(11) NOT NULL,
+  question_text longtext NOT NULL,
+  answer_text longtext NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY task_id (task_id)",
+            'praxis_task' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  course_id bigint(20) unsigned NOT NULL,
+  category varchar(255) NOT NULL,
+  subcategory varchar(255) NULL,
+  exam_reference varchar(255) NULL,
+  task_type varchar(64) NULL,
+  question longtext NOT NULL,
+  answer longtext NOT NULL,
+  explanation longtext NULL,
+  media_id bigint(20) unsigned NULL,
+  source_text varchar(255) NULL,
+  source_url varchar(2048) NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  active tinyint(1) NOT NULL DEFAULT 1,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+  copied_from varchar(191) NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY course_category (course_id,category(100)),
+  KEY media_id (media_id)",
+            'video_module' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  course_id bigint(20) unsigned NOT NULL,
+  title varchar(255) NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY course_id (course_id)",
+            'video_lesson' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  module_id bigint(20) unsigned NOT NULL,
+  title varchar(255) NOT NULL,
+  video_url varchar(2048) NULL,
+  video_media_id bigint(20) unsigned NULL,
+  provider varchar(32) NULL,
+  duration_seconds int(11) NULL,
+  is_placeholder tinyint(1) NOT NULL DEFAULT 0,
+  transcript longtext NULL,
+  chapters longtext NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY module_id (module_id)",
+            'video_lesson_step' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  lesson_id bigint(20) unsigned NOT NULL,
+  title varchar(255) NOT NULL,
+  media_id bigint(20) unsigned NULL,
+  caption longtext NULL,
+  alt_text varchar(255) NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY lesson_id (lesson_id)",
+            'video_lesson_question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  lesson_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  UNIQUE KEY lesson_question (lesson_id,question_id),
+  KEY question_id (question_id)",
+            'radio_scenario' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  catalog varchar(16) NOT NULL,
+  number int(11) NOT NULL,
+  message_kind varchar(64) NOT NULL,
+  scenario longtext NOT NULL,
+  task_text longtext NOT NULL,
+  model_message longtext NOT NULL,
+  checkpoints longtext NOT NULL,
+  solution longtext NULL,
+  variants longtext NULL,
+  critical_errors longtext NULL,
+  evaluation_rule longtext NULL,
+  language varchar(10) NOT NULL DEFAULT 'de-DE',
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  KEY catalog_number (catalog,number)",
+            'radio_text' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  catalog varchar(16) NOT NULL,
+  exercise_type varchar(32) NOT NULL,
+  direction varchar(32) NULL,
+  message_kind varchar(64) NULL,
+  text_de longtext NULL,
+  text_en longtext NULL,
+  segments longtext NULL,
+  spelling longtext NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id)",
+            'radio_vocabulary' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  catalog varchar(16) NOT NULL,
+  category varchar(255) NULL,
+  term_de varchar(255) NOT NULL,
+  term_en varchar(255) NOT NULL,
+  variants longtext NULL,
+  audio_media_id bigint(20) unsigned NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id)",
+            'device' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  model varchar(64) NOT NULL,
+  catalogs varchar(64) NOT NULL,
+  data longtext NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id),
+  UNIQUE KEY model (model)",
+            'device_lesson' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+{$src}
+  catalog varchar(16) NOT NULL,
+  level int(11) NOT NULL DEFAULT 1,
+  title varchar(255) NOT NULL,
+  devices longtext NOT NULL,
+  start_state longtext NULL,
+  scenario_ref varchar(191) NULL,
+  model_solution longtext NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY source (source_system,source_id)",
+            'device_step' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  lesson_id bigint(20) unsigned NOT NULL,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  goal varchar(255) NULL,
+  target varchar(255) NULL,
+  help_text longtext NULL,
+  device_overrides longtext NULL,
+  receive_event longtext NULL,
+  counterpart_text longtext NULL,
+  checks longtext NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY lesson_step (lesson_id,sort_order)",
+            'import_batch' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  package_id varchar(64) NOT NULL,
+  schema_version varchar(16) NOT NULL,
+  source_commit char(40) NULL,
+  status varchar(20) NOT NULL DEFAULT 'uploaded',
+  manifest longtext NOT NULL,
+  stats longtext NULL,
+  storage_path varchar(255) NULL,
+  error longtext NULL,
+  created_by bigint(20) unsigned NULL,
+  approved_by bigint(20) unsigned NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  approved_at datetime NULL,
+  published_at datetime NULL,
+  PRIMARY KEY  (id),
+  KEY package_id (package_id),
+  KEY status (status)",
+            'import_item_log' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  batch_id bigint(20) unsigned NOT NULL,
+  entity varchar(32) NOT NULL,
+  source_id varchar(191) NULL,
+  action varchar(16) NOT NULL,
+  message longtext NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  KEY batch_entity (batch_id,entity),
+  KEY action (action)",
+            'audit_log' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  actor_user_id bigint(20) unsigned NULL,
+  action varchar(64) NOT NULL,
+  object_type varchar(32) NULL,
+  object_id varchar(191) NULL,
+  reason longtext NULL,
+  context longtext NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  KEY actor (actor_user_id),
+  KEY object (object_type,object_id(64)),
+  KEY action (action)",
+            'attempt' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  revision_id bigint(20) unsigned NOT NULL,
+  context varchar(32) NOT NULL,
+  context_ref varchar(64) NULL,
+  is_correct tinyint(1) NULL,
+  self_assessment varchar(16) NULL,
+  answer_ms int(11) NULL,
+  idempotency_key char(36) NOT NULL,
+  correction_of bigint(20) unsigned NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY idempotency_key (idempotency_key),
+  KEY user_question (user_id,question_id),
+  KEY revision_id (revision_id)",
+            'attempt_answer' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  attempt_id bigint(20) unsigned NOT NULL,
+  answer_id bigint(20) unsigned NULL,
+  answer_key varchar(16) NULL,
+  free_text longtext NULL,
+  position int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  KEY attempt_id (attempt_id),
+  KEY answer_id (answer_id)",
+            'progress' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  attempts int(11) NOT NULL DEFAULT 0,
+  correct_count int(11) NOT NULL DEFAULT 0,
+  wrong_count int(11) NOT NULL DEFAULT 0,
+  streak int(11) NOT NULL DEFAULT 0,
+  learn_status varchar(16) NOT NULL DEFAULT 'new',
+  first_answered_at datetime NULL,
+  last_answered_at datetime NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_question (user_id,question_id),
+  KEY question_id (question_id),
+  KEY user_status (user_id,learn_status)",
+            'favorite' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  context varchar(32) NOT NULL DEFAULT 'question',
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_question_context (user_id,question_id,context),
+  KEY question_id (question_id)",
+            'exam_session' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  course_id bigint(20) unsigned NOT NULL,
+  rule_id bigint(20) unsigned NULL,
+  paper_id bigint(20) unsigned NULL,
+  mode varchar(16) NOT NULL,
+  rule_snapshot longtext NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'running',
+  start_token char(36) NOT NULL,
+  started_at datetime NOT NULL,
+  deadline_at datetime NULL,
+  submitted_at datetime NULL,
+  score int(11) NULL,
+  max_score int(11) NULL,
+  passed tinyint(1) NULL,
+  result longtext NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY start_token (start_token),
+  KEY user_course (user_id,course_id),
+  KEY status_deadline (status,deadline_at),
+  KEY rule_id (rule_id),
+  KEY paper_id (paper_id)",
+            'exam_session_question' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  session_id bigint(20) unsigned NOT NULL,
+  position int(11) NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  revision_id bigint(20) unsigned NOT NULL,
+  answer_order longtext NULL,
+  given_answer longtext NULL,
+  is_correct tinyint(1) NULL,
+  answered_at datetime NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY session_position (session_id,position),
+  KEY question_id (question_id),
+  KEY revision_id (revision_id)",
+            'navigation_progress' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  navigation_question_id bigint(20) unsigned NOT NULL,
+  answer_text longtext NULL,
+  self_assessment varchar(16) NULL,
+  done tinyint(1) NOT NULL DEFAULT 0,
+  updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_question (user_id,navigation_question_id),
+  KEY navigation_question_id (navigation_question_id)",
+            'praxis_progress' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  praxis_task_id bigint(20) unsigned NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'open',
+  updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_task (user_id,praxis_task_id),
+  KEY praxis_task_id (praxis_task_id)",
+            'video_progress' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  lesson_id bigint(20) unsigned NOT NULL,
+  completed tinyint(1) NOT NULL DEFAULT 0,
+  position_seconds int(11) NOT NULL DEFAULT 0,
+  last_access_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_lesson (user_id,lesson_id),
+  KEY lesson_id (lesson_id)",
+            'radio_progress' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  item_type varchar(16) NOT NULL,
+  item_source_id varchar(191) NOT NULL,
+  done tinyint(1) NOT NULL DEFAULT 0,
+  streak int(11) NOT NULL DEFAULT 0,
+  help_level int(11) NOT NULL DEFAULT 0,
+  data longtext NULL,
+  updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_item (user_id,item_type,item_source_id)",
+            'entitlement' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  course_code varchar(64) NOT NULL,
+  feature_code varchar(64) NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'pending',
+  valid_from datetime NULL,
+  valid_until datetime NULL,
+  source varchar(16) NOT NULL,
+  reference_key varchar(100) NOT NULL,
+  order_id bigint(20) unsigned NULL,
+  order_item_id bigint(20) unsigned NULL,
+  product_id bigint(20) unsigned NULL,
+  variation_id bigint(20) unsigned NULL,
+  sku_snapshot varchar(100) NULL,
+  granted_by bigint(20) unsigned NULL,
+  reason longtext NULL,
+  idempotency_key varchar(100) NULL,
+  meta longtext NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY reference_scope (reference_key,course_code,feature_code),
+  KEY user_access (user_id,course_code,feature_code,status),
+  KEY order_id (order_id),
+  KEY order_item_id (order_item_id),
+  KEY status_until (status,valid_until)",
+            'access_rule' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  course_code varchar(64) NOT NULL,
+  module_code varchar(64) NULL,
+  feature_code varchar(64) NOT NULL,
+  access_type varchar(16) NOT NULL DEFAULT 'paid',
+  limit_type varchar(32) NULL,
+  limit_value int(11) NULL,
+  valid_from datetime NULL,
+  valid_until datetime NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  KEY course_feature (course_code,feature_code)",
+            'product_access' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  product_id bigint(20) unsigned NOT NULL,
+  variation_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  course_code varchar(64) NOT NULL,
+  feature_code varchar(64) NOT NULL,
+  duration_days int(11) NULL,
+  renewal_mode varchar(16) NOT NULL DEFAULT 'extend',
+  refund_rule varchar(32) NOT NULL DEFAULT 'revoke_on_full_refund',
+  active tinyint(1) NOT NULL DEFAULT 1,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY product_scope (product_id,variation_id,course_code,feature_code),
+  KEY course_feature (course_code,feature_code)",
+        ];
+
+        $sql = [];
+        foreach (self::TABLES as $name) {
+            $sql[$name] = 'CREATE TABLE '.$this->table($name).' ('.$defs[$name]."\n) ENGINE=InnoDB {$this->charsetCollate};";
+        }
+
+        return $sql;
+    }
+
+    /**
+     * Fremdschlüssel: [Tabelle, Spalte, Zieltabelle, ON DELETE].
+     * Content wird nie hart gelöscht (source_archived); Lerndaten verweisen
+     * deshalb mit RESTRICT, reine Kindzeilen mit CASCADE.
+     *
+     * @return list<array{0:string,1:string,2:string,3:string}>
+     */
+    public static function foreignKeys(): array
+    {
+        return [
+            ['course_module', 'course_id', 'course', 'CASCADE'],
+            ['course_module', 'module_id', 'module', 'CASCADE'],
+            ['question_revision', 'question_id', 'question', 'RESTRICT'],
+            ['answer', 'revision_id', 'question_revision', 'CASCADE'],
+            ['module_question', 'module_id', 'module', 'CASCADE'],
+            ['module_question', 'question_id', 'question', 'CASCADE'],
+            ['content_media', 'media_id', 'media', 'RESTRICT'],
+            ['exam_rule', 'course_id', 'course', 'RESTRICT'],
+            ['exam_blueprint', 'rule_id', 'exam_rule', 'CASCADE'],
+            ['exam_blueprint', 'module_id', 'module', 'RESTRICT'],
+            ['exam_paper', 'course_id', 'course', 'RESTRICT'],
+            ['exam_paper_question', 'paper_id', 'exam_paper', 'CASCADE'],
+            ['exam_paper_question', 'question_id', 'question', 'RESTRICT'],
+            ['navigation_task_course', 'task_id', 'navigation_task', 'CASCADE'],
+            ['navigation_task_course', 'course_id', 'course', 'CASCADE'],
+            ['navigation_question', 'task_id', 'navigation_task', 'RESTRICT'],
+            ['praxis_task', 'course_id', 'course', 'RESTRICT'],
+            ['praxis_task', 'media_id', 'media', 'SET NULL'],
+            ['video_module', 'course_id', 'course', 'RESTRICT'],
+            ['video_lesson', 'module_id', 'video_module', 'RESTRICT'],
+            ['video_lesson_step', 'lesson_id', 'video_lesson', 'CASCADE'],
+            ['video_lesson_question', 'lesson_id', 'video_lesson', 'CASCADE'],
+            ['video_lesson_question', 'question_id', 'question', 'RESTRICT'],
+            ['device_step', 'lesson_id', 'device_lesson', 'CASCADE'],
+            ['import_item_log', 'batch_id', 'import_batch', 'CASCADE'],
+            ['attempt', 'question_id', 'question', 'RESTRICT'],
+            ['attempt', 'revision_id', 'question_revision', 'RESTRICT'],
+            ['attempt_answer', 'attempt_id', 'attempt', 'CASCADE'],
+            ['progress', 'question_id', 'question', 'RESTRICT'],
+            ['favorite', 'question_id', 'question', 'CASCADE'],
+            ['exam_session', 'course_id', 'course', 'RESTRICT'],
+            ['exam_session_question', 'session_id', 'exam_session', 'CASCADE'],
+            ['exam_session_question', 'question_id', 'question', 'RESTRICT'],
+            ['exam_session_question', 'revision_id', 'question_revision', 'RESTRICT'],
+            ['navigation_progress', 'navigation_question_id', 'navigation_question', 'RESTRICT'],
+            ['praxis_progress', 'praxis_task_id', 'praxis_task', 'RESTRICT'],
+            ['video_progress', 'lesson_id', 'video_lesson', 'RESTRICT'],
+        ];
+    }
+
+    /** Tabellen mit personenbezogenen Lerndaten (Export/Löschung, Kap. 10). */
+    public const USER_DATA_TABLES = [
+        'attempt', 'progress', 'favorite', 'exam_session', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
+    ];
+
+    private static function sourceColumns(): string
+    {
+        return "  source_system varchar(32) NOT NULL DEFAULT 'boatingschool',
+  source_id varchar(191) NOT NULL,
+  source_hash char(71) NULL,
+  package_id varchar(64) NULL,
+  status varchar(20) NOT NULL DEFAULT 'draft',
+  imported_at datetime NULL,";
+    }
+}
