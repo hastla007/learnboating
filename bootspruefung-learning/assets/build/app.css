@@ -148,3 +148,12 @@
 .bp-vocab-solution { font-size: 1.3rem; color: var(--bp-accent); margin: 0.5rem 0; }
 .bp-nav-question.is-correct { border-color: color-mix(in srgb, var(--bp-ok) 45%, transparent); }
 .bp-source { font-size: 0.85rem; }
+
+/* Funkpraxis und Gerätesimulation */
+.bp-field { margin-bottom: 1rem; }
+.bp-checklist { list-style: none; padding: 0; margin: 0.5rem 0; }
+.bp-checklist li { padding: 0.2rem 0; }
+.bp-checklist .is-ok { color: var(--bp-ok); }
+.bp-checklist .is-missing { color: var(--bp-bad); font-weight: 600; }
+#bp-device-sim { max-width: 1200px; margin: 0 auto; }
+.bp-app:has(#bp-device-sim) { max-width: 1240px; }

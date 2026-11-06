@@ -358,6 +358,7 @@ final class ContentPages
             'video_module' => [__('Videokapitel nach Kurs', 'bootspruefung-learning'), "JOIN {$this->t('course')} c ON c.id = x.course_id", 'c.code', 'x.rights_status'],
             'radio_text' => [__('Funktexte nach Katalog', 'bootspruefung-learning'), '', "CONCAT(x.catalog, ' · ', x.exercise_type)", 'x.rights_status'],
             'radio_vocabulary' => [__('Funk-Vokabeln nach Katalog', 'bootspruefung-learning'), '', 'x.catalog', 'x.rights_status'],
+            'radio_scenario' => [__('Funkpraxis-Szenarien nach Katalog', 'bootspruefung-learning'), '', 'x.catalog', 'x.rights_status'],
         ];
     }
 

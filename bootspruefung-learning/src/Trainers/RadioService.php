@@ -55,7 +55,15 @@ final class RadioService
             $categories[$key]['learned'] += ($progress[$v->source_id]->done ?? 0) ? 1 : 0;
         }
 
-        return ['texts' => array_values($groups), 'vocabulary' => array_values($categories)];
+        $practice = new RadioPracticeService($this->access);
+        $device = new DeviceSimService($this->access, $practice);
+
+        return [
+            'texts' => array_values($groups),
+            'vocabulary' => array_values($categories),
+            'practice' => $practice->overview($userId, $course)['catalogs'],
+            'device' => $device->summary($userId, $course),
+        ];
     }
 
     /** @return array<string,mixed> */

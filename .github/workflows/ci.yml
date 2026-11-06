@@ -116,6 +116,11 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" wp-content/plugins/bootspruefung-learning
       - name: Plugin-Schemata identisch mit schema/
         run: diff -r schema/v1 bootspruefung-learning/schema/v1
+      - name: Gerätesimulation entspricht dem Snapshot (JS + CSS)
+        if: matrix.php == '8.3'
+        run: |
+          tools/sync-device-sim.sh
+          git diff --exit-code -- bootspruefung-learning/assets/device-sim
       - name: Rauchtest
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php | tee smoke.log

@@ -110,6 +110,8 @@ final class Ui
             'radio_texts' => __('Funktexte', 'bootspruefung-learning'),
             'radio_text' => __('Funktext', 'bootspruefung-learning'),
             'radio_vocabulary' => __('Funk-Vokabeln', 'bootspruefung-learning'),
+            'radio_practice' => __('Funkpraxis', 'bootspruefung-learning'),
+            'device_simulation' => __('Gerätesimulation', 'bootspruefung-learning'),
         ];
 
         return $labels[$entity] ?? $entity;

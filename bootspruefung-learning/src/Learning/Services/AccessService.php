@@ -21,8 +21,9 @@ final class AccessService
     public const PRAXIS = 'praxis_trainer';
     public const VIDEO = 'video_course';
     public const RADIO = 'radio_training';
+    public const DEVICE = 'device_simulation';
 
-    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM, self::NAVIGATION, self::PRAXIS, self::VIDEO, self::RADIO];
+    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM, self::NAVIGATION, self::PRAXIS, self::VIDEO, self::RADIO, self::DEVICE];
 
     public function can(int $userId, string $courseCode, string $feature): bool
     {

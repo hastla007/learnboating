@@ -9,6 +9,8 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Rest\RestRegistrar;
 use Bootspruefung\Learning\Support\NotFound;
+use Bootspruefung\Learning\Trainers\DeviceSimService;
+use Bootspruefung\Learning\Trainers\RadioPracticeService;
 use Bootspruefung\Learning\Trainers\RadioService;
 use Bootspruefung\Learning\Trainers\TrainerService;
 use Bootspruefung\Learning\Trainers\VideoService;
@@ -24,6 +26,8 @@ final class TrainerController
     private TrainerService $trainers;
     private VideoService $videos;
     private RadioService $radio;
+    private RadioPracticeService $practice;
+    private DeviceSimService $device;
 
     public function __construct()
     {
@@ -32,6 +36,8 @@ final class TrainerController
         $this->trainers = new TrainerService($this->access);
         $this->videos = new VideoService($this->access, $this->content, new QuestionPresenter($this->content));
         $this->radio = new RadioService($this->access);
+        $this->practice = new RadioPracticeService($this->access);
+        $this->device = new DeviceSimService($this->access, $this->practice);
     }
 
     public function registerRoutes(): void
@@ -77,8 +83,36 @@ final class TrainerController
         $route('/radio/vocabulary', WP_REST_Server::READABLE, fn ($r) => $this->radio->vocabulary(get_current_user_id(), $this->course($r), (string) $r['catalog'], $r['category']), [
             'catalog' => ['type' => 'string', 'enum' => ['SRC', 'UBI'], 'required' => true], 'category' => ['type' => ['string', 'null'], 'maxLength' => 191, 'default' => null],
         ]);
+        $this->registerRadioPracticeAndDevice($route, $key);
         $route('/radio/vocabulary/(?P<key>[A-Za-z0-9-]+)', WP_REST_Server::CREATABLE, fn ($r) => $this->radio->vocabularyAnswer(get_current_user_id(), $this->course($r), (string) $r['key'], (bool) $r['known']), [
             'key' => $key, 'known' => ['type' => 'boolean', 'required' => true],
+        ]);
+    }
+
+    private function registerRadioPracticeAndDevice(callable $route, array $key): void
+    {
+        $route('/radio/practice', WP_REST_Server::READABLE, fn ($r) => $this->practice->overview(get_current_user_id(), $this->course($r)));
+        $route('/radio/practice/(?P<key>[A-Za-z0-9-]+)', WP_REST_Server::READABLE, fn ($r) => $this->practice->show(get_current_user_id(), $this->course($r), (string) $r['key']), ['key' => $key]);
+        $route('/radio/practice/(?P<key>[A-Za-z0-9-]+)/evaluate', WP_REST_Server::CREATABLE, fn ($r) => $this->practice->evaluate(get_current_user_id(), $this->course($r), (string) $r['key'], array_map('strval', array_filter((array) $r['answers'], 'is_scalar'))), [
+            'key' => $key, 'answers' => ['type' => 'object', 'required' => true],
+        ]);
+        $route('/radio/practice/(?P<key>[A-Za-z0-9-]+)/done', 'PUT', function ($r) {
+            $this->practice->setDone(get_current_user_id(), $this->course($r), (string) $r['key'], (bool) $r['done']);
+
+            return ['done' => (bool) $r['done']];
+        }, ['key' => $key, 'done' => ['type' => 'boolean', 'required' => true]]);
+
+        // Gerätesimulation: Format der Laravel-Routen (funk.device.*), damit das Original-JS unverändert läuft.
+        $device = ['type' => 'string', 'pattern' => '^[a-z0-9-]+$', 'default' => DeviceSimService::DEFAULT_DEVICE];
+        $route('/device-sim', WP_REST_Server::READABLE, fn ($r) => $this->device->config(get_current_user_id(), $this->course($r)));
+        $route('/device-sim/evaluate', WP_REST_Server::CREATABLE, fn ($r) => $this->device->evaluate(get_current_user_id(), $this->course($r), (string) $r['lesson'], (int) $r['step'], (string) $r['text']), [
+            'lesson' => ['type' => 'string', 'required' => true, 'maxLength' => 100], 'step' => ['type' => 'integer', 'required' => true, 'minimum' => 0, 'maximum' => 50], 'text' => ['type' => 'string', 'required' => true, 'maxLength' => 2000],
+        ]);
+        $route('/device-sim/progress', WP_REST_Server::CREATABLE, fn ($r) => $this->device->progress(get_current_user_id(), $this->course($r), (string) $r['lesson'], (int) $r['level'], (string) $r['device']), [
+            'lesson' => ['type' => 'string', 'required' => true, 'maxLength' => 100], 'level' => ['type' => 'integer', 'required' => true, 'minimum' => 1, 'maximum' => 3], 'device' => $device,
+        ]);
+        $route('/device-sim/exam', WP_REST_Server::CREATABLE, fn ($r) => $this->device->exam(get_current_user_id(), $this->course($r), (string) $r['series'], (string) $r['device'], (array) $r['passed']), [
+            'series' => ['type' => 'string', 'required' => true, 'maxLength' => 50], 'device' => $device, 'passed' => ['type' => 'array', 'items' => ['type' => 'string'], 'default' => [], 'maxItems' => 100],
         ]);
     }
 
@@ -92,7 +126,7 @@ final class TrainerController
         } else {
             $out['video'] = ['lessons' => 0, 'completed' => 0];
         }
-        $out['radio'] = $this->radio->summary($userId, $course);
+        $out['radio'] = $this->radio->summary($userId, $course) + ['practice' => $this->practice->count($userId, $course), 'device' => $this->device->summary($userId, $course)['lessons']];
 
         return $out;
     }

@@ -81,8 +81,8 @@ step('Funk: SRC-Seefunktext auswerten');
 await page.goto(`${base}/bootsscheine/src/`);
 await page.getByRole('link', { name: 'Funktraining', exact: true }).click();
 await page.getByRole('heading', { name: 'SRC-Seefunktexte' }).waitFor();
-assert.equal(await page.locator('.bp-section').first().locator('.bp-paper').count(), 27);
-await page.getByRole('link', { name: /^Text 1:/ }).click();
+assert.equal(await page.locator('.bp-section', { hasText: 'SRC-Seefunktexte' }).locator('.bp-paper').count(), 27);
+await page.locator('.bp-section', { hasText: 'SRC-Seefunktexte' }).getByRole('link', { name: /^Text 1:/ }).click();
 await page.getByLabel('Mitschrift').waitFor();
 await page.getByRole('button', { name: 'Text anzeigen' }).click();
 const source = await page.locator('.bp-radio-source').innerText();
@@ -111,6 +111,36 @@ await page.locator('.bp-section', { hasText: 'UBI-Abgabe' }).getByRole('link', {
 await page.getByRole('button', { name: 'Buchstabierung anzeigen' }).click();
 await page.getByText('KORMORAN: Kilo Oscar Romeo Mike Oscar Romeo Alfa November').waitFor();
 await shot('24-ubi-abgabe');
+
+step('Funkpraxis SRC-01 auswerten');
+await page.goto(`${base}/bootsscheine/src/funk/`);
+await page.getByRole('heading', { name: 'SRC-Funkpraxis' }).waitFor();
+assert.equal(await page.locator('.bp-section', { hasText: 'SRC-Funkpraxis' }).locator('.bp-paper').count(), 42);
+await page.goto(`${base}/bootsscheine/src/funk/praxis/SRC-01/`);
+await page.getByRole('heading', { name: 'Lage' }).waitFor();
+await page.getByLabel('Rang').fill('Notverkehr');
+await page.getByLabel('Meldung (Sprechfunk)').fill('MAYDAY MAYDAY MAYDAY this is');
+await page.getByRole('button', { name: 'Auswerten' }).click();
+await page.getByText(/von \d+ Prüfpunkten erfüllt/).waitFor();
+assert.ok(await page.locator('.bp-checklist .is-ok').count() > 0);
+assert.ok(await page.locator('.bp-checklist .is-missing').count() > 0);
+assert.ok(await page.locator('.bp-practice-result .bp-model').count() >= 4, 'Musterlösung je Feld');
+await shot('25-funkpraxis');
+await page.getByRole('button', { name: 'Lage auf Englisch' }).click();
+await page.locator('p[lang="en"]').waitFor();
+
+step('Gerätesimulation (Original-JS der Quelle)');
+await page.goto(`${base}/bootsscheine/src/funk/geraet/`);
+await page.locator('#bp-device-sim svg').first().waitFor();
+await page.getByRole('combobox', { name: 'Gerät' }).waitFor();
+assert.ok((await page.locator('#bp-device-sim').innerText()).includes('Icom IC-M505'));
+await page.locator('#bp-device-sim').getByRole('button', { name: 'Mit Hilfe' }).first().click();
+await page.locator('#bp-device-sim').getByText('Schalte das Funkgerät ein', { exact: false }).first().waitFor();
+await shot('26-geraet');
+await page.reload();
+await page.locator('#bp-device-sim svg').first().waitFor();
+await page.locator('#bp-device-sim').getByRole('tab', { name: 'Prüfung', exact: true }).click();
+await page.locator('#bp-device-sim').getByText('SRC Reihe a').first().waitFor();
 
 assert.deepEqual(errors, [], 'keine JavaScript- oder Ladefehler');
 await browser.close();

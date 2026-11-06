@@ -10,10 +10,10 @@ use ZipArchive;
 /** Ein entpacktes Content-Paket auf der Festplatte (Format: schema/v1). */
 final class Package
 {
-    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary'];
+    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation'];
 
-    /** Seit Schema 1.1 enthalten; ältere Pakete liefern dafür leere Listen. */
-    public const SINCE_1_1 = ['video_modules', 'radio_texts', 'radio_vocabulary'];
+    /** Entität => Schema-Version, seit der sie im Paket steht; ältere Pakete liefern leere Listen. */
+    public const SINCE = ['video_modules' => '1.1.0', 'radio_texts' => '1.1.0', 'radio_vocabulary' => '1.1.0', 'radio_practice' => '1.2.0', 'device_simulation' => '1.2.0'];
     public const MAX_ZIP_BYTES = 200 * 1024 * 1024;
     public const MAX_ENTRIES = 20000;
 
@@ -85,7 +85,7 @@ final class Package
             throw new RuntimeException("Unbekannte Entität {$entity}");
         }
 
-        if (in_array($entity, self::SINCE_1_1, true) && ! is_file($this->path('data/'.$entity.'.json')) && version_compare((string) ($this->manifest()['schema_version'] ?? '1.0.0'), '1.1.0', '<')) {
+        if (isset(self::SINCE[$entity]) && ! is_file($this->path('data/'.$entity.'.json')) && version_compare((string) ($this->manifest()['schema_version'] ?? '1.0.0'), self::SINCE[$entity], '<')) {
             return $this->cache[$entity] = [];
         }
 

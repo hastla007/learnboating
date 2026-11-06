@@ -35,6 +35,8 @@ final class EntityImporter
         'video_modules' => 'video_module',
         'radio_texts' => 'radio_text',
         'radio_vocabulary' => 'radio_vocabulary',
+        'radio_practice' => 'radio_scenario',
+        'device_simulation' => 'device',
     ];
 
     /** @var array<string,array<string,int>> Tabelle => source_id/code => id */
@@ -77,6 +79,8 @@ final class EntityImporter
             'video_modules' => $this->videoModule($record),
             'radio_texts' => $this->radioText($record),
             'radio_vocabulary' => $this->radioVocabulary($record),
+            'radio_practice' => $this->radioPractice($record),
+            'device_simulation' => $this->deviceSimulation($record),
             default => throw new RuntimeException("Unbekannte Entität {$entity}"),
         };
     }
@@ -500,6 +504,44 @@ final class EntityImporter
             'segments' => $r['lines'] === null ? null : wp_json_encode($r['lines']),
             'sort_order' => $r['sort_order'],
             'rights_status' => $r['rights_status'],
+            'status' => 'published',
+        ]);
+    }
+
+    /** @param array<string,mixed> $r */
+    private function radioPractice(array $r): string
+    {
+        $message = '';
+        foreach ($r['fields'] as $field) {
+            if ($field['name'] === 'message') {
+                $message = $field['solution'];
+            }
+        }
+
+        return $this->upsert('radio_scenario', $r, [
+            'catalog' => $r['catalog'],
+            'number' => $r['number'],
+            'course_codes' => implode(',', $r['course_codes']),
+            'message_kind' => $r['kind'],
+            'scenario' => (string) ($r['situation_en'] ?? ''),
+            'task_text' => $r['situation_de'],
+            'model_message' => $message,
+            'checkpoints' => wp_json_encode($r['fields']),
+            'evaluation_rule' => 'checks',
+            'language' => 'de-DE',
+            'rights_status' => $r['rights_status'],
+            'sort_order' => $r['sort_order'],
+            'status' => 'published',
+        ]);
+    }
+
+    /** @param array<string,mixed> $r */
+    private function deviceSimulation(array $r): string
+    {
+        return $this->upsert('device', $r, [
+            'model' => 'geraetesimulation',
+            'catalogs' => 'SRC,UBI',
+            'data' => wp_json_encode(array_diff_key($r, ['hash' => 1])),
             'status' => 'published',
         ]);
     }

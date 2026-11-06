@@ -53,7 +53,7 @@ $preview = $service->preview($id);
 $service->approve($id, 'Integrationstest');
 $service->runAll($id);
 $check($service->batch($id)->status === 'published', 'Paket veröffentlicht');
-foreach (['courses' => 'course', 'modules' => 'module', 'questions' => 'question', 'media' => 'media', 'exam_rules' => 'exam_rule', 'exam_papers' => 'exam_paper', 'navigation_tasks' => 'navigation_task', 'praxis_tasks' => 'praxis_task', 'video_modules' => 'video_module', 'radio_texts' => 'radio_text', 'radio_vocabulary' => 'radio_vocabulary'] as $entity => $table) {
+foreach (['courses' => 'course', 'modules' => 'module', 'questions' => 'question', 'media' => 'media', 'exam_rules' => 'exam_rule', 'exam_papers' => 'exam_paper', 'navigation_tasks' => 'navigation_task', 'praxis_tasks' => 'praxis_task', 'video_modules' => 'video_module', 'radio_texts' => 'radio_text', 'radio_vocabulary' => 'radio_vocabulary', 'radio_practice' => 'radio_scenario', 'device_simulation' => 'device'] as $entity => $table) {
     $check($count($table, "status <> 'source_archived'") === $manifest['counts'][$entity], "{$entity}: ".$manifest['counts'][$entity].' wie im Manifest');
 }
 $check($count('answer', "revision_id IN (SELECT current_revision_id FROM {$p}question)") === $manifest['counts']['answers'], 'Antworten wie im Manifest');
@@ -275,6 +275,45 @@ foreach ([true, true, true] as $known) {
 $check($va['learned'] === true && $va['streak'] === 3, 'Buchstabiertafel: nach 3 × gewusst gelernt');
 [$s] = $req('GET', '/courses/SBF-SEE/radio/texts/TXT-SRC-01');
 $check($s === 404, 'Funktext außerhalb des passenden Kurses nicht erreichbar');
+
+echo "Funkpraxis und Gerätesimulation\n";
+$jsonReq = static function (string $method, string $path, array $body): array {
+    $r = new WP_REST_Request($method, '/bootspruefung/v1'.$path);
+    $r->set_header('Content-Type', 'application/json');
+    $r->set_body((string) wp_json_encode($body));
+    $res = rest_do_request($r);
+
+    return [$res->get_status(), $res->get_data()];
+};
+[, $task] = $req('GET', '/courses/SRC/radio/practice/SRC-01');
+$check(count($task['fields']) === 4 && ! str_contains((string) wp_json_encode($task), 'pattern'), 'Funkpraxis-Aufgabe ohne Prüfmuster ausgeliefert');
+$fields = json_decode((string) $wpdb->get_var("SELECT checkpoints FROM {$p}radio_scenario WHERE source_id = 'SRC-01'"), true);
+$model = array_column($fields, 'solution', 'name');
+[$s, $ev] = $jsonReq('POST', '/courses/SRC/radio/practice/SRC-01/evaluate', ['answers' => $model]);
+$check($s === 200 && $ev['passed'] === $ev['total'] && $ev['total'] > 0, "Musterlösungen erfüllen alle {$ev['total']} Prüfpunkte");
+[, $ev] = $jsonReq('POST', '/courses/SRC/radio/practice/SRC-01/evaluate', ['answers' => ['message' => 'Hallo']]);
+$check($ev['passed'] < $ev['total'], 'unvollständiger Funkspruch fällt durch');
+[, $config] = $req('GET', '/courses/SRC/device-sim');
+$check(count($config['lessons']) > 0 && $config['catalogs'] === ['SRC'] && str_contains($config['urls']['evaluate'], '_wpnonce='), 'Gerätesimulation: Konfiguration für SRC mit Endpunkten');
+$sim = json_decode((string) $wpdb->get_var("SELECT data FROM {$p}device WHERE source_id = 'geraetesimulation'"), true);
+$speechLesson = null;
+foreach ($sim['lessons'] as $lesson) {
+    foreach ($lesson['steps'] as $i => $st) {
+        if (isset($st['speech']) && ($lesson['catalog'] ?? 'SRC') === 'SRC' && $speechLesson === null) {
+            $speechLesson = [$lesson['key'], $i, $st['speech']['solution']];
+        }
+    }
+}
+[$s, $ev] = $jsonReq('POST', '/courses/SRC/device-sim/evaluate', ['lesson' => $speechLesson[0], 'step' => $speechLesson[1], 'text' => $speechLesson[2]]);
+$check($s === 200 && $ev['passed'] === true, 'Gerät: Musterfunkspruch besteht');
+[$s, $pr] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => $speechLesson[0], 'level' => 3, 'device' => 'ic-m505']);
+[, $pr2] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => $speechLesson[0], 'level' => 1, 'device' => 'ic-m505']);
+$check($s === 200 && $pr['level'] === 3 && $pr2['level'] === 3, 'Gerät: Stufe gespeichert, höchste bleibt');
+$series = array_key_first(array_filter($sim['exam_meta'], static fn ($m) => $m['catalog'] === 'SRC'));
+[$s, $ex] = $jsonReq('POST', '/courses/SRC/device-sim/exam', ['series' => $series, 'device' => 'ic-m505', 'passed' => $sim['exams'][$series]]);
+$check($s === 200 && $ex['passed'] === $ex['total'] && $ex['best'] === $ex['total'] && count((array) $ex['solutions']) === $ex['total'], 'Gerät: Prüfungsreihe vollständig bestanden, Musterlösungen geliefert');
+[$s] = $req('GET', '/courses/SBF-SEE/device-sim');
+$check($s === 403, 'Gerätesimulation in Kursen ohne Funk gesperrt');
 
 echo "Zugriffsschutz\n";
 $other = wp_insert_user(['user_login' => $login.'b', 'user_email' => $login.'b@example.invalid', 'user_pass' => wp_generate_password()]);

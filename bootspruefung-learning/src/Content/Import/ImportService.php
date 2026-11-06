@@ -35,6 +35,8 @@ final class ImportService
         'video_modules' => 'video_modules',
         'radio_texts' => 'radio_texts',
         'radio_vocabulary' => 'radio_vocabulary',
+        'radio_practice' => 'radio_practice',
+        'device_simulation' => 'device_simulation',
         'archive' => null,
     ];
 
@@ -335,7 +337,7 @@ final class ImportService
     private function rightsSummary(Package $package): array
     {
         $summary = [];
-        foreach (['questions', 'media', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary'] as $entity) {
+        foreach (['questions', 'media', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation'] as $entity) {
             foreach ($package->entities($entity) as $record) {
                 $status = $record['revision']['rights_status'] ?? $record['rights_status'] ?? 'unknown';
                 $summary[$entity][$status] = ($summary[$entity][$status] ?? 0) + 1;

@@ -180,6 +180,10 @@ final class SchemaValidator
                     }
                 } elseif (($schema['additionalProperties'] ?? true) === false) {
                     $fail("unbekanntes Feld '{$key}'");
+                } elseif (is_array($schema['additionalProperties'] ?? null)) {
+                    if (! $this->check($value, $schema['additionalProperties'], $file, "{$path}.{$key}")) {
+                        $ok = false;
+                    }
                 }
             }
         }

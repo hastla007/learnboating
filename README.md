@@ -10,6 +10,7 @@ WordPress-/WooCommerce-Lernplugin für Bootsführerscheine (SBF, SRC, UBI, SKN, 
 | `schema/` | JSON-Schemata des Content-Pakets (Format v1) |
 | `tools/content-build/` | Konverter Snapshot → Content-Paket, Tests, Golden Master gegen Laravel |
 | `bootspruefung-learning/` | das WordPress-Plugin |
+| `tools/sync-device-sim.sh` | Gerätesimulation (JS der Quelle) ins Plugin übernehmen und CSS bauen |
 
 ```bash
 tools/sync-source.sh <commit|branch|tag>

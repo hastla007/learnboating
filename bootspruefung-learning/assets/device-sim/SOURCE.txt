@@ -1,0 +1,2 @@
+Unverändert übernommen aus hastla007/boatingschool@136a243af9268aeaa8d0184347820617ec95f76b (resources/js/funkgeraet, ohne Tests).
+Aktualisierung: tools/sync-device-sim.sh

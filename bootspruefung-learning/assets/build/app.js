@@ -184,6 +184,10 @@
 			view = parts[2] ? viewVideoLesson(parts[0], parseInt(parts[2], 10)) : viewVideos(parts[0]);
 		} else if (parts[1] === 'funk' && parts[2] === 'text' && parts[3]) {
 			view = viewRadioText(parts[0], parts[3], query.get('richtung') || 'de-en');
+		} else if (parts[1] === 'funk' && parts[2] === 'praxis' && parts[3]) {
+			view = viewRadioPractice(parts[0], parts[3]);
+		} else if (parts[1] === 'funk' && parts[2] === 'geraet') {
+			view = viewDeviceSim(parts[0]);
 		} else if (parts[1] === 'funk' && parts[2] === 'vokabeln') {
 			view = viewVocabulary(parts[0], query.get('katalog') || 'SRC', query.get('kategorie'));
 		} else if (parts[1] === 'funk') {
@@ -906,6 +910,23 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio').then(function (o) {
 				var nodes = [crumbs(slug, c.name, [[t('trainer_radio')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_radio') }), el('p', { class: 'bp-muted', text: t('radio_intro') })])];
+				if (o.device && o.device.lessons > 0) {
+					nodes.push(el('section', { class: 'bp-card bp-tile' }, [
+						el('h2', {}, [link(slug + '/funk/geraet/', t('device_title'))]),
+						el('p', { class: 'bp-muted', text: t('device_meta', { lessons: o.device.lessons, mastered: o.device.mastered }) }),
+						el('p', {}, [link(slug + '/funk/geraet/', t('device_open'), 'bp-button bp-button-primary')])
+					]));
+				}
+				(o.practice || []).forEach(function (g) {
+					var done = g.tasks.filter(function (x) { return x.done; }).length;
+					nodes.push(el('section', { class: 'bp-section' }, [
+						el('h2', { text: t('practice_title', { catalog: g.catalog }) }),
+						el('p', { class: 'bp-muted', text: t('practice_explain') + ' ' + t('radio_done_count', { done: done, total: g.tasks.length }) }),
+						el('ul', { class: 'bp-paper-grid' }, g.tasks.map(function (x) {
+							return el('li', {}, [el('a', { href: base + slug + '/funk/praxis/' + x.id + '/', 'data-bp-link': '1', class: 'bp-paper' + (x.done ? ' bp-paper-passed' : (x.evaluated ? ' bp-paper-running' : '')), title: x.teaser, 'aria-label': t('practice_aria', { number: x.number, kind: t('kind_' + x.kind), state: x.done ? t('radio_done') : t('paper_state_open') }) }, [el('span', { class: 'bp-paper-number', text: String(x.number) }), el('span', { class: 'bp-paper-state', text: t('kind_' + x.kind) })])]);
+						}))
+					]));
+				});
 				o.texts.forEach(function (g) {
 					var done = g.items.filter(function (i) { return i.done; }).length;
 					nodes.push(el('section', { class: 'bp-section' }, [
@@ -1029,6 +1050,109 @@
 					result,
 					el('div', { class: 'bp-actions' }, [doneBtn, x.previous ? link(slug + '/funk/text/' + x.previous + '/', t('prev'), 'bp-button') : null, x.next ? link(slug + '/funk/text/' + x.next + '/', t('next'), 'bp-button') : null])
 				], title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewRadioPractice(slug, key) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/practice/' + encodeURIComponent(key)).then(function (x) {
+				var title = t('practice_task', { catalog: x.catalog, number: x.number });
+				var english = false;
+				var situation = multiline('p', x.situation_de, 'bp-question-text');
+				var langToggle = null;
+				if (x.situation_en) {
+					langToggle = el('button', { type: 'button', class: 'bp-chip', text: t('practice_english') });
+					langToggle.addEventListener('click', function () {
+						english = !english;
+						var next = multiline('p', english ? x.situation_en : x.situation_de, 'bp-question-text');
+						next.setAttribute('lang', english ? 'en' : 'de');
+						situation.replaceWith(next);
+						situation = next;
+						langToggle.textContent = english ? t('practice_german') : t('practice_english');
+					});
+				}
+				var form = el('form', { class: 'bp-card bp-practice-form' });
+				var inputs = {};
+				x.fields.forEach(function (f) {
+					var id = 'bp-field-' + f.name;
+					var input = f.multiline ? el('textarea', { id: id, rows: '6', class: 'bp-notes', placeholder: f.placeholder }) : el('input', { id: id, type: 'text', class: 'bp-notes', placeholder: f.placeholder });
+					input.value = (x.answers && x.answers[f.name]) || '';
+					inputs[f.name] = input;
+					var row = el('div', { class: 'bp-field' }, [el('label', { for: id, class: 'bp-label', text: f.label }), input]);
+					if (f.multiline && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
+						var mic = el('button', { type: 'button', class: 'bp-button', text: t('practice_dictate') });
+						mic.addEventListener('click', function () {
+							var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+							var rec = new Rec();
+							rec.lang = x.catalog === 'UBI' ? 'de-DE' : 'en-GB';
+							rec.interimResults = false;
+							mic.disabled = true;
+							mic.textContent = t('practice_listening');
+							rec.onresult = function (e) { input.value = (input.value ? input.value + ' ' : '') + e.results[0][0].transcript; };
+							rec.onend = function () { mic.disabled = false; mic.textContent = t('practice_dictate'); };
+							rec.start();
+						});
+						row.appendChild(el('div', { class: 'bp-actions' }, [mic, el('span', { class: 'bp-muted', text: t('practice_dictate_note') })]));
+					}
+					form.appendChild(row);
+				});
+				var result = el('div', { class: 'bp-practice-result', 'aria-live': 'polite' });
+				var submit = el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('radio_evaluate') });
+				form.appendChild(el('div', { class: 'bp-actions' }, [submit]));
+				form.addEventListener('submit', function (e) {
+					e.preventDefault();
+					var answers = {};
+					Object.keys(inputs).forEach(function (k) { answers[k] = inputs[k].value; });
+					submit.disabled = true;
+					api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/practice/' + x.id + '/evaluate', { answers: answers }).then(function (r) {
+						result.textContent = '';
+						result.appendChild(el('p', { class: 'bp-feedback-title', text: t('practice_score', { passed: r.passed, total: r.total }) }));
+						r.fields.forEach(function (f) {
+							result.appendChild(el('div', { class: 'bp-card' }, [
+								el('h3', { text: f.label }),
+								el('ul', { class: 'bp-checklist' }, f.checks.map(function (ch) { return el('li', { class: ch.ok ? 'is-ok' : 'is-missing', text: (ch.ok ? '✓ ' : '✗ ') + ch.label }); })),
+								el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', f.solution)])
+							]));
+						});
+						result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+					}).catch(function (err) { alertMessage(result, err.message); }).finally(function () { submit.disabled = false; });
+				});
+				var doneBtn = el('button', { type: 'button', class: 'bp-button', 'aria-pressed': x.done ? 'true' : 'false', text: x.done ? t('radio_done') : t('radio_mark_done') });
+				doneBtn.addEventListener('click', function () {
+					api('PUT', 'courses/' + encodeURIComponent(slug) + '/radio/practice/' + x.id + '/done', { done: !x.done }).then(function (r) {
+						x.done = r.done;
+						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
+						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+					});
+				});
+				mount([
+					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [title]]),
+					el('header', { class: 'bp-header bp-header-compact' }, [el('p', { class: 'bp-eyebrow' }, [badge(t('kind_' + x.kind))]), el('h1', { text: title })]),
+					el('div', { class: 'bp-card' }, [el('h2', { text: t('practice_situation') }), situation, langToggle ? el('p', {}, [langToggle]) : null]),
+					form,
+					result,
+					el('div', { class: 'bp-actions' }, [doneBtn, x.previous ? link(slug + '/funk/praxis/' + x.previous + '/', t('prev'), 'bp-button') : null, x.next ? link(slug + '/funk/praxis/' + x.next + '/', t('next'), 'bp-button') : null])
+				], title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewDeviceSim(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/device-sim').then(function (config) {
+				var host = el('div', { id: 'bp-device-sim', 'data-geraetesimulation': '1' });
+				mount([
+					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [t('device_title')]]),
+					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: t('device_title') }), el('p', { class: 'bp-muted', text: t('device_intro') })]),
+					host
+				], t('device_title') + ' – ' + c.name);
+				if (!document.getElementById('bp-device-sim-css')) {
+					document.head.appendChild(el('link', { id: 'bp-device-sim-css', rel: 'stylesheet', href: cfg.deviceSim + 'device-sim.css?ver=' + encodeURIComponent(cfg.version) }));
+				}
+				return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)).then(function (module) {
+					module.mount(host, config);
+				});
 			});
 		});
 	}

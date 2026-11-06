@@ -334,6 +334,7 @@ final class Schema
 {$src}
   catalog varchar(16) NOT NULL,
   number int(11) NOT NULL,
+  course_codes varchar(255) NULL,
   message_kind varchar(64) NOT NULL,
   scenario longtext NOT NULL,
   task_text longtext NOT NULL,

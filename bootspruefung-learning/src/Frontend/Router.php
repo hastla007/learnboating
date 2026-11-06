@@ -99,6 +99,8 @@ final class Router
             'user' => wp_get_current_user()->display_name,
             'logoutUrl' => wp_logout_url(self::url()),
             'voice' => \Bootspruefung\Learning\Settings\Settings::get('radio_voice_output'),
+            'deviceSim' => plugins_url('assets/device-sim/', $file),
+            'version' => Plugin::VERSION,
             'i18n' => Strings::all(),
         ]);
     }

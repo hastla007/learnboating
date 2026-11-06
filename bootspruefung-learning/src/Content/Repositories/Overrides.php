@@ -22,6 +22,7 @@ final class Overrides
         'video_module' => ['rights_status'],
         'radio_text' => ['rights_status'],
         'radio_vocabulary' => ['rights_status'],
+        'radio_scenario' => ['rights_status'],
         'exam_rule' => ['verified', 'valid_from', 'valid_until'],
     ];
 
