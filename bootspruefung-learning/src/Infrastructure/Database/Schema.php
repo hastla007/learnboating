@@ -21,7 +21,7 @@ final class Schema
         'video_module', 'video_lesson', 'video_lesson_step', 'video_lesson_question',
         'radio_scenario', 'radio_text', 'radio_vocabulary', 'device', 'device_lesson', 'device_step',
         // Import und Audit
-        'import_batch', 'import_item_log', 'audit_log',
+        'import_batch', 'import_item_log', 'audit_log', 'override',
         // Lernende
         'attempt', 'attempt_answer', 'progress', 'favorite', 'exam_session', 'exam_session_question',
         'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
@@ -457,6 +457,17 @@ final class Schema
   KEY actor (actor_user_id),
   KEY object (object_type,object_id(64)),
   KEY action (action)",
+            'override' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  object_type varchar(32) NOT NULL,
+  object_id bigint(20) unsigned NOT NULL,
+  field varchar(32) NOT NULL,
+  value varchar(255) NULL,
+  reason longtext NOT NULL,
+  user_id bigint(20) unsigned NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  UNIQUE KEY object_field (object_type,object_id,field)",
             'attempt' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   user_id bigint(20) unsigned NOT NULL,
@@ -492,6 +503,7 @@ final class Schema
   correct_count int(11) NOT NULL DEFAULT 0,
   wrong_count int(11) NOT NULL DEFAULT 0,
   streak int(11) NOT NULL DEFAULT 0,
+  mastery_score decimal(5,4) NOT NULL DEFAULT 0.0000,
   learn_status varchar(16) NOT NULL DEFAULT 'new',
   first_answered_at datetime NULL,
   last_answered_at datetime NULL,
@@ -539,6 +551,8 @@ final class Schema
   revision_id bigint(20) unsigned NOT NULL,
   answer_order longtext NULL,
   given_answer longtext NULL,
+  self_assessed_known tinyint(1) NULL,
+  revealed_at datetime NULL,
   is_correct tinyint(1) NULL,
   answered_at datetime NULL,
   PRIMARY KEY  (id),

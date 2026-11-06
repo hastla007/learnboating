@@ -2,22 +2,21 @@
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 
 Lernplattform für Bootsführerscheine mit Fragenkatalog, Prüfungssimulation, Spezialtrainern und WooCommerce-Freischaltung.
 
 == Description ==
 
-Stand 0.1.0 (Plugin-Gerüst, Konzept Kap. 11 Schritt 3):
+Stand 0.2.0 (Konzept Kap. 11, Schritte 3–7):
 
-* Datenbankschema für Content, Lernstände, Import, Audit und Zugänge (InnoDB, Fremdschlüssel)
-* versionierte, gesperrte Migration bei Aktivierung und Update
-* Capabilities manage_bp_content, import_bp_content, manage_bp_entitlements
-* Adminmenü mit Systemstatus und Einstellungen
-* REST: GET /wp-json/bootspruefung/v1/status
-* WP-CLI: wp bootspruefung status|migrate
-* WooCommerce: Kompatibilität mit HPOS und Cart/Checkout Blocks deklariert
-* Datenschutz: Export/Löschung der Lerndaten über die WordPress-Werkzeuge
-* Deinstallation löscht Daten nur auf ausdrückliche Einstellung
+* Content-Import: ZIP-Upload oder `wp bootspruefung import <paket>`, Prüfung (Prüfsummen, Schemata, Querverweise), Dry-Run, Freigabe, Import in Teilschritten, Revisionen, Archivierung, Protokoll
+* Content-Browser: Übersicht, Kurse & Module, Fragen, Medien, Prüfungsregeln, Rechtefreigabe mit Begründung und Audit-Log
+* Lernbereich unter /bootsscheine/: Kursübersicht, Smarttrainer, Modi Neu/Falsch/Merkliste, Modulfilter, offene Fragen
+* Prüfungssimulation: Zufallsprüfung nach Regelwerk, feste Bögen, Zeitlimit, Teilgrenzen, Ergebnis mit Rückblick
+* REST unter /wp-json/bootspruefung/v1/ (Status, Import-Schritte, Kurse, Fragen, Antworten, Merkliste, Prüfungen)
+* Zugang: kostenlose Regeln und Freischaltungen; solange kein Shop angebunden ist, wahlweise alle angemeldeten Nutzer
+* Datenbankschema mit InnoDB und Fremdschlüsseln, Migration bei Aktivierung/Update, Datenschutz-Export/-Löschung, sichere Deinstallation
+* Shortcode [bootspruefung] für einen Einstiegslink
 
-Content-Import, Lernoberfläche und WooCommerce-Freischaltung folgen in den nächsten Schritten.
+Noch offen: WooCommerce-Freischaltung, Navigations-/Praxis-/Video-/Funktrainer, Paket-Rollback.

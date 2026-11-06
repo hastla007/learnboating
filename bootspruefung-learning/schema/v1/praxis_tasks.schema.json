@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/praxis_tasks.schema.json",
+  "title": "Praxistrainer-Karten je Kurs (data/praxis_tasks.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "course_code", "category", "subcategory", "exam_reference", "task_type", "question", "answer", "explanation", "media_source_id", "source", "source_url", "sort_order", "active", "rights_status", "copied_from", "source_file", "hash"],
+    "properties": {
+      "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+      "course_code": { "$ref": "common.schema.json#/$defs/courseCode" },
+      "category": { "type": "string", "minLength": 1 },
+      "subcategory": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "exam_reference": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "task_type": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "question": { "type": "string", "minLength": 1 },
+      "answer": { "type": "string", "minLength": 1 },
+      "explanation": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "media_source_id": { "type": ["string", "null"] },
+      "source": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "source_url": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "sort_order": { "type": "integer" },
+      "active": { "type": "boolean" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "copied_from": { "type": ["string", "null"] },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

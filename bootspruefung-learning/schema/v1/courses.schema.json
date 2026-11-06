@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/courses.schema.json",
+  "title": "Kurse/Scheine (data/courses.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "code", "name", "course_type", "language", "status", "sort_order", "modules", "source_file", "hash"],
+    "properties": {
+      "source_id": { "$ref": "common.schema.json#/$defs/courseCode" },
+      "code": { "$ref": "common.schema.json#/$defs/courseCode" },
+      "name": { "type": "string", "minLength": 1 },
+      "course_type": { "enum": ["full", "combo", "addon"] },
+      "language": { "type": "string" },
+      "status": { "$ref": "common.schema.json#/$defs/editorialStatus" },
+      "sort_order": { "type": "integer" },
+      "modules": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module_code", "sort_order", "required"],
+          "properties": {
+            "module_code": { "$ref": "common.schema.json#/$defs/moduleCode" },
+            "sort_order": { "type": "integer" },
+            "required": { "type": "boolean" }
+          }
+        }
+      },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

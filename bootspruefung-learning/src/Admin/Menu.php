@@ -24,21 +24,46 @@ final class Menu
     public function register(): void
     {
         add_action('admin_menu', [$this, 'addPages']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue']);
+        (new ImportPage())->register();
+        (new ContentPages())->register();
     }
 
     public function addPages(): void
     {
-        add_menu_page(
-            __('Bootsprüfung', 'bootspruefung-learning'),
-            __('Bootsprüfung', 'bootspruefung-learning'),
-            Capabilities::MANAGE_CONTENT,
-            self::SLUG,
-            [$this, 'renderStatus'],
-            'dashicons-sos',
-            56
-        );
-        add_submenu_page(self::SLUG, __('Systemstatus', 'bootspruefung-learning'), __('Systemstatus', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, self::SLUG, [$this, 'renderStatus']);
-        add_submenu_page(self::SLUG, __('Einstellungen', 'bootspruefung-learning'), __('Einstellungen', 'bootspruefung-learning'), 'manage_options', self::SLUG.'-settings', [$this, 'renderSettings']);
+        $content = new ContentPages();
+        $import = new ImportPage();
+        $read = Capabilities::MANAGE_CONTENT;
+        add_menu_page(__('Bootsprüfung', 'bootspruefung-learning'), __('Bootsprüfung', 'bootspruefung-learning'), $read, self::SLUG, [$content, 'renderOverview'], 'dashicons-sos', 56);
+        $pages = [
+            [self::SLUG, __('Übersicht', 'bootspruefung-learning'), $read, [$content, 'renderOverview']],
+            [ImportPage::SLUG, __('Content-Pakete', 'bootspruefung-learning'), Capabilities::IMPORT_CONTENT, [$import, 'render']],
+            [self::SLUG.'-courses', __('Kurse & Module', 'bootspruefung-learning'), $read, [$content, 'renderCourses']],
+            [self::SLUG.'-questions', __('Fragen', 'bootspruefung-learning'), $read, [$content, 'renderQuestions']],
+            [self::SLUG.'-media', __('Medien', 'bootspruefung-learning'), $read, [$content, 'renderMedia']],
+            [self::SLUG.'-rules', __('Prüfungsregeln', 'bootspruefung-learning'), $read, [$content, 'renderRules']],
+            [self::SLUG.'-rights', __('Rechte', 'bootspruefung-learning'), $read, [$content, 'renderRights']],
+            [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
+            [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
+        ];
+        foreach ($pages as [$slug, $title, $cap, $callback]) {
+            add_submenu_page(self::SLUG, $title, $title, $cap, $slug, $callback);
+        }
+    }
+
+    public function enqueue(string $hook): void
+    {
+        if (! str_contains($hook, ImportPage::SLUG)) {
+            return;
+        }
+        wp_enqueue_script('bp-admin-import', plugins_url('assets/admin/import.js', $this->plugin->file()), [], Plugin::VERSION, true);
+        wp_localize_script('bp-admin-import', 'bpImport', [
+            'root' => esc_url_raw(rest_url('bootspruefung/v1/')),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'phases' => array_keys(\Bootspruefung\Learning\Content\Import\ImportService::PHASES),
+            'runningText' => __('Import läuft …', 'bootspruefung-learning'),
+            'doneText' => __('Import abgeschlossen.', 'bootspruefung-learning'),
+        ]);
     }
 
     public function renderStatus(): void
@@ -98,6 +123,11 @@ final class Menu
             checked($settings['delete_data_on_uninstall'], true, false),
             esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände und Zugänge entfernen', 'bootspruefung-learning')
         );
+        printf('<tr><th scope="row">%s</th><td><select name="%s[default_access]">', esc_html__('Zugang ohne Shop', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
+        foreach (['logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'), 'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning')] as $value => $label) {
+            printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['default_access'], $value, false), esc_html($label));
+        }
+        echo '</select><p class="description">'.esc_html__('Gilt, solange kein WooCommerce-Produkt mit Zahlungsart angebunden ist.', 'bootspruefung-learning').'</p></td></tr>';
         printf('<tr><th scope="row">%s</th><td><select name="%s[radio_voice_output]">', esc_html__('Sprachausgabe Funktrainer', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['browser' => __('Browserstimme', 'bootspruefung-learning'), 'recording' => __('Lizenzierte Aufnahmen', 'bootspruefung-learning'), 'off' => __('Aus', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['radio_voice_output'], $value, false), esc_html($label));

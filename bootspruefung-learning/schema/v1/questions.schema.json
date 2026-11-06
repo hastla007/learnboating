@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/questions.schema.json",
+  "title": "Fragen mit aktueller Revision, Antworten und Medien (data/questions.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "official_number", "content_role", "language", "active", "source_module", "revision", "hash"],
+    "properties": {
+      "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+      "official_number": { "type": ["string", "null"] },
+      "content_role": { "type": ["string", "null"] },
+      "language": { "type": "string" },
+      "active": { "type": "boolean" },
+      "source_module": { "$ref": "common.schema.json#/$defs/moduleCode" },
+      "revision": { "$ref": "#/$defs/revision" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_type", "question_text", "topic", "subtopic", "competency", "smart_category", "scope", "image_required", "feedback_correct", "feedback_incorrect", "source", "editorial_status", "rights_status", "rights_owner", "license_reference", "valid_from", "valid_to", "answers", "media"],
+      "properties": {
+        "question_type": { "enum": ["single_choice", "multi_choice", "open_text", "chart_task"] },
+        "question_text": { "type": "string", "minLength": 1 },
+        "topic": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "subtopic": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "competency": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "smart_category": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "scope": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "image_required": { "type": "boolean" },
+        "feedback_correct": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "feedback_incorrect": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["catalog", "version", "question_id", "page", "file"],
+          "properties": {
+            "catalog": { "$ref": "common.schema.json#/$defs/nullableText" },
+            "version": { "$ref": "common.schema.json#/$defs/nullableText" },
+            "question_id": { "$ref": "common.schema.json#/$defs/nullableText" },
+            "page": { "$ref": "common.schema.json#/$defs/nullableText" },
+            "file": { "$ref": "common.schema.json#/$defs/sourceFile" }
+          }
+        },
+        "editorial_status": { "$ref": "common.schema.json#/$defs/editorialStatus" },
+        "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+        "rights_owner": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "license_reference": { "$ref": "common.schema.json#/$defs/nullableText" },
+        "valid_from": { "$ref": "common.schema.json#/$defs/date" },
+        "valid_to": { "$ref": "common.schema.json#/$defs/date" },
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["answer_key", "answer_text", "is_correct", "sort_order"],
+            "properties": {
+              "answer_key": { "type": "string", "pattern": "^([A-Z]|MODEL)$" },
+              "answer_text": { "type": "string", "minLength": 1 },
+              "is_correct": { "type": "boolean" },
+              "sort_order": { "type": "integer" }
+            }
+          }
+        },
+        "media": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["media_source_id", "role", "sort_order"],
+            "properties": {
+              "media_source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+              "role": { "type": "string" },
+              "sort_order": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "question_type": { "const": "single_choice" } } },
+          "then": { "properties": { "answers": { "minItems": 2, "contains": { "properties": { "is_correct": { "const": true } } }, "minContains": 1, "maxContains": 1 } } } },
+        { "if": { "properties": { "question_type": { "const": "multi_choice" } } },
+          "then": { "properties": { "answers": { "minItems": 2, "contains": { "properties": { "is_correct": { "const": true } } }, "minContains": 1 } } } },
+        { "if": { "properties": { "question_type": { "const": "open_text" } } },
+          "then": { "properties": { "answers": { "minItems": 1, "maxItems": 1 } } } },
+        { "if": { "properties": { "question_type": { "const": "chart_task" } } },
+          "then": { "properties": { "editorial_status": { "not": { "const": "published" } } } } }
+      ]
+    }
+  }
+}

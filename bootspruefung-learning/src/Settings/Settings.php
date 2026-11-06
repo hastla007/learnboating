@@ -14,6 +14,9 @@ final class Settings
         'delete_data_on_uninstall' => false,
         // Kap. 6.4: Sprachausgabe im Funktrainer (Browserstimme statt Aufnahme).
         'radio_voice_output' => 'browser',
+        // Solange kein Shop/keine Zahlungsart angebunden ist: alle angemeldeten Nutzer
+        // dürfen lernen und prüfen. 'entitled_only' = nur Free-Regeln und Freischaltungen.
+        'default_access' => 'logged_in',
     ];
 
     /** @return array<string,mixed> */
@@ -46,6 +49,7 @@ final class Settings
 
         return [
             'delete_data_on_uninstall' => ! empty($input['delete_data_on_uninstall']),
+            'default_access' => in_array($input['default_access'] ?? '', ['logged_in', 'entitled_only'], true) ? $input['default_access'] : 'logged_in',
             'radio_voice_output' => in_array($input['radio_voice_output'] ?? '', ['browser', 'recording', 'off'], true) ? $input['radio_voice_output'] : 'browser',
         ];
     }

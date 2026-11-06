@@ -18,6 +18,7 @@ final class Commands
     {
         WP_CLI::add_command('bootspruefung status', [self::class, 'status']);
         WP_CLI::add_command('bootspruefung migrate', [self::class, 'migrate']);
+        WP_CLI::add_command('bootspruefung import', [self::class, 'import']);
     }
 
     /**
@@ -43,6 +44,61 @@ final class Commands
             $rows[] = ['table' => 'bp_'.$table, 'engine' => $info['engine'] ?? 'fehlt', 'rows' => $info['rows'] ?? '–'];
         }
         WP_CLI\Utils\format_items('table', $rows, ['table', 'engine', 'rows']);
+    }
+
+    /**
+     * Importiert ein Content-Paket (ZIP oder entpackter Ordner).
+     *
+     * Ablauf wie im Admin: prüfen, Vorschau (Dry-Run), Freigabe, Import.
+     *
+     * <paket>
+     * : Pfad zur ZIP-Datei oder zum Paketordner.
+     *
+     * [--dry-run]
+     * : Nur prüfen und Vorschau anzeigen, nichts importieren.
+     *
+     * [--yes]
+     * : Ohne Rückfrage freigeben und importieren.
+     *
+     * [--note=<text>]
+     * : Begründung/Notiz für die Freigabe (Audit-Log).
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function import(array $args, array $assoc): void
+    {
+        $service = Plugin::instance()->importService();
+        $path = $args[0];
+        try {
+            $batchId = is_dir($path) ? $service->createFromDirectory($path) : $service->createFromZip($path);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error($e->getMessage());
+        }
+        $batch = $service->batch($batchId);
+        if ($batch->status === 'failed') {
+            WP_CLI::error("Paket {$batch->package_id} ungültig:\n".$batch->error);
+        }
+        WP_CLI::log("Import #{$batchId}: Paket {$batch->package_id} geprüft.");
+        $preview = $service->preview($batchId);
+        $rows = [];
+        foreach ($preview as $entity => $counts) {
+            if ($entity !== '_rights') {
+                $rows[] = ['entity' => $entity] + $counts;
+            }
+        }
+        WP_CLI\Utils\format_items('table', $rows, ['entity', 'create', 'update', 'unchanged', 'archive']);
+        if (isset($assoc['dry-run'])) {
+            WP_CLI::success('Dry-Run abgeschlossen, nichts geändert.');
+
+            return;
+        }
+        WP_CLI::confirm('Paket freigeben und importieren?', $assoc);
+        $service->approve($batchId, $assoc['note'] ?? 'WP-CLI');
+        $service->runAll($batchId, static function (array $step): void {
+            WP_CLI::log(sprintf('  %-18s %d/%d', $step['phase'], $step['processed'], $step['total']));
+        });
+        WP_CLI::success("Paket {$batch->package_id} veröffentlicht.");
     }
 
     /** Führt ausstehende Datenbankmigrationen aus. */

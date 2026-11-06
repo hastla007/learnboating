@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -57,6 +57,13 @@ final class Plugin
         return new Migrator($wpdb);
     }
 
+    public function importService(): \Bootspruefung\Learning\Content\Import\ImportService
+    {
+        global $wpdb;
+
+        return new \Bootspruefung\Learning\Content\Import\ImportService($wpdb, dirname($this->file).'/schema/v1');
+    }
+
     public static function activate(bool $networkWide = false): void
     {
         if ($networkWide) {
@@ -67,6 +74,11 @@ final class Plugin
             wp_die(esc_html(implode(' ', $problems)));
         }
         Capabilities::grantToAdministrator();
+        \Bootspruefung\Learning\Frontend\Router::addRules();
+        flush_rewrite_rules(false);
+        if (! wp_next_scheduled('bp_learning_hourly')) {
+            wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'bp_learning_hourly');
+        }
         global $wpdb;
         try {
             (new Migrator($wpdb))->migrate();
@@ -78,7 +90,8 @@ final class Plugin
     public static function deactivate(): void
     {
         // Bewusst keine Daten- oder Tabellenlöschung (Kap. 8: sichere Deaktivierung).
-        wp_clear_scheduled_hook('bp_learning_daily_maintenance');
+        wp_clear_scheduled_hook('bp_learning_hourly');
+        flush_rewrite_rules(false);
     }
 
     private function registerHooks(): void
@@ -90,6 +103,12 @@ final class Plugin
         Compatibility::register($this->file);
         (new Menu($this))->register();
         (new RestRegistrar())->register();
+        (new \Bootspruefung\Learning\Frontend\Router($this))->register();
+        add_action('bp_learning_hourly', static function (): void {
+            $content = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
+            $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
+            (new \Bootspruefung\Learning\Exams\Services\ExamService($content, new \Bootspruefung\Learning\Learning\Services\QuestionPresenter($content), $access))->expireRunning();
+        });
         PersonalData::register();
 
         if (defined('WP_CLI') && WP_CLI) {

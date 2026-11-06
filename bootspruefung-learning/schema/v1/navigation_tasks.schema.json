@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/navigation_tasks.schema.json",
+  "title": "Navigationsaufgaben mit Teilaufgaben (data/navigation_tasks.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "task_number", "course_codes", "scenario_text", "hint", "sort_order", "source", "source_version", "rights_status", "status", "source_file", "questions", "hash"],
+    "properties": {
+      "source_id": { "type": "string", "pattern": "^NAV-[0-9]{2,}$" },
+      "task_number": { "type": "integer", "minimum": 1 },
+      "course_codes": { "type": "array", "minItems": 1, "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "scenario_text": { "type": "string", "minLength": 1 },
+      "hint": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "sort_order": { "type": "integer" },
+      "source": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "source_version": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "status": { "$ref": "common.schema.json#/$defs/editorialStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "questions": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_id", "question_number", "question_text", "answer_text", "sort_order"],
+          "properties": {
+            "source_id": { "type": "string", "pattern": "^NAV-[0-9]{2,}-[0-9]{2,}$" },
+            "question_number": { "type": "integer", "minimum": 1 },
+            "question_text": { "type": "string", "minLength": 1 },
+            "answer_text": { "type": "string", "minLength": 1 },
+            "sort_order": { "type": "integer" }
+          }
+        }
+      },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}
