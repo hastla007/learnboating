@@ -263,9 +263,7 @@
 					el('h1', { text: cfg.user ? t('dash_hello', { name: cfg.user }) : t('overview_title') }),
 					el('p', { class: 'bp-hero-lead', text: t('dash_intro') }),
 					el('ul', { class: 'bp-hero-facts' }, [
-						el('li', {}, [el('strong', { text: String(mine.length) }), ' ' + t('dash_stat_courses')]),
-						el('li', {}, [link('tipps/', t('tips_title'))]),
-						cfg.groups ? el('li', {}, [link('gruppen/', t('groups_title'))]) : null
+						el('li', {}, [el('strong', { text: String(mine.length) }), ' ' + t('dash_stat_courses')])
 					])
 				]),
 				focus ? el('div', { class: 'bp-hero-focus' }, [
