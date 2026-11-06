@@ -198,6 +198,8 @@ final class Strings
             'trainer_video_meta' => __('{done} von {total} Lektionen abgeschlossen', $d),
             'trainer_radio' => __('Funktraining', $d),
             'trainer_radio_meta' => __('{texts} Funktexte · {vocabulary} Vokabeln', $d),
+            'nav_chart_open' => __('Seekarte öffnen: {title}', $d),
+            'nav_chart_pending' => __('{title}: Die digitale Karte wird nach Lizenzierung durch das BSH bereitgestellt. Bis dahin arbeite bitte mit der gedruckten Übungskarte.', $d),
             'nav_intro' => __('Löse die Teilaufgaben mit Seekarte und Kursdreieck, vergleiche mit dem amtlichen Ergebnis und schätze dich selbst ein. In der Prüfung brauchst du mindestens 7 von 9 Punkten.', $d),
             'nav_task_title' => __('Navigationsaufgabe {number}', $d),
             'nav_progress' => __('{done} von {total} Teilaufgaben erledigt', $d),

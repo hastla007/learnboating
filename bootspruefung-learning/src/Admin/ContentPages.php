@@ -33,6 +33,8 @@ final class ContentPages
     public function register(): void
     {
         add_action('admin_post_bp_override', [$this, 'handleOverride']);
+        add_action('admin_post_bp_rights_release', [$this, 'handleRelease']);
+        add_action('admin_post_bp_chart', [$this, 'handleChart']);
     }
 
     // ------------------------------------------------------------------
@@ -385,6 +387,17 @@ final class ContentPages
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Rechte und Freigabe', 'bootspruefung-learning').'</h1>';
         Ui::notice();
         echo '<p class="description">'.esc_html__('Rechte-Status unknown und restricted sperren die Auslieferung (Kap. 4.10). Eine Freigabe wird als lokaler Override mit Begründung gespeichert, überlebt Reimporte und steht im Audit-Log.', 'bootspruefung-learning').'</p>';
+        $this->renderCharts();
+        $pending = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON, true));
+        echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'
+            .esc_html(sprintf(__('%d Inhalte sind noch nicht als licensed/public freigegeben (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Seekarten sind ausgenommen und werden oben verwaltet.', 'bootspruefung-learning'), $pending)).'</p>';
+        if ($pending > 0) {
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rights_release', '_wpnonce', true, false)
+                .'<input type="hidden" name="action" value="bp_rights_release"><input type="text" class="regular-text" name="reason" value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON).'" required> ';
+            submit_button(__('Alles freigeben (außer Seekarten)', 'bootspruefung-learning'), 'primary', '', false);
+            echo '</form>';
+        }
+        echo '</div>';
         foreach ($this->rightsGroups() as $type => [$label, $join, $groupExpr, $importedExpr]) {
             echo '<h2>'.esc_html($label).'</h2>';
             $rows = $this->db->get_results(
@@ -428,6 +441,81 @@ final class ContentPages
             '<code>'.esc_html((string) $l->context).'</code>',
         ], $log));
         echo '</div>';
+    }
+
+    private function renderCharts(): void
+    {
+        echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Seekarten (BSH)', 'bootspruefung-learning').'</h2>';
+        echo '<p>'.esc_html__('Die Karte wird hochgeladen und geschützt abgelegt. Lernende sehen sie im Navigationstrainer erst, wenn die BSH-Lizenz bestätigt ist; bis dahin erscheint der Hinweis, mit der gedruckten Karte zu arbeiten.', 'bootspruefung-learning').'</p>';
+        foreach (\Bootspruefung\Learning\Gate\Charts::catalog() as $code => $def) {
+            $state = \Bootspruefung\Learning\Gate\Charts::state($code);
+            $file = $state && $state['attachment_id'] > 0 ? get_post($state['attachment_id']) : null;
+            echo '<h3>'.esc_html($def['title']).'</h3><p>';
+            echo esc_html__('Datei:', 'bootspruefung-learning').' '.($file ? '<a href="'.esc_url(\Bootspruefung\Learning\Gate\ProtectedFiles::downloadUrl((int) $file->ID)).'">'.esc_html(get_the_title($file)).'</a>' : esc_html__('noch nicht hochgeladen', 'bootspruefung-learning')).'<br>';
+            echo esc_html__('BSH-Lizenz:', 'bootspruefung-learning').' '.($state && $state['licensed'] ? esc_html(__('bestätigt', 'bootspruefung-learning').' – '.$state['note']) : esc_html__('nicht bestätigt (für Lernende gesperrt)', 'bootspruefung-learning')).'<br>';
+            echo esc_html__('Kurse:', 'bootspruefung-learning').' '.esc_html(implode(', ', $def['courses'])).'</p>';
+            $form = static fn (string $op, string $inner, string $extra = '') => '<form method="post" enctype="multipart/form-data" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:.4em 0">'
+                .wp_nonce_field('bp_chart', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_chart"><input type="hidden" name="chart" value="'.esc_attr($code).'"><input type="hidden" name="op" value="'.esc_attr($op).'">'.$inner.$extra.'</form>';
+            echo $form('upload', '<input type="file" name="chart_file" accept=".pdf,.png,.jpg,.jpeg,.webp" required> ', '<button class="button">'.esc_html($file ? __('Datei ersetzen', 'bootspruefung-learning') : __('Hochladen', 'bootspruefung-learning')).'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            if ($state && $state['licensed']) {
+                echo $form('unlicense', '', '<button class="button">'.esc_html__('Lizenz zurückziehen (sperren)', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            } else {
+                echo $form('license', '<input type="text" class="regular-text" name="note" required placeholder="'.esc_attr__('Lizenznachweis (Vertrag, Datum)', 'bootspruefung-learning').'"> ', '<button class="button button-primary">'.esc_html__('BSH-Lizenz bestätigen', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            }
+            if ($file) {
+                echo $form('remove', '', '<button class="button-link-delete">'.esc_html__('Datei löschen', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            }
+        }
+        echo '</div>';
+    }
+
+    public function handleRelease(): void
+    {
+        $this->can();
+        check_admin_referer('bp_rights_release');
+        $reason = trim(sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
+        if ($reason === '') {
+            Ui::flash(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'), 'error');
+        } else {
+            $n = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason));
+            Ui::flash(sprintf(__('%d Inhalte freigegeben.', 'bootspruefung-learning'), $n));
+        }
+        wp_safe_redirect(Ui::url('bootspruefung-rights'));
+        exit;
+    }
+
+    public function handleChart(): void
+    {
+        $this->can();
+        check_admin_referer('bp_chart');
+        $code = sanitize_text_field(wp_unslash($_POST['chart'] ?? ''));
+        $op = sanitize_key(wp_unslash($_POST['op'] ?? ''));
+        try {
+            if (! isset(\Bootspruefung\Learning\Gate\Charts::catalog()[$code])) {
+                throw new \InvalidArgumentException(__('Unbekannte Karte.', 'bootspruefung-learning'));
+            }
+            if ($op === 'upload') {
+                require_once ABSPATH.'wp-admin/includes/file.php';
+                require_once ABSPATH.'wp-admin/includes/media.php';
+                require_once ABSPATH.'wp-admin/includes/image.php';
+                $id = media_handle_upload('chart_file', 0, [], ['test_form' => false, 'mimes' => ['pdf' => 'application/pdf', 'png' => 'image/png', 'jpg|jpeg' => 'image/jpeg', 'webp' => 'image/webp']]);
+                if (is_wp_error($id)) {
+                    throw new \InvalidArgumentException($id->get_error_message());
+                }
+                \Bootspruefung\Learning\Gate\Charts::attach($code, (int) $id);
+                Ui::flash(__('Seekarte hochgeladen (geschützt). Für Lernende sichtbar, sobald die BSH-Lizenz bestätigt ist.', 'bootspruefung-learning'));
+            } elseif ($op === 'license' || $op === 'unlicense') {
+                \Bootspruefung\Learning\Gate\Charts::setLicense($code, $op === 'license', sanitize_text_field(wp_unslash($_POST['note'] ?? '')));
+                Ui::flash($op === 'license' ? __('BSH-Lizenz bestätigt.', 'bootspruefung-learning') : __('Lizenz zurückgezogen – Karte für Lernende gesperrt.', 'bootspruefung-learning'));
+            } elseif ($op === 'remove') {
+                \Bootspruefung\Learning\Gate\Charts::remove($code);
+                Ui::flash(__('Datei gelöscht.', 'bootspruefung-learning'));
+            }
+        } catch (\InvalidArgumentException $e) {
+            Ui::flash($e->getMessage(), 'error');
+        }
+        wp_safe_redirect(Ui::url('bootspruefung-rights'));
+        exit;
     }
 
     // ------------------------------------------------------------------

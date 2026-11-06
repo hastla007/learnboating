@@ -9,7 +9,7 @@ use Bootspruefung\Learning\Plugin;
 use WP_CLI;
 
 /**
- * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access|shop setup`.
+ * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access|shop setup|rights release|chart`.
  */
 final class Commands
 {
@@ -22,6 +22,8 @@ final class Commands
         WP_CLI::add_command('bootspruefung reconcile', [self::class, 'reconcile']);
         WP_CLI::add_command('bootspruefung access', [self::class, 'access']);
         WP_CLI::add_command('bootspruefung shop setup', [self::class, 'shopSetup']);
+        WP_CLI::add_command('bootspruefung rights release', [self::class, 'rightsRelease']);
+        WP_CLI::add_command('bootspruefung chart', [self::class, 'chart']);
     }
 
     /**
@@ -244,6 +246,76 @@ final class Commands
             WP_CLI::log(sprintf('Schnupper-Paket: %d Regel(n) %s für %d Kurse.', $free['added'], $dry ? 'würden angelegt' : 'angelegt', $free['courses']));
         }
         WP_CLI::success($dry ? 'Vorschau beendet.' : 'Shop-Katalog abgeglichen.');
+    }
+
+    /**
+     * Gibt alle noch nicht freigegebenen Inhalte frei (außer Seekarten).
+     *
+     * [--reason=<text>]
+     * : Begründung (Audit-Log).
+     *
+     * [--dry-run]
+     * : Nur zählen.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function rightsRelease(array $args, array $assoc): void
+    {
+        $reason = (string) ($assoc['reason'] ?? \Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON);
+        $counts = \Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, isset($assoc['dry-run']));
+        WP_CLI\Utils\format_items('table', array_map(static fn ($t, $n) => ['type' => $t, 'count' => $n], array_keys($counts), $counts), ['type', 'count']);
+        WP_CLI::success(isset($assoc['dry-run']) ? 'Vorschau.' : array_sum($counts).' Inhalte freigegeben.');
+    }
+
+    /**
+     * Seekarte verwalten: hochladen, Lizenz bestätigen/zurückziehen, Status.
+     *
+     * <aktion>
+     * : status | upload | license | unlicense
+     *
+     * [<code>]
+     * : Kartencode, z. B. D49.
+     *
+     * [<datei>]
+     * : Pfad zur Karte (PDF/PNG/JPG/WebP) für upload.
+     *
+     * [--note=<text>]
+     * : Lizenznachweis für license.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function chart(array $args, array $assoc): void
+    {
+        [$action, $code, $file] = array_pad($args, 3, '');
+        $code = strtoupper($code ?: 'D49');
+        $charts = \Bootspruefung\Learning\Gate\Charts::class;
+        try {
+            if ($action === 'upload') {
+                if (! is_file($file)) {
+                    WP_CLI::error("Datei nicht gefunden: {$file}");
+                }
+                require_once ABSPATH.'wp-admin/includes/file.php';
+                require_once ABSPATH.'wp-admin/includes/media.php';
+                require_once ABSPATH.'wp-admin/includes/image.php';
+                $tmp = wp_tempnam($file);
+                copy($file, $tmp);
+                $id = media_handle_sideload(['name' => wp_basename($file), 'tmp_name' => $tmp], 0, \Bootspruefung\Learning\Gate\Charts::catalog()[$code]['title'] ?? $code);
+                if (is_wp_error($id)) {
+                    WP_CLI::error($id->get_error_message());
+                }
+                $charts::attach($code, (int) $id);
+            } elseif ($action === 'license' || $action === 'unlicense') {
+                $charts::setLicense($code, $action === 'license', (string) ($assoc['note'] ?? ''));
+            } elseif ($action !== 'status') {
+                WP_CLI::error('Aktion: status, upload, license oder unlicense.');
+            }
+        } catch (\InvalidArgumentException $e) {
+            WP_CLI::error($e->getMessage());
+        }
+        $state = $charts::state($code);
+        WP_CLI::log(sprintf('%s: Datei %s, Lizenz %s, für Lernende %s.', $code, $state && $state['attachment_id'] ? '#'.$state['attachment_id'] : 'fehlt', $state && $state['licensed'] ? 'bestätigt ('.$state['note'].')' : 'nicht bestätigt', $charts::available($code) ? 'sichtbar' : 'gesperrt'));
     }
 
     /**

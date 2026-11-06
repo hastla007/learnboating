@@ -872,9 +872,22 @@
 					]);
 				}));
 				var hasLocked = tasks.some(function (x) { return x.locked; });
-				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list], t('trainer_navigation') + ' – ' + c.name);
+				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), chartNote(c), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list], t('trainer_navigation') + ' – ' + c.name);
 			});
 		});
+	}
+
+	// Seekarten (BSH): Link nach Lizenz, sonst Hinweis auf die gedruckte Karte.
+	function chartNote(c) {
+		var charts = c.charts || [];
+		if (!charts.length) {
+			return null;
+		}
+		return el('div', { class: 'bp-card bp-chart-note' }, charts.map(function (ch) {
+			return ch.url
+				? el('p', {}, [el('a', { class: 'bp-button', href: ch.url, target: '_blank', rel: 'noopener', text: t('nav_chart_open', { title: ch.title }) })])
+				: el('p', { class: 'bp-muted', text: t('nav_chart_pending', { title: ch.title }) });
+		}));
 	}
 
 	function viewNavigationTask(slug, taskId) {

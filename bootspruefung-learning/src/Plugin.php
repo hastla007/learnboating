@@ -116,6 +116,7 @@ final class Plugin
         PersonalData::register();
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
+        (new \Bootspruefung\Learning\Gate\Charts())->register();
         (new \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks())->register();
 
         if (defined('WP_CLI') && WP_CLI) {

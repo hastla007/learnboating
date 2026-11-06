@@ -52,6 +52,12 @@ final class DownloadService
     /** Darf der Nutzer diese geschützte Datei laden? */
     public static function allowed(int $userId, int $attachmentId): bool
     {
+        /** Filter: Freigabe einer geschützten Datei überstimmen (z. B. Seekarten nach Lizenz). */
+        return (bool) apply_filters('bootspruefung_protected_file_allowed', self::allowedByRequirement($userId, $attachmentId), $userId, $attachmentId);
+    }
+
+    private static function allowedByRequirement(int $userId, int $attachmentId): bool
+    {
         $req = ProtectedFiles::requirement($attachmentId);
         if ($req === null) {
             return true;

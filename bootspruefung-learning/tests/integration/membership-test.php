@@ -377,6 +377,46 @@ $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $pa
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['refunded' => true] + $mbOrder)['reason'] === 'refunded' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => 991001, 'variation_id' => 0]]] + $mbOrder)['applies'] === false, 'erstattet bzw. Produkt ohne Garantie');
 $products->save($mbProduct, 0, [], null, 'extend', 'revoke_on_full_refund');
 \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbProduct, null, null);
+// Seekarte D49 (Upload, gesperrt bis BSH-Lizenz) und Sammelfreigabe
+echo "Seekarte D49, Sammelfreigabe\n";
+require_once ABSPATH.'wp-admin/includes/file.php';
+require_once ABSPATH.'wp-admin/includes/media.php';
+require_once ABSPATH.'wp-admin/includes/image.php';
+$charts = \Bootspruefung\Learning\Gate\Charts::class;
+$sailor = $user('bp_navigator');
+$check($charts::forCourse($sailor, 'SBF-SEE') === [['code' => 'D49', 'title' => 'Übungskarte D49 (BSH)', 'url' => null]] && $charts::forCourse($sailor, 'SRC') === [], 'ohne Upload: Hinweis im Navigationstrainer, nur See-Kurse');
+$img = wp_tempnam('d49.png');
+file_put_contents($img, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+$chartId = media_handle_sideload(['name' => 'd49-test.png', 'tmp_name' => $img], 0, 'D49 Test');
+$check(! is_wp_error($chartId), 'Karte hochgeladen');
+$charts::attach('D49', (int) $chartId);
+$navRule = $wpdb->insert($p.'access_rule', ['course_code' => 'ADD-BIN-TO-SEE', 'feature_code' => 'navigation_trainer', 'access_type' => 'free', 'created_at' => current_time('mysql', true), 'updated_at' => current_time('mysql', true)]) ? (int) $wpdb->insert_id : 0;
+$check(\Bootspruefung\Learning\Gate\ProtectedFiles::requirement((int) $chartId) !== null && ! $charts::available('D49') && ! \Bootspruefung\Learning\Gate\DownloadService::allowed($sailor, (int) $chartId), 'hochgeladen, aber ohne Lizenz: geschützt und für Lernende gesperrt');
+$threw = false;
+try {
+    $charts::setLicense('D49', true, '');
+} catch (\InvalidArgumentException $e) {
+    $threw = true;
+}
+$check($threw, 'Lizenz nur mit Nachweis');
+$charts::setLicense('D49', true, 'BSH-Lizenz Test 2026');
+$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($sailor, (int) $chartId) && $charts::forCourse($sailor, 'ADD-BIN-TO-SEE')[0]['url'] !== null, 'nach Lizenz: sichtbar mit Navigationstrainer (auch Ergänzungskurs)');
+$noNav = $user('bp_ohne_nav');
+$canNav = (bool) array_filter(['SBF-SEE', 'SBF-SEE-BIN', 'ADD-BIN-TO-SEE'], static fn ($c) => $access->can($noNav, $c, 'navigation_trainer'));
+$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($noNav, (int) $chartId) === $canNav, 'Karte folgt dem Navigationstrainer-Zugang (auch Schnupper-Umfang)');
+$check(\Bootspruefung\Learning\Gate\DownloadService::items($sailor, 'SBF-SEE') === [] || ! in_array((int) $chartId, array_column(\Bootspruefung\Learning\Gate\DownloadService::items($sailor, 'SBF-SEE'), 'id'), true), 'Karte erscheint nicht in der Downloadliste');
+$charts::remove('D49');
+$check(get_post((int) $chartId) === null && ! $charts::available('D49'), 'Datei gelöscht');
+delete_option($charts::OPTION);
+$wpdb->delete($p.'access_rule', ['id' => $navRule]);
+
+$preview = \Bootspruefung\Learning\Content\RightsRelease::releaseAll('Test-Sammelfreigabe', true);
+$released = \Bootspruefung\Learning\Content\RightsRelease::releaseAll('Test-Sammelfreigabe');
+$after = \Bootspruefung\Learning\Content\RightsRelease::releaseAll('Test-Sammelfreigabe', true);
+$check($preview === $released && array_sum($after) === 0, 'Sammelfreigabe: '.array_sum($released).' Inhalte, danach nichts mehr offen');
+$wpdb->delete($p.'override', ['reason' => 'Test-Sammelfreigabe']);
+wp_cache_flush_group('bootspruefung');
+$check(\Bootspruefung\Learning\Content\RightsRelease::releaseAll('x', true) === $preview, 'Testfreigaben zurückgenommen');
 remove_filter('pre_wp_mail', $capture, 10);
 
 // Aufräumen.
