@@ -64,6 +64,14 @@ function kurswasser_courses(): array
     ];
 }
 
+/** Kursfoto (assets/images/courses/<kurs>.webp, klein: -sm). */
+function kurswasser_course_image(string $slug, bool $small = false): ?string
+{
+    $file = 'assets/images/courses/'.$slug.($small ? '-sm' : '').'.webp';
+
+    return is_file(get_template_directory().'/'.$file) ? get_template_directory_uri().'/'.$file : null;
+}
+
 function kurswasser_course_url(string $slug): string
 {
     $page = get_page_by_path('kurse/'.$slug);
@@ -117,10 +125,10 @@ add_shortcode('kurswasser_course_tiles', static function (): string {
     $html = '<div class="kw-tiles">';
     foreach (kurswasser_courses() as $slug => $def) {
         $main = kurswasser_offer($def['main']);
-        $html .= '<article class="kw-tile kw-tone-'.esc_attr($def['tone']).'">';
-        $html .= '<div class="kw-tile-visual" aria-hidden="true"><span class="kw-tile-badge"><span class="kw-icon kw-icon-'.esc_attr($def['icon']).'"></span></span><span class="kw-tile-mark">'.esc_html($def['mark']).'</span></div>';
-        $html .= '<div class="kw-tile-body"><p class="kw-tile-eyebrow">'.esc_html($def['eyebrow']).'</p>';
-        $html .= '<h3><a href="'.esc_url(kurswasser_course_url($slug)).'">'.esc_html($def['title']).'</a></h3>';
+        $img = kurswasser_course_image($slug, true);
+        $html .= '<article class="kw-tile">';
+        $html .= '<div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill"><span class="kw-icon kw-icon-'.esc_attr($def['icon']).'" aria-hidden="true"></span>'.esc_html($def['eyebrow']).'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html($def['title']).'</span></div>';
+        $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url(kurswasser_course_url($slug)).'">'.esc_html($def['name']).'</a></h3>';
         $html .= '<p class="kw-tile-text">'.esc_html($def['teaser']).'</p><ul class="kw-tile-facts">';
         foreach (kurswasser_course_facts($def, 2) as [$icon, $text]) {
             $html .= '<li><span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>'.esc_html($text).'</li>';
@@ -131,8 +139,9 @@ add_shortcode('kurswasser_course_tiles', static function (): string {
     }
     // Pakete & Pässe als eigene Kachel
     $bundle = kurswasser_offer('BP-KAPITAEN');
-    $html .= '<article class="kw-tile kw-tile-bundle kw-tone-bundle"><div class="kw-tile-visual" aria-hidden="true"><span class="kw-tile-badge"><span class="kw-icon kw-icon-wheel"></span></span><span class="kw-tile-mark">'.esc_html__('PAKETE', 'kurswasser').'</span></div>';
-    $html .= '<div class="kw-tile-body"><p class="kw-tile-eyebrow">'.esc_html__('Sparen', 'kurswasser').'</p><h3><a href="'.esc_url(kurswasser_course_url('pakete')).'">'.esc_html__('Pakete & Pässe', 'kurswasser').'</a></h3>';
+    $img = kurswasser_course_image('pakete', true);
+    $html .= '<article class="kw-tile kw-tile-bundle"><div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill is-signal"><span class="kw-icon kw-icon-wheel" aria-hidden="true"></span>'.esc_html__('Sparen', 'kurswasser').'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></div>';
+    $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url(kurswasser_course_url('pakete')).'">'.esc_html__('Kombis, Bundle und Pässe', 'kurswasser').'</a></h3>';
     $html .= '<p class="kw-tile-text">'.esc_html__('Kapitäns-Bundle mit SBF See, Binnen und Funk – oder ein Pass für alle Inhalte.', 'kurswasser').'</p><ul class="kw-tile-facts"><li><span class="kw-icon kw-icon-wheel" aria-hidden="true"></span>'.esc_html__('Kapitäns-Bundle', 'kurswasser').'</li><li><span class="kw-icon kw-icon-clock" aria-hidden="true"></span>'.esc_html__('Pässe für 1 oder 3 Monate', 'kurswasser').'</li></ul></div>';
     $html .= '<footer class="kw-tile-foot">'.($bundle ? '<p class="kw-tile-price"><span>'.esc_html__('ab', 'kurswasser').'</span> '.esc_html(kurswasser_money(min(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? PHP_FLOAT_MAX, ['BP-KAPITAEN', 'BP-PASS-1M', 'BP-PASS-3M'])))).'</p>' : '<p></p>').'<span class="kw-tile-go">'.esc_html__('Ansehen', 'kurswasser').'<span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></span></footer></article>';
 
@@ -156,7 +165,9 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $trial = home_url('/bootsscheine/'.(class_exists(\Bootspruefung\Learning\Content\Repositories\ContentRepository::class) ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '').'/');
 
     // Hero
-    $html = '<section class="kw-course-hero kw-tone-'.esc_attr($def['tone']).' alignfull"><div class="kw-course-hero-inner">';
+    $photo = kurswasser_course_image($slug);
+    $photoSmall = kurswasser_course_image($slug, true);
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) $photoSmall).'\')"' : '').'><div class="kw-course-hero-inner">';
     $html .= '<nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html($def['title']).'</span></nav>';
     $html .= '<div class="kw-course-hero-grid"><div><p class="kw-eyebrow">'.esc_html($def['name']).'</p>';
     $html .= '<h1>'.esc_html(sprintf(__('%s online lernen', 'kurswasser'), $def['title'])).'</h1><p class="kw-course-lead">'.esc_html($def['lead']).'</p>';
@@ -234,7 +245,8 @@ function kurswasser_course_exam(array $def): string
 /** Seite „Pakete & Pässe“: Reiter-Element mit allen Angeboten. */
 function kurswasser_packages_page(): string
 {
-    $html = '<section class="kw-course-hero kw-tone-bundle alignfull"><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></nav>';
+    $photo = kurswasser_course_image('pakete');
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('pakete', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></nav>';
     $html .= '<div class="kw-course-hero-grid is-single"><div><p class="kw-eyebrow">'.esc_html__('Sparen mit Kombis und Paketen', 'kurswasser').'</p><h1>'.esc_html__('Pakete & Pässe', 'kurswasser').'</h1><p class="kw-course-lead">'.esc_html__('Mehrere Scheine auf einmal? Mit Kombi, Kapitäns-Bundle oder einem Pass für alle Inhalte lernst du alles an einem Ort – und sparst gegenüber dem Einzelkauf.', 'kurswasser').'</p></div></div></div></section>';
     $html .= '<section id="preise" class="kw-section">'.do_shortcode('[kurswasser_offers]').'</section>';
 
