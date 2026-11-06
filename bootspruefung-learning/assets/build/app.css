@@ -659,3 +659,21 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-paywall-benefits { margin-top: 1rem; padding: 0.9rem 1.1rem; border-radius: 14px; background: color-mix(in srgb, var(--wp--preset--color--primary, #29B6E6) 8%, transparent); font-size: 0.9rem; }
 .bp-paywall-benefits p { margin: 0 0 0.3rem; }
 .bp-paywall-benefits ul { margin: 0; padding-left: 1.1rem; }
+/* Testversion: gesperrte Inhalte in der Seitenleiste des Geräts */
+.bp-sim-lock { display: inline-block; flex: none; width: 0.9rem; height: 0.9rem; background: currentColor; opacity: 0.6; -webkit-mask: var(--bp-i-lock) center / contain no-repeat; mask: var(--bp-i-lock) center / contain no-repeat; vertical-align: -0.12em; }
+.bp-sim-lock-inline { width: 0.75rem; height: 0.75rem; }
+#bp-device-sim [role="tab"].bp-sim-tab-locked::after { content: ""; display: inline-block; width: 0.75em; height: 0.75em; margin-left: 0.35em; background: currentColor; opacity: 0.7; -webkit-mask: var(--bp-i-lock) center / contain no-repeat; mask: var(--bp-i-lock) center / contain no-repeat; vertical-align: -0.05em; }
+#bp-device-sim [role="tab"].bp-sim-tab-locked:not(.bp-sim-tab-on) { opacity: 0.6; }
+#bp-device-sim [role="tab"].bp-sim-tab-on { background: #475569 !important; color: #fff !important; opacity: 1; }
+#bp-device-sim [role="tab"].bp-sim-tab-off { background: #f1f5f9 !important; color: #334155 !important; }
+.bp-sim-locked-row, .bp-sim-grey { opacity: 0.5; filter: grayscale(1); cursor: pointer; }
+.bp-sim-locked-row:hover, .bp-sim-grey:hover { opacity: 0.65; }
+.bp-sim-locked-units { margin-top: 1rem; }
+.bp-sim-pill { font-size: 10px; padding: 0.1rem 0.4rem; border-radius: 999px; border: 1px solid currentColor; opacity: 0.8; }
+.bp-sim-lock-note { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.7rem 0.8rem; border-radius: 12px; background: color-mix(in srgb, #F5B900 14%, transparent); border: 1px solid color-mix(in srgb, #F5B900 45%, transparent); font-size: 0.8rem; line-height: 1.4; }
+.bp-sim-lock-note > .bp-sim-lock { margin-top: 0.15rem; width: 1rem; height: 1rem; opacity: 0.8; color: #8a5a00; }
+.bp-sim-lock-note p { margin: 0 0 0.35rem; }
+.bp-sim-lock-note .bp-sim-lock-title { font-weight: 800; font-size: 0.85rem; }
+.bp-app .bp-sim-lock-note .bp-sim-unlock { min-height: 34px; padding: 0.25em 0.9em; font-size: 0.8rem; }
+#bp-device-sim .bp-sim-unlock { display: inline-flex; align-items: center; background: #F5B900; border: 1px solid #F5B900; color: #071B2E; border-radius: 999px; font-weight: 700; cursor: pointer; }
+#bp-device-sim .bp-sim-unlock:hover { background: #ffc81f; }

@@ -1650,17 +1650,21 @@
 					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: t('device_title') }), el('p', { class: 'bp-muted', text: t('device_intro') })]),
 					free ? simBanner(paywall) : null,
 					host,
-					free && config.locked ? simLockedPanel(config.locked, paywall) : null,
 					paywall ? paywall.node : null
 				], t('device_title') + ' – ' + c.name);
 				if (free) {
 					simGuard(host, paywall);
 				}
+				var freeEvents = free ? import(cfg.deviceSim + 'funkgeraet/free-practice.js?ver=' + encodeURIComponent(cfg.version)).then(function (m) { return m.FREE_EVENTS || []; }).catch(function () { return []; }) : null;
 				if (!document.getElementById('bp-device-sim-css')) {
 					document.head.appendChild(el('link', { id: 'bp-device-sim-css', rel: 'stylesheet', href: cfg.deviceSim + 'device-sim.css?ver=' + encodeURIComponent(cfg.version) }));
 				}
 				return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)).then(function (module) {
 					module.mount(host, config);
+					if (free) {
+						return freeEvents.then(function (events) { simLockedUi(host, config, paywall, events); });
+					}
+					return null;
 				});
 			});
 		});
@@ -1686,15 +1690,148 @@
 		['pointerdown', 'mousedown', 'touchstart', 'pointerup', 'keydown'].forEach(function (type) {
 			host.addEventListener(type, blockKey, { capture: true, passive: false });
 		});
+	}
+
+	var SIM_LEVELS = ['Mit Hilfe', 'Nur Hinweis', 'Allein'];
+
+	// Testversion: gesperrte Lektionen, Prüfungsreihen und Freies Üben ausgegraut in der Seitenleiste des
+	// Geräts zeigen. Das Original-JavaScript baut die Leiste bei jeder Aktion neu; ein Beobachter ergänzt sie.
+	function simLockedUi(host, config, paywall, freeEvents) {
+		var locked = config.locked || { units: [], series: [] };
+		var view = null; // 'exam' | 'free' | null
+
+		function lockNote(title, text) {
+			var b = el('button', { type: 'button', class: 'bp-button bp-button-signal bp-sim-unlock', text: t('sim_unlock') });
+			b.addEventListener('click', function (e) { e.stopPropagation(); paywall.open(view === 'exam' ? 'exam' : 'scenario'); });
+			return el('div', { class: 'bp-sim-lock-note' }, [el('span', { class: 'bp-sim-lock', 'aria-hidden': 'true' }), el('div', {}, [el('p', { class: 'bp-sim-lock-title', text: title }), el('p', { text: text }), b])]);
+		}
+
+		function greyButton(label) {
+			return el('button', { type: 'button', class: 'text-[11px] px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300', 'data-bp-locked': '1', text: label });
+		}
+
+		function lessonRow(title) {
+			return el('div', { class: 'py-2 border-b border-slate-100 dark:border-slate-700 bp-sim-locked-row', 'data-bp-locked': '1' }, [
+				el('div', { class: 'flex items-center gap-2' }, [el('span', { class: 'bp-sim-lock', 'aria-hidden': 'true' }), el('span', { class: 'flex-1 font-medium text-slate-800 dark:text-slate-100', text: title }), el('span', { class: 'bp-sim-pill', text: t('sim_full_only') })]),
+				el('div', { class: 'flex gap-1 mt-1 pl-5' }, SIM_LEVELS.map(greyButton))
+			]);
+		}
+
+		function lockedUnits() {
+			return el('div', { class: 'space-y-3 bp-sim-locked-units' }, [lockNote(t('sim_locked_title'), t('sim_locked_meta', { lessons: locked.lessons, tasks: locked.tasks, series: locked.series.length }))].concat(locked.units.map(function (u) {
+				return el('details', { class: 'group bp-sim-locked-unit' }, [
+					el('summary', { class: 'cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1' }, [u.unit + ' · ', el('span', { class: 'bp-sim-lock bp-sim-lock-inline', 'aria-hidden': 'true' }), ' ' + u.lessons.length]),
+					el('div', {}, u.lessons.map(lessonRow))
+				]);
+			})));
+		}
+
+		function examPreview() {
+			return el('div', { class: 'space-y-3 bp-sim-preview' }, [
+				lockNote(t('sim_paywall_title'), t('sim_exam_preview', { tasks: locked.tasks })),
+				el('div', { class: 'bp-sim-grey space-y-3', 'data-bp-locked': '1' }, [el('p', { class: 'text-slate-600 dark:text-slate-300', text: t('sim_exam_intro') })].concat(locked.series.map(function (x) {
+					return el('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' }, [
+						el('div', { class: 'flex items-center gap-2' }, [el('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1', text: x.title }), el('span', { class: 'bp-sim-lock', 'aria-hidden': 'true' })]),
+						el('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, (x.lessons || []).map(function (title) { return el('li', { text: title }); })),
+						greyButton(t('sim_series_start', { title: x.title }))
+					]);
+				})))
+			]);
+		}
+
+		function freePreview() {
+			var cats = config.catalogs || ['SRC'];
+			return el('div', { class: 'space-y-3 bp-sim-preview' }, [
+				lockNote(t('sim_paywall_title_more'), t('sim_free_preview')),
+				el('div', { class: 'bp-sim-grey space-y-3', 'data-bp-locked': '1' }, [el('p', { class: 'text-slate-600 dark:text-slate-300', text: t('sim_free_intro') })].concat((freeEvents || []).filter(function (g) { return cats.indexOf(g.catalog) !== -1; }).map(function (g) {
+					return el('div', { class: 'space-y-1' }, [
+						el('h3', { class: 'text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400', text: g.title }),
+						el('div', { class: 'flex flex-wrap gap-1' }, g.items.map(function (item) { return greyButton(item.label); }))
+					]);
+				})))
+			]);
+		}
+
+		function tabs() {
+			return Array.prototype.slice.call(host.querySelectorAll('[role="tab"]'));
+		}
+
+		function lockedTab(tab) {
+			var label = tab.textContent.trim();
+			return label === 'Prüfung' ? 'exam' : (label === 'Freies Üben' ? 'free' : null);
+		}
+
+		var scheduled = false;
+		function decorate() {
+			scheduled = false;
+			var list = tabs();
+			if (!list.length) {
+				return;
+			}
+			var tablist = list[0].parentElement;
+			list.forEach(function (tab) {
+				var kind = lockedTab(tab);
+				tab.classList.toggle('bp-sim-tab-locked', !!kind);
+				tab.classList.toggle('bp-sim-tab-on', !!kind && kind === view);
+				tab.classList.toggle('bp-sim-tab-off', !kind && !!view);
+			});
+			var panel = tablist.nextElementSibling;
+			while (panel && panel.classList.contains('bp-sim-preview')) {
+				panel = panel.nextElementSibling;
+			}
+			var preview = tablist.parentElement.querySelector(':scope > .bp-sim-preview');
+			if (view) {
+				if (panel) { panel.hidden = true; }
+				if (!preview || preview.getAttribute('data-view') !== view) {
+					if (preview) { preview.remove(); }
+					preview = view === 'exam' ? examPreview() : freePreview();
+					preview.setAttribute('data-view', view);
+					tablist.after(preview);
+				}
+				return;
+			}
+			if (preview) { preview.remove(); }
+			if (panel) {
+				panel.hidden = false;
+				var counter = Array.prototype.filter.call(panel.querySelectorAll('p'), function (p) { return /selbst geschafft/.test(p.textContent); })[0];
+				if (counter && !panel.querySelector('.bp-sim-locked-units')) {
+					counter.parentElement.appendChild(lockedUnits());
+				}
+			}
+		}
+		function schedule() {
+			if (!scheduled) {
+				scheduled = true;
+				window.requestAnimationFrame(decorate);
+			}
+		}
+		new MutationObserver(function (records) {
+			for (var i = 0; i < records.length; i++) {
+				if (!(records[i].target instanceof SVGElement)) { schedule(); return; }
+			}
+		}).observe(host, { childList: true, subtree: true });
+
 		host.addEventListener('click', function (e) {
 			var tab = e.target.closest && e.target.closest('[role="tab"]');
-			var label = tab ? tab.textContent.trim() : '';
-			if (label === 'Prüfung' || label === 'Freies Üben') {
+			if (tab) {
+				var kind = lockedTab(tab);
+				if (kind) {
+					e.preventDefault();
+					e.stopPropagation();
+					view = kind;
+				} else {
+					view = null;
+				}
+				decorate();
+				return;
+			}
+			if (e.target.closest && e.target.closest('[data-bp-locked]') && !e.target.closest('summary')) {
 				e.preventDefault();
 				e.stopPropagation();
-				paywall.open(label === 'Prüfung' ? 'exam' : 'scenario');
+				paywall.open(view === 'exam' ? 'exam' : 'scenario');
 			}
 		}, true);
+		decorate();
 	}
 
 	function simBanner(paywall) {
@@ -1704,21 +1841,6 @@
 			el('span', { class: 'bp-ico bp-ico-spark', 'aria-hidden': 'true' }),
 			el('div', { class: 'bp-sim-banner-text' }, [el('p', { class: 'bp-sim-banner-title', text: t('sim_free_title') }), el('p', { text: t('sim_free_text') })]),
 			unlock
-		]);
-	}
-
-	function simLockedPanel(locked, paywall) {
-		var button = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('sim_unlock') });
-		button.addEventListener('click', function () { paywall.open('scenario'); });
-		return el('section', { class: 'bp-section bp-panel bp-sim-locked', 'aria-labelledby': 'bp-sim-locked-h' }, [
-			el('div', { class: 'bp-section-head' }, [
-				el('h2', { id: 'bp-sim-locked-h' }, [el('span', { class: 'bp-ico bp-ico-lock', 'aria-hidden': 'true' }), t('sim_locked_title')]),
-				el('p', { class: 'bp-muted', text: t('sim_locked_meta', { lessons: locked.lessons, tasks: locked.tasks, series: locked.series.length }) })
-			]),
-			el('ul', { class: 'bp-sim-units' }, locked.units.map(function (u) {
-				return el('li', {}, [el('h3', { text: u.unit }), el('ul', {}, u.lessons.map(function (title) { return el('li', { text: title }); }))]);
-			}).concat(locked.series.length ? [el('li', { class: 'is-exam' }, [el('h3', { text: t('sim_exam_mode') }), el('ul', {}, locked.series.map(function (x) { return el('li', { text: t('sim_series_line', { title: x.title, n: x.tasks }) }); }))])] : [])),
-			el('p', {}, [button])
 		]);
 	}
 

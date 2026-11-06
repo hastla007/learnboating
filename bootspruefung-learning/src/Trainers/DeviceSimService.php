@@ -138,8 +138,9 @@ final class DeviceSimService
         }
         $series = [];
         $tasks = 0;
+        $titles = array_column($lessons, 'title', 'key');
         foreach ($this->exams($catalogs) as $exam) {
-            $series[] = ['title' => $exam['title'], 'tasks' => count($exam['lessons'])];
+            $series[] = ['title' => $exam['title'], 'tasks' => count($exam['lessons']), 'lessons' => array_values(array_map(static fn ($k) => $titles[$k] ?? $k, $exam['lessons']))];
             $tasks += count($exam['lessons']);
         }
 
