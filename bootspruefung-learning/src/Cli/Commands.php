@@ -19,6 +19,7 @@ final class Commands
         WP_CLI::add_command('bootspruefung status', [self::class, 'status']);
         WP_CLI::add_command('bootspruefung migrate', [self::class, 'migrate']);
         WP_CLI::add_command('bootspruefung import', [self::class, 'import']);
+        WP_CLI::add_command('bootspruefung rollback', [self::class, 'rollback']);
     }
 
     /**
@@ -99,6 +100,43 @@ final class Commands
             WP_CLI::log(sprintf('  %-18s %d/%d', $step['phase'], $step['processed'], $step['total']));
         });
         WP_CLI::success("Paket {$batch->package_id} veröffentlicht.");
+    }
+
+    /**
+     * Setzt den Content auf den Stand eines früher veröffentlichten Imports zurück.
+     *
+     * <import-id>
+     * : ID des veröffentlichten Imports (siehe Admin → Content-Pakete).
+     *
+     * --reason=<text>
+     * : Begründung (Pflicht, Audit-Log).
+     *
+     * [--yes]
+     * : Ohne Rückfrage ausführen.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function rollback(array $args, array $assoc): void
+    {
+        $service = Plugin::instance()->importService();
+        try {
+            $batchId = $service->rollback((int) $args[0], (string) ($assoc['reason'] ?? ''));
+            $preview = $service->preview($batchId);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error($e->getMessage());
+        }
+        $rows = [];
+        foreach ($preview as $entity => $counts) {
+            if ($entity !== '_rights') {
+                $rows[] = ['entity' => $entity] + $counts;
+            }
+        }
+        WP_CLI\Utils\format_items('table', $rows, ['entity', 'create', 'update', 'unchanged', 'archive']);
+        WP_CLI::confirm('Auf diesen Stand zurücksetzen?', $assoc);
+        $service->approve($batchId, 'Rollback: '.$assoc['reason']);
+        $service->runAll($batchId);
+        WP_CLI::success("Rollback als Import #{$batchId} veröffentlicht.");
     }
 
     /** Führt ausstehende Datenbankmigrationen aus. */

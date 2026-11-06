@@ -49,6 +49,7 @@ final class ImportPage
                 'approve' => $service->approve($batchId, sanitize_textarea_field(wp_unslash((string) ($_POST['note'] ?? '')))),
                 'discard' => $service->discard($batchId),
                 'validate' => $service->validate($batchId),
+                'rollback' => $batchId = $service->rollback($batchId, sanitize_textarea_field(wp_unslash((string) ($_POST['note'] ?? '')))),
                 default => throw new RuntimeException(__('Unbekannte Aktion.', 'bootspruefung-learning')),
             };
         } catch (RuntimeException $e) {
@@ -123,6 +124,10 @@ final class ImportPage
             __('Veröffentlicht', 'bootspruefung-learning') => esc_html(Ui::date($batch->published_at)),
         ]);
 
+        $batchStats = $service->stats($batch);
+        if (isset($batchStats['rollback_of'])) {
+            echo '<div class="notice notice-warning inline"><p>'.sprintf(esc_html__('Rollback auf den Stand von Import #%1$d. Begründung: %2$s', 'bootspruefung-learning'), (int) $batchStats['rollback_of'], esc_html((string) ($batchStats['rollback_reason'] ?? ''))).'</p></div>';
+        }
         if ($batch->error) {
             echo '<div class="notice notice-error inline"><p><strong>'.esc_html__('Fehler', 'bootspruefung-learning').'</strong></p><pre style="white-space:pre-wrap">'.esc_html((string) $batch->error).'</pre></div>';
         }
@@ -209,6 +214,12 @@ final class ImportPage
                     (int) $batch->id,
                     esc_html($batch->status === 'importing' ? __('Import fortsetzen', 'bootspruefung-learning') : __('Import starten', 'bootspruefung-learning'))
                 );
+                break;
+            case 'published':
+                if ($batch->package_id !== get_option('bp_learning_active_package')) {
+                    echo '<p class="description">'.esc_html__('Dieser Stand ist nicht mehr aktiv. Zurücksetzen legt einen neuen Import aus diesem Paket an, der wie jeder Import geprüft, als Vorschau angezeigt und freigegeben wird. Frühere Fragenrevisionen werden wieder aktiv, nichts wird gelöscht.', 'bootspruefung-learning').'</p>';
+                    echo $form('rollback', __('Auf diesen Stand zurücksetzen', 'bootspruefung-learning'), 'secondary', '<label>'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').' <input type="text" name="note" class="regular-text" required></label> ');
+                }
                 break;
             case 'failed':
                 echo $form('validate', __('Erneut prüfen', 'bootspruefung-learning'));

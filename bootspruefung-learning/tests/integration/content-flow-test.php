@@ -91,6 +91,7 @@ $praxis = json_decode((string) file_get_contents("{$tmp}/data/praxis_tasks.json"
 $removed = array_pop($praxis)['source_id'];
 file_put_contents("{$tmp}/data/praxis_tasks.json", json_encode($praxis, $flags));
 $m = json_decode((string) file_get_contents("{$tmp}/manifest.json"), true);
+$m['package_id'] = (string) preg_replace('/-[0-9a-f]{12}$/', '-00000000c0de', $m['package_id']);
 foreach ($m['files'] as &$f) {
     if (str_starts_with($f['path'], 'data/')) {
         $f['size'] = filesize("{$tmp}/{$f['path']}");
@@ -108,11 +109,27 @@ $qid = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}question WHERE so
 $revs = $wpdb->get_results($wpdb->prepare("SELECT revision_no, editorial_status FROM {$p}question_revision WHERE question_id = %d ORDER BY revision_no", $qid));
 $check(count($revs) >= 2 && end($revs)->editorial_status === 'published' && $revs[count($revs) - 2]->editorial_status === 'deprecated', 'neue Revision veröffentlicht, alte deprecated');
 $check($wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}praxis_task WHERE source_id = %s", $removed)) === 'source_archived', 'entfernte Praxiskarte archiviert, nicht gelöscht');
-$id4 = $service->createFromDirectory($packageDir);
-$service->preview($id4);
-$service->approve($id4);
+echo "Rollback\n";
+$threw = false;
+try {
+    $service->rollback($id2, ' ');
+} catch (RuntimeException $e) {
+    $threw = true;
+}
+$check($threw, 'Rollback ohne Begründung abgewiesen');
+$revCount = $count('question_revision', "question_id = {$qid}");
+$id4 = $service->rollback($id2, 'Integrationstest: Korrektur zurücknehmen');
+$preview = $service->preview($id4);
+$check($preview['questions']['update'] === 1 && $preview['praxis_tasks']['update'] === 1, 'Rollback-Vorschau: 1 Frage, 1 Praxiskarte zurück');
+$service->approve($id4, 'Rollback');
 $service->runAll($id4);
-$check($wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}praxis_task WHERE source_id = %s", $removed)) === 'published', 'Praxiskarte nach Rückkehr wieder aktiv');
+$revs = $wpdb->get_results($wpdb->prepare("SELECT id, revision_no, editorial_status FROM {$p}question_revision WHERE question_id = %d ORDER BY revision_no", $qid));
+$currentRev = (int) $wpdb->get_var($wpdb->prepare("SELECT current_revision_id FROM {$p}question WHERE id = %d", $qid));
+$check($count('question_revision', "question_id = {$qid}") === $revCount, 'Rollback legt keine neue Revision an');
+$check($currentRev === (int) $revs[0]->id && $revs[0]->editorial_status === 'published' && end($revs)->editorial_status === 'deprecated', 'ursprüngliche Revision wieder aktiv, Korrektur deprecated');
+$check($wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}praxis_task WHERE source_id = %s", $removed)) === 'published', 'Praxiskarte nach Rollback wieder aktiv');
+$check(get_option('bp_learning_active_package') === $manifest['package_id'], 'ursprüngliches Paket wieder aktiv');
+$check($count('audit_log', "action = 'import_rolled_back'") > 0, 'Rollback im Audit-Log');
 ImportService::removeDir($tmp);
 
 $bad = sys_get_temp_dir().'/bp-bad-'.getmypid().'.zip';

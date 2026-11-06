@@ -80,6 +80,38 @@ final class ImportService
         return $batchId;
     }
 
+    /**
+     * Rollback (Konzept Kap. 9): legt aus einem früher veröffentlichten Paket einen
+     * neuen Import an. Er durchläuft wie jeder Import Prüfung, Vorschau und Freigabe.
+     * Beim Import werden die damaligen Fragenrevisionen wieder aktiv (nichts wird
+     * gelöscht), seitdem hinzugekommene Inhalte werden archiviert.
+     */
+    public function rollback(int $targetBatchId, string $reason): int
+    {
+        $target = $this->batch($targetBatchId);
+        if ($target->status !== 'published') {
+            throw new RuntimeException('Zurücksetzen ist nur auf einen veröffentlichten Stand möglich.');
+        }
+        if ($target->package_id === get_option('bp_learning_active_package')) {
+            throw new RuntimeException('Dieses Paket ist bereits aktiv.');
+        }
+        if (trim($reason) === '') {
+            throw new RuntimeException('Für das Zurücksetzen ist eine Begründung erforderlich.');
+        }
+        $dir = $this->batchDir($targetBatchId);
+        if (! is_dir($dir)) {
+            throw new RuntimeException("Die Paketdateien von Import #{$targetBatchId} sind nicht mehr vorhanden.");
+        }
+        $batchId = $this->createFromDirectory($dir);
+        $stats = $this->stats($this->batch($batchId));
+        $stats['rollback_of'] = $targetBatchId;
+        $stats['rollback_reason'] = $reason;
+        $this->updateBatch($batchId, ['stats' => wp_json_encode($stats)]);
+        AuditLog::record('import_rollback_requested', 'import_batch', (string) $batchId, $reason, ['target_batch' => $targetBatchId, 'package_id' => $target->package_id]);
+
+        return $batchId;
+    }
+
     public function validate(int $batchId): bool
     {
         $package = $this->package($batchId);
@@ -240,7 +272,7 @@ final class ImportService
             if ($done) {
                 update_option('bp_learning_active_package', $batch->package_id, true);
                 wp_cache_flush_group('bootspruefung');
-                AuditLog::record('import_published', 'import_batch', (string) $batchId, null, ['package_id' => $batch->package_id, 'actions' => $stats['actions']]);
+                AuditLog::record(isset($stats['rollback_of']) ? 'import_rolled_back' : 'import_published', 'import_batch', (string) $batchId, $stats['rollback_reason'] ?? null, ['package_id' => $batch->package_id, 'actions' => $stats['actions'], 'rollback_of' => $stats['rollback_of'] ?? null]);
             }
 
             return ['done' => $done, 'phase' => $phase, 'processed' => min($offset, $total), 'total' => $total];

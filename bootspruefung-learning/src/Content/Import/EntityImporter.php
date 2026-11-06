@@ -239,9 +239,22 @@ final class EntityImporter
             ));
         }
 
+        // Gab es diesen Stand schon einmal (Rollback oder Rückkehr zu einer früheren
+        // Fassung), wird diese Revision wieder aktiv statt eine neue anzulegen.
+        $previous = $existing === null ? null : $this->db->get_row($this->db->prepare(
+            "SELECT id, editorial_status FROM {$this->t('question_revision')} WHERE question_id = %d AND source_hash = %s ORDER BY revision_no DESC LIMIT 1",
+            $questionId,
+            $r['hash']
+        ));
         if ($current !== null && $current->source_hash === $r['hash']) {
             // Gleicher Inhalt (z. B. reaktivierte archivierte Frage): keine neue Revision.
             $revisionId = (int) $current->id;
+        } elseif ($previous !== null) {
+            $revisionId = (int) $previous->id;
+            $this->db->update($this->t('question_revision'), ['editorial_status' => $rev['editorial_status']], ['id' => $revisionId]);
+            if ($current !== null && $current->editorial_status === 'published') {
+                $this->db->update($this->t('question_revision'), ['editorial_status' => 'deprecated'], ['id' => (int) $current->id]);
+            }
         } else {
             $this->insert('question_revision', [
                 'question_id' => $questionId,
