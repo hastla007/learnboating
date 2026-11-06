@@ -1,14 +1,17 @@
 # Technisches Umsetzungskonzept: WordPress-Lernplugin für Bootsprüfungen
 
-**Stand:** 6. November 2026  
+**Stand:** 6. November 2026 (überarbeitet nach Quellabgleich)  
 **Zielgruppe:** WordPress-, PHP-, WooCommerce- und Frontend-Entwicklung  
-**Inhaltsquelle:** `hastla007/boatingschool`  
+**Inhaltsquelle:** `hastla007/boatingschool`, Branch `main`, geprüfter Stand Commit `136a243` (05.11.2026)  
+**Ziel-Repository:** `hastla007/learnboating`  
 
 ## 1. Ziel und Abgrenzung
 
 Dieses Plugin erweitert eine bestehende WordPress-Website um eine eigenständige Lernplattform für Bootsführerscheine, Navigation, Praxis, Funk und Video-Kurse. Es importiert und nutzt den bereits aufbereiteten Content aus dem GitHub-Projekt `hastla007/boatingschool`.
 
-Das Laravel-Projekt dient ausschließlich als Content-Quelle und Exporter. Die Laravel-Anwendung, deren PostgreSQL-Datenbank, Login-System, Mandanten, Nutzer, Lernstände, Freischaltungen, Coupons und Betrieb werden nicht als Laufzeitabhängigkeit übernommen. Es gibt keine direkte Laufzeitverbindung von WordPress zur Laravel-Datenbank.
+Das Laravel-Projekt dient ausschließlich als **schreibgeschützte Content-Quelle**. Im Repository `hastla007/boatingschool` wird nichts geändert – insbesondere wird dort kein Exporter-Kommando ergänzt. Stattdessen wird das gesamte inhaltliche Gerüst (Datendateien, in Seedern hinterlegter Content, Medien und die zur Textgenerierung nötige Logik als Referenz) als versionierter Snapshot in dieses WordPress-Repository übernommen und hier in ein Content-Paket konvertiert (siehe Kap. 3).
+
+Die Laravel-Anwendung, deren PostgreSQL-Datenbank, Login-System, Mandanten, Nutzer, Lernstände, Freischaltungen, Coupons und Betrieb werden nicht als Laufzeitabhängigkeit übernommen. Es gibt keine direkte Laufzeitverbindung von WordPress zur Laravel-Datenbank.
 
 WordPress wird zur Laufzeit maßgebliche Instanz für:
 
@@ -21,7 +24,8 @@ Die importierten Quellinhalte behalten ihre Quell-ID und Revision. Reimporte akt
 
 ### Im Umfang
 
-- Content-Export aus Laravel-Quelle und versionierter Import in WordPress;
+- Übernahme des Content-Bestands als versionierter Snapshot in dieses Repository, Konvertierung in ein Content-Paket und versionierter Import in WordPress;
+- alle 14 Kursdefinitionen der Quelle (SBF See, SBF Binnen, SBF Binnen unter Segel, Kombi- und Ergänzungskurse, SRC, UBI, SRC & UBI, SKN, FKN, Ergänzung FKN → SKN), sofern in Kap. 13 nicht anders entschieden;
 - Fragenkatalog, Erklärungen, Module und Scheine;
 - Lernmodus, Merkliste, Lernfortschritt, Smarttrainer;
 - zufällige Prüfungssimulation und feste Prüfungsbögen;
@@ -36,19 +40,52 @@ Die importierten Quellinhalte behalten ihre Quell-ID und Revision. Reimporte akt
 - Import von Laravel-Nutzerkonten, Tenant-Daten, Versuchen, Fortschrittsdaten, Coupons oder persönlichen Einstellungen;
 - native iOS-/Android-Apps und Offlinebetrieb;
 - WooCommerce-Abonnements, sofern das Geschäftsmodell nicht ausdrücklich geändert wird;
-- Übernahme der Laravel-Administration oder mandantenspezifischen Funktionen;
+- Übernahme der Laravel-Administration oder mandantenspezifischen Funktionen (Branding, Einladungen, Standorte, Superadmin);
+- Bootsschul-Betriebsfunktionen der Quelle, die kein Lerncontent sind: Prüfungsbuchung (`pruefung_buchen.php`), Prüfungsausschüsse (`pruefungsausschuesse.csv`), Praxis-Anmeldeformulare und -termine, Willkommensbox, Promo-Banner, Addon-Vorlagen – Übernahme nur nach ausdrücklicher Entscheidung (Kap. 13);
 - automatische Behauptung, ein Inhalt sei amtlich, aktuell oder frei nutzbar, wenn Quelle, Stand und Rechte nicht belegt sind.
 
 ## 2. Bekannte Content-Quelle und Konsequenzen
 
-Das Repository enthält eine Laravel-Anwendung mit PostgreSQL-Datenmodell sowie Content in Datenbank-Seeds und Dateien unter `database/data/`. Der dokumentierte Bestand umfasst u. a. Fragen mit Revisionen, Antworten und Medien, Kurse und Module, Prüfungsregeln, feste Bögen, Navigationsaufgaben, Praxiskarten, Videokurse, Funktraining und Gerätesimulation.
+Das Repository enthält eine Laravel-Anwendung mit PostgreSQL-Datenmodell. Der Content liegt **an drei Stellen**: in Dateien unter `database/data/`, direkt im PHP-Code der Seeder unter `database/seeders/` (u. a. Videokurse, Lektionen, Schrittgalerien, Videoquiz-Zuordnungen, Regelwerke) und in Generatorlogik unter `app/Support/` (`FunkPraxis`, `FunkTraining`, `Geraetesimulation`, `NavigationAnswer`, `ComboExamGroups`, `ComboVideoGroups`, `VideoCourseLessons`). Ein Snapshot nur von `database/data/` reicht daher nicht.
 
-Die README beschreibt eine zentrale Fragenbasis mit 838 Tabellenzeilen, davon 823 als A–D-Fragen importierbar; freie Kartenaufgaben ohne A–D-Antworten müssen als eigener Inhaltstyp behandelt werden und dürfen nicht verworfen werden. Versions- und Umfangszahlen sind beim Export dynamisch zu ermitteln, nicht im WordPress-Plugin zu hardcodieren.
+### 2.1 Geprüfter Bestand (Commit `136a243`)
 
-Die Quellmigrationen und Dateien sind Teil der technischen Spezifikation:
+| Bereich | Quelle | Befund |
+|---|---|---|
+| Zentrale Fragenbasis | `database/data/zentrale_fragenbasis.xlsx`, Blatt „Central Question Pool“ | 838 Datenzeilen, `content_id` eindeutig; 823 mit A–D-Antworten; 15 Zeilen ohne Antworten, alle SBF See (Kartenaufgaben wie „Wie lautet der rwK?“, ab Nr. 286) |
+| Verteilung nach Modul | ebd. | SBF See 228, SBF Binnen 181, SRC 180, UBI 130, Basis 72, SBF Binnen Segeln 47 |
+| Bilder an Fragen | ebd., `image_required` | 135 Fragen benötigen ein Bild; 153 ELWIS-Bilder in `elwis_bilder/`, Zuordnung `elwis_bilder.csv` |
+| Quellenangabe | ebd., `source_catalog`/`source_version` | nur bei 311 Zeilen gefüllt (SRC 180, UBI 130, 1 × ELWIS See); **527 Zeilen ohne Katalog-/Versionsangabe** |
+| Weitere Kataloge | `skn_catalog.php`, `fkn_catalog.php`, `ubi_ergaenzung_katalog.php` | SKN 89 Fragen; FKN 62 Fragen, deckt laut Dateikommentar **nur das Kapitel Pyrotechnik/Waffenrecht** ab; UBI-Ergänzung 79 Fragen (Teilmenge UBI) |
+| Erklärungen/Feedback | `fragen_erklaerungen.csv`, `sbf_see_binnen_fragen_feedback.csv` | richtiges/falsches Feedback je `content_id` |
+| Katalogaktualisierung | `CatalogUpdateSeeder` | UBI 10/2026: 65 geänderte Fragen als neue Revision, alte Fassung `deprecated` |
+| Module / Kurse | `ModuleSeeder`, `CourseSeeder` | 9 Module (`SBF_BASIS`, `SBF_SEE`, `SBF_BINNEN`, `SBF_BINNEN_SEGELN`, `SRC`, `UBI`, `UBI_ERG`, `SKN`, `FKN`), 14 Kurse (Typen `full`, `combo`, `addon`) |
+| Feste Bögen | `*_pruefungsboegen.csv`, `*_uebungsboegen.csv`, `fkn_pruefungsboegen.php` | z. B. SBF See 15 × 30, SRC 12 × 24, UBI 12 × 22, UBI-Ergänzung 12 × 10; Kombikurs SRC & UBI nummeriert 1–12, 101–112, 201–212 |
+| Regelwerke | `ExamRuleSetSeeder` | nur ein Teil ist verifiziert; Kombikurs SRC & UBI bleibt `draft` (unterschiedliche Bestehensgrenzen 19/24, 17/22, 8/10) |
+| Navigation | `sbf_see_navigationsaufgaben.csv` | 15 Aufgaben × 9 Teilaufgaben = 135 Zeilen |
+| Praxistrainer | `sbf_see_`, `sbf_binnen_`, `sbf_binnen_segeln_`, `skn_`, `fkn_praxistrainer.csv`, `praxistrainer_elwis_bilder.csv` | 68 PNG + 68 SVG in `praxistrainer_bilder*/` |
+| Videokurse | `VideoCourseSeeder` u. a. (Content im Seeder-Code) | alle Lektionen verweisen auf das Platzhaltervideo `w3schools.com/html/mov_bbb.mp4`; Schrittgalerien teils nur benannte Platzhalter |
+| Funk | `funk_praxis_aufgaben.php`, `funk_seefunktexte.php`, `funk_ubi_texte.php`, `funk_vokabeln.php`, `funk_video_quiz.php` | Praxisaufgaben kompakt als Parameter; Texte/Musterlösung/Prüfpunkte erzeugt `App\Support\FunkPraxis`; Fortschrittsschlüssel sind **Listenpositionen** (`SRC-01` …) |
+| Gerätesimulation | `geraetesimulation.php` | Geräte IC-M323, IC-M330, IC-M423, IC-M503, IC-M505, IC-M94DE |
+| Status-Enums | Migration `…000010` | `content_status`: `draft`, `review`, `approved`, `published`, `deprecated`; `rights_status`: `unknown`, `review`, `licensed`, `public`, `restricted` (Default `unknown`) |
+| Rechtehinweise | Blatt „Source Catalogs“ | SRC- und UBI-PDF weisen auf **Genehmigungspflicht für Abdruck/Vervielfältigung/Veröffentlichung** hin |
+
+Zahlen sind nur Prüfstand dieses Commits. Beim Konvertieren werden sie dynamisch ermittelt und im Manifest ausgewiesen, nicht im WordPress-Plugin hardcodiert. Freie Kartenaufgaben ohne A–D-Antworten werden als eigener Fragetyp (`chart_task`/`open_text`) übernommen und nicht verworfen.
+
+### 2.2 Konsequenzen
+
+- **Rechte sind der größte Go-live-Blocker.** Mit `rights_status` = `unknown` als Default und 527 Fragen ohne Quellenangabe wäre nach Kap. 4.10 der Großteil des Contents gesperrt. Ein Rechte-Audit (Kap. 11, Schritt 1) ist Voraussetzung, nicht Nacharbeit.
+- **FKN ist unvollständig.** Ein verkaufbarer FKN-Kurs braucht zusätzlich die Funkverkehr-Fragen.
+- **Videos sind Platzhalter** und sperren die Veröffentlichung, bis lizenzierte Videos vorliegen.
+- **Generatorlogik muss portiert werden.** Da die Quelle nicht geändert wird, bildet der Konverter in diesem Repository die Logik aus `app/Support/` nach. Er liefert fertig gerenderte Szenarien, Musterlösungen und Prüfpunkte, sodass das Plugin zur Laufzeit keine Rohparameter interpretiert. Die Portierung wird per Golden-Master-Test gegen die Laravel-Ausgabe abgesichert (lokal erzeugt aus dem gepinnten Quell-Commit, ohne Änderung am Quellrepository).
+- **Positionsbasierte IDs** (`SRC-01` …) werden beim ersten Import als stabile Quell-ID eingefroren; spätere Umsortierungen in der Quelle dürfen sie nicht verschieben (Konverter prüft gegen das vorige Manifest).
+- Fragen werden in festen Bögen über `official_number` + Fragenfamilie referenziert; der Konverter löst das in eindeutige `content_id` auf und meldet nicht auflösbare Verweise als Fehler.
+
+### 2.3 Quellreferenzen
 
 - [Repository und README](https://github.com/hastla007/boatingschool)
 - [Fragen, Revisionen, Antworten und Frage-Medien](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000020_create_content_tables.php)
+- [Multi-Choice/Offene Fragen](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000340_add_multi_choice_and_open_text_columns.php)
 - [Kurse und Module](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000030_create_module_and_course_tables.php)
 - [Prüfungsregeln und Simulationen](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000050_create_exam_tables.php)
 - [Feste Prüfungsbögen](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000110_create_exam_paper_tables.php)
@@ -57,31 +94,28 @@ Die Quellmigrationen und Dateien sind Teil der technischen Spezifikation:
 - [Videokurse](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000080_create_video_course_tables.php)
 - [Video-Schrittgalerien](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000090_create_video_lesson_step_table.php)
 - [Videoquiz-Zuordnungen](https://github.com/hastla007/boatingschool/blob/main/database/migrations/2024_02_01_000330_create_video_lesson_question_table.php)
-- [Funk-Praxisaufgaben](https://github.com/hastla007/boatingschool/blob/main/database/data/funk_praxis_aufgaben.php)
-- [SRC-Seefunktexte](https://github.com/hastla007/boatingschool/blob/main/database/data/funk_seefunktexte.php)
-- [UBI-Funktexte](https://github.com/hastla007/boatingschool/blob/main/database/data/funk_ubi_texte.php)
-- [Funk-Vokabeln](https://github.com/hastla007/boatingschool/blob/main/database/data/funk_vokabeln.php)
-- [Funk-Videoquiz-Zuordnungen](https://github.com/hastla007/boatingschool/blob/main/database/data/funk_video_quiz.php)
-- [Gerätesimulation](https://github.com/hastla007/boatingschool/blob/main/database/data/geraetesimulation.php)
-
-Die PHP-Datendateien enthalten teilweise kompakte Rohdaten, aus denen Laravel derzeit Texte, Musterlösungen oder Prüfpunkte generiert. Ein WordPress-Content-Export muss deshalb entweder fertig gerenderte Inhalte und strukturierte Bewertungsdaten liefern oder die nötige Generator- und Bewertungslogik explizit in WordPress nachbilden. Rohdaten allein reichen dort nicht.
+- [Datendateien `database/data/`](https://github.com/hastla007/boatingschool/tree/main/database/data)
+- [Seeder `database/seeders/`](https://github.com/hastla007/boatingschool/tree/main/database/seeders)
+- [Generatorlogik `app/Support/`](https://github.com/hastla007/boatingschool/tree/main/app/Support)
 
 ## 3. Systemarchitektur
 
 ### 3.1 Komponenten
 
-1. **Laravel Content Exporter:** CLI-Kommando im Quellrepository; liest nur veröffentlichbaren Content sowie erforderliche Beziehungen und Dateien. Es exportiert keine personenbezogenen Daten oder Mandanten.
-2. **Content Package:** versioniertes ZIP mit `manifest.json`, strukturierten JSON-Dateien pro Inhaltstyp und Medien im relativen Pfad. UTF-8, explizite Datumsformate und keine PHP-Serialisierung.
-3. **WordPress Importer:** Dry-Run, Validierung, Mapping, Idempotenz, Transaktions-/Batchverarbeitung, Importprotokoll und Freigabe.
-4. **Lernplugin:** PHP-Domain-Layer, Tabellen, REST-API, Adminoberfläche und nutzerseitige Lernoberfläche.
-5. **WooCommerce Adapter:** Produktzuordnung und Ereignisverarbeitung; nutzt WooCommerce-Datenobjekte und APIs, keine direkten Bestell-SQL-Abfragen.
+1. **Content-Snapshot (`content-source/boatingschool/`):** unveränderte Kopie der content-relevanten Teile des Quellrepos zu einem gepinnten Commit – `database/data/` vollständig, die content-tragenden Seeder sowie die Generatorklassen aus `app/Support/` als Referenz. `SOURCE.md` dokumentiert Commit-SHA, Datum, Dateiliste mit SHA-256 und Lizenz-/Rechtehinweise. Aktualisierung nur per Skript (`tools/sync-source.sh <commit>`), nie per Handbearbeitung; Mandanten-, Nutzer- und Demodaten-Seeder werden nicht übernommen.
+2. **Content-Konverter (`tools/content-build/`):** PHP-CLI in diesem Repository; liest ausschließlich den Snapshot, portiert die nötige Generatorlogik, validiert gegen das JSON-Schema und erzeugt das Content-Paket. Keine Datenbank-, Netzwerk- oder Laravel-Laufzeitabhängigkeit.
+3. **Content Package:** versioniertes ZIP mit `manifest.json`, strukturierten JSON-Dateien pro Inhaltstyp und Medien im relativen Pfad. UTF-8, explizite Datumsformate und keine PHP-Serialisierung.
+4. **WordPress Importer:** Dry-Run, Validierung, Mapping, Idempotenz, Transaktions-/Batchverarbeitung, Importprotokoll und Freigabe.
+5. **Lernplugin:** PHP-Domain-Layer, Tabellen, REST-API, Adminoberfläche und nutzerseitige Lernoberfläche.
+6. **WooCommerce Adapter:** Produktzuordnung und Ereignisverarbeitung; nutzt WooCommerce-Datenobjekte und APIs, keine direkten Bestell-SQL-Abfragen.
 
 ### 3.2 Paketformat
 
 `manifest.json` enthält mindestens:
 
-- `package_id`, `schema_version`, `exporter_version`;
-- `source_repository`, `source_branch`, `source_commit_sha`, `exported_at`;
+- `package_id`, `schema_version`, `converter_version`;
+- `source_repository`, `source_branch`, `source_commit_sha` (aus `SOURCE.md` des Snapshots), `built_at`;
+- `previous_package_id` zum Abgleich stabiler IDs;
 - deklarierte Content-Kataloge, Sprachen und Versionsstände;
 - Anzahl Datensätze je Entität;
 - Datei- und Assetmanifest mit Größe, MIME-Type und SHA-256;
@@ -110,7 +144,8 @@ Jede importierte Entität braucht:
 - stabile Quell-ID und Entitätstyp;
 - Sprache/Locale;
 - Katalog-/Content-Version;
-- Status `draft`, `review`, `published`, `deprecated`, `archived` oder äquivalente WordPress-Enums;
+- Status `draft`, `review`, `approved`, `published`, `deprecated` (wie Quelle) plus lokal `source_archived` für in der Quelle entfernte Datensätze;
+- Rechte-Status `unknown`, `review`, `licensed`, `public`, `restricted` (wie Quelle);
 - `valid_from`, `valid_to` soweit fachlich anwendbar;
 - Quelle, Herausgeber, Quellenreferenz und Quellseite;
 - Rechteinhaber, Lizenzreferenz, Rechte-Status;
@@ -181,7 +216,7 @@ Kategorien sind navigierbar und bilden die Grundlage für Kategorie-Fortschritt.
 
 **Funk-Praxis-Szenario (SRC/UBI):** Quell-ID, Katalog, laufende Nummer, Meldungsart, Szenario- und Situationsdaten, eigenes Schiff, Rufzeichen, MMSI, Schiffstyp, Position, Zeit, Gegenstellen, Kanal, Gefahr/Ereignis, Beteiligte/Personenzahl, gerenderte Aufgabenbeschreibung, Musterfunkspruch, Prüfpunkte, Musterlösung, zulässige Varianten, kritische Fehler, Bewertungsregel, Sprache, Rechte-/Quellenstatus.
 
-Die Quelle speichert Fälle teilweise kompakt als Parameterobjekte. Der Exporter muss zusätzlich den von Laravel erzeugten vollständigen Szenariotext, Musterfunkspruch und Bewertungsprüfpunkte exportieren. Das WP-Plugin soll keine unvollständigen Szenarien aus bloßen Rohparametern erraten.
+Die Quelle speichert Fälle kompakt als Parameterobjekte; Texte, Musterlösung und Prüfpunkte erzeugt dort `App\Support\FunkPraxis`. Der Konverter portiert diese Logik und schreibt vollständigen Szenariotext, Musterfunkspruch und Bewertungsprüfpunkte ins Paket. Das WP-Plugin erzeugt keine Szenarien aus Rohparametern. Die Quell-IDs sind dort Listenpositionen (`SRC-01` …) und werden beim ersten Import eingefroren.
 
 **SRC-Seefunktext:** stabile ID, Richtung (Land→See/See→Land), Meldungsart, deutscher Text, englischer Text, segmentierte Textteile, Reihenfolge, Quelle/Rechte.
 
@@ -189,7 +224,7 @@ Die Quelle speichert Fälle teilweise kompakt als Parameterobjekte. Der Exporter
 
 **Vokabel:** feste Quell-ID, Katalog, Kategorie, Deutsch, Englisch, Aussprache-/Audioasset wenn vorhanden, zulässige Varianten und Sortierung. IDs nicht aus Textpaaren generieren, da Textkorrekturen sonst Fortschrittsschlüssel ändern.
 
-**Gerätesimulation:** Geräte-ID/Modell (z. B. IC-M505, IC-M323, IC-M423, IC-M503/DS-100), Funkkatalog SRC/UBI, Lektionen, Stufe, unterstützte Geräte, Startzustand, Schrittfolge, Zielereignis (`goal`), Bedienteil (`target`), Hilfetext, gerätespezifische Abweichung, Empfangsereignis, Gegensprechtext, Prüfchecks (Label, Regex/Regel, Mindestanzahl), Musterlösung und Szenarioverweis.
+**Gerätesimulation:** Geräte-ID/Modell (laut Quelle IC-M323, IC-M330, IC-M423, IC-M503/DS-100, IC-M505, IC-M94DE), Funkkatalog SRC/UBI, Lektionen, Stufe, unterstützte Geräte, Startzustand, Schrittfolge, Zielereignis (`goal`), Bedienteil (`target`), Hilfetext, gerätespezifische Abweichung, Empfangsereignis, Gegensprechtext, Prüfchecks (Label, Regex/Regel, Mindestanzahl), Musterlösung und Szenarioverweis.
 
 Wenn eine Browserstimme statt lizenzierter Sprecheraufnahme verwendet wird, ist das als Ausgabemodus konfigurierbar. Audio-/Stimmdateien werden als Medien mit Rechten geführt.
 
@@ -199,6 +234,7 @@ Wenn eine Browserstimme statt lizenzierter Sprecheraufnahme verwendet wird, ist 
 - Rechteinformationen sind je Inhalt/Revision/Asset vererbbar, müssen aber bei Asset-Abweichung überschreibbar sein.
 - Für eigene Übungstexte und amtliche Originaltexte werden getrennte Quellen-/Lizenzangaben geführt.
 - Importprotokoll vermerkt, wer einen gesperrten Inhalt freigegeben hat, wann und auf welcher Rechtsgrundlage.
+- Rechte werden beim Konvertieren aus dem Snapshot abgeleitet (z. B. Katalogblatt „Source Catalogs“, ELWIS-Quell-URLs in `elwis_bilder.csv`); fehlt eine Angabe, bleibt `unknown`. Eine pauschale Freigabe ganzer Kataloge ist im Admin möglich, wird aber mit Rechtsgrundlage protokolliert.
 
 ## 5. WordPress-Datenmodell
 
@@ -223,7 +259,9 @@ Präfix `wp_bp_` ist beispielhaft und muss das echte `$wpdb->prefix` berücksich
 - `bp_radio_scenario`, `bp_radio_text`, `bp_radio_vocabulary`, `bp_device`, `bp_device_lesson`, `bp_device_step`.
 - `bp_import_batch`, `bp_import_item_log`, `bp_audit_log`.
 
-Alle Contenttabellen tragen mindestens Quell-ID, Quellhash und Status. Fremdschlüssel und eindeutige Indizes sichern die Zuordnungen. Migrationen sind versioniert und laufen bei Plugin-Aktivierung/Update kontrolliert.
+- `bp_access_rule`: Free/Pro-Konfiguration je Kurs/Modul/Feature (siehe 7.2).
+
+Alle Contenttabellen tragen mindestens Quell-ID, Quellhash und Status. Eindeutige Indizes sichern die Zuordnungen. Mindestanforderung ist **InnoDB** (für Transaktionen und Fremdschlüssel); das Plugin prüft die Engine bei Aktivierung und verweigert sonst den Start mit Hinweis. Da `dbDelta()` keine Fremdschlüssel verwaltet, werden Tabellen per `dbDelta()` angelegt und Fremdschlüssel in separaten, versionierten Migrationsschritten (`ALTER TABLE … ADD CONSTRAINT`) ergänzt. Migrationen laufen bei Aktivierung/Update kontrolliert und einmalig (Schema-Version in `wp_options`, Lock gegen Parallelausführung).
 
 ### 5.2 Nutzer-/Lerntabellen
 
@@ -238,7 +276,7 @@ Alle Contenttabellen tragen mindestens Quell-ID, Quellhash und Status. Fremdschl
 - `bp_video_progress`: Nutzer, Lektion, Abschluss, letzte Abspielposition.
 - `bp_radio_progress`: Nutzer, Elementtyp (Praxis/Text/Vokabel/Gerät), stabile Content-ID, erledigt, Serie, Antwort-/Versuchsdaten, erreichte Hilfestufe.
 
-Lernversuche sind unveränderlich. Korrekturen daran erfolgen als neue administrative Korrekturereignisse, nicht durch stilles Umschreiben der Antworthistorie.
+Lernversuche sind unveränderlich. Korrekturen daran erfolgen als neue administrative Korrekturereignisse, nicht durch stilles Umschreiben der Antworthistorie. **Ausnahme:** Eine Löschung auf Anfrage der betroffenen Person (DSGVO Art. 17, WordPress-Eraser) entfernt Versuche und Fortschritt dieses Nutzers vollständig; im Audit-Log bleibt nur ein pseudonymisierter Löschvermerk. Für Entitlements gelten handels-/steuerrechtliche Aufbewahrungsfristen der zugehörigen Bestellung.
 
 ## 6. Lernfunktionen und Verhalten
 
@@ -275,9 +313,11 @@ Lernversuche sind unveränderlich. Korrekturen daran erfolgen als neue administr
 - Praxis: Karte nach Kategorie → Aufgabe/Bild → Musterantwort → erledigt/noch üben.
 - Video: Lektionen nach Modul, Position speichern, Videoquiz mit zentralen Frage-IDs.
 - Funktext: Aufnahme/Abgabe, Text, Übersetzung oder Buchstabierwörter passend zur Übungsart.
-- Funkpraxis: gerendertes Szenario, Nutzer spricht/schreibt Funkspruch, Server prüft Pflichtpunkte und zeigt Musterlösung.
+- Funkpraxis: gerendertes Szenario, Nutzer schreibt den Funkspruch oder spricht ihn über die Browser-Spracherkennung (Web Speech API, optional, mit Hinweis zur Datenverarbeitung durch den Browseranbieter) – an den Server geht nur Text. Server prüft Pflichtpunkte und zeigt Musterlösung. Serverseitige Audioverarbeitung ist nicht Teil von V1.
 - Vokabeln: Deutsch→Englisch, erlaubte Varianten, „gewusst/nicht gewusst“, Lernserie.
-- Geräte: Zustandsmaschine mit Geräteeingaben, Hinweisen, Zwischenzielen und Stufenbewertung. Client darf Schritte anzeigen; finale Zielerreichung bleibt serverseitig prüfbar.
+- Geräte: Zustandsmaschine mit Geräteeingaben, Hinweisen, Zwischenzielen und Stufenbewertung. Die Zustandsmaschine läuft im Client; an den Server geht die Eingabefolge, die er bei Abschluss gegen die Schrittfolge nachprüft. Kein serverseitiger Live-Zustand pro Tastendruck.
+
+Funkpraxis mit Sprache und Gerätesimulation sind jeweils eigene Teilprojekte und werden in Kap. 11 als separate Meilensteine geplant.
 
 ## 7. WooCommerce – vollständige Spezifikation
 
@@ -315,6 +355,8 @@ Plugin-Einstellungen definieren, welche Funktion frei und welche bezahlt ist. Em
 
 Welche amtlichen Fragen kostenlos oder kostenpflichtig sind, ist eine Produktentscheidung und muss pro Kurs/Katalog konfigurierbar sein. Zugriffsrechte werden nicht aus dem Frontend-Preistext abgeleitet.
 
+Datenstruktur `bp_access_rule`: Kurscode, optional Modulcode, Feature-Code, Zugriffsart (`free`, `paid`, `free_limited`), Limit-Typ und -Wert (z. B. Anzahl Fragen je Modul, Anzahl Prüfungsbögen, erste n Lektionen), gültig ab/bis. Die Zugriffsprüfung ist eine zentrale Funktion `can_access(user, course, feature, item)`, die Free-Regeln und Entitlements gemeinsam auswertet.
+
 ### 7.3 Zugangstabelle und Idempotenz
 
 `bp_entitlement` speichert:
@@ -331,7 +373,9 @@ Welche amtlichen Fragen kostenlos oder kostenpflichtig sind, ist eine Produktent
 - Grund/Referenz bei Widerruf;
 - Idempotency-Key und Audit-Metadaten.
 
-Eindeutige Referenz auf Bestellposition plus Feature verhindert Doppelzugänge, auch wenn Zahlungsevents wiederholt ankommen.
+Eindeutiger Schlüssel ist `order_item_id + course_scope + feature_code`. Er verhindert Doppelzugänge, auch wenn Zahlungsevents wiederholt ankommen, und lässt Bundles zu, die dasselbe Feature für mehrere Scheine enthalten. Für manuelle Zugänge ersetzt eine eigene Referenz-ID die Order-Item-ID.
+
+Ein Nutzer kann für denselben Kurs/Feature mehrere Entitlement-Zeilen aus verschiedenen Bestellungen besitzen. Zugang besteht, wenn **mindestens eine** Zeile aktiv und gültig ist. Das Enddatum zeitlich begrenzter Zugänge ist das späteste `valid_until` aller aktiven Zeilen (Verlängerungsregel siehe 7.6).
 
 ### 7.4 Kaufablauf
 
@@ -359,7 +403,9 @@ WooCommerce Payment-Integrationen sollen Zahlungsabschluss über die WooCommerce
 | teilweise Rückerstattung des digitalen Produkts | per Pluginregel konfigurierbar; Standard: Position widerrufen, wenn Produkt vollständig erstattet ist |
 | bezahlte Order storniert | zugehörige Rechte widerrufen und protokollieren |
 | Woo-Produkt deaktiviert/gelöscht | bestehende bezahlte Rechte bleiben bestehen; neue Käufe gesperrt |
-| Chargeback/Payment-Reversal | Zugang suspendieren; nach erfolgreicher Klärung reaktivieren |
+| Chargeback/Payment-Reversal | Zugang suspendieren; nach erfolgreicher Klärung reaktivieren (siehe Hinweis unten) |
+
+WooCommerce kennt keinen einheitlichen Status oder Hook für Chargebacks; die Meldung ist gateway-spezifisch (z. B. setzt WooCommerce Stripe bei einem Dispute die Bestellung auf `on-hold` und schreibt eine Order-Notiz). V1 behandelt deshalb den Wechsel einer bereits bezahlten Bestellung nach `on-hold` als Suspendierung und unterstützt ausdrücklich nur die in Kap. 13 festgelegten Gateways. Für andere Gateways steht eine manuelle Suspendierung im Admin bereit.
 
 Die Regeln gelten pro Bestellposition. Bei Paketen wird pro enthaltenem Kurs/Feature ein eigener Zugang angelegt, damit Rückerstattung eines einzelnen Produkts nicht andere bezahlte Zugänge löscht.
 
@@ -369,7 +415,7 @@ Die Regeln gelten pro Bestellposition. Bei Paketen wird pro enthaltenem Kurs/Fea
 - **Variationen:** jede Variation kann eigene Zugänge überschreiben; sonst erbt sie Produktmapping.
 - **Woo-Coupons:** WooCommerce berechnet Rabatt; Coupon gewährt keinen Lernzugang ohne bezahlte Order.
 - **Mengen > 1:** Standard auf Lernprodukte beschränken; falls zulässig, keine mehrfachen Rechte desselben Nutzers erzeugen.
-- **Doppelkäufe:** mehrere Bestellungen bleiben in Order-Historie; aktiver Zugang wird nicht dupliziert. Rechte mit Dauer verfallen erst nach Regeln der Produktkonfiguration.
+- **Doppelkäufe:** jede Bestellposition erzeugt eigene Entitlement-Zeilen (siehe 7.3); in „Mein Lernen“ wird der Zugang nur einmal angezeigt. Wird eine von zwei Bestellungen erstattet, bleibt der Zugang über die andere bestehen. Bei zeitlich begrenzten Zugängen regelt die Produktkonfiguration, ob ein Zweitkauf verlängert (Beginn = Ende des bestehenden Zugangs) oder parallel läuft.
 - **Dauerzugang:** `valid_until = NULL`; bei zeitlich begrenztem Zugang Enddatum aus Kauf-/Produktregel berechnen.
 - **Manuelle Adminfreigabe:** eigener Button, erforderliche Begründung, optional Enddatum, protokollierte Person/Zeit.
 - **Mein Konto:** WooCommerce-Tab oder Lernplugin-Endpoint zeigt aktive/abgelaufene Zugänge und Kurslink.
@@ -385,6 +431,19 @@ Kein eigener Payment Gateway in V1; Zahlungsabwicklung bleibt bei bestehenden Wo
 ## 8. Plugin-Aufbau und technische Konventionen
 
 Vorgeschlagener Verzeichnisaufbau:
+
+Repository-Aufbau (`hastla007/learnboating`):
+
+```text
+content-source/boatingschool/   # unveränderter Snapshot + SOURCE.md
+tools/
+  sync-source.sh                # Snapshot zu einem Commit aktualisieren
+  content-build/                # Konverter Snapshot → Content-Paket
+schema/                         # JSON-Schemata des Content-Pakets
+bootspruefung-learning/         # das eigentliche WordPress-Plugin
+```
+
+Plugin-Aufbau:
 
 ```text
 bootspruefung-learning/
@@ -409,19 +468,28 @@ bootspruefung-learning/
 
 - Namespaced PHP-Klassen; Composer-Autoloading.
 - eigene Plugin-Capabilities: `manage_bp_content`, `import_bp_content`, `manage_bp_entitlements`; Administrator erhält sie bei Aktivierung.
-- REST-Routen in versioniertem Namespace `/wp-json/bootpruefung/v1/`.
+- Plugin-Slug, Text-Domain und REST-Namespace einheitlich `bootspruefung` bzw. `bootspruefung-learning`; REST-Routen unter `/wp-json/bootspruefung/v1/`.
 - Validierung und Berechtigungsprüfung in jedem REST-Controller; Nonce für eingeloggte Browserrequests; Rate-Limits für Antwort-/Simulationsaktionen.
 - `$wpdb->prepare()` für SQL und Transaktionen für Lernversuch/Fortschritt.
 - keine fachliche Logik im Theme; Shortcode/Block rendert nur Einstieg in Plugin-UI.
 - Update-Migrationen mit `dbDelta()` nur für unterstützte einfache DDL; komplexe Änderungen mit versionierten Migrationsschritten.
 - HPOS, aktuelle WooCommerce-Checkout-Architektur und sichere Deaktivierung ohne Content-Löschung berücksichtigen.
+- Mindestversionen: PHP 8.1, WordPress 6.4, WooCommerce 8.x (genaue Ziele siehe Kap. 13); Prüfung bei Aktivierung.
+- Hintergrundjobs (Batch-Import, Ablauf von Zugängen, Abschluss abgelaufener Prüfungssitzungen) über Action Scheduler, nicht über WP-Cron allein.
+- WP-CLI-Befehle: `wp bootspruefung import`, `… import --dry-run`, `… reconcile`, `… entitlements`.
+- `uninstall.php` löscht Tabellen und Daten nur, wenn in den Einstellungen ausdrücklich „Daten beim Deinstallieren löschen“ gesetzt ist; Standard ist Erhalt.
+- Multisite: V1 unterstützt Einzelinstallationen; bei Multisite Aktivierung nur pro Site, keine netzwerkweite Aktivierung.
+- i18n: alle UI-Strings über die Text-Domain; Content-Sprache ist Datenfeld (V1: Deutsch, Englisch nur in Funktexten/Vokabeln).
+- Barrierefreiheit: Lernoberfläche per Tastatur bedienbar, WCAG 2.1 AA als Ziel.
+- Caching: Fragenauswahl und Kursstruktur über Object Cache/Transients, invalidiert bei Import-Freigabe; keine Cache-Auslieferung nutzerspezifischer Daten.
+- Tests: PHPUnit mit WordPress-Test-Suite für Domain-/Repository-Logik und REST, Golden-Master-Tests für den Konverter, E2E (Playwright) für Lernmodus, Prüfung und Checkout (klassisch und Blocks); CI über GitHub Actions.
 
 ## 9. Admin- und Lernoberflächen
 
 ### Adminmenü
 
 - **Dashboard:** Inhalts-/Katalogstatus, ausstehende Rechteprüfung, Importwarnungen, WooCommerce-Zuordnungsfehler.
-- **Content-Pakete:** hochladen, Vorschau, Fehler, Rechteblockaden, Freigabe, Verlauf und Rollback auf vorherige veröffentlichte Content-Version.
+- **Content-Pakete:** hochladen, Vorschau, Fehler, Rechteblockaden, Freigabe, Verlauf und Rollback. Rollback bedeutet: Das vorher veröffentlichte Paket wird erneut als aktiver Stand gesetzt, d. h. dessen Revisionen werden wieder `published`, die des zurückgenommenen Pakets `deprecated`. Revisionen werden nie gelöscht, damit bestehende Versuche gültig referenziert bleiben.
 - **Kurse & Module:** Zuordnungen und Reihenfolge kontrollieren.
 - **Prüfungsregeln:** Regelwerk, Verifizierung und Gültigkeit.
 - **Medien:** fehlende Dateien, Lizenzstatus, verwaiste Assets.
@@ -450,21 +518,25 @@ bootspruefung-learning/
 
 ## 11. Umsetzungsschritte
 
-1. **Content-Audit:** Quelle, Datenstände, Medienverfügbarkeit, Duplikate, offene Frageformate und Rights-Status inventarisieren.
-2. **Exportvertrag:** JSON-Schema und Medienmanifest festlegen; alle PHP-Generatoren zur Ausgabe vollständig gerenderter Content-Objekte befähigen.
+1. **Content-Snapshot und -Audit:** Snapshot zu gepinntem Commit übernehmen; Datenstände, Medienverfügbarkeit, Duplikate, offene Frageformate und vor allem Rights-Status inventarisieren (Ausgangslage siehe 2.1).
+2. **Paketvertrag und Konverter:** JSON-Schema und Medienmanifest festlegen; Konverter inkl. Portierung der Generatorlogik aus `app/Support/` mit Golden-Master-Tests.
 3. **Plugin-Skelett:** Autoloading, Capabilities, Settings, Tabellenmigrationen und REST-Grundstruktur.
 4. **Importer:** Dry-Run, Schema-Validierung, Quell-ID/Hash, Batchimport, Protokoll und Freigabeschritt.
 5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren.
 6. **Lernmodus:** Frage/Antwort, Erklärungen, Merkliste, Fortschritt und Smarttrainer.
 7. **Prüfung:** Regeln, Zufallsprüfungen, feste Bögen, Snapshot und Ergebnis.
-8. **Spezialtrainer:** Navigation, Praxis, Videos, Funktexte, Vokabeln, Szenario-Sprechfunk und Gerätesimulation.
+8. **Spezialtrainer:** Navigation, Praxis, Videos, Funktexte, Vokabeln.
+   - 8a: **Funkpraxis (Sprechfunk-Szenarien)** als eigener Meilenstein;
+   - 8b: **Gerätesimulation** als eigener Meilenstein.
 9. **WooCommerce:** Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport.
 10. **Content-Freigabe und Go-live:** Rechtsstatus, Katalogaktualität, Regelwerksverifizierung, Medienersatz, Backup/Restore und Supportablauf bestätigen.
 
 ## 12. Abnahmekriterien
 
 - Content-Paket importiert alle vorgesehenen Typen und weist Datensatzanzahl/Hash im Admin nach.
-- 823 importierbare A–D-Fragen aus der dokumentierten Basis werden nicht mit den 15 abweichenden freien Kartenaufgaben vermischt; diese erhalten ihren passenden Typ.
+- Anzahl der A–D-Fragen und der freien Kartenaufgaben entspricht den Werten im `manifest.json` (Prüfstand Commit `136a243`: 823 bzw. 15); freie Kartenaufgaben werden nicht mit A–D-Fragen vermischt und erhalten ihren passenden Typ.
+- Konverter-Ausgabe für Funkpraxis, Funktexte und Gerätesimulation stimmt mit der Golden-Master-Ausgabe der Quelle überein.
+- Stabile IDs bleiben über Re-Konvertierungen erhalten (Abgleich mit vorigem Manifest).
 - Reimport derselben Quelle erzeugt keine Duplikate; Textänderung legt eine Revision an; archivierter Inhalt bleibt für historische Versuche referenzierbar.
 - Jede Frage, Aufgabe, Lektion und Medienreferenz wird ihrer Quell-ID, ihrem Kurs und ihrer Reihenfolge entsprechend dargestellt.
 - Navigations-, Praxis-, Video-, Funk- und Geräteinhalte sind über die Oberfläche erreichbar und speichern lokale WordPress-Lernstände.
@@ -473,18 +545,20 @@ bootspruefung-learning/
 - Vollständige Rückerstattung widerruft nur die zur betreffenden Order-Item gehörenden Zugänge; andere Paketbestandteile bleiben gemäß Regel erhalten.
 - HPOS und WooCommerce-Checkout-Variante sind ausgewiesen und unterstützt.
 - Admin kann Importfehler, Rechteblockaden, Produktzuordnungen und Zugänge nachvollziehen und korrigieren.
-- Keine Laravel-Laufzeitverbindung und keine Laravel-Personendaten sind für den WordPress-Betrieb erforderlich.
+- Keine Laravel-Laufzeitverbindung und keine Laravel-Personendaten sind für den WordPress-Betrieb erforderlich; im Quellrepository wurden keine Änderungen vorgenommen.
 
 ## 13. Vor Entwicklungsstart verbindlich zu liefern
 
-1. Zugriff auf das Content-Repository und Festlegung des Content-Branches/Release-Tags.
-2. Liste der in V1 verkauften Scheine und Pro-Features.
+1. Festlegung des Quell-Commits bzw. Tags für den ersten Snapshot (geprüft: `136a243`).
+2. Liste der in V1 verkauften Scheine und Pro-Features; insbesondere, ob FKN trotz unvollständigem Katalog (nur Pyrotechnik) angeboten wird.
 3. WooCommerce-Produkt-/Variantenliste oder Entscheidung, dass Produkte im Shop angelegt werden.
 4. Entscheidung zu Free-vs-Pro-Umfang, Dauerzugang und Rückerstattungsregel.
-5. Rechtliche Freigabe/Quellenangaben für Fragen, Seekarten, Bilder, Funktexte, Videos und Audio.
+5. Rechtliche Freigabe/Quellenangaben für Fragen, Seekarten, Bilder, Funktexte, Videos und Audio – insbesondere Genehmigung für SRC-/UBI-Kataloge, Quellenangabe für die 527 Fragen ohne Katalogangabe und Nutzung der ELWIS-Bilder.
 6. Ziel-WordPress-/WooCommerce-Version und verwendetes Theme/Checkout.
 7. Zu ersetzende Platzhaltervideos und noch zu prüfende Prüfungsregelwerke.
 8. Designreferenzen für Lernbereich und gewünschte Brand-Texte.
+9. Unterstützte Payment-Gateways (für Chargeback-Behandlung, Kap. 7.5).
+10. Entscheidung, ob Bootsschul-Betriebsfunktionen (Prüfungsbuchung, Prüfungsausschüsse, Praxis-Anmeldung, Tipps) übernommen werden.
 
 ## 14. Technische Referenzen
 
