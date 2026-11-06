@@ -325,7 +325,7 @@ $order->save();
 $order->payment_complete('CAPTURE-'.wp_generate_password(6, false));
 $ppOrder = (int) $order->get_id();
 $capture = wc_get_order($ppOrder)->get_transaction_id();
-$post = static function (string $route, array $body, array $headers = []) {
+$postHook = static function (string $route, array $body, array $headers = []) {
     $request = new WP_REST_Request('POST', '/bootspruefung/v1/webhooks/'.$route);
     $request->set_body(wp_json_encode($body));
     $request->set_header('content-type', 'application/json');
@@ -337,16 +337,16 @@ $post = static function (string $route, array $body, array $headers = []) {
 };
 $dispute = static fn (string $id, string $type, string $outcome = '') => ['id' => $id, 'event_type' => $type, 'resource' => ['dispute_id' => 'PP-D-1', 'disputed_transactions' => [['seller_transaction_id' => $capture]], 'dispute_outcome' => ['outcome_code' => $outcome]]];
 add_filter('bootspruefung_paypal_verify', '__return_false');
-$check($post('paypal', $dispute('WH-0', 'CUSTOMER.DISPUTE.CREATED'))->get_status() === 401 && $statuses($ppOrder) === ['active'], 'PayPal: ungeprüfte Nachricht abgewiesen');
+$check($postHook('paypal', $dispute('WH-0', 'CUSTOMER.DISPUTE.CREATED'))->get_status() === 401 && $statuses($ppOrder) === ['active'], 'PayPal: ungeprüfte Nachricht abgewiesen');
 remove_filter('bootspruefung_paypal_verify', '__return_false');
 add_filter('bootspruefung_paypal_verify', '__return_true');
-$r = $post('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'));
+$r = $postHook('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'));
 $check($r->get_status() === 200 && $statuses($ppOrder) === ['suspended'], 'PayPal-Dispute eröffnet: Zugang ausgesetzt');
-$check(! empty($post('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'))->get_data()['duplicate']), 'doppelte Zustellung wird ignoriert');
-$post('paypal', $dispute('WH-2', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR'));
+$check(! empty($postHook('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'))->get_data()['duplicate']), 'doppelte Zustellung wird ignoriert');
+$postHook('paypal', $dispute('WH-2', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR'));
 $check($statuses($ppOrder) === ['active'], 'zugunsten des Händlers: wieder aktiv');
-$post('paypal', $dispute('WH-3', 'CUSTOMER.DISPUTE.CREATED'));
-$post('paypal', $dispute('WH-4', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_BUYER_FAVOUR'));
+$postHook('paypal', $dispute('WH-3', 'CUSTOMER.DISPUTE.CREATED'));
+$postHook('paypal', $dispute('WH-4', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_BUYER_FAVOUR'));
 $check($statuses($ppOrder) === ['revoked'], 'zugunsten des Käufers: widerrufen');
 remove_filter('bootspruefung_paypal_verify', '__return_true');
 $order = wc_create_order(['customer_id' => $bob]);

@@ -105,6 +105,7 @@ final class Menu
         if ($woo['active']) {
             $this->renderShopStatus($woo);
         }
+        $this->renderBackupHint();
         echo '<h2>'.esc_html__('Tabellen', 'bootspruefung-learning').'</h2>';
         echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>'.esc_html__('Tabelle', 'bootspruefung-learning').'</th><th>Engine</th><th>'.esc_html__('Zeilen (ca.)', 'bootspruefung-learning').'</th></tr></thead><tbody>';
         foreach ($status['tables'] as $table => $info) {
@@ -116,6 +117,21 @@ final class Menu
             );
         }
         echo '</tbody></table></div>';
+    }
+
+    /** Datensicherung erfolgt über ein Backup-Plugin oder den Hoster – hier steht, was dazugehören muss. */
+    private function renderBackupHint(): void
+    {
+        global $wpdb;
+        $uploads = wp_upload_dir(null, false);
+        $dir = trailingslashit((string) $uploads['basedir']).'bootspruefung/';
+        echo '<h2>'.esc_html__('Datensicherung', 'bootspruefung-learning').'</h2>';
+        echo '<p>'.esc_html__('Das Plugin hat keine eigene Sicherung. Bitte ein WordPress-Backup-Plugin oder die Sicherung des Hosters nutzen und darauf achten, dass Folgendes enthalten ist:', 'bootspruefung-learning').'</p><ul style="list-style:disc;margin-left:2em">';
+        printf('<li>%s <code>%s</code></li>', esc_html__('alle Datenbanktabellen mit Präfix', 'bootspruefung-learning'), esc_html($wpdb->prefix.'bp_'));
+        printf('<li>%s <code>%s</code>%s</li>', esc_html__('der Ordner', 'bootspruefung-learning'), esc_html($dir), esc_html__(' – Content-Pakete, Medien und geschützte Dateien (protected-…); manche Backup-Plugins schließen Unterordner oder große Dateien standardmäßig aus', 'bootspruefung-learning'));
+        printf('<li>%s <code>bp_learning_*</code> %s</li>', esc_html__('die Optionen', 'bootspruefung-learning'), esc_html__('in der Tabelle wp_options (Einstellungen, aktives Paket, Rabatte, Dispute-Protokoll)', 'bootspruefung-learning'));
+        printf('<li>%s</li>', esc_html__('WooCommerce-Bestellungen und Kundenkonten (Zugänge verweisen auf Bestellpositionen und Nutzer-IDs)', 'bootspruefung-learning'));
+        echo '</ul><p>'.esc_html__('Einmal eine Wiederherstellung auf einer Testkopie üben: danach Systemstatus prüfen (Schema, Tabellen), eine geschützte PDF öffnen und einen Lernzugang im Lernbereich testen.', 'bootspruefung-learning').'</p>';
     }
 
     public function renderSettings(): void

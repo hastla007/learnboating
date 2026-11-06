@@ -72,6 +72,9 @@ final class Integration
         add_filter('option_woocommerce_enable_guest_checkout', static fn ($value) => self::cartHasLearningSafe() ? 'no' : $value, 20);
         add_filter('option_woocommerce_enable_signup_and_login_from_checkout', static fn ($value) => self::cartHasLearningSafe() ? 'yes' : $value, 20);
         add_action('woocommerce_store_api_checkout_update_order_from_request', [$self, 'blocksAccountGuard'], 10, 2);
+        // Der Checkout-Block liest die Gast-Option nicht über diese Filter: Gäste mit Lernprodukt
+        // sehen statt Formular und Bestellknopf einen Konto-Hinweis mit Anmeldung.
+        add_filter('render_block_woocommerce/checkout', [$self, 'blockCheckoutForGuests'], 20, 1);
 
         // Kunde: Mein Konto, Danke-Seite, E-Mail.
         add_filter('woocommerce_get_query_vars', static fn (array $vars) => $vars + [self::ACCOUNT_ENDPOINT => self::ACCOUNT_ENDPOINT]);
@@ -127,6 +130,29 @@ final class Integration
                 throw new \RuntimeException($message);
             }
         }
+    }
+
+    /** Checkout-Block für Gäste mit Lernprodukt: Hinweis, Anmeldeformular, Link zur Registrierung. */
+    public function blockCheckoutForGuests($content)
+    {
+        if (is_user_logged_in() || is_admin() || ! self::cartHasLearning()) {
+            return $content;
+        }
+        $checkout = function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/');
+        $html = '<div class="bp-checkout-account woocommerce">';
+        $html .= '<div class="woocommerce-info" role="status">'.esc_html__('Für Lernzugänge ist ein Kundenkonto erforderlich: Dein Zugang wird deinem Konto zugeordnet. Bitte melde dich an oder lege ein Konto an – danach geht es hier weiter.', 'bootspruefung-learning').'</div>';
+        if (function_exists('woocommerce_login_form')) {
+            ob_start();
+            woocommerce_login_form(['message' => '', 'redirect' => $checkout, 'hidden' => false]);
+            $html .= (string) ob_get_clean();
+        } else {
+            $html .= '<p><a class="button" href="'.esc_url(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::loginUrl($checkout)).'">'.esc_html__('Anmelden', 'bootspruefung-learning').'</a></p>';
+        }
+        if (get_option('woocommerce_enable_myaccount_registration') === 'yes' || get_option('users_can_register')) {
+            $html .= '<p><a class="button bp-checkout-register" href="'.esc_url(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::registrationUrl($checkout)).'">'.esc_html__('Neues Kundenkonto anlegen', 'bootspruefung-learning').'</a></p>';
+        }
+
+        return $html.'</div>';
     }
 
     /** Wie cartHasLearning(), aber ohne Rekursion, falls der Warenkorb beim Laden selbst Optionen liest. */

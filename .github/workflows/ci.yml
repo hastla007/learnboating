@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# pipefail: Abstürze vor `| tee` dürfen nicht verschluckt werden.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   converter:
     name: Content-Konverter

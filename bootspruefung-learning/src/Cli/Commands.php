@@ -171,6 +171,12 @@ final class Commands
         $rows = [];
         $removals = 0;
         foreach ($plans as $orderId => $plan) {
+            // Gruppenlizenzen: Vorschau mit derselben Entscheidung wie beim Anwenden.
+            $sync->plan((int) $orderId);
+            foreach ($sync->groupChanges() as $g) {
+                $rows[] = ['order' => $orderId, 'item' => $g['item_id'], 'scope' => $g['group'] ? 'Gruppe #'.$g['group'] : 'Gruppe', 'change' => $g['change'], 'reason' => $g['reason']];
+                $removals += str_ends_with($g['change'], '→ revoked') || str_ends_with($g['change'], '→ suspended') ? 1 : 0;
+            }
             foreach ($plan->warnings as $w) {
                 $rows[] = ['order' => $orderId, 'item' => '', 'scope' => '', 'change' => 'Warnung: '.$w, 'reason' => $plan->reason];
             }
@@ -197,7 +203,9 @@ final class Commands
         $applied = 0;
         foreach (array_keys($plans) as $orderId) {
             // Neu berechnen und anwenden (inkl. Gruppenlizenzen); idempotent.
-            $applied += count($sync->sync((int) $orderId, 'reconcile')?->changes ?? []);
+            $sync->plan((int) $orderId);
+            $groupChanges = count($sync->groupChanges());
+            $applied += count($sync->sync((int) $orderId, 'reconcile')?->changes ?? []) + $groupChanges;
         }
         WP_CLI::success("{$applied} Änderung(en) angewendet.");
     }

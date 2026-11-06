@@ -268,7 +268,12 @@ $orders->put(910001, $buyer, 'on-hold', null, [$item()], 'bacs');
 $sync->sync(910001);
 $check($groupsService->forOrder(910001) === [], 'unbezahlt: noch keine Gruppe');
 $orders->put(910001, $buyer, 'processing', '2026-09-01 10:00:00', [$item()], 'bacs');
+$sync->plan(910001);
+$preview = $sync->groupChanges();
+$check(count($preview) === 1 && $preview[0]['change'] === 'Gruppe neu (3 Plätze)' && $groupsService->forOrder(910001) === [], 'Vorschau (reconcile): neue Gruppe angekündigt, nichts geschrieben');
 $sync->sync(910001);
+$sync->plan(910001);
+$check($sync->groupChanges() === [], 'Vorschau nach dem Anwenden: keine Gruppenänderung');
 $group = $groupsService->forOrder(910001)[0] ?? null;
 $check($group !== null && (int) $group->seats === 3 && $group->valid_until === '2027-09-01 10:00:00', 'bezahlt: Gruppe mit 3 Plätzen, 365 Tage');
 $check($entitlements->forOrder(910001) === [] && ! $access->can($buyer, 'SBF-BIN-MOTOR', 'question_bank'), 'Käufer erhält keinen Einzelzugang');
@@ -319,9 +324,21 @@ $sync->sync(910002);
 $g2 = $groupsService->forOrder(910002)[0];
 $check((int) $g2->seats === 6, 'Menge 2: 6 Plätze');
 $orders->put(910002, $buyer, 'processing', '2026-10-01 10:00:00', [new OrderItemSnapshot(91200, 991001, 0, 2, 'SCHULE-3', 600.0, 1, 300.0)], 'klarna_payments');
+$sync->plan(910002);
+$check(array_column($sync->groupChanges(), 'change') === ['Plätze 6 → 3'], 'Vorschau: Plätze nach Teilerstattung');
 $sync->sync(910002);
 $check((int) $groupsService->find((int) $g2->id)->seats === 3 && $groupsService->find((int) $g2->id)->status === 'active', 'Teilerstattung eines Pakets: Plätze reduziert, Gruppe bleibt');
 $check(count($groupsService->forOwner($buyer)) === 2, 'Besitzer sieht beide Gruppen');
+// Rückkehr nach Registrierung/Anmeldung (Gruppeneinladung, Kasse)
+$join = GroupService::joinUrl('gTEST');
+$_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM] = $join;
+$check(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::loginRedirect(admin_url(), '', get_userdata($buyer)) === $join, 'nach Anmeldung zurück zur Einladung');
+$check(str_contains(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::registrationRedirect(''), rawurlencode($join)), 'nach Registrierung: Anmeldung führt zur Einladung');
+$check(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::wooRedirect('/mein-konto/') === $join, 'WooCommerce-Registrierung: zurück zur Einladung');
+$_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM] = 'https://evil.example/x';
+$check(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::wooRedirect('/mein-konto/') === '/mein-konto/', 'fremdes Ziel wird ignoriert');
+unset($_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM]);
+$check(str_contains(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::registrationUrl($join), 'bp_return='), 'Registrierungslink trägt Rückkehrziel');
 remove_filter('pre_wp_mail', $capture, 10);
 
 // Aufräumen.

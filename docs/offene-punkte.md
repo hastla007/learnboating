@@ -1,4 +1,4 @@
-# Offene Punkte (Stand 06.11.2026, Plugin 0.9.0)
+# Offene Punkte (Stand 06.11.2026, Plugin 0.9.1)
 
 Legende Status: 🔴 offen · 🟡 teilweise/zu prüfen · ⏸ bewusst zurückgestellt
 Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code · **Beide** = Test/Abnahme gemeinsam
@@ -12,7 +12,7 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 5 | Shop | Produkt- und Variantenliste (Preise, Dauer, Erstattungsregel, Bundles, Gruppenpakete) | 🔴 | Du | ja | Liste liefern; Anlage im Reiter „Lernzugang“ |
 | 6 | Shop | Free-vs-Pro festlegen (ganz, Teilumfang, zeitgesteuert) | 🔴 | Du | ja | Umfang je Kurs nennen; Pflege unter „Kostenlose Bereiche“ |
 | 7 | Shop | „Zugang ohne Shop“ auf „Nur Freischaltungen“ umstellen | 🔴 | Du | ja | Am Tag des Shopstarts in den Einstellungen |
-| 8 | Shop | Kaufablauf-Browsertest (Block + klassisch) grün in CI | 🟡 | Dev | nein | CI-Ergebnis abwarten, ggf. Test nachjustieren |
+| 8 | Shop | Kaufablauf-Browsertest (Block + klassisch) grün in CI | 🟡 | Dev | nein | Ursache des Sitzungsverlusts behoben (Passwort wurde bei jedem Setup neu gesetzt); CI-Ergebnis abwarten |
 | 9 | Zahlung | Stripe/PayPal/Klarna echt end-to-end bezahlen (Sandbox) | 🔴 | Beide | ja | Sandbox-Zugänge einrichten, je Gateway Kauf, Erstattung, Dispute durchspielen |
 | 10 | Zahlung | PayPal-Webhook mit echter Signaturprüfung testen | 🔴 | Beide | nein | Client-ID/Secret/Webhook-ID eintragen, Sandbox-Dispute auslösen |
 | 11 | Zahlung | Klarna-Disputes: Weiterleitung an den allgemeinen Webhook einrichten | 🔴 | Du | nein | Automatisierung (z. B. Händlerportal-Mail → Webhook) oder manuell per Bestellaktion |
@@ -23,13 +23,9 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 16 | Prüfungsanmeldung | Texte der Quelle mit Bootsschul-Bezug (z. B. FAQ „nicht an die Bootsschule“) | 🟡 | Du | nein | Wortlaut ggf. im Quell-Repo anpassen oder als lokale Änderung |
 | 17 | Shop | Gruppenlizenzen: Produkte für Paare/Vereine anlegen (Plätze je Paket) | 🔴 | Du | nein | Im Reiter „Lernzugang“ „Plätze je Stück“ setzen |
 | 18 | Betrieb | Tipps-Bereich der Quelle übernehmen? | 🔴 | Du | nein | Entscheidung |
-| 19 | Betrieb | Backup/Restore testen, Supportablauf festlegen | 🔴 | Beide | ja | Backup-Plugin/Hoster festlegen, Restore einmal üben |
+| 19 | Betrieb | Backup/Restore: Backup-Plugin oder Hoster-Sicherung festlegen, Restore einmal üben, Supportablauf | 🔴 | Beide | ja | Kein eigenes Backup im Plugin; Systemstatus listet, was enthalten sein muss (Tabellen `wp_bp_*`, `uploads/bootspruefung/` inkl. `protected-*`, Optionen `bp_learning_*`, WooCommerce-Daten) |
 | 20 | Betrieb | Ziel-WP/WooCommerce-Version, Theme, Checkout-Variante | 🔴 | Du | ja | Festlegen; danach Test gegen genau diese Versionen |
 | 21 | Betrieb | nginx: Ordner für geschützte Dateien sperren | 🔴 | Du/Hoster | ja, wenn nginx und geschützte PDFs | Regel für `uploads/bootspruefung/protected-*` |
 | 22 | Design | Designreferenzen und Markentexte | 🔴 | Du | nein | Liefern; Anpassung der CSS/Texte |
-| 23 | Technik | Rückkehr zur Gruppeneinladung nach Registrierung (nur nach Login automatisch) | 🟡 | Dev | nein | Redirect nach Registrierung ergänzen |
-| 24 | Technik | Vorschau von `wp bootspruefung reconcile` zeigt Gruppenänderungen nicht | 🟡 | Dev | nein | Gruppen in die Vorschau aufnehmen |
-| 26 | Shop | Checkout-Block: Gäste sehen bei Lernprodukten weiterhin Formular und Bestellknopf ohne Konto-Hinweis (Optionen-Filter greift im Block nicht) | 🔴 | Dev | ja | Serverseitig gesperrt (Store-API-Prüfung); Anzeige im Block nachbessern oder klassischen Checkout nutzen |
-| 25 | Technik | Herkunft der übrig gebliebenen Einstellung „entitled_only“ zwischen CI-Schritten | 🟡 | Dev | nein | E2E-Setup stellt den Zustand jetzt selbst her; Ursache klären |
 
-Erledigt seit dem letzten Stand: Downloads (PDF) je Kurs, Zuordnungsfehler in der Übersicht, Dispute-Webhooks (PayPal, allgemein), Prüfungsausschüsse und Anleitung zur Selbstanmeldung (deaktiviert), FKN-Entscheidung (dabei), Zielgruppe B2C festgelegt.
+Erledigt seit dem letzten Stand: Checkout-Block zeigt Gästen mit Lernprodukt Konto-Hinweis mit Anmeldung/Registrierung statt Bestellknopf (26); Rückkehr zur Gruppeneinladung bzw. Kasse nach Registrierung (23); `wp bootspruefung reconcile` zeigt Gruppenänderungen in der Vorschau (24); Ursache „entitled_only“ zwischen CI-Schritten geklärt – der WooCommerce-Integrationstest brach in CI mit einem Fatal Error ab (Testvariable `$post` überschrieb das globale WordPress-`$post`), `| tee` verschluckte den Fehler; CI läuft jetzt mit `pipefail` (25); Backup-Hinweis im Systemstatus.

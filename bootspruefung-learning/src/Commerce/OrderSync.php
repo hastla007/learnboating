@@ -95,6 +95,41 @@ final class OrderSync
         }
     }
 
+    /**
+     * Vorschau der Gruppenänderungen der zuletzt mit plan() berechneten Bestellung (ohne Schreiben).
+     *
+     * @return list<array{item_id:int,group:?int,change:string,reason:string}>
+     */
+    public function groupChanges(): array
+    {
+        if ($this->groups === null || $this->context === null) {
+            return [];
+        }
+        $order = $this->context['order'];
+        $changes = [];
+        foreach ($order->items as $item) {
+            if (! isset($this->context['groups'][$item->id])) {
+                continue;
+            }
+            $d = $this->groups->decide($order, $item, $this->context['groups'][$item->id], $this->context['target']);
+            if ($d === null) {
+                continue;
+            }
+            $gid = $d['group'] ? (int) $d['group']->id : null;
+            if ($d['create']) {
+                $changes[] = ['item_id' => $item->id, 'group' => null, 'change' => 'Gruppe neu ('.($d['seats'] ?? 0).' Plätze)', 'reason' => $d['reason']];
+            }
+            if ($d['seats'] !== null && $d['group']) {
+                $changes[] = ['item_id' => $item->id, 'group' => $gid, 'change' => 'Plätze '.(int) $d['group']->seats.' → '.$d['seats'], 'reason' => $d['reason']];
+            }
+            if ($d['status'] !== null && $d['group']) {
+                $changes[] = ['item_id' => $item->id, 'group' => $gid, 'change' => 'Gruppe '.$d['group']->status.' → '.$d['status'], 'reason' => $d['reason']];
+            }
+        }
+
+        return $changes;
+    }
+
     public function groups(): ?GroupService
     {
         return $this->groups;

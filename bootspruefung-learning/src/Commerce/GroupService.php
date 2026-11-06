@@ -40,7 +40,12 @@ final class GroupService
      * @param list<object> $mappings wirksame Produktzuordnung (mit seats)
      * @param array{0:?string,1:string} $target Soll-Status der Bestellung
      */
-    public function syncItem(OrderSnapshot $order, OrderItemSnapshot $item, array $mappings, array $target): ?object
+    /**
+     * Schreibfreie Entscheidung für eine Gruppenposition (Vorschau und syncItem).
+     *
+     * @return array{group:?object,per_unit:int,create:bool,status:?string,reason:string,seats:?int}|null
+     */
+    public function decide(OrderSnapshot $order, OrderItemSnapshot $item, array $mappings, array $target): ?array
     {
         $group = $this->byItem($item->id);
         $perUnit = ProductAccessRepository::seats($mappings) ?? ($group ? 0 : null);
@@ -56,9 +61,33 @@ final class GroupService
         if ($status === EntitlementPlanner::REVOKED && $reason === 'order_refunded' && $refundRule === 'keep') {
             $status = null;
         }
+        $seats = $perUnit > 0 ? $perUnit * max(0, $item->quantity - $item->refundedQuantity) : null;
+        if ($group === null) {
+            $create = $status === EntitlementPlanner::ACTIVE && $order->userId > 0;
+
+            return ['group' => null, 'per_unit' => $perUnit, 'create' => $create, 'status' => $create ? self::ACTIVE : null, 'reason' => (string) $reason, 'seats' => $seats];
+        }
+        $decoded = json_decode((string) ($group->reason ?? ''), true);
+        $manual = is_array($decoded) && ! empty($decoded['manual']);
+        $keep = $status === null || $status === EntitlementPlanner::PENDING || $status === $group->status || $group->status === self::REVOKED || ($manual && $status !== EntitlementPlanner::REVOKED);
+
+        return ['group' => $group, 'per_unit' => $perUnit, 'create' => false, 'status' => $keep ? null : $status, 'reason' => (string) $reason,
+            'seats' => $seats !== null && $seats > 0 && $seats !== (int) $group->seats ? $seats : null];
+    }
+
+    public function syncItem(OrderSnapshot $order, OrderItemSnapshot $item, array $mappings, array $target): ?object
+    {
+        $decision = $this->decide($order, $item, $mappings, $target);
+        if ($decision === null) {
+            return null;
+        }
+        $group = $decision['group'];
+        $perUnit = $decision['per_unit'];
+        $status = $decision['status'];
+        $reason = $decision['reason'];
 
         if ($group === null) {
-            if ($status !== EntitlementPlanner::ACTIVE || $order->userId <= 0) {
+            if (! $decision['create']) {
                 return null;
             }
             $now = EntitlementService::now();
@@ -85,22 +114,16 @@ final class GroupService
         }
 
         // Plätze nach Teilerstattung anpassen (bestehende Mitglieder bleiben, neue Einladungen sind gesperrt).
-        if ($perUnit > 0) {
-            $seats = $perUnit * max(0, $item->quantity - $item->refundedQuantity);
-            if ($seats !== (int) $group->seats && $seats > 0) {
-                $this->db->update($this->groups, ['seats' => $seats, 'updated_at' => EntitlementService::now()], ['id' => $group->id]);
-                AuditLog::record('group_seats_changed', 'group', (string) $group->id, $reason, ['from' => (int) $group->seats, 'to' => $seats]);
-            }
+        if ($decision['seats'] !== null) {
+            $this->db->update($this->groups, ['seats' => $decision['seats'], 'updated_at' => EntitlementService::now()], ['id' => $group->id]);
+            AuditLog::record('group_seats_changed', 'group', (string) $group->id, $reason, ['from' => (int) $group->seats, 'to' => $decision['seats']]);
         }
         if ($order->userId > 0 && (int) $group->owner_user_id !== $order->userId) {
             $this->db->update($this->groups, ['owner_user_id' => $order->userId], ['id' => $group->id]);
         }
-        $decoded = json_decode((string) ($group->reason ?? ''), true);
-        $manual = is_array($decoded) && ! empty($decoded['manual']);
-        if ($status === null || $status === EntitlementPlanner::PENDING || $status === $group->status || $group->status === self::REVOKED || ($manual && $status !== EntitlementPlanner::REVOKED)) {
-            return $this->find((int) $group->id);
+        if ($status !== null) {
+            $this->setStatus((int) $group->id, $status, $reason);
         }
-        $this->setStatus((int) $group->id, $status, $reason);
 
         return $this->find((int) $group->id);
     }

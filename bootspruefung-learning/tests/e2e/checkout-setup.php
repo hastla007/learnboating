@@ -19,7 +19,10 @@ wp_set_current_user(1);
 $mode = $argv[1] ?? 'block';
 $buyer = get_user_by('login', 'kaeufer1');
 $buyerId = $buyer ? (int) $buyer->ID : (int) wp_insert_user(['user_login' => 'kaeufer1', 'user_email' => 'kaeufer1@example.invalid', 'user_pass' => 'Kauf-Passwort-123', 'display_name' => 'Karl Käufer', 'role' => 'customer']);
-wp_set_password('Kauf-Passwort-123', $buyerId);
+if ($mode === 'block') {
+    // Nur beim ersten Aufruf: ein neues Passwort beendet die Browsersitzung des Käufers.
+    wp_set_password('Kauf-Passwort-123', $buyerId);
+}
 
 if ($mode === 'reset') {
     update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'logged_in']));
@@ -38,6 +41,9 @@ update_option('woocommerce_default_country', 'DE');
 update_option('woocommerce_currency', 'EUR');
 update_option('woocommerce_coming_soon', 'no');
 update_option('woocommerce_enable_guest_checkout', 'yes');
+update_option('woocommerce_enable_myaccount_registration', 'yes');
+update_option('woocommerce_registration_generate_password', 'yes');
+update_option('woocommerce_registration_generate_username', 'yes');
 update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Überweisung']);
 foreach (['first_name' => 'Karl', 'last_name' => 'Käufer', 'address_1' => 'Hafenstraße 1', 'city' => 'Hamburg', 'postcode' => '20457', 'country' => 'DE', 'email' => 'kaeufer1@example.invalid', 'phone' => '040123456'] as $k => $v) {
     update_user_meta($buyerId, 'billing_'.$k, $v);

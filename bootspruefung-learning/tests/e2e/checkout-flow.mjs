@@ -42,12 +42,20 @@ try {
   await guest.goto(`${base}/?add-to-cart=${env.product}`);
   await guest.goto(env.checkout);
   await guest.waitForLoadState('networkidle');
-  const guestText = await guest.locator('body').innerText();
-  // Nur Beobachtung: Die Darstellung des Checkout-Blocks für Gäste hängt von der Woo-Version ab.
-  // Fachlich geprüft wird die Kontopflicht in woocommerce-test.php (Filter, Optionen, Store-API-Sperre).
-  const placeVisible = await guest.getByRole('button', { name: /place order/i }).isVisible().catch(() => false);
-  console.log('   Gast-Kasse:', /log in|logged in|create an account|konto/i.test(guestText) ? 'Konto-Hinweis sichtbar' : 'kein Konto-Hinweis', placeVisible ? '(Bestellknopf sichtbar)' : '(kein Bestellknopf)');
+  // Checkout-Block für Gäste mit Lernprodukt: Konto-Hinweis statt Formular und Bestellknopf.
+  await guest.locator('.bp-checkout-account').waitFor();
+  assert.match(await guest.locator('.bp-checkout-account').innerText(), /Kundenkonto erforderlich/);
+  assert.equal(await guest.getByRole('button', { name: /place order|bestellen|zahlungspflichtig/i }).count(), 0, 'kein Bestellknopf für Gäste');
   await shot(guest, '50-gast-checkout');
+
+  step('Gast registriert sich und kehrt zur Kasse zurück');
+  await guest.locator('a.bp-checkout-register').click();
+  await guest.locator('form.woocommerce-form-register #reg_email').fill(`gast${Date.now()}@example.invalid`);
+  await guest.locator('form.woocommerce-form-register button[name="register"]').click();
+  await guest.waitForURL((u) => u.href.startsWith(env.checkout));
+  await guest.waitForLoadState('networkidle');
+  assert.equal(await guest.locator('.bp-checkout-account').count(), 0, 'nach Registrierung: normale Kasse');
+  await shot(guest, '50b-nach-registrierung');
 
   step('Kunde: Sperrhinweis mit Produktlink');
   const page = current = await newPage();

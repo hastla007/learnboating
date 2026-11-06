@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.9.0';
+    public const VERSION = '0.9.1';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -105,6 +105,7 @@ final class Plugin
         (new Menu($this))->register();
         (new RestRegistrar())->register();
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
+        \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action('bp_learning_hourly', static function (): void {
             $content = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
             $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
