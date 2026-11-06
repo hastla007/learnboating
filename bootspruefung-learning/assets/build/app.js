@@ -1744,7 +1744,10 @@
 		var current = 0;
 		var questions = s.questions;
 		var deadline = s.remaining_seconds !== null ? Date.now() + s.remaining_seconds * 1000 : null;
-		var timer = el('p', { class: 'bp-timer', role: 'timer', 'aria-live': 'off' });
+		var timeText = el('strong', { class: 'bp-timer-time', text: '–:––' });
+		var timer = el('p', { class: 'bp-timer', role: 'timer', 'aria-live': 'off' }, [el('span', { class: 'bp-timer-label', text: t('time_left_label') }), timeText]);
+		var doneCount = el('span', { class: 'bp-exam-count' });
+		var doneFill = el('span', { class: 'bp-exam-bar-fill' });
 		var status = el('p', { class: 'bp-save-status', 'aria-live': 'polite' });
 		var nav = el('ol', { class: 'bp-exam-nav', 'aria-label': t('exam_nav') });
 		var stage = el('div', { class: 'bp-exam-stage' });
@@ -1755,6 +1758,9 @@
 		}
 
 		function renderNav() {
+			var n = questions.filter(answered).length;
+			doneCount.textContent = t('exam_progress', { n: n, total: questions.length });
+			doneFill.style.width = (n * 100 / Math.max(questions.length, 1)) + '%';
 			nav.textContent = '';
 			questions.forEach(function (q, i) {
 				var b = el('button', { type: 'button', class: 'bp-exam-nav-item' + (answered(q) ? ' is-answered' : '') + (i === current ? ' is-current' : ''), 'aria-current': i === current ? 'step' : null, 'aria-label': t('exam_nav_item', { n: q.position, state: answered(q) ? t('answered') : t('unanswered') }), text: String(q.position) });
@@ -1781,7 +1787,7 @@
 			stage.textContent = '';
 			var name = 'bp-e-' + q.position;
 			var card = el('article', { class: 'bp-card bp-question' }, [
-				el('p', { class: 'bp-question-meta' }, [el('span', { text: t('exam_question_of', { n: q.position, total: questions.length }) }), q.official_number ? el('span', { text: t('question_number', { number: q.official_number }) }) : null]),
+				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: questions.length }) }), q.official_number ? el('span', { class: 'bp-pill', text: t('question_number', { number: q.official_number }) }) : null]),
 				multiline('h2', q.text, 'bp-question-text'),
 				questionMedia(q.media)
 			]);
@@ -1823,11 +1829,11 @@
 				});
 				card.appendChild(fieldset);
 			}
-			var prev = el('button', { type: 'button', class: 'bp-button', text: t('prev'), disabled: current === 0 });
-			var nextB = el('button', { type: 'button', class: 'bp-button', text: t('next'), disabled: current === questions.length - 1 });
+			var prev = el('button', { type: 'button', class: 'bp-button', disabled: current === 0 }, [el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '←' }), t('prev')]);
+			var nextB = el('button', { type: 'button', class: 'bp-button bp-button-primary', disabled: current === questions.length - 1 }, [t('next'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })]);
 			prev.addEventListener('click', function () { current--; renderQuestion(); });
 			nextB.addEventListener('click', function () { current++; renderQuestion(); });
-			card.appendChild(el('div', { class: 'bp-actions' }, [prev, nextB]));
+			card.appendChild(el('div', { class: 'bp-actions bp-exam-pager' }, [prev, nextB]));
 			stage.appendChild(card);
 			renderNav();
 		}
@@ -1851,17 +1857,23 @@
 		submitButton.addEventListener('click', function () { submit(false); });
 
 		mount([
-			el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', s.course.name), ' › ', el('span', { text: examTitle(s) })]),
-			el('header', { class: 'bp-header bp-exam-header' }, [
-				el('div', {}, [
+			el('header', { class: 'bp-hero bp-exam-hero' }, [
+				el('div', { class: 'bp-hero-text' }, [
+					el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', s.course.name), ' › ', el('span', { text: examTitle(s) })]),
 					el('h1', { text: examTitle(s) }),
-					el('p', {}, [s.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'), ' ', el('span', { class: 'bp-muted', text: s.rule.passing })])
+					el('p', { class: 'bp-exam-rule' }, [s.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'), el('span', { text: s.rule.passing })])
 				]),
-				timer
+				deadline ? timer : null
 			]),
-			nav,
-			stage,
-			el('div', { class: 'bp-actions bp-exam-footer' }, [submitButton, status])
+			el('div', { class: 'bp-exam-layout' }, [
+				stage,
+				el('aside', { class: 'bp-exam-side', 'aria-label': t('exam_overview') }, [
+					el('div', { class: 'bp-exam-progress' }, [doneCount, el('span', { class: 'bp-exam-bar', 'aria-hidden': 'true' }, [doneFill])]),
+					nav,
+					el('p', { class: 'bp-exam-legend', 'aria-hidden': 'true' }, [el('span', { class: 'is-answered' }), t('answered'), el('span'), t('unanswered')]),
+					el('div', { class: 'bp-exam-footer' }, [submitButton, status])
+				])
+			])
 		], examTitle(s));
 		renderQuestion();
 
@@ -1870,7 +1882,8 @@
 				var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
 				var m = Math.floor(left / 60);
 				var sec = left % 60;
-				timer.textContent = t('time_left', { time: m + ':' + (sec < 10 ? '0' : '') + sec });
+				timeText.textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+				timer.setAttribute('aria-label', t('time_left', { time: timeText.textContent }));
 				timer.classList.toggle('is-low', left <= 300);
 				if (left === 300) {
 					status.textContent = t('five_minutes');
@@ -1885,13 +1898,45 @@
 		}
 	}
 
+	function scoreRing(ratio, passed) {
+		var ns = 'http://www.w3.org/2000/svg';
+		var svg = document.createElementNS(ns, 'svg');
+		svg.setAttribute('viewBox', '0 0 120 120');
+		svg.setAttribute('class', 'bp-ring' + (passed ? ' is-passed' : ' is-failed'));
+		svg.setAttribute('aria-hidden', 'true');
+		[['bp-ring-track', 1], ['bp-ring-value', ratio]].forEach(function (c) {
+			var circle = document.createElementNS(ns, 'circle');
+			circle.setAttribute('cx', '60');
+			circle.setAttribute('cy', '60');
+			circle.setAttribute('r', '52');
+			circle.setAttribute('class', c[0]);
+			circle.setAttribute('pathLength', '100');
+			circle.setAttribute('stroke-dasharray', (Math.max(0, Math.min(1, c[1])) * 100) + ' 100');
+			svg.appendChild(circle);
+		});
+		return svg;
+	}
+
+	function meter(value, total, need, ok) {
+		var bar = el('span', { class: 'bp-meter' + (ok ? ' is-ok' : ' is-bad'), 'aria-hidden': 'true' }, [el('span', { class: 'bp-meter-fill' })]);
+		bar.firstChild.style.width = (value * 100 / Math.max(total, 1)) + '%';
+		if (need !== null) {
+			var mark = el('span', { class: 'bp-meter-need' });
+			mark.style.left = (need * 100) + '%';
+			bar.appendChild(mark);
+		}
+		return bar;
+	}
+
 	function examResult(slug, s) {
 		var r = s.result;
 		var list = el('ol', { class: 'bp-review' });
 		var onlyWrong = el('input', { type: 'checkbox', id: 'bp-only-wrong' });
+		var wrong = 0;
 		r.questions.forEach(function (q) {
+			if (!q.correct) { wrong++; }
 			var item = el('li', { class: 'bp-card bp-review-item ' + (q.correct ? 'is-correct' : 'is-wrong') }, [
-				el('p', { class: 'bp-question-meta' }, [el('span', { text: t('exam_question_of', { n: q.position, total: r.questions.length }) }), badge(q.correct ? t('mark_correct') : (q.answered ? t('mark_wrong') : t('unanswered')), q.correct ? 'ok' : 'bad')]),
+				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: r.questions.length }) }), badge(q.correct ? t('mark_correct') : (q.answered ? t('mark_wrong') : t('unanswered')), q.correct ? 'ok' : 'bad')]),
 				multiline('h3', q.text, 'bp-question-text'),
 				questionMedia(q.media)
 			]);
@@ -1904,7 +1949,7 @@
 				item.appendChild(fieldset);
 			}
 			if (q.explanation) {
-				item.appendChild(multiline('p', q.explanation, 'bp-explanation'));
+				item.appendChild(el('div', { class: 'bp-review-explain' }, [multiline('p', q.explanation, 'bp-explanation')]));
 			}
 			list.appendChild(item);
 		});
@@ -1912,36 +1957,56 @@
 
 		var parts = null;
 		if (r.parts.length) {
-			parts = el('table', { class: 'bp-table' }, [
-				el('thead', {}, [el('tr', {}, [el('th', { text: t('part') }), el('th', { text: t('correct') }), el('th', { text: t('required') }), el('th', { text: t('result') })])]),
-				el('tbody', {}, r.parts.map(function (p) {
-					return el('tr', {}, [el('td', { text: p.label }), el('td', { text: p.correct + '/' + p.total }), el('td', { text: p.min_correct + '/' + p.of }), el('td', {}, [badge(p.passed ? t('passed') : t('failed'), p.passed ? 'ok' : 'bad')])]);
+			parts = el('section', { class: 'bp-section', 'aria-labelledby': 'bp-parts-h' }, [
+				el('h2', { id: 'bp-parts-h', text: t('exam_parts_title') }),
+				el('ul', { class: 'bp-part-cards' }, r.parts.map(function (p) {
+					return el('li', { class: 'bp-card bp-part' + (p.passed ? ' is-passed' : ' is-failed') }, [
+						el('p', { class: 'bp-part-head' }, [el('strong', { text: p.label }), badge(p.passed ? t('passed') : t('failed'), p.passed ? 'ok' : 'bad')]),
+						el('p', { class: 'bp-part-score' }, [el('strong', { text: p.correct + '/' + p.total }), ' ' + t('correct')]),
+						meter(p.correct, p.total, p.total ? p.min_correct / p.of : null, p.passed),
+						el('p', { class: 'bp-muted bp-part-need', text: t('part_required', { n: p.min_correct, of: p.of }) })
+					]);
 				}))
 			]);
 		}
-		var topics = el('ul', { class: 'bp-topics' }, Object.keys(r.topics).map(function (k) {
-			return el('li', { text: k + ': ' + r.topics[k].correct + '/' + r.topics[k].total });
+		var topics = el('ul', { class: 'bp-topic-bars' }, Object.keys(r.topics).map(function (k) {
+			var tp = r.topics[k];
+			return el('li', {}, [
+				el('span', { class: 'bp-topic-name', text: k }),
+				meter(tp.correct, tp.total, null, tp.correct === tp.total),
+				el('span', { class: 'bp-topic-score', text: tp.correct + '/' + tp.total })
+			]);
 		}));
 
+		var percent = Math.round((r.ratio || 0) * 100);
 		mount([
-			el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', s.course.name), ' › ', el('span', { text: examTitle(s) })]),
-			el('header', { class: 'bp-header' }, [
-				el('h1', { text: t('result_title', { title: examTitle(s) }) }),
-				el('div', { class: 'bp-card bp-verdict ' + (r.passed ? 'is-passed' : 'is-failed'), role: 'status' }, [
-					el('p', { class: 'bp-verdict-title', text: r.passed ? t('verdict_passed') : t('verdict_failed') }),
-					el('p', { text: t('score_line', { score: r.score, max: r.max, percent: Math.round((r.ratio || 0) * 100) }) }),
-					r.expired ? el('p', { class: 'bp-muted', text: t('expired_note') }) : null,
-					!s.live ? el('p', { class: 'bp-muted', text: t('practice_result_note') }) : null,
-					r.open_text.total > 0 ? el('p', { class: 'bp-muted', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null,
-					s.rule.note ? el('p', { class: 'bp-note', text: s.rule.note }) : null
-				])
+			el('header', { class: 'bp-hero bp-result-hero' + (r.passed ? ' is-passed' : ' is-failed') }, [
+				el('div', { class: 'bp-hero-text' }, [
+					el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', s.course.name), ' › ', el('span', { text: examTitle(s) })]),
+					el('p', { class: 'bp-hero-eyebrow', text: t('result_eyebrow') }),
+					el('h1', { text: t('result_title', { title: examTitle(s) }) }),
+					el('div', { class: 'bp-verdict ' + (r.passed ? 'is-passed' : 'is-failed'), role: 'status' }, [
+						el('p', { class: 'bp-verdict-title' }, [el('span', { class: 'bp-verdict-icon', 'aria-hidden': 'true' }), r.passed ? t('verdict_passed') : t('verdict_failed')]),
+						el('p', { class: 'bp-verdict-score', text: t('score_line', { score: r.score, max: r.max, percent: percent }) }),
+						r.expired ? el('p', { class: 'bp-verdict-note', text: t('expired_note') }) : null,
+						!s.live ? el('p', { class: 'bp-verdict-note', text: t('practice_result_note') }) : null,
+						r.open_text.total > 0 ? el('p', { class: 'bp-verdict-note', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null
+					]),
+					el('div', { class: 'bp-hero-actions' }, [
+						wrong ? link(slug + '/lernen/?modus=wrong', t('learn_wrong'), 'bp-button bp-button-signal') : null,
+						link(slug + '/', t('back_course'), 'bp-button bp-button-ghost')
+					])
+				]),
+				el('div', { class: 'bp-result-ring' }, [scoreRing(r.ratio || 0, r.passed), el('p', {}, [el('strong', { text: percent + ' %' }), el('span', { text: r.score + ' / ' + r.max })])])
 			]),
+			s.rule.note ? el('p', { class: 'bp-note', text: s.rule.note }) : null,
 			parts,
-			el('section', { class: 'bp-section' }, [el('h2', { text: t('topics_title') }), topics]),
-			el('div', { class: 'bp-actions' }, [link(slug + '/lernen/?modus=wrong', t('learn_wrong'), 'bp-button bp-button-primary'), link(slug + '/', t('back_course'), 'bp-button')]),
+			el('section', { class: 'bp-section bp-panel', 'aria-labelledby': 'bp-topics-h' }, [el('h2', { id: 'bp-topics-h', text: t('topics_title') }), topics]),
 			el('section', { class: 'bp-section' }, [
-				el('h2', { text: t('review_title') }),
-				el('p', {}, [onlyWrong, ' ', el('label', { for: 'bp-only-wrong', text: t('only_wrong') })]),
+				el('div', { class: 'bp-section-head' }, [
+					el('h2', { text: t('review_title') }),
+					el('p', { class: 'bp-switch' }, [onlyWrong, el('label', { for: 'bp-only-wrong', text: t('only_wrong') })])
+				]),
 				list
 			])
 		], t('result_title', { title: examTitle(s) }));
