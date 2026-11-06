@@ -114,7 +114,27 @@ jobs:
           sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php
           sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', true );/" wp-config.php
           ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" wp-content/plugins/bootspruefung-learning
+      - name: Plugin-Schemata identisch mit schema/
+        run: diff -r schema/v1 bootspruefung-learning/schema/v1
       - name: Rauchtest
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php | tee smoke.log
           ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" smoke.log
+      - name: Content-Paket bauen
+        run: php tools/content-build/bin/build-package.php
+      - name: Import, Lernen und Prüfung (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee flow.log
+          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log
+      - name: Browser-Tests (Playwright)
+        if: matrix.php == '8.3'
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1.48.2
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/setup.php
+          cp bootspruefung-learning/tests/e2e/router.php "$RUNNER_TEMP/wp/router.php"
+          (cd "$RUNNER_TEMP/wp" && php -d upload_max_filesize=64M -d post_max_size=64M -S 127.0.0.1:8099 router.php > "$RUNNER_TEMP/php-server.log" 2>&1 &)
+          sleep 2
+          export NODE_PATH="$RUNNER_TEMP/pw/node_modules"
+          BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/learning-flow.mjs
+          BP_ADMIN=admin BP_ADMIN_PASS=Admin-Passwort-123 BP_ZIP="$(ls build/*.zip)" node bootspruefung-learning/tests/e2e/admin-import.mjs

@@ -525,14 +525,14 @@ bootspruefung-learning/
 1. **Content-Snapshot und -Audit:** Snapshot zu gepinntem Commit übernehmen; Datenstände, Medienverfügbarkeit, Duplikate, offene Frageformate und vor allem Rights-Status inventarisieren (Ausgangslage siehe 2.1). *Stand: Snapshot ✅ (`content-source/boatingschool/`, `tools/sync-source.sh`); Rechte-Audit offen.*
 2. **Paketvertrag und Konverter:** JSON-Schema und Medienmanifest festlegen; Konverter inkl. Portierung der Generatorlogik aus `app/Support/` mit Golden-Master-Tests. *Stand: Format v1 (`schema/`) und Konverter (`tools/content-build/`) ✅ für Kurse, Module, Fragen, Medien, Regelwerke, Bögen, Navigation und Praxis – Golden Master gegen Laravel ohne Abweichung; Video, Funk und Gerätesimulation offen.*
 3. **Plugin-Skelett:** Autoloading, Capabilities, Settings, Tabellenmigrationen und REST-Grundstruktur. *Stand: ✅ (`bootspruefung-learning/`), Rauchtest gegen WordPress 7.1.4 + MariaDB 10.11.*
-4. **Importer:** Dry-Run, Schema-Validierung, Quell-ID/Hash, Batchimport, Protokoll und Freigabeschritt.
-5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren.
-6. **Lernmodus:** Frage/Antwort, Erklärungen, Merkliste, Fortschritt und Smarttrainer.
-7. **Prüfung:** Regeln, Zufallsprüfungen, feste Bögen, Snapshot und Ergebnis.
+4. **Importer:** Dry-Run, Schema-Validierung, Quell-ID/Hash, Batchimport, Protokoll und Freigabeschritt. *Stand: ✅ Upload (ZIP, Pfadprüfung) oder WP-CLI `wp bootspruefung import`; Prüfung gegen Manifest-Prüfsummen, Schemata und Querverweise; Dry-Run-Vorschau; Freigabe mit Notiz; Import in Teilschritten (fortsetzbar); neue Revision bei geändertem Hash, `source_archived` statt Löschen; Protokoll je Datensatz; Audit-Log.*
+5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren. *Stand: ✅ Übersicht mit offenen Punkten, Kurse & Module, Fragen (Filter, Detail, Revisionen), Medien, Prüfungsregeln (Verifizierung per Override), Rechtefreigabe je Katalog/Quelle/Kurs. Lokale Änderungen als begründete Overrides (`bp_override`), die Reimporte überleben. Rollback eines Pakets ist noch offen.*
+6. **Lernmodus:** Frage/Antwort, Erklärungen, Merkliste, Fortschritt und Smarttrainer. *Stand: ✅ unter `/bootsscheine/` (Block- und klassische Themes); Smarttrainer-Logik wie die Quelle (neu → falsch → schwaches Thema → gefestigt, gefestigt = 3× richtig in Folge), Modi Neu/Falsch/Merkliste, Modulfilter, offene Fragen mit Musterantwort und Selbsteinschätzung; signierte Frage-Tokens, Idempotency-Key, Rate-Limit.*
+7. **Prüfung:** Regeln, Zufallsprüfungen, feste Bögen, Snapshot und Ergebnis. *Stand: ✅ Prüfungsmodus nur mit veröffentlichtem, gültigem, verifiziertem Regelwerk, sonst Übungsmodus; Zufallsauswahl nach Blueprint, feste Bögen mit Fortsetzen; serverseitige Zeit und Abgabe nach Ablauf (auch per Cron); Bewertung mit Teilgrenzen wie die Quelle; Ergebnis mit Teilen, Themen und Fragenrückblick.*
 8. **Spezialtrainer:** Navigation, Praxis, Videos, Funktexte, Vokabeln.
    - 8a: **Funkpraxis (Sprechfunk-Szenarien)** als eigener Meilenstein;
    - 8b: **Gerätesimulation** als eigener Meilenstein.
-9. **WooCommerce:** Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport.
+9. **WooCommerce:** *(offen; Zahlungsarten noch nicht festgelegt – bis dahin regelt die Einstellung „Zugang ohne Shop“ den Zugriff, Standard: alle angemeldeten Nutzer)* Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport.
 10. **Content-Freigabe und Go-live:** Rechtsstatus, Katalogaktualität, Regelwerksverifizierung, Medienersatz, Backup/Restore und Supportablauf bestätigen.
 
 ## 12. Abnahmekriterien
