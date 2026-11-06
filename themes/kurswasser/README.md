@@ -37,7 +37,7 @@ Beim Aktivieren (und mit `tests/demo-setup.php`) legt das Theme die Seite „Kur
 Unterseite an (Vorlage „Kursseite“). Definitionen in `inc/courses.php` (Texte, Angebote,
 Farbe); Zahlen kommen aus dem Plugin (`ShopCatalog::courseStats`), der Prüfungsablauf aus den
 Prüfungsanleitungen (Umfang, Bestehensgrenze, Zeit, Prüfungsteile) – keine Gebühren/Fristen.
-Kacheln: `[kurswasser_course_tiles]` (Startseite, zwei Reihen: SBF See · SBF Binnen · Kombi · Kapitäns-Bundle / SRC · UBI · Kombi · Weitere Kurse) und `[kurswasser_course_tiles set="more"]` (Seite „Weitere Kurse“). Reihen in `kurswasser_tile_sets()`. Kombis zeigen „Du sparst … €“ aus den Shop-Preisen.
+Kacheln: `[kurswasser_course_tiles]` (Startseite, zwei Reihen: Kapitäns-Bundle · Kombi SBF See & Binnen · SBF See · SBF Binnen / Kombi SRC & UBI · SRC · UBI · Weitere Kurse); „Weitere Kurse“ führt zur Übersicht `/kurse/` mit allen Kursen, nach Bereichen gegliedert. Kursfotos in `assets/images/courses/` (Austausch: `tools/course-images/README.md`). Reihen in `kurswasser_tile_sets()`. Kombis zeigen „Du sparst … €“ aus den Shop-Preisen.
 
 ## Kurse & Preise (`[kurswasser_offers]`)
 
