@@ -449,7 +449,12 @@ if (function_exists('wc_load_cart')) {
     wc_clear_notices();
     $upId = (int) $byS['SIM-UPGRADE-CHECKOUT']['product_id'];
     $srcId = (int) $byS['BP-SRC']['product_id'];
-    $check(WC()->cart->add_to_cart($upId) === false && WC()->cart->is_empty(), 'Upgrade ohne Funkkurs abgelehnt');
+    // Kauf-Link/Store API prüfen beim Hinzufügen; direkt eingefügt wird es bei der nächsten Berechnung entfernt.
+    $check(apply_filters('woocommerce_add_to_cart_validation', true, $upId, 1) === false, 'Upgrade ohne Funkkurs beim Hinzufügen abgelehnt');
+    WC()->cart->add_to_cart($upId);
+    WC()->cart->calculate_totals();
+    $check(WC()->cart->is_empty(), 'Upgrade ohne Funkkurs aus dem Warenkorb entfernt');
+    wc_clear_notices();
     $check(\Bootspruefung\Learning\Commerce\WooCommerce\SimUpgrade::box() === '', 'kein Angebot ohne Funkkurs');
     $srcKey = WC()->cart->add_to_cart($srcId);
     $box = \Bootspruefung\Learning\Commerce\WooCommerce\SimUpgrade::box();
