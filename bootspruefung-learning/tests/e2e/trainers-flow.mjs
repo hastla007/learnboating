@@ -56,9 +56,17 @@ await page.locator('#bp-app').getByRole('link', { name: /^Pflichtmanöver \(/ })
 await page.getByRole('heading', { name: 'Pflichtmanöver', level: 1 }).waitFor();
 
 step('Videokurs mit Quiz');
+// Kapitelmenü links (Kapitel ggf. aufklappen), Player rechts
+const openLesson = async (name) => {
+  const item = page.locator('#bp-app a.bp-vc-lesson', { hasText: name }).first();
+  await item.evaluate((n) => { n.closest('details').open = true; });
+  await item.click();
+  await page.locator('a.bp-vc-lesson.is-active', { hasText: name }).waitFor();
+};
 await page.goto(`${base}/bootsscheine/sbf-see/video/`);
-await page.getByRole('heading', { name: 'Videokurs', level: 1 }).waitFor();
-await page.locator('#bp-app').getByRole('link', { name: 'Motor, Bootsführer und Fahrer' }).click();
+await page.locator('.bp-vc-side').getByText('Videokurs', { exact: true }).waitFor();
+assert.ok(await page.locator('a.bp-vc-lesson.is-active').count() === 1, 'Videokurs öffnet direkt eine Lektion');
+await openLesson('Motor, Bootsführer und Fahrer');
 await page.locator('video.bp-video').waitFor();
 await page.getByText('Platzhaltervideo').waitFor();
 assert.equal(await page.locator('.bp-section .bp-question').count(), 4, '4 Quizfragen');
@@ -68,12 +76,14 @@ await quiz.getByRole('button', { name: 'Antwort prüfen' }).click();
 await quiz.locator('.bp-feedback-title').waitFor();
 await page.getByRole('button', { name: 'Als abgeschlossen markieren' }).click();
 await page.getByRole('button', { name: 'abgeschlossen', exact: true }).waitFor();
+await page.locator('.bp-vc-status', { hasText: 'Abgeschlossen' }).waitFor();
+assert.match(await page.locator('.bp-vc-count').innerText(), /^[1-9]\d* \/ \d+ Lektionen$/);
 await shot('22-video');
 await page.goto(`${base}/bootsscheine/sbf-see/video/`);
-await page.locator('.bp-lesson-done').first().waitFor();
+await page.locator('.bp-lesson-done').first().waitFor({ state: 'attached' });
 
 step('Knoten mit Schrittgalerie');
-await page.locator('#bp-app').getByRole('link', { name: 'Palstek' }).click();
+await openLesson('Palstek');
 await page.getByRole('heading', { name: 'Schritt für Schritt' }).waitFor();
 assert.equal(await page.locator('.bp-steps li').count(), 5);
 

@@ -1060,93 +1060,182 @@
 		return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2);
 	}
 
+	// Videokurs: Kapitelmenü links (Fortschritt, aufklappbare Kapitel), Player rechts.
+	// /video/ öffnet die nächste offene Lektion, /video/<id>/ eine bestimmte.
 	function viewVideos(slug) {
+		return videoPlayer(slug, null);
+	}
+
+	function viewVideoLesson(slug, lessonId) {
+		return videoPlayer(slug, lessonId);
+	}
+
+	function videoPlayer(slug, lessonId) {
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').then(function (v) {
-				var nodes = [crumbs(slug, c.name, [[t('trainer_video')]]), el('header', { class: 'bp-header' }, [
-					el('h1', { text: t('trainer_video') }),
-					progressBar({ questions: v.lessons, mastered: v.completed, learning: 0, unsure: 0, percent: Math.floor(v.completed * 100 / Math.max(v.lessons, 1)) }, t('trainer_video_meta', { done: v.completed, total: v.lessons })),
-					v.next_lesson ? el('p', {}, [link(slug + '/video/' + v.next_lesson + '/', t('video_continue'), 'bp-button bp-button-primary')]) : null
-				])];
-				var lastGroup = null;
-				v.modules.forEach(function (m) {
-					if (m.group && m.group !== lastGroup) {
-						nodes.push(el('h2', { class: 'bp-group', text: m.group }));
-						lastGroup = m.group;
-					}
-					nodes.push(el('section', { class: 'bp-card' + (m.locked ? ' bp-locked' : '') }, [
-						el('h3', { text: m.title }),
-						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : null,
-						el('ol', { class: 'bp-lessons' }, m.lessons.map(function (l) {
-							if (l.locked) {
-								return el('li', { class: 'is-locked' }, [el('span', { text: l.title }), el('span', { class: 'bp-muted', text: ' · ' + t('locked_badge') }), m.locked ? null : el('span', { class: 'bp-muted', text: ' · ' + t('locked_free') })]);
-							}
-							return el('li', { class: l.completed ? 'is-done' : '' }, [
-								link(slug + '/video/' + l.id + '/', l.title),
-								el('span', { class: 'bp-muted', text: ' ' + duration(l.duration) }),
-								l.completed ? el('span', { class: 'bp-lesson-done', text: ' ✓ ' + t('video_done') }) : null,
-								l.quiz ? el('span', { class: 'bp-muted', text: ' · ' + t('video_quiz_count', { n: l.quiz }) }) : null
-							]);
-						}))
-					]));
+				var firstOpen = null;
+				v.modules.forEach(function (m) { m.lessons.forEach(function (l) { if (!firstOpen && !l.locked) { firstOpen = l.id; } }); });
+				var id = lessonId || v.next_lesson || firstOpen;
+				if (!id) {
+					mount([crumbs(slug, c.name, [[t('trainer_video')]]), videoLayout(slug, c, v, null, el('div', { class: 'bp-vc-main' }, [el('h1', { text: t('trainer_video') }), el('p', { class: 'bp-muted', text: t('video_none') })]))], t('trainer_video') + ' – ' + c.name);
+					return null;
+				}
+				return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos/' + id).then(function (l) {
+					renderLesson(slug, c, v, l);
 				});
-				mount(nodes, t('trainer_video') + ' – ' + c.name);
 			});
 		});
 	}
 
-	function viewVideoLesson(slug, lessonId) {
-		return withCourse(slug, function (c) {
-			return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos/' + lessonId).then(function (l) {
-				var path = 'courses/' + encodeURIComponent(slug) + '/videos/' + l.id + '/progress';
-				var video = l.video_url ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
-				var doneBtn = el('button', { type: 'button', class: 'bp-button' + (l.completed ? '' : ' bp-button-primary'), 'aria-pressed': l.completed ? 'true' : 'false', text: l.completed ? t('video_done') : t('video_mark_done') });
-				function saveProgress(completed) {
-					return api('PUT', path, { position: video ? Math.floor(video.currentTime || 0) : 0, completed: completed });
-				}
-				doneBtn.addEventListener('click', function () {
-					saveProgress(!l.completed).then(function (r) {
-						l.completed = r.completed;
-						doneBtn.textContent = l.completed ? t('video_done') : t('video_mark_done');
-						doneBtn.setAttribute('aria-pressed', l.completed ? 'true' : 'false');
-						doneBtn.classList.toggle('bp-button-primary', !l.completed);
-					});
-				});
-				if (video) {
-					video.addEventListener('loadedmetadata', function () {
-						if (l.position > 0 && l.position < (video.duration || 0) - 2) {
-							video.currentTime = l.position;
-						}
-					});
-					video.addEventListener('pause', function () { saveProgress(null); });
-					video.addEventListener('ended', function () {
-						saveProgress(true).then(function () {
-							l.completed = true;
-							doneBtn.textContent = t('video_done');
-							doneBtn.classList.remove('bp-button-primary');
-						});
-					});
-					timers.push(setInterval(function () { if (!video.paused) { saveProgress(null); } }, 15000));
-				}
-				var quiz = null;
-				if (l.quiz.length) {
-					quiz = el('section', { class: 'bp-section' }, [el('h2', { text: t('video_quiz') })].concat(l.quiz.map(function (q) { return quizQuestion(q); })));
-				}
-				mount([
-					crumbs(slug, c.name, [[t('trainer_video'), slug + '/video/'], [l.title]]),
-					el('header', { class: 'bp-header bp-header-compact' }, [el('p', { class: 'bp-eyebrow bp-muted', text: l.module }), el('h1', { text: l.title })]),
-					l.placeholder ? el('p', { class: 'bp-note', text: t('video_placeholder') }) : null,
-					video ? el('div', { class: 'bp-video-wrap' }, [video]) : el('p', { text: t('video_missing') }),
-					el('div', { class: 'bp-actions' }, [
-						doneBtn,
-						l.previous ? link(slug + '/video/' + l.previous + '/', t('prev'), 'bp-button') : null,
-						l.next ? link(slug + '/video/' + l.next + '/', t('next'), 'bp-button') : null
-					]),
-					l.steps.length ? el('section', { class: 'bp-section' }, [el('h2', { text: t('video_steps') }), el('ol', { class: 'bp-steps' }, l.steps.map(function (st) { return el('li', { text: st.title }); }))]) : null,
-					quiz
-				], l.title + ' – ' + c.name);
-			});
+	var VC_COLLAPSED = 'bpVideoMenuCollapsed';
+
+	function videoLayout(slug, c, v, activeId, main) {
+		var percent = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
+		var fill = el('span', { class: 'bp-vc-bar-fill' });
+		fill.style.width = percent + '%';
+		var count = el('span', { class: 'bp-vc-count', text: t('video_lessons_count', { done: v.completed, total: v.lessons }) });
+		var pct = el('span', { class: 'bp-vc-pct', text: percent + ' %' });
+		var layout = el('div', { class: 'bp-vc' });
+		var collapsed = false;
+		try { collapsed = window.localStorage.getItem(VC_COLLAPSED) === '1'; } catch (e) { collapsed = false; }
+		var toggle = el('button', { type: 'button', class: 'bp-vc-toggle', 'aria-expanded': collapsed ? 'false' : 'true', 'aria-controls': 'bp-vc-chapters', title: t('video_toggle_menu') }, [el('span', { class: 'bp-sr', text: t('video_toggle_menu') })]);
+		var chapters = el('div', { class: 'bp-vc-chapters', id: 'bp-vc-chapters' }, v.modules.map(function (m) {
+			var done = m.lessons.length > 0 && m.lessons.every(function (l) { return l.completed; });
+			var hasActive = m.lessons.some(function (l) { return l.id === activeId; });
+			return el('details', { class: 'bp-vc-chapter' + (done ? ' is-done' : '') + (m.locked ? ' is-locked' : ''), open: hasActive || (!activeId && !m.locked) }, [
+				el('summary', {}, [el('span', { class: 'bp-vc-dot', 'aria-hidden': 'true' }), el('span', { class: 'bp-vc-chapter-title', text: m.title }), done ? el('span', { class: 'bp-sr', text: t('video_done') }) : null]),
+				m.locked ? el('p', { class: 'bp-vc-note', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : null,
+				el('ol', { class: 'bp-vc-lessons' }, m.lessons.map(function (l) {
+					var inner = [el('span', { class: 'bp-vc-dot', 'aria-hidden': 'true' }), el('span', { class: 'bp-vc-lesson-title', text: l.title }), el('span', { class: 'bp-vc-time', text: l.locked ? t('locked_badge') : duration(l.duration) })];
+					if (l.completed) {
+						inner.push(el('span', { class: 'bp-lesson-done bp-sr', text: t('video_done') }));
+					}
+					var cls = 'bp-vc-lesson' + (l.completed ? ' is-done' : '') + (l.id === activeId ? ' is-active' : '') + (l.locked ? ' is-locked' : '');
+					if (l.locked) {
+						return el('li', {}, [el('span', { class: cls, title: m.locked ? null : t('locked_free') }, inner)]);
+					}
+					var a = el('a', { href: base + slug + '/video/' + l.id + '/', class: cls, 'data-bp-link': '1', 'data-lesson': String(l.id), title: l.title, 'aria-current': l.id === activeId ? 'page' : null }, inner);
+					return el('li', {}, [a]);
+				}))
+			]);
+		}));
+		var side = el('aside', { class: 'bp-vc-side', 'aria-label': t('video_chapters') }, [
+			el('div', { class: 'bp-vc-head' }, [el('span', { class: 'bp-vc-icon', 'aria-hidden': 'true' }), el('div', { class: 'bp-vc-head-text' }, [el('p', { class: 'bp-vc-kicker', text: t('trainer_video') }), el('p', { class: 'bp-vc-course', text: c.name })]), toggle]),
+			el('div', { class: 'bp-vc-progress' }, [el('div', { class: 'bp-vc-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent), 'aria-label': t('trainer_video_meta', { done: v.completed, total: v.lessons }) }, [fill]), el('p', { class: 'bp-vc-meta' }, [count, pct])]),
+			chapters
+		]);
+		function apply() {
+			layout.classList.toggle('is-collapsed', collapsed);
+			toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+		}
+		toggle.addEventListener('click', function () {
+			collapsed = !collapsed;
+			try { window.localStorage.setItem(VC_COLLAPSED, collapsed ? '1' : '0'); } catch (e) { /* egal */ }
+			apply();
 		});
+		apply();
+		layout.appendChild(side);
+		layout.appendChild(main);
+		// Fortschritt nach „abgeschlossen“ ohne Neuladen aktualisieren.
+		layout.setDone = function (lessonId, isDone) {
+			var item = layout.querySelector('[data-lesson="' + lessonId + '"]');
+			if (!item || item.classList.contains('is-done') === isDone) {
+				return;
+			}
+			item.classList.toggle('is-done', isDone);
+			v.completed += isDone ? 1 : -1;
+			var p = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
+			fill.style.width = p + '%';
+			pct.textContent = p + ' %';
+			count.textContent = t('video_lessons_count', { done: v.completed, total: v.lessons });
+			var chapter = item.closest('details');
+			chapter.classList.toggle('is-done', chapter.querySelectorAll('.bp-vc-lesson').length === chapter.querySelectorAll('.bp-vc-lesson.is-done').length);
+		};
+		return layout;
+	}
+
+	function renderLesson(slug, c, v, l) {
+		var path = 'courses/' + encodeURIComponent(slug) + '/videos/' + l.id + '/progress';
+		var video = l.video_url ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+		var status = el('span', { class: 'bp-vc-status', text: l.completed ? t('video_status_done') : t('video_status_open') });
+		var doneBtn = el('button', { type: 'button', class: 'bp-vc-mark', 'aria-pressed': l.completed ? 'true' : 'false', text: l.completed ? t('video_done') : t('video_mark_done') });
+		var layout;
+		function setDone(done) {
+			l.completed = done;
+			doneBtn.textContent = done ? t('video_done') : t('video_mark_done');
+			doneBtn.setAttribute('aria-pressed', done ? 'true' : 'false');
+			status.textContent = done ? t('video_status_done') : t('video_status_open');
+			status.classList.toggle('is-done', done);
+			layout.setDone(l.id, done);
+		}
+		status.classList.toggle('is-done', !!l.completed);
+		function saveProgress(completed) {
+			return api('PUT', path, { position: video ? Math.floor(video.currentTime || 0) : 0, completed: completed });
+		}
+		doneBtn.addEventListener('click', function () {
+			saveProgress(!l.completed).then(function (r) { setDone(!!r.completed); });
+		});
+		if (video) {
+			video.addEventListener('loadedmetadata', function () {
+				if (l.position > 0 && l.position < (video.duration || 0) - 2) {
+					video.currentTime = l.position;
+				}
+			});
+			video.addEventListener('pause', function () { saveProgress(null); });
+			video.addEventListener('ended', function () {
+				saveProgress(true).then(function () { setDone(true); });
+			});
+			timers.push(setInterval(function () { if (!video.paused) { saveProgress(null); } }, 15000));
+		}
+		// Titelkarte über dem Video (Kapitel, Lektion, Kurs) bis zum Start
+		var poster = null;
+		if (video) {
+			poster = el('button', { type: 'button', class: 'bp-vc-poster', 'aria-label': t('video_play', { title: l.title }) }, [
+				el('span', { class: 'bp-vc-poster-kicker', text: t('video_chapter') }),
+				el('span', { class: 'bp-vc-poster-title', text: l.module }),
+				el('span', { class: 'bp-vc-poster-sub', text: c.name }),
+				el('span', { class: 'bp-vc-poster-play', 'aria-hidden': 'true' })
+			]);
+			poster.addEventListener('click', function () {
+				var p = video.play();
+				if (p && p.catch) { p.catch(function () { /* Wiedergabe blockiert: Steuerung bleibt sichtbar */ }); }
+				poster.hidden = true;
+				video.focus();
+			});
+			video.addEventListener('play', function () { poster.hidden = true; });
+		}
+		var quiz = null;
+		var cta = null;
+		if (l.quiz.length) {
+			quiz = el('section', { class: 'bp-section bp-vc-quiz', id: 'bp-vc-quiz', tabindex: '-1' }, [el('h2', { text: t('video_quiz') })].concat(l.quiz.map(function (q) { return quizQuestion(q); })));
+			cta = el('button', { type: 'button', class: 'bp-button bp-button-primary bp-vc-cta' }, [t('video_to_quiz', { n: l.quiz.length }), el('span', { class: 'bp-vc-arrow', 'aria-hidden': 'true', text: '→' })]);
+			cta.addEventListener('click', function () {
+				quiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				quiz.focus({ preventScroll: true });
+			});
+		} else if (l.next) {
+			cta = el('a', { href: base + slug + '/video/' + l.next + '/', class: 'bp-button bp-button-primary bp-vc-cta', 'data-bp-link': '1' }, [t('video_next'), el('span', { class: 'bp-vc-arrow', 'aria-hidden': 'true', text: '→' })]);
+		}
+		var main = el('div', { class: 'bp-vc-main' }, [
+			el('p', { class: 'bp-vc-module', text: l.module }),
+			el('h1', { class: 'bp-vc-title', text: l.title }),
+			l.placeholder ? el('p', { class: 'bp-note', text: t('video_placeholder') }) : null,
+			video ? el('div', { class: 'bp-video-wrap' }, [video, poster]) : el('p', { class: 'bp-vc-missing', text: t('video_missing') }),
+			el('div', { class: 'bp-vc-bar-row' }, [el('div', { class: 'bp-vc-state' }, [status, doneBtn]), cta]),
+			l.steps.length ? el('section', { class: 'bp-section' }, [el('h2', { text: t('video_steps') }), el('ol', { class: 'bp-steps' }, l.steps.map(function (st) { return el('li', { text: st.title }); }))]) : null,
+			quiz,
+			(l.previous || l.next) ? el('nav', { class: 'bp-vc-pager', 'aria-label': t('video_chapters') }, [
+				l.previous ? link(slug + '/video/' + l.previous + '/', '← ' + t('prev'), 'bp-button') : el('span'),
+				l.next ? link(slug + '/video/' + l.next + '/', t('video_next') + ' →', 'bp-button') : null
+			]) : null
+		]);
+		layout = videoLayout(slug, c, v, l.id, main);
+		mount([crumbs(slug, c.name, [[t('trainer_video'), slug + '/video/'], [l.title]]), layout], l.title + ' – ' + c.name);
+		var active = layout.querySelector('.bp-vc-lesson.is-active');
+		var list = layout.querySelector('.bp-vc-chapters');
+		if (active && list && list.scrollHeight > list.clientHeight) {
+			list.scrollTop = Math.max(0, active.offsetTop - list.offsetTop - 80);
+		}
 	}
 
 	function quizQuestion(q) {
