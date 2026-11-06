@@ -9,7 +9,8 @@ des Plugins bzw. Website-Titel).
 
 | Vorlage | Zweck |
 |---|---|
-| `front-page` | Startseite aus Mustern: Hero, Vorteilsleiste, **Kurse & Preise**, Funktionen, Ablauf, Gruppen, Garantie, FAQ, Abschluss-Aufruf |
+| `front-page` | Startseite aus Mustern: Hero, Vorteilsleiste, **Kurs-Kacheln** (Preis, Kennzahlen, Link zur Kursseite), Funktionen, Ablauf, Gruppen, Garantie, FAQ, Abschluss-Aufruf |
+| `course` | **Kurs-Infoseiten** `/kurse/<kurs>/` (SBF See, SBF Binnen, Binnen Segel, SRC, UBI, SKN, FKN, Pakete): Hero mit Kennzahlen, Inhalte, Prüfungsablauf (aus den Prüfungsanleitungen der Quelle), Preise & Kauf, Garantie, FAQ |
 | `archive-product`, `taxonomy-product_cat`, `product-search-results` | Shop und Kategorien mit Kategorie-Navigation, Garantie und FAQ |
 | `single-product` | Produktseite mit Kaufbox, Zusicherungen und Beschreibung (aus dem Plugin-Katalog) |
 | `page-cart`, `page-checkout` | Warenkorb und Kasse (Block-Checkout), Kasse mit reduziertem Kopfbereich |
@@ -29,6 +30,14 @@ einzeln auf jeder Seite einsetzbar.
 Inhaltliche Regel: Aussagen beschreiben nur Funktionen, die es im Plugin gibt, und die
 Festlegungen des Betreibers (Laufzeiten, Geld-zurück-Garantie, Gruppenpakete). Keine Gebühren,
 Fristen oder Prüfungsvorschriften – dafür wird auf den Prüfungsausschuss verwiesen.
+
+## Kursseiten (`[kurswasser_course id="sbf-see"]`)
+
+Beim Aktivieren (und mit `tests/demo-setup.php`) legt das Theme die Seite „Kurse“ und je Kurs eine
+Unterseite an (Vorlage „Kursseite“). Definitionen in `inc/courses.php` (Texte, Angebote,
+Farbe); Zahlen kommen aus dem Plugin (`ShopCatalog::courseStats`), der Prüfungsablauf aus den
+Prüfungsanleitungen (Umfang, Bestehensgrenze, Zeit, Prüfungsteile) – keine Gebühren/Fristen.
+Startseiten-Kacheln: `[kurswasser_course_tiles]`.
 
 ## Kurse & Preise (`[kurswasser_offers]`)
 

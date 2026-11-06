@@ -14,6 +14,7 @@ if (! defined('ABSPATH')) {
 const KURSWASSER_VERSION = '2.0.0';
 
 require_once __DIR__.'/inc/offers.php';
+require_once __DIR__.'/inc/courses.php';
 
 add_action('after_setup_theme', static function (): void {
     load_theme_textdomain('kurswasser', get_template_directory().'/languages');
@@ -118,7 +119,7 @@ add_filter('render_block', static function (string $html): string {
         return $html;
     }
 
-    return (string) preg_replace_callback('/href="#kw:([a-z0-9-]*)(#[a-z0-9-]+)?"/', static fn ($m) => 'href="'.esc_url(kurswasser_url($m[1]).($m[2] ?? '')).'"', $html);
+    return (string) preg_replace_callback('/href="#kw:([a-z0-9\/-]*)(#[a-z0-9-]+)?"/', static fn ($m) => 'href="'.esc_url(kurswasser_url($m[1]).($m[2] ?? '')).'"', $html);
 }, 20);
 
 /** Kontobereich im Kopf: Anmelden bzw. Lernbereich (Shortcode für den Kopfbereich). */
@@ -155,7 +156,9 @@ add_filter('woocommerce_product_add_to_cart_text', static fn ($text, $product = 
 add_filter('woocommerce_product_single_add_to_cart_text', static fn () => __('Jetzt Kurs kaufen', 'kurswasser'));
 
 /** Shortcode-Blöcke in Mustern ausführen (WordPress tut das dort sonst nicht). */
-add_filter('render_block_core/shortcode', static fn (string $html): string => do_shortcode($html), 10);
+add_filter('pre_render_block', static function ($pre, array $block) {
+    return ($block['blockName'] ?? '') === 'core/shortcode' ? do_shortcode(trim((string) ($block['innerHTML'] ?? ''))) : $pre;
+}, 10, 2);
 
 /** Abschnitt „Beliebte Kurse“ nur mit WooCommerce. */
 add_filter('render_block', static function (string $html, array $block): string {

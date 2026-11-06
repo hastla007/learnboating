@@ -1,6 +1,6 @@
 <?php
 /**
- * Title: Angebote (Produkte mit Preisen)
+ * Title: Kurse (Kacheln mit Preis)
  * Slug: kurswasser/courses
  * Categories: kurswasser
  * Inserter: yes
@@ -8,12 +8,14 @@
 ?>
 <!-- wp:group {"tagName":"section","align":"wide","anchor":"kurse","className":"kw-section kw-courses","layout":{"type":"default"}} -->
 <section id="kurse" class="wp-block-group alignwide kw-section kw-courses"><!-- wp:html -->
-<div class="kw-courses-head kw-center-head">
-	<p class="kw-eyebrow">Kurse &amp; Preise</p>
-	<h2 class="wp-block-heading">Wähle deinen Kurs und leg los.</h2>
-	<p class="kw-lead">Einmal zahlen, sofort lernen – mit Smarttrainer, Prüfungssimulation und allen Trainern deines Scheins.</p>
+<div class="kw-courses-head">
+	<div>
+		<p class="kw-eyebrow">Unsere Kurse</p>
+		<h2 class="wp-block-heading">Welchen Schein machst du?</h2>
+	</div>
+	<p class="kw-lead">Jeder Kurs mit allen Prüfungsfragen, Prüfungssimulation und den passenden Trainern. Wähle deinen Schein und sieh dir an, was drin ist.</p>
 </div>
 <!-- /wp:html -->
-<!-- wp:shortcode -->[kurswasser_offers]<!-- /wp:shortcode -->
-<!-- wp:html --><p class="kw-offers-all"><a href="#kw:shop">Alle Kurse und Gruppenpakete ansehen <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a></p><!-- /wp:html --></section>
+<!-- wp:shortcode -->[kurswasser_course_tiles]<!-- /wp:shortcode -->
+<!-- wp:html --><ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>14 Tage Geld-zurück-Garantie</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Zugang direkt nach Zahlungseingang</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Kein Abo – einmal zahlen</li></ul><!-- /wp:html --></section>
 <!-- /wp:group -->

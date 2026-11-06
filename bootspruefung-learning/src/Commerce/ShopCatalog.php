@@ -233,6 +233,39 @@ final class ShopCatalog
      * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
      * @return array{short:string,long:string}
      */
+    /**
+     * Kennzahlen über eine Kursmenge (Fragen als Vereinigung, Rest summiert).
+     *
+     * @param list<string> $courses
+     * @return array{questions:int,nav:int,praxis:int,videos:int,papers:int}
+     */
+    public static function courseStats(array $courses): array
+    {
+        global $wpdb;
+        $p = $wpdb->prefix.'bp_';
+        $courses = array_values(array_unique($courses));
+        if ($courses === []) {
+            return ['questions' => 0, 'nav' => 0, 'praxis' => 0, 'videos' => 0, 'papers' => 0];
+        }
+        static $cache = [];
+        $key = implode(',', $courses);
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $in = implode(',', array_fill(0, count($courses), '%s'));
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
+        $count = static fn (string $sql): int => (int) $wpdb->get_var($wpdb->prepare($sql, ...$courses));
+
+        return $cache[$key] = [
+            'questions' => $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})"),
+            'nav' => $count("SELECT COUNT(DISTINCT x.task_id) FROM {$p}navigation_task_course x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),
+            'praxis' => $count("SELECT COUNT(*) FROM {$p}praxis_task x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),
+            'videos' => $count("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code IN ({$in})"),
+            'papers' => $count("SELECT COUNT(*) FROM {$p}exam_paper x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),
+        ];
+        // phpcs:enable
+    }
+
     public static function texts(array $def): array
     {
         global $wpdb;
@@ -245,15 +278,8 @@ final class ShopCatalog
             $def['sku'] === 'BP-KAPITAEN' => ['SBF-SEE-BIN', 'SRC-UBI'],
             default => [$all[0]],
         };
-        $in = implode(',', array_fill(0, count($courses), '%s'));
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
-        $count = static fn (string $sql): int => (int) $wpdb->get_var($wpdb->prepare($sql, ...$courses));
-        $questions = $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})");
-        $nav = $count("SELECT COUNT(DISTINCT x.task_id) FROM {$p}navigation_task_course x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
-        $praxis = $count("SELECT COUNT(*) FROM {$p}praxis_task x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
-        $videos = $count("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code IN ({$in})");
-        $papers = $count("SELECT COUNT(*) FROM {$p}exam_paper x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
-        // phpcs:enable
+        $stats = self::courseStats($courses);
+        ['questions' => $questions, 'nav' => $nav, 'praxis' => $praxis, 'videos' => $videos, 'papers' => $papers] = $stats;
         $radio = array_intersect($all, ['SRC', 'UBI', 'SRC-UBI', 'ADD-UBI-TO-SRC']) !== [];
         if ($pass) {
             [$nav, $praxis, $videos, $papers] = [0, 0, 0, 0];

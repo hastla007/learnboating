@@ -91,6 +91,66 @@ function kurswasser_offer_title(string $name): array
     return [$name, ''];
 }
 
+function kurswasser_offer_trust(): string
+{
+    return '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
+}
+
+/**
+ * Angebotskarten (ohne Reiter). $featured hervorgehoben, Ersparnis gegenüber der Summe von $compare.
+ *
+ * @param list<string> $skus
+ * @param list<string> $compare
+ */
+function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, string $flag): string
+{
+    $skus = array_values(array_filter($skus, static fn ($s) => kurswasser_offer($s) !== null));
+    $html = '<div class="kw-offers-grid kw-offers-n'.count($skus).'">';
+    foreach ($skus as $sku) {
+        $o = kurswasser_offer($sku);
+        $isFeatured = $sku === $featured;
+        [$title, $sub] = kurswasser_offer_title($o['name']);
+        $saving = 0.0;
+        if ($isFeatured && $compare !== []) {
+            $sum = array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $compare));
+            $saving = round($sum - $o['price'], 2);
+        }
+        $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : 0);
+        $duration = $months ? sprintf(_n('%d Monat Zugang', '%d Monate Zugang', $months, 'kurswasser'), $months) : sprintf(__('%d Tage Zugang', 'kurswasser'), $o['days']);
+        $html .= '<article class="kw-offer'.($isFeatured ? ' is-featured' : '').'">';
+        if ($isFeatured && $flag !== '') {
+            $html .= '<p class="kw-offer-flag">'.esc_html($flag).'</p>';
+        }
+        $html .= '<header><h3>'.esc_html($title).'</h3>'.($sub !== '' ? '<p class="kw-offer-sub">'.esc_html($sub).'</p>' : '').'</header>';
+        $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span>'
+            .($saving >= 1 ? '<s class="kw-offer-was" aria-label="'.esc_attr(sprintf(__('Einzeln %s', 'kurswasser'), kurswasser_money($o['price'] + $saving))).'">'.esc_html(kurswasser_money($o['price'] + $saving)).'</s>' : '<span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span>').'</div>';
+        $meta = [$duration];
+        if ($months === 12) {
+            $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
+        }
+        $html .= '<p class="kw-offer-meta">'.esc_html(implode(' · ', $meta)).'</p>';
+        if ($saving >= 1) {
+            $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Du sparst %s gegenüber dem Einzelkauf', 'kurswasser'), kurswasser_money($saving))).'</p>';
+        }
+        $html .= '<ul class="kw-offer-list">';
+        foreach (array_slice(array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt'))), 0, 4) as $item) {
+            $html .= '<li>'.esc_html($item).'</li>';
+        }
+        $html .= '</ul><div class="kw-offer-actions">';
+        if ($o['buy']) {
+            $html .= '<a class="kw-offer-buy" href="'.esc_url($o['buy']).'" rel="nofollow">'.esc_html__('Jetzt starten', 'kurswasser').' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a>';
+        } else {
+            $html .= '<span class="kw-offer-buy is-disabled">'.esc_html__('Bald verfügbar', 'kurswasser').'</span>';
+        }
+        if ($o['url']) {
+            $html .= '<a class="kw-offer-details" href="'.esc_url($o['url']).'">'.esc_html__('Details ansehen', 'kurswasser').'</a>';
+        }
+        $html .= '</div></article>';
+    }
+
+    return $html.'</div>';
+}
+
 add_shortcode('kurswasser_offers', static function (): string {
     $tabs = kurswasser_offer_tabs();
     if (kurswasser_offer('BP-SBF-SEE') === null) {
@@ -110,57 +170,13 @@ add_shortcode('kurswasser_offers', static function (): string {
     $html .= '</div>';
     $first = true;
     foreach ($tabs as $key => $tab) {
-        $html .= sprintf('<div class="kw-offers-panel" role="tabpanel" id="%1$s-%2$s" aria-labelledby="%1$s-tab-%2$s"%3$s><div class="kw-offers-grid">', esc_attr($uid), esc_attr($key), $first ? '' : ' hidden');
+        $html .= sprintf('<div class="kw-offers-panel" role="tabpanel" id="%1$s-%2$s" aria-labelledby="%1$s-tab-%2$s"%3$s>', esc_attr($uid), esc_attr($key), $first ? '' : ' hidden');
         $first = false;
-        foreach ($tab['skus'] as $i => $sku) {
-            $o = kurswasser_offer($sku);
-            if ($o === null) {
-                continue;
-            }
-            $featured = $i === 1;
-            [$title, $sub] = kurswasser_offer_title($o['name']);
-            $saving = 0.0;
-            if ($featured) {
-                $sum = array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $tab['compare']));
-                $saving = round($sum - $o['price'], 2);
-            }
-            $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : 0);
-            $duration = $months ? sprintf(_n('%d Monat Zugang', '%d Monate Zugang', $months, 'kurswasser'), $months) : sprintf(__('%d Tage Zugang', 'kurswasser'), $o['days']);
-            $html .= '<article class="kw-offer'.($featured ? ' is-featured' : '').'">';
-            if ($featured) {
-                $html .= '<p class="kw-offer-flag">'.esc_html($key === 'pakete' ? __('Alles in einem Paket', 'kurswasser') : __('Unsere Empfehlung', 'kurswasser')).'</p>';
-            }
-            $html .= '<header><h3>'.esc_html($title).'</h3>'.($sub !== '' ? '<p class="kw-offer-sub">'.esc_html($sub).'</p>' : '').'</header>';
-            $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span>'
-                .($saving >= 1 ? '<s class="kw-offer-was" aria-label="'.esc_attr(sprintf(__('Einzeln %s', 'kurswasser'), kurswasser_money($o['price'] + $saving))).'">'.esc_html(kurswasser_money($o['price'] + $saving)).'</s>' : '<span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span>').'</div>';
-            $meta = [$duration];
-            if ($months === 12) {
-                $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
-            }
-            $html .= '<p class="kw-offer-meta">'.esc_html(implode(' · ', $meta)).'</p>';
-            if ($saving >= 1) {
-                $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Du sparst %s gegenüber dem Einzelkauf', 'kurswasser'), kurswasser_money($saving))).'</p>';
-            }
-            $html .= '<ul class="kw-offer-list">';
-            foreach (array_slice(array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt'))), 0, 4) as $item) {
-                $html .= '<li>'.esc_html($item).'</li>';
-            }
-            $html .= '</ul><div class="kw-offer-actions">';
-            if ($o['buy']) {
-                $html .= '<a class="kw-offer-buy" href="'.esc_url($o['buy']).'" rel="nofollow">'.esc_html__('Jetzt starten', 'kurswasser').' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a>';
-            } else {
-                $html .= '<span class="kw-offer-buy is-disabled">'.esc_html__('Bald verfügbar', 'kurswasser').'</span>';
-            }
-            if ($o['url']) {
-                $html .= '<a class="kw-offer-details" href="'.esc_url($o['url']).'">'.esc_html__('Details ansehen', 'kurswasser').'</a>';
-            }
-            $html .= '</div></article>';
-        }
+        $html .= kurswasser_offer_cards($tab['skus'], $tab['skus'][1] ?? null, $tab['compare'], $key === 'pakete' ? __('Alles in einem Paket', 'kurswasser') : __('Unsere Empfehlung', 'kurswasser'));
         [$moreTarget, $moreLabel] = $tab['more'];
-        $html .= '</div><p class="kw-offers-more"><a href="'.esc_url(kurswasser_url($moreTarget)).'">'.esc_html($moreLabel).' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a></p></div>';
+        $html .= '<p class="kw-offers-more"><a href="'.esc_url(kurswasser_url($moreTarget)).'">'.esc_html($moreLabel).' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a></p></div>';
     }
-    $html .= '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
-    $html .= '</div>';
+    $html .= kurswasser_offer_trust().'</div>';
     wp_enqueue_script('kurswasser-offers');
 
     return $html;
