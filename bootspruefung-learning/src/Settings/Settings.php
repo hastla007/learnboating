@@ -17,6 +17,9 @@ final class Settings
         // Solange kein Shop/keine Zahlungsart angebunden ist: alle angemeldeten Nutzer
         // dürfen lernen und prüfen. 'entitled_only' = nur Free-Regeln und Freischaltungen.
         'default_access' => 'logged_in',
+        // Praxis-Anmeldung (ohne Prüfungsbuchung): vorbereitet, aber noch nicht freigeschaltet.
+        'praxis_registration_enabled' => false,
+        'praxis_notification_email' => '',
     ];
 
     /** @return array<string,mixed> */
@@ -51,6 +54,8 @@ final class Settings
             'delete_data_on_uninstall' => ! empty($input['delete_data_on_uninstall']),
             'default_access' => in_array($input['default_access'] ?? '', ['logged_in', 'entitled_only'], true) ? $input['default_access'] : 'logged_in',
             'radio_voice_output' => in_array($input['radio_voice_output'] ?? '', ['browser', 'recording', 'off'], true) ? $input['radio_voice_output'] : 'browser',
+            'praxis_registration_enabled' => ! empty($input['praxis_registration_enabled']),
+            'praxis_notification_email' => is_email((string) ($input['praxis_notification_email'] ?? '')) ? sanitize_email((string) $input['praxis_notification_email']) : '',
         ];
     }
 }

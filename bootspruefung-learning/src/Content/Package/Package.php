@@ -10,10 +10,10 @@ use ZipArchive;
 /** Ein entpacktes Content-Paket auf der Festplatte (Format: schema/v1). */
 final class Package
 {
-    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation'];
+    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation', 'exam_committees', 'praxis_forms'];
 
     /** Entität => Schema-Version, seit der sie im Paket steht; ältere Pakete liefern leere Listen. */
-    public const SINCE = ['video_modules' => '1.1.0', 'radio_texts' => '1.1.0', 'radio_vocabulary' => '1.1.0', 'radio_practice' => '1.2.0', 'device_simulation' => '1.2.0'];
+    public const SINCE = ['video_modules' => '1.1.0', 'radio_texts' => '1.1.0', 'radio_vocabulary' => '1.1.0', 'radio_practice' => '1.2.0', 'device_simulation' => '1.2.0', 'exam_committees' => '1.3.0', 'praxis_forms' => '1.3.0'];
     public const MAX_ZIP_BYTES = 200 * 1024 * 1024;
     public const MAX_ENTRIES = 20000;
 

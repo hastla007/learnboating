@@ -131,6 +131,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee flow.log
           ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log
+      - name: Praxis-Anmeldung (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/practice-test.php | tee practice.log
+          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" practice.log
       - name: Zugangslogik (Integration, ohne Shop)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
@@ -169,6 +173,9 @@ jobs:
           BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs
           BP_TOKEN="$(WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php)" node bootspruefung-learning/tests/e2e/membership-flow.mjs
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php reset
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/practice-setup.php
+          node bootspruefung-learning/tests/e2e/practice-flow.mjs
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/practice-setup.php reset
           # Kaufablauf mit WooCommerce (Block- und klassischer Checkout)
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
           mkdir -p "$RUNNER_TEMP/shots"

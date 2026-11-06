@@ -37,6 +37,8 @@ final class EntityImporter
         'radio_vocabulary' => 'radio_vocabulary',
         'radio_practice' => 'radio_scenario',
         'device_simulation' => 'device',
+        'exam_committees' => 'exam_committee',
+        'praxis_forms' => 'praxis_form',
     ];
 
     /** @var array<string,array<string,int>> Tabelle => source_id/code => id */
@@ -81,6 +83,8 @@ final class EntityImporter
             'radio_vocabulary' => $this->radioVocabulary($record),
             'radio_practice' => $this->radioPractice($record),
             'device_simulation' => $this->deviceSimulation($record),
+            'exam_committees' => $this->examCommittee($record),
+            'praxis_forms' => $this->praxisForm($record),
             default => throw new RuntimeException("Unbekannte Entität {$entity}"),
         };
     }
@@ -557,6 +561,49 @@ final class EntityImporter
             'data' => wp_json_encode(array_diff_key($r, ['hash' => 1])),
             'status' => 'published',
         ]);
+    }
+
+    /**
+     * Prüfungsausschuss. Lokal geänderte Einträge (Admin) überschreibt ein
+     * Reimport nicht – wie der Seeder der Quelle (firstOrCreate).
+     *
+     * @param array<string,mixed> $r
+     */
+    private function examCommittee(array $r): string
+    {
+        if ($this->locallyModified('exam_committee', $r['source_id'])) {
+            return 'unchanged';
+        }
+
+        return $this->upsert('exam_committee', $r, [
+            'commission' => $r['commission'], 'location_type' => $r['location_type'], 'contact_person' => $r['contact_person'],
+            'street' => $r['street'], 'postal_code' => $r['postal_code'], 'city' => $r['city'], 'phone' => $r['phone'], 'fax' => $r['fax'],
+            'email' => $r['email'], 'website' => $r['website'], 'office_hours' => $r['office_hours'], 'note' => $r['note'],
+            'source_url' => $r['source_url'], 'course_codes' => implode(',', $r['course_codes']), 'sort_order' => $r['sort_order'],
+            'rights_status' => $r['rights_status'], 'status' => 'published',
+        ]);
+    }
+
+    /** @param array<string,mixed> $r */
+    private function praxisForm(array $r): string
+    {
+        if ($this->locallyModified('praxis_form', $r['source_id'])) {
+            return 'unchanged';
+        }
+
+        return $this->upsert('praxis_form', $r, [
+            'title' => $r['title'], 'min_progress_percent' => $r['min_progress_percent'],
+            'requires_fitness_certificate' => $r['requires_fitness_certificate'] ? 1 : 0, 'fields' => wp_json_encode($r['fields']),
+            'course_codes' => implode(',', $r['course_codes']), 'active' => $r['active'] ? 1 : 0, 'sort_order' => $r['sort_order'],
+            'rights_status' => $r['rights_status'], 'status' => 'published',
+        ]);
+    }
+
+    private function locallyModified(string $table, string $sourceId): bool
+    {
+        $row = $this->find($table, $sourceId);
+
+        return $row !== null && ! empty($row->locally_modified) && $row->status !== self::ARCHIVED;
     }
 
     /** @param array<string,mixed> $r */

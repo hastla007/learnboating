@@ -176,6 +176,8 @@
 			view = viewGroups();
 		} else if (parts.length === 1) {
 			view = viewCourse(parts[0]);
+		} else if (parts[1] === 'praxis-pruefung') {
+			view = viewPraxisRegistration(parts[0]);
 		} else if (parts[1] === 'lernen') {
 			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart');
 		} else if (parts[1] === 'pruefung' && parts[2]) {
@@ -376,6 +378,13 @@
 			nodes.push(c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
 			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
 			nodes.push(downloadSection(c.downloads || [], (c.shop || {}).downloads));
+			if (c.praxis) {
+				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-praxis-h' }, [
+					el('h2', { id: 'bp-praxis-h', text: t('praxis_title') }),
+					el('p', { class: 'bp-muted', text: t('praxis_teaser') }),
+					el('p', {}, [link(slug + '/praxis-pruefung/', t('praxis_open'), 'bp-button')])
+				]));
+			}
 			mount(nodes, c.name);
 		});
 	}
@@ -675,6 +684,129 @@
 				return el('li', {}, [el('a', { href: o.url, class: 'bp-button', text: o.name }), o.price ? el('span', { class: 'bp-muted', text: ' ' + o.price }) : null]);
 			}))
 		];
+	}
+
+	// ------------------------------------------------------------------ Praxis & Prüfung (Anmeldung ohne Prüfungsbuchung)
+
+	function viewPraxisRegistration(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/praxis-anmeldung').then(function (s) {
+				renderPraxis(slug, c, s);
+			});
+		});
+	}
+
+	function renderPraxis(slug, c, s) {
+		var nodes = [crumbs(slug, c.name, [[t('praxis_title')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('praxis_title') })])];
+		var card = el('section', { class: 'bp-card' });
+		nodes.push(card);
+		if (s.state === 'unavailable' || s.state === 'disabled') {
+			card.appendChild(el('p', { text: t('praxis_unavailable') }));
+		} else if (s.state === 'no_access') {
+			card.appendChild(el('p', { text: t('locked_feature') }));
+		} else if (s.state === 'locked') {
+			card.appendChild(el('h2', { text: t('praxis_locked_title') }));
+			card.appendChild(el('p', { text: t('praxis_locked', { percent: s.percent, threshold: s.threshold }) }));
+			card.appendChild(el('p', {}, [link(slug + '/lernen/', t('mode_smart'), 'bp-button bp-button-primary')]));
+		} else if (s.state === 'incomplete_profile') {
+			card.appendChild(el('h2', { text: t('praxis_profile_title') }));
+			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_profile_explain') }));
+			card.appendChild(profileForm(s.profile, function () { viewPraxisRegistration(slug).catch(showError); }));
+		} else if (s.state === 'submitted') {
+			var r = s.registration;
+			card.appendChild(el('h2', { text: t('praxis_submitted_title') }));
+			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_submitted') }));
+			card.appendChild(el('dl', { class: 'bp-dl' }, [].concat.apply([], r.rows.map(function (row) { return [el('dt', { text: row.label }), el('dd', { text: row.value })]; }))));
+			if (r.requires_fitness_certificate) {
+				card.appendChild(el('p', { class: 'bp-note', text: t('praxis_fitness') }));
+			}
+		} else if (s.state === 'form') {
+			card.appendChild(el('h2', { text: s.form.title }));
+			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_form_intro') }));
+			card.appendChild(praxisForm(slug, c, s));
+		}
+		mount(nodes, t('praxis_title') + ' – ' + c.name);
+	}
+
+	function fieldInput(field, s, id) {
+		var req = field.required ? { required: 'required' } : {};
+		if (field.type === 'textarea') {
+			return el('textarea', Object.assign({ id: id, name: field.key, rows: 3, class: 'bp-input' }, req));
+		}
+		if (field.type === 'date') {
+			return el('input', Object.assign({ id: id, name: field.key, type: 'date', class: 'bp-input' }, req));
+		}
+		if (field.type === 'select') {
+			return el('select', Object.assign({ id: id, name: field.key, class: 'bp-input' }, req), [el('option', { value: '', text: '–' })].concat(field.options.map(function (o) { return el('option', { value: o, text: o }); })));
+		}
+		if (field.type === 'location') {
+			return el('select', Object.assign({ id: id, name: field.key, class: 'bp-input' }, req), [el('option', { value: '', text: '–' })].concat(s.locations.map(function (l) {
+				var extra = [l.address, l.exam_name !== l.name ? t('praxis_exam_place', { place: l.exam_name }) : null, l.committee ? l.committee.label : null].filter(Boolean).join(' · ');
+				return el('option', { value: String(l.id), text: l.name + (extra ? ' (' + extra + ')' : '') });
+			})));
+		}
+		return el('input', Object.assign({ id: id, name: field.key, type: 'text', class: 'bp-input', maxlength: 255 }, req));
+	}
+
+	function praxisForm(slug, c, s) {
+		var form = el('form', { class: 'bp-form', novalidate: 'novalidate' });
+		s.fields.forEach(function (field, i) {
+			var id = 'bp-praxis-' + i;
+			var help = field.help_text ? el('p', { class: 'bp-muted bp-help', text: field.help_text }) : null;
+			if (field.type === 'checkbox') {
+				form.appendChild(el('div', { class: 'bp-field' }, [el('label', {}, [el('input', Object.assign({ type: 'checkbox', name: field.key, value: '1' }, field.required ? { required: 'required' } : {})), ' ' + field.label + (field.required ? ' *' : '')]), help]));
+			} else if (field.type === 'radio') {
+				form.appendChild(el('fieldset', { class: 'bp-field' }, [el('legend', { text: field.label + (field.required ? ' *' : '') })].concat(field.options.map(function (o) {
+					return el('label', { class: 'bp-radio' }, [el('input', Object.assign({ type: 'radio', name: field.key, value: o }, field.required ? { required: 'required' } : {})), ' ' + o]);
+				})).concat([help])));
+			} else {
+				form.appendChild(el('div', { class: 'bp-field' }, [el('label', { for: id, text: field.label + (field.required ? ' *' : '') }), fieldInput(field, s, id), help]));
+			}
+		});
+		// Wie die Quelle: eigener Hinweis nur, wenn kein Tauglichkeitsfeld mit Hilfetext vorhanden ist.
+		var hasFitnessField = s.fields.some(function (f) { return f.key.indexOf('tauglichkeit') !== -1; });
+		if (s.form.requires_fitness_certificate && !hasFitnessField) {
+			form.appendChild(el('p', { class: 'bp-note', text: t('praxis_fitness') }));
+		}
+		var submit = el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('praxis_submit') });
+		form.appendChild(el('div', { class: 'bp-actions' }, [submit]));
+		form.addEventListener('submit', function (e) {
+			e.preventDefault();
+			var data = {};
+			s.fields.forEach(function (field) {
+				if (field.type === 'checkbox') {
+					data[field.key] = form.querySelector('[name="' + field.key + '"]').checked;
+				} else if (field.type === 'radio') {
+					var chosen = form.querySelector('[name="' + field.key + '"]:checked');
+					data[field.key] = chosen ? chosen.value : '';
+				} else {
+					data[field.key] = form.querySelector('[name="' + field.key + '"]').value;
+				}
+			});
+			submit.disabled = true;
+			api('POST', 'courses/' + encodeURIComponent(slug) + '/praxis-anmeldung', { data: data }).then(function (next) {
+				renderPraxis(slug, c, next);
+			}).catch(function (err) { submit.disabled = false; alertMessage(form, err.message); });
+		});
+		return form;
+	}
+
+	function profileForm(profile, done) {
+		var form = el('form', { class: 'bp-form' });
+		[['street', 'profile_street', 'text'], ['postal_code', 'profile_postal_code', 'text'], ['city', 'profile_city', 'text'], ['country', 'profile_country', 'text'], ['birthdate', 'profile_birthdate', 'date']].forEach(function (f) {
+			var id = 'bp-profile-' + f[0];
+			form.appendChild(el('div', { class: 'bp-field' }, [el('label', { for: id, text: t(f[1]) + ' *' }), el('input', { id: id, name: f[0], type: f[2], required: 'required', class: 'bp-input', value: profile[f[0]] || (f[0] === 'country' ? 'DE' : '') })]));
+		});
+		var save = el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('save') });
+		form.appendChild(el('div', { class: 'bp-actions' }, [save]));
+		form.addEventListener('submit', function (e) {
+			e.preventDefault();
+			var body = {};
+			['street', 'postal_code', 'city', 'country', 'birthdate'].forEach(function (k) { body[k] = form.querySelector('[name="' + k + '"]').value; });
+			save.disabled = true;
+			api('PUT', 'me/profile', body).then(done).catch(function (err) { save.disabled = false; alertMessage(form, err.message); });
+		});
+		return form;
 	}
 
 	function downloadSection(items, offers) {

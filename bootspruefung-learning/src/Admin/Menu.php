@@ -27,6 +27,7 @@ final class Menu
         (new ImportPage())->register();
         (new ContentPages())->register();
         (new AccessPages())->register();
+        (new PracticePages())->register();
     }
 
     public function addPages(): void
@@ -46,6 +47,7 @@ final class Menu
             [self::SLUG.'-rights', __('Rechte', 'bootspruefung-learning'), $read, [$content, 'renderRights']],
             [AccessPages::SLUG, __('Zugänge', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'render']],
             [AccessPages::GROUP_SLUG, __('Gruppenlizenzen', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderGroups']],
+            [PracticePages::SLUG, __('Praxis-Anmeldung', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PracticePages(), 'render']],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
@@ -142,7 +144,23 @@ final class Menu
         foreach (['browser' => __('Browserstimme', 'bootspruefung-learning'), 'recording' => __('Lizenzierte Aufnahmen', 'bootspruefung-learning'), 'off' => __('Aus', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['radio_voice_output'], $value, false), esc_html($label));
         }
-        echo '</select></td></tr></tbody></table>';
+        echo '</select></td></tr>';
+        printf(
+            '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[praxis_registration_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
+            esc_html__('Praxis-Anmeldung', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            checked(! empty($settings['praxis_registration_enabled']), true, false),
+            esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
+            esc_html__('Derzeit vorbereitet, aber deaktiviert: Formulare, Praxisorte und Prüfungsausschüsse lassen sich schon pflegen; Lernende sehen den Bereich erst nach dem Freischalten. Eine Prüfungsbuchung ist nicht enthalten.', 'bootspruefung-learning')
+        );
+        printf(
+            '<tr><th scope="row"><label for="bp-praxis-mail">%s</label></th><td><input id="bp-praxis-mail" type="email" class="regular-text" name="%s[praxis_notification_email]" value="%s"><p class="description">%s</p></td></tr>',
+            esc_html__('Benachrichtigung neue Anmeldungen', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            esc_attr((string) $settings['praxis_notification_email']),
+            esc_html__('leer = alle Nutzer mit Zugangsverwaltung', 'bootspruefung-learning')
+        );
+        echo '</tbody></table>';
         submit_button();
         echo '</form>';
         if (isset($_GET['saved']) && $_GET['saved'] === 'disputes') { // phpcs:ignore WordPress.Security.NonceVerification

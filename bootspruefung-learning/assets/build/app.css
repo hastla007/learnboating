@@ -171,3 +171,11 @@
 .bp-downloads { padding-left: 1.2rem; }
 .bp-downloads li { margin: 0.3rem 0; }
 .bp-downloads li.is-locked { opacity: 0.6; }
+.bp-form .bp-field { margin: 0 0 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.bp-form fieldset.bp-field { border: 0; padding: 0; }
+.bp-form .bp-radio { display: inline-flex; gap: 0.3rem; margin-right: 1rem; }
+.bp-help { margin: 0; font-size: 0.85em; }
+.bp-dl { display: grid; grid-template-columns: minmax(140px, max-content) 1fr; gap: 0.3rem 1rem; }
+.bp-dl dt { font-weight: 600; }
+.bp-dl dd { margin: 0; }
+.bp-form .bp-input { flex: none; width: 100%; max-width: 32rem; }

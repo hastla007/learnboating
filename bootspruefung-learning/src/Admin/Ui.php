@@ -112,6 +112,8 @@ final class Ui
             'radio_vocabulary' => __('Funk-Vokabeln', 'bootspruefung-learning'),
             'radio_practice' => __('Funkpraxis', 'bootspruefung-learning'),
             'device_simulation' => __('Gerätesimulation', 'bootspruefung-learning'),
+            'exam_committees' => __('Prüfungsausschüsse', 'bootspruefung-learning'),
+            'praxis_forms' => __('Praxisformulare', 'bootspruefung-learning'),
         ];
 
         return $labels[$entity] ?? $entity;
