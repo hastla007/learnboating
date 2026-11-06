@@ -57,12 +57,25 @@ if (! $productId || ! wc_get_product($productId)) {
 }
 (new ProductAccessRepository($wpdb))->save($productId, 0, [['course_code' => 'SBF-BIN-SEGEL', 'feature_code' => 'question_bank'], ['course_code' => 'SBF-BIN-SEGEL', 'feature_code' => 'exam_simulation']], null, 'extend', 'revoke_on_full_refund');
 
-// Checkout-Seite: Block (Standard neuer Installationen) oder klassischer Shortcode.
-$content = $mode === 'classic' ? '<!-- wp:shortcode -->[woocommerce_checkout]<!-- /wp:shortcode -->' : '<!-- wp:woocommerce/checkout /-->';
-$slug = $mode === 'classic' ? 'kasse-klassisch' : 'kasse-block';
-$page = get_page_by_path($slug);
-$pageId = $page ? (int) $page->ID : (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => $mode === 'classic' ? 'Kasse klassisch' : 'Kasse', 'post_name' => $slug, 'post_content' => $content]);
+// Checkout-Seite: Block = die von WooCommerce angelegte Kasse (vollständiges Block-Markup),
+// klassisch = eigene Seite mit Shortcode.
+$blockId = (int) get_option('bp_e2e_block_checkout');
+if (! $blockId) {
+    $blockId = (int) get_option('woocommerce_checkout_page_id');
+    if (! $blockId || ! has_block('woocommerce/checkout', $blockId)) {
+        WC_Install::create_pages();
+        $blockId = (int) get_option('woocommerce_checkout_page_id');
+    }
+    update_option('bp_e2e_block_checkout', $blockId);
+}
+if ($mode === 'classic') {
+    $page = get_page_by_path('kasse-klassisch');
+    $pageId = $page ? (int) $page->ID : (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Kasse klassisch', 'post_name' => 'kasse-klassisch', 'post_content' => '<!-- wp:shortcode -->[woocommerce_checkout]<!-- /wp:shortcode -->']);
+} else {
+    $pageId = $blockId;
+}
 update_option('woocommerce_checkout_page_id', $pageId);
+fwrite(STDERR, 'Kasse: '.get_post_field('post_name', $pageId).' (Block: '.(has_block('woocommerce/checkout', $pageId) ? 'ja' : 'nein').")\n");
 foreach (['cart' => '<!-- wp:shortcode -->[woocommerce_cart]<!-- /wp:shortcode -->', 'myaccount' => '<!-- wp:shortcode -->[woocommerce_my_account]<!-- /wp:shortcode -->'] as $key => $body) {
     $id = (int) get_option('woocommerce_'.$key.'_page_id');
     if (! $id || get_post_status($id) !== 'publish') {
