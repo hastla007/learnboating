@@ -17,7 +17,8 @@ async function run(width, suffix, ctxOptions = {}) {
 	const page = await context.newPage();
 	page.on('pageerror', (e) => problems.push(`${page.url()}: ${e.message}`));
 	const shoot = async (path, name) => {
-		const res = await page.goto(base + path, { waitUntil: 'networkidle' });
+		const res = await page.goto(base + path, { waitUntil: 'load', timeout: 90000 });
+		await page.waitForTimeout(800);
 		const status = res ? res.status() : 0;
 		const text = await page.locator('body').innerText();
 		if (/(Warning|Notice|Fatal error|Deprecated):/.test(text)) {
@@ -36,13 +37,13 @@ async function run(width, suffix, ctxOptions = {}) {
 	const exists = async (path) => (await page.request.get(base + path, { maxRedirects: 0 }).catch(() => null))?.status() === 200;
 	const firstExisting = async (paths) => { for (const p of paths) { if (await exists(p)) { return p; } } return null; };
 	// Produktseite: erster Treffer im Shop
-	await page.goto(base + '/shop/', { waitUntil: 'networkidle' });
+	await page.goto(base + '/shop/', { waitUntil: 'load', timeout: 90000 });
 	const productLink = page.locator('.wc-block-product-template a, ul.products a').first();
 	if (await productLink.count()) {
 		const href = await productLink.getAttribute('href');
 		await shoot(href.replace(base, ''), 'produkt');
 		await page.locator('button.single_add_to_cart_button').first().click().catch(() => {});
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('load');
 		const cart = await firstExisting(['/warenkorb/', '/cart/']);
 		const checkout = await firstExisting(['/kasse/', '/checkout/']);
 		if (cart) { await shoot(cart, 'warenkorb'); }
@@ -53,7 +54,7 @@ async function run(width, suffix, ctxOptions = {}) {
 		await page.fill('#user_login', user);
 		await page.fill('#user_pass', pass);
 		await page.click('#wp-submit');
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('load');
 		await shoot('/bootsscheine/', 'lernbereich-angemeldet');
 		await shoot('/bootsscheine/tipps/', 'tipps');
 		const account = await firstExisting(['/mein-konto/', '/my-account/']);
