@@ -119,28 +119,53 @@ img { height: auto; }
 .kw-dark a:where(:not(.wp-element-button)) { color: #9fdcf2; }
 
 /* ---------- Kurskategorien ---------- */
-.kw-course-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 1000px) { .kw-course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .kw-course-grid { grid-template-columns: 1fr; } }
-.kw-course-card { --accent: var(--kw-blue); position: relative; display: flex; flex-direction: column; gap: .6rem; padding: 1.6rem; border-radius: var(--kw-radius); background: var(--wp--preset--gradient--deep-water); color: #dbe7f1; overflow: hidden; transition: transform .25s var(--kw-ease), box-shadow .25s var(--kw-ease); box-shadow: var(--kw-shadow); }
-.kw-course-card::after { content: ""; position: absolute; right: -40px; bottom: -40px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent) 0%, transparent 70%); pointer-events: none; }
-.kw-course-card:hover { transform: translateY(-4px); box-shadow: var(--kw-shadow-lift); }
-.kw-course-card:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
-.kw-course-card h3 { color: #fff; margin: .2rem 0 0; font-size: 1.3rem; hyphens: manual; overflow-wrap: normal; }
-.kw-course-card h3 a { color: inherit; text-decoration: none; }
-.kw-course-card h3 a::before { content: ""; position: absolute; inset: 0; z-index: 1; } /* ganze Karte klickbar */
-.kw-course-card p { margin: 0; }
-.kw-course-card .kw-course-icon { width: 3rem; height: 3rem; border-radius: 14px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.kw-course-card .kw-course-icon .kw-icon { width: 1.6rem; height: 1.6rem; }
-.kw-course-card .kw-course-meta { margin-top: auto; padding-top: 1rem; display: flex; justify-content: space-between; align-items: center; gap: .75rem; border-top: 1px solid rgba(255, 255, 255, .12); font-size: .9rem; }
-.kw-course-card .kw-course-meta .kw-pill { background: color-mix(in srgb, var(--accent) 22%, transparent); color: #fff; }
-.kw-course-card .kw-more { color: var(--accent); font-weight: 750; display: inline-flex; gap: .35rem; align-items: center; }
-.kw-accent-see { --accent: var(--kw-blue); }
-.kw-accent-binnen { --accent: var(--kw-mint); }
-.kw-accent-funk { --accent: var(--kw-coral); }
-.kw-accent-signal { --accent: #ff9a6b; }
-.kw-accent-plus { --accent: #9fdcf2; }
-.kw-accent-bundle { --accent: var(--kw-yellow); }
+.kw-courses-head { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.5rem 3rem; align-items: end; margin-bottom: var(--wp--preset--spacing--50); }
+.kw-courses-head h2 { margin: .5rem 0 0; text-wrap: balance; }
+.kw-courses-head .kw-lead { margin: 0; font-size: 1.1rem; }
+@media (max-width: 900px) { .kw-courses-head { grid-template-columns: 1fr; align-items: start; } }
+
+.kw-courses-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, auto); }
+.kw-course-feature { grid-column: span 2; grid-row: span 2; }
+@media (max-width: 1100px) { .kw-courses-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kw-course-feature { grid-row: span 1; } }
+@media (max-width: 640px) { .kw-courses-grid { grid-template-columns: 1fr; } .kw-course-feature { grid-column: auto; } }
+
+/* Hauptkarte mit Foto */
+.kw-course-feature { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: 460px; border-radius: calc(var(--kw-radius) + 4px); overflow: hidden; color: #dbe7f1; background: var(--kw-navy) var(--kw-hero-small) 70% center / cover no-repeat; box-shadow: var(--kw-shadow); transition: transform .3s var(--kw-ease), box-shadow .3s var(--kw-ease); }
+@media (min-width: 782px) { .kw-course-feature { background-image: var(--kw-hero); } }
+.kw-course-feature::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(7, 27, 46, .05) 0%, rgba(7, 27, 46, .55) 40%, rgba(7, 27, 46, .96) 100%); }
+.kw-course-feature:hover { transform: translateY(-4px); box-shadow: var(--kw-shadow-lift); }
+.kw-course-feature-body { padding: clamp(1.5rem, 3vw, 2.25rem); display: grid; gap: .8rem; max-width: 34rem; }
+.kw-course-feature h3 { color: #fff; font-size: clamp(1.6rem, 2.6vw, 2.1rem); margin: 0; }
+.kw-course-feature h3 a, .kw-course-tile h3 a { color: inherit; text-decoration: none; }
+.kw-course-feature h3 a::before, .kw-course-tile h3 a::before { content: ""; position: absolute; inset: 0; z-index: 2; }
+.kw-course-feature p { margin: 0; }
+.kw-course-feature:focus-within, .kw-course-tile:focus-within { outline: 2px solid var(--kw-blue-dark); outline-offset: 3px; }
+.kw-badge { display: inline-flex; align-items: center; gap: .45rem; justify-self: start; padding: .35rem .8rem; border-radius: 999px; background: var(--kw-yellow); color: var(--kw-navy); font-size: .8rem; font-weight: 800; }
+.kw-badge .kw-icon { width: 1rem; height: 1rem; }
+.kw-course-feature-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: .4rem !important; }
+.kw-btn-pill { display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.2rem; border-radius: 999px; background: var(--kw-blue); color: var(--kw-navy); font-weight: 800; transition: background-color .2s var(--kw-ease); }
+.kw-course-feature:hover .kw-btn-pill { background: #4cc6ef; }
+.kw-muted-light { color: #a9bfd2; font-size: .92rem; font-weight: 650; }
+
+/* Chips */
+.kw-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.kw-chips li { padding: .22rem .65rem; border-radius: 999px; font-size: .8rem; font-weight: 700; background: var(--kw-mist); color: var(--kw-navy); border: 1px solid var(--kw-line); }
+.kw-course-feature .kw-chips li { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .18); color: #fff; backdrop-filter: blur(6px); }
+
+/* Kacheln */
+.kw-course-tile { --tone: var(--kw-blue-dark); --tone-bg: color-mix(in srgb, var(--kw-blue) 14%, #fff); position: relative; display: flex; flex-direction: column; gap: .7rem; padding: 1.5rem; border-radius: var(--kw-radius); background: #fff; border: 1px solid var(--kw-line); box-shadow: 0 1px 2px rgba(7, 27, 46, .04); transition: transform .25s var(--kw-ease), box-shadow .25s var(--kw-ease), border-color .25s var(--kw-ease); }
+.kw-course-tile:hover { transform: translateY(-3px); box-shadow: var(--kw-shadow-lift); border-color: color-mix(in srgb, var(--tone) 35%, var(--kw-line)); }
+.kw-course-tile h3 { margin: .2rem 0 0; font-size: 1.15rem; }
+.kw-course-tile p { margin: 0; color: var(--kw-muted); font-size: .95rem; line-height: 1.55; }
+.kw-tile-icon { width: 2.9rem; height: 2.9rem; border-radius: 12px; display: grid; place-items: center; background: var(--tone-bg); color: var(--tone); }
+.kw-tile-icon .kw-icon { width: 1.5rem; height: 1.5rem; }
+.kw-course-tile footer { margin-top: auto; padding-top: .9rem; border-top: 1px solid var(--kw-line); display: flex; justify-content: space-between; align-items: center; font-size: .85rem; font-weight: 700; color: var(--kw-muted); }
+.kw-tile-arrow { width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; background: var(--kw-mist); color: var(--kw-navy); transition: background-color .2s var(--kw-ease), color .2s var(--kw-ease), transform .2s var(--kw-ease); }
+.kw-course-tile:hover .kw-tile-arrow { background: var(--tone); color: #fff; transform: translateX(2px); }
+.kw-tone-funk { --tone: #C2552F; --tone-bg: #FDEDE7; }
+.kw-tone-signal { --tone: #B4461F; --tone-bg: #FFF0E6; }
+.kw-tone-plus { --tone: var(--kw-blue-dark); --tone-bg: #E3F4FB; }
+.kw-tone-bundle { --tone: #8A6500; --tone-bg: #FFF6D6; }
 
 /* ---------- Funktionen ---------- */
 .kw-feature-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -299,7 +324,6 @@ img { height: auto; }
 	html { scroll-behavior: auto; }
 	*, *::before, *::after { transition: none !important; animation: none !important; }
 }
-.kw-course-card .kw-course-label { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-top: .6rem; }
 
 /* Lernbereich breiter als Fließtext, mit Luft nach oben/unten */
 .bp-main > .bp-app { max-width: var(--wp--style--global--wide-size, 1240px) !important; padding-top: var(--wp--preset--spacing--50); padding-bottom: var(--wp--preset--spacing--60); }
