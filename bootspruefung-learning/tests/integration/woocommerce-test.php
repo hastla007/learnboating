@@ -313,6 +313,80 @@ $check($access->can($nobody, $course, 'question_bank'), 'Beitritt über Link sch
 wc_create_refund(['order_id' => $order->get_id(), 'amount' => 500, 'reason' => 'Test', 'line_items' => [$schoolItem => ['qty' => 2, 'refund_total' => 500]], 'refund_payment' => false, 'restock_items' => false]);
 $check(Integration::sync()->groups()->find((int) $groups[0]->id)->status === 'revoked' && ! $access->can($nobody, $course, 'question_bank'), 'Erstattung beendet Gruppe und Plätze');
 
+echo "Disputes per Webhook (PayPal, allgemein)\n";
+$dw = \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::class;
+update_option($dw::OPTION, ['paypal_client_id' => 'cid', 'paypal_secret' => 'sec', 'paypal_webhook_id' => 'WH', 'paypal_mode' => 'sandbox', 'generic_secret' => 'test-secret']);
+$order = wc_create_order(['customer_id' => $alice]);
+$order->add_product(wc_get_product($video), 1);
+$order->set_payment_method('ppcp-gateway');
+$order->calculate_totals();
+$order->save();
+$order->payment_complete('CAPTURE-'.wp_generate_password(6, false));
+$ppOrder = (int) $order->get_id();
+$capture = wc_get_order($ppOrder)->get_transaction_id();
+$post = static function (string $route, array $body, array $headers = []) {
+    $request = new WP_REST_Request('POST', '/bootspruefung/v1/webhooks/'.$route);
+    $request->set_body(wp_json_encode($body));
+    $request->set_header('content-type', 'application/json');
+    foreach ($headers as $k => $v) {
+        $request->set_header($k, $v);
+    }
+
+    return rest_do_request($request);
+};
+$dispute = static fn (string $id, string $type, string $outcome = '') => ['id' => $id, 'event_type' => $type, 'resource' => ['dispute_id' => 'PP-D-1', 'disputed_transactions' => [['seller_transaction_id' => $capture]], 'dispute_outcome' => ['outcome_code' => $outcome]]];
+add_filter('bootspruefung_paypal_verify', '__return_false');
+$check($post('paypal', $dispute('WH-0', 'CUSTOMER.DISPUTE.CREATED'))->get_status() === 401 && $statuses($ppOrder) === ['active'], 'PayPal: ungeprüfte Nachricht abgewiesen');
+remove_filter('bootspruefung_paypal_verify', '__return_false');
+add_filter('bootspruefung_paypal_verify', '__return_true');
+$r = $post('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'));
+$check($r->get_status() === 200 && $statuses($ppOrder) === ['suspended'], 'PayPal-Dispute eröffnet: Zugang ausgesetzt');
+$check(! empty($post('paypal', $dispute('WH-1', 'CUSTOMER.DISPUTE.CREATED'))->get_data()['duplicate']), 'doppelte Zustellung wird ignoriert');
+$post('paypal', $dispute('WH-2', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR'));
+$check($statuses($ppOrder) === ['active'], 'zugunsten des Händlers: wieder aktiv');
+$post('paypal', $dispute('WH-3', 'CUSTOMER.DISPUTE.CREATED'));
+$post('paypal', $dispute('WH-4', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_BUYER_FAVOUR'));
+$check($statuses($ppOrder) === ['revoked'], 'zugunsten des Käufers: widerrufen');
+remove_filter('bootspruefung_paypal_verify', '__return_true');
+$order = wc_create_order(['customer_id' => $bob]);
+$order->add_product(wc_get_product($video), 1);
+$order->set_payment_method('klarna_payments');
+$order->calculate_totals();
+$order->save();
+$order->payment_complete();
+$klarna = (int) $order->get_id();
+$body = wp_json_encode(['id' => 'K-1', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna']);
+$sign = static function (string $body, string $secret = 'test-secret'): string {
+    return 'sha256='.hash_hmac('sha256', $body, $secret);
+};
+$req = static function (string $body, string $sig) {
+    $request = new WP_REST_Request('POST', '/bootspruefung/v1/webhooks/dispute');
+    $request->set_body($body);
+    $request->set_header('x-bootspruefung-signature', $sig);
+
+    return rest_do_request($request);
+};
+$check($req($body, $sign($body, 'falsch'))->get_status() === 401 && $statuses($klarna) === ['active'], 'allgemeiner Webhook: falsche Signatur abgewiesen');
+$check($req($body, $sign($body))->get_status() === 200 && $statuses($klarna) === ['suspended'], 'Klarna-Konflikt über allgemeinen Webhook: ausgesetzt');
+$won = wp_json_encode(['id' => 'K-2', 'event' => 'won', 'order_id' => $klarna, 'source' => 'klarna']);
+$req($won, $sign($won));
+$check($statuses($klarna) === ['active'], 'Konflikt gewonnen: aktiv');
+$check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_opened' AND object_id = %s", (string) $klarna)), 'Konflikt protokolliert');
+update_option($dw::OPTION, []);
+
+echo "Prüfung der Produktzuordnungen\n";
+$noPrice = new WC_Product_Simple();
+$noPrice->set_name('Ohne Preis');
+$noPrice->set_status('publish');
+$noPriceId = (int) $noPrice->save();
+(new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save($noPriceId, 0, [['course_code' => $course, 'feature_code' => 'question_bank'], ['course_code' => 'GIBT-ES-NICHT', 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund');
+$issues = array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $noPriceId);
+$problems = implode(' | ', array_column($issues, 'problem'));
+$check(str_contains($problems, 'nicht kaufbar') && str_contains($problems, 'GIBT-ES-NICHT') && str_contains($problems, 'virtuell'), 'Übersicht meldet fehlenden Preis, unbekannten Kurs, nicht virtuell');
+$check(\Bootspruefung\Learning\Commerce\MappingCheck::summary()['mapping_errors'] >= 2, 'Fehlerzahl in der Übersicht');
+wp_delete_post($noPriceId, true);
+(new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save($noPriceId, 0, [], null, 'extend', 'revoke_on_full_refund');
+
 update_option(Settings::OPTION, $settingsBefore);
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 ob_end_flush();

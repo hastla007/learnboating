@@ -25,6 +25,7 @@ final class Labels
             'video_course' => __('Videokurs', $d),
             'radio_training' => __('Funktraining', $d),
             'device_simulation' => __('Gerätesimulation', $d),
+            'downloads' => __('Downloads (PDF)', $d),
         ];
 
         return $labels[$code] ?? $code;

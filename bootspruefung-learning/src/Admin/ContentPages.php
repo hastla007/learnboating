@@ -88,10 +88,27 @@ final class ContentPages
             [$unverified, __('Kurse ohne gültiges, verifiziertes Prüfungsregelwerk (nur Übungsmodus)', 'bootspruefung-learning'), Ui::url('bootspruefung-rules')],
             [$missingFiles, __('Medien ohne Datei', 'bootspruefung-learning'), Ui::url('bootspruefung-media', ['missing' => 1])],
         ];
+        $shop = \Bootspruefung\Learning\Commerce\MappingCheck::summary();
+        $items[] = [$shop['mapping_errors'], __('Fehler in WooCommerce-Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];
+        $items[] = [$shop['mapping_warnings'], __('Hinweise zu Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];
+        $items[] = [$shop['orders_without_account'], __('bezahlte Bestellungen ohne Kundenkonto (30 Tage) – Kunde zuordnen, dann „Lernzugang abgleichen“', 'bootspruefung-learning'), Ui::url(AccessPages::SLUG)];
+        $items[] = [$shop['overbooked_groups'], __('überbuchte Gruppenlizenzen (nach Teilerstattung)', 'bootspruefung-learning'), Ui::url(AccessPages::GROUP_SLUG)];
         foreach ($items as [$count, $label, $url]) {
-            printf('<li><a href="%s">%d %s</a></li>', esc_url($url), (int) $count, esc_html($label));
+            printf('<li%s><a href="%s">%d %s</a></li>', $count > 0 ? ' style="font-weight:600"' : '', esc_url($url), (int) $count, esc_html($label));
         }
-        echo '</ul></div>';
+        echo '</ul>';
+        $issues = \Bootspruefung\Learning\Commerce\MappingCheck::issues();
+        if ($issues !== []) {
+            echo '<h2 id="bp-mapping-issues">'.esc_html__('Produktzuordnungen prüfen', 'bootspruefung-learning').'</h2>';
+            $rows = [];
+            foreach ($issues as $i) {
+                $name = function_exists('wc_get_product') && ($p = wc_get_product($i['variation_id'] ?: $i['product_id'])) ? $p->get_name() : '#'.$i['product_id'];
+                $rows[] = ['<a href="'.esc_url(\Bootspruefung\Learning\Commerce\MappingCheck::editUrl($i['product_id'])).'">'.esc_html($name).'</a>'.($i['variation_id'] ? ' <small>('.esc_html__('Variation', 'bootspruefung-learning').' #'.(int) $i['variation_id'].')</small>' : ''),
+                    $i['severity'] === 'error' ? '<strong style="color:#d63638">'.esc_html__('Fehler', 'bootspruefung-learning').'</strong>' : esc_html__('Hinweis', 'bootspruefung-learning'), esc_html($i['problem'])];
+            }
+            Ui::table([__('Produkt', 'bootspruefung-learning'), __('Art', 'bootspruefung-learning'), __('Problem', 'bootspruefung-learning')], $rows);
+        }
+        echo '</div>';
     }
 
     // ------------------------------------------------------------------

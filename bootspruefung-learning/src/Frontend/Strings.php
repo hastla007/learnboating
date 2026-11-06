@@ -50,6 +50,7 @@ final class Strings
             'group_member_active' => __('aktiv', $d),
             'group_member_invited' => __('eingeladen', $d),
             'unlocks_on' => __('Wird am {date} freigeschaltet.', $d),
+            'section_downloads' => __('Downloads', $d),
             'locked_badge' => __('gesperrt', $d),
             'locked_free' => __('Im kostenlosen Umfang nicht enthalten.', $d),
             'locked_more' => __('{n} weitere Einträge sind im kostenlosen Umfang nicht enthalten.', $d),

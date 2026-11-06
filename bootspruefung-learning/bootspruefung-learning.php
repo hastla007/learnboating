@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Bootsprüfung Lernplattform
  * Description:       Lernplattform für Bootsführerscheine (SBF, SRC, UBI, SKN, FKN) mit Prüfungssimulation, Spezialtrainern und WooCommerce-Freischaltung.
- * Version:           0.6.0
+ * Version:           0.7.0
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Author:            hastla007

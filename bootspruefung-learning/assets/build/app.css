@@ -168,3 +168,6 @@
 .bp-scopes, .bp-members { margin: 0.4rem 0 0.8rem; padding-left: 1.2rem; }
 .bp-members li { margin: 0.3rem 0; }
 .bp-button-small { padding: 0.2rem 0.6rem; font-size: 0.85em; }
+.bp-downloads { padding-left: 1.2rem; }
+.bp-downloads li { margin: 0.3rem 0; }
+.bp-downloads li.is-locked { opacity: 0.6; }

@@ -137,6 +137,7 @@ final class LearnerController
             // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
             'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES))),
             'limits' => $this->access->limits($user, $course->code),
+            'downloads' => \Bootspruefung\Learning\Gate\DownloadService::items($user, $course->code),
         ];
     }
 

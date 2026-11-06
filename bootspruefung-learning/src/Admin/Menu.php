@@ -144,7 +144,12 @@ final class Menu
         }
         echo '</select></td></tr></tbody></table>';
         submit_button();
-        echo '</form></div>';
+        echo '</form>';
+        if (isset($_GET['saved']) && $_GET['saved'] === 'disputes') { // phpcs:ignore WordPress.Security.NonceVerification
+            echo '<div class="notice notice-success inline"><p>'.esc_html__('Konflikt-Einstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
+        }
+        \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::renderSettings();
+        echo '</div>';
     }
 
     /** @param array<string,mixed> $woo */

@@ -226,6 +226,30 @@ ProtectedFiles::unprotect($attachment);
 $check(is_file($file) && wp_get_attachment_url($attachment) !== ProtectedFiles::downloadUrl($attachment), 'Schutz aufgehoben: Datei zurück');
 wp_delete_attachment($attachment, true);
 
+echo "Downloads\n";
+$pdfs = [];
+foreach (['A-Merkblatt', 'B-Lichterführung', 'C-Schallsignale'] as $title) {
+    $path = $uploads['path'].'/bp-dl-'.wp_generate_password(6, false).'.pdf';
+    file_put_contents($path, "%PDF-1.4\n% {$title}\n");
+    $id = wp_insert_attachment(['post_title' => $title, 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit'], $path);
+    update_post_meta($id, '_wp_attached_file', _wp_relative_upload_path($path));
+    ProtectedFiles::protect($id, 'SBF-SEE', 'downloads');
+    $pdfs[] = $id;
+}
+$check(\Bootspruefung\Learning\Gate\DownloadService::items($stranger, 'SBF-SEE')[0]['locked'] && ! \Bootspruefung\Learning\Gate\DownloadService::allowed($stranger, $pdfs[0]), 'ohne Zugang: Downloads gelistet, aber gesperrt');
+$rule('SBF-SEE', 'downloads', 'free_limited', 1);
+$items = \Bootspruefung\Learning\Gate\DownloadService::items($stranger, 'SBF-SEE');
+$check(count($items) === 3 && ! $items[0]['locked'] && $items[0]['title'] === 'A-Merkblatt' && $items[1]['locked'] && $items[1]['url'] === null, 'Teilumfang: erste Datei frei');
+$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($stranger, $pdfs[0]) && ! \Bootspruefung\Learning\Gate\DownloadService::allowed($stranger, $pdfs[2]), 'Auslieferung nur für freie Datei');
+$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($free, $pdfs[2]), 'Vollzugang: alle Dateien');
+wp_set_current_user($free);
+$payload = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see'))->get_data();
+$check(count($payload['downloads'] ?? []) === 3 && str_contains((string) $payload['downloads'][0]['url'], '/bootsscheine/datei/'), 'Kursdaten enthalten die Downloadliste');
+wp_set_current_user(1);
+foreach ($pdfs as $id) {
+    wp_delete_attachment($id, true);
+}
+
 echo "Gruppenlizenzen\n";
 $mails = [];
 $capture = static function ($null, $atts) use (&$mails) {

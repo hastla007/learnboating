@@ -30,17 +30,17 @@ final class Gateways
             'ppcp' => [
                 'label' => 'PayPal',
                 'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', $d),
-                'dispute' => __('Erstattungen über PayPal werden als WooCommerce-Erstattung gebucht und widerrufen. Konflikte (Disputes) bitte manuell über die Bestellaktion „Lernzugang aussetzen“ behandeln oder die Bestellung auf „In Wartestellung“ setzen.', $d),
+                'dispute' => __('Erstattungen werden als WooCommerce-Erstattung gebucht und widerrufen. Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', $d),
             ],
             'paypal' => [
                 'label' => 'PayPal',
                 'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', $d),
-                'dispute' => __('Konflikte manuell über „Lernzugang aussetzen“ behandeln oder die Bestellung auf „In Wartestellung“ setzen.', $d),
+                'dispute' => __('Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', $d),
             ],
             'klarna' => [
                 'label' => 'Klarna',
                 'payment' => __('Freischaltung, sobald Klarna die Bestellung bestätigt und WooCommerce sie als bezahlt führt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“.', $d),
-                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft; Konflikte manuell über „Lernzugang aussetzen“.', $d),
+                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft. Konflikte über den allgemeinen Dispute-Webhook (Einstellungen › Zahlungskonflikte, z. B. Weiterleitung der Klarna-Benachrichtigung) oder manuell „Lernzugang aussetzen“.', $d),
             ],
             'kco' => [
                 'label' => 'Klarna Checkout',

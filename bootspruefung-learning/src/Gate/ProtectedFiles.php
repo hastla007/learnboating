@@ -18,6 +18,7 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
 final class ProtectedFiles
 {
     public const META = '_bp_required_access';
+    public const COURSE_META = '_bp_access_course';
     private const PATH_META = '_bp_protected_path';
 
     public function register(): void
@@ -102,6 +103,7 @@ final class ProtectedFiles
     public static function protect(int $id, string $course, string $feature): void
     {
         update_post_meta($id, self::META, ['course' => $course, 'feature' => $feature]);
+        update_post_meta($id, self::COURSE_META, $course); // abfragbar für die Downloadliste
         if (get_post_meta($id, self::PATH_META, true)) {
             return;
         }
@@ -125,6 +127,7 @@ final class ProtectedFiles
     {
         $path = (string) get_post_meta($id, self::PATH_META, true);
         delete_post_meta($id, self::META);
+        delete_post_meta($id, self::COURSE_META);
         if ($path === '') {
             return;
         }
@@ -177,7 +180,7 @@ final class ProtectedFiles
             exit;
         }
         $userId = get_current_user_id();
-        if (! current_user_can('edit_post', $id) && ! ContentGate::allows($userId, $req['course'], $req['feature'])) {
+        if (! current_user_can('edit_post', $id) && ! DownloadService::allowed($userId, $id)) {
             status_header(403);
             nocache_headers();
             wp_die(wp_kses_post(ContentGate::notice($req['course'], $req['feature'])), esc_html__('Nicht freigeschaltet', 'bootspruefung-learning'), ['response' => 403]);

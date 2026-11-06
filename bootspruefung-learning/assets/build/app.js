@@ -375,6 +375,7 @@
 
 			nodes.push(c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
 			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
+			nodes.push(downloadSection(c.downloads || [], (c.shop || {}).downloads));
 			mount(nodes, c.name);
 		});
 	}
@@ -674,6 +675,23 @@
 				return el('li', {}, [el('a', { href: o.url, class: 'bp-button', text: o.name }), o.price ? el('span', { class: 'bp-muted', text: ' ' + o.price }) : null]);
 			}))
 		];
+	}
+
+	function downloadSection(items, offers) {
+		if (!items.length) {
+			return null;
+		}
+		var locked = items.filter(function (d) { return d.locked; }).length;
+		return el('section', { class: 'bp-section', 'aria-labelledby': 'bp-downloads-h' }, [
+			el('h2', { id: 'bp-downloads-h', text: t('section_downloads') }),
+			el('ul', { class: 'bp-downloads' }, items.map(function (d) {
+				var meta = (d.size ? ' · ' + Math.max(1, Math.round(d.size / 1024)) + ' KB' : '');
+				return d.locked
+					? el('li', { class: 'is-locked' }, [el('span', { text: d.title }), el('span', { class: 'bp-muted', text: ' · ' + t('locked_badge') })])
+					: el('li', {}, [el('a', { href: d.url, target: '_blank', rel: 'noopener', text: d.title }), el('span', { class: 'bp-muted', text: meta })]);
+			})),
+			locked ? lockedNote(offers, t('locked_more', { n: locked })) : null
+		]);
 	}
 
 	function lockedNote(offers, text) {

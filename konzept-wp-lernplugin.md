@@ -345,7 +345,7 @@ Konfigurierbare Feature-Codes, z. B.:
 - `praxis_trainer` – Praxistrainer;
 - `radio_training` – SRC/UBI Funktraining;
 - `device_simulation` – Funkgerätesimulation;
-- `downloads` – freigegebene PDF-Dateien.
+- `downloads` – freigegebene PDF-Dateien. *Umsetzung: Datei in der Mediathek mit „Lernzugang erforderlich: Kurs · Downloads (PDF)“ markieren; sie erscheint in der Kursseite unter „Downloads“, wird in einen gesperrten Ordner verschoben und nur über `/bootsscheine/datei/<id>/` nach Prüfung ausgeliefert; Teilumfang: erste n Dateien.*
 
 Die Feature- und Kurszuordnung wird pro Woo-Produkt editierbar gemacht. Es gibt keine Preis- oder Produktcode-Annahmen im PHP-Code.
 
@@ -419,8 +419,8 @@ WooCommerce kennt keinen einheitlichen Status oder Hook für Chargebacks; die Me
 |---|---|---|
 | Überweisung (BACS) | Bestellung `on-hold` → Zugang „wartet auf Zahlung“; Statuswechsel auf `processing`/`completed` nach Zahlungseingang aktiviert. Optional Freigabe vorab per Bestellaktion (mit Begründung). | keine Gateway-Rückbuchung; Erstattung/Storno in WooCommerce widerruft |
 | Stripe | bei bestätigter Zahlung | Dispute → `on-hold` → automatisch ausgesetzt; Dispute gewonnen (zurück auf bezahlt) → reaktiviert |
-| PayPal | bei bestätigter Zahlung | Erstattungen als Woo-Erstattung → Widerruf; Disputes manuell aussetzen oder Bestellung auf `on-hold` setzen |
-| Klarna | sobald Klarna bestätigt und die Bestellung als bezahlt gilt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“ | Storno/Erstattung widerruft; Konflikte manuell aussetzen |
+| PayPal | bei bestätigter Zahlung | Erstattungen als Woo-Erstattung → Widerruf; Disputes automatisch über den PayPal-Webhook des Plugins (Signatur per PayPal-API geprüft, Bestellung über die Transaktions-ID): eröffnet → ausgesetzt, Händler gewinnt → aktiv, Käufer gewinnt → widerrufen |
+| Klarna | sobald Klarna bestätigt und die Bestellung als bezahlt gilt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“ | Storno/Erstattung widerruft; Konflikte über den allgemeinen, HMAC-signierten Dispute-Webhook (z. B. Weiterleitung der Klarna-Benachrichtigung per Automatisierung) oder manuell |
 | weitere | wie oben über `is_paid()` | `on-hold` nach Zahlung = Aussetzung, sonst manuell |
 
 Weitere Regeln der Umsetzung: Ein Widerruf nach erfolgter Freischaltung (Erstattung, Storno) ist endgültig; ein nie aktiver Zugang (fehlgeschlagene Zahlung, später doch bezahlt) lebt wieder auf. Manuelle Entscheidungen (Aussetzen, Vorab-Freigabe) bleiben bei weiteren Statuswechseln bestehen, bis sie aufgehoben werden – nur Storno/Erstattung widerrufen trotzdem. Die Erstattungsregel wird beim Anlegen im Zugang gespeichert und gilt auch, wenn die Produktzuordnung später entfernt wird. Bestellungen ohne Kundenkonto erzeugen keinen Zugang (Audit-Eintrag, Zuordnung im Admin möglich); der Checkout verlangt deshalb für Lernprodukte ein Konto (klassisch und Checkout-Block).
@@ -510,7 +510,7 @@ bootspruefung-learning/
 
 ### Adminmenü
 
-- **Dashboard:** Inhalts-/Katalogstatus, ausstehende Rechteprüfung, Importwarnungen, WooCommerce-Zuordnungsfehler.
+- **Dashboard:** Inhalts-/Katalogstatus, ausstehende Rechteprüfung, Importwarnungen, WooCommerce-Zuordnungsfehler. *Umsetzung: Übersicht listet Fehler/Hinweise je Produkt (unbekannter Kurs, gelöscht, unveröffentlicht, nicht kaufbar, nicht virtuell, uneinheitliche Regeln), bezahlte Bestellungen ohne Kundenkonto und überbuchte Gruppen.*
 - **Content-Pakete:** hochladen, Vorschau, Fehler, Rechteblockaden, Freigabe, Verlauf und Rollback. Rollback bedeutet: Das vorher veröffentlichte Paket wird erneut als aktiver Stand gesetzt, d. h. dessen Revisionen werden wieder `published`, die des zurückgenommenen Pakets `deprecated`. Revisionen werden nie gelöscht, damit bestehende Versuche gültig referenziert bleiben. *Umsetzung: Rollback spielt das gespeicherte Paketverzeichnis eines früher veröffentlichten Imports als neuen Import ein (Pflichtbegründung, Vorschau, Freigabe, Audit `import_rolled_back`); Fragen mit gleichem Hash erhalten ihre frühere Revision zurück statt einer neuen, nicht mehr enthaltene Datensätze werden wie beim Reimport archiviert bzw. reaktiviert. Admin: Detailseite des Imports, CLI: `wp bootspruefung rollback <import-id> --reason=…`.*
 - **Kurse & Module:** Zuordnungen und Reihenfolge kontrollieren.
 - **Prüfungsregeln:** Regelwerk, Verifizierung und Gültigkeit.
@@ -554,6 +554,7 @@ bootspruefung-learning/
    - 8a: **Funkpraxis (Sprechfunk-Szenarien)** als eigener Meilenstein. *Stand: ✅ 72 Szenarien (42 SRC, 30 UBI); der Konverter nutzt den Generator `FunkPraxis` der Quelle unverändert, das Plugin wertet Rang, DSC/Verkehrskreis, Funkgerät und Meldung serverseitig gegen die Prüfpunkte aus (Spracheingabe optional per Browser).*
    - 8b: **Gerätesimulation** als eigener Meilenstein. *Stand: ✅ Original-JavaScript der Quelle unverändert übernommen (`tools/sync-device-sim.sh`, CSS per Tailwind auf den Lernbereich begrenzt); 7 Geräte, 48 Lektionen, 4 Prüfungsreihen, freies Üben. Server: Konfiguration, Bewertung von Funksprüchen, Stufen 1–3 und Prüfungsergebnisse – wie in der Quelle meldet der Browser die Gerätebedienung, serverseitig geprüft werden die Funksprüche.*
 9. **WooCommerce:** Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport. *Stand: ✅ gateway-neutral für Überweisung, Klarna, PayPal, Stripe und weitere (Kap. 7.5): Reiter „Lernzugang“ (Kurse × Funktionen, Dauer, Verlängerung/parallel, Erstattungsregel, Variationen erben oder überschreiben); idempotente Zugänge je Bestellposition; Aussetzung bei Dispute, Widerruf je Position bei Erstattung bzw. bei Storno; Lernprodukte einzeln und nur mit Kundenkonto; „Mein Lernen“ in Mein Konto, Kurslink in Bestellbestätigung und E-Mail, Sperrhinweis mit Produktlink im Lernbereich; Bestellposition zeigt Zugänge, Bestellaktionen (abgleichen, vorab freischalten, aussetzen, aufheben); Adminseiten „Zugänge“ und „Kostenlose Bereiche“; `wp bootspruefung reconcile [--apply]` mit Vorschau und Rückfrage vor Widerrufen; stündlicher Ablauf befristeter Zugänge; Systemstatus mit Zahlungsarten. Getestet mit Testbestellungen und gegen WooCommerce 11.2 (CI). Bis zum Shopstart steht „Zugang ohne Shop“ weiter auf „alle angemeldeten Nutzer“ – danach auf „Nur kostenlose Regeln und Freischaltungen“ umstellen.*
+9b. **Restpunkte Schritt 9:** *Stand: ✅ Feature `downloads` mit Downloadliste je Kurs; Zuordnungsfehler in der Admin-Übersicht; automatische Dispute-Behandlung für PayPal (Webhook) und gateway-neutral (signierter Webhook, z. B. Klarna); Browser-Test des Kaufablaufs mit WooCommerce (Sperrhinweis → Produkt → Block- und klassischer Checkout mit Überweisung → Freischaltung nach Zahlungseingang → Mein Lernen, Kontopflicht für Gäste).*
 9a. **Membership-Funktionen ohne Zusatz-Plugin:** *Stand: ✅ kostenlose Teilumfänge, zeitgesteuerte Freigabe, geschützte Seiten/Abschnitte/Dateien, Gruppenlizenzen, Mitgliederrabatte (Kap. 7.2, 7.6); DB-Schema 1.4.0; Integrations- und Browser-Tests, Rabatte und Gruppen zusätzlich gegen WooCommerce (CI).*
 10. **Content-Freigabe und Go-live:** Rechtsstatus, Katalogaktualität, Regelwerksverifizierung, Medienersatz, Backup/Restore und Supportablauf bestätigen.
 

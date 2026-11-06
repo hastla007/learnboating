@@ -56,7 +56,9 @@ Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „L
 Abschnitte über den Block „Nur mit Lernzugang“ bzw. `[bootspruefung_zugang kurs="SBF-SEE" funktion="video_course"]…[/bootspruefung_zugang]`,
 geschützte PDFs über das Feld „Lernzugang erforderlich“ in der Mediathek (nginx: Ordner
 `uploads/bootspruefung/protected-*` zusätzlich sperren); Gruppenlizenzen über „Plätze je Stück“ im
-Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte.
+Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte. PDFs für die Downloadliste eines
+Kurses in der Mediathek mit „Kurs · Downloads (PDF)“ markieren. Dispute-Webhooks (PayPal, allgemein für Klarna u. a.)
+unter Bootsprüfung → Einstellungen › Zahlungskonflikte einrichten.
 
 ### Tests des Plugins
 
@@ -101,4 +103,10 @@ BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/
 
 ```bash
 BP_TOKEN="$(WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/e2e/membership-setup.php)" node bootspruefung-learning/tests/e2e/membership-flow.mjs
+```
+
+Kaufablauf (WooCommerce aktiv, vorher `woocommerce-setup.php`):
+
+```bash
+WP_DIR=/pfad/zu/wordpress node bootspruefung-learning/tests/e2e/checkout-flow.mjs
 ```

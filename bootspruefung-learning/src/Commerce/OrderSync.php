@@ -56,7 +56,12 @@ final class OrderSync
         }
         $this->context = ['order' => $order, 'groups' => $groupMappings, 'target' => $target ?? EntitlementPlanner::orderTarget($order)];
         if ($existing === [] && ! array_filter($mappings)) {
-            return new Plan($orderId, $groupMappings !== [] ? $this->context['target'][0] : null, $groupMappings !== [] ? 'group_only' : 'no_learning_products');
+            $plan = new Plan($orderId, $groupMappings !== [] ? $this->context['target'][0] : null, $groupMappings !== [] ? 'group_only' : 'no_learning_products');
+            if ($groupMappings !== [] && $order->userId <= 0) {
+                $plan->warn('no_account');
+            }
+
+            return $plan;
         }
 
         return $this->planner->plan($order, $mappings, $existing, $target);
@@ -68,7 +73,7 @@ final class OrderSync
         if ($plan === null) {
             return null;
         }
-        if (in_array('no_account', $plan->warnings, true) && $plan->reason === 'order_paid') {
+        if (in_array('no_account', $plan->warnings, true) && in_array($plan->reason, ['order_paid', 'group_only'], true) && $plan->orderStatus === EntitlementPlanner::ACTIVE) {
             AuditLog::record('order_without_account', 'order', (string) $orderId, null, ['via' => $via]);
         }
         $this->entitlements->apply($plan, $via);
@@ -99,6 +104,12 @@ final class OrderSync
     public function suspendOrder(int $orderId, string $reason): int
     {
         return $this->manualForOrder($orderId, EntitlementPlanner::SUSPENDED, $reason) + $this->manualGroups($orderId, GroupService::SUSPENDED, $reason);
+    }
+
+    /** Konflikt verloren / Rückbuchung endgültig: alle Zugänge und Gruppen der Bestellung widerrufen. */
+    public function revokeOrder(int $orderId, string $reason): int
+    {
+        return $this->manualForOrder($orderId, EntitlementPlanner::REVOKED, $reason) + $this->manualGroups($orderId, GroupService::REVOKED, $reason);
     }
 
     private function manualGroups(int $orderId, string $status, string $reason): int

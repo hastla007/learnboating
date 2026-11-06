@@ -26,8 +26,9 @@ final class AccessService
     public const VIDEO = 'video_course';
     public const RADIO = 'radio_training';
     public const DEVICE = 'device_simulation';
+    public const DOWNLOADS = 'downloads';
 
-    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM, self::NAVIGATION, self::PRAXIS, self::VIDEO, self::RADIO, self::DEVICE];
+    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM, self::NAVIGATION, self::PRAXIS, self::VIDEO, self::RADIO, self::DEVICE, self::DOWNLOADS];
 
     /** Limit-Typen je Feature für `free_limited` (Kap. 7.2). */
     public const LIMIT_TYPES = [
@@ -37,6 +38,7 @@ final class AccessService
         self::PRAXIS => 'first_items',
         self::VIDEO => 'first_items',
         self::RADIO => 'first_items',
+        self::DOWNLOADS => 'first_items',
     ];
 
     /** Features mit Modulen/Kapiteln für zeitgesteuerte Freigabe. */

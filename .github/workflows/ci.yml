@@ -169,3 +169,14 @@ jobs:
           BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs
           BP_TOKEN="$(WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php)" node bootspruefung-learning/tests/e2e/membership-flow.mjs
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php reset
+          # Kaufablauf mit WooCommerce (Block- und klassischer Checkout)
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          mkdir -p "$RUNNER_TEMP/shots"
+          WP_DIR="$RUNNER_TEMP/wp" BP_SHOTS="$RUNNER_TEMP/shots" node bootspruefung-learning/tests/e2e/checkout-flow.mjs
+      - name: Screenshots Kaufablauf
+        if: always() && matrix.php == '8.3'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkout-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
