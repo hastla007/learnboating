@@ -346,6 +346,18 @@ $wpdb->insert($p.'access_rule', ['course_code' => 'SBF-SEE', 'feature_code' => '
 [$s] = $req('GET', '/courses/SBF-SEE/next-question');
 $check($s === 200, 'kostenlose Regel gibt den Fragenkatalog frei');
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code = 'SBF-SEE'");
+// Funkgerät-Simulator ohne Freischaltung: Testversion (Geräte-Lektionen + ein Routineanruf).
+[$s, $free] = $req('GET', '/courses/SRC/device-sim');
+$freeKeys = array_column($free['lessons'] ?? [], 'key');
+$check($s === 200 && ($free['tier'] ?? '') === 'free' && in_array('einzelanruf', $freeKeys, true) && ! in_array('notalarm-senden', $freeKeys, true) && (array) $free['exams'] === [], 'Simulator ohne Freischaltung: Testversion ohne Notverkehr und Prüfung');
+$check($free['locked']['tasks'] > 0 && $free['locked']['lessons'] > 0 && count($freeKeys) === count(array_intersect($freeKeys, \Bootspruefung\Learning\Trainers\DeviceSimService::FREE_LESSONS)), 'gesperrte Inhalte nur als Übersicht');
+[$s] = $jsonReq('POST', '/courses/SRC/device-sim/exam', ['series' => $series, 'device' => 'ic-m505', 'passed' => []]);
+[$s2] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'notalarm-senden', 'level' => 1, 'device' => 'ic-m505']);
+[$s3] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'einzelanruf', 'level' => 1, 'device' => 'ic-m505']);
+$check($s === 403 && $s2 === 403 && $s3 === 200, 'Testversion: Prüfung und gesperrte Lektion 403, freie Lektion speicherbar');
+(new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->grantManual($other, 'SRC', ['device_simulation'], null, 'Test Simulator-Pass');
+[, $full] = $req('GET', '/courses/SRC/device-sim');
+$check(($full['tier'] ?? '') === 'premium' && count((array) $full['exams']) > 0 && $full['locked'] === null, 'mit Simulator-Zugang: Vollversion');
 delete_option('bp_learning_settings');
 wp_set_current_user(0);
 [$s] = $req('GET', '/me/courses');

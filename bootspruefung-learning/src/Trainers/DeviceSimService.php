@@ -22,6 +22,13 @@ final class DeviceSimService
 {
     public const DEFAULT_DEVICE = 'ic-m505';
 
+    /**
+     * Kostenlose Testversion (Festlegung 06.11.2026): Gerät bedienen, Kanäle, Sendeleistung,
+     * MMSI/Position und ein Beispiel-Routineanruf von Schiff zu Schiff (UBI: Begegnung absprechen).
+     * Gesperrt: Not-, Dringlichkeits- und Sicherheitsverkehr, weitere Szenarien, Prüfungsmodus, Freies Üben.
+     */
+    public const FREE_LESSONS = ['geraet-bedienen', 'hoeren-senden', 'kanaele-anrufkanal', 'sendeleistung', 'mmsi-position-zeit', 'einzelanruf', 'binnen-atis', 'binnen-verkehrskreise', 'binnen-begegnung'];
+
     private \wpdb $db;
 
     /** @var array<string,mixed>|null */
@@ -49,9 +56,16 @@ final class DeviceSimService
         return $this->data;
     }
 
+    /** Simulator für diesen Kurs vorhanden (Funkkurs) – mindestens als Testversion. */
     public function available(int $userId, object $course): bool
     {
-        return $this->data() !== [] && $this->catalogs($course) !== [] && $this->access->full($userId, $course->code, AccessService::DEVICE); // kein Teilumfang
+        return $this->data() !== [] && $this->catalogs($course) !== [] && $userId > 0;
+    }
+
+    /** Vollversion freigeschaltet (Kurs mit Simulator, Simulator-Pass, Bundle, Pass). */
+    public function premium(int $userId, object $course): bool
+    {
+        return $this->available($userId, $course) && $this->access->full($userId, $course->code, AccessService::DEVICE); // kein Teilumfang
     }
 
     /** @return list<string> */
@@ -83,10 +97,12 @@ final class DeviceSimService
                 $progress[$device][$item] = (int) ($value['level'] ?? 0);
             }
         }
+        $premium = $this->premium($userId, $course);
         $exams = [];
-        foreach ($this->exams($catalogs) as $series => $exam) {
+        foreach ($premium ? $this->exams($catalogs) : [] as $series => $exam) {
             $exams[$series] = $exam + ['best' => array_merge(array_fill_keys($keys, null), $best[$series] ?? [])];
         }
+        $lessons = $this->lessonsForBrowser($catalogs);
         $nonce = wp_create_nonce('wp_rest');
         $url = static fn (string $path) => add_query_arg('_wpnonce', $nonce, rest_url(RestRegistrar::NAMESPACE.'/courses/'.rawurlencode($course->code).'/device-sim/'.$path));
 
@@ -96,13 +112,63 @@ final class DeviceSimService
             'addressBook' => $data['address_book'],
             'directory' => $data['directory'],
             'catalogs' => $catalogs,
-            'lessons' => $this->lessonsForBrowser($catalogs),
+            // Testversion: nur die freien Lektionen werden ausgeliefert; der Rest nur als Titel für die Übersicht.
+            'lessons' => $premium ? $lessons : array_values(array_filter($lessons, static fn ($l) => in_array($l['key'], self::FREE_LESSONS, true))),
             // Leere Objekte als {} (nicht []) ausliefern, wie die Quelle.
             'progress' => array_map(static fn ($p) => (object) $p, $progress),
             'exams' => (object) $exams,
             'speechLang' => 'en-GB',
             'urls' => ['evaluate' => $url('evaluate'), 'progress' => $url('progress'), 'exam' => $url('exam')],
+            'tier' => $premium ? 'premium' : 'free',
+            'locked' => $premium ? null : $this->lockedSummary($lessons, $catalogs),
+            'offers' => $premium ? [] : $this->offers(),
         ];
+    }
+
+    /** Was die Vollversion zusätzlich enthält (nur Titel). @param list<array<string,mixed>> $lessons @return array<string,mixed> */
+    private function lockedSummary(array $lessons, array $catalogs): array
+    {
+        $units = [];
+        foreach ($lessons as $lesson) {
+            if (in_array($lesson['key'], self::FREE_LESSONS, true)) {
+                continue;
+            }
+            $units[$lesson['unit']] ??= ['unit' => $lesson['unit'], 'lessons' => []];
+            $units[$lesson['unit']]['lessons'][] = $lesson['title'];
+        }
+        $series = [];
+        $tasks = 0;
+        foreach ($this->exams($catalogs) as $exam) {
+            $series[] = ['title' => $exam['title'], 'tasks' => count($exam['lessons'])];
+            $tasks += count($exam['lessons']);
+        }
+
+        return ['lessons' => array_sum(array_map(static fn ($u) => count($u['lessons']), $units)), 'units' => array_values($units), 'series' => $series, 'tasks' => $tasks];
+    }
+
+    /** Simulator-Zugänge aus dem Shop (nur veröffentlichte, kaufbare Produkte). @return list<array<string,mixed>> */
+    private function offers(): array
+    {
+        if (! function_exists('wc_get_product_id_by_sku')) {
+            return (array) apply_filters('bootspruefung_sim_offers', []);
+        }
+        $out = [];
+        foreach (\Bootspruefung\Learning\Commerce\ShopCatalog::SIM_PASSES as $sku) {
+            $id = (int) wc_get_product_id_by_sku($sku);
+            $product = $id ? wc_get_product($id) : null;
+            if (! $product || $product->get_status() !== 'publish' || ! $product->is_purchasable()) {
+                continue;
+            }
+            $out[] = [
+                'sku' => $sku,
+                'name' => wp_specialchars_decode($product->get_name()),
+                'price' => html_entity_decode(wp_strip_all_tags(wc_price((float) $product->get_price())), ENT_QUOTES, 'UTF-8'),
+                'url' => add_query_arg('add-to-cart', $id, wc_get_checkout_url()),
+                'details' => (string) get_permalink($id),
+            ];
+        }
+
+        return (array) apply_filters('bootspruefung_sim_offers', $out);
     }
 
     /** @return array{checks:list<array{label:string,ok:bool}>,passed:bool} */
@@ -110,6 +176,7 @@ final class DeviceSimService
     {
         $this->require($userId, $course);
         $lesson = $this->lessonFor($course, $lessonKey);
+        $this->requireLesson($userId, $course, $lessonKey);
         $speech = $lesson['steps'][$step]['speech'] ?? null;
         if (! $speech) {
             throw new RuntimeException(__('Dieser Schritt erwartet keinen Funkspruch.', 'bootspruefung-learning'));
@@ -123,6 +190,7 @@ final class DeviceSimService
     {
         $this->require($userId, $course);
         $lesson = $this->lessonFor($course, $lessonKey);
+        $this->requireLesson($userId, $course, $lessonKey);
         if ($level < 1 || $level > 3 || ! in_array($device, array_column($this->data()['devices'], 'key'), true)) {
             throw new RuntimeException(__('Ungültige Angaben.', 'bootspruefung-learning'));
         }
@@ -141,6 +209,9 @@ final class DeviceSimService
     public function exam(int $userId, object $course, string $series, string $device, array $passed): array
     {
         $this->require($userId, $course);
+        if (! $this->premium($userId, $course)) {
+            throw new AccessDenied(__('Der Prüfungsmodus gehört zur Vollversion des Funkgerät-Simulators.', 'bootspruefung-learning'));
+        }
         $exams = $this->exams($this->catalogs($course));
         if (! isset($exams[$series]) || ! in_array($device, array_column($this->data()['devices'], 'key'), true)) {
             throw new NotFound(__('Prüfungsreihe nicht gefunden.', 'bootspruefung-learning'));
@@ -169,6 +240,10 @@ final class DeviceSimService
             return ['lessons' => 0, 'mastered' => 0];
         }
         $lessons = $this->lessonsForBrowser($this->catalogs($course));
+        $premium = $this->premium($userId, $course);
+        if (! $premium) {
+            $lessons = array_filter($lessons, static fn ($l) => in_array($l['key'], self::FREE_LESSONS, true));
+        }
         $levels = $this->db->get_col($this->db->prepare(
             "SELECT data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = 'geraet' AND item_source_id LIKE %s",
             $userId,
@@ -176,7 +251,7 @@ final class DeviceSimService
         ));
         $mastered = count(array_filter($levels, static fn ($d) => ((json_decode((string) $d, true) ?: [])['level'] ?? 0) >= 3));
 
-        return ['lessons' => count($lessons), 'mastered' => $mastered];
+        return ['lessons' => count($lessons), 'mastered' => $mastered, 'premium' => $premium];
     }
 
     // ------------------------------------------------------------------ wie Geraetesimulation
@@ -311,6 +386,13 @@ final class DeviceSimService
             $this->db->update($this->t('radio_progress'), $fields, ['id' => (int) $id]);
         } else {
             $this->db->insert($this->t('radio_progress'), array_merge(['user_id' => $userId, 'item_type' => 'geraet', 'item_source_id' => $key], $fields));
+        }
+    }
+
+    private function requireLesson(int $userId, object $course, string $lessonKey): void
+    {
+        if (! in_array($lessonKey, self::FREE_LESSONS, true) && ! $this->premium($userId, $course)) {
+            throw new AccessDenied(__('Diese Lektion gehört zur Vollversion des Funkgerät-Simulators.', 'bootspruefung-learning'));
         }
     }
 

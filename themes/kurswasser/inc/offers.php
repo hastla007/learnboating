@@ -69,7 +69,11 @@ function kurswasser_offer_item(string $text): string
         '/^Prüfungssimulation mit Zeitlimit und Auswertung, inkl\. (\d+) Prüfungsbögen$/u' => 'Prüfungssimulation + $1 Prüfungsbögen',
         '/^Prüfungssimulation mit Zeitlimit und Auswertung$/u' => 'Prüfungssimulation mit Zeitlimit',
         '/^(\d+) Praxiskarten zur Vorbereitung auf die praktische Prüfung$/u' => '$1 Praxiskarten für die Praxis',
-        '/^Funktraining:.*$/u' => 'Funktraining mit Gerätesimulation',
+        '/^Funktraining:.*Testversion.*$/u' => 'Funktraining + Simulator zum Testen',
+        '/^Funktraining:.*Simulator$/u' => 'Funktraining mit Funkgerät-Simulator',
+        '/^(\d+) Lektionen an (\d+) Funkgeräten:.*$/u' => '$1 Lektionen an $2 Funkgeräten',
+        '/^Prüfungsmodus: (\d+) Prüfungsreihen mit (\d+) Aufgaben.*$/u' => 'Prüfungsmodus: $2 Aufgaben',
+        '/^Notalarm \(DISTRESS\).*$/u' => 'Notalarm (DISTRESS) mit DSC',
         '/^Alle (\d+) Kurse:.*$/u' => 'Alle $1 Kurse mit allen Trainern',
     ];
 
@@ -115,7 +119,7 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
             $sum = array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $compare));
             $saving = round($sum - $o['price'], 2);
         }
-        $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : 0);
+        $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : ($o['days'] >= 85 ? 3 : 0));
         $duration = $months ? sprintf(_n('%d Monat Zugang', '%d Monate Zugang', $months, 'kurswasser'), $months) : sprintf(__('%d Tage Zugang', 'kurswasser'), $o['days']);
         $html .= '<article class="kw-offer'.($isFeatured ? ' is-featured' : '').'">';
         if ($isFeatured && $flag !== '') {

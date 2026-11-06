@@ -348,7 +348,7 @@ $check($free['added'] === $free['courses'] * 5 && $again['added'] === 0, 'Schnup
 $taster = $user('bp_taster');
 $check($access->limit($taster, 'SKN', 'question_bank') === 10 && $access->limit($taster, 'SKN', 'exam_simulation') === 1 && ! $access->full($taster, 'SKN', 'question_bank'), 'ohne Kauf: 10 Fragen je Modul, 1 Prüfungsbogen');
 $wpdb->query("DELETE FROM {$p}access_rule WHERE id > {$ruleMax}");
-$check(count(\Bootspruefung\Learning\Commerce\ShopCatalog::products()) === 34, 'Katalog: 17 Einzelprodukte + 17 Gruppenpakete');
+$check(count(\Bootspruefung\Learning\Commerce\ShopCatalog::products()) === 38, 'Katalog: 17 Einzelprodukte + 17 Gruppenpakete + 4 Simulator-Zugänge');
 
 $mbProduct = 995001;
 $products->save($mbProduct, 0, [['course_code' => 'SKN', 'feature_code' => 'question_bank']], 182, 'extend', 'revoke_on_full_refund');

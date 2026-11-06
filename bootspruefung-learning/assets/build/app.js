@@ -930,7 +930,7 @@
 			return null;
 		}
 		var tiles = [];
-		var icons = { 'navigation/': 'compass', 'praxis/': 'knot', 'video/': 'play', 'funk/': 'radio' };
+		var icons = { 'navigation/': 'compass', 'praxis/': 'knot', 'video/': 'play', 'funk/': 'radio', 'funk/geraet/': 'spark' };
 		if (tr.navigation.tasks > 0) {
 			tiles.push(['navigation/', t('trainer_navigation'), t('trainer_navigation_meta', { done: tr.navigation.done, total: tr.navigation.questions, tasks: tr.navigation.tasks })]);
 		}
@@ -942,6 +942,8 @@
 		}
 		if (tr.radio.texts + tr.radio.vocabulary > 0) {
 			tiles.push(['funk/', t('trainer_radio'), t('trainer_radio_meta', { texts: tr.radio.texts, vocabulary: tr.radio.vocabulary })]);
+			// Funkgerät-Simulator: Testversion für alle, Vollversion je nach Zugang.
+			tiles.push(['funk/geraet/', t('device_title'), features && features.device_simulation ? t('device_tile_full') : t('sim_free_short')]);
 		}
 		if (!tiles.length) {
 			return null;
@@ -1405,8 +1407,8 @@
 				var nodes = [crumbs(slug, c.name, [[t('trainer_radio')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_radio') }), el('p', { class: 'bp-muted', text: t('radio_intro') })])];
 				if (o.device && o.device.lessons > 0) {
 					nodes.push(el('section', { class: 'bp-card bp-tile' }, [
-						el('h2', {}, [link(slug + '/funk/geraet/', t('device_title'))]),
-						el('p', { class: 'bp-muted', text: t('device_meta', { lessons: o.device.lessons, mastered: o.device.mastered }) }),
+						el('h2', {}, [link(slug + '/funk/geraet/', t('device_title')), o.device.premium === false ? ' ' : null, o.device.premium === false ? badge(t('sim_free_badge'), 'warn') : null]),
+						el('p', { class: 'bp-muted', text: o.device.premium === false ? t('sim_free_short') : t('device_meta', { lessons: o.device.lessons, mastered: o.device.mastered }) }),
 						el('p', {}, [link(slug + '/funk/geraet/', t('device_open'), 'bp-button bp-button-primary')])
 					]));
 				}
@@ -1641,11 +1643,19 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/device-sim').then(function (config) {
 				var host = el('div', { id: 'bp-device-sim', 'data-geraetesimulation': '1' });
+				var free = config.tier === 'free';
+				var paywall = free ? simPaywall(config) : null;
 				mount([
 					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [t('device_title')]]),
 					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: t('device_title') }), el('p', { class: 'bp-muted', text: t('device_intro') })]),
-					host
+					free ? simBanner(paywall) : null,
+					host,
+					free && config.locked ? simLockedPanel(config.locked, paywall) : null,
+					paywall ? paywall.node : null
 				], t('device_title') + ' – ' + c.name);
+				if (free) {
+					simGuard(host, paywall);
+				}
 				if (!document.getElementById('bp-device-sim-css')) {
 					document.head.appendChild(el('link', { id: 'bp-device-sim-css', rel: 'stylesheet', href: cfg.deviceSim + 'device-sim.css?ver=' + encodeURIComponent(cfg.version) }));
 				}
@@ -1654,6 +1664,102 @@
 				});
 			});
 		});
+	}
+
+	// Testversion: Sperren vor dem unveränderten Geräte-JavaScript (Erfassung vor dem Bedienteil).
+	function simGuard(host, paywall) {
+		function blockKey(e) {
+			var key = e.target.closest && e.target.closest('[data-key="distress"]');
+			if (!key) {
+				return false;
+			}
+			if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') {
+				return false;
+			}
+			e.preventDefault();
+			e.stopPropagation();
+			if (e.type !== 'pointerup' && e.type !== 'mousedown' && e.type !== 'touchstart') {
+				paywall.open('distress');
+			}
+			return true;
+		}
+		['pointerdown', 'mousedown', 'touchstart', 'pointerup', 'keydown'].forEach(function (type) {
+			host.addEventListener(type, blockKey, { capture: true, passive: false });
+		});
+		host.addEventListener('click', function (e) {
+			var tab = e.target.closest && e.target.closest('[role="tab"]');
+			var label = tab ? tab.textContent.trim() : '';
+			if (label === 'Prüfung' || label === 'Freies Üben') {
+				e.preventDefault();
+				e.stopPropagation();
+				paywall.open(label === 'Prüfung' ? 'exam' : 'scenario');
+			}
+		}, true);
+	}
+
+	function simBanner(paywall) {
+		var unlock = el('button', { type: 'button', class: 'bp-button bp-button-signal', text: t('sim_unlock') });
+		unlock.addEventListener('click', function () { paywall.open('general'); });
+		return el('div', { class: 'bp-sim-banner' }, [
+			el('span', { class: 'bp-ico bp-ico-spark', 'aria-hidden': 'true' }),
+			el('div', { class: 'bp-sim-banner-text' }, [el('p', { class: 'bp-sim-banner-title', text: t('sim_free_title') }), el('p', { text: t('sim_free_text') })]),
+			unlock
+		]);
+	}
+
+	function simLockedPanel(locked, paywall) {
+		var button = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('sim_unlock') });
+		button.addEventListener('click', function () { paywall.open('scenario'); });
+		return el('section', { class: 'bp-section bp-panel bp-sim-locked', 'aria-labelledby': 'bp-sim-locked-h' }, [
+			el('div', { class: 'bp-section-head' }, [
+				el('h2', { id: 'bp-sim-locked-h' }, [el('span', { class: 'bp-ico bp-ico-lock', 'aria-hidden': 'true' }), t('sim_locked_title')]),
+				el('p', { class: 'bp-muted', text: t('sim_locked_meta', { lessons: locked.lessons, tasks: locked.tasks, series: locked.series.length }) })
+			]),
+			el('ul', { class: 'bp-sim-units' }, locked.units.map(function (u) {
+				return el('li', {}, [el('h3', { text: u.unit }), el('ul', {}, u.lessons.map(function (title) { return el('li', { text: title }); }))]);
+			}).concat(locked.series.length ? [el('li', { class: 'is-exam' }, [el('h3', { text: t('sim_exam_mode') }), el('ul', {}, locked.series.map(function (x) { return el('li', { text: t('sim_series_line', { title: x.title, n: x.tasks }) }); }))])] : [])),
+			el('p', {}, [button])
+		]);
+	}
+
+	function simPaywall(config) {
+		var locked = config.locked || { tasks: 0 };
+		var title = el('h2', { id: 'bp-paywall-h' });
+		var close = el('button', { type: 'button', class: 'bp-paywall-close', 'aria-label': t('sim_close') }, [el('span', { 'aria-hidden': 'true', text: '×' })]);
+		var subs = { 'SIM-PASS-14D': t('sim_offer_14d'), 'SIM-PASS-3M': t('sim_offer_3m'), 'SIM-PASS-12M': t('sim_offer_12m') };
+		var offers = config.offers || [];
+		var main = offers.filter(function (o) { return o.sku !== 'SIM-PASS-12M'; });
+		var extra = offers.filter(function (o) { return o.sku === 'SIM-PASS-12M'; })[0];
+		var list = offers.length ? el('ul', { class: 'bp-paywall-offers' }, main.map(function (o) {
+			var rec = o.sku === 'SIM-PASS-3M';
+			return el('li', {}, [el('a', { href: o.url, class: 'bp-paywall-offer' + (rec ? ' is-recommended' : ''), rel: 'nofollow' }, [
+				rec ? el('span', { class: 'bp-paywall-flag', text: t('sim_recommended') }) : null,
+				el('span', { class: 'bp-paywall-offer-head' }, [el('strong', { text: o.name.replace(/\s*\(.*\)$/, '') }), el('span', { class: 'bp-paywall-price', text: t('sim_only', { price: o.price }) })]),
+				el('span', { class: 'bp-paywall-offer-sub', text: subs[o.sku] || '' })
+			])]);
+		})) : el('p', { class: 'bp-note', text: t('sim_no_offers') });
+		var dialog = el('dialog', { class: 'bp-paywall', 'aria-labelledby': 'bp-paywall-h' }, [
+			close,
+			el('span', { class: 'bp-paywall-icon', 'aria-hidden': 'true' }),
+			title,
+			el('p', { text: t('sim_paywall_text', { tasks: locked.tasks }) }),
+			offers.length ? el('p', { class: 'bp-paywall-choose', text: t('sim_paywall_choose') }) : null,
+			list,
+			extra ? el('p', { class: 'bp-paywall-extra' }, [el('a', { href: extra.url, rel: 'nofollow', text: t('sim_offer_12m_link', { price: extra.price }) })]) : null,
+			el('p', { class: 'bp-paywall-once', text: t('sim_once') }),
+			el('div', { class: 'bp-paywall-benefits' }, [el('p', {}, [el('strong', { text: t('sim_benefits_title') })]), el('ul', {}, String(t('sim_benefits')).split('\n').map(function (x) { return el('li', { text: x }); }))])
+		]);
+		close.addEventListener('click', function () { dialog.close(); });
+		dialog.addEventListener('click', function (e) { if (e.target === dialog) { dialog.close(); } });
+		return {
+			node: dialog,
+			open: function (reason) {
+				title.textContent = reason === 'scenario' || reason === 'general' ? t('sim_paywall_title_more') : t('sim_paywall_title');
+				if (!dialog.open) {
+					if (dialog.showModal) { dialog.showModal(); } else { dialog.setAttribute('open', ''); }
+				}
+			}
+		};
 	}
 
 	function viewVocabulary(slug, catalog, category) {

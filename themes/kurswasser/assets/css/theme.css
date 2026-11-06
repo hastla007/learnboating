@@ -458,3 +458,7 @@ img { height: auto; }
 .kw-overview-head .kw-lead { margin: 0; font-size: 1rem; }
 @media (max-width: 900px) { .kw-overview-head { grid-template-columns: 1fr; } }
 .kw-overview-trust { padding-top: var(--wp--preset--spacing--50) !important; padding-bottom: 0 !important; }
+
+/* Funk-Kursseiten: Funkgerät-Simulator */
+.kw-sim { margin-top: var(--wp--preset--spacing--60); padding-bottom: var(--wp--preset--spacing--60); border-radius: 28px; background: linear-gradient(180deg, color-mix(in srgb, var(--wp--preset--color--primary) 8%, transparent), transparent 70%); }
+.kw-sim-note { max-width: 46rem; margin: 1rem auto 0; text-align: center; font-size: 0.88rem; opacity: 0.75; }

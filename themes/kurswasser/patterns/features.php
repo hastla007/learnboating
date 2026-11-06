@@ -15,7 +15,7 @@
 <div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-compass" aria-hidden="true"></span></span><h3>Navigationsaufgaben</h3><p>Kartenaufgaben mit Musterlösungen und Selbsteinschätzung, so wie in der Prüfung.</p><span class="kw-feature-tag">SBF See</span></div>
 <div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-cards" aria-hidden="true"></span></span><h3>Praxiskarten</h3><p>Zum Einprägen für die Praxis: Lichter und Zeichen, Schallsignale, Manöver, Knoten und Sicherheit.</p><span class="kw-feature-tag">SBF, SKN, FKN</span></div>
 <div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-play" aria-hidden="true"></span></span><h3>Videokurs</h3><p>Kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen zum Nachprüfen.</p><span class="kw-feature-tag">Je nach Kurs</span></div>
-<div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-radio" aria-hidden="true"></span></span><h3>Funktraining</h3><p>Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und eine Gerätesimulation.</p><span class="kw-feature-tag">SRC, UBI</span></div>
+<div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-radio" aria-hidden="true"></span></span><h3>Funktraining</h3><p>Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien – dazu der Funkgerät-Simulator (kostenlos testen).</p><span class="kw-feature-tag">SRC, UBI</span></div>
 </div>
 <!-- /wp:html --></section>
 <!-- /wp:group -->

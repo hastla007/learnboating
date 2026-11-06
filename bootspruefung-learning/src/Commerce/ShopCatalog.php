@@ -19,6 +19,14 @@ final class ShopCatalog
     private const SBF_ALL = ['SBF-SEE-BIN', 'SBF-SEE', 'SBF-BIN-MOTOR'];
     private const RADIO_ALL = ['SRC-UBI', 'SRC', 'UBI'];
     private const ADDONS = ['ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-BIN-SEGEL', 'ADD-UBI-TO-SRC', 'ADD-FKN-TO-SKN'];
+    /** Kurse, in denen die Funkgerät-Simulation läuft (Funkzeugnisse). */
+    public const SIM_COURSES = ['SRC', 'UBI', 'SRC-UBI', 'ADD-UBI-TO-SRC'];
+    /** Simulator-Pässe (Festlegung 06.11.2026): nur Gerätesimulation, Einmalzahlung, kein Abo, keine Geld-zurück-Garantie. */
+    public const SIM_PASSES = ['SIM-PASS-14D', 'SIM-PASS-3M', 'SIM-PASS-12M'];
+    /** Upgrade im Checkout, nur zusammen mit einem Funkkurs (Order Bump). */
+    public const SIM_UPGRADE = 'SIM-UPGRADE-CHECKOUT';
+    /** Produkte, bei deren Kauf das Upgrade angeboten wird. */
+    public const SIM_UPGRADE_FOR = ['BP-SRC', 'BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC'];
 
     public const MONEY_BACK_DAYS = 14;
     public const MONEY_BACK_MAX_PROGRESS = 20.0;
@@ -55,6 +63,12 @@ final class ShopCatalog
         foreach (self::ADDONS as $code) {
             $list[] = ['sku' => 'BP-'.$code, 'name' => $names[$code] ?? $code, 'price' => '13.90', 'days' => 182, 'courses' => [$code], 'group' => 'addon'];
         }
+        // Funk-Theoriekurse ohne Gerätesimulation (kostenlose Testversion bleibt); Bundle und Pässe behalten sie.
+        foreach ($list as $i => $item) {
+            if (in_array($item['sku'], self::SIM_UPGRADE_FOR, true)) {
+                $list[$i]['features'] = self::featuresWithoutSim();
+            }
+        }
         $list[] = ['sku' => 'BP-KAPITAEN', 'name' => 'Kapitäns-Bundle (SBF See + Binnen + Funk)', 'price' => '68.90', 'days' => 365, 'courses' => [...self::SBF_ALL, ...self::RADIO_ALL], 'group' => 'bundle'];
         $all = array_keys($names);
         $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '13.90', 'days' => 30, 'courses' => $all, 'group' => 'bundle'];
@@ -81,10 +95,41 @@ final class ShopCatalog
             ['GRP-CLUB-21', 'Vereins-Paket 20: Kombi See/Binnen', 20, self::SBF_ALL, '599.90'],
             ['GRP-CLUB-50', 'Partner-Flat 50: Kombi See/Binnen', 50, self::SBF_ALL, '1249.00'],
         ] as [$sku, $name, $seats, $courses, $price]) {
-            $list[] = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => 365, 'courses' => $courses, 'group' => 'groups', 'seats' => $seats];
+            $item = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => 365, 'courses' => $courses, 'group' => 'groups', 'seats' => $seats];
+            if ($courses === self::RADIO_ALL) {
+                $item['features'] = self::featuresWithoutSim(); // wie die Funk-Einzelkurse
+            }
+            $list[] = $item;
+        }
+        // Funkgerät-Simulator als eigene Zugänge (Web-App, alle Geräte, kein Abo).
+        foreach ([
+            ['SIM-PASS-14D', '14-Tage-Prüfungs-Sprint (SRC/UBI Web-App)', '9.90', 14],
+            ['SIM-PASS-3M', '3-Monats-Standardzugang (SRC/UBI Web-App)', '23.50', 90],
+            ['SIM-PASS-12M', '12-Monats-Sorglos-Zugang (SRC/UBI Web-App)', '34.50', 365],
+            [self::SIM_UPGRADE, 'Praxis-Sorglos-Upgrade: Funkgerät-Simulator 12 Monate', '13.90', 365],
+        ] as [$sku, $name, $price, $days]) {
+            $list[] = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => $days, 'courses' => self::SIM_COURSES, 'group' => 'simulator', 'features' => [AccessService::DEVICE], 'hidden' => $sku === self::SIM_UPGRADE, 'guarantee' => false];
         }
 
         return $list;
+    }
+
+    /** @return list<string> alle Funktionen außer der Gerätesimulation */
+    private static function featuresWithoutSim(): array
+    {
+        return array_values(array_diff(AccessService::FEATURES, [AccessService::DEVICE]));
+    }
+
+    /** @return array<string,mixed>|null Katalogeintrag zur Artikelnummer */
+    public static function find(string $sku): ?array
+    {
+        foreach (self::products() as $def) {
+            if ($def['sku'] === $sku) {
+                return $def;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -122,7 +167,8 @@ final class ShopCatalog
             $seats = (int) ($def['seats'] ?? 0);
             // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
             $product->set_sold_individually($seats === 0);
-            $product->set_catalog_visibility('visible');
+            // Upgrade nur im Checkout anbieten, nicht im Shop listen.
+            $product->set_catalog_visibility(! empty($def['hidden']) ? 'hidden' : 'visible');
             $product->set_menu_order((int) $position); // Shop-Reihenfolge wie im Katalog
             $text = self::texts($def);
             // Texte nur setzen, solange sie nicht im Shop von Hand geändert wurden.
@@ -144,13 +190,15 @@ final class ShopCatalog
             $id = (int) $product->save();
             $scopes = [];
             foreach (array_unique($def['courses']) as $course) {
-                foreach (ProductAccessRepository::features() as $feature) {
+                foreach ($def['features'] ?? ProductAccessRepository::features() as $feature) {
                     $scopes[] = ['course_code' => $course, 'feature_code' => $feature];
                 }
             }
             $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund', $seats > 0 ? $seats : null);
-            // Garantie nur für Einzelzugänge: bei Gruppen lernen die Eingeladenen, nicht der Käufer.
-            MoneyBack::setPolicy($id, $seats > 0 ? null : self::MONEY_BACK_DAYS, $seats > 0 ? null : self::MONEY_BACK_MAX_PROGRESS);
+            // Garantie nur für Einzelzugänge: bei Gruppen lernen die Eingeladenen, nicht der Käufer;
+            // Simulator-Zugänge ohne Garantie (Festlegung 06.11.2026).
+            $guarantee = $seats === 0 && ($def['guarantee'] ?? true);
+            MoneyBack::setPolicy($id, $guarantee ? self::MONEY_BACK_DAYS : null, $guarantee ? self::MONEY_BACK_MAX_PROGRESS : null);
             $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action];
         }
         if (! $dryRun) {
@@ -172,10 +220,11 @@ final class ShopCatalog
         'addon' => 'Ergänzungskurse',
         'bundle' => 'Pakete & Pässe',
         'groups' => 'Gruppen & Vereine',
+        'simulator' => 'Funkgerät-Simulator',
     ];
 
     /** Feste Kürzel (Slugs) – das Theme verlinkt darauf, unabhängig von Sprache/Permalinks. */
-    public const CATEGORY_SLUGS = ['sbf' => 'sbf', 'funk' => 'funk', 'signal' => 'seenot', 'addon' => 'ergaenzung', 'bundle' => 'pakete', 'groups' => 'gruppen'];
+    public const CATEGORY_SLUGS = ['sbf' => 'sbf', 'funk' => 'funk', 'signal' => 'seenot', 'addon' => 'ergaenzung', 'bundle' => 'pakete', 'groups' => 'gruppen', 'simulator' => 'funk-simulator'];
 
     private static function category(string $group): int
     {
@@ -268,6 +317,9 @@ final class ShopCatalog
 
     public static function texts(array $def): array
     {
+        if (($def['group'] ?? '') === 'simulator') {
+            return self::simTexts($def);
+        }
         global $wpdb;
         $p = $wpdb->prefix.'bp_';
         $all = array_values(array_unique($def['courses']));
@@ -310,8 +362,11 @@ final class ShopCatalog
         if ($videos > 0) {
             $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
         }
+        $withSim = in_array(AccessService::DEVICE, $def['features'] ?? [AccessService::DEVICE], true);
         if ($radio) {
-            $items[] = 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Gerätesimulation';
+            $items[] = $withSim
+                ? 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Funkgerät-Simulator'
+                : 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator als kostenlose Testversion (Vollversion als Upgrade)';
         }
         if ($pass) {
             $items[] = sprintf('Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos', count($all));
@@ -331,6 +386,55 @@ final class ShopCatalog
             : sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
 
         return ['short' => esc_html($short), 'long' => $long];
+    }
+
+    /** Web-App-Vorteile des Simulators (ohne Vergleich mit Anbietern, Festlegung 06.11.2026). @return list<string> */
+    public static function simBenefits(): array
+    {
+        return [
+            'Ein Login für alle Geräte: Übe am PC, auf dem Tablet oder auf dem Smartphone.',
+            'Keine Installation: läuft direkt im Browser auf Mac, Windows, iOS und Android.',
+            'Keine Updates nötig: Aktualisierungen kommen automatisch.',
+        ];
+    }
+
+    /** @param array<string,mixed> $def @return array{short:string,long:string} */
+    private static function simTexts(array $def): array
+    {
+        $intro = match ($def['sku']) {
+            'SIM-PASS-14D' => 'Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus.',
+            'SIM-PASS-3M' => 'Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate.',
+            'SIM-PASS-12M' => 'Für Vereine, Ausbilder oder alle, die sich maximal Zeit lassen wollen: alle Funkgeräte-Simulationen für zwölf Monate.',
+            default => 'Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator für zwölf Monate frei.',
+        };
+        $sim = self::simStats();
+        $items = [
+            sprintf('%d Lektionen an %d Funkgeräten: Bedienung, Routineverkehr, DSC, Not-, Dringlichkeits- und Sicherheitsverkehr', $sim['lessons'], $sim['devices']),
+            sprintf('Notalarm (DISTRESS) mit DSC-Controller und Notmeldung per Sprechfunk'),
+            sprintf('Prüfungsmodus: %d Prüfungsreihen mit %d Aufgaben wie in der praktischen SRC- und UBI-Prüfung', $sim['series'], $sim['tasks']),
+            'Freies Üben: Rufe empfangen und beantworten',
+        ];
+        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 85 ? '3 Monate' : $def['days'].' Tage');
+        $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
+            .'<p><strong>'.esc_html('Dein Vorteil: Web-App statt Download').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
+            .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';
+        $short = sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
+
+        return ['short' => esc_html($short), 'long' => $long];
+    }
+
+    /** Kennzahlen der Gerätesimulation aus der Datenbank. @return array{lessons:int,devices:int,series:int,tasks:int} */
+    public static function simStats(): array
+    {
+        global $wpdb;
+        $json = $wpdb->get_var("SELECT data FROM {$wpdb->prefix}bp_device WHERE source_id = 'geraetesimulation' AND status = 'published'");
+        $data = $json ? (json_decode((string) $json, true) ?: []) : [];
+        $tasks = 0;
+        foreach ($data['exams'] ?? [] as $lessons) {
+            $tasks += count((array) $lessons);
+        }
+
+        return ['lessons' => count($data['lessons'] ?? []), 'devices' => count($data['devices'] ?? []), 'series' => count($data['exams'] ?? []), 'tasks' => $tasks];
     }
 
     /**

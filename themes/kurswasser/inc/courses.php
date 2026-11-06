@@ -39,8 +39,8 @@ function kurswasser_courses(): array
         ],
         'src' => [
             'main' => 'BP-SRC', 'mark' => 'SRC', 'title' => 'SRC', 'name' => 'Short Range Certificate', 'eyebrow' => 'Funkzeugnis', 'code' => 'SRC', 'icon' => 'radio', 'tone' => 'funk',
-            'teaser' => 'UKW-Seefunk mit DSC – Fragen, englische Funktexte und Gerätesimulation.',
-            'lead' => 'Lerne für das SRC: alle Prüfungsfragen im Smarttrainer, englische Funktexte mit Auswertung, Vokabeln, Buchstabiertafel und eine Gerätesimulation für den praktischen Teil.',
+            'teaser' => 'UKW-Seefunk mit DSC – Fragen, englische Funktexte und Funkgerät-Simulator zum Testen.',
+            'lead' => 'Lerne für das SRC: alle Prüfungsfragen im Smarttrainer, englische Funktexte mit Auswertung, Vokabeln und Buchstabiertafel – dazu der Funkgerät-Simulator für den praktischen Teil: kostenlos testen, Vollversion als Upgrade.',
             'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
         ],
         'ubi' => [
@@ -76,7 +76,7 @@ function kurswasser_courses(): array
         'funk-kombi' => [
             'main' => 'BP-SRC-UBI', 'mark' => 'KOMBI', 'title' => 'SRC & UBI', 'name' => 'Kombi SRC & UBI', 'eyebrow' => 'Kombi', 'code' => 'SRC-UBI', 'icon' => 'radio', 'tone' => 'funk',
             'teaser' => 'Seefunk und Binnenfunk zusammen – beide Funkzeugnisse in einem Kurs.',
-            'lead' => 'Lerne SRC und UBI in einem Kurs: alle Prüfungsfragen beider Funkzeugnisse, englische und deutsche Funktexte, Vokabeln, Praxisszenarien und Gerätesimulation – günstiger als zwei Einzelkurse.',
+            'lead' => 'Lerne SRC und UBI in einem Kurs: alle Prüfungsfragen beider Funkzeugnisse, englische und deutsche Funktexte, Vokabeln und Praxisszenarien – günstiger als zwei Einzelkurse. Den Funkgerät-Simulator testest du kostenlos und schaltest ihn als Upgrade frei.',
             'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-KAPITAEN'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
         ],
     ];
@@ -265,7 +265,9 @@ add_shortcode('kurswasser_course', static function ($atts): string {
         $features[] = ['play', __('Videokurs', 'kurswasser'), sprintf(__('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen.', 'kurswasser'), $stats['videos'])];
     }
     if (array_intersect($def['codes'] ?? [$def['code']], ['SRC', 'UBI', 'SRC-UBI']) !== []) {
-        $features[] = ['radio', __('Funktraining', 'kurswasser'), __('Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Gerätesimulation.', 'kurswasser')];
+        $features[] = ['radio', __('Funktraining', 'kurswasser'), kurswasser_course_has_sim($def)
+            ? __('Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und der Funkgerät-Simulator mit Prüfungsmodus.', 'kurswasser')
+            : __('Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien. Funkgerät-Simulator kostenlos testen, Vollversion als Upgrade.', 'kurswasser')];
     }
     $features[] = ['phone', __('Überall lernen', 'kurswasser'), __('Im Browser auf Rechner, Tablet und Smartphone – dein Fortschritt bleibt gespeichert.', 'kurswasser')];
     foreach ($features as [$icon, $title, $text]) {
@@ -280,6 +282,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $html .= '<section id="preise" class="kw-section kw-course-offers"><div class="kw-center-head"><p class="kw-eyebrow">'.esc_html__('Preise', 'kurswasser').'</p><h2>'.esc_html(sprintf(__('Starte mit %s', 'kurswasser'), $def['title'])).'</h2><p class="kw-lead">'.esc_html__('Einmal zahlen, sofort lernen. Mit der Kombi sparst du gegenüber dem Einzelkauf.', 'kurswasser').'</p></div>';
     $html .= kurswasser_offer_cards($def['offers'], $def['featured'], $def['compare'], $def['compare'] !== [] ? __('Unsere Empfehlung', 'kurswasser') : __('Dein Kurs', 'kurswasser'));
     $html .= kurswasser_offer_trust().'</section>';
+    $html .= kurswasser_sim_section($def);
 
     return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/guarantee"} /--><!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
 });
@@ -341,7 +344,7 @@ function kurswasser_overview_sections(): array
     return [
         'pakete' => [__('Pakete & Pässe', 'kurswasser'), __('Mehrere Scheine auf einmal oder alle Inhalte für eine feste Zeit – günstiger als einzeln.', 'kurswasser'), ['kapitaen', 'paesse']],
         'sbf' => [__('Sportbootführerscheine', 'kurswasser'), __('Für Küste und Binnengewässer, unter Motor oder Segel – einzeln oder als Kombi.', 'kurswasser'), ['sbf-kombi', 'sbf-see', 'sbf-binnen', 'sbf-binnen-segel']],
-        'funk' => [__('Funkzeugnisse', 'kurswasser'), __('Seefunk (SRC) und Binnenfunk (UBI) mit Funktexten, Vokabeln und Gerätesimulation.', 'kurswasser'), ['funk-kombi', 'src', 'ubi']],
+        'funk' => [__('Funkzeugnisse', 'kurswasser'), __('Seefunk (SRC) und Binnenfunk (UBI) mit Funktexten, Vokabeln und Praxisszenarien – dazu der Funkgerät-Simulator.', 'kurswasser'), ['funk-kombi', 'src', 'ubi']],
         'seenot' => [__('Seenotsignalmittel', 'kurswasser'), __('Sach- und Fachkundenachweis für den Umgang mit Seenotsignalmitteln.', 'kurswasser'), ['skn', 'fkn']],
         'mehr' => [__('Ergänzungen & Gruppen', 'kurswasser'), __('Schon einen Schein? Nur die zusätzlichen Inhalte lernen. Oder gemeinsam als Paar, Familie, Crew oder Verein.', 'kurswasser'), ['ergaenzung', 'gruppen']],
     ];
@@ -426,3 +429,30 @@ add_filter('bootspruefung_course_images', static function (array $images): array
 
     return $images;
 });
+
+/** Enthält das Hauptangebot der Kursseite den Funkgerät-Simulator (Bundle/Pässe) oder nur die Testversion? */
+function kurswasser_course_has_sim(array $def): bool
+{
+    return in_array($def['featured'] ?? '', ['BP-KAPITAEN', 'BP-PASS-1M', 'BP-PASS-3M'], true);
+}
+
+/** Funk-Kursseiten: Simulator-Zugänge (Testversion kostenlos, Vollversion als eigener Zugang). */
+function kurswasser_sim_section(array $def): string
+{
+    $codes = $def['codes'] ?? [$def['code'] ?? ''];
+    if (array_intersect($codes, ['SRC', 'UBI', 'SRC-UBI']) === [] || kurswasser_course_has_sim($def) || ! class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)) {
+        return '';
+    }
+    $skus = \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_PASSES;
+    if (kurswasser_offer($skus[0]) === null) {
+        return '';
+    }
+    $html = '<section id="simulator" class="kw-section kw-course-offers kw-sim"><div class="kw-center-head"><p class="kw-eyebrow">'.esc_html__('Praxis am Funkgerät', 'kurswasser').'</p>';
+    $html .= '<h2>'.esc_html__('Funkgerät-Simulator für die praktische Prüfung', 'kurswasser').'</h2>';
+    $html .= '<p class="kw-lead">'.esc_html__('Kostenlos testen: Gerät bedienen, Kanäle wählen und einen Routineanruf üben. Die Vollversion schaltet Notalarm (DISTRESS), Dringlichkeits- und Sicherheitsverkehr, alle Lektionen und den Prüfungsmodus frei.', 'kurswasser').'</p></div>';
+    $html .= kurswasser_offer_cards($skus, 'SIM-PASS-3M', [], __('Empfehlung', 'kurswasser'));
+    $html .= '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Läuft im Browser – ohne Installation', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Ein Login für PC, Tablet und Smartphone', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Einmalzahlung, kein Abo', 'kurswasser').'</li></ul>';
+    $html .= '<p class="kw-sim-note">'.esc_html__('Beim Kauf eines Funkkurses gibt es den Simulator im Checkout als günstiges Upgrade. Für Simulator-Zugänge gilt keine Geld-zurück-Garantie.', 'kurswasser').'</p>';
+
+    return $html.'</section>';
+}
