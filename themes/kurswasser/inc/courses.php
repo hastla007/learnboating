@@ -86,7 +86,7 @@ function kurswasser_courses(): array
 function kurswasser_tile_sets(): array
 {
     return [
-        'main' => ['sbf-see', 'sbf-binnen', 'sbf-kombi', 'kapitaen', 'src', 'ubi', 'funk-kombi', 'weitere'],
+        'main' => ['kapitaen', 'sbf-kombi', 'sbf-see', 'sbf-binnen', 'funk-kombi', 'src', 'ubi', 'weitere'],
         'more' => ['sbf-binnen-segel', 'skn', 'fkn', 'ergaenzung', 'paesse', 'gruppen'],
     ];
 }
@@ -98,9 +98,9 @@ function kurswasser_special_tiles(): array
 
     return [
         'weitere' => ['title' => __('Weitere Kurse', 'kurswasser'), 'name' => __('Segeln, Seenotsignalmittel & mehr', 'kurswasser'), 'eyebrow' => __('Mehr Kurse', 'kurswasser'), 'icon' => 'plus',
-            'teaser' => __('SBF Binnen unter Segel, SKN, FKN, Ergänzungskurse, Pässe und Gruppenpakete.', 'kurswasser'),
+            'teaser' => __('Alle Kurse im Überblick – auch Binnen unter Segel, SKN, FKN, Ergänzungen, Pässe und Gruppen.', 'kurswasser'),
             'facts' => [['sail', __('Binnen unter Segel', 'kurswasser')], ['flare', __('SKN und FKN', 'kurswasser')]],
-            'url' => kurswasser_course_url('weitere'), 'price' => $min(['BP-SBF-BIN-SEGEL', 'BP-SKN', 'BP-FKN', 'BP-PASS-1M']), 'from' => true, 'cta' => __('Alle ansehen', 'kurswasser')],
+            'url' => kurswasser_url('kurse'), 'price' => $min(['BP-SBF-BIN-SEGEL', 'BP-SKN', 'BP-FKN', 'BP-PASS-1M']), 'from' => true, 'cta' => __('Alle Kurse', 'kurswasser')],
         'ergaenzung' => ['title' => __('Ergänzungen', 'kurswasser'), 'name' => __('Ergänzungskurse', 'kurswasser'), 'eyebrow' => __('Schon einen Schein?', 'kurswasser'), 'icon' => 'plus',
             'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI, FKN → SKN.', 'kurswasser'),
             'facts' => [['clock', __('6 Monate Zugang', 'kurswasser')]],
@@ -335,8 +335,41 @@ function kurswasser_packages_page(): string
     return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/groups"} /--><!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
 }
 
-/** Seite „Weitere Kurse“: Kacheln für Segel, SKN, FKN, Ergänzungen, Pässe, Gruppen. */
+/** Bereiche der Kursübersicht: Anker => [Titel, Text, Kacheln]. */
+function kurswasser_overview_sections(): array
+{
+    return [
+        'pakete' => [__('Pakete & Pässe', 'kurswasser'), __('Mehrere Scheine auf einmal oder alle Inhalte für eine feste Zeit – günstiger als einzeln.', 'kurswasser'), ['kapitaen', 'paesse']],
+        'sbf' => [__('Sportbootführerscheine', 'kurswasser'), __('Für Küste und Binnengewässer, unter Motor oder Segel – einzeln oder als Kombi.', 'kurswasser'), ['sbf-kombi', 'sbf-see', 'sbf-binnen', 'sbf-binnen-segel']],
+        'funk' => [__('Funkzeugnisse', 'kurswasser'), __('Seefunk (SRC) und Binnenfunk (UBI) mit Funktexten, Vokabeln und Gerätesimulation.', 'kurswasser'), ['funk-kombi', 'src', 'ubi']],
+        'seenot' => [__('Seenotsignalmittel', 'kurswasser'), __('Sach- und Fachkundenachweis für den Umgang mit Seenotsignalmitteln.', 'kurswasser'), ['skn', 'fkn']],
+        'mehr' => [__('Ergänzungen & Gruppen', 'kurswasser'), __('Schon einen Schein? Nur die zusätzlichen Inhalte lernen. Oder gemeinsam als Paar, Familie, Crew oder Verein.', 'kurswasser'), ['ergaenzung', 'gruppen']],
+    ];
+}
+
+/** Kursübersicht „Alle Kurse“ (/kurse/ und /kurse/weitere/). */
 function kurswasser_more_page(): string
+{
+    $sections = kurswasser_overview_sections();
+    $photo = kurswasser_course_image('weitere');
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('weitere', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Alle Kurse', 'kurswasser').'</span></nav>';
+    $html .= '<div class="kw-course-hero-grid is-single"><div><p class="kw-eyebrow">'.esc_html__('Kursübersicht', 'kurswasser').'</p><h1>'.esc_html__('Alle Kurse', 'kurswasser').'</h1><p class="kw-course-lead">'.esc_html__('Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel, Ergänzungskurse, Pakete und Gruppen – jeder Kurs mit allen Prüfungsfragen, Prüfungssimulation und den passenden Trainern.', 'kurswasser').'</p>';
+    $html .= '<nav class="kw-overview-nav" aria-label="'.esc_attr__('Bereiche', 'kurswasser').'">';
+    foreach ($sections as $anchor => [$title]) {
+        $html .= '<a href="#'.esc_attr($anchor).'">'.esc_html($title).'</a>';
+    }
+    $html .= '</nav></div></div></div></section>';
+    foreach ($sections as $anchor => [$title, $text, $tiles]) {
+        $html .= '<section id="'.esc_attr($anchor).'" class="kw-section kw-overview-section"><div class="kw-overview-head"><h2>'.esc_html($title).'</h2><p class="kw-lead">'.esc_html($text).'</p></div>';
+        $html .= '<div class="kw-tiles">'.implode('', array_map('kurswasser_tile', $tiles)).'</div></section>';
+    }
+    $html .= '<section class="kw-section kw-overview-trust">'.kurswasser_offer_trust().'</section>';
+
+    return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
+}
+
+/** Alte Fassung der Seite „Weitere Kurse“ (nur fehlende Kurse) – nicht mehr verwendet. */
+function kurswasser_more_page_legacy(): string
 {
     $photo = kurswasser_course_image('weitere');
     $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('weitere', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Weitere Kurse', 'kurswasser').'</span></nav>';
@@ -349,11 +382,14 @@ function kurswasser_more_page(): string
 /** Kursseiten anlegen (Elternseite „Kurse“ + je Kurs), wiederholbar. */
 function kurswasser_create_course_pages(): void
 {
+    $overview = '<!-- wp:shortcode -->[kurswasser_course id="weitere"]<!-- /wp:shortcode -->';
     $parent = get_page_by_path('kurse');
-    $parentId = $parent ? (int) $parent->ID : (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_name' => 'kurse', 'post_title' => __('Kurse', 'kurswasser'),
-        'post_content' => '<!-- wp:pattern {"slug":"kurswasser/courses"} /-->']);
-    if ($parentId && ! $parent) {
-        update_post_meta($parentId, '_wp_page_template', 'landing');
+    $parentId = $parent ? (int) $parent->ID : (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_name' => 'kurse', 'post_title' => __('Alle Kurse', 'kurswasser'), 'post_content' => $overview]);
+    if ($parent && trim((string) $parent->post_content) === '<!-- wp:pattern {"slug":"kurswasser/courses"} /-->') {
+        wp_update_post(['ID' => $parentId, 'post_content' => $overview, 'post_title' => __('Alle Kurse', 'kurswasser')]);
+    }
+    if ($parentId) {
+        update_post_meta($parentId, '_wp_page_template', 'course');
     }
     $pages = array_map(static fn ($d) => $d['title'], kurswasser_courses()) + ['pakete' => __('Pakete & Pässe', 'kurswasser'), 'weitere' => __('Weitere Kurse', 'kurswasser')];
     foreach ($pages as $slug => $title) {

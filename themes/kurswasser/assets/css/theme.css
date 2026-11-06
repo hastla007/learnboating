@@ -446,3 +446,15 @@ img { height: auto; }
 .kw-offers-grid.kw-offers-n1 { grid-template-columns: minmax(0, 420px); justify-content: center; }
 @media (max-width: 960px) { .kw-offers-grid.kw-offers-n2 { grid-template-columns: 1fr; max-width: 30rem; } }
 .kw-course-offers { padding-top: var(--wp--preset--spacing--70); }
+
+/* Kursübersicht „Alle Kurse“ */
+.kw-overview-nav { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.5rem; }
+.kw-overview-nav a { padding: .5rem .95rem; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .2); color: #fff; font-weight: 700; font-size: .9rem; text-decoration: none; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.kw-overview-nav a:hover { background: rgba(255, 255, 255, .2); color: #fff; }
+.kw-overview-section { padding-top: var(--wp--preset--spacing--60) !important; padding-bottom: 0 !important; }
+.kw-overview-section + .kw-overview-section { border-top: 0; }
+.kw-overview-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: .5rem 3rem; align-items: end; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--kw-line); }
+.kw-overview-head h2 { margin: 0; font-size: clamp(1.5rem, 2.6vw, 2rem); }
+.kw-overview-head .kw-lead { margin: 0; font-size: 1rem; }
+@media (max-width: 900px) { .kw-overview-head { grid-template-columns: 1fr; } }
+.kw-overview-trust { padding-top: var(--wp--preset--spacing--50) !important; padding-bottom: 0 !important; }
