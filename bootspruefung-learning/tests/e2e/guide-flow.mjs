@@ -22,7 +22,7 @@ await page.waitForURL(/\/bootsscheine\/$/);
 
 step('Kachel im Kombikurs SBF See + Binnen');
 await page.goto(`${base}/bootsscheine/sbf-see-bin/`);
-await page.getByRole('link', { name: 'Zur Anleitung' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Zur Anleitung' }).click();
 await page.getByRole('heading', { name: 'SBF-See-Prüfung buchen', level: 1 }).waitFor();
 await page.getByText('30 Fragen: 7 Basisfragen aus 72, 23 See-Fragen aus 213').first().waitFor();
 await page.getByText('Prüfungsgebühr:').waitFor();
@@ -30,7 +30,7 @@ await page.getByRole('heading', { name: 'So meldest du dich an' }).waitFor();
 await shot('70-pruefung-anmelden');
 
 step('Reiter SBF Binnen: Kombi-Variante zuerst');
-await page.getByRole('link', { name: 'SBF Binnen', exact: true }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'SBF Binnen', exact: true }).click();
 await page.getByRole('heading', { name: 'SBF-Binnen-Prüfung buchen', level: 1 }).waitFor();
 const firstVariant = await page.locator('.bp-variant h3').first().innerText();
 assert.equal(firstVariant, 'Binnen-Teil bei gemeinsamer Prüfung See und Binnen');

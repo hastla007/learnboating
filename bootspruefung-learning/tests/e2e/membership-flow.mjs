@@ -51,13 +51,13 @@ await shot(page, '41-gruppe-beitreten');
 await page.getByRole('button', { name: 'Gruppe beitreten' }).click();
 await page.waitForURL(/\/bootsscheine\/$/);
 await page.goto(`${base}/bootsscheine/sbf-bin-motor/`);
-await page.getByRole('link', { name: 'Smarttrainer starten' }).or(page.locator('.bp-module-list a.bp-button').first()).first().waitFor();
+await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer starten' }).or(page.locator('.bp-module-list a.bp-button').first()).first().waitFor();
 assert.equal(await page.locator('.bp-locked').count(), 0, 'Gruppenplatz schaltet den Kurs voll frei');
 
 step('Gruppenverwaltung der Bootsschule');
 const school = await session('schule1', 'Schul-Passwort-123');
 page = school.page;
-await page.getByRole('link', { name: 'Meine Gruppen' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Meine Gruppen' }).click();
 await page.getByRole('heading', { name: 'Meine Gruppen', level: 1 }).waitFor();
 await page.getByText('1 von 5 Plätzen belegt').waitFor();
 await page.getByText(/Lea Lernt/).waitFor();

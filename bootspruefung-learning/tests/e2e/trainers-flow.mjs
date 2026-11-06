@@ -25,14 +25,14 @@ step('Kursseite zeigt Trainer');
 await page.goto(`${base}/bootsscheine/sbf-see/`);
 await page.getByRole('heading', { name: 'Weitere Trainer' }).waitFor();
 for (const name of ['Navigationsaufgaben', 'Praxistrainer', 'Videokurs']) {
-  assert.ok(await page.getByRole('link', { name, exact: true }).isVisible(), name);
+  assert.ok(await page.locator('#bp-app').getByRole('link', { name, exact: true }).isVisible(), name);
 }
 
 step('Navigationsaufgabe lösen');
-await page.getByRole('link', { name: 'Navigationsaufgaben', exact: true }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Navigationsaufgaben', exact: true }).click();
 await page.getByRole('heading', { name: 'Navigationsaufgaben', level: 1 }).waitFor();
 assert.equal(await page.locator('.bp-module-list > li').count(), 15);
-await page.getByRole('link', { name: 'Navigationsaufgabe 1', exact: true }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Navigationsaufgabe 1', exact: true }).click();
 await page.getByRole('heading', { name: 'Ausgangslage' }).waitFor();
 assert.equal(await page.locator('.bp-nav-question').count(), 9);
 assert.equal(await page.locator('.bp-model').count(), 0, 'Ergebnis erst nach Klick');
@@ -52,13 +52,13 @@ await page.locator('.bp-model').waitFor();
 await shot('21-praxis');
 await page.getByRole('button', { name: 'Kann ich' }).click();
 await page.getByRole('button', { name: 'Antwort zeigen' }).waitFor();
-await page.getByRole('link', { name: /^Pflichtmanöver \(/ }).click();
+await page.locator('#bp-app').getByRole('link', { name: /^Pflichtmanöver \(/ }).click();
 await page.getByRole('heading', { name: 'Pflichtmanöver', level: 1 }).waitFor();
 
 step('Videokurs mit Quiz');
 await page.goto(`${base}/bootsscheine/sbf-see/video/`);
 await page.getByRole('heading', { name: 'Videokurs', level: 1 }).waitFor();
-await page.getByRole('link', { name: 'Motor, Bootsführer und Fahrer' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Motor, Bootsführer und Fahrer' }).click();
 await page.locator('video.bp-video').waitFor();
 await page.getByText('Platzhaltervideo').waitFor();
 assert.equal(await page.locator('.bp-section .bp-question').count(), 4, '4 Quizfragen');
@@ -73,13 +73,13 @@ await page.goto(`${base}/bootsscheine/sbf-see/video/`);
 await page.locator('.bp-lesson-done').first().waitFor();
 
 step('Knoten mit Schrittgalerie');
-await page.getByRole('link', { name: 'Palstek' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Palstek' }).click();
 await page.getByRole('heading', { name: 'Schritt für Schritt' }).waitFor();
 assert.equal(await page.locator('.bp-steps li').count(), 5);
 
 step('Funk: SRC-Seefunktext auswerten');
 await page.goto(`${base}/bootsscheine/src/`);
-await page.getByRole('link', { name: 'Funktraining', exact: true }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Funktraining', exact: true }).click();
 await page.getByRole('heading', { name: 'SRC-Seefunktexte' }).waitFor();
 assert.equal(await page.locator('.bp-section', { hasText: 'SRC-Seefunktexte' }).locator('.bp-paper').count(), 27);
 await page.locator('.bp-section', { hasText: 'SRC-Seefunktexte' }).getByRole('link', { name: /^Text 1:/ }).click();
@@ -97,7 +97,7 @@ await page.getByRole('button', { name: 'erledigt', exact: true }).waitFor();
 
 step('Funk: SRC-Vokabeln');
 await page.goto(`${base}/bootsscheine/src/funk/`);
-await page.getByRole('link', { name: 'Üben' }).first().click();
+await page.locator('#bp-app').getByRole('link', { name: 'Üben' }).first().click();
 await page.locator('.bp-vocab-term').waitFor();
 await page.getByRole('button', { name: 'Übersetzung zeigen' }).click();
 await page.locator('.bp-vocab-solution').waitFor();
