@@ -67,6 +67,10 @@ final class Integration
         add_filter('woocommerce_is_sold_individually', [$self, 'soldIndividually'], 20, 2);
         add_filter('woocommerce_checkout_registration_required', [$self, 'registrationRequired'], 20);
         add_filter('woocommerce_checkout_registration_enabled', static fn ($enabled) => self::cartHasLearning() ? true : $enabled, 20);
+        // Checkout-Block liest die Optionen direkt (nicht die Filter oben): für Warenkörbe mit
+        // Lernprodukten Gastbestellung aus- und Kontoanlage an der Kasse einschalten.
+        add_filter('option_woocommerce_enable_guest_checkout', static fn ($value) => self::cartHasLearningSafe() ? 'no' : $value, 20);
+        add_filter('option_woocommerce_enable_signup_and_login_from_checkout', static fn ($value) => self::cartHasLearningSafe() ? 'yes' : $value, 20);
         add_action('woocommerce_store_api_checkout_update_order_from_request', [$self, 'blocksAccountGuard'], 10, 2);
 
         // Kunde: Mein Konto, Danke-Seite, E-Mail.
@@ -122,6 +126,21 @@ final class Integration
                 }
                 throw new \RuntimeException($message);
             }
+        }
+    }
+
+    /** Wie cartHasLearning(), aber ohne Rekursion, falls der Warenkorb beim Laden selbst Optionen liest. */
+    private static function cartHasLearningSafe(): bool
+    {
+        static $busy = false;
+        if ($busy || is_admin() && ! wp_doing_ajax() || ! did_action('woocommerce_init')) {
+            return false;
+        }
+        $busy = true;
+        try {
+            return self::cartHasLearning();
+        } finally {
+            $busy = false;
         }
     }
 

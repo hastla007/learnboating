@@ -228,6 +228,7 @@ if (function_exists('wc_load_cart')) {
     $check(apply_filters('woocommerce_checkout_registration_required', false) === false, 'ohne Lernprodukt: Gastbestellung erlaubt');
     WC()->cart->add_to_cart($lern);
     $check(apply_filters('woocommerce_checkout_registration_required', false) === true, 'mit Lernprodukt: Kundenkonto erforderlich');
+    $check(get_option('woocommerce_enable_guest_checkout') === 'no' && get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes', 'Checkout-Block: Gastbestellung aus, Kontoanlage an');
     WC()->cart->empty_cart();
 }
 $guest = wc_create_order(['customer_id' => 0]);
