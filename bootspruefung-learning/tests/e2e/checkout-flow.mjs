@@ -11,6 +11,8 @@ const base = process.env.BP_URL ?? 'http://127.0.0.1:8099';
 const shots = process.env.BP_SHOTS;
 const setupScript = new URL('./checkout-setup.php', import.meta.url).pathname;
 const setup = (mode) => execFileSync('php', [setupScript, ...(mode ? [mode] : [])], { env: process.env, encoding: 'utf8' }).trim();
+// Letzte JSON-Zeile der Setup-Ausgabe (PHP-Hinweise davor ignorieren).
+const setupJson = (mode) => JSON.parse(setup(mode).split('\n').filter((l) => l.startsWith('{')).pop());
 const step = (s) => console.log('·', s);
 const errors = [];
 const browser = await chromium.launch();
@@ -33,7 +35,7 @@ async function login(page) {
 
 let current = null;
 try {
-  let env = JSON.parse(setup().split('\n').pop());
+  let env = setupJson();
 
   step('Gast: Lernprodukt verlangt Kundenkonto (Block-Checkout)');
   const guest = current = await newPage();
@@ -77,7 +79,7 @@ try {
   await shot(page, '54-mein-lernen');
 
   step('Klassischer Checkout');
-  env = JSON.parse(setup('classic').split('\n').pop());
+  env = setupJson('classic');
   await page.goto(`${base}/?add-to-cart=${env.product}`);
   await page.goto(env.checkout);
   await page.locator('#place_order').waitFor();

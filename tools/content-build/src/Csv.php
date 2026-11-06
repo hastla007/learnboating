@@ -10,13 +10,13 @@ use RuntimeException;
 final class Csv
 {
     /** @return list<array<string,string>> */
-    public static function read(string $path): array
+    public static function read(string $path, string $delimiter = ';'): array
     {
         $handle = fopen($path, 'r');
         if ($handle === false) {
             throw new RuntimeException("CSV kann nicht geöffnet werden: {$path}");
         }
-        $header = fgetcsv($handle, 0, ';', '"', '\\');
+        $header = fgetcsv($handle, 0, $delimiter, '"', '\\');
         if ($header === false) {
             fclose($handle);
 
@@ -26,7 +26,7 @@ final class Csv
         $header = array_map('trim', $header);
         $rows = [];
         $line = 1;
-        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
+        while (($data = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
             $line++;
             if ($data === [null]) {
                 continue;

@@ -43,7 +43,6 @@ foreach (['first_name' => 'Karl', 'last_name' => 'Käufer', 'address_1' => 'Hafe
     update_user_meta($buyerId, 'billing_'.$k, $v);
 }
 $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d", $buyerId));
-WC()->session = null;
 delete_user_meta($buyerId, '_woocommerce_persistent_cart_'.get_current_blog_id());
 
 $productId = (int) get_option('bp_e2e_product');

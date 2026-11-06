@@ -98,6 +98,22 @@ final class PackageTest extends TestCase
         self::assertSame(410, $counts['radio_vocabulary']);
         self::assertSame(72, $counts['radio_practice']);
         self::assertSame(1, $counts['device_simulation']);
+        self::assertSame(18, $counts['exam_committees']);
+        self::assertSame(5, $counts['praxis_forms']);
+    }
+
+    public function testPraxisFormsCoverEveryCourseExactlyOnce(): void
+    {
+        $seen = [];
+        foreach (self::data('praxis_forms') as $form) {
+            foreach ($form['course_codes'] as $code) {
+                self::assertArrayNotHasKey($code, $seen, "Kurs {$code} in mehreren Formularen");
+                $seen[$code] = $form['source_id'];
+            }
+            self::assertSame($form['requires_fitness_certificate'], str_starts_with($form['title'], 'Praxis'), $form['title']);
+        }
+        self::assertCount(14, $seen, 'alle 14 Kurse inkl. FKN haben ein Formular');
+        self::assertSame('anmeldung-pyroschein-pruefung', $seen['FKN']);
     }
 
     public function testSourceIdsAreUnique(): void

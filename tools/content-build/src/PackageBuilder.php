@@ -22,9 +22,10 @@ final class PackageBuilder
     use Concerns\BuildsVideoCourses;
     use Concerns\BuildsRadioTraining;
     use Concerns\BuildsRadioPractice;
+    use Concerns\BuildsPracticeRegistration;
 
     public const CONVERTER_VERSION = '0.3.0';
-    public const SCHEMA_VERSION = '1.2.0';
+    public const SCHEMA_VERSION = '1.3.0';
 
     private const XLSX_MODULE_MAP = [
         'Basis' => 'SBF_BASIS',
@@ -66,7 +67,7 @@ final class PackageBuilder
 
     /** Inhalte, die diese Konverter-Version noch nicht überführt (Kap. 11, Schritte 8–8b). */
     private const NOT_CONVERTED = [
-        ['entity' => 'operations', 'source' => 'pruefung_buchen.php, pruefungsausschuesse.csv, PraxisFormTemplateSeeder', 'reason' => 'Bootsschul-Betriebsfunktion, nicht im Umfang V1 (Kap. 1).'],
+        ['entity' => 'operations', 'source' => 'pruefung_buchen.php, praxis_exam_appointment, course_exam_registration', 'reason' => 'Prüfungsbuchung/Terminvergabe: bewusst nicht übernommen (Praxis-Anmeldung ohne Prüfungsbuchung).'],
     ];
 
     private string $data;
@@ -141,6 +142,8 @@ final class PackageBuilder
             'radio_vocabulary' => $this->radioVocabularyRecords(),
             'radio_practice' => $this->radioPracticeRecords(),
             'device_simulation' => $this->deviceSimulationRecords(),
+            'exam_committees' => $this->examCommitteeRecords(),
+            'praxis_forms' => $this->praxisFormRecords(),
         ];
     }
 
