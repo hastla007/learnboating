@@ -15,6 +15,7 @@ final class PackageWriter
 {
     public const ENTITY_FILES = [
         'courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks',
+        'video_modules', 'radio_texts', 'radio_vocabulary',
     ];
 
     /**
@@ -142,6 +143,8 @@ final class PackageWriter
         $counts['question_editorial_status'] = $status;
         $counts['answers'] = array_sum(array_map(static fn ($q) => count($q['revision']['answers']), $entities['questions']));
         $counts['navigation_questions'] = array_sum(array_map(static fn ($t) => count($t['questions']), $entities['navigation_tasks']));
+        $counts['video_lessons'] = array_sum(array_map(static fn ($m) => count($m['lessons']), $entities['video_modules']));
+        $counts['video_lesson_questions'] = array_sum(array_map(static fn ($m) => array_sum(array_map(static fn ($l) => count($l['questions']), $m['lessons'])), $entities['video_modules']));
         $counts['exam_paper_questions'] = array_sum(array_map(static fn ($p) => count($p['questions']), $entities['exam_papers']));
 
         return $counts;

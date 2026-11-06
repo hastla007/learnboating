@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/radio_vocabulary.schema.json",
+  "title": "Funk-Vokabeln und Buchstabiertafel (data/radio_vocabulary.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "catalog", "category", "term_de", "term_en", "hint", "course_codes", "sort_order", "rights_status", "source_file", "hash"],
+    "properties": {
+      "source_id": { "type": "string", "pattern": "^VOC-[A-Z]+-[0-9a-zA-Z]+$" },
+      "catalog": { "enum": ["SRC", "UBI"] },
+      "category": { "type": "string", "minLength": 1 },
+      "term_de": { "type": "string", "minLength": 1 },
+      "term_en": { "type": "string", "minLength": 1 },
+      "hint": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "course_codes": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "sort_order": { "type": "integer" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

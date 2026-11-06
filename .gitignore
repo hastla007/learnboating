@@ -2,3 +2,4 @@
 /tools/content-build/vendor/
 /tools/content-build/.phpunit.cache/
 /bootspruefung-learning/vendor/
+/tools/content-build/.phpunit.result.cache

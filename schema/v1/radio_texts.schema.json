@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/radio_texts.schema.json",
+  "title": "Funktexte: SRC-Übersetzung, UBI-Aufnahme und -Abgabe (data/radio_texts.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "catalog", "exercise_type", "number", "direction", "text_de", "text_en", "lines", "course_codes", "sort_order", "source", "rights_status", "source_file", "hash"],
+    "properties": {
+      "source_id": { "type": "string", "pattern": "^(TXT-[A-Z]+|UBI-(AUF|ABG))-[0-9]{2,}$" },
+      "catalog": { "enum": ["SRC", "UBI"] },
+      "exercise_type": { "enum": ["translation", "dictation", "spelling"] },
+      "number": { "type": "integer", "minimum": 1 },
+      "direction": { "enum": ["land", "see", null] },
+      "text_de": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "text_en": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "lines": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+      "course_codes": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "sort_order": { "type": "integer" },
+      "source": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    },
+    "allOf": [
+      { "if": { "properties": { "exercise_type": { "const": "translation" } } }, "then": { "properties": { "text_de": { "type": "string" }, "text_en": { "type": "string" } } } },
+      { "if": { "properties": { "exercise_type": { "const": "dictation" } } }, "then": { "properties": { "text_de": { "type": "string" } } } },
+      { "if": { "properties": { "exercise_type": { "const": "spelling" } } }, "then": { "properties": { "lines": { "type": "array", "minItems": 1 } } } }
+    ]
+  }
+}

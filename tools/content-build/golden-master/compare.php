@@ -261,6 +261,75 @@ foreach ($q('SELECT asset_key FROM media_asset') as $r) {
 $pk = array_fill_keys(array_column($data('media'), 'source_id'), []);
 $compare('media', $lv, $pk);
 
+// Videokurse: Kapitel, Lektionen, Schritte und Quizfragen je Kurs
+$lv = [];
+$steps = [];
+foreach ($q('SELECT video_lesson_id, title, sort_order FROM video_lesson_step ORDER BY video_lesson_id, sort_order') as $r) {
+    $steps[$r['video_lesson_id']][] = [$n($r['title']), (int) $r['sort_order']];
+}
+$quiz = [];
+foreach ($q('SELECT vq.video_lesson_id, q.content_id, vq.sort_order FROM video_lesson_question vq JOIN content_question q ON q.id = vq.question_id ORDER BY vq.video_lesson_id, vq.sort_order, q.content_id') as $r) {
+    $quiz[$r['video_lesson_id']][] = [$r['content_id'], (int) $r['sort_order']];
+}
+foreach ($q('SELECT c.code, m.title AS module, m.sort_order AS msort, l.id, l.title, l.sort_order, l.duration_seconds, l.video_url FROM video_module m JOIN course_definition c ON c.id = m.course_id LEFT JOIN video_lesson l ON l.video_module_id = m.id WHERE c.tenant_id IS NULL ORDER BY c.code, m.sort_order, l.sort_order') as $r) {
+    $key = $r['code'].'::'.$n($r['module']);
+    $lv[$key] ??= ['sort_order' => (int) $r['msort'], 'lessons' => []];
+    if ($r['id'] !== null) {
+        $lv[$key]['lessons'][] = [$n($r['title']), (int) $r['sort_order'], (int) $r['duration_seconds'], $r['video_url'], $steps[$r['id']] ?? [], $quiz[$r['id']] ?? []];
+    }
+}
+$pk = [];
+foreach ($data('video_modules') as $m) {
+    $pk[$m['source_id']] = ['sort_order' => $m['sort_order'], 'lessons' => array_map(static fn ($l) => [
+        $l['title'], $l['sort_order'], $l['duration_seconds'], $l['video_url'],
+        array_map(static fn ($s) => [$s['title'], $s['sort_order']], $l['steps']),
+        (static function (array $qs): array {
+            $rows = array_map(static fn ($x) => [$x['question_source_id'], $x['sort_order']], $qs);
+            usort($rows, static fn ($a, $b) => [$a[1], $a[0]] <=> [$b[1], $b[0]]);
+
+            return $rows;
+        })($l['questions']),
+    ], $m['lessons'])];
+}
+$compare('video_module', $lv, $pk);
+
+// Funktexte und Vokabeln gegen App\Support\FunkTraining (nur mit BS_LARAVEL_DIR)
+$laravel = getenv('BS_LARAVEL_DIR');
+if ($laravel) {
+    require $laravel.'/vendor/autoload.php';
+    $app = require $laravel.'/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $lv = [];
+    foreach (App\Support\FunkTraining::texts('SRC') as $t) {
+        $lv[$t['key']] = ['type' => 'translation', 'de' => $n($t['de']), 'en' => $n($t['en']), 'direction' => $t['richtung'], 'lines' => null];
+    }
+    foreach (['aufnahme' => 'dictation', 'abgabe' => 'spelling'] as $modul => $type) {
+        foreach (App\Support\FunkTraining::ubiTexts($modul) as $t) {
+            $lv[$t['key']] = ['type' => $type, 'de' => isset($t['text']) ? $n($t['text']) : null, 'en' => null, 'direction' => null, 'lines' => isset($t['lines']) ? array_map($n, $t['lines']) : null];
+        }
+    }
+    $pk = [];
+    foreach ($data('radio_texts') as $t) {
+        $pk[$t['source_id']] = ['type' => $t['exercise_type'], 'de' => $t['text_de'], 'en' => $t['text_en'], 'direction' => $t['direction'], 'lines' => $t['lines']];
+    }
+    $compare('radio_text', $lv, $pk);
+    $lv = [];
+    foreach (['SRC', 'UBI'] as $catalog) {
+        foreach (App\Support\FunkTraining::vocabulary($catalog) as $category => $entries) {
+            foreach ($entries as $e) {
+                $lv[$e['key']] = ['category' => $n($category), 'de' => $n($e['de']), 'en' => $n($e['en']), 'hint' => $e['hint'] ?? null];
+            }
+        }
+    }
+    $pk = [];
+    foreach ($data('radio_vocabulary') as $v) {
+        $pk[$v['source_id']] = ['category' => $v['category'], 'de' => $v['term_de'], 'en' => $v['term_en'], 'hint' => $v['hint']];
+    }
+    $compare('radio_vocabulary', $lv, $pk);
+} else {
+    echo "Hinweis: BS_LARAVEL_DIR nicht gesetzt – Funktexte/Vokabeln nicht verglichen.\n";
+}
+
 $manifest = json_decode((string) file_get_contents($package.'/manifest.json'), true);
 printf("Paket %s gegen Laravel-Datenbank\n", $manifest['package_id']);
 printf("Bewusste Abweichung: %d freie Kartenaufgaben (chart_task) nur im Paket.\n", count($chartTasks));

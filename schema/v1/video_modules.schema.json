@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/video_modules.schema.json",
+  "title": "Videokapitel je Kurs mit Lektionen, Schritten und Quizfragen (data/video_modules.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "course_code", "title", "group_label", "sort_order", "status", "rights_status", "source_file", "lessons", "hash"],
+    "properties": {
+      "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+      "course_code": { "$ref": "common.schema.json#/$defs/courseCode" },
+      "title": { "type": "string", "minLength": 1 },
+      "group_label": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "sort_order": { "type": "integer" },
+      "status": { "$ref": "common.schema.json#/$defs/editorialStatus" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "lessons": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_id", "title", "video_url", "provider", "is_placeholder", "duration_seconds", "sort_order", "steps", "questions"],
+          "properties": {
+            "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+            "title": { "type": "string", "minLength": 1 },
+            "video_url": { "type": ["string", "null"], "pattern": "^https://" },
+            "provider": { "enum": ["url", "youtube", "vimeo", "media"] },
+            "is_placeholder": { "type": "boolean" },
+            "duration_seconds": { "type": ["integer", "null"], "minimum": 0 },
+            "sort_order": { "type": "integer" },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_id", "title", "sort_order", "media_source_id"],
+                "properties": {
+                  "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+                  "title": { "type": "string", "minLength": 1 },
+                  "sort_order": { "type": "integer" },
+                  "media_source_id": { "type": ["string", "null"] }
+                }
+              }
+            },
+            "questions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["question_source_id", "sort_order"],
+                "properties": {
+                  "question_source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+                  "sort_order": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

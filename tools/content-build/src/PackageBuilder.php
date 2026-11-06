@@ -19,8 +19,11 @@ use RuntimeException;
  */
 final class PackageBuilder
 {
-    public const CONVERTER_VERSION = '0.1.0';
-    public const SCHEMA_VERSION = '1.0.0';
+    use Concerns\BuildsVideoCourses;
+    use Concerns\BuildsRadioTraining;
+
+    public const CONVERTER_VERSION = '0.2.0';
+    public const SCHEMA_VERSION = '1.1.0';
 
     private const XLSX_MODULE_MAP = [
         'Basis' => 'SBF_BASIS',
@@ -62,8 +65,7 @@ final class PackageBuilder
 
     /** Inhalte, die diese Konverter-Version noch nicht überführt (Kap. 11, Schritte 8–8b). */
     private const NOT_CONVERTED = [
-        ['entity' => 'video_course', 'source' => 'database/seeders/*VideoCourseSeeder.php, *VideoSeeder.php, *LessonQuestionSeeder.php', 'reason' => 'Content liegt im Seeder-Code; Überführung folgt in einer späteren Konverter-Version.'],
-        ['entity' => 'radio_training', 'source' => 'database/data/funk_*.php, app/Support/FunkPraxis.php, app/Support/FunkTraining.php', 'reason' => 'Generatorlogik wird in einer späteren Konverter-Version portiert.'],
+        ['entity' => 'radio_practice', 'source' => 'database/data/funk_praxis_aufgaben.php, app/Support/FunkPraxis.php', 'reason' => 'Funkpraxis-Szenarien: eigener Meilenstein (Kap. 11, Schritt 8a).'],
         ['entity' => 'device_simulation', 'source' => 'database/data/geraetesimulation.php, app/Support/Geraetesimulation.php, resources/js/funkgeraet/', 'reason' => 'Eigener Meilenstein (Kap. 11, Schritt 8b).'],
         ['entity' => 'operations', 'source' => 'pruefung_buchen.php, pruefungsausschuesse.csv, PraxisFormTemplateSeeder', 'reason' => 'Bootsschul-Betriebsfunktion, nicht im Umfang V1 (Kap. 1).'],
     ];
@@ -124,6 +126,7 @@ final class PackageBuilder
         $navigation = $this->importNavigation();
         $this->importPraxis();
         $this->applyElwisPraxisImages();
+        $this->buildVideoCourses();
 
         return [
             'courses' => $this->buildCourses(),
@@ -134,6 +137,9 @@ final class PackageBuilder
             'exam_papers' => $this->buildPapers(),
             'navigation_tasks' => $navigation,
             'praxis_tasks' => $this->buildPraxis(),
+            'video_modules' => $this->videoRecords(),
+            'radio_texts' => $this->radioTextRecords(),
+            'radio_vocabulary' => $this->radioVocabularyRecords(),
         ];
     }
 

@@ -19,8 +19,13 @@ Der Konverter bildet das Ergebnis eines frischen `php artisan db:seed` der Quell
 - alle Texte werden getrimmt und Unicode-NFC-normalisiert;
 - Navigationsaufgaben stehen einmal im Paket mit `course_codes` statt als Kopie je Kurs.
 
-Noch nicht konvertiert (siehe `not_converted` im Manifest): Videokurse, Funktraining,
-Gerätesimulation, Bootsschul-Betriebsfunktionen.
+Videokurse liest der Konverter als reine Literale (Tokenizer, keine Ausführung) aus den
+Seedern und bildet deren Logik nach (Kopien, Kapitel-Einschübe, Quizzuordnung nur einmal je
+Lektion). Funktexte und Vokabeln kommen aus `database/data/funk_*.php` mit den Schlüsseln
+von `App\Support\FunkTraining`.
+
+Noch nicht konvertiert (siehe `not_converted` im Manifest): Funkpraxis-Szenarien (8a),
+Gerätesimulation (8b), Bootsschul-Betriebsfunktionen.
 
 ## Tests
 
@@ -50,5 +55,9 @@ BS_DSN="pgsql:host=127.0.0.1;dbname=boatingschool" BS_USER=boatingschool BS_PASS
   php tools/content-build/golden-master/compare.php build/<package_id>
 ```
 
-Ergebnis für Commit `136a243`: keine Abweichungen außer den 15 `chart_task`.
+Mit `BS_LARAVEL_DIR=<Laravel-Kopie>` werden zusätzlich Funktexte und Vokabeln gegen
+`App\Support\FunkTraining` verglichen.
+
+Ergebnis für Commit `136a243`: keine Abweichungen außer den 15 `chart_task` (inkl. 90
+Videokapiteln, 449 Lektionen, 1.349 Quizzuordnungen, 43 Funktexten, 410 Vokabeln).
 Die CI führt diesen Abgleich automatisch aus (`.github/workflows/ci.yml`).

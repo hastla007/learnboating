@@ -91,6 +91,11 @@ final class PackageTest extends TestCase
         self::assertSame(9, $counts['modules']);
         self::assertSame(15, $counts['navigation_tasks']);
         self::assertSame(135, $counts['navigation_questions']);
+        self::assertSame(90, $counts['video_modules']);
+        self::assertSame(449, $counts['video_lessons']);
+        self::assertSame(1349, $counts['video_lesson_questions']);
+        self::assertSame(43, $counts['radio_texts']);
+        self::assertSame(410, $counts['radio_vocabulary']);
     }
 
     public function testSourceIdsAreUnique(): void
@@ -144,6 +149,22 @@ final class PackageTest extends TestCase
         foreach (self::data('praxis_tasks') as $task) {
             $need(isset($courses[$task['course_code']]), "Praxis {$task['source_id']}: Kurs fehlt");
             $need($task['media_source_id'] === null || isset($media[$task['media_source_id']]), "Praxis {$task['source_id']}: Medium fehlt");
+        }
+        $lessonIds = [];
+        foreach (self::data('video_modules') as $module) {
+            $need(isset($courses[$module['course_code']]), "Videokapitel {$module['source_id']}: Kurs fehlt");
+            foreach ($module['lessons'] as $lesson) {
+                $lessonIds[] = $lesson['source_id'];
+                foreach ($lesson['questions'] as $q) {
+                    $need(($questions[$q['question_source_id']]['revision']['editorial_status'] ?? null) === 'published', "Lektion {$lesson['source_id']}: Frage {$q['question_source_id']} fehlt/unveröffentlicht");
+                }
+            }
+        }
+        $need(count($lessonIds) === count(array_unique($lessonIds)), 'Lektions-IDs eindeutig');
+        foreach (array_merge(self::data('radio_texts'), self::data('radio_vocabulary')) as $item) {
+            foreach ($item['course_codes'] as $code) {
+                $need(isset($courses[$code]), "Funk {$item['source_id']}: Kurs {$code} fehlt");
+            }
         }
         foreach ($media as $id => $m) {
             $file = self::$dir.'/'.$m['path'];
