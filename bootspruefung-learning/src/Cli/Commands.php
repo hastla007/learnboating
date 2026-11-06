@@ -9,7 +9,7 @@ use Bootspruefung\Learning\Plugin;
 use WP_CLI;
 
 /**
- * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access`.
+ * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access|shop setup`.
  */
 final class Commands
 {
@@ -21,6 +21,7 @@ final class Commands
         WP_CLI::add_command('bootspruefung rollback', [self::class, 'rollback']);
         WP_CLI::add_command('bootspruefung reconcile', [self::class, 'reconcile']);
         WP_CLI::add_command('bootspruefung access', [self::class, 'access']);
+        WP_CLI::add_command('bootspruefung shop setup', [self::class, 'shopSetup']);
     }
 
     /**
@@ -208,6 +209,41 @@ final class Commands
             $applied += count($sync->sync((int) $orderId, 'reconcile')?->changes ?? []) + $groupChanges;
         }
         WP_CLI::success("{$applied} Änderung(en) angewendet.");
+    }
+
+    /**
+     * Legt Produktkatalog (Preise, Laufzeit, Zuordnung, Geld-zurück-Garantie) und
+     * Schnupper-Paket an bzw. gleicht sie ab. Wiederholbar.
+     *
+     * [--dry-run]
+     * : Nur anzeigen, was passieren würde.
+     *
+     * [--publish]
+     * : Produkte veröffentlichen (sonst bleiben neue Produkte Entwurf).
+     *
+     * [--only=<teil>]
+     * : products oder free.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function shopSetup(array $args, array $assoc): void
+    {
+        $dry = isset($assoc['dry-run']);
+        $only = $assoc['only'] ?? '';
+        if ($only !== 'free') {
+            try {
+                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts($dry, isset($assoc['publish']));
+            } catch (\RuntimeException $e) {
+                WP_CLI::error($e->getMessage());
+            }
+            WP_CLI\Utils\format_items('table', $rows, ['sku', 'product_id', 'action']);
+        }
+        if ($only !== 'products') {
+            $free = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier($dry);
+            WP_CLI::log(sprintf('Schnupper-Paket: %d Regel(n) %s für %d Kurse.', $free['added'], $dry ? 'würden angelegt' : 'angelegt', $free['courses']));
+        }
+        WP_CLI::success($dry ? 'Vorschau beendet.' : 'Shop-Katalog abgeglichen.');
     }
 
     /**

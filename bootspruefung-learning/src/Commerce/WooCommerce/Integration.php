@@ -94,6 +94,7 @@ final class Integration
 
         (new ProductPanel())->register();
         (new MemberDiscounts())->register();
+        (new MoneyBackWoo())->register();
     }
 
     // ------------------------------------------------------------------ Checkout
@@ -278,6 +279,7 @@ final class Integration
         echo '</p>';
         if ($rows === []) {
             echo '<p>'.esc_html__('Für dein Konto sind noch keine Lernzugänge gebucht.', 'bootspruefung-learning').'</p>';
+            MoneyBackWoo::renderAccountSection(get_current_user_id());
 
             return;
         }
@@ -290,6 +292,7 @@ final class Integration
             printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', $cell, esc_html(Labels::feature($row['feature'])), esc_html(Labels::status($row['status'])), esc_html(Labels::date($row['valid_until'])));
         }
         echo '</tbody></table>';
+        MoneyBackWoo::renderAccountSection(get_current_user_id());
     }
 
     public function thankYou($orderId): void

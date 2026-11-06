@@ -388,6 +388,42 @@ $check(\Bootspruefung\Learning\Commerce\MappingCheck::summary()['mapping_errors'
 wp_delete_post($noPriceId, true);
 (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save($noPriceId, 0, [], null, 'extend', 'revoke_on_full_refund');
 
+echo "Shop-Katalog und Geld-zurück-Garantie\n";
+$rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
+$byS = array_column($rows, null, 'sku');
+$kombi = wc_get_product($byS['BP-SBF-SEE-BIN']['product_id']);
+$check(count($rows) === 17 && $kombi && $kombi->get_regular_price() === '48.90' && $kombi->get_status() === 'draft' && $kombi->is_virtual(), 'Katalog: 17 Produkte, Preis 48,90 €, Entwurf, virtuell');
+$kRows = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->forItem($kombi->get_id(), 0);
+$check(count(array_unique(array_map(static fn ($r) => $r->course_code, $kRows))) === 3 && (int) $kRows[0]->duration_days === 365, 'Kombi schaltet SBF See & Binnen, See und Binnen für 12 Monate frei');
+$second = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
+$check(array_unique(array_column($second, 'action')) === ['unverändert'] && array_column($second, 'product_id') === array_column($rows, 'product_id'), 'zweiter Lauf: keine Dubletten, unverändert');
+$skn = wc_get_product($byS['BP-SKN']['product_id']);
+$skn->set_status('publish');
+$skn->save();
+$order = wc_create_order(['customer_id' => $alice]);
+$order->add_product($skn, 1);
+$order->set_payment_method('stripe');
+$order->calculate_totals();
+$order->save();
+$order->payment_complete('ch_mb_'.wp_generate_password(6, false));
+$mb = \Bootspruefung\Learning\Commerce\WooCommerce\MoneyBackWoo::status(wc_get_order($order->get_id()));
+$check($mb['applies'] && $mb['eligible'] && (float) $mb['max_progress'] === 20.0, 'bezahlte Bestellung: Geld zurück möglich (Grenze 20 %)');
+wp_set_current_user($alice);
+ob_start();
+\Bootspruefung\Learning\Commerce\WooCommerce\MoneyBackWoo::renderAccountSection($alice);
+$html = (string) ob_get_clean();
+wp_set_current_user(1);
+$check(str_contains($html, 'Geld zurück anfordern') && str_contains($html, '#'.$order->get_id()), '„Mein Lernen“ zeigt Garantie mit Anfrage-Knopf');
+$order = wc_get_order($order->get_id());
+$order->update_meta_data(\Bootspruefung\Learning\Commerce\MoneyBack::REQUEST_META, \Bootspruefung\Learning\Commerce\MoneyBack::recordRequest($order->get_id(), $alice, $mb));
+$order->save();
+wc_create_refund(['order_id' => $order->get_id(), 'amount' => $order->get_total(), 'reason' => 'Geld-zurück-Garantie', 'line_items' => array_map(static fn ($i) => ['qty' => $i->get_quantity(), 'refund_total' => $i->get_total()], $order->get_items())]);
+$check($statuses($order->get_id()) === ['revoked'] && \Bootspruefung\Learning\Commerce\WooCommerce\MoneyBackWoo::status(wc_get_order($order->get_id()))['reason'] === 'refunded', 'nach Erstattung: Zugang widerrufen, Garantie erledigt');
+foreach (array_column($rows, 'product_id') as $pid) {
+    (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');
+    wp_delete_post((int) $pid, true);
+}
+
 update_option(Settings::OPTION, $settingsBefore);
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 ob_end_flush();

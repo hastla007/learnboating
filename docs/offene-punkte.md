@@ -1,4 +1,4 @@
-# Offene Punkte (Stand 06.11.2026, Plugin 0.9.1)
+# Offene Punkte (Stand 06.11.2026, Plugin 0.10.0)
 
 Legende Status: 🔴 offen · 🟡 teilweise/zu prüfen · ⏸ bewusst zurückgestellt
 Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code · **Beide** = Test/Abnahme gemeinsam
@@ -8,9 +8,8 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 1 | Recht & Content | Rechtsfreigabe SRC/UBI-Kataloge, 527 Fragen ohne Quellenangabe, ELWIS-Bilder, Seekarten, Funktexte | 🔴 | Du | ja | Freigaben einholen, dann im Admin „Rechte“ je Katalog/Quelle freigeben |
 | 2 | Recht & Content | Prüfungsregelwerke verifizieren (sonst nur Übungsmodus) | 🔴 | Du | ja | Regelwerke prüfen, im Admin „Prüfungsregeln“ verifizieren |
 | 3 | Recht & Content | Platzhaltervideos ersetzen | 🔴 | Du | ja | Videos liefern (URL/Datei je Lektion) |
-| 4 | Recht & Content | Katalogaktualität bestätigen (Prüfstand Commit 136a243) | 🔴 | Du | ja | Stand bestätigen oder neuen Quell-Commit nennen |
-| 5 | Shop | Produkt- und Variantenliste (Preise, Dauer, Erstattungsregel, Bundles, Gruppenpakete) | 🔴 | Du | ja | Liste liefern; Anlage im Reiter „Lernzugang“ |
-| 6 | Shop | Free-vs-Pro festlegen (ganz, Teilumfang, zeitgesteuert) | 🔴 | Du | ja | Umfang je Kurs nennen; Pflege unter „Kostenlose Bereiche“ |
+| 27 | Shop | Katalog live schalten: unter „Kostenlose Bereiche“ (oder `wp bootspruefung shop setup`) Schnupper-Paket und 17 Produkte anlegen, Produktbilder/-texte ergänzen, veröffentlichen | 🔴 | Du | ja | Produkte entstehen als Entwurf; nach Kontrolle veröffentlichen (`--publish`) |
+| 28 | Recht | Geld-zurück-Garantie in AGB/Produkttext beschreiben; gesetzliches Widerrufsrecht für digitale Inhalte (Zustimmung zur sofortigen Ausführung) separat regeln | 🔴 | Du | ja | Texte festlegen; Garantie gilt zusätzlich, schränkt das Widerrufsrecht nicht ein |
 | 7 | Shop | „Zugang ohne Shop“ auf „Nur Freischaltungen“ umstellen | 🔴 | Du | ja | Am Tag des Shopstarts in den Einstellungen |
 | 9 | Zahlung | Stripe/PayPal/Klarna echt end-to-end bezahlen (Sandbox) | 🔴 | Beide | ja | Sandbox-Zugänge einrichten, je Gateway Kauf, Erstattung, Dispute durchspielen |
 | 10 | Zahlung | PayPal-Webhook mit echter Signaturprüfung testen | 🔴 | Beide | nein | Client-ID/Secret/Webhook-ID eintragen, Sandbox-Dispute auslösen |
@@ -27,4 +26,4 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 21 | Betrieb | nginx: Ordner für geschützte Dateien sperren | 🔴 | Du/Hoster | ja, wenn nginx und geschützte PDFs | Regel für `uploads/bootspruefung/protected-*` |
 | 22 | Design | Designreferenzen und Markentexte | 🔴 | Du | nein | Liefern; Anpassung der CSS/Texte |
 
-Erledigt seit dem letzten Stand: Kaufablauf-Browsertest (Block mit Gast-Hinweis und Registrierung, klassisch, Zahlung, „Mein Lernen“) grün in CI (8); Checkout-Block zeigt Gästen mit Lernprodukt Konto-Hinweis mit Anmeldung/Registrierung statt Bestellknopf (26); Rückkehr zur Gruppeneinladung bzw. Kasse nach Registrierung (23); `wp bootspruefung reconcile` zeigt Gruppenänderungen in der Vorschau (24); Ursache „entitled_only“ zwischen CI-Schritten geklärt – der WooCommerce-Integrationstest brach in CI mit einem Fatal Error ab (Testvariable `$post` überschrieb das globale WordPress-`$post`), `| tee` verschluckte den Fehler; CI läuft jetzt mit `pipefail` (25); Backup-Hinweis im Systemstatus.
+Erledigt seit dem letzten Stand: Katalogstand bestätigt (4); Produktliste mit Preisen, Laufzeit (12 Monate, SKN/FKN/Ergänzungen 6 Monate = 182 Tage, Pässe 30/90 Tage), Kombis/Bundle schalten alle enthaltenen Kurse frei (5); Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe (6); Geld-zurück-Garantie 14 Tage / unter 20 % gelernt (Fragen + Video-Lektionen seit Kauf) mit Anfrage unter „Mein Lernen“, Mail an dich, Hinweis in der Bestellung. Davor: Kaufablauf-Browsertest (Block mit Gast-Hinweis und Registrierung, klassisch, Zahlung, „Mein Lernen“) grün in CI (8); Checkout-Block zeigt Gästen mit Lernprodukt Konto-Hinweis mit Anmeldung/Registrierung statt Bestellknopf (26); Rückkehr zur Gruppeneinladung bzw. Kasse nach Registrierung (23); `wp bootspruefung reconcile` zeigt Gruppenänderungen in der Vorschau (24); Ursache „entitled_only“ zwischen CI-Schritten geklärt – der WooCommerce-Integrationstest brach in CI mit einem Fatal Error ab (Testvariable `$post` überschrieb das globale WordPress-`$post`), `| tee` verschluckte den Fehler; CI läuft jetzt mit `pipefail` (25); Backup-Hinweis im Systemstatus.

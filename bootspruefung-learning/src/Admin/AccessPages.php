@@ -30,6 +30,7 @@ final class AccessPages
         add_action('admin_post_bp_free_rule', [$this, 'handleFreeRule']);
         add_action('admin_post_bp_group_admin', [$this, 'handleGroupAdmin']);
         add_action('admin_post_bp_member_discount', [$this, 'handleDiscount']);
+        add_action('admin_post_bp_shop_catalog', [$this, 'handleCatalog']);
     }
 
     private function service(): EntitlementService
@@ -256,6 +257,7 @@ final class AccessPages
         Ui::notice();
         echo '<p>'.esc_html__('Kostenlose Bereiche gelten für alle angemeldeten Nutzer ohne Kauf (Kap. 7.2) – ganz oder als Teilumfang. Zeitgesteuerte Freigaben geben ein Modul bzw. Videokapitel erst n Tage nach Beginn des Zugangs frei.', 'bootspruefung-learning').'</p>';
         $this->shopNotice();
+        $this->catalogBox();
         $rules = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}bp_access_rule WHERE access_type IN ('free','free_limited','drip') ORDER BY access_type, course_code, feature_code, module_code");
         $modules = $this->moduleOptions();
         $rows = [];
@@ -339,6 +341,40 @@ final class AccessPages
             'radio_training' => sprintf(__('erste %d Übungen je Übungsart', 'bootspruefung-learning'), $n),
             default => sprintf(__('erste %d Einträge', 'bootspruefung-learning'), $n),
         };
+    }
+
+    /** Knöpfe für Schnupper-Paket und Produktkatalog (Festlegung 06.11.2026). */
+    private function catalogBox(): void
+    {
+        $woo = function_exists('wc_get_product_id_by_sku');
+        echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Festgelegter Katalog', 'bootspruefung-learning').'</h2><p>'
+            .esc_html__('Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe. Produktkatalog: 17 Produkte mit Preisen, Laufzeit (12 bzw. 6 Monate, Pässe 30/90 Tage) und Geld-zurück-Garantie (14 Tage, unter 20 % gelernt). Wiederholbar; neue Produkte bleiben Entwurf.', 'bootspruefung-learning').'</p>';
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_shop_catalog', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_catalog">';
+        echo '<button class="button" name="op" value="free">'.esc_html__('Schnupper-Paket anlegen', 'bootspruefung-learning').'</button> ';
+        if ($woo) {
+            echo '<button class="button" name="op" value="products">'.esc_html__('Produktkatalog anlegen/abgleichen', 'bootspruefung-learning').'</button>';
+        }
+        echo '</form></div>';
+    }
+
+    public function handleCatalog(): void
+    {
+        $this->guard('bp_shop_catalog');
+        $op = sanitize_key(wp_unslash($_POST['op'] ?? ''));
+        try {
+            if ($op === 'products') {
+                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
+                $new = count(array_filter($rows, static fn ($r) => $r['action'] === 'neu'));
+                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu (Entwurf).', 'bootspruefung-learning'), count($rows), $new));
+            } else {
+                $r = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
+                Ui::flash(sprintf(__('Schnupper-Paket: %d Regel(n) angelegt.', 'bootspruefung-learning'), $r['added']));
+            }
+        } catch (\RuntimeException $e) {
+            Ui::flash($e->getMessage(), 'error');
+        }
+        wp_safe_redirect(Ui::url(self::FREE_SLUG));
+        exit;
     }
 
     public function handleFreeRule(): void

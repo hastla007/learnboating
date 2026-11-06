@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Commerce\WooCommerce;
+
+use Bootspruefung\Learning\Commerce\Labels;
+use Bootspruefung\Learning\Commerce\MoneyBack;
+
+/** Geld-zurück-Garantie in WooCommerce: „Mein Lernen“, Anfrage, Bestellansicht. */
+final class MoneyBackWoo
+{
+    public function register(): void
+    {
+        add_action('admin_post_bp_money_back', [$this, 'handleRequest']);
+        add_action('woocommerce_admin_order_data_after_order_details', [$this, 'adminOrder']);
+    }
+
+    /** @return array{id:int,user_id:int,status:string,date_paid:?string,refunded:bool,items:list<array{product_id:int,variation_id:int}>} */
+    public static function snapshot(\WC_Order $order): array
+    {
+        $items = [];
+        foreach ($order->get_items('line_item') as $item) {
+            if ($item instanceof \WC_Order_Item_Product) {
+                $items[] = ['product_id' => (int) $item->get_product_id(), 'variation_id' => (int) $item->get_variation_id()];
+            }
+        }
+        $paid = $order->get_date_paid();
+
+        return [
+            'id' => (int) $order->get_id(),
+            'user_id' => (int) $order->get_customer_id(),
+            'status' => (string) $order->get_status(),
+            'date_paid' => $paid ? gmdate('Y-m-d H:i:s', $paid->getTimestamp()) : null,
+            'refunded' => (float) $order->get_total_refunded() > 0,
+            'items' => $items,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public static function status(\WC_Order $order): array
+    {
+        $request = $order->get_meta(MoneyBack::REQUEST_META);
+
+        return MoneyBack::status(self::snapshot($order), is_array($request) && $request !== [] ? $request : null);
+    }
+
+    /** Abschnitt unter „Mein Lernen“. */
+    public static function renderAccountSection(int $userId): void
+    {
+        $orders = wc_get_orders(['customer_id' => $userId, 'limit' => 20, 'status' => ['processing', 'completed', 'refunded'], 'orderby' => 'date', 'order' => 'DESC']);
+        $rows = [];
+        foreach ($orders as $order) {
+            $s = self::status($order);
+            if (! $s['applies'] || in_array($s['reason'], ['expired', 'not_paid'], true) && $s['requested'] === null) {
+                continue;
+            }
+            $action = '';
+            if ($s['eligible']) {
+                $action = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\''.esc_js(__('Erstattung anfordern? Nach der Erstattung endet dein Zugang.', 'bootspruefung-learning')).'\')">'
+                    .wp_nonce_field('bp_money_back_'.$order->get_id(), '_wpnonce', true, false)
+                    .'<input type="hidden" name="action" value="bp_money_back"><input type="hidden" name="order" value="'.(int) $order->get_id().'">'
+                    .'<button type="submit" class="button bp-money-back">'.esc_html__('Geld zurück anfordern', 'bootspruefung-learning').'</button></form>';
+            }
+            $rows[] = sprintf(
+                '<tr><td>#%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s%s</td></tr>',
+                (int) $order->get_id(),
+                esc_html(wc_format_localized_decimal((string) $s['progress']).' % / '.wc_format_localized_decimal((string) $s['max_progress']).' %'),
+                esc_html(Labels::date($s['deadline'])),
+                esc_html(MoneyBack::reasonLabel($s['reason'])),
+                $action,
+                ''
+            );
+        }
+        if ($rows === []) {
+            return;
+        }
+        echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
+        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt werden beantwortete Fragen und abgeschlossene Video-Lektionen seit dem Kauf. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
+        echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+    }
+
+    public function handleRequest(): void
+    {
+        $orderId = absint($_POST['order'] ?? 0);
+        check_admin_referer('bp_money_back_'.$orderId);
+        $order = wc_get_order($orderId);
+        $userId = get_current_user_id();
+        $back = Integration::accountUrl() ?? home_url('/');
+        if (! $order instanceof \WC_Order || $userId <= 0 || (int) $order->get_customer_id() !== $userId) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), '', ['response' => 403]);
+        }
+        $status = self::status($order);
+        if (! $status['eligible']) {
+            wc_add_notice(MoneyBack::reasonLabel($status['reason']), 'error');
+            wp_safe_redirect($back);
+            exit;
+        }
+        $request = MoneyBack::recordRequest($orderId, $userId, $status);
+        $order->update_meta_data(MoneyBack::REQUEST_META, $request);
+        $order->add_order_note(sprintf(
+            /* translators: 1: Lernstand, 2: Grenze, 3: Frist */
+            __('Geld-zurück-Garantie angefragt. Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s. Bitte über „Erstattung“ erstatten – der Zugang endet dann automatisch.', 'bootspruefung-learning'),
+            wc_format_localized_decimal((string) $status['progress']),
+            wc_format_localized_decimal((string) $status['max_progress']),
+            Labels::date($status['deadline'])
+        ));
+        $order->save();
+        $to = (string) apply_filters('bootspruefung_money_back_recipient', get_option('admin_email'), $order);
+        wp_mail($to, sprintf(__('Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
+            __("Kunde %1\$s fordert die Geld-zurück-Garantie an.\n\nBestellung: #%2\$d\nLernstand: %3\$s %% (Grenze %4\$s %%)\nFrist bis: %5\$s\n\nBestellung öffnen: %6\$s", 'bootspruefung-learning'),
+            $order->get_billing_email(),
+            $orderId,
+            wc_format_localized_decimal((string) $status['progress']),
+            wc_format_localized_decimal((string) $status['max_progress']),
+            Labels::date($status['deadline']),
+            $order->get_edit_order_url()
+        ));
+        do_action('bootspruefung_money_back_requested', $orderId, $request);
+        wc_add_notice(__('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine Zahlungsart.', 'bootspruefung-learning'));
+        wp_safe_redirect($back);
+        exit;
+    }
+
+    public function adminOrder($order): void
+    {
+        if (! $order instanceof \WC_Order) {
+            return;
+        }
+        $s = self::status($order);
+        if (! $s['applies']) {
+            return;
+        }
+        echo '<p class="form-field form-field-wide bp-money-back-admin"><strong>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').':</strong><br>';
+        echo esc_html(sprintf(
+            __('Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s – %4$s', 'bootspruefung-learning'),
+            wc_format_localized_decimal((string) $s['progress']),
+            wc_format_localized_decimal((string) $s['max_progress']),
+            Labels::date($s['deadline']),
+            MoneyBack::reasonLabel($s['reason'])
+        ));
+        if ($s['requested'] !== null) {
+            echo '<br>'.esc_html(sprintf(__('Angefragt am %1$s bei %2$s %% Lernstand.', 'bootspruefung-learning'), Labels::date((string) $s['requested']['at']), wc_format_localized_decimal((string) $s['requested']['progress'])));
+        }
+        echo '</p>';
+    }
+}

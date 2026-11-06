@@ -38,6 +38,16 @@ final class ProductPanel
         echo '<div id="bp_learning_access_data" class="panel woocommerce_options_panel hidden"><div class="options_group" style="padding:0 12px 12px">';
         echo '<p>'.esc_html__('Kurse und Funktionen, die der Kauf dieses Produkts freischaltet. Zugang entsteht erst bei bezahlter Bestellung; Preise und Zahlarten regelt WooCommerce.', 'bootspruefung-learning').'</p>';
         $this->fields('bp_access', $this->repo()->rows($productId, 0));
+        $mb = \Bootspruefung\Learning\Commerce\MoneyBack::policy($productId);
+        printf(
+            '<p><label>%s <input type="number" min="0" step="1" name="bp_access[mb_days]" value="%s" style="width:70px"> %s</label> <label>%s <input type="number" min="0" max="100" step="0.5" name="bp_access[mb_progress]" value="%s" style="width:70px"> %%</label><br><span class="description">%s</span></p>',
+            esc_html__('Geld-zurück-Garantie:', 'bootspruefung-learning'),
+            esc_attr($mb ? (string) $mb['days'] : ''),
+            esc_html__('Tage', 'bootspruefung-learning'),
+            esc_html__('solange gelernt unter', 'bootspruefung-learning'),
+            esc_attr($mb ? (string) $mb['max_progress'] : ''),
+            esc_html__('leer = keine Garantie. Kunden fordern die Erstattung unter „Mein Lernen“ an; du erstattest in der Bestellung.', 'bootspruefung-learning')
+        );
         echo '<p class="description">'.esc_html__('Lernprodukte sollten virtuell sein. Sie werden automatisch einzeln verkauft, und der Checkout verlangt ein Kundenkonto.', 'bootspruefung-learning').'</p>';
         echo '</div></div>';
     }
@@ -127,6 +137,8 @@ final class ProductPanel
             return;
         }
         $this->persist((int) $postId, 0, $input);
+        $days = isset($input['mb_days']) && $input['mb_days'] !== '' ? absint($input['mb_days']) : null;
+        \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy((int) $postId, $days, isset($input['mb_progress']) ? (float) str_replace(',', '.', (string) $input['mb_progress']) : 0.0);
     }
 
     public function saveVariation($variationId, $loop): void

@@ -339,6 +339,44 @@ $_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM] = 'https://e
 $check(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::wooRedirect('/mein-konto/') === '/mein-konto/', 'fremdes Ziel wird ignoriert');
 unset($_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM]);
 $check(str_contains(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::registrationUrl($join), 'bp_return='), 'Registrierungslink trägt Rückkehrziel');
+// Schnupper-Paket und Geld-zurück-Garantie (ohne Shop)
+echo "Schnupper-Paket, Geld-zurück-Garantie\n";
+$ruleMax = (int) $wpdb->get_var("SELECT COALESCE(MAX(id),0) FROM {$p}access_rule");
+$free = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
+$again = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
+$check($free['added'] === $free['courses'] * 5 && $again['added'] === 0, 'Schnupper-Paket: 5 Regeln je Kurs, wiederholbar ohne Dubletten');
+$taster = $user('bp_taster');
+$check($access->limit($taster, 'SKN', 'question_bank') === 10 && $access->limit($taster, 'SKN', 'exam_simulation') === 1 && ! $access->full($taster, 'SKN', 'question_bank'), 'ohne Kauf: 10 Fragen je Modul, 1 Prüfungsbogen');
+$wpdb->query("DELETE FROM {$p}access_rule WHERE id > {$ruleMax}");
+$check(count(\Bootspruefung\Learning\Commerce\ShopCatalog::products()) === 17, 'Katalog: 17 Produkte');
+
+$mbProduct = 995001;
+$products->save($mbProduct, 0, [['course_code' => 'SKN', 'feature_code' => 'question_bank']], 182, 'extend', 'revoke_on_full_refund');
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbProduct, 14, 20.0);
+$mbUser = $user('bp_moneyback');
+$wpdb->delete($p.'progress', ['user_id' => $mbUser]);
+$paid = gmdate('Y-m-d H:i:s', time() - 3 * DAY_IN_SECONDS);
+$mbOrder = ['id' => 995100, 'user_id' => $mbUser, 'status' => 'processing', 'date_paid' => $paid, 'refunded' => false, 'items' => [['product_id' => $mbProduct, 'variation_id' => 0]]];
+$qids = $wpdb->get_col("SELECT DISTINCT mq.question_id FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code = 'SKN' ORDER BY mq.question_id");
+$answer = static function (array $ids, string $when) use ($wpdb, $p, $mbUser): void {
+    foreach ($ids as $qid) {
+        $wpdb->replace($p.'progress', ['user_id' => $mbUser, 'question_id' => (int) $qid, 'attempts' => 1, 'correct_count' => 1, 'learn_status' => 'learning', 'first_answered_at' => $when, 'last_answered_at' => $when]);
+    }
+};
+$answer(array_slice($qids, 0, 40), gmdate('Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS)); // vor dem Kauf (Schnupper) zählt nicht
+$answer(array_slice($qids, 40, 10), gmdate('Y-m-d H:i:s'));
+$st = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder);
+$lessonCount = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code = 'SKN'");
+$expect = round(10 * 100 / (count($qids) + $lessonCount), 1);
+$check($st['applies'] && $st['eligible'] && abs($st['progress'] - $expect) < 0.01, "berechtigt: {$st['progress']} % seit Kauf gelernt (Fragen + Lektionen, vor dem Kauf zählt nicht)");
+$answer(array_slice($qids, 50, (int) ceil(count($qids) * 0.2)), gmdate('Y-m-d H:i:s'));
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'ab 20 % gelernt: keine Garantie mehr');
+$wpdb->delete($p.'progress', ['user_id' => $mbUser]);
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['date_paid' => gmdate('Y-m-d H:i:s', time() - 15 * DAY_IN_SECONDS)] + $mbOrder)['reason'] === 'expired', 'nach 14 Tagen: Frist abgelaufen');
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $paid, 'progress' => 1.0])['reason'] === 'requested', 'Anfrage gestellt: kein zweiter Antrag');
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['refunded' => true] + $mbOrder)['reason'] === 'refunded' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => 991001, 'variation_id' => 0]]] + $mbOrder)['applies'] === false, 'erstattet bzw. Produkt ohne Garantie');
+$products->save($mbProduct, 0, [], null, 'extend', 'revoke_on_full_refund');
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbProduct, null, null);
 remove_filter('pre_wp_mail', $capture, 10);
 
 // Aufräumen.
