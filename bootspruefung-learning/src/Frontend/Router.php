@@ -104,6 +104,8 @@ final class Router
             'version' => Plugin::VERSION,
             'groups' => is_user_logged_in() ? count((new \Bootspruefung\Learning\Commerce\GroupService($GLOBALS['wpdb']))->forOwner(get_current_user_id())) : 0,
             'accountUrl' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::accountUrl(),
+            // Kursfotos für Kacheln/Kopfbereich: ['sbf-see' => ['card' => url, 'hero' => url]], z. B. vom Theme.
+            'courseImages' => (array) apply_filters('bootspruefung_course_images', []),
             'i18n' => Strings::all(),
         ]);
     }

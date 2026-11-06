@@ -405,3 +405,24 @@ function kurswasser_create_course_pages(): void
     }
 }
 add_action('after_switch_theme', 'kurswasser_create_course_pages');
+
+/**
+ * Kursfotos auch im Lernbereich (/bootsscheine/): Kurs-Slugs des Plugins → Bildplätze des Themes.
+ */
+add_filter('bootspruefung_course_images', static function (array $images): array {
+    $map = [
+        'sbf-see' => 'sbf-see', 'sbf-bin-motor' => 'sbf-binnen', 'sbf-bin-segel' => 'sbf-binnen-segel', 'sbf-see-bin' => 'sbf-kombi',
+        'add-see-to-bin' => 'sbf-binnen', 'add-bin-to-see' => 'sbf-see', 'add-bin-segel' => 'sbf-binnen-segel',
+        'src' => 'src', 'ubi' => 'ubi', 'src-ubi' => 'funk-kombi', 'add-ubi-to-src' => 'ubi',
+        'skn' => 'skn', 'fkn' => 'fkn', 'add-fkn-to-skn' => 'skn',
+    ];
+    foreach ($map as $course => $slot) {
+        $card = kurswasser_course_image($slot, true);
+        $hero = kurswasser_course_image($slot, false);
+        if ($card || $hero) {
+            $images[$course] = ['card' => $card ?: $hero, 'hero' => $hero ?: $card];
+        }
+    }
+
+    return $images;
+});

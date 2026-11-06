@@ -31,7 +31,7 @@ await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');
 await page.waitForURL(/\/bootsscheine\/$/);
-await page.getByRole('heading', { name: 'XXXX', level: 1 }).waitFor();
+await page.locator('.bp-dash-hero h1').waitFor();
 const cards = await page.locator('.bp-course-card').count();
 assert.equal(cards, 14, 'alle 14 Kurse sichtbar');
 await shot('01-uebersicht');

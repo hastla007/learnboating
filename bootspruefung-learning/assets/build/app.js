@@ -224,25 +224,79 @@
 
 	// ------------------------------------------------------------------ Übersicht
 
+	// Kursfoto aus dem Theme (Filter bootspruefung_course_images), sonst Farbverlauf.
+	function courseImage(slug, size) {
+		var imgs = cfg.courseImages || {};
+		return imgs[slug] ? (imgs[slug][size] || imgs[slug].card || null) : null;
+	}
+
+	function courseCard(c) {
+		var img = courseImage(c.slug, 'card');
+		var media = el('a', { class: 'bp-cc-media' + (img ? '' : ' is-plain'), href: base + c.slug + '/', 'data-bp-link': '1', tabindex: '-1', 'aria-hidden': 'true' }, [
+			img ? el('img', { src: img, alt: '', loading: 'lazy' }) : null,
+			el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) })
+		]);
+		var body = [el('h3', { class: 'bp-cc-title' }, [link(c.slug + '/', c.name)])];
+		if (c.progress) {
+			body.push(el('p', { class: 'bp-cc-pct' }, [el('strong', { text: c.progress.percent + ' %' }), ' ' + t('course_hero_mastered')]));
+			body.push(progressBar(c.progress, t('progress_short', { mastered: c.progress.mastered, total: c.progress.questions })));
+			body.push(el('p', { class: 'bp-cc-actions' }, [link(c.slug + '/', c.progress.mastered + c.progress.learning + c.progress.unsure > 0 ? t('dash_continue') : t('course_cta_learn'), 'bp-button bp-button-primary bp-cc-go')]));
+		} else {
+			body.push(el('p', { class: 'bp-muted bp-cc-locked', text: t('locked_short') }));
+			body = body.concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : []);
+		}
+		return el('li', { class: 'bp-card bp-course-card' + (c.progress ? '' : ' is-locked') }, [media, el('div', { class: 'bp-cc-body' }, body)]);
+	}
+
 	function viewOverview() {
 		return api('GET', 'me/courses').then(function (courses) {
-			var grid = el('ul', { class: 'bp-grid' });
-			courses.forEach(function (c) {
-				grid.appendChild(el('li', { class: 'bp-card bp-course-card' }, [
-					el('p', { class: 'bp-eyebrow' }, [badge(typeLabel(c.type))]),
-					el('h2', {}, [link(c.slug + '/', c.name)]),
-					c.progress ? progressBar(c.progress) : el('div', {}, [el('p', { class: 'bp-muted', text: t('locked_short') })].concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : [])),
-					el('p', {}, [link(c.slug + '/', t('open_course'), 'bp-button')])
-				]));
+			var mine = courses.filter(function (c) { return !!c.progress; });
+			var others = courses.filter(function (c) { return !c.progress; });
+			var focus = null;
+			mine.forEach(function (c) {
+				var touched = c.progress.mastered + c.progress.learning + c.progress.unsure;
+				if (touched > 0 && (!focus || touched > focus.touched)) { focus = { c: c, touched: touched }; }
 			});
-			mount([
-				el('header', { class: 'bp-header' }, [
-					el('h1', { text: t('overview_title') }),
-					el('p', { class: 'bp-muted', text: t('overview_intro', { name: cfg.user }) })
+			var hero = el('section', { class: 'bp-hero bp-dash-hero' }, [
+				el('div', { class: 'bp-hero-text' }, [
+					el('p', { class: 'bp-hero-eyebrow', text: t('dash_eyebrow') }),
+					el('h1', { text: cfg.user ? t('dash_hello', { name: cfg.user }) : t('overview_title') }),
+					el('p', { class: 'bp-hero-lead', text: t('dash_intro') }),
+					el('ul', { class: 'bp-hero-facts' }, [
+						el('li', {}, [el('strong', { text: String(mine.length) }), ' ' + t('dash_stat_courses')]),
+						el('li', {}, [link('tipps/', t('tips_title'))]),
+						cfg.groups ? el('li', {}, [link('gruppen/', t('groups_title'))]) : null
+					])
 				]),
-				courses.length ? grid : el('p', { text: t('no_courses') }),
-				el('p', {}, [link('tipps/', t('tips_title'), 'bp-button'), cfg.groups ? ' ' : null, cfg.groups ? link('gruppen/', t('groups_title'), 'bp-button') : null])
-			], t('overview_title'));
+				focus ? el('div', { class: 'bp-hero-focus' }, [
+					el('p', { class: 'bp-hero-focus-label', text: t('dash_focus') }),
+					el('p', { class: 'bp-hero-focus-title', text: focus.c.name }),
+					progressBar(focus.c.progress),
+					el('p', {}, [link(focus.c.slug + '/lernen/', t('dash_continue'), 'bp-button bp-button-signal')])
+				]) : null
+			]);
+			var nodes = [hero];
+			[['full', t('dash_group_full')], ['combo', t('dash_group_combo')], ['addon', t('dash_group_addon')]].forEach(function (g) {
+				var list = mine.filter(function (c) { return c.type === g[0]; });
+				if (list.length) {
+					nodes.push(el('section', { class: 'bp-section bp-dash-group' }, [el('h2', { text: g[1] }), el('ul', { class: 'bp-grid bp-cc-grid' }, list.map(courseCard))]));
+				}
+			});
+			var rest = mine.filter(function (c) { return ['full', 'combo', 'addon'].indexOf(c.type) === -1; });
+			if (rest.length) {
+				nodes.push(el('section', { class: 'bp-section bp-dash-group' }, [el('ul', { class: 'bp-grid bp-cc-grid' }, rest.map(courseCard))]));
+			}
+			if (others.length) {
+				nodes.push(el('section', { class: 'bp-section bp-dash-group bp-dash-more' }, [el('h2', { text: mine.length ? t('dash_more_courses') : t('dash_all_courses') }), el('p', { class: 'bp-muted', text: t('dash_more_intro') }), el('ul', { class: 'bp-grid bp-cc-grid' }, others.map(courseCard))]));
+			}
+			if (!courses.length) {
+				nodes.push(el('p', { text: t('no_courses') }));
+			}
+			nodes.push(el('ul', { class: 'bp-link-cards' }, [
+				el('li', {}, [el('a', { href: base + 'tipps/', 'data-bp-link': '1', class: 'bp-link-card' }, [el('span', { class: 'bp-ico bp-ico-bulb', 'aria-hidden': 'true' }), el('span', {}, [el('strong', { text: t('tips_title') }), el('span', { class: 'bp-muted', text: t('dash_tips_text') })])])]),
+				cfg.groups ? el('li', {}, [el('a', { href: base + 'gruppen/', 'data-bp-link': '1', class: 'bp-link-card' }, [el('span', { class: 'bp-ico bp-ico-group', 'aria-hidden': 'true' }), el('span', {}, [el('strong', { text: t('groups_title') }), el('span', { class: 'bp-muted', text: t('dash_groups_text') })])])]) : null
+			]));
+			mount(nodes, t('overview_title'));
 		});
 	}
 
@@ -361,38 +415,69 @@
 
 	// ------------------------------------------------------------------ Kurs
 
+	function courseHero(slug, c) {
+		var img = courseImage(slug, 'hero');
+		var p = c.progress ? c.progress.total : null;
+		var hero = el('section', { class: 'bp-hero bp-course-hero' + (img ? ' has-image' : '') }, [
+			img ? el('img', { class: 'bp-hero-img', src: img, alt: '' }) : null,
+			el('div', { class: 'bp-hero-text' }, [
+				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: c.name })]),
+				el('p', { class: 'bp-eyebrow' }, [el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) })]),
+				el('h1', { text: c.name }),
+				p ? el('div', { class: 'bp-hero-progress' }, [
+					el('p', { class: 'bp-hero-pct' }, [el('strong', { text: p.percent + ' %' }), ' ' + t('course_hero_mastered')]),
+					progressBar(p, t('progress_short', { mastered: p.mastered, total: p.questions }))
+				]) : null,
+				el('div', { class: 'bp-hero-actions' }, [
+					c.features.question_bank ? link(slug + '/lernen/', t('course_cta_learn'), 'bp-button bp-button-signal') : null,
+					c.exam && c.exam.available ? el('a', { class: 'bp-button bp-button-ghost', href: '#bp-exam', onclick: function (e) { e.preventDefault(); var x = document.getElementById('bp-exam'); if (x) { x.scrollIntoView({ behavior: 'smooth' }); } } }, [t('section_exam')]) : null
+				])
+			]),
+			p ? el('ul', { class: 'bp-hero-stats' }, [
+				el('li', {}, [el('strong', { text: String(p.questions) }), el('span', { text: t('course_stat_questions') })]),
+				el('li', {}, [el('strong', { text: String(p.mastered) }), el('span', { text: t('status_mastered') })]),
+				el('li', {}, [el('strong', { text: String(p.unsure) }), el('span', { text: t('course_stat_wrong') })]),
+				el('li', {}, [el('strong', { text: String(c.favorites || 0) }), el('span', { text: t('mode_favorites') })])
+			]) : null
+		]);
+		return hero;
+	}
+
+	function modeTile(href, label, count, desc, icon, primary) {
+		var name = count === null ? label : label + ' (' + count + ')';
+		return el('li', {}, [el('a', { href: base + href, 'data-bp-link': '1', class: 'bp-mode' + (primary ? ' is-primary' : ''), 'aria-label': name }, [
+			el('span', { class: 'bp-ico bp-ico-' + icon, 'aria-hidden': 'true' }),
+			el('span', { class: 'bp-mode-text', 'aria-hidden': 'true' }, [el('strong', { text: label }), el('span', { text: desc })]),
+			count === null ? el('span', { class: 'bp-mode-arrow', 'aria-hidden': 'true', text: '→' }) : el('span', { class: 'bp-mode-count', 'aria-hidden': 'true', text: String(count) })
+		])]);
+	}
+
 	function viewCourse(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
-			var nodes = [
-				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: c.name })]),
-				el('header', { class: 'bp-header' }, [
-					el('p', { class: 'bp-eyebrow' }, [badge(typeLabel(c.type))]),
-					el('h1', { text: c.name }),
-					c.progress ? progressBar(c.progress.total) : null
-				])
-			];
+			var nodes = [courseHero(slug, c)];
 
 			if (c.features.question_bank) {
-				var modes = el('div', { class: 'bp-actions' }, [
-					link(slug + '/lernen/', t('mode_smart'), 'bp-button bp-button-primary'),
-					link(slug + '/lernen/?modus=new', t('mode_new') + ' (' + c.progress.total.new + ')', 'bp-button'),
-					link(slug + '/lernen/?modus=wrong', t('mode_wrong') + ' (' + c.progress.total.unsure + ')', 'bp-button'),
-					link(slug + '/lernen/?modus=favorites', t('mode_favorites') + ' (' + c.favorites + ')', 'bp-button')
+				var modes = el('ul', { class: 'bp-modes' }, [
+					modeTile(slug + '/lernen/', t('mode_smart'), null, t('mode_smart_desc'), 'spark', true),
+					modeTile(slug + '/lernen/?modus=new', t('mode_new'), c.progress.total.new, t('mode_new_desc'), 'plus'),
+					modeTile(slug + '/lernen/?modus=wrong', t('mode_wrong'), c.progress.total.unsure, t('mode_wrong_desc'), 'repeat'),
+					modeTile(slug + '/lernen/?modus=favorites', t('mode_favorites'), c.favorites, t('mode_favorites_desc'), 'bookmark')
 				]);
 				var list = el('ul', { class: 'bp-module-list' });
 				c.progress.modules.forEach(function (m) {
-					list.appendChild(el('li', { class: 'bp-card' + (m.locked ? ' bp-locked' : '') }, [
-						el('h3', { text: m.name }),
-						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : progressBar(m),
-						m.locked ? null : el('p', {}, [link(slug + '/lernen/?modul=' + m.id, t('learn_module'), 'bp-button')])
+					list.appendChild(el('li', { class: 'bp-card bp-module' + (m.locked ? ' bp-locked' : '') }, [
+						el('h4', { text: m.name }),
+						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : el('p', { class: 'bp-module-pct' }, [el('strong', { text: m.percent + ' %' }), ' ' + t('course_hero_mastered')]),
+						m.locked ? null : progressBar(m, t('progress_short', { mastered: m.mastered, total: m.questions })),
+						m.locked ? null : el('p', { class: 'bp-module-go' }, [link(slug + '/lernen/?modul=' + m.id, t('learn_module'), 'bp-button')])
 					]));
 				});
 				var limitNote = c.progress.limit ? el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_questions', { n: c.progress.limit }) })].concat(offerNodes((c.shop || {}).question_bank))) : null;
 				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-learn-h' }, [
-					el('h2', { id: 'bp-learn-h', text: t('section_learn') }),
-					el('p', { class: 'bp-muted', text: t('smart_explain') }),
+					el('div', { class: 'bp-section-head' }, [el('h2', { id: 'bp-learn-h', text: t('section_learn') }), el('p', { class: 'bp-muted', text: t('smart_explain') })]),
 					modes,
 					limitNote,
+					el('h3', { class: 'bp-subhead', text: t('modules_title') }),
 					list
 				]));
 			} else {
@@ -403,10 +488,10 @@
 			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
 			nodes.push(downloadSection(c.downloads || [], (c.shop || {}).downloads));
 			if (c.exam_guide) {
-				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-guide-h' }, [
-					el('h2', { id: 'bp-guide-h', text: t('guide_title') }),
-					el('p', { class: 'bp-muted', text: t('guide_teaser') }),
-					el('p', {}, [link(slug + '/pruefung-anmelden/', t('guide_open'), 'bp-button')])
+				nodes.push(el('section', { class: 'bp-section bp-guide-teaser', 'aria-labelledby': 'bp-guide-h' }, [
+					el('span', { class: 'bp-ico bp-ico-flag', 'aria-hidden': 'true' }),
+					el('div', {}, [el('h2', { id: 'bp-guide-h', text: t('guide_title') }), el('p', { class: 'bp-muted', text: t('guide_teaser') })]),
+					link(slug + '/pruefung-anmelden/', t('guide_open'), 'bp-button')
 				]));
 			}
 			mount(nodes, c.name);
@@ -415,12 +500,12 @@
 
 	function examSection(slug, exam, shop) {
 		shop = shop || {};
-		var section = el('section', { class: 'bp-section', 'aria-labelledby': 'bp-exam-h' }, [el('h2', { id: 'bp-exam-h', text: t('section_exam') })]);
+		var section = el('section', { class: 'bp-section bp-panel bp-exam-panel', id: 'bp-exam', 'aria-labelledby': 'bp-exam-h' }, [el('h2', { id: 'bp-exam-h' }, [el('span', { class: 'bp-ico bp-ico-timer', 'aria-hidden': 'true' }), t('section_exam')])]);
 		if (!exam.available) {
 			section.appendChild(el('p', { text: t('exam_unavailable') }));
 			return section;
 		}
-		section.appendChild(el('p', {}, [
+		section.appendChild(el('p', { class: 'bp-exam-rule' }, [
 			exam.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'),
 			' ',
 			el('span', { text: t('exam_rule_line', { questions: exam.rule.questions, passing: exam.rule.passing }) })
@@ -504,7 +589,10 @@
 			var container = el('div', { class: 'bp-learn' });
 			mount([
 				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', el('span', { text: heading })]),
-				el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: heading }), el('p', { class: 'bp-muted', text: course.name + (moduleName ? ' · ' + t('mode_' + mode) : '') })]),
+				el('header', { class: 'bp-header bp-learn-head' }, [
+					el('div', {}, [el('p', { class: 'bp-learn-course', text: course.name + (moduleName ? ' · ' + t('mode_' + mode) : '') }), el('h1', { text: heading })]),
+					course.progress ? el('div', { class: 'bp-learn-progress' }, [el('p', {}, [el('strong', { text: course.progress.total.percent + ' %' }), ' ' + t('course_hero_mastered')]), progressBar(course.progress.total, t('progress_short', { mastered: course.progress.total.mastered, total: course.progress.total.questions }))]) : null
+				]),
 				container
 			], heading + ' – ' + course.name);
 			loadQuestion(slug, moduleId, mode, container);
@@ -554,7 +642,7 @@
 			}
 			fieldset.appendChild(el('div', { class: 'bp-answer', 'data-answer': String(a.id) }, [
 				input,
-				el('label', { for: name + '-' + a.id }, [el('span', { class: 'bp-answer-key', text: a.label }), el('span', { class: 'bp-answer-text', text: a.text })])
+				el('label', { for: name + '-' + a.id }, [el('span', { class: 'bp-answer-key' + (multi ? ' is-multi' : ''), text: a.label }), el('span', { class: 'bp-answer-text', text: a.text })])
 			]));
 		});
 		if (multi) {
@@ -588,13 +676,14 @@
 
 	function favoriteButton(q) {
 		var on = !!q.favorite;
-		var btn = el('button', { type: 'button', class: 'bp-fav', 'aria-pressed': on ? 'true' : 'false', text: on ? t('fav_remove') : t('fav_add') });
+		var label = el('span', { text: on ? t('fav_remove') : t('fav_add') });
+		var btn = el('button', { type: 'button', class: 'bp-fav', 'aria-pressed': on ? 'true' : 'false' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), label]);
 		btn.addEventListener('click', function () {
 			btn.disabled = true;
 			api(on ? 'DELETE' : 'PUT', 'favorites/' + q.question_id).then(function () {
 				on = !on;
 				btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-				btn.textContent = on ? t('fav_remove') : t('fav_add');
+				label.textContent = on ? t('fav_remove') : t('fav_add');
 			}).finally(function () { btn.disabled = false; });
 		});
 		return btn;
@@ -605,9 +694,10 @@
 		var key = uuid();
 		var name = 'bp-q-' + q.question_id;
 		var meta = el('p', { class: 'bp-question-meta' }, [
-			q.official_number ? el('span', { text: t('question_number', { number: q.official_number }) }) : null,
-			q.topic ? el('span', { text: q.topic }) : null,
-			el('span', { class: 'bp-reason', text: q.reason })
+			q.official_number ? el('span', { class: 'bp-pill bp-pill-strong', text: t('question_number', { number: q.official_number }) }) : null,
+			q.topic ? el('span', { class: 'bp-pill', text: q.topic }) : null,
+			el('span', { class: 'bp-pill bp-reason', text: q.reason }),
+			q.remaining !== null && q.remaining !== undefined ? el('span', { class: 'bp-remaining', text: t('remaining', { n: q.remaining }) }) : null
 		]);
 		var card = el('article', { class: 'bp-card bp-question', 'aria-labelledby': name + '-text' }, [
 			meta,
@@ -617,7 +707,7 @@
 		card.querySelector('h2').id = name + '-text';
 		var feedback = el('div', { class: 'bp-feedback', 'aria-live': 'polite' });
 		var actions = el('div', { class: 'bp-actions' });
-		var next = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('next_question') });
+		var next = el('button', { type: 'button', class: 'bp-button bp-button-primary bp-next' }, [t('next_question'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })]);
 		next.addEventListener('click', function () { loadQuestion(slug, moduleId, mode, container); });
 
 		function showResult(r, fieldset) {
@@ -626,14 +716,18 @@
 			}
 			feedback.textContent = '';
 			feedback.className = 'bp-feedback ' + (r.correct ? 'bp-feedback-ok' : 'bp-feedback-bad');
-			feedback.appendChild(el('p', { class: 'bp-feedback-title', text: r.correct ? t('result_correct') : t('result_wrong') }));
+			feedback.appendChild(el('div', { class: 'bp-feedback-head' }, [el('span', { class: 'bp-feedback-icon', 'aria-hidden': 'true' }), el('p', { class: 'bp-feedback-title', text: r.correct ? t('result_correct') : t('result_wrong') })]));
 			if (r.explanation) {
 				feedback.appendChild(multiline('p', r.explanation, 'bp-explanation'));
 			} else if (r.explanation_locked) {
 				feedback.appendChild(el('p', { class: 'bp-muted', text: t('explanation_locked') }));
 			}
 			if (r.progress) {
-				feedback.appendChild(el('p', { class: 'bp-muted', text: t('status_' + r.progress.status) + ' · ' + t('streak', { n: r.progress.streak }) }));
+				var dots = el('span', { class: 'bp-streak-dots', 'aria-hidden': 'true' });
+				for (var i = 0; i < 3; i++) {
+					dots.appendChild(el('span', { class: i < Math.min(r.progress.streak, 3) ? 'is-on' : '' }));
+				}
+				feedback.appendChild(el('p', { class: 'bp-feedback-status' }, [el('span', { class: 'bp-pill bp-status-' + r.progress.status, text: t('status_' + r.progress.status) }), dots, el('span', { class: 'bp-muted', text: t('streak', { n: r.progress.streak }) })]));
 			}
 			actions.textContent = '';
 			actions.appendChild(next);
@@ -681,11 +775,8 @@
 			actions.appendChild(check);
 		}
 		actions.appendChild(favoriteButton(q));
-		card.appendChild(actions);
 		card.appendChild(feedback);
-		if (q.remaining !== null && q.remaining !== undefined) {
-			card.appendChild(el('p', { class: 'bp-muted bp-remaining', text: t('remaining', { n: q.remaining }) }));
-		}
+		card.appendChild(actions);
 		return card;
 	}
 
@@ -841,6 +932,7 @@
 			return null;
 		}
 		var tiles = [];
+		var icons = { 'navigation/': 'compass', 'praxis/': 'knot', 'video/': 'play', 'funk/': 'radio' };
 		if (tr.navigation.tasks > 0) {
 			tiles.push(['navigation/', t('trainer_navigation'), t('trainer_navigation_meta', { done: tr.navigation.done, total: tr.navigation.questions, tasks: tr.navigation.tasks })]);
 		}
@@ -861,9 +953,9 @@
 			el('ul', { class: 'bp-module-list' }, tiles.map(function (tile) {
 				var feature = TRAINER_FEATURES[tile[0]];
 				if (features && feature && features[feature] === false) {
-					return el('li', { class: 'bp-card bp-tile bp-locked' }, [el('h3', { text: tile[1] }), el('p', { class: 'bp-muted', text: t('locked_short') })].concat(offerNodes(shop[feature])));
+					return el('li', { class: 'bp-card bp-tile bp-locked' }, [el('span', { class: 'bp-ico bp-ico-' + icons[tile[0]], 'aria-hidden': 'true' }), el('h3', { text: tile[1] }), el('p', { class: 'bp-muted', text: t('locked_short') })].concat(offerNodes(shop[feature])));
 				}
-				return el('li', { class: 'bp-card bp-tile' }, [el('h3', {}, [link(slug + '/' + tile[0], tile[1])]), el('p', { class: 'bp-muted', text: tile[2] })]);
+				return el('li', { class: 'bp-card bp-tile' }, [el('span', { class: 'bp-ico bp-ico-' + icons[tile[0]], 'aria-hidden': 'true' }), el('div', { class: 'bp-tile-text' }, [el('h3', {}, [link(slug + '/' + tile[0], tile[1])]), el('p', { class: 'bp-muted', text: tile[2] })]), el('span', { class: 'bp-tile-arrow', 'aria-hidden': 'true', text: '→' })]);
 			}))
 		]);
 	}
