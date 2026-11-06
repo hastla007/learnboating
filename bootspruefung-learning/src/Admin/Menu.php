@@ -27,7 +27,7 @@ final class Menu
         (new ImportPage())->register();
         (new ContentPages())->register();
         (new AccessPages())->register();
-        (new PracticePages())->register();
+        (new ExamGuidePages())->register();
     }
 
     public function addPages(): void
@@ -47,7 +47,7 @@ final class Menu
             [self::SLUG.'-rights', __('Rechte', 'bootspruefung-learning'), $read, [$content, 'renderRights']],
             [AccessPages::SLUG, __('Zugänge', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'render']],
             [AccessPages::GROUP_SLUG, __('Gruppenlizenzen', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderGroups']],
-            [PracticePages::SLUG, __('Praxis-Anmeldung', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PracticePages(), 'render']],
+            [ExamGuidePages::SLUG, __('Prüfungsanmeldung', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, [new ExamGuidePages(), 'render']],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
@@ -146,19 +146,12 @@ final class Menu
         }
         echo '</select></td></tr>';
         printf(
-            '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[praxis_registration_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
-            esc_html__('Praxis-Anmeldung', 'bootspruefung-learning'),
+            '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[exam_guide_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
+            esc_html__('Prüfungsanmeldung', 'bootspruefung-learning'),
             esc_attr(Settings::OPTION),
-            checked(! empty($settings['praxis_registration_enabled']), true, false),
+            checked(! empty($settings['exam_guide_enabled']), true, false),
             esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
-            esc_html__('Derzeit vorbereitet, aber deaktiviert: Formulare, Praxisorte und Prüfungsausschüsse lassen sich schon pflegen; Lernende sehen den Bereich erst nach dem Freischalten. Eine Prüfungsbuchung ist nicht enthalten.', 'bootspruefung-learning')
-        );
-        printf(
-            '<tr><th scope="row"><label for="bp-praxis-mail">%s</label></th><td><input id="bp-praxis-mail" type="email" class="regular-text" name="%s[praxis_notification_email]" value="%s"><p class="description">%s</p></td></tr>',
-            esc_html__('Benachrichtigung neue Anmeldungen', 'bootspruefung-learning'),
-            esc_attr(Settings::OPTION),
-            esc_attr((string) $settings['praxis_notification_email']),
-            esc_html__('leer = alle Nutzer mit Zugangsverwaltung', 'bootspruefung-learning')
+            esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und alle Prüfungsausschüsse. Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
         );
         echo '</tbody></table>';
         submit_button();

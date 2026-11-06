@@ -176,8 +176,8 @@
 			view = viewGroups();
 		} else if (parts.length === 1) {
 			view = viewCourse(parts[0]);
-		} else if (parts[1] === 'praxis-pruefung') {
-			view = viewPraxisRegistration(parts[0]);
+		} else if (parts[1] === 'pruefung-anmelden') {
+			view = viewExamGuide(parts[0], query.get('teil'));
 		} else if (parts[1] === 'lernen') {
 			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart');
 		} else if (parts[1] === 'pruefung' && parts[2]) {
@@ -378,11 +378,11 @@
 			nodes.push(c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
 			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
 			nodes.push(downloadSection(c.downloads || [], (c.shop || {}).downloads));
-			if (c.praxis) {
-				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-praxis-h' }, [
-					el('h2', { id: 'bp-praxis-h', text: t('praxis_title') }),
-					el('p', { class: 'bp-muted', text: t('praxis_teaser') }),
-					el('p', {}, [link(slug + '/praxis-pruefung/', t('praxis_open'), 'bp-button')])
+			if (c.exam_guide) {
+				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-guide-h' }, [
+					el('h2', { id: 'bp-guide-h', text: t('guide_title') }),
+					el('p', { class: 'bp-muted', text: t('guide_teaser') }),
+					el('p', {}, [link(slug + '/pruefung-anmelden/', t('guide_open'), 'bp-button')])
 				]));
 			}
 			mount(nodes, c.name);
@@ -686,127 +686,95 @@
 		];
 	}
 
-	// ------------------------------------------------------------------ Praxis & Prüfung (Anmeldung ohne Prüfungsbuchung)
+	// ------------------------------------------------------------------ Prüfung anmelden (Anleitung, Prüfungsausschüsse)
 
-	function viewPraxisRegistration(slug) {
+	var GUIDE_LINKS = { exam: '', navigation: 'navigation/', 'funk-oral': 'funk/', 'funk-praxis': 'funk/' };
+
+	function viewExamGuide(slug, teil) {
 		return withCourse(slug, function (c) {
-			return api('GET', 'courses/' + encodeURIComponent(slug) + '/praxis-anmeldung').then(function (s) {
-				renderPraxis(slug, c, s);
-			});
-		});
-	}
-
-	function renderPraxis(slug, c, s) {
-		var nodes = [crumbs(slug, c.name, [[t('praxis_title')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('praxis_title') })])];
-		var card = el('section', { class: 'bp-card' });
-		nodes.push(card);
-		if (s.state === 'unavailable' || s.state === 'disabled') {
-			card.appendChild(el('p', { text: t('praxis_unavailable') }));
-		} else if (s.state === 'no_access') {
-			card.appendChild(el('p', { text: t('locked_feature') }));
-		} else if (s.state === 'locked') {
-			card.appendChild(el('h2', { text: t('praxis_locked_title') }));
-			card.appendChild(el('p', { text: t('praxis_locked', { percent: s.percent, threshold: s.threshold }) }));
-			card.appendChild(el('p', {}, [link(slug + '/lernen/', t('mode_smart'), 'bp-button bp-button-primary')]));
-		} else if (s.state === 'incomplete_profile') {
-			card.appendChild(el('h2', { text: t('praxis_profile_title') }));
-			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_profile_explain') }));
-			card.appendChild(profileForm(s.profile, function () { viewPraxisRegistration(slug).catch(showError); }));
-		} else if (s.state === 'submitted') {
-			var r = s.registration;
-			card.appendChild(el('h2', { text: t('praxis_submitted_title') }));
-			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_submitted') }));
-			card.appendChild(el('dl', { class: 'bp-dl' }, [].concat.apply([], r.rows.map(function (row) { return [el('dt', { text: row.label }), el('dd', { text: row.value })]; }))));
-			if (r.requires_fitness_certificate) {
-				card.appendChild(el('p', { class: 'bp-note', text: t('praxis_fitness') }));
-			}
-		} else if (s.state === 'form') {
-			card.appendChild(el('h2', { text: s.form.title }));
-			card.appendChild(el('p', { class: 'bp-muted', text: t('praxis_form_intro') }));
-			card.appendChild(praxisForm(slug, c, s));
-		}
-		mount(nodes, t('praxis_title') + ' – ' + c.name);
-	}
-
-	function fieldInput(field, s, id) {
-		var req = field.required ? { required: 'required' } : {};
-		if (field.type === 'textarea') {
-			return el('textarea', Object.assign({ id: id, name: field.key, rows: 3, class: 'bp-input' }, req));
-		}
-		if (field.type === 'date') {
-			return el('input', Object.assign({ id: id, name: field.key, type: 'date', class: 'bp-input' }, req));
-		}
-		if (field.type === 'select') {
-			return el('select', Object.assign({ id: id, name: field.key, class: 'bp-input' }, req), [el('option', { value: '', text: '–' })].concat(field.options.map(function (o) { return el('option', { value: o, text: o }); })));
-		}
-		if (field.type === 'location') {
-			return el('select', Object.assign({ id: id, name: field.key, class: 'bp-input' }, req), [el('option', { value: '', text: '–' })].concat(s.locations.map(function (l) {
-				var extra = [l.address, l.exam_name !== l.name ? t('praxis_exam_place', { place: l.exam_name }) : null, l.committee ? l.committee.label : null].filter(Boolean).join(' · ');
-				return el('option', { value: String(l.id), text: l.name + (extra ? ' (' + extra + ')' : '') });
-			})));
-		}
-		return el('input', Object.assign({ id: id, name: field.key, type: 'text', class: 'bp-input', maxlength: 255 }, req));
-	}
-
-	function praxisForm(slug, c, s) {
-		var form = el('form', { class: 'bp-form', novalidate: 'novalidate' });
-		s.fields.forEach(function (field, i) {
-			var id = 'bp-praxis-' + i;
-			var help = field.help_text ? el('p', { class: 'bp-muted bp-help', text: field.help_text }) : null;
-			if (field.type === 'checkbox') {
-				form.appendChild(el('div', { class: 'bp-field' }, [el('label', {}, [el('input', Object.assign({ type: 'checkbox', name: field.key, value: '1' }, field.required ? { required: 'required' } : {})), ' ' + field.label + (field.required ? ' *' : '')]), help]));
-			} else if (field.type === 'radio') {
-				form.appendChild(el('fieldset', { class: 'bp-field' }, [el('legend', { text: field.label + (field.required ? ' *' : '') })].concat(field.options.map(function (o) {
-					return el('label', { class: 'bp-radio' }, [el('input', Object.assign({ type: 'radio', name: field.key, value: o }, field.required ? { required: 'required' } : {})), ' ' + o]);
-				})).concat([help])));
-			} else {
-				form.appendChild(el('div', { class: 'bp-field' }, [el('label', { for: id, text: field.label + (field.required ? ' *' : '') }), fieldInput(field, s, id), help]));
-			}
-		});
-		// Wie die Quelle: eigener Hinweis nur, wenn kein Tauglichkeitsfeld mit Hilfetext vorhanden ist.
-		var hasFitnessField = s.fields.some(function (f) { return f.key.indexOf('tauglichkeit') !== -1; });
-		if (s.form.requires_fitness_certificate && !hasFitnessField) {
-			form.appendChild(el('p', { class: 'bp-note', text: t('praxis_fitness') }));
-		}
-		var submit = el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('praxis_submit') });
-		form.appendChild(el('div', { class: 'bp-actions' }, [submit]));
-		form.addEventListener('submit', function (e) {
-			e.preventDefault();
-			var data = {};
-			s.fields.forEach(function (field) {
-				if (field.type === 'checkbox') {
-					data[field.key] = form.querySelector('[name="' + field.key + '"]').checked;
-				} else if (field.type === 'radio') {
-					var chosen = form.querySelector('[name="' + field.key + '"]:checked');
-					data[field.key] = chosen ? chosen.value : '';
-				} else {
-					data[field.key] = form.querySelector('[name="' + field.key + '"]').value;
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/pruefung-anmelden').then(function (g) {
+				var page = g.tabs.filter(function (x) { return x.key === teil; })[0] || g.tabs[0];
+				var nodes = [crumbs(slug, c.name, [[t('guide_title')]])];
+				if (g.tabs.length > 1) {
+					nodes.push(el('ul', { class: 'bp-chips', 'aria-label': t('guide_tabs') }, g.tabs.map(function (x) {
+						return el('li', {}, [link(slug + '/pruefung-anmelden/?teil=' + encodeURIComponent(x.key), x.tab, 'bp-chip' + (x === page ? ' is-active' : ''))]);
+					})));
 				}
+				nodes.push(el('header', { class: 'bp-header' }, [el('h1', { text: page.title }), el('p', { class: 'bp-muted', text: page.intro })]));
+				var focus = page.variants[0];
+				if (focus.note) {
+					nodes.push(el('p', { class: 'bp-note', text: focus.note }));
+				}
+				nodes.push(el('ul', { class: 'bp-stats' }, [
+					el('li', {}, [el('strong', { text: t('guide_fee') }), ' ' + t('guide_approx', { value: page.fee })]),
+					page.lead_time ? el('li', {}, [el('strong', { text: t('guide_lead_time') }), ' ' + page.lead_time]) : null,
+					el('li', {}, [el('strong', { text: t('guide_min_age') }), ' ' + page.min_age])
+				]));
+				var steps = el('ol', { class: 'bp-steps' }, [
+					el('li', {}, [el('strong', { text: t('guide_step_apply') }), el('p', { text: page.apply })]),
+					el('li', {}, [el('strong', { text: t('guide_step_documents') }), el('ul', {}, page.documents.map(function (d) { return el('li', { text: d }); }))]),
+					el('li', {}, [el('strong', { text: t('guide_step_deadline') }), el('p', { text: page.deadline })]),
+					el('li', {}, [el('strong', { text: t('guide_step_day') }), el('p', { text: t('guide_step_day_text') })])
+				]);
+				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_how') }), steps]));
+				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_variants') })].concat(page.variants.map(function (v) {
+					return el('div', { class: 'bp-variant' }, [
+						el('h3', { text: v.label }),
+						el('p', { text: v.scope + (v.minutes ? ' · ' + t('guide_minutes', { n: v.minutes }) : '') }),
+						v.pass_text ? el('p', { class: 'bp-muted', text: t('guide_pass', { pass: v.pass_text }) }) : null,
+						v.extra ? el('p', { class: 'bp-muted', text: v.extra }) : null,
+						v !== focus && v.note ? el('p', { class: 'bp-muted', text: v.note }) : null
+					]);
+				}))));
+				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_parts') }), el('ul', { class: 'bp-module-list' }, page.exam_parts.map(function (p) {
+					var practice = p.link !== null && GUIDE_LINKS[p.link] !== undefined ? link(slug + '/' + GUIDE_LINKS[p.link], t('guide_practice'), 'bp-button') : null;
+					return el('li', { class: 'bp-card bp-tile' }, [el('h3', { text: p.title }), el('p', { class: 'bp-muted', text: p.text }), practice]);
+				}))]));
+				nodes.push(committeeSection(page, g.committees));
+				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_faq') })].concat(page.faq.map(function (f) {
+					return el('details', { class: 'bp-faq' }, [el('summary', { text: f.question }), el('p', { text: f.answer })]);
+				}))));
+				nodes.push(el('p', { class: 'bp-muted', text: t('guide_disclaimer') }));
+				mount(nodes, page.title);
 			});
-			submit.disabled = true;
-			api('POST', 'courses/' + encodeURIComponent(slug) + '/praxis-anmeldung', { data: data }).then(function (next) {
-				renderPraxis(slug, c, next);
-			}).catch(function (err) { submit.disabled = false; alertMessage(form, err.message); });
 		});
-		return form;
 	}
 
-	function profileForm(profile, done) {
-		var form = el('form', { class: 'bp-form' });
-		[['street', 'profile_street', 'text'], ['postal_code', 'profile_postal_code', 'text'], ['city', 'profile_city', 'text'], ['country', 'profile_country', 'text'], ['birthdate', 'profile_birthdate', 'date']].forEach(function (f) {
-			var id = 'bp-profile-' + f[0];
-			form.appendChild(el('div', { class: 'bp-field' }, [el('label', { for: id, text: t(f[1]) + ' *' }), el('input', { id: id, name: f[0], type: f[2], required: 'required', class: 'bp-input', value: profile[f[0]] || (f[0] === 'country' ? 'DE' : '') })]));
-		});
-		var save = el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('save') });
-		form.appendChild(el('div', { class: 'bp-actions' }, [save]));
-		form.addEventListener('submit', function (e) {
-			e.preventDefault();
-			var body = {};
-			['street', 'postal_code', 'city', 'country', 'birthdate'].forEach(function (k) { body[k] = form.querySelector('[name="' + k + '"]').value; });
-			save.disabled = true;
-			api('PUT', 'me/profile', body).then(done).catch(function (err) { save.disabled = false; alertMessage(form, err.message); });
-		});
-		return form;
+	function committeeSection(page, committees) {
+		var list = el('ul', { class: 'bp-committees' });
+		var input = el('input', { type: 'search', class: 'bp-input', 'aria-label': t('guide_committee_search'), placeholder: t('guide_committee_search') });
+		function render() {
+			var q = input.value.trim().toLowerCase();
+			list.textContent = '';
+			committees.filter(function (c) {
+				return !q || [c.label, c.address, c.postal_code, c.city].join(' ').toLowerCase().indexOf(q) !== -1;
+			}).forEach(function (c) {
+				var contact = [c.phone ? t('guide_phone', { v: c.phone }) : null, c.office_hours].filter(Boolean).join(' · ');
+				list.appendChild(el('li', { class: 'bp-card' }, [
+					el('h3', { text: c.label }),
+					c.address ? el('p', { text: c.address }) : null,
+					c.contact_person ? el('p', { class: 'bp-muted', text: c.contact_person }) : null,
+					contact ? el('p', { class: 'bp-muted', text: contact }) : null,
+					el('p', {}, [c.email ? el('a', { href: 'mailto:' + c.email, text: c.email }) : null, c.email && c.website ? ' · ' : null, c.website ? el('a', { href: c.website, target: '_blank', rel: 'noopener', text: t('guide_website') }) : null]),
+					c.note ? el('p', { class: 'bp-muted', text: c.note }) : null
+				]));
+			});
+			if (!list.children.length) {
+				list.appendChild(el('li', { class: 'bp-muted', text: t('guide_committee_none') }));
+			}
+		}
+		input.addEventListener('input', render);
+		render();
+		return el('section', { class: 'bp-card' }, [
+			el('h2', { text: t('guide_book') }),
+			el('p', { class: 'bp-muted', text: t('guide_book_text') }),
+			el('ul', { class: 'bp-providers' }, page.providers.map(function (p) {
+				return el('li', { class: 'bp-card' }, [el('strong', { text: p.name }), el('span', { class: 'bp-muted', text: ' ' + p.full }), el('p', { text: p.text }), el('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'bp-button', text: t('guide_to_provider', { name: p.name }) })]);
+			})),
+			el('h3', { text: t('guide_committees', { n: committees.length }) }),
+			input,
+			list
+		]);
 	}
 
 	function downloadSection(items, offers) {

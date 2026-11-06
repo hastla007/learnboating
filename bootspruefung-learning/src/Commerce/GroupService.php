@@ -8,7 +8,7 @@ use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Frontend\Router;
 
 /**
- * Gruppenlizenzen (z. B. Bootsschule kauft 20 Plätze): Eine Bestellposition
+ * Gruppenlizenzen (z. B. ein Paar oder ein Verein kauft mehrere Plätze): Eine Bestellposition
  * eines Produkts mit „Plätzen“ ergibt ein Kontingent. Die verwaltende Person
  * lädt per Link oder E-Mail ein; jeder belegte Platz wird zu eigenen Zugängen
  * (Quelle "group", Referenz "group:<gruppe>:<mitglied>"). Zahlung, Dispute,

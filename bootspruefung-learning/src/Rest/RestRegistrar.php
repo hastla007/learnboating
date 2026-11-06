@@ -22,7 +22,7 @@ final class RestRegistrar
             (new LearnerController())->registerRoutes();
             (new TrainerController())->registerRoutes();
             (new \Bootspruefung\Learning\Rest\Controllers\GroupController())->registerRoutes();
-            (new \Bootspruefung\Learning\Rest\Controllers\PracticeController())->registerRoutes();
+            (new \Bootspruefung\Learning\Rest\Controllers\ExamGuideController())->registerRoutes();
         });
     }
 }

@@ -51,8 +51,9 @@ wp bootspruefung reconcile
 wp bootspruefung reconcile --apply
 ```
 
-Praxis-Anmeldung (ohne Prüfungsbuchung): unter Bootsprüfung → Praxis-Anmeldung Praxisorte, Formulare und
-Prüfungsausschüsse pflegen; für Lernende erst unter Einstellungen › Praxis-Anmeldung freischalten (Standard: aus).
+Prüfung anmelden: Lernende melden sich selbst beim Prüfungsausschuss an; der Lernbereich zeigt je Kurs die
+Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen; für Lernende
+unter Einstellungen › Prüfungsanmeldung freischalten (Standard: aus).
 
 Membership-Funktionen (ohne Zusatz-Plugin): kostenlose Teilumfänge und zeitgesteuerte Freigaben unter
 Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „Lernzugang erforderlich“,
@@ -90,7 +91,7 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/membershi
 ```
 
 ```bash
-WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php bootspruefung-learning/tests/integration/practice-test.php
+WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php bootspruefung-learning/tests/integration/exam-guide-test.php
 ```
 
 Browser-Tests (Playwright) laufen gegen einen laufenden Server; Vorbereitung mit

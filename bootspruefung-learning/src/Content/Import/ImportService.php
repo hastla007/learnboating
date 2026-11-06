@@ -38,7 +38,7 @@ final class ImportService
         'radio_practice' => 'radio_practice',
         'device_simulation' => 'device_simulation',
         'exam_committees' => 'exam_committees',
-        'praxis_forms' => 'praxis_forms',
+        'exam_guides' => 'exam_guides',
         'archive' => null,
     ];
 
@@ -66,6 +66,7 @@ final class ImportService
             }
             throw $e;
         }
+        $this->clearBatchDir($batchId);
         rename($tmp, $this->batchDir($batchId));
         $this->validate($batchId);
 
@@ -76,6 +77,7 @@ final class ImportService
     public function createFromDirectory(string $dir): int
     {
         $batchId = $this->createBatch(new Package(rtrim($dir, '/')));
+        $this->clearBatchDir($batchId);
         self::copyDir(rtrim($dir, '/'), $this->batchDir($batchId));
         $this->validate($batchId);
 
@@ -371,7 +373,7 @@ final class ImportService
     private function rightsSummary(Package $package): array
     {
         $summary = [];
-        foreach (['questions', 'media', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation', 'exam_committees', 'praxis_forms'] as $entity) {
+        foreach (['questions', 'media', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary', 'radio_practice', 'device_simulation', 'exam_committees', 'exam_guides'] as $entity) {
             foreach ($package->entities($entity) as $record) {
                 $status = $record['revision']['rights_status'] ?? $record['rights_status'] ?? 'unknown';
                 $summary[$entity][$status] = ($summary[$entity][$status] ?? 0) + 1;
@@ -408,6 +410,18 @@ final class ImportService
     private function batchDir(int $batchId): string
     {
         return MediaStorage::packagesDir().'/batch-'.$batchId;
+    }
+
+    /**
+     * Nach einer Neuinstallation beginnen die Import-IDs wieder bei 1; ein noch
+     * vorhandener Ordner eines früheren Imports darf nicht mit dem neuen Paket
+     * vermischt werden (sonst schlagen Prüfungen mit Fremddateien fehl).
+     */
+    private function clearBatchDir(int $batchId): void
+    {
+        if (is_dir($this->batchDir($batchId))) {
+            self::removeDir($this->batchDir($batchId));
+        }
     }
 
     private function acquireLock(int $batchId): bool

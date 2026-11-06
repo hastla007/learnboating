@@ -38,7 +38,7 @@ final class EntityImporter
         'radio_practice' => 'radio_scenario',
         'device_simulation' => 'device',
         'exam_committees' => 'exam_committee',
-        'praxis_forms' => 'praxis_form',
+        'exam_guides' => 'exam_guide',
     ];
 
     /** @var array<string,array<string,int>> Tabelle => source_id/code => id */
@@ -84,7 +84,7 @@ final class EntityImporter
             'radio_practice' => $this->radioPractice($record),
             'device_simulation' => $this->deviceSimulation($record),
             'exam_committees' => $this->examCommittee($record),
-            'praxis_forms' => $this->praxisForm($record),
+            'exam_guides' => $this->examGuide($record),
             default => throw new RuntimeException("Unbekannte Entität {$entity}"),
         };
     }
@@ -584,18 +584,18 @@ final class EntityImporter
         ]);
     }
 
-    /** @param array<string,mixed> $r */
-    private function praxisForm(array $r): string
+    /**
+     * Anleitung zur Prüfungsanmeldung (Seite „Prüfung buchen“ der Quelle) – Inhalt als JSON.
+     *
+     * @param array<string,mixed> $r
+     */
+    private function examGuide(array $r): string
     {
-        if ($this->locallyModified('praxis_form', $r['source_id'])) {
-            return 'unchanged';
-        }
-
-        return $this->upsert('praxis_form', $r, [
-            'title' => $r['title'], 'min_progress_percent' => $r['min_progress_percent'],
-            'requires_fitness_certificate' => $r['requires_fitness_certificate'] ? 1 : 0, 'fields' => wp_json_encode($r['fields']),
-            'course_codes' => implode(',', $r['course_codes']), 'active' => $r['active'] ? 1 : 0, 'sort_order' => $r['sort_order'],
-            'rights_status' => $r['rights_status'], 'status' => 'published',
+        return $this->upsert('exam_guide', $r, [
+            'tab' => $r['tab'], 'title' => $r['title'],
+            'data' => wp_json_encode(array_diff_key($r, ['hash' => 1, 'source_id' => 1, 'rights_status' => 1, 'source_file' => 1])),
+            'course_codes' => implode(',', array_map(static fn ($c) => $c['course_code'], $r['courses'])),
+            'sort_order' => $r['sort_order'], 'rights_status' => $r['rights_status'], 'status' => 'published',
         ]);
     }
 

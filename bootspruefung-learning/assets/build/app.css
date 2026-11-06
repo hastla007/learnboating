@@ -179,3 +179,12 @@
 .bp-dl dt { font-weight: 600; }
 .bp-dl dd { margin: 0; }
 .bp-form .bp-input { flex: none; width: 100%; max-width: 32rem; }
+.bp-stats { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+.bp-steps > li { margin: 0 0 0.8rem; }
+.bp-steps p { margin: 0.2rem 0 0; }
+.bp-variant { border-top: 1px solid rgba(127,127,127,.25); padding-top: 0.6rem; margin-top: 0.6rem; }
+.bp-variant:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.bp-providers, .bp-committees { list-style: none; padding: 0; display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.bp-committees { margin-top: 0.8rem; }
+.bp-faq { border-top: 1px solid rgba(127,127,127,.25); padding: 0.5rem 0; }
+.bp-faq summary { cursor: pointer; font-weight: 600; }

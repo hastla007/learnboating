@@ -27,8 +27,8 @@ final class Schema
         'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
         // Zugang und Verkauf
         'entitlement', 'access_rule', 'product_access', 'learning_group', 'learning_group_member',
-        // Praxis-Anmeldung (ohne Prüfungsbuchung)
-        'exam_committee', 'praxis_form', 'practice_location', 'praxis_registration',
+        // Prüfungsanmeldung (Anleitung, Prüfungsausschüsse)
+        'exam_committee', 'exam_guide',
     ];
 
     public function __construct(private readonly string $prefix, private readonly string $charsetCollate)
@@ -689,63 +689,19 @@ final class Schema
 {$ts}
   PRIMARY KEY  (id),
   UNIQUE KEY source (source_system,source_id)",
-            // Formulare der Praxis-Anmeldung (Content) – lokal änderbar.
-            'praxis_form' => "
+            // Anleitungen zur Prüfungsanmeldung (Content, Seite „Prüfung buchen“ der Quelle).
+            'exam_guide' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 {$src}
+  tab varchar(64) NOT NULL,
   title varchar(190) NOT NULL,
-  min_progress_percent int(11) NOT NULL DEFAULT 50,
-  requires_fitness_certificate tinyint(1) NOT NULL DEFAULT 0,
-  fields longtext NOT NULL,
+  data longtext NOT NULL,
   course_codes varchar(255) NULL,
-  active tinyint(1) NOT NULL DEFAULT 1,
   sort_order int(11) NOT NULL DEFAULT 0,
   rights_status varchar(20) NOT NULL DEFAULT 'unknown',
-  locally_modified tinyint(1) NOT NULL DEFAULT 0,
 {$ts}
   PRIMARY KEY  (id),
   UNIQUE KEY source (source_system,source_id)",
-            // Praxisorte der Bootsschule mit Prüfungs-/Theorieort und Prüfungsausschuss.
-            'practice_location' => "
-  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  name varchar(190) NOT NULL,
-  street varchar(190) NULL,
-  postal_code varchar(20) NULL,
-  city varchar(190) NULL,
-  country varchar(64) NULL,
-  lat decimal(10,7) NULL,
-  lng decimal(10,7) NULL,
-  exam_name varchar(190) NULL,
-  exam_street varchar(190) NULL,
-  exam_postal_code varchar(20) NULL,
-  exam_city varchar(190) NULL,
-  exam_country varchar(64) NULL,
-  theory_name varchar(190) NULL,
-  theory_street varchar(190) NULL,
-  theory_postal_code varchar(20) NULL,
-  theory_city varchar(190) NULL,
-  theory_country varchar(64) NULL,
-  committee_id bigint(20) unsigned NULL,
-  course_codes varchar(255) NULL,
-  sort_order int(11) NOT NULL DEFAULT 0,
-{$ts}
-  PRIMARY KEY  (id),
-  KEY committee_id (committee_id)",
-            // Anmeldung eines Lernenden (je Kurs genau eine); data = Antworten zum Zeitpunkt der Anmeldung.
-            'praxis_registration' => "
-  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  user_id bigint(20) unsigned NOT NULL,
-  course_code varchar(64) NOT NULL,
-  form_id bigint(20) unsigned NULL,
-  form_title varchar(190) NULL,
-  data longtext NOT NULL,
-  status varchar(20) NOT NULL DEFAULT 'received',
-  admin_note longtext NULL,
-{$ts}
-  PRIMARY KEY  (id),
-  UNIQUE KEY user_course (user_id,course_code),
-  KEY form_id (form_id),
-  KEY course_status (course_code,status)",
             // Gruppenlizenzen: Kontingent aus einer Bestellposition, Plätze als Zugänge (Quelle "group").
             'learning_group' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -839,15 +795,12 @@ final class Schema
             ['praxis_progress', 'praxis_task_id', 'praxis_task', 'RESTRICT'],
             ['video_progress', 'lesson_id', 'video_lesson', 'RESTRICT'],
             ['learning_group_member', 'group_id', 'learning_group', 'CASCADE'],
-            ['practice_location', 'committee_id', 'exam_committee', 'SET NULL'],
-            ['praxis_registration', 'form_id', 'praxis_form', 'SET NULL'],
         ];
     }
 
     /** Tabellen mit personenbezogenen Lerndaten (Export/Löschung, Kap. 10). */
     public const USER_DATA_TABLES = [
         'attempt', 'progress', 'favorite', 'exam_session', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
-        'praxis_registration',
     ];
 
     private static function sourceColumns(): string

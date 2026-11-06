@@ -81,10 +81,6 @@ final class PersonalData
                 }
                 $removed = $removed || $deleted > 0;
             }
-            // Profil für die Praxis-Anmeldung (Adresse, Geburtsdatum).
-            foreach (\Bootspruefung\Learning\Practice\PracticeRegistrationService::PROFILE_FIELDS as $field) {
-                $removed = delete_user_meta($user->ID, 'bp_profile_'.$field) || $removed;
-            }
             // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
             $wpdb->query($wpdb->prepare('UPDATE `'.esc_sql($wpdb->prefix.'bp_learning_group_member').'` SET email = NULL, invite_token = NULL WHERE user_id = %d OR email = %s', $user->ID, strtolower($email)));
             $wpdb->insert($wpdb->prefix.'bp_audit_log', [

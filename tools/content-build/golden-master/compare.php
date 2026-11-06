@@ -293,7 +293,7 @@ foreach ($data('video_modules') as $m) {
 }
 $compare('video_module', $lv, $pk);
 
-// Prüfungsausschüsse (PruefungsausschussSeeder) und Praxisformulare (PraxisFormTemplateSeeder)
+// Prüfungsausschüsse (PruefungsausschussSeeder)
 $lv = [];
 foreach ($q('SELECT kommission, standorttyp, kontaktperson, strasse, plz, stadt, telefon, fax, email, website, sprechzeiten, hinweis, quelle, sort_order FROM pruefungsausschuss ORDER BY sort_order') as $r) {
     $lv[$r['kommission'].'|'.$r['standorttyp']] = [$r['kontaktperson'], $r['strasse'], $r['plz'], $r['stadt'], $r['telefon'], $r['fax'], $r['email'], $r['website'], $r['sprechzeiten'], $r['hinweis'], $r['quelle'], (int) $r['sort_order']];
@@ -303,24 +303,6 @@ foreach ($data('exam_committees') as $c) {
     $pk[$c['commission'].'|'.$c['location_type']] = [$c['contact_person'], $c['street'], $c['postal_code'], $c['city'], $c['phone'], $c['fax'], $c['email'], $c['website'], $c['office_hours'], $c['note'], $c['source_url'], $c['sort_order']];
 }
 $compare('exam_committees', $lv, $pk);
-$codes = [];
-foreach ($q('SELECT id, code FROM course_definition WHERE tenant_id IS NULL') as $r) {
-    $codes[$r['id']] = $r['code'];
-}
-$lv = [];
-foreach ($q('SELECT title, min_progress_percent, requires_tauglichkeit, fields, course_ids, active FROM praxis_form_template') as $r) {
-    $ids = json_decode((string) $r['course_ids'], true) ?: [];
-    $c = array_map(static fn ($id) => $codes[$id] ?? $id, $ids);
-    sort($c);
-    $lv[$r['title']] = [(int) $r['min_progress_percent'], $bool($r['requires_tauglichkeit']), $sortKeys(json_decode((string) $r['fields'], true)), $c, $bool($r['active'])];
-}
-$pk = [];
-foreach ($data('praxis_forms') as $f) {
-    $c = $f['course_codes'];
-    sort($c);
-    $pk[$f['title']] = [$f['min_progress_percent'], $f['requires_fitness_certificate'], $sortKeys($f['fields']), $c, $f['active']];
-}
-$compare('praxis_forms', $lv, $pk);
 
 // Funktexte und Vokabeln gegen App\Support\FunkTraining (nur mit BS_LARAVEL_DIR)
 $laravel = getenv('BS_LARAVEL_DIR');
@@ -375,6 +357,38 @@ if ($laravel) {
         ], $t['fields'])];
     }
     $compare('radio_practice', $lv, $pk);
+
+    // Anleitungen „Prüfung buchen“ gegen App\Support\ExamBooking (Seiten, Varianten, FAQ, Kurszuordnung)
+    $lv = [];
+    foreach (App\Support\ExamBooking::pages() as $key => $page) {
+        $lv[$key] = [$page['tab'], $page['title'], $page['intro'], $page['fee'], $page['lead_time'], $page['min_age'], $page['apply'], $page['deadline'], $page['documents'],
+            array_map(static fn ($k, $v) => [$k, $v['label'], $v['course'], array_map(static fn ($p) => [$p['module'], $p['label'] ?? null, $p['of'] ?? null, $p['min'] ?? null], $v['parts']), $v['minutes'] ?? null, $v['pass'] ?? null, $v['extra'] ?? null, $v['note'] ?? null], array_keys($page['variants']), $page['variants']),
+            array_map(static fn ($e) => [$e['key'], $e['title'], $e['link'], $e['text']], $page['exam_parts']),
+            array_map(static fn ($q, $a) => [$q, $a], array_keys($page['faq']), $page['faq']),
+            array_map(static fn ($p) => [$p['name'], $p['full'], $p['url'], $p['text']], App\Support\ExamBooking::providers())];
+    }
+    $courseMap = [];
+    foreach ($q('SELECT code FROM course_definition WHERE tenant_id IS NULL') as $r) {
+        foreach (App\Support\ExamBooking::pagesFor(new App\Models\CourseDefinition(['code' => $r['code']])) as $pageKey => $first) {
+            $courseMap[$pageKey][] = [$r['code'], $first];
+        }
+    }
+    foreach ($lv as $key => $_) {
+        $rows = $courseMap[$key] ?? [];
+        sort($rows);
+        $lv[$key][] = $rows;
+    }
+    $pk = [];
+    foreach ($data('exam_guides') as $g) {
+        $rows = array_map(static fn ($c) => [$c['course_code'], $c['first_variant']], $g['courses']);
+        sort($rows);
+        $pk[$g['source_id']] = [$g['tab'], $g['title'], $g['intro'], $g['fee'], $g['lead_time'], $g['min_age'], $g['apply'], $g['deadline'], $g['documents'],
+            array_map(static fn ($v) => [$v['key'], $v['label'], $v['course_code'], array_map(static fn ($p) => [$p['module'], $p['label'], $p['of'], $p['min']], $v['parts']), $v['minutes'], $v['pass'], $v['extra'], $v['note']], $g['variants']),
+            array_map(static fn ($e) => [$e['key'], $e['title'], $e['link'], $e['text']], $g['exam_parts']),
+            array_map(static fn ($f) => [$f['question'], $f['answer']], $g['faq']),
+            array_map(static fn ($p) => [$p['name'], $p['full'], $p['url'], $p['text']], $g['providers']), $rows];
+    }
+    $compare('exam_guides', $lv, $pk);
 
     // Gerätesimulation gegen Geraetesimulation (Browserdaten, Musterlösungen, Prüfpunkte)
     $sim = $data('device_simulation')[0];

@@ -138,9 +138,9 @@ final class LearnerController
             'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES))),
             'limits' => $this->access->limits($user, $course->code),
             'downloads' => \Bootspruefung\Learning\Gate\DownloadService::items($user, $course->code),
-            // Praxis-Anmeldung nur, wenn freigeschaltet und für den Kurs ein Formular aktiv ist.
-            'praxis' => \Bootspruefung\Learning\Practice\PracticeRegistrationService::enabled() && ($form = (new \Bootspruefung\Learning\Practice\PracticeRegistrationService($this->content))->formFor((string) $course->code)) !== null
-                ? ['title' => $form->title] : null,
+            // Prüfungsanmeldung (Anleitung) nur, wenn freigeschaltet und eine Anleitung für den Kurs existiert.
+            'exam_guide' => \Bootspruefung\Learning\ExamGuide\ExamGuideService::enabled() && ($pages = (new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->pagesFor((string) $course->code)) !== []
+                ? ['tabs' => array_map(static fn ($p) => $p['guide']['tab'], $pages)] : null,
         ];
     }
 
