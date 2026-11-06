@@ -29,6 +29,7 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 22 | Design | Designreferenzen und Markentexte | 🔴 | Du | nein | Liefern; Anpassung der CSS/Texte |
 | 23 | Technik | Rückkehr zur Gruppeneinladung nach Registrierung (nur nach Login automatisch) | 🟡 | Dev | nein | Redirect nach Registrierung ergänzen |
 | 24 | Technik | Vorschau von `wp bootspruefung reconcile` zeigt Gruppenänderungen nicht | 🟡 | Dev | nein | Gruppen in die Vorschau aufnehmen |
+| 26 | Shop | Checkout-Block: Gäste sehen bei Lernprodukten weiterhin Formular und Bestellknopf ohne Konto-Hinweis (Optionen-Filter greift im Block nicht) | 🔴 | Dev | ja | Serverseitig gesperrt (Store-API-Prüfung); Anzeige im Block nachbessern oder klassischen Checkout nutzen |
 | 25 | Technik | Herkunft der übrig gebliebenen Einstellung „entitled_only“ zwischen CI-Schritten | 🟡 | Dev | nein | E2E-Setup stellt den Zustand jetzt selbst her; Ursache klären |
 
 Erledigt seit dem letzten Stand: Downloads (PDF) je Kurs, Zuordnungsfehler in der Übersicht, Dispute-Webhooks (PayPal, allgemein), Prüfungsausschüsse und Anleitung zur Selbstanmeldung (deaktiviert), FKN-Entscheidung (dabei), Zielgruppe B2C festgelegt.

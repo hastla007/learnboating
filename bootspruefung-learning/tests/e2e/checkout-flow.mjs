@@ -57,7 +57,7 @@ try {
   const offer = page.getByRole('link', { name: 'Lernpaket SBF Binnen Segel' }).first();
   await shot(page, '51-sperrhinweis');
   await offer.click();
-  await page.getByRole('button', { name: /add to cart|in den warenkorb/i }).click();
+  await page.locator('button.single_add_to_cart_button').click();
   await page.waitForLoadState('networkidle');
 
   step('Block-Checkout mit Überweisung');
