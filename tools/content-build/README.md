@@ -24,8 +24,11 @@ Seedern und bildet deren Logik nach (Kopien, Kapitel-Einschübe, Quizzuordnung n
 Lektion). Funktexte und Vokabeln kommen aus `database/data/funk_*.php` mit den Schlüsseln
 von `App\Support\FunkTraining`.
 
-Noch nicht konvertiert (siehe `not_converted` im Manifest): Funkpraxis-Szenarien (8a),
-Gerätesimulation (8b), Bootsschul-Betriebsfunktionen.
+Funkpraxis-Szenarien und Funksprüche der Gerätesimulation erzeugt der Generator
+`App\Support\FunkPraxis` der Quelle; er ist reines PHP ohne Framework-Abhängigkeit und wird
+unverändert aus dem Snapshot geladen (`scenario()`), damit die Ausgabe identisch bleibt.
+
+Noch nicht konvertiert (siehe `not_converted` im Manifest): Bootsschul-Betriebsfunktionen.
 
 ## Tests
 

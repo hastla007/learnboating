@@ -326,6 +326,67 @@ if ($laravel) {
         $pk[$v['source_id']] = ['category' => $v['category'], 'de' => $v['term_de'], 'en' => $v['term_en'], 'hint' => $v['hint']];
     }
     $compare('radio_vocabulary', $lv, $pk);
+
+    // Funkpraxis gegen FunkPraxis::tasks()
+    $checks = static fn (array $list): array => array_map(static fn ($c) => is_array($c) && isset($c['pattern']) ? [$c['label'], $c['pattern'], $c['min']] : [$c[0], $c[1], (int) $c[2]], $list);
+    $lv = [];
+    foreach (['SRC', 'UBI'] as $catalog) {
+        foreach (App\Support\FunkPraxis::tasks($catalog) as $t) {
+            $lv[$t['key']] = ['kind' => $t['kind'], 'de' => $t['situation_de'] ?? $t['situation'] ?? '', 'en' => $t['situation_en'] ?? null, 'fields' => array_map(static fn ($f) => [
+                $f['name'], $f['label'], $f['solution'], $checks($f['checks']),
+                isset($f['parts']) ? array_map(static fn ($p) => [$p['solution'], $checks($p['checks'])], $f['parts']) : null,
+            ], $t['fields'])];
+        }
+    }
+    $pk = [];
+    foreach ($data('radio_practice') as $t) {
+        $pk[$t['source_id']] = ['kind' => $t['kind'], 'de' => $t['situation_de'], 'en' => $t['situation_en'], 'fields' => array_map(static fn ($f) => [
+            $f['name'], $f['label'], $f['solution'], $checks($f['checks']),
+            $f['parts'] === null ? null : array_map(static fn ($p) => [$p['solution'], $checks($p['checks'])], $f['parts']),
+        ], $t['fields'])];
+    }
+    $compare('radio_practice', $lv, $pk);
+
+    // Gerätesimulation gegen Geraetesimulation (Browserdaten, Musterlösungen, Prüfpunkte)
+    $sim = $data('device_simulation')[0];
+    $lv = [];
+    foreach (App\Support\Geraetesimulation::lessonsForBrowser() as $lesson) {
+        $lv[$lesson['key']] = ['browser' => $lesson, 'solutions' => App\Support\Geraetesimulation::solutions($lesson['key'])];
+    }
+    $pk = [];
+    foreach ($sim['lessons'] as $lesson) {
+        $browser = $lesson;
+        $browser['steps'] = array_map(static function ($step) {
+            $step['speech'] = isset($step['speech']);
+
+            return $step;
+        }, $lesson['steps']);
+        $pk[$lesson['key']] = ['browser' => $browser, 'solutions' => array_values(array_map(static fn ($s) => $s['speech']['solution'], array_filter($lesson['steps'], static fn ($s) => isset($s['speech']))))];
+    }
+    $compare('device_lesson', $lv, $pk);
+    // Prüfpunkte: Musterlösung muss bei beiden alle Prüfpunkte bestehen, ein leerer Text keinen
+    $speechDiffs = 0;
+    foreach ($sim['lessons'] as $lesson) {
+        foreach ($lesson['steps'] as $i => $step) {
+            if (! isset($step['speech'])) {
+                continue;
+            }
+            foreach ([$step['speech']['solution'], '', 'MAYDAY OVER'] as $probe) {
+                $ref = App\Support\Geraetesimulation::evaluate($lesson['key'], $i, $probe);
+                $own = App\Support\FunkPraxis::checkText($checks($step['speech']['checks']), $probe);
+                $speechDiffs += $ref === $own ? 0 : 1;
+            }
+        }
+    }
+    if ($speechDiffs > 0) {
+        $diffs[] = "device_lesson: {$speechDiffs} abweichende Bewertungen von Funksprüchen";
+    }
+    $laravelMeta = App\Support\Geraetesimulation::data();
+    foreach (['ship', 'address_book', 'directory', 'devices', 'exams', 'exam_meta'] as $key) {
+        if ($laravelMeta[$key] !== $sim[$key]) {
+            $diffs[] = "device_simulation.{$key} weicht ab";
+        }
+    }
 } else {
     echo "Hinweis: BS_LARAVEL_DIR nicht gesetzt – Funktexte/Vokabeln nicht verglichen.\n";
 }

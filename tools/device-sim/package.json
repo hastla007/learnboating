@@ -1,0 +1,10 @@
+{
+    "private": true,
+    "description": "Baut das CSS der Gerätesimulation (Tailwind-Klassen aus resources/js/funkgeraet der Quelle) für das WordPress-Plugin.",
+    "scripts": {
+        "build": "tailwindcss -c tailwind.config.cjs -i input.css -o ../../bootspruefung-learning/assets/device-sim/device-sim.css --minify"
+    },
+    "devDependencies": {
+        "tailwindcss": "3.4.17"
+    }
+}

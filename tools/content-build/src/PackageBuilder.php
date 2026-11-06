@@ -21,9 +21,10 @@ final class PackageBuilder
 {
     use Concerns\BuildsVideoCourses;
     use Concerns\BuildsRadioTraining;
+    use Concerns\BuildsRadioPractice;
 
-    public const CONVERTER_VERSION = '0.2.0';
-    public const SCHEMA_VERSION = '1.1.0';
+    public const CONVERTER_VERSION = '0.3.0';
+    public const SCHEMA_VERSION = '1.2.0';
 
     private const XLSX_MODULE_MAP = [
         'Basis' => 'SBF_BASIS',
@@ -65,8 +66,6 @@ final class PackageBuilder
 
     /** Inhalte, die diese Konverter-Version noch nicht überführt (Kap. 11, Schritte 8–8b). */
     private const NOT_CONVERTED = [
-        ['entity' => 'radio_practice', 'source' => 'database/data/funk_praxis_aufgaben.php, app/Support/FunkPraxis.php', 'reason' => 'Funkpraxis-Szenarien: eigener Meilenstein (Kap. 11, Schritt 8a).'],
-        ['entity' => 'device_simulation', 'source' => 'database/data/geraetesimulation.php, app/Support/Geraetesimulation.php, resources/js/funkgeraet/', 'reason' => 'Eigener Meilenstein (Kap. 11, Schritt 8b).'],
         ['entity' => 'operations', 'source' => 'pruefung_buchen.php, pruefungsausschuesse.csv, PraxisFormTemplateSeeder', 'reason' => 'Bootsschul-Betriebsfunktion, nicht im Umfang V1 (Kap. 1).'],
     ];
 
@@ -140,6 +139,8 @@ final class PackageBuilder
             'video_modules' => $this->videoRecords(),
             'radio_texts' => $this->radioTextRecords(),
             'radio_vocabulary' => $this->radioVocabularyRecords(),
+            'radio_practice' => $this->radioPracticeRecords(),
+            'device_simulation' => $this->deviceSimulationRecords(),
         ];
     }
 

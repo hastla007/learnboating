@@ -19,6 +19,8 @@ JSON-Schemata (Draft 2020-12) für das Paket, das `tools/content-build/` aus
   data/video_modules.json    # video_modules.schema.json (ab 1.1: Kapitel mit Lektionen, Schritten, Quizfragen)
   data/radio_texts.json      # radio_texts.schema.json (ab 1.1: SRC-Texte, UBI-Aufnahme/-Abgabe)
   data/radio_vocabulary.json # radio_vocabulary.schema.json (ab 1.1: Vokabeln, Buchstabiertafel)
+  data/radio_practice.json   # radio_practice.schema.json (ab 1.2: Funkpraxis-Szenarien mit Prüfpunkten)
+  data/device_simulation.json # device_simulation.schema.json (ab 1.2: Geräte, Lektionen, Prüfungsreihen)
   media/…                    # Dateien, Pfade wie in media.json
 ```
 
@@ -32,7 +34,7 @@ Das ZIP `<package_id>.zip` enthält dieselbe Struktur.
   `NAV-01-01`; Medien: `elwis/<datei>`, `praxistrainer/<datei>`.
 - **Hash:** Jeder Datensatz trägt `hash` = `sha256:` + SHA-256 seines JSON ohne das Feld
   `hash`. Gleicher Hash → unverändert; anderer Hash → neue Revision bzw. Update.
-- **Versionen:** 1.0 ohne Video/Funk; 1.1 ergänzt `video_modules`, `radio_texts`, `radio_vocabulary`. Das Plugin liest beide (fehlende Dateien eines 1.0-Pakets gelten als leer).
+- **Versionen:** 1.0 ohne Video/Funk; 1.1 ergänzt `video_modules`, `radio_texts`, `radio_vocabulary`; 1.2 ergänzt `radio_practice`, `device_simulation`. Das Plugin liest beide (fehlende Dateien eines 1.0-Pakets gelten als leer).
 - **Video/Funk-IDs:** Lektionen `<Kurs>::<Kapitel>::<Lektion>`, Funktexte `TXT-SRC-01`, `UBI-AUF-01`, `UBI-ABG-01`, Vokabeln `VOC-SRC-<hash>`, `VOC-UBI-<Buchstabe>` – die Fortschrittsschlüssel der Quelle.
 - **Paket-ID:** `boatingschool-<commit7>-<content12>`; identischer Inhalt ergibt dieselbe ID.
 - **Fragen:** Das Paket liefert je Frage den aktuellen Stand. Revisionen entstehen erst

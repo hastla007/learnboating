@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/radio_practice.schema.json",
+  "title": "Funkpraxis-Szenarien mit Musterlösungen und Prüfpunkten (data/radio_practice.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "catalog", "number", "kind", "situation_de", "situation_en", "fields", "course_codes", "sort_order", "source", "rights_status", "source_file", "hash"],
+    "properties": {
+      "source_id": { "type": "string", "pattern": "^(SRC|UBI)-[0-9]{2,}$" },
+      "catalog": { "enum": ["SRC", "UBI"] },
+      "number": { "type": "integer", "minimum": 1 },
+      "kind": { "type": "string", "minLength": 1 },
+      "situation_de": { "type": "string", "minLength": 1 },
+      "situation_en": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "fields": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "label", "placeholder", "multiline", "solution", "checks", "parts"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z_]+$" },
+            "label": { "type": "string" },
+            "placeholder": { "type": "string" },
+            "multiline": { "type": "boolean" },
+            "solution": { "type": "string" },
+            "checks": { "$ref": "#/$defs/checks" },
+            "parts": { "type": ["object", "null"], "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["solution", "checks"], "properties": { "solution": { "type": "string" }, "checks": { "$ref": "#/$defs/checks" } } } }
+          }
+        }
+      },
+      "course_codes": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "sort_order": { "type": "integer" },
+      "source": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  },
+  "$defs": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "pattern", "min"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "pattern": { "type": "string", "minLength": 1 },
+          "min": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

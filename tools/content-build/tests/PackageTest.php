@@ -96,6 +96,8 @@ final class PackageTest extends TestCase
         self::assertSame(1349, $counts['video_lesson_questions']);
         self::assertSame(43, $counts['radio_texts']);
         self::assertSame(410, $counts['radio_vocabulary']);
+        self::assertSame(72, $counts['radio_practice']);
+        self::assertSame(1, $counts['device_simulation']);
     }
 
     public function testSourceIdsAreUnique(): void
@@ -220,6 +222,36 @@ final class PackageTest extends TestCase
             self::assertFalse(str_starts_with((string) $r['feedback_incorrect'], 'Falsch.'), $q['source_id']);
             self::assertDoesNotMatchRegularExpression('/^Richtig ist: „/u', (string) $r['feedback_incorrect'], $q['source_id']);
         }
+    }
+
+    public function testModelSolutionsPassTheirOwnChecks(): void
+    {
+        // Wie FunkPraxis::evaluate(): Großschreibung, Umlaute gefaltet, Satzzeichen weg.
+        $fold = static fn (string $t): string => strtr($t, ['Ä' => 'AE', 'Ö' => 'OE', 'Ü' => 'UE', 'ẞ' => 'SS', 'ß' => 'SS']);
+        $normalize = static fn (string $t): string => ' '.trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', $fold(mb_strtoupper($t)))).' ';
+        $failed = [];
+        foreach (self::data('radio_practice') as $task) {
+            foreach ($task['fields'] as $field) {
+                if ($field['name'] !== 'message') {
+                    continue;
+                }
+                foreach ($field['checks'] as $c) {
+                    if (preg_match_all('/'.$fold($c['pattern']).'/u', $normalize($field['solution'])) < $c['min']) {
+                        $failed[] = "{$task['source_id']}: {$c['label']}";
+                    }
+                }
+            }
+        }
+        foreach (self::data('device_simulation')[0]['lessons'] as $lesson) {
+            foreach ($lesson['steps'] as $i => $step) {
+                foreach ($step['speech']['checks'] ?? [] as $c) {
+                    if (preg_match_all('/'.$fold($c['pattern']).'/u', $normalize($step['speech']['solution'])) < $c['min']) {
+                        $failed[] = "{$lesson['key']}#{$i}: {$c['label']}";
+                    }
+                }
+            }
+        }
+        self::assertSame([], $failed);
     }
 
     public function testUbiErgaenzungReplacesUbiInCombinedCourses(): void
