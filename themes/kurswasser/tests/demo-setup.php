@@ -12,7 +12,7 @@ require rtrim((string) getenv('WP_DIR'), '/').'/wp-load.php';
 
 wp_set_current_user(1);
 switch_theme('kurswasser');
-do_action('after_switch_theme', 'kurswasser');
+kurswasser_create_pages();
 if (class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class) && function_exists('wc_get_product_id_by_sku')) {
     $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, true);
     \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();

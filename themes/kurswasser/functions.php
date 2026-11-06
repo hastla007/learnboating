@@ -68,7 +68,10 @@ add_action('init', static function (): void {
  * Pflichtseiten beim Aktivieren als Entwurf anlegen (Impressum, Datenschutz, AGB, Widerruf, Kontakt).
  * Keine Rechtstexte – nur Gerüst mit deutlichem Platzhalter; Inhalte liefert der Betreiber.
  */
-add_action('after_switch_theme', static function (): void {
+add_action('after_switch_theme', 'kurswasser_create_pages');
+
+function kurswasser_create_pages(): void
+{
     $pages = [
         'impressum' => __('Impressum', 'kurswasser'),
         'datenschutz' => __('Datenschutzerklärung', 'kurswasser'),
@@ -88,7 +91,7 @@ add_action('after_switch_theme', static function (): void {
             update_post_meta((int) $id, '_wp_page_template', 'page-legal');
         }
     }
-});
+}
 
 /** Kurzlink-Ziele für Navigation und Muster (robust gegenüber Sprache/Permalinks). */
 function kurswasser_url(string $target): string
