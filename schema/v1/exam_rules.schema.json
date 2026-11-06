@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/exam_rules.schema.json",
+  "title": "Prüfungsregelwerke mit Blueprints (data/exam_rules.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "course_code", "version", "valid_from", "valid_until", "time_limit_seconds", "passing_rule", "status", "verified", "blueprints", "source_file", "hash"],
+    "properties": {
+      "source_id": { "$ref": "common.schema.json#/$defs/sourceId" },
+      "course_code": { "$ref": "common.schema.json#/$defs/courseCode" },
+      "version": { "type": "string" },
+      "valid_from": { "$ref": "common.schema.json#/$defs/date" },
+      "valid_until": { "$ref": "common.schema.json#/$defs/date" },
+      "time_limit_seconds": { "type": "integer", "minimum": 1 },
+      "passing_rule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["min_correct_ratio"],
+        "properties": {
+          "min_correct_ratio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["module", "label", "min_correct", "of"],
+              "properties": {
+                "module": { "$ref": "common.schema.json#/$defs/moduleCode" },
+                "label": { "type": "string" },
+                "min_correct": { "type": "integer", "minimum": 0 },
+                "of": { "type": "integer", "minimum": 1 }
+              }
+            }
+          },
+          "note": { "type": "string" }
+        }
+      },
+      "status": { "$ref": "common.schema.json#/$defs/editorialStatus" },
+      "verified": { "type": "boolean" },
+      "blueprints": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module_code", "question_count"],
+          "properties": {
+            "module_code": { "$ref": "common.schema.json#/$defs/moduleCode" },
+            "question_count": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}
