@@ -13,7 +13,8 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 900 }, dev
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const external = new Set();
-page.on('requestfailed', (r) => { if (!r.url().startsWith(base)) { external.add(new URL(r.url()).host); } else { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
+// Durch Seitenwechsel abgebrochene Anfragen (net::ERR_ABORTED) sind kein Fehler.
+page.on('requestfailed', (r) => { if (r.failure()?.errorText === 'net::ERR_ABORTED') { return; } if (!r.url().startsWith(base)) { external.add(new URL(r.url()).host); } else { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
 // Fehler externer Ressourcen (z. B. Emoji-CDN des Themes) betreffen das Plugin nicht.
 page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
 const shot = async (name) => { if (shots) { await page.screenshot({ path: `${shots}/${name}.png`, fullPage: true }); } };

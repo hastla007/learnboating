@@ -32,4 +32,9 @@ foreach (['navigation_task', 'praxis_task', 'video_module', 'media'] as $type) {
         \Bootspruefung\Learning\Content\Repositories\Overrides::set($type, $ids, 'rights_status', 'licensed', 'E2E-Testumgebung');
     }
 }
+// Wiederholbare Läufe: Lern- und Trainerfortschritt des Testnutzers zurücksetzen.
+$learner = get_user_by('login', 'lerner1');
+foreach (['progress', 'favorite', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress'] as $table) {
+    $wpdb->delete($wpdb->prefix.'bp_'.$table, ['user_id' => $learner->ID]);
+}
 echo "E2E-Setup fertig.\n";

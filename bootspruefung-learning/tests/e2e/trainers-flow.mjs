@@ -10,7 +10,8 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: Number(process.env.BP_SCALE ?? 1) });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-page.on('requestfailed', (r) => { if (r.url().startsWith(base)) { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
+// Durch Seitenwechsel abgebrochene Anfragen (net::ERR_ABORTED) sind kein Fehler.
+page.on('requestfailed', (r) => { if (r.failure()?.errorText === 'net::ERR_ABORTED') { return; } if (r.url().startsWith(base)) { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
 const shot = async (name) => { if (shots) { await page.screenshot({ path: `${shots}/${name}.png`, fullPage: true }); } };
 const step = (s) => console.log('·', s);
 
