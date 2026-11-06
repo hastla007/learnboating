@@ -13,6 +13,15 @@ update_option('siteurl', $url);
 update_option('home', $url);
 update_option('permalink_structure', '/%postname%/');
 delete_option('bp_learning_rewrite_version');
+// Zielsystem: reines Block-Theme (FSE) mit Checkout-Block.
+$theme = (string) (getenv('BP_THEME') ?: 'twentytwentyfive');
+if (get_stylesheet() !== $theme) {
+    switch_theme($theme);
+}
+if (! wp_is_block_theme()) {
+    fwrite(STDERR, "Theme {$theme} ist kein Block-Theme.\n");
+    exit(1);
+}
 
 $users = [
     ['lerner1', 'Test-Passwort-123', 'subscriber', 'Lea Lernt'],
@@ -41,4 +50,4 @@ foreach (['progress', 'favorite', 'navigation_progress', 'praxis_progress', 'vid
 $before = \Bootspruefung\Learning\Settings\Settings::get('default_access');
 $rules = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bp_access_rule");
 update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['default_access' => 'logged_in']));
-echo "E2E-Setup fertig (vorher: default_access={$before}, Regeln={$rules}).\n";
+printf("E2E-Setup fertig (vorher: default_access=%s, Regeln=%d). PHP %s, WordPress %s, Theme %s, DB %s.\n", $before, $rules, PHP_VERSION, get_bloginfo('version'), get_stylesheet(), $wpdb->db_server_info());

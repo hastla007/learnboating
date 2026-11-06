@@ -87,11 +87,13 @@ jobs:
           BS_PASSWORD="$DB_PW" BS_LARAVEL_DIR="$RUNNER_TEMP/laravel" php tools/content-build/golden-master/compare.php build/boatingschool-*/
 
   plugin:
-    name: WordPress-Plugin
+    name: WordPress-Plugin (PHP ${{ matrix.php }}, WC ${{ matrix.wc }}, MariaDB ${{ matrix.mariadb }})
     runs-on: ubuntu-24.04
+    # Beta-Zweig von WooCommerce informiert nur, blockiert nicht.
+    continue-on-error: ${{ matrix.experimental }}
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:${{ matrix.mariadb }}
         env:
           MARIADB_ROOT_PASSWORD: root
           MARIADB_DATABASE: wp_test
@@ -101,8 +103,16 @@ jobs:
         options: >-
           --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
     strategy:
+      fail-fast: false
       matrix:
-        php: ['8.1', '8.3']
+        include:
+          # Zielsystem (docs/offene-punkte.md, Punkt 20): PHP 8.5, WordPress 7.1.4, MariaDB 12.3.3,
+          # WooCommerce 11.2.2, Block-Theme mit Checkout-Block – inkl. Browser-Tests.
+          - { php: '8.5', wc: '11.2.2', mariadb: '12.3.3', e2e: true, experimental: false }
+          # Testphase: WooCommerce 11.3 Beta mit demselben Stack.
+          - { php: '8.5', wc: '11.3.0-beta.2', mariadb: '12.3.3', e2e: true, experimental: true }
+          # Untergrenze laut Plugin-Header (Requires PHP 8.1).
+          - { php: '8.1', wc: '11.2.2', mariadb: '10.11', e2e: false, experimental: false }
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -122,7 +132,7 @@ jobs:
       - name: Plugin-Schemata identisch mit schema/
         run: diff -r schema/v1 bootspruefung-learning/schema/v1
       - name: Gerätesimulation entspricht dem Snapshot (JS + CSS)
-        if: matrix.php == '8.3'
+        if: matrix.e2e
         run: |
           tools/sync-device-sim.sh
           git diff --exit-code -- bootspruefung-learning/assets/device-sim
@@ -154,7 +164,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/woocommerce.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
         env:
-          WC_VERSION: '11.2.2'
+          WC_VERSION: ${{ matrix.wc }}
       - name: WooCommerce-Adapter (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-test.php | tee woo.log
@@ -163,7 +173,7 @@ jobs:
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Browser-Tests (Playwright)
-        if: matrix.php == '8.3'
+        if: matrix.e2e
         run: |
           npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1.48.2
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
@@ -186,9 +196,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/shots"
           WP_DIR="$RUNNER_TEMP/wp" BP_SHOTS="$RUNNER_TEMP/shots" node bootspruefung-learning/tests/e2e/checkout-flow.mjs
       - name: Screenshots Kaufablauf
-        if: always() && matrix.php == '8.3'
+        if: always() && matrix.e2e
         uses: actions/upload-artifact@v4
         with:
-          name: checkout-screenshots
+          name: checkout-screenshots-wc-${{ matrix.wc }}
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
