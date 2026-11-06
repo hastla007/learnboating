@@ -35,6 +35,7 @@ final class ContentPages
         add_action('admin_post_bp_override', [$this, 'handleOverride']);
         add_action('admin_post_bp_rights_release', [$this, 'handleRelease']);
         add_action('admin_post_bp_chart', [$this, 'handleChart']);
+        add_action('admin_post_bp_rules_release', [$this, 'handleRulesRelease']);
     }
 
     // ------------------------------------------------------------------
@@ -334,6 +335,13 @@ final class ContentPages
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Prüfungsregeln', 'bootspruefung-learning').'</h1>';
         Ui::notice();
         echo '<p class="description">'.esc_html__('Live-Prüfungsmodus nur mit veröffentlichtem, gültigem und fachlich verifiziertem Regelwerk (Kap. 4.5). Sonst ist die Simulation als Übungsmodus gekennzeichnet.', 'bootspruefung-learning').'</p>';
+        $pendingRules = \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, true);
+        if ($pendingRules !== []) {
+            echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'.esc_html(sprintf(__('%1$d Regelwerke sind noch nicht live: %2$s. Freigabe markiert sie als verifiziert und – bei Entwürfen der Quelle – als veröffentlicht (lokaler Override, umkehrbar).', 'bootspruefung-learning'), count($pendingRules), implode(', ', array_column($pendingRules, 'course')))).'</p>';
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rules_release', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_rules_release"><input type="text" class="regular-text" name="reason" required value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON).'"> ';
+            submit_button(__('Alle Regelwerke freigeben', 'bootspruefung-learning'), 'primary', '', false);
+            echo '</form></div>';
+        }
         $overrides = Overrides::forType('exam_rule');
         foreach ($this->db->get_results("SELECT r.*, c.code, c.name FROM {$this->t('exam_rule')} r JOIN {$this->t('course')} c ON c.id = r.course_id ORDER BY c.sort_order, r.id") as $rule) {
             $passing = json_decode((string) $rule->passing_rule, true) ?: [];
@@ -481,6 +489,21 @@ final class ContentPages
             Ui::flash(sprintf(__('%d Inhalte freigegeben.', 'bootspruefung-learning'), $n));
         }
         wp_safe_redirect(Ui::url('bootspruefung-rights'));
+        exit;
+    }
+
+    public function handleRulesRelease(): void
+    {
+        $this->can();
+        check_admin_referer('bp_rules_release');
+        $reason = trim(sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
+        if ($reason === '') {
+            Ui::flash(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'), 'error');
+        } else {
+            $n = count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules($reason));
+            Ui::flash(sprintf(__('%d Regelwerke freigegeben – Prüfungssimulation jetzt im Live-Modus.', 'bootspruefung-learning'), $n));
+        }
+        wp_safe_redirect(Ui::url('bootspruefung-rules'));
         exit;
     }
 

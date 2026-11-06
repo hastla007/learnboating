@@ -348,11 +348,12 @@ final class AccessPages
     {
         $woo = function_exists('wc_get_product_id_by_sku');
         echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Festgelegter Katalog', 'bootspruefung-learning').'</h2><p>'
-            .esc_html__('Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe. Produktkatalog: 17 Produkte mit Preisen, Laufzeit (12 bzw. 6 Monate, Pässe 30/90 Tage) und Geld-zurück-Garantie (14 Tage, unter 20 % gelernt). Wiederholbar; neue Produkte bleiben Entwurf.', 'bootspruefung-learning').'</p>';
+            .esc_html__('Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe. Produktkatalog: 17 Produkte mit Preisen, Laufzeit (12 bzw. 6 Monate, Pässe 30/90 Tage) und Geld-zurück-Garantie (14 Tage, unter 20 % gelernt). Mit Produktbildern, Kategorien und Texten aus den Kursinhalten (von Hand geänderte Texte/Bilder bleiben erhalten). Wiederholbar.', 'bootspruefung-learning').'</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_shop_catalog', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_catalog">';
         echo '<button class="button" name="op" value="free">'.esc_html__('Schnupper-Paket anlegen', 'bootspruefung-learning').'</button> ';
         if ($woo) {
-            echo '<button class="button" name="op" value="products">'.esc_html__('Produktkatalog anlegen/abgleichen', 'bootspruefung-learning').'</button>';
+            echo '<button class="button" name="op" value="products">'.esc_html__('Produktkatalog anlegen/abgleichen', 'bootspruefung-learning').'</button> ';
+            echo '<label><input type="checkbox" name="publish" value="1"> '.esc_html__('Produkte veröffentlichen (sonst Entwurf)', 'bootspruefung-learning').'</label>';
         }
         echo '</form></div>';
     }
@@ -363,9 +364,10 @@ final class AccessPages
         $op = sanitize_key(wp_unslash($_POST['op'] ?? ''));
         try {
             if ($op === 'products') {
-                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
+                $publish = ! empty($_POST['publish']);
+                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, $publish);
                 $new = count(array_filter($rows, static fn ($r) => $r['action'] === 'neu'));
-                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu (Entwurf).', 'bootspruefung-learning'), count($rows), $new));
+                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu – %3$s.', 'bootspruefung-learning'), count($rows), $new, $publish ? __('veröffentlicht', 'bootspruefung-learning') : __('neue als Entwurf', 'bootspruefung-learning')));
             } else {
                 $r = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
                 Ui::flash(sprintf(__('Schnupper-Paket: %d Regel(n) angelegt.', 'bootspruefung-learning'), $r['added']));

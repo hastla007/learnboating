@@ -257,6 +257,9 @@ final class Commands
      * [--dry-run]
      * : Nur zählen.
      *
+     * [--exam-rules]
+     * : Zusätzlich alle Prüfungsregelwerke verifizieren/veröffentlichen.
+     *
      * @param list<string> $args
      * @param array<string,string> $assoc
      */
@@ -264,6 +267,11 @@ final class Commands
     {
         $reason = (string) ($assoc['reason'] ?? \Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON);
         $counts = \Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, isset($assoc['dry-run']));
+        if (isset($assoc['exam-rules'])) {
+            foreach (\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, isset($assoc['dry-run'])) as $r) {
+                WP_CLI::log(sprintf('Regelwerk %s (#%d): %s', $r['course'], $r['id'], implode(', ', $r['changes'])));
+            }
+        }
         WP_CLI\Utils\format_items('table', array_map(static fn ($t, $n) => ['type' => $t, 'count' => $n], array_keys($counts), $counts), ['type', 'count']);
         WP_CLI::success(isset($assoc['dry-run']) ? 'Vorschau.' : array_sum($counts).' Inhalte freigegeben.');
     }

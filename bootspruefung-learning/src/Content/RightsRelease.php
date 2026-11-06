@@ -48,4 +48,47 @@ final class RightsRelease
 
         return $out;
     }
+
+    public const RULES_REASON = 'Vorläufige Freigabe der Prüfungsregelwerke durch den Betreiber (06.11.2026)';
+
+    /**
+     * Alle Prüfungsregelwerke live schalten: verifiziert und (bei Entwürfen) veröffentlicht.
+     *
+     * @return list<array{id:int,course:string,changes:list<string>}>
+     */
+    public static function releaseExamRules(string $reason = self::RULES_REASON, bool $dryRun = false): array
+    {
+        global $wpdb;
+        $p = $wpdb->prefix.'bp_';
+        $overrides = Overrides::forType('exam_rule');
+        $out = [];
+        // Nur das jeweils neueste nicht archivierte Regelwerk je Kurs (wie ContentRepository::examRule).
+        $rules = $wpdb->get_results("SELECT r.id, r.status, r.verified, c.code FROM {$p}exam_rule r JOIN {$p}course c ON c.id = r.course_id WHERE r.status <> 'source_archived' AND r.id = (SELECT MAX(r2.id) FROM {$p}exam_rule r2 WHERE r2.course_id = r.course_id AND r2.status <> 'source_archived')");
+        foreach ($rules as $rule) {
+            $o = $overrides[(int) $rule->id] ?? [];
+            $verified = array_key_exists('verified', $o) ? (int) $o['verified'] : (int) $rule->verified;
+            $status = array_key_exists('status', $o) ? (string) $o['status'] : (string) $rule->status;
+            $changes = [];
+            if ($verified !== 1) {
+                $changes[] = 'verified';
+            }
+            if ($status !== 'published') {
+                $changes[] = 'published';
+            }
+            if ($changes === []) {
+                continue;
+            }
+            if (! $dryRun) {
+                if (in_array('verified', $changes, true)) {
+                    Overrides::set('exam_rule', [(int) $rule->id], 'verified', '1', $reason);
+                }
+                if (in_array('published', $changes, true)) {
+                    Overrides::set('exam_rule', [(int) $rule->id], 'status', 'published', $reason);
+                }
+            }
+            $out[] = ['id' => (int) $rule->id, 'course' => (string) $rule->code, 'changes' => $changes];
+        }
+
+        return $out;
+    }
 }

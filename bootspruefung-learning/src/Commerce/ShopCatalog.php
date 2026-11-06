@@ -33,7 +33,7 @@ final class ShopCatalog
     ];
     public const FREE_REASON = 'Schnupper-Paket (Shop-Katalog)';
 
-    /** @return list<array{sku:string,name:string,price:string,days:int,courses:list<string>}> */
+    /** @return list<array{sku:string,name:string,price:string,days:int,courses:list<string>,group:string}> */
     public static function products(): array
     {
         $list = [
@@ -47,14 +47,18 @@ final class ShopCatalog
             ['sku' => 'BP-SKN', 'name' => 'SKN Vollkurs', 'price' => '13.90', 'days' => 182, 'courses' => ['SKN']],
             ['sku' => 'BP-FKN', 'name' => 'FKN Vollkurs', 'price' => '13.90', 'days' => 182, 'courses' => ['FKN']],
         ];
+        $groups = ['BP-SBF-SEE-BIN' => 'sbf', 'BP-SBF-SEE' => 'sbf', 'BP-SBF-BIN' => 'sbf', 'BP-SBF-BIN-SEGEL' => 'sbf', 'BP-SRC-UBI' => 'funk', 'BP-SRC' => 'funk', 'BP-UBI' => 'funk', 'BP-SKN' => 'signal', 'BP-FKN' => 'signal'];
+        foreach ($list as $i => $item) {
+            $list[$i]['group'] = $groups[$item['sku']];
+        }
         $names = Labels::courses();
         foreach (self::ADDONS as $code) {
-            $list[] = ['sku' => 'BP-'.$code, 'name' => $names[$code] ?? $code, 'price' => '13.90', 'days' => 182, 'courses' => [$code]];
+            $list[] = ['sku' => 'BP-'.$code, 'name' => $names[$code] ?? $code, 'price' => '13.90', 'days' => 182, 'courses' => [$code], 'group' => 'addon'];
         }
-        $list[] = ['sku' => 'BP-KAPITAEN', 'name' => 'Kapitäns-Bundle (SBF See + Binnen + Funk)', 'price' => '68.90', 'days' => 365, 'courses' => [...self::SBF_ALL, ...self::RADIO_ALL]];
+        $list[] = ['sku' => 'BP-KAPITAEN', 'name' => 'Kapitäns-Bundle (SBF See + Binnen + Funk)', 'price' => '68.90', 'days' => 365, 'courses' => [...self::SBF_ALL, ...self::RADIO_ALL], 'group' => 'bundle'];
         $all = array_keys($names);
-        $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '13.90', 'days' => 30, 'courses' => $all];
-        $list[] = ['sku' => 'BP-PASS-3M', 'name' => '3-Monats-Pass (alle Inhalte)', 'price' => '28.90', 'days' => 90, 'courses' => $all];
+        $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '13.90', 'days' => 30, 'courses' => $all, 'group' => 'bundle'];
+        $list[] = ['sku' => 'BP-PASS-3M', 'name' => '3-Monats-Pass (alle Inhalte)', 'price' => '28.90', 'days' => 90, 'courses' => $all, 'group' => 'bundle'];
 
         return $list;
     }
@@ -76,13 +80,11 @@ final class ShopCatalog
             $id = (int) wc_get_product_id_by_sku($def['sku']);
             $product = $id ? wc_get_product($id) : null;
             $action = $product ? 'aktualisiert' : 'neu';
-            if ($product && $product->get_regular_price() === $def['price'] && wp_specialchars_decode($product->get_name()) === $def['name']) {
-                $action = 'unverändert';
-            }
             if ($dryRun) {
                 $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action.' (Vorschau)'];
                 continue;
             }
+            $before = $product ? self::fingerprint($product) : '';
             if (! $product) {
                 $product = new \WC_Product_Simple();
                 $product->set_sku($def['sku']);
@@ -94,6 +96,24 @@ final class ShopCatalog
             $product->set_regular_price($def['price']);
             $product->set_virtual(true);
             $product->set_sold_individually(true);
+            $product->set_catalog_visibility('visible');
+            $text = self::texts($def);
+            // Texte nur setzen, solange sie nicht im Shop von Hand geändert wurden.
+            $ownHash = (string) $product->get_meta('_bp_catalog_text');
+            $currentHash = md5($product->get_short_description().'|'.$product->get_description());
+            if ($product->get_description() === '' || $ownHash === $currentHash) {
+                $product->set_short_description($text['short']);
+                $product->set_description($text['long']);
+                $product->update_meta_data('_bp_catalog_text', md5($text['short'].'|'.$text['long']));
+            }
+            $product->set_category_ids([self::category($def['group'])]);
+            $image = self::image($def['sku'], (int) $product->get_image_id());
+            if ($image > 0) {
+                $product->set_image_id($image);
+            }
+            if ($action !== 'neu') {
+                $action = self::fingerprint($product) === $before ? 'unverändert' : 'aktualisiert';
+            }
             $id = (int) $product->save();
             $scopes = [];
             foreach (array_unique($def['courses']) as $course) {
@@ -110,6 +130,135 @@ final class ShopCatalog
         }
 
         return $report;
+    }
+
+    private static function fingerprint(\WC_Product $product): string
+    {
+        return md5(implode('|', [wp_specialchars_decode($product->get_name()), $product->get_regular_price(), $product->get_status(), $product->get_short_description(), $product->get_description(), implode(',', $product->get_category_ids()), $product->get_image_id()]));
+    }
+
+    private const CATEGORIES = [
+        'sbf' => 'Sportbootführerscheine',
+        'funk' => 'Funkzeugnisse',
+        'signal' => 'Seenotsignalmittel',
+        'addon' => 'Ergänzungskurse',
+        'bundle' => 'Pakete & Pässe',
+    ];
+
+    private static function category(string $group): int
+    {
+        $name = self::CATEGORIES[$group] ?? self::CATEGORIES['bundle'];
+        $term = get_term_by('name', $name, 'product_cat');
+        if ($term instanceof \WP_Term) {
+            return (int) $term->term_id;
+        }
+        $created = wp_insert_term($name, 'product_cat');
+
+        return is_wp_error($created) ? 0 : (int) $created['term_id'];
+    }
+
+    /** Produktbild aus assets/products/<SKU>.png übernehmen (einmalig; eigenes Bild im Shop bleibt). */
+    private static function image(string $sku, int $currentId): int
+    {
+        if ($currentId > 0 && (string) get_post_meta($currentId, '_bp_catalog_image', true) !== $sku) {
+            return 0; // von Hand gesetztes Bild
+        }
+        if ($currentId > 0) {
+            return $currentId;
+        }
+        $file = dirname(__DIR__, 2).'/assets/products/'.$sku.'.png';
+        if (! is_file($file)) {
+            return 0;
+        }
+        $existing = get_posts(['post_type' => 'attachment', 'post_status' => 'inherit', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_bp_catalog_image', 'meta_value' => $sku]);
+        if ($existing !== []) {
+            return (int) $existing[0];
+        }
+        require_once ABSPATH.'wp-admin/includes/file.php';
+        require_once ABSPATH.'wp-admin/includes/media.php';
+        require_once ABSPATH.'wp-admin/includes/image.php';
+        $tmp = wp_tempnam($sku.'.png');
+        copy($file, $tmp);
+        $id = media_handle_sideload(['name' => strtolower($sku).'.png', 'tmp_name' => $tmp], 0, $sku);
+        if (is_wp_error($id)) {
+            @unlink($tmp);
+
+            return 0;
+        }
+        update_post_meta((int) $id, '_bp_catalog_image', $sku);
+
+        return (int) $id;
+    }
+
+    /**
+     * Produkttexte aus dem tatsächlichen Inhalt der Kurse (Zahlen aus der Datenbank).
+     *
+     * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
+     * @return array{short:string,long:string}
+     */
+    public static function texts(array $def): array
+    {
+        global $wpdb;
+        $p = $wpdb->prefix.'bp_';
+        $all = array_values(array_unique($def['courses']));
+        $pass = str_starts_with($def['sku'], 'BP-PASS');
+        // Kombikurse enthalten die Einzelkurse: nur den Hauptkurs zählen (Bundle: beide Kombis), sonst doppelt.
+        $courses = match (true) {
+            $pass => $all,
+            $def['sku'] === 'BP-KAPITAEN' => ['SBF-SEE-BIN', 'SRC-UBI'],
+            default => [$all[0]],
+        };
+        $in = implode(',', array_fill(0, count($courses), '%s'));
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
+        $count = static fn (string $sql): int => (int) $wpdb->get_var($wpdb->prepare($sql, ...$courses));
+        $questions = $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})");
+        $nav = $count("SELECT COUNT(DISTINCT x.task_id) FROM {$p}navigation_task_course x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
+        $praxis = $count("SELECT COUNT(*) FROM {$p}praxis_task x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
+        $videos = $count("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code IN ({$in})");
+        $papers = $count("SELECT COUNT(*) FROM {$p}exam_paper x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})");
+        // phpcs:enable
+        $radio = array_intersect($all, ['SRC', 'UBI', 'SRC-UBI', 'ADD-UBI-TO-SRC']) !== [];
+        if ($pass) {
+            [$nav, $praxis, $videos, $papers] = [0, 0, 0, 0];
+        }
+        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 180 ? '6 Monate' : $def['days'].' Tage');
+        $names = array_map([Labels::class, 'course'], $all);
+
+        $intro = match ($def['group']) {
+            'bundle' => str_starts_with($def['sku'], 'BP-PASS')
+                ? sprintf('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', $months)
+                : 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.',
+            'addon' => sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs enthält genau die zusätzlichen Inhalte.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
+            default => sprintf('Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone.', trim((string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0]))),
+        };
+        $items = [];
+        if ($questions > 0) {
+            $items[] = sprintf('%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Merkliste', $questions);
+        }
+        $items[] = $papers > 0 ? sprintf('Prüfungssimulation mit Zeitlimit und Auswertung, inkl. %d Prüfungsbögen', $papers) : 'Prüfungssimulation mit Zeitlimit und Auswertung';
+        if ($nav > 0) {
+            $items[] = sprintf('%d Navigationsaufgaben mit Musterlösungen', $nav);
+        }
+        if ($praxis > 0) {
+            $items[] = sprintf('%d Praxiskarten zur Vorbereitung auf die praktische Prüfung', $praxis);
+        }
+        if ($videos > 0) {
+            $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
+        }
+        if ($radio) {
+            $items[] = 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Gerätesimulation';
+        }
+        if ($pass) {
+            $items[] = sprintf('Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos', count($all));
+        }
+        $items[] = 'Lernfortschritt wird gespeichert – überall weiterlernen';
+        $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
+            .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, freigeschaltet sobald die Zahlung eingegangen ist. Du lernst im Bereich „Bootsscheine“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months)).'</p>'
+            .'<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
+            .(count($all) > 1 && ! $pass ? '<p>'.esc_html('Enthält: '.implode(', ', $names)).'</p>' : '');
+        $short = sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
+
+        return ['short' => esc_html($short), 'long' => $long];
     }
 
     /**

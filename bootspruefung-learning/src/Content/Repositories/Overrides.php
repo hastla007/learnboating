@@ -23,7 +23,7 @@ final class Overrides
         'radio_text' => ['rights_status'],
         'radio_vocabulary' => ['rights_status'],
         'radio_scenario' => ['rights_status'],
-        'exam_rule' => ['verified', 'valid_from', 'valid_until'],
+        'exam_rule' => ['verified', 'valid_from', 'valid_until', 'status'],
     ];
 
     public const RIGHTS = ['unknown', 'review', 'licensed', 'public', 'restricted'];
@@ -69,6 +69,9 @@ final class Overrides
         }
         if ($field === 'rights_status' && $value !== null && ! in_array($value, self::RIGHTS, true)) {
             throw new InvalidArgumentException("Ungültiger Rechte-Status {$value}.");
+        }
+        if ($field === 'status' && $value !== null && ! in_array($value, ['published', 'draft'], true)) {
+            throw new InvalidArgumentException("Ungültiger Status {$value}.");
         }
         if (trim($reason) === '') {
             throw new InvalidArgumentException('Eine Begründung ist erforderlich.');

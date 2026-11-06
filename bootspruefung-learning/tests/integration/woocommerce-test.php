@@ -397,6 +397,16 @@ $kRows = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->
 $check(count(array_unique(array_map(static fn ($r) => $r->course_code, $kRows))) === 3 && (int) $kRows[0]->duration_days === 365, 'Kombi schaltet SBF See & Binnen, See und Binnen für 12 Monate frei');
 $second = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
 $check(array_unique(array_column($second, 'action')) === ['unverändert'] && array_column($second, 'product_id') === array_column($rows, 'product_id'), 'zweiter Lauf: keine Dubletten, unverändert');
+$kombi = wc_get_product($kombi->get_id());
+$cat = get_term($kombi->get_category_ids()[0] ?? 0, 'product_cat');
+$check($kombi->get_image_id() > 0 && get_post_meta($kombi->get_image_id(), '_bp_catalog_image', true) === 'BP-SBF-SEE-BIN' && $cat instanceof WP_Term && $cat->name === 'Sportbootführerscheine', 'Produktbild und Kategorie gesetzt');
+$check(str_contains($kombi->get_description(), 'Geld-zurück-Garantie') && str_contains($kombi->get_description(), 'Navigationsaufgaben') && str_contains($kombi->get_short_description(), 'Prüfungsfragen'), 'Produkttexte aus den Kursinhalten');
+$edited = wc_get_product($byS['BP-SBF-SEE']['product_id']);
+$edited->set_description('Eigener Text des Betreibers');
+$edited->save();
+$published = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, true);
+$check(wc_get_product($byS['BP-SBF-SEE']['product_id'])->get_description() === 'Eigener Text des Betreibers' && wc_get_product($kombi->get_id())->get_status() === 'publish', 'veröffentlicht; von Hand geänderter Text bleibt');
+$check(count(get_posts(['post_type' => 'attachment', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_bp_catalog_image'])) === 17, 'Bilder nur einmal importiert');
 $skn = wc_get_product($byS['BP-SKN']['product_id']);
 $skn->set_status('publish');
 $skn->save();
@@ -422,6 +432,9 @@ $check($statuses($order->get_id()) === ['revoked'] && \Bootspruefung\Learning\Co
 foreach (array_column($rows, 'product_id') as $pid) {
     (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');
     wp_delete_post((int) $pid, true);
+}
+foreach (get_posts(['post_type' => 'attachment', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_bp_catalog_image']) as $att) {
+    wp_delete_attachment((int) $att, true);
 }
 
 update_option(Settings::OPTION, $settingsBefore);

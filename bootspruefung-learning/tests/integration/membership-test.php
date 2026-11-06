@@ -417,6 +417,15 @@ $check($preview === $released && array_sum($after) === 0, 'Sammelfreigabe: '.arr
 $wpdb->delete($p.'override', ['reason' => 'Test-Sammelfreigabe']);
 wp_cache_flush_group('bootspruefung');
 $check(\Bootspruefung\Learning\Content\RightsRelease::releaseAll('x', true) === $preview, 'Testfreigaben zurückgenommen');
+$repoC = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
+$comboId = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'SBF-SEE-BIN'");
+$rulesBefore = \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('Test-Regelfreigabe', true);
+$check(in_array('SBF-SEE-BIN', array_column($rulesBefore, 'course'), true) && ! $repoC->examRule($comboId)['live'], 'Kombi-Regelwerk (Entwurf der Quelle) vor Freigabe nur Übung');
+\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('Test-Regelfreigabe');
+$check($repoC->examRule($comboId)['live'] && \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('x', true) === [], 'nach Freigabe: alle Regelwerke live');
+$wpdb->delete($p.'override', ['reason' => 'Test-Regelfreigabe']);
+wp_cache_flush_group('bootspruefung');
+$check(! $repoC->examRule($comboId)['live'], 'Testfreigabe zurückgenommen');
 remove_filter('pre_wp_mail', $capture, 10);
 
 // Aufräumen.

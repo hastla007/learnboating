@@ -175,6 +175,7 @@ final class ContentRepository
             $rule->verified = array_key_exists('verified', $o) ? (int) $o['verified'] : (int) $rule->verified;
             $rule->valid_from = array_key_exists('valid_from', $o) ? $o['valid_from'] : $rule->valid_from;
             $rule->valid_until = array_key_exists('valid_until', $o) ? $o['valid_until'] : $rule->valid_until;
+            $rule->status = array_key_exists('status', $o) ? (string) $o['status'] : $rule->status;
             $rule->passing = json_decode((string) $rule->passing_rule, true) ?: ['min_correct_ratio' => 0.75];
             $valid = ($rule->valid_from === null || $rule->valid_from <= $today) && ($rule->valid_until === null || $rule->valid_until >= $today);
             if ($rule->status === 'published' && $rule->verified === 1 && $valid) {
