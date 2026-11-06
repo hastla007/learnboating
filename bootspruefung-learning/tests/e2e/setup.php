@@ -37,4 +37,8 @@ $learner = get_user_by('login', 'lerner1');
 foreach (['progress', 'favorite', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress'] as $table) {
     $wpdb->delete($wpdb->prefix.'bp_'.$table, ['user_id' => $learner->ID]);
 }
-echo "E2E-Setup fertig.\n";
+// Ausgangszustand: Zugang ohne Shop für alle angemeldeten Nutzer, keine Testregeln.
+$before = \Bootspruefung\Learning\Settings\Settings::get('default_access');
+$rules = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bp_access_rule");
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['default_access' => 'logged_in']));
+echo "E2E-Setup fertig (vorher: default_access={$before}, Regeln={$rules}).\n";

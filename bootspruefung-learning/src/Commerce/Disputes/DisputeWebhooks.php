@@ -175,7 +175,11 @@ final class DisputeWebhooks
         if ($transactions !== [] && function_exists('wc_get_orders')) {
             foreach ($transactions as $tx) {
                 foreach (wc_get_orders(['transaction_id' => $tx, 'limit' => 5, 'return' => 'ids', 'type' => 'shop_order']) as $id) {
-                    $orderIds[] = (int) $id;
+                    // Nur exakte Treffer übernehmen (Schutz, falls der Filter nicht greift).
+                    $order = wc_get_order((int) $id);
+                    if ($order instanceof \WC_Order && $tx !== '' && $order->get_transaction_id() === $tx) {
+                        $orderIds[] = (int) $id;
+                    }
                 }
             }
         }
