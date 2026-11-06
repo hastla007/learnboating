@@ -13,6 +13,7 @@ declare(strict_types=1);
  * Voraussetzung: content-flow-test.php (Kurse veröffentlicht) und woocommerce-setup.php.
  */
 
+ob_start(); // WooCommerce setzt Session-Cookies; Ausgabe puffern, damit keine Header-Warnungen entstehen
 $wpDir = rtrim((string) getenv('WP_DIR'), '/');
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
@@ -197,8 +198,21 @@ ob_start();
 do_action('woocommerce_thankyou', $bacs);
 $thanks = (string) ob_get_clean();
 $check(str_contains($thanks, 'freigeschaltet'), 'Bestellbestätigung mit Kurslink');
+// Nur den eigenen Callback ausführen (andere Woo-Callbacks erwarten ein WC_Email-Objekt).
+global $wp_filter;
+$emailHook = $wp_filter['woocommerce_email_after_order_table'] ?? null;
+$own = [];
+foreach ($emailHook?->callbacks ?? [] as $prio => $callbacks) {
+    foreach ($callbacks as $cb) {
+        if (is_array($cb['function']) && $cb['function'][0] instanceof Integration) {
+            $own[] = $cb['function'];
+        }
+    }
+}
 ob_start();
-do_action('woocommerce_email_after_order_table', wc_get_order($bacs), false, true, null);
+foreach ($own as $fn) {
+    $fn(wc_get_order($bacs), false, true, null);
+}
 $mail = (string) ob_get_clean();
 $check(str_contains($mail, '/bootsscheine/'), 'Kunden-E-Mail (Text) mit Kurslink');
 $offers = Integration::offers($course, ['video_course' => false, 'question_bank' => true]);
@@ -229,6 +243,7 @@ wp_set_current_user(1);
 $check($threw, 'Checkout-Block: Gastbestellung mit Lernprodukt abgewiesen');
 
 echo "Admin und Abgleich\n";
+require_once ABSPATH.'wp-admin/includes/admin.php';
 set_current_screen('woocommerce_page_wc-orders');
 ob_start();
 $item = current(wc_get_order($bacs)->get_items());
@@ -247,4 +262,5 @@ $check(count($entitlements->forOrder($bacs)) === 2, 'Abgleich angewendet');
 
 update_option(Settings::OPTION, $settingsBefore);
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
+ob_end_flush();
 exit($failures === 0 ? 0 : 1);
