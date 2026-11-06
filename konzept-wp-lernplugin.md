@@ -122,7 +122,7 @@ Zahlen sind nur Prüfstand dieses Commits. Beim Konvertieren werden sie dynamisc
 - Warnungen, ausgelassene Datensätze und Gründe;
 - Rights-/Publish-Status je Entität oder Revision.
 
-Entitäten werden als getrennte Dateien geliefert, z. B. `courses.json`, `modules.json`, `questions.json`, `question_revisions.json`, `answers.json`, `exam_rules.json`, `exam_papers.json`, `navigation_tasks.json`, `praxis_tasks.json`, `video_lessons.json`, `radio_items.json`, `device_simulations.json`.
+Entitäten werden als getrennte Dateien unter `data/` geliefert. Umgesetzt (Format v1, Schemata und Regeln in [`schema/`](schema/README.md)): `courses.json`, `modules.json` (inkl. Fragenzuordnung), `questions.json` (Frage mit aktuellem Stand, Antworten und Medienbezug – Revisionen entstehen erst beim Import), `media.json`, `exam_rules.json` (inkl. Blueprints), `exam_papers.json`, `navigation_tasks.json`, `praxis_tasks.json`. Folgen: `video_*.json`, `radio_*.json`, `device_*.json`.
 
 ### 3.3 Importregeln
 
@@ -253,11 +253,15 @@ Präfix `wp_bp_` ist beispielhaft und muss das echte `$wpdb->prefix` berücksich
 - `bp_media`: Quell-ID, WordPress Attachment-ID oder verwalteter Storage-Key, MIME, Hash, Rechte-Metadaten.
 - `bp_content_media`: Content-Revision-ID, Media-ID, Rolle, Sortierung, Caption/Alttext-Override.
 - `bp_exam_rule`, `bp_exam_blueprint`, `bp_exam_paper`, `bp_exam_paper_question`.
-- `bp_navigation_task`, `bp_navigation_question`.
+- `bp_module_question`: Modul-ID, Frage-ID, Sortierung, Pflichtstatus.
+- `bp_navigation_task`, `bp_navigation_task_course` (eine Aufgabe in mehreren Kursen), `bp_navigation_question`.
 - `bp_praxis_task`.
 - `bp_video_module`, `bp_video_lesson`, `bp_video_lesson_step`, `bp_video_lesson_question`.
 - `bp_radio_scenario`, `bp_radio_text`, `bp_radio_vocabulary`, `bp_device`, `bp_device_lesson`, `bp_device_step`.
 - `bp_import_batch`, `bp_import_item_log`, `bp_audit_log`.
+- `bp_entitlement`, `bp_access_rule`, `bp_product_access` (Woo-Produkt/Variation → Kurs/Feature, Dauer, Verlängerungs- und Erstattungsregel).
+
+Umgesetzt in `bootspruefung-learning/src/Infrastructure/Database/Schema.php` (43 Tabellen, 37 Fremdschlüssel).
 
 - `bp_access_rule`: Free/Pro-Konfiguration je Kurs/Modul/Feature (siehe 7.2).
 
@@ -518,9 +522,9 @@ bootspruefung-learning/
 
 ## 11. Umsetzungsschritte
 
-1. **Content-Snapshot und -Audit:** Snapshot zu gepinntem Commit übernehmen; Datenstände, Medienverfügbarkeit, Duplikate, offene Frageformate und vor allem Rights-Status inventarisieren (Ausgangslage siehe 2.1).
-2. **Paketvertrag und Konverter:** JSON-Schema und Medienmanifest festlegen; Konverter inkl. Portierung der Generatorlogik aus `app/Support/` mit Golden-Master-Tests.
-3. **Plugin-Skelett:** Autoloading, Capabilities, Settings, Tabellenmigrationen und REST-Grundstruktur.
+1. **Content-Snapshot und -Audit:** Snapshot zu gepinntem Commit übernehmen; Datenstände, Medienverfügbarkeit, Duplikate, offene Frageformate und vor allem Rights-Status inventarisieren (Ausgangslage siehe 2.1). *Stand: Snapshot ✅ (`content-source/boatingschool/`, `tools/sync-source.sh`); Rechte-Audit offen.*
+2. **Paketvertrag und Konverter:** JSON-Schema und Medienmanifest festlegen; Konverter inkl. Portierung der Generatorlogik aus `app/Support/` mit Golden-Master-Tests. *Stand: Format v1 (`schema/`) und Konverter (`tools/content-build/`) ✅ für Kurse, Module, Fragen, Medien, Regelwerke, Bögen, Navigation und Praxis – Golden Master gegen Laravel ohne Abweichung; Video, Funk und Gerätesimulation offen.*
+3. **Plugin-Skelett:** Autoloading, Capabilities, Settings, Tabellenmigrationen und REST-Grundstruktur. *Stand: ✅ (`bootspruefung-learning/`), Rauchtest gegen WordPress 7.1.4 + MariaDB 10.11.*
 4. **Importer:** Dry-Run, Schema-Validierung, Quell-ID/Hash, Batchimport, Protokoll und Freigabeschritt.
 5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren.
 6. **Lernmodus:** Frage/Antwort, Erklärungen, Merkliste, Fortschritt und Smarttrainer.

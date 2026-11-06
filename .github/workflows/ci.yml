@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  converter:
+    name: Content-Konverter
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, zip, simplexml, fileinfo
+          coverage: none
+      - name: Abhängigkeiten
+        working-directory: tools/content-build
+        run: composer install --no-interaction --no-progress
+      - name: Tests
+        working-directory: tools/content-build
+        run: vendor/bin/phpunit
+      - name: Paket bauen
+        run: php tools/content-build/bin/build-package.php
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content-package
+          path: build/*.zip
+          retention-days: 14
+
+  golden-master:
+    name: Golden Master gegen Laravel
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      DB_PW: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, zip, simplexml, fileinfo, pdo_pgsql, pgsql, gd, bcmath
+          coverage: none
+      - name: Quellrepo zum Snapshot-Commit klonen (nur lesend)
+        run: |
+          SHA=$(sed -n 's/^| Commit | `\([0-9a-f]\{40\}\)` |$/\1/p' content-source/boatingschool/SOURCE.md)
+          test -n "$SHA"
+          git clone --quiet https://github.com/hastla007/boatingschool "$RUNNER_TEMP/laravel"
+          git -C "$RUNNER_TEMP/laravel" checkout --quiet "$SHA"
+      - name: Laravel installieren und seeden
+        working-directory: ${{ runner.temp }}/laravel
+        run: |
+          psql -h 127.0.0.1 -U postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE boatingschool LOGIN PASSWORD '$DB_PW'" \
+            -c "CREATE ROLE boatingschool_app LOGIN PASSWORD '$DB_PW'" \
+            -c "CREATE DATABASE boatingschool OWNER boatingschool" \
+            -c "GRANT CONNECT ON DATABASE boatingschool TO boatingschool_app"
+          composer install --no-interaction --no-progress --no-scripts
+          cp .env.example .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PW/; s/^DB_ADMIN_PASSWORD=.*/DB_ADMIN_PASSWORD=$DB_PW/; s/^APP_ENV=.*/APP_ENV=production/" .env
+          php artisan key:generate --force
+          php artisan migrate --database=pgsql_admin --force
+          php artisan db:seed --database=pgsql_admin --force
+      - name: Paket bauen und vergleichen
+        env:
+          BS_DSN: pgsql:host=127.0.0.1;dbname=boatingschool
+          BS_USER: boatingschool
+        run: |
+          php tools/content-build/bin/build-package.php --no-zip
+          BS_PASSWORD="$DB_PW" php tools/content-build/golden-master/compare.php build/boatingschool-*/
+
+  plugin:
+    name: WordPress-Plugin
+    runs-on: ubuntu-24.04
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_test
+          MARIADB_USER: wp
+          MARIADB_PASSWORD: wp
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
+    strategy:
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli, intl
+          coverage: none
+      - name: PHP-Syntax
+        run: find bootspruefung-learning -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: WordPress bereitstellen
+        run: |
+          git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
+          cd "$RUNNER_TEMP/wp"
+          sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php
+          sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', true );/" wp-config.php
+          ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" wp-content/plugins/bootspruefung-learning
+      - name: Rauchtest
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php | tee smoke.log
+          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" smoke.log
