@@ -399,7 +399,7 @@ $second = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts();
 $check(array_unique(array_column($second, 'action')) === ['unverändert'] && array_column($second, 'product_id') === array_column($rows, 'product_id'), 'zweiter Lauf: keine Dubletten, unverändert');
 $kombi = wc_get_product($kombi->get_id());
 $cat = get_term($kombi->get_category_ids()[0] ?? 0, 'product_cat');
-$check($kombi->get_image_id() > 0 && get_post_meta($kombi->get_image_id(), '_bp_catalog_image', true) === 'BP-SBF-SEE-BIN' && $cat instanceof WP_Term && $cat->name === 'Sportbootführerscheine', 'Produktbild und Kategorie gesetzt');
+$check($kombi->get_image_id() > 0 && get_post_meta($kombi->get_image_id(), '_bp_catalog_image', true) === 'BP-SBF-SEE-BIN' && $cat instanceof WP_Term && $cat->name === 'Sportbootführerscheine' && $cat->slug === 'sbf', 'Produktbild und Kategorie (Kürzel sbf) gesetzt');
 $check(str_contains($kombi->get_description(), 'Geld-zurück-Garantie') && str_contains($kombi->get_description(), 'Navigationsaufgaben') && str_contains($kombi->get_short_description(), 'Prüfungsfragen'), 'Produkttexte aus den Kursinhalten');
 $edited = wc_get_product($byS['BP-SBF-SEE']['product_id']);
 $edited->set_description('Eigener Text des Betreibers');

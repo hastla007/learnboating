@@ -108,11 +108,11 @@ jobs:
         include:
           # Zielsystem (docs/offene-punkte.md, Punkt 20): PHP 8.5, WordPress 7.1.4, MariaDB 12.3.3,
           # WooCommerce 11.2.2, Block-Theme mit Checkout-Block – inkl. Browser-Tests.
-          - { php: '8.5', wc: '11.2.2', mariadb: '12.3.3', e2e: true, experimental: false }
-          # Testphase: WooCommerce 11.3 Beta mit demselben Stack.
-          - { php: '8.5', wc: '11.3.0-beta.2', mariadb: '12.3.3', e2e: true, experimental: true }
+          - { php: '8.5', wc: '11.2.2', mariadb: '12.3.3', e2e: true, experimental: false, theme: kurswasser }
+          # Testphase: WooCommerce 11.3 Beta mit demselben Stack (Standard-Block-Theme).
+          - { php: '8.5', wc: '11.3.0-beta.2', mariadb: '12.3.3', e2e: true, experimental: true, theme: twentytwentyfive }
           # Untergrenze laut Plugin-Header (Requires PHP 8.1).
-          - { php: '8.1', wc: '11.2.2', mariadb: '10.11', e2e: false, experimental: false }
+          - { php: '8.1', wc: '11.2.2', mariadb: '10.11', e2e: false, experimental: false, theme: twentytwentyfive }
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -121,7 +121,9 @@ jobs:
           extensions: mysqli, intl
           coverage: none
       - name: PHP-Syntax
-        run: find bootspruefung-learning -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: |
+          find bootspruefung-learning themes -name '*.php' -print0 | xargs -0 -n1 php -l
+          python3 -m json.tool themes/kurswasser/theme.json > /dev/null
       - name: WordPress bereitstellen
         run: |
           git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
@@ -129,6 +131,7 @@ jobs:
           sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php
           sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', true );/" wp-config.php
           ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" wp-content/plugins/bootspruefung-learning
+          ln -s "$GITHUB_WORKSPACE/themes/kurswasser" wp-content/themes/kurswasser
       - name: Plugin-Schemata identisch mit schema/
         run: diff -r schema/v1 bootspruefung-learning/schema/v1
       - name: Gerätesimulation entspricht dem Snapshot (JS + CSS)
@@ -195,6 +198,24 @@ jobs:
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
           mkdir -p "$RUNNER_TEMP/shots"
           WP_DIR="$RUNNER_TEMP/wp" BP_SHOTS="$RUNNER_TEMP/shots" node bootspruefung-learning/tests/e2e/checkout-flow.mjs
+        env:
+          BP_THEME: ${{ matrix.theme }}
+      - name: Theme Kurswasser – Demo-Stand und Screenshots
+        if: matrix.e2e && matrix.theme == 'kurswasser'
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/pw/node_modules"
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/demo-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" BP_THEME=kurswasser php bootspruefung-learning/tests/e2e/setup.php
+          mkdir -p "$RUNNER_TEMP/theme-shots"
+          BP_SHOTS="$RUNNER_TEMP/theme-shots" BP_USER=lerner1 BP_PASS=Test-Passwort-123 node themes/kurswasser/tests/screenshots.mjs
+          ! grep -E "PHP (Fatal|Warning|Notice|Deprecated).*themes/kurswasser" "$RUNNER_TEMP/php-server.log"
+      - name: Theme-Screenshots hochladen
+        if: always() && matrix.e2e && matrix.theme == 'kurswasser'
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-kurswasser-screenshots
+          path: ${{ runner.temp }}/theme-shots
+          if-no-files-found: ignore
       - name: Screenshots Kaufablauf
         if: always() && matrix.e2e
         uses: actions/upload-artifact@v4

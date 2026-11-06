@@ -23,10 +23,10 @@ const step = (s) => console.log('·', s);
 step('Anmeldehinweis ohne Login');
 await page.goto(`${base}/bootsscheine/`);
 await page.getByRole('heading', { name: 'XXXX' }).waitFor();
-assert.ok(await page.getByRole('link', { name: 'Anmelden' }).isVisible());
+assert.ok(await page.locator('#bp-app').getByRole('link', { name: 'Anmelden' }).isVisible());
 
 step('Anmelden');
-await page.getByRole('link', { name: 'Anmelden' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Anmelden' }).click();
 await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');

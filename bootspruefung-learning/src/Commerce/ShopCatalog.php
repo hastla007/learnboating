@@ -100,7 +100,7 @@ final class ShopCatalog
         global $wpdb;
         $repo = new ProductAccessRepository($wpdb);
         $report = [];
-        foreach (self::products() as $def) {
+        foreach (self::products() as $position => $def) {
             $id = (int) wc_get_product_id_by_sku($def['sku']);
             $product = $id ? wc_get_product($id) : null;
             $action = $product ? 'aktualisiert' : 'neu';
@@ -123,6 +123,7 @@ final class ShopCatalog
             // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
             $product->set_sold_individually($seats === 0);
             $product->set_catalog_visibility('visible');
+            $product->set_menu_order((int) $position); // Shop-Reihenfolge wie im Katalog
             $text = self::texts($def);
             // Texte nur setzen, solange sie nicht im Shop von Hand geändert wurden.
             $ownHash = (string) $product->get_meta('_bp_catalog_text');
@@ -161,7 +162,7 @@ final class ShopCatalog
 
     private static function fingerprint(\WC_Product $product): string
     {
-        return md5(implode('|', [wp_specialchars_decode($product->get_name()), $product->get_regular_price(), $product->get_status(), $product->get_short_description(), $product->get_description(), implode(',', $product->get_category_ids()), $product->get_image_id()]));
+        return md5(implode('|', [wp_specialchars_decode($product->get_name()), $product->get_regular_price(), $product->get_status(), $product->get_menu_order(), $product->get_short_description(), $product->get_description(), implode(',', $product->get_category_ids()), $product->get_image_id()]));
     }
 
     private const CATEGORIES = [
@@ -173,14 +174,22 @@ final class ShopCatalog
         'groups' => 'Gruppen & Vereine',
     ];
 
+    /** Feste Kürzel (Slugs) – das Theme verlinkt darauf, unabhängig von Sprache/Permalinks. */
+    public const CATEGORY_SLUGS = ['sbf' => 'sbf', 'funk' => 'funk', 'signal' => 'seenot', 'addon' => 'ergaenzung', 'bundle' => 'pakete', 'groups' => 'gruppen'];
+
     private static function category(string $group): int
     {
         $name = self::CATEGORIES[$group] ?? self::CATEGORIES['bundle'];
-        $term = get_term_by('name', $name, 'product_cat');
+        $slug = self::CATEGORY_SLUGS[$group] ?? 'pakete';
+        $term = get_term_by('slug', $slug, 'product_cat') ?: get_term_by('name', $name, 'product_cat');
         if ($term instanceof \WP_Term) {
+            if ($term->slug !== $slug) {
+                wp_update_term((int) $term->term_id, 'product_cat', ['slug' => $slug]);
+            }
+
             return (int) $term->term_id;
         }
-        $created = wp_insert_term($name, 'product_cat');
+        $created = wp_insert_term($name, 'product_cat', ['slug' => $slug]);
 
         return is_wp_error($created) ? 0 : (int) $created['term_id'];
     }

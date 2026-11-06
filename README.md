@@ -118,3 +118,7 @@ Kaufablauf (WooCommerce aktiv, vorher `woocommerce-setup.php`):
 ```bash
 WP_DIR=/pfad/zu/wordpress node bootspruefung-learning/tests/e2e/checkout-flow.mjs
 ```
+
+## Theme
+
+`themes/kurswasser/` – Block-Theme „Kurswasser 2.0“ für Startseite, Shop, Produktseiten, Block-Checkout, Rechtstexte und Lernbereich. Details in `themes/kurswasser/README.md`.
