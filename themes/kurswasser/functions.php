@@ -13,6 +13,8 @@ if (! defined('ABSPATH')) {
 
 const KURSWASSER_VERSION = '2.0.0';
 
+require_once __DIR__.'/inc/offers.php';
+
 add_action('after_setup_theme', static function (): void {
     load_theme_textdomain('kurswasser', get_template_directory().'/languages');
     add_theme_support('wp-block-styles');

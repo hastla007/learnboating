@@ -9,7 +9,7 @@ des Plugins bzw. Website-Titel).
 
 | Vorlage | Zweck |
 |---|---|
-| `front-page` | Startseite aus Mustern: Hero, Vorteilsleiste, Kursauswahl, Funktionen, Ablauf, beliebte Kurse, Gruppen, Garantie, FAQ, Abschluss-Aufruf |
+| `front-page` | Startseite aus Mustern: Hero, Vorteilsleiste, **Kurse & Preise**, Funktionen, Ablauf, Gruppen, Garantie, FAQ, Abschluss-Aufruf |
 | `archive-product`, `taxonomy-product_cat`, `product-search-results` | Shop und Kategorien mit Kategorie-Navigation, Garantie und FAQ |
 | `single-product` | Produktseite mit Kaufbox, Zusicherungen und Beschreibung (aus dem Plugin-Katalog) |
 | `page-cart`, `page-checkout` | Warenkorb und Kasse (Block-Checkout), Kasse mit reduziertem Kopfbereich |
@@ -29,6 +29,19 @@ einzeln auf jeder Seite einsetzbar.
 Inhaltliche Regel: Aussagen beschreiben nur Funktionen, die es im Plugin gibt, und die
 Festlegungen des Betreibers (Laufzeiten, Geld-zurück-Garantie, Gruppenpakete). Keine Gebühren,
 Fristen oder Prüfungsvorschriften – dafür wird auf den Prüfungsausschuss verwiesen.
+
+## Kurse & Preise (`[kurswasser_offers]`)
+
+Verkaufssektion mit drei Reitern (Sportbootführerschein, Funkzeugnis, Pakete & Pässe), je drei
+Angebote, das mittlere hervorgehoben. Alles kommt aus echten Daten:
+
+- Produkte über die Artikelnummern des Plugin-Katalogs, Preis und Link aus WooCommerce
+  (ohne veröffentlichtes Produkt: Katalogpreis als Vorschau, Button „Bald verfügbar“).
+- Ersparnis = Summe der Vergleichsprodukte minus Preis (Kombi vs. Einzelkurse, Bundle vs.
+  beide Kombis), durchgestrichener Vergleichspreis, Monatspreis bei 12 Monaten.
+- Inhaltspunkte aus den Produkttexten des Plugins (Fragen, Bögen, Aufgaben, Videos).
+- „Jetzt starten“ legt den Kurs in den Warenkorb und öffnet direkt die Kasse.
+- Keine künstliche Verknappung, keine erfundenen Verkaufszahlen.
 
 ## Links ohne feste IDs
 

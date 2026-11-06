@@ -1,0 +1,171 @@
+<?php
+/**
+ * Angebots-Sektion [kurswasser_offers]: echte Produkte aus dem Katalog des Lern-Plugins,
+ * Preise aus WooCommerce (sonst Katalogpreis als Vorschau), Ersparnis gegenüber Einzelkauf
+ * aus denselben Preisen berechnet, Inhalte aus den Produkttexten des Plugins.
+ *
+ * @package Kurswasser
+ */
+
+declare(strict_types=1);
+
+if (! defined('ABSPATH')) {
+    exit;
+}
+
+/** Reiter → [linke SKU, hervorgehobene SKU, rechte SKU], Ersparnis-Vergleich der Mitte. */
+function kurswasser_offer_tabs(): array
+{
+    return [
+        'sbf' => ['short' => __('SBF', 'kurswasser'), 'label' => __('Sportbootführerschein', 'kurswasser'), 'icon' => 'anchor', 'skus' => ['BP-SBF-BIN', 'BP-SBF-SEE-BIN', 'BP-SBF-SEE'], 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'], 'more' => ['sbf', __('Auch: SBF Binnen unter Segel', 'kurswasser')]],
+        'funk' => ['short' => __('Funk', 'kurswasser'), 'label' => __('Funkzeugnis', 'kurswasser'), 'icon' => 'radio', 'skus' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'compare' => ['BP-SRC', 'BP-UBI'], 'more' => ['seenot', __('Auch: SKN und FKN (Seenotsignalmittel)', 'kurswasser')]],
+        'pakete' => ['short' => __('Pakete', 'kurswasser'), 'label' => __('Pakete & Pässe', 'kurswasser'), 'icon' => 'wheel', 'skus' => ['BP-PASS-1M', 'BP-KAPITAEN', 'BP-PASS-3M'], 'compare' => ['BP-SBF-SEE-BIN', 'BP-SRC-UBI'], 'more' => ['ergaenzung', __('Schon einen Schein? Ergänzungskurse', 'kurswasser')]],
+    ];
+}
+
+/** @return array{name:string,price:float,days:int,url:?string,buy:?string,items:list<string>}|null */
+function kurswasser_offer(string $sku): ?array
+{
+    if (! class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)) {
+        return null;
+    }
+    static $cache = [];
+    if (isset($cache[$sku])) {
+        return $cache[$sku];
+    }
+    $def = null;
+    foreach (\Bootspruefung\Learning\Commerce\ShopCatalog::products() as $p) {
+        if ($p['sku'] === $sku) {
+            $def = $p;
+            break;
+        }
+    }
+    if ($def === null) {
+        return $cache[$sku] = null;
+    }
+    $price = (float) $def['price'];
+    $url = null;
+    $buy = null;
+    $name = $def['name'];
+    if (function_exists('wc_get_product_id_by_sku') && ($id = wc_get_product_id_by_sku($sku)) && ($product = wc_get_product($id)) && $product->get_status() === 'publish') {
+        $price = (float) $product->get_price();
+        $name = wp_specialchars_decode($product->get_name());
+        $url = (string) get_permalink($id);
+        $buy = $product->is_purchasable() ? add_query_arg('add-to-cart', (int) $id, wc_get_checkout_url()) : null;
+    }
+    $items = [];
+    if (preg_match_all('#<li>(.*?)</li>#s', \Bootspruefung\Learning\Commerce\ShopCatalog::texts($def)['long'], $m)) {
+        $items = array_map(static fn ($t) => kurswasser_offer_item(wp_strip_all_tags(html_entity_decode($t))), $m[1]);
+    }
+
+    return $cache[$sku] = ['name' => $name, 'price' => $price, 'days' => (int) $def['days'], 'url' => $url, 'buy' => $buy, 'items' => $items];
+}
+
+/** Inhaltspunkte des Produkttexts für die Karte kürzen (gleiche Fakten, knapper). */
+function kurswasser_offer_item(string $text): string
+{
+    $rules = [
+        '/^(\d+) Prüfungsfragen im Smarttrainer.*$/u' => '$1 Prüfungsfragen mit Erklärungen',
+        '/^Prüfungssimulation mit Zeitlimit und Auswertung, inkl\. (\d+) Prüfungsbögen$/u' => 'Prüfungssimulation + $1 Prüfungsbögen',
+        '/^Prüfungssimulation mit Zeitlimit und Auswertung$/u' => 'Prüfungssimulation mit Zeitlimit',
+        '/^(\d+) Praxiskarten zur Vorbereitung auf die praktische Prüfung$/u' => '$1 Praxiskarten für die Praxis',
+        '/^Funktraining:.*$/u' => 'Funktraining mit Gerätesimulation',
+        '/^Alle (\d+) Kurse:.*$/u' => 'Alle $1 Kurse mit allen Trainern',
+    ];
+
+    return (string) preg_replace(array_keys($rules), array_values($rules), $text);
+}
+
+function kurswasser_money(float $value): string
+{
+    return function_exists('wc_price') ? wp_strip_all_tags(wc_price($value)) : number_format($value, 2, ',', '.').' €';
+}
+
+/** Kurzer Name ohne Zusätze in Klammern, Untertitel aus der Klammer. */
+function kurswasser_offer_title(string $name): array
+{
+    if (preg_match('/^(.*?)\s*\((.+)\)$/u', $name, $m)) {
+        return [$m[1], mb_strtoupper(mb_substr($m[2], 0, 1)).mb_substr($m[2], 1)];
+    }
+
+    return [$name, ''];
+}
+
+add_shortcode('kurswasser_offers', static function (): string {
+    $tabs = kurswasser_offer_tabs();
+    if (kurswasser_offer('BP-SBF-SEE') === null) {
+        return '';
+    }
+    $uid = 'kwo'.wp_unique_id();
+    $html = '<div class="kw-offers" data-kw-tabs>';
+    $html .= '<div class="kw-offers-tabs" role="tablist" aria-label="'.esc_attr__('Angebote', 'kurswasser').'">';
+    $first = true;
+    foreach ($tabs as $key => $tab) {
+        $html .= sprintf(
+            '<button type="button" role="tab" id="%1$s-tab-%2$s" aria-controls="%1$s-%2$s" aria-selected="%3$s" tabindex="%4$s" aria-label="%6$s"><span class="kw-icon kw-icon-%5$s" aria-hidden="true"></span><span class="kw-tab-long">%6$s</span><span class="kw-tab-short" aria-hidden="true">%7$s</span></button>',
+            esc_attr($uid), esc_attr($key), $first ? 'true' : 'false', $first ? '0' : '-1', esc_attr($tab['icon']), esc_html($tab['label']), esc_html($tab['short'])
+        );
+        $first = false;
+    }
+    $html .= '</div>';
+    $first = true;
+    foreach ($tabs as $key => $tab) {
+        $html .= sprintf('<div class="kw-offers-panel" role="tabpanel" id="%1$s-%2$s" aria-labelledby="%1$s-tab-%2$s"%3$s><div class="kw-offers-grid">', esc_attr($uid), esc_attr($key), $first ? '' : ' hidden');
+        $first = false;
+        foreach ($tab['skus'] as $i => $sku) {
+            $o = kurswasser_offer($sku);
+            if ($o === null) {
+                continue;
+            }
+            $featured = $i === 1;
+            [$title, $sub] = kurswasser_offer_title($o['name']);
+            $saving = 0.0;
+            if ($featured) {
+                $sum = array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $tab['compare']));
+                $saving = round($sum - $o['price'], 2);
+            }
+            $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : 0);
+            $duration = $months ? sprintf(_n('%d Monat Zugang', '%d Monate Zugang', $months, 'kurswasser'), $months) : sprintf(__('%d Tage Zugang', 'kurswasser'), $o['days']);
+            $html .= '<article class="kw-offer'.($featured ? ' is-featured' : '').'">';
+            if ($featured) {
+                $html .= '<p class="kw-offer-flag">'.esc_html($key === 'pakete' ? __('Alles in einem Paket', 'kurswasser') : __('Unsere Empfehlung', 'kurswasser')).'</p>';
+            }
+            $html .= '<header><h3>'.esc_html($title).'</h3>'.($sub !== '' ? '<p class="kw-offer-sub">'.esc_html($sub).'</p>' : '').'</header>';
+            $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span>'
+                .($saving >= 1 ? '<s class="kw-offer-was" aria-label="'.esc_attr(sprintf(__('Einzeln %s', 'kurswasser'), kurswasser_money($o['price'] + $saving))).'">'.esc_html(kurswasser_money($o['price'] + $saving)).'</s>' : '<span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span>').'</div>';
+            $meta = [$duration];
+            if ($months === 12) {
+                $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
+            }
+            $html .= '<p class="kw-offer-meta">'.esc_html(implode(' · ', $meta)).'</p>';
+            if ($saving >= 1) {
+                $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Du sparst %s gegenüber dem Einzelkauf', 'kurswasser'), kurswasser_money($saving))).'</p>';
+            }
+            $html .= '<ul class="kw-offer-list">';
+            foreach (array_slice(array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt'))), 0, 4) as $item) {
+                $html .= '<li>'.esc_html($item).'</li>';
+            }
+            $html .= '</ul><div class="kw-offer-actions">';
+            if ($o['buy']) {
+                $html .= '<a class="kw-offer-buy" href="'.esc_url($o['buy']).'" rel="nofollow">'.esc_html__('Jetzt starten', 'kurswasser').' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a>';
+            } else {
+                $html .= '<span class="kw-offer-buy is-disabled">'.esc_html__('Bald verfügbar', 'kurswasser').'</span>';
+            }
+            if ($o['url']) {
+                $html .= '<a class="kw-offer-details" href="'.esc_url($o['url']).'">'.esc_html__('Details ansehen', 'kurswasser').'</a>';
+            }
+            $html .= '</div></article>';
+        }
+        [$moreTarget, $moreLabel] = $tab['more'];
+        $html .= '</div><p class="kw-offers-more"><a href="'.esc_url(kurswasser_url($moreTarget)).'">'.esc_html($moreLabel).' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a></p></div>';
+    }
+    $html .= '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
+    $html .= '</div>';
+    wp_enqueue_script('kurswasser-offers');
+
+    return $html;
+});
+
+add_action('wp_enqueue_scripts', static function (): void {
+    wp_register_script('kurswasser-offers', get_template_directory_uri().'/assets/js/offers.js', [], KURSWASSER_VERSION, ['in_footer' => true, 'strategy' => 'defer']);
+});
