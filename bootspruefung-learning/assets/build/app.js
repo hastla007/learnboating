@@ -223,7 +223,7 @@
 				grid.appendChild(el('li', { class: 'bp-card bp-course-card' }, [
 					el('p', { class: 'bp-eyebrow' }, [badge(typeLabel(c.type))]),
 					el('h2', {}, [link(c.slug + '/', c.name)]),
-					c.progress ? progressBar(c.progress) : el('p', { class: 'bp-muted', text: t('locked_short') }),
+					c.progress ? progressBar(c.progress) : el('div', {}, [el('p', { class: 'bp-muted', text: t('locked_short') })].concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : [])),
 					el('p', {}, [link(c.slug + '/', t('open_course'), 'bp-button')])
 				]));
 			});
@@ -272,11 +272,11 @@
 					list
 				]));
 			} else {
-				nodes.push(el('section', { class: 'bp-card bp-locked' }, [el('h2', { text: t('section_learn') }), el('p', { text: t('locked_feature') })]));
+				nodes.push(lockedBox(t('section_learn'), (c.shop || {}).question_bank));
 			}
 
-			nodes.push(c.exam ? examSection(slug, c.exam) : el('section', { class: 'bp-card bp-locked' }, [el('h2', { text: t('section_exam') }), el('p', { text: t('locked_feature') })]));
-			nodes.push(trainerSection(slug, c.trainers));
+			nodes.push(c.exam ? examSection(slug, c.exam) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
+			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
 			mount(nodes, c.name);
 		});
 	}
@@ -550,7 +550,28 @@
 
 	// ------------------------------------------------------------------ Spezialtrainer
 
-	function trainerSection(slug, tr) {
+	// Sperrhinweis mit passenden Shop-Produkten (Kap. 7.4); ohne Shop nur der Hinweis.
+	function lockedBox(title, offers) {
+		var nodes = [el('h2', { text: title }), el('p', { text: t('locked_feature') })];
+		nodes = nodes.concat(offerNodes(offers));
+		return el('section', { class: 'bp-card bp-locked' }, nodes);
+	}
+
+	function offerNodes(offers) {
+		if (!offers || !offers.length) {
+			return cfg.accountUrl ? [el('p', {}, [el('a', { href: cfg.accountUrl, text: t('my_access') })])] : [];
+		}
+		return [
+			el('p', { class: 'bp-muted', text: t('unlock_with') }),
+			el('ul', { class: 'bp-offers' }, offers.map(function (o) {
+				return el('li', {}, [el('a', { href: o.url, class: 'bp-button', text: o.name }), o.price ? el('span', { class: 'bp-muted', text: ' ' + o.price }) : null]);
+			}))
+		];
+	}
+
+	var TRAINER_FEATURES = { 'navigation/': 'navigation_trainer', 'praxis/': 'praxis_trainer', 'video/': 'video_course', 'funk/': 'radio_training' };
+
+	function trainerSection(slug, tr, features, shop) {
 		if (!tr) {
 			return null;
 		}
@@ -573,6 +594,10 @@
 		return el('section', { class: 'bp-section', 'aria-labelledby': 'bp-trainer-h' }, [
 			el('h2', { id: 'bp-trainer-h', text: t('section_trainers') }),
 			el('ul', { class: 'bp-module-list' }, tiles.map(function (tile) {
+				var feature = TRAINER_FEATURES[tile[0]];
+				if (features && feature && features[feature] === false) {
+					return el('li', { class: 'bp-card bp-tile bp-locked' }, [el('h3', { text: tile[1] }), el('p', { class: 'bp-muted', text: t('locked_short') })].concat(offerNodes(shop[feature])));
+				}
 				return el('li', { class: 'bp-card bp-tile' }, [el('h3', {}, [link(slug + '/' + tile[0], tile[1])]), el('p', { class: 'bp-muted', text: tile[2] })]);
 			}))
 		]);

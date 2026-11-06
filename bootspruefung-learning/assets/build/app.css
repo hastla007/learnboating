@@ -157,3 +157,8 @@
 .bp-checklist .is-missing { color: var(--bp-bad); font-weight: 600; }
 #bp-device-sim { max-width: 1200px; margin: 0 auto; }
 .bp-app:has(#bp-device-sim) { max-width: 1240px; }
+
+/* Gesperrte Bereiche mit Shop-Produkten (Schritt 9) */
+.bp-locked { border-style: dashed; }
+.bp-offers { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.bp-offers li { display: flex; align-items: center; gap: 0.4rem; }

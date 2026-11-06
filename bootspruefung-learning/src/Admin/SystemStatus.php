@@ -24,7 +24,10 @@ final class SystemStatus
             'expected_schema_version' => Migrator::SCHEMA_VERSION,
             'foreign_keys' => $migrator->foreignKeyCount(),
             'tables' => $migrator->tableStatus(),
-            'woocommerce' => Requirements::wooCommerceStatus(),
+            'woocommerce' => Requirements::wooCommerceStatus() + [
+                'guest_checkout' => get_option('woocommerce_enable_guest_checkout') === 'yes',
+                'learning_products' => count((new \Bootspruefung\Learning\Commerce\ProductAccessRepository($GLOBALS['wpdb']))->productIds()),
+            ],
             'php_version' => PHP_VERSION,
             'wp_version' => (string) $wp_version,
         ];

@@ -9,9 +9,8 @@ use Bootspruefung\Learning\Security\Capabilities;
 use Bootspruefung\Learning\Settings\Settings;
 
 /**
- * Adminmenü (Kap. 9). In dieser Version sind Dashboard/Systemstatus und
- * Einstellungen umgesetzt; die übrigen Bereiche folgen mit Importer,
- * Content-Browser und WooCommerce-Adapter (Kap. 11, Schritte 4–9).
+ * Adminmenü (Kap. 9): Übersicht, Content-Pakete, Content-Browser, Zugänge,
+ * kostenlose Bereiche, Systemstatus und Einstellungen.
  */
 final class Menu
 {
@@ -27,12 +26,14 @@ final class Menu
         add_action('admin_enqueue_scripts', [$this, 'enqueue']);
         (new ImportPage())->register();
         (new ContentPages())->register();
+        (new AccessPages())->register();
     }
 
     public function addPages(): void
     {
         $content = new ContentPages();
         $import = new ImportPage();
+        $access = new AccessPages();
         $read = Capabilities::MANAGE_CONTENT;
         add_menu_page(__('Bootsprüfung', 'bootspruefung-learning'), __('Bootsprüfung', 'bootspruefung-learning'), $read, self::SLUG, [$content, 'renderOverview'], 'dashicons-sos', 56);
         $pages = [
@@ -43,6 +44,8 @@ final class Menu
             [self::SLUG.'-media', __('Medien', 'bootspruefung-learning'), $read, [$content, 'renderMedia']],
             [self::SLUG.'-rules', __('Prüfungsregeln', 'bootspruefung-learning'), $read, [$content, 'renderRules']],
             [self::SLUG.'-rights', __('Rechte', 'bootspruefung-learning'), $read, [$content, 'renderRights']],
+            [AccessPages::SLUG, __('Zugänge', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'render']],
+            [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
         ];
@@ -93,6 +96,9 @@ final class Menu
         }
         echo '</tbody></table>';
 
+        if ($woo['active']) {
+            $this->renderShopStatus($woo);
+        }
         echo '<h2>'.esc_html__('Tabellen', 'bootspruefung-learning').'</h2>';
         echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>'.esc_html__('Tabelle', 'bootspruefung-learning').'</th><th>Engine</th><th>'.esc_html__('Zeilen (ca.)', 'bootspruefung-learning').'</th></tr></thead><tbody>';
         foreach ($status['tables'] as $table => $info) {
@@ -127,7 +133,7 @@ final class Menu
         foreach (['logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'), 'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['default_access'], $value, false), esc_html($label));
         }
-        echo '</select><p class="description">'.esc_html__('Gilt, solange kein WooCommerce-Produkt mit Zahlungsart angebunden ist.', 'bootspruefung-learning').'</p></td></tr>';
+        echo '</select><p class="description">'.esc_html__('„Alle angemeldeten Nutzer“ ist für die Zeit vor dem Shopstart gedacht. Sobald Lernprodukte in WooCommerce verkauft werden, auf „Nur kostenlose Regeln und Freischaltungen“ umstellen – erst dann sperren Käufe, Erstattungen und Aussetzungen tatsächlich.', 'bootspruefung-learning').'</p></td></tr>';
         printf('<tr><th scope="row">%s</th><td><select name="%s[radio_voice_output]">', esc_html__('Sprachausgabe Funktrainer', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['browser' => __('Browserstimme', 'bootspruefung-learning'), 'recording' => __('Lizenzierte Aufnahmen', 'bootspruefung-learning'), 'off' => __('Aus', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['radio_voice_output'], $value, false), esc_html($label));
@@ -135,5 +141,32 @@ final class Menu
         echo '</select></td></tr></tbody></table>';
         submit_button();
         echo '</form></div>';
+    }
+
+    /** @param array<string,mixed> $woo */
+    private function renderShopStatus(array $woo): void
+    {
+        echo '<h2>'.esc_html__('Shop und Zahlungsarten', 'bootspruefung-learning').'</h2>';
+        $warnings = [];
+        if (! empty($woo['guest_checkout'])) {
+            $warnings[] = __('Gastbestellungen sind erlaubt. Für Warenkörbe mit Lernprodukten verlangt das Plugin trotzdem ein Kundenkonto.', 'bootspruefung-learning');
+        }
+        if (Settings::get('default_access') === 'logged_in') {
+            $warnings[] = __('„Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“ – Käufe schalten zwar frei, gesperrt wird aber noch nichts.', 'bootspruefung-learning');
+        }
+        foreach ($warnings as $w) {
+            echo '<div class="notice notice-warning inline"><p>'.esc_html($w).'</p></div>';
+        }
+        $rows = [];
+        foreach (\Bootspruefung\Learning\Commerce\WooCommerce\Gateways::enabled() as $g) {
+            $p = $g['profile'];
+            $rows[] = [
+                esc_html($g['title'].' ('.$g['id'].')'),
+                esc_html($p['payment'] ?? __('Allgemein: Freischaltung bei bezahlter Bestellung (is_paid); „In Wartestellung“ vor Zahlung = wartet auf Zahlung.', 'bootspruefung-learning')),
+                esc_html($p['dispute'] ?? __('Nicht gesondert bekannt: bezahlte Bestellung auf „In Wartestellung“ setzt aus; sonst manuell aussetzen.', 'bootspruefung-learning')),
+            ];
+        }
+        Ui::table([__('Zahlungsart', 'bootspruefung-learning'), __('Freischaltung', 'bootspruefung-learning'), __('Rückbuchung/Konflikt', 'bootspruefung-learning')], $rows, __('Keine Zahlungsart aktiviert.', 'bootspruefung-learning'));
+        printf('<p>%s: %d</p>', esc_html__('Produkte mit Lernzugang', 'bootspruefung-learning'), (int) $woo['learning_products']);
     }
 }

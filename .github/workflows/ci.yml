@@ -131,6 +131,24 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee flow.log
           ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log
+      - name: Zugangslogik (Integration, ohne Shop)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
+          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" commerce.log
+      - name: WooCommerce bereitstellen
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/woocommerce.zip" "https://github.com/woocommerce/woocommerce/releases/download/${WC_VERSION}/woocommerce.zip"
+          unzip -q "$RUNNER_TEMP/woocommerce.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+        env:
+          WC_VERSION: '11.2.2'
+      - name: WooCommerce-Adapter (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-test.php | tee woo.log
+          ! grep -E "PHP Fatal" woo.log
+          ! grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" woo.log
+          # Browser-Tests laufen wie bisher ohne Shop.
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Browser-Tests (Playwright)
         if: matrix.php == '8.3'
         run: |

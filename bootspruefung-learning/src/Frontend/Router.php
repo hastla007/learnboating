@@ -19,7 +19,7 @@ use Bootspruefung\Learning\Plugin;
 final class Router
 {
     public const BASE = 'bootsscheine';
-    private const REWRITE_VERSION = '1';
+    private const REWRITE_VERSION = '2';
 
     public function __construct(private readonly Plugin $plugin)
     {
@@ -45,7 +45,7 @@ final class Router
 
     public function register(): void
     {
-        add_action('init', [$this, 'init']);
+        add_action('init', [$this, 'init'], 99); // nach WooCommerce-Endpunkten (Mein Konto › Mein Lernen)
         add_filter('query_vars', static function (array $vars): array {
             $vars[] = 'bp_app';
             $vars[] = 'bp_path';
@@ -64,9 +64,10 @@ final class Router
     public function init(): void
     {
         self::addRules();
-        if (get_option('bp_learning_rewrite_version') !== self::REWRITE_VERSION.':'.self::base()) {
+        $version = self::REWRITE_VERSION.':'.self::base().':'.(class_exists('WooCommerce') ? 'wc' : '-');
+        if (get_option('bp_learning_rewrite_version') !== $version) {
             flush_rewrite_rules(false);
-            update_option('bp_learning_rewrite_version', self::REWRITE_VERSION.':'.self::base(), true);
+            update_option('bp_learning_rewrite_version', $version, true);
         }
     }
 
@@ -101,6 +102,7 @@ final class Router
             'voice' => \Bootspruefung\Learning\Settings\Settings::get('radio_voice_output'),
             'deviceSim' => plugins_url('assets/device-sim/', $file),
             'version' => Plugin::VERSION,
+            'accountUrl' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::accountUrl(),
             'i18n' => Strings::all(),
         ]);
     }

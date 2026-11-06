@@ -20,6 +20,8 @@ final class Strings
             'locked_title' => __('Nicht freigeschaltet', $d),
             'locked_short' => __('Noch nicht freigeschaltet', $d),
             'locked_feature' => __('Dieser Bereich ist für dein Konto noch nicht freigeschaltet.', $d),
+            'unlock_with' => __('Freischalten mit:', $d),
+            'my_access' => __('Meine Lernzugänge ansehen', $d),
             'back_overview' => __('Zur Übersicht', $d),
             'back_course' => __('Zurück zum Kurs', $d),
             'breadcrumb' => __('Brotkrümelnavigation', $d),

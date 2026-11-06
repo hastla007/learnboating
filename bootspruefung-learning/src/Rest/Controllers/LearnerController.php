@@ -111,6 +111,7 @@ final class LearnerController
                 'type' => $course->course_type,
                 'features' => $features,
                 'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course)['total'] : null,
+                'shop' => in_array(true, $features, true) ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
             ];
         }
 
@@ -133,6 +134,7 @@ final class LearnerController
             'favorites' => count($this->learning->favoriteIds($user)),
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
+            'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, $features),
         ];
     }
 

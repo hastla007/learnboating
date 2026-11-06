@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.4.0';
+    public const VERSION = '0.5.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -101,6 +101,7 @@ final class Plugin
         add_action('admin_init', [Settings::class, 'register']);
 
         Compatibility::register($this->file);
+        add_action('plugins_loaded', [\Bootspruefung\Learning\Commerce\WooCommerce\Integration::class, 'register'], 20);
         (new Menu($this))->register();
         (new RestRegistrar())->register();
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
@@ -108,6 +109,8 @@ final class Plugin
             $content = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
             $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
             (new \Bootspruefung\Learning\Exams\Services\ExamService($content, new \Bootspruefung\Learning\Learning\Services\QuestionPresenter($content), $access))->expireRunning();
+            global $wpdb;
+            (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->expireDue();
         });
         PersonalData::register();
 

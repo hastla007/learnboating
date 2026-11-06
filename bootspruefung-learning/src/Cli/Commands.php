@@ -9,8 +9,7 @@ use Bootspruefung\Learning\Plugin;
 use WP_CLI;
 
 /**
- * WP-CLI: `wp bootspruefung status|migrate`. Import und Abgleich
- * (`import`, `reconcile`) folgen mit den Schritten 4 und 9.
+ * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access`.
  */
 final class Commands
 {
@@ -20,6 +19,8 @@ final class Commands
         WP_CLI::add_command('bootspruefung migrate', [self::class, 'migrate']);
         WP_CLI::add_command('bootspruefung import', [self::class, 'import']);
         WP_CLI::add_command('bootspruefung rollback', [self::class, 'rollback']);
+        WP_CLI::add_command('bootspruefung reconcile', [self::class, 'reconcile']);
+        WP_CLI::add_command('bootspruefung access', [self::class, 'access']);
     }
 
     /**
@@ -137,6 +138,87 @@ final class Commands
         $service->approve($batchId, 'Rollback: '.$assoc['reason']);
         $service->runAll($batchId);
         WP_CLI::success("Rollback als Import #{$batchId} veröffentlicht.");
+    }
+
+    /**
+     * Gleicht WooCommerce-Bestellungen mit den Lernzugängen ab (Kap. 7.6).
+     * Ohne --apply nur Vorschau. Widerrufe/Aussetzungen werden vor dem
+     * Anwenden einzeln aufgeführt und bestätigt – keine stillen Massenwiderrufe.
+     *
+     * [--apply]
+     * : Änderungen anwenden.
+     *
+     * [--order=<id>]
+     * : Nur diese Bestellung.
+     *
+     * [--since=<datum>]
+     * : Nur Bestellungen ab diesem Datum (YYYY-MM-DD).
+     *
+     * [--yes]
+     * : Rückfrage bei Widerrufen überspringen.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function reconcile(array $args, array $assoc): void
+    {
+        if (! \Bootspruefung\Learning\Commerce\WooCommerce\Integration::active()) {
+            WP_CLI::error('WooCommerce ist nicht aktiv.');
+        }
+        $sync = \Bootspruefung\Learning\Commerce\WooCommerce\Integration::sync();
+        $since = isset($assoc['since']) ? gmdate('Y-m-d H:i:s', (int) strtotime($assoc['since'].' 00:00:00 UTC')) : null;
+        $plans = isset($assoc['order']) ? array_filter([(int) $assoc['order'] => $sync->plan((int) $assoc['order'])]) : iterator_to_array($sync->reconcile($since), true);
+        $rows = [];
+        $removals = 0;
+        foreach ($plans as $orderId => $plan) {
+            foreach ($plan->warnings as $w) {
+                $rows[] = ['order' => $orderId, 'item' => '', 'scope' => '', 'change' => 'Warnung: '.$w, 'reason' => $plan->reason];
+            }
+            foreach ($plan->changes as $c) {
+                $rows[] = ['order' => $orderId, 'item' => $c['item_id'] ?? '', 'scope' => ($c['course'] ?? '').'/'.($c['feature'] ?? ''),
+                    'change' => $c['type'] === 'create' ? 'neu → '.$c['to'] : ($c['type'] === 'user' ? 'Nutzer '.$c['from_user'].' → '.$c['user_id'] : $c['from'].' → '.$c['to']), 'reason' => $c['reason']];
+            }
+            $removals += $plan->removals();
+        }
+        if ($rows === []) {
+            WP_CLI::success(sprintf('%d Bestellung(en) geprüft – keine Abweichungen.', count($plans)));
+
+            return;
+        }
+        WP_CLI\Utils\format_items('table', $rows, ['order', 'item', 'scope', 'change', 'reason']);
+        if (! isset($assoc['apply'])) {
+            WP_CLI::log('Vorschau. Mit --apply anwenden.');
+
+            return;
+        }
+        if ($removals > 0) {
+            WP_CLI::confirm(sprintf('%d Zugang/Zugänge werden widerrufen oder ausgesetzt. Fortfahren?', $removals), $assoc);
+        }
+        $applied = 0;
+        foreach ($plans as $plan) {
+            $applied += $sync->entitlements()->apply($plan, 'reconcile');
+        }
+        WP_CLI::success("{$applied} Änderung(en) angewendet.");
+    }
+
+    /**
+     * Zeigt die Zugänge eines Nutzers.
+     *
+     * <user>
+     * : Benutzer-ID, Login oder E-Mail.
+     *
+     * @param list<string> $args
+     */
+    public static function access(array $args): void
+    {
+        $user = get_user_by(is_numeric($args[0]) ? 'id' : (is_email($args[0]) ? 'email' : 'login'), $args[0]);
+        if (! $user) {
+            WP_CLI::error('Benutzer nicht gefunden.');
+        }
+        global $wpdb;
+        $rows = array_map(static fn ($r) => ['id' => $r->id, 'course' => $r->course_code, 'feature' => $r->feature_code, 'status' => $r->status, 'valid_until' => $r->valid_until ?? 'dauerhaft', 'source' => $r->source, 'order' => $r->order_id],
+            (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->forUser((int) $user->ID));
+        WP_CLI\Utils\format_items('table', $rows, ['id', 'course', 'feature', 'status', 'valid_until', 'source', 'order']);
     }
 
     /** Führt ausstehende Datenbankmigrationen aus. */

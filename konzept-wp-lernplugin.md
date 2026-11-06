@@ -409,7 +409,19 @@ WooCommerce Payment-Integrationen sollen Zahlungsabschluss über die WooCommerce
 | Woo-Produkt deaktiviert/gelöscht | bestehende bezahlte Rechte bleiben bestehen; neue Käufe gesperrt |
 | Chargeback/Payment-Reversal | Zugang suspendieren; nach erfolgreicher Klärung reaktivieren (siehe Hinweis unten) |
 
-WooCommerce kennt keinen einheitlichen Status oder Hook für Chargebacks; die Meldung ist gateway-spezifisch (z. B. setzt WooCommerce Stripe bei einem Dispute die Bestellung auf `on-hold` und schreibt eine Order-Notiz). V1 behandelt deshalb den Wechsel einer bereits bezahlten Bestellung nach `on-hold` als Suspendierung und unterstützt ausdrücklich nur die in Kap. 13 festgelegten Gateways. Für andere Gateways steht eine manuelle Suspendierung im Admin bereit.
+WooCommerce kennt keinen einheitlichen Status oder Hook für Chargebacks; die Meldung ist gateway-spezifisch (z. B. setzt WooCommerce Stripe bei einem Dispute die Bestellung auf `on-hold` und schreibt eine Order-Notiz). V1 behandelt deshalb den Wechsel einer bereits bezahlten Bestellung (Zahldatum gesetzt) nach `on-hold` als Suspendierung. Für alle anderen Fälle stehen eine manuelle Suspendierung (Bestellaktion bzw. Adminseite „Zugänge“) und die Hooks `bootspruefung_suspend_order`/`bootspruefung_reactivate_order` bereit.
+
+**Festgelegte Zahlungsarten (Kap. 13 Nr. 9): Überweisung, Klarna, PayPal, Stripe – weitere können hinzukommen.** Der Adapter ist deshalb gateway-neutral: maßgeblich sind ausschließlich `is_paid()` (Status aus `wc_get_is_paid_statuses()`), das Zahldatum, Bestellstatus und Erstattungen der Bestellung. Ein neues Gateway braucht keinen Code; für eigene Bestellstatus gibt es den Filter `bootspruefung_order_access_target`, für die Anzeige im Systemstatus `bootspruefung_gateway_profiles`.
+
+| Zahlungsart | Freischaltung | Rückbuchung/Konflikt |
+|---|---|---|
+| Überweisung (BACS) | Bestellung `on-hold` → Zugang „wartet auf Zahlung“; Statuswechsel auf `processing`/`completed` nach Zahlungseingang aktiviert. Optional Freigabe vorab per Bestellaktion (mit Begründung). | keine Gateway-Rückbuchung; Erstattung/Storno in WooCommerce widerruft |
+| Stripe | bei bestätigter Zahlung | Dispute → `on-hold` → automatisch ausgesetzt; Dispute gewonnen (zurück auf bezahlt) → reaktiviert |
+| PayPal | bei bestätigter Zahlung | Erstattungen als Woo-Erstattung → Widerruf; Disputes manuell aussetzen oder Bestellung auf `on-hold` setzen |
+| Klarna | sobald Klarna bestätigt und die Bestellung als bezahlt gilt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“ | Storno/Erstattung widerruft; Konflikte manuell aussetzen |
+| weitere | wie oben über `is_paid()` | `on-hold` nach Zahlung = Aussetzung, sonst manuell |
+
+Weitere Regeln der Umsetzung: Ein Widerruf nach erfolgter Freischaltung (Erstattung, Storno) ist endgültig; ein nie aktiver Zugang (fehlgeschlagene Zahlung, später doch bezahlt) lebt wieder auf. Manuelle Entscheidungen (Aussetzen, Vorab-Freigabe) bleiben bei weiteren Statuswechseln bestehen, bis sie aufgehoben werden – nur Storno/Erstattung widerrufen trotzdem. Die Erstattungsregel wird beim Anlegen im Zugang gespeichert und gilt auch, wenn die Produktzuordnung später entfernt wird. Bestellungen ohne Kundenkonto erzeugen keinen Zugang (Audit-Eintrag, Zuordnung im Admin möglich); der Checkout verlangt deshalb für Lernprodukte ein Konto (klassisch und Checkout-Block).
 
 Die Regeln gelten pro Bestellposition. Bei Paketen wird pro enthaltenem Kurs/Feature ein eigener Zugang angelegt, damit Rückerstattung eines einzelnen Produkts nicht andere bezahlte Zugänge löscht.
 
@@ -493,12 +505,13 @@ bootspruefung-learning/
 ### Adminmenü
 
 - **Dashboard:** Inhalts-/Katalogstatus, ausstehende Rechteprüfung, Importwarnungen, WooCommerce-Zuordnungsfehler.
-- **Content-Pakete:** hochladen, Vorschau, Fehler, Rechteblockaden, Freigabe, Verlauf und Rollback. Rollback bedeutet: Das vorher veröffentlichte Paket wird erneut als aktiver Stand gesetzt, d. h. dessen Revisionen werden wieder `published`, die des zurückgenommenen Pakets `deprecated`. Revisionen werden nie gelöscht, damit bestehende Versuche gültig referenziert bleiben.
+- **Content-Pakete:** hochladen, Vorschau, Fehler, Rechteblockaden, Freigabe, Verlauf und Rollback. Rollback bedeutet: Das vorher veröffentlichte Paket wird erneut als aktiver Stand gesetzt, d. h. dessen Revisionen werden wieder `published`, die des zurückgenommenen Pakets `deprecated`. Revisionen werden nie gelöscht, damit bestehende Versuche gültig referenziert bleiben. *Umsetzung: Rollback spielt das gespeicherte Paketverzeichnis eines früher veröffentlichten Imports als neuen Import ein (Pflichtbegründung, Vorschau, Freigabe, Audit `import_rolled_back`); Fragen mit gleichem Hash erhalten ihre frühere Revision zurück statt einer neuen, nicht mehr enthaltene Datensätze werden wie beim Reimport archiviert bzw. reaktiviert. Admin: Detailseite des Imports, CLI: `wp bootspruefung rollback <import-id> --reason=…`.*
 - **Kurse & Module:** Zuordnungen und Reihenfolge kontrollieren.
 - **Prüfungsregeln:** Regelwerk, Verifizierung und Gültigkeit.
 - **Medien:** fehlende Dateien, Lizenzstatus, verwaiste Assets.
-- **WooCommerce-Zuordnungen:** Produkt → Kurs/Features, Dauer und Rückerstattungsregel.
-- **Zugänge:** Suche nach Nutzer/Order, manuelle Verlängerung/Widerruf mit Audit.
+- **WooCommerce-Zuordnungen:** Produkt → Kurs/Features, Dauer und Rückerstattungsregel. *Umsetzung: Reiter „Lernzugang“ im Produkt bzw. in der Variation.*
+- **Zugänge:** Suche nach Nutzer/Order, manuelle Freigabe/Verlängerung/Aussetzung/Widerruf mit Pflichtbegründung und Audit.
+- **Kostenlose Bereiche:** Free-Regeln (`bp_access_rule`) je Kurs und Funktion, optional befristet.
 - **Systemstatus:** DB-Schemaversion, Woo-Kompatibilität, letzter Export/Import, Cron/Action Scheduler Fehler.
 
 ### Lernende
@@ -526,13 +539,13 @@ bootspruefung-learning/
 2. **Paketvertrag und Konverter:** JSON-Schema und Medienmanifest festlegen; Konverter inkl. Portierung der Generatorlogik aus `app/Support/` mit Golden-Master-Tests. *Stand: Format v1 (`schema/`) und Konverter (`tools/content-build/`) ✅ für Kurse, Module, Fragen, Medien, Regelwerke, Bögen, Navigation und Praxis – Golden Master gegen Laravel ohne Abweichung; Video, Funk und Gerätesimulation offen.*
 3. **Plugin-Skelett:** Autoloading, Capabilities, Settings, Tabellenmigrationen und REST-Grundstruktur. *Stand: ✅ (`bootspruefung-learning/`), Rauchtest gegen WordPress 7.1.4 + MariaDB 10.11.*
 4. **Importer:** Dry-Run, Schema-Validierung, Quell-ID/Hash, Batchimport, Protokoll und Freigabeschritt. *Stand: ✅ Upload (ZIP, Pfadprüfung) oder WP-CLI `wp bootspruefung import`; Prüfung gegen Manifest-Prüfsummen, Schemata und Querverweise; Dry-Run-Vorschau; Freigabe mit Notiz; Import in Teilschritten (fortsetzbar); neue Revision bei geändertem Hash, `source_archived` statt Löschen; Protokoll je Datensatz; Audit-Log.*
-5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren. *Stand: ✅ Übersicht mit offenen Punkten, Kurse & Module, Fragen (Filter, Detail, Revisionen), Medien, Prüfungsregeln (Verifizierung per Override), Rechtefreigabe je Katalog/Quelle/Kurs. Lokale Änderungen als begründete Overrides (`bp_override`), die Reimporte überleben. Rollback eines Pakets ist noch offen.*
+5. **Content-Browser/Admin:** Kurse, Module, Fragen, Medien, Regeln und offene Fehler kontrollieren. *Stand: ✅ Übersicht mit offenen Punkten, Kurse & Module, Fragen (Filter, Detail, Revisionen), Medien, Prüfungsregeln (Verifizierung per Override), Rechtefreigabe je Katalog/Quelle/Kurs. Lokale Änderungen als begründete Overrides (`bp_override`), die Reimporte überleben. Rollback auf einen früher veröffentlichten Paketstand ✅ (Kap. 9).*
 6. **Lernmodus:** Frage/Antwort, Erklärungen, Merkliste, Fortschritt und Smarttrainer. *Stand: ✅ unter `/bootsscheine/` (Block- und klassische Themes); Smarttrainer-Logik wie die Quelle (neu → falsch → schwaches Thema → gefestigt, gefestigt = 3× richtig in Folge), Modi Neu/Falsch/Merkliste, Modulfilter, offene Fragen mit Musterantwort und Selbsteinschätzung; signierte Frage-Tokens, Idempotency-Key, Rate-Limit.*
 7. **Prüfung:** Regeln, Zufallsprüfungen, feste Bögen, Snapshot und Ergebnis. *Stand: ✅ Prüfungsmodus nur mit veröffentlichtem, gültigem, verifiziertem Regelwerk, sonst Übungsmodus; Zufallsauswahl nach Blueprint, feste Bögen mit Fortsetzen; serverseitige Zeit und Abgabe nach Ablauf (auch per Cron); Bewertung mit Teilgrenzen wie die Quelle; Ergebnis mit Teilen, Themen und Fragenrückblick.*
 8. **Spezialtrainer:** Navigation, Praxis, Videos, Funktexte, Vokabeln. *Stand: ✅ Konverter (Paketformat 1.1: `video_modules`, `radio_texts`, `radio_vocabulary`, Golden Master gegen Laravel ohne Abweichung) und Trainer im Plugin: Navigation mit amtlichem Ergebnis und Selbsteinschätzung, Praxiskarten nach Kategorie, Videokurs mit Sehfortschritt, Schrittgalerien und Quiz aus der Fragenbank, SRC-Seefunktexte mit Auswertung (Wortvergleich wie die Quelle), UBI-Aufnahme/-Abgabe, Vokabeln und Buchstabiertafel. Alle Videos sind noch Platzhalter der Quelle.*
    - 8a: **Funkpraxis (Sprechfunk-Szenarien)** als eigener Meilenstein. *Stand: ✅ 72 Szenarien (42 SRC, 30 UBI); der Konverter nutzt den Generator `FunkPraxis` der Quelle unverändert, das Plugin wertet Rang, DSC/Verkehrskreis, Funkgerät und Meldung serverseitig gegen die Prüfpunkte aus (Spracheingabe optional per Browser).*
    - 8b: **Gerätesimulation** als eigener Meilenstein. *Stand: ✅ Original-JavaScript der Quelle unverändert übernommen (`tools/sync-device-sim.sh`, CSS per Tailwind auf den Lernbereich begrenzt); 7 Geräte, 48 Lektionen, 4 Prüfungsreihen, freies Üben. Server: Konfiguration, Bewertung von Funksprüchen, Stufen 1–3 und Prüfungsergebnisse – wie in der Quelle meldet der Browser die Gerätebedienung, serverseitig geprüft werden die Funksprüche.*
-9. **WooCommerce:** *(offen; Zahlungsarten noch nicht festgelegt – bis dahin regelt die Einstellung „Zugang ohne Shop“ den Zugriff, Standard: alle angemeldeten Nutzer)* Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport.
+9. **WooCommerce:** Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport. *Stand: ✅ gateway-neutral für Überweisung, Klarna, PayPal, Stripe und weitere (Kap. 7.5): Reiter „Lernzugang“ (Kurse × Funktionen, Dauer, Verlängerung/parallel, Erstattungsregel, Variationen erben oder überschreiben); idempotente Zugänge je Bestellposition; Aussetzung bei Dispute, Widerruf je Position bei Erstattung bzw. bei Storno; Lernprodukte einzeln und nur mit Kundenkonto; „Mein Lernen“ in Mein Konto, Kurslink in Bestellbestätigung und E-Mail, Sperrhinweis mit Produktlink im Lernbereich; Bestellposition zeigt Zugänge, Bestellaktionen (abgleichen, vorab freischalten, aussetzen, aufheben); Adminseiten „Zugänge“ und „Kostenlose Bereiche“; `wp bootspruefung reconcile [--apply]` mit Vorschau und Rückfrage vor Widerrufen; stündlicher Ablauf befristeter Zugänge; Systemstatus mit Zahlungsarten. Getestet mit Testbestellungen und gegen WooCommerce 11.2 (CI). Bis zum Shopstart steht „Zugang ohne Shop“ weiter auf „alle angemeldeten Nutzer“ – danach auf „Nur kostenlose Regeln und Freischaltungen“ umstellen.*
 10. **Content-Freigabe und Go-live:** Rechtsstatus, Katalogaktualität, Regelwerksverifizierung, Medienersatz, Backup/Restore und Supportablauf bestätigen.
 
 ## 12. Abnahmekriterien
@@ -561,7 +574,7 @@ bootspruefung-learning/
 6. Ziel-WordPress-/WooCommerce-Version und verwendetes Theme/Checkout.
 7. Zu ersetzende Platzhaltervideos und noch zu prüfende Prüfungsregelwerke.
 8. Designreferenzen für Lernbereich und gewünschte Brand-Texte.
-9. Unterstützte Payment-Gateways (für Chargeback-Behandlung, Kap. 7.5).
+9. Unterstützte Payment-Gateways (für Chargeback-Behandlung, Kap. 7.5). *Festgelegt: Überweisung, Klarna, PayPal, Stripe; weitere möglich.*
 10. Entscheidung, ob Bootsschul-Betriebsfunktionen (Prüfungsbuchung, Prüfungsausschüsse, Praxis-Anmeldung, Tipps) übernommen werden.
 
 ## 14. Technische Referenzen
