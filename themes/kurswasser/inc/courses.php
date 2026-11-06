@@ -61,7 +61,95 @@ function kurswasser_courses(): array
             'lead' => 'Der kompakte Kurs für den Fachkundenachweis: alle Prüfungsfragen im Smarttrainer, Praxiskarten zum Erkennen und Handhaben von Signalmitteln und die Prüfungssimulation.',
             'offers' => ['BP-FKN', 'BP-SKN'], 'featured' => 'BP-FKN', 'compare' => [],
         ],
+        'sbf-kombi' => [
+            'main' => 'BP-SBF-SEE-BIN', 'mark' => 'KOMBI', 'title' => 'SBF See & Binnen', 'name' => 'Kombi SBF See & Binnen', 'eyebrow' => 'Kombi', 'code' => 'SBF-SEE-BIN', 'icon' => 'anchor', 'tone' => 'see',
+            'teaser' => 'Beide Sportbootführerscheine in einem Kurs – Küste und Binnen.',
+            'lead' => 'Lerne SBF See und SBF Binnen in einem Kurs: alle Prüfungsfragen beider Scheine im Smarttrainer, Navigationsaufgaben, Praxiskarten, Videokurs und Prüfungssimulation – günstiger als zwei Einzelkurse.',
+            'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'],
+        ],
+        'kapitaen' => [
+            'main' => 'BP-KAPITAEN', 'mark' => 'BUNDLE', 'title' => 'Kapitäns-Bundle', 'name' => 'Kapitäns-Bundle: SBF See, Binnen, SRC & UBI', 'eyebrow' => 'Komplettpaket', 'code' => 'SBF-SEE-BIN', 'codes' => ['SBF-SEE-BIN', 'SRC-UBI'], 'exam' => false, 'icon' => 'wheel', 'tone' => 'bundle', 'signal' => true,
+            'teaser' => 'Komplett: SBF See und Binnen plus beide Funkscheine SRC und UBI.',
+            'lead' => 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: SBF See, SBF Binnen, SRC und UBI – mit allen Prüfungsfragen, Navigationsaufgaben, Praxiskarten, Funktraining und Prüfungssimulation.',
+            'offers' => ['BP-SBF-SEE-BIN', 'BP-KAPITAEN', 'BP-SRC-UBI'], 'featured' => 'BP-KAPITAEN', 'compare' => ['BP-SBF-SEE-BIN', 'BP-SRC-UBI'],
+        ],
+        'funk-kombi' => [
+            'main' => 'BP-SRC-UBI', 'mark' => 'KOMBI', 'title' => 'SRC & UBI', 'name' => 'Kombi SRC & UBI', 'eyebrow' => 'Kombi', 'code' => 'SRC-UBI', 'icon' => 'radio', 'tone' => 'funk',
+            'teaser' => 'Seefunk und Binnenfunk zusammen – beide Funkzeugnisse in einem Kurs.',
+            'lead' => 'Lerne SRC und UBI in einem Kurs: alle Prüfungsfragen beider Funkzeugnisse, englische und deutsche Funktexte, Vokabeln, Praxisszenarien und Gerätesimulation – günstiger als zwei Einzelkurse.',
+            'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-KAPITAEN'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
+        ],
     ];
+}
+
+/** Kachel-Reihen: Startseite (zwei Reihen) und Seite „Weitere Kurse“. */
+function kurswasser_tile_sets(): array
+{
+    return [
+        'main' => ['sbf-see', 'sbf-binnen', 'sbf-kombi', 'kapitaen', 'src', 'ubi', 'funk-kombi', 'weitere'],
+        'more' => ['sbf-binnen-segel', 'skn', 'fkn', 'ergaenzung', 'paesse', 'gruppen'],
+    ];
+}
+
+/** Zusatz-Kacheln ohne eigene Kursdefinition. */
+function kurswasser_special_tiles(): array
+{
+    $min = static fn (array $skus): ?float => ($p = array_filter(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? null, $skus), static fn ($x) => $x !== null)) ? min($p) : null;
+
+    return [
+        'weitere' => ['title' => __('Weitere Kurse', 'kurswasser'), 'name' => __('Segeln, Seenotsignalmittel & mehr', 'kurswasser'), 'eyebrow' => __('Mehr Kurse', 'kurswasser'), 'icon' => 'plus',
+            'teaser' => __('SBF Binnen unter Segel, SKN, FKN, Ergänzungskurse, Pässe und Gruppenpakete.', 'kurswasser'),
+            'facts' => [['sail', __('Binnen unter Segel', 'kurswasser')], ['flare', __('SKN und FKN', 'kurswasser')]],
+            'url' => kurswasser_course_url('weitere'), 'price' => $min(['BP-SBF-BIN-SEGEL', 'BP-SKN', 'BP-FKN', 'BP-PASS-1M']), 'from' => true, 'cta' => __('Alle ansehen', 'kurswasser')],
+        'ergaenzung' => ['title' => __('Ergänzungen', 'kurswasser'), 'name' => __('Ergänzungskurse', 'kurswasser'), 'eyebrow' => __('Schon einen Schein?', 'kurswasser'), 'icon' => 'plus',
+            'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI, FKN → SKN.', 'kurswasser'),
+            'facts' => [['clock', __('6 Monate Zugang', 'kurswasser')]],
+            'url' => kurswasser_url('ergaenzung'), 'price' => $min(['BP-ADD-SEE-TO-BIN', 'BP-ADD-BIN-TO-SEE', 'BP-ADD-BIN-SEGEL', 'BP-ADD-UBI-TO-SRC', 'BP-ADD-FKN-TO-SKN']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
+        'paesse' => ['title' => __('Pässe', 'kurswasser'), 'name' => __('1- und 3-Monats-Pass', 'kurswasser'), 'eyebrow' => __('Alle Inhalte', 'kurswasser'), 'icon' => 'clock',
+            'teaser' => __('Voller Zugriff auf alle Kurse für 30 oder 90 Tage.', 'kurswasser'),
+            'facts' => [['check', __('Alle Kurse und Trainer', 'kurswasser')]],
+            'url' => kurswasser_course_url('pakete'), 'price' => $min(['BP-PASS-1M', 'BP-PASS-3M']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
+        'gruppen' => ['title' => __('Gruppen', 'kurswasser'), 'name' => __('Gruppen & Vereine', 'kurswasser'), 'eyebrow' => __('2 bis 50 Personen', 'kurswasser'), 'icon' => 'crew',
+            'teaser' => __('Ein Kauf, Plätze per Link oder E-Mail vergeben – jede Person lernt mit eigenem Konto.', 'kurswasser'),
+            'facts' => [['crew', __('Paare, Familien, Crews, Vereine', 'kurswasser')]],
+            'url' => kurswasser_url('gruppen'), 'price' => $min(['GRP-PAIR-02', 'GRP-PAIR-01']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
+    ];
+}
+
+/** Eine Kachel (Kursdefinition oder Zusatz-Kachel). */
+function kurswasser_tile(string $slug): string
+{
+    $def = kurswasser_courses()[$slug] ?? null;
+    if ($def !== null) {
+        $main = kurswasser_offer($def['main']);
+        $facts = kurswasser_course_facts($def, 2);
+        $saving = 0.0;
+        if ($main && $def['compare'] !== [] && $def['featured'] === $def['main']) {
+            $saving = round(array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $def['compare'])) - $main['price'], 2);
+        }
+        $t = ['title' => $def['title'], 'name' => $def['name'], 'eyebrow' => $def['eyebrow'], 'icon' => $def['icon'], 'teaser' => $def['teaser'], 'facts' => $facts,
+            'url' => kurswasser_course_url($slug), 'price' => $main['price'] ?? null, 'from' => false, 'cta' => __('Kurs ansehen', 'kurswasser'), 'saving' => $saving, 'signal' => ! empty($def['signal'])];
+    } else {
+        $t = kurswasser_special_tiles()[$slug] ?? null;
+        if ($t === null) {
+            return '';
+        }
+        $t += ['saving' => 0.0, 'signal' => false];
+    }
+    $img = kurswasser_course_image($slug, true);
+    $html = '<article class="kw-tile'.($t['signal'] ? ' kw-tile-bundle' : '').'">';
+    $html .= '<div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill'.($t['signal'] ? ' is-signal' : '').'"><span class="kw-icon kw-icon-'.esc_attr($t['icon']).'" aria-hidden="true"></span>'.esc_html($t['eyebrow']).'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html($t['title']).'</span></div>';
+    $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url($t['url']).'">'.esc_html($t['name']).'</a></h3><p class="kw-tile-text">'.esc_html($t['teaser']).'</p><ul class="kw-tile-facts">';
+    if ($t['saving'] >= 1) {
+        $html .= '<li class="is-save"><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html(sprintf(__('Du sparst %s', 'kurswasser'), kurswasser_money($t['saving']))).'</li>';
+    }
+    foreach (array_slice($t['facts'], 0, $t['saving'] >= 1 ? 1 : 2) as [$icon, $text]) {
+        $html .= '<li><span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>'.esc_html($text).'</li>';
+    }
+    $html .= '</ul></div><footer class="kw-tile-foot">';
+    $html .= $t['price'] !== null ? '<p class="kw-tile-price">'.($t['from'] ? '<span>'.esc_html__('ab', 'kurswasser').'</span> ' : '').esc_html(kurswasser_money((float) $t['price'])).'</p>' : '<p></p>';
+
+    return $html.'<span class="kw-tile-go">'.esc_html($t['cta']).'<span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></span></footer></article>';
 }
 
 /** Kursfoto (assets/images/courses/<kurs>.webp, klein: -sm). */
@@ -88,17 +176,17 @@ function kurswasser_course_from_price(array $def): ?float
 }
 
 /** @return array{questions:int,nav:int,praxis:int,videos:int,papers:int} */
-function kurswasser_course_stats(string $code): array
+function kurswasser_course_stats(array $def): array
 {
     return class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)
-        ? \Bootspruefung\Learning\Commerce\ShopCatalog::courseStats([$code])
+        ? \Bootspruefung\Learning\Commerce\ShopCatalog::courseStats($def['codes'] ?? [$def['code']])
         : ['questions' => 0, 'nav' => 0, 'praxis' => 0, 'videos' => 0, 'papers' => 0];
 }
 
 /** Kennzahlen als kurze Fakten (Symbol, Text). @return list<array{0:string,1:string}> */
 function kurswasser_course_facts(array $def, int $max = 3): array
 {
-    $s = kurswasser_course_stats($def['code']);
+    $s = kurswasser_course_stats($def);
     $facts = [];
     if ($s['questions']) {
         $facts[] = ['smart', sprintf(__('%d Prüfungsfragen', 'kurswasser'), $s['questions'])];
@@ -121,31 +209,11 @@ function kurswasser_course_facts(array $def, int $max = 3): array
 
 /* ------------------------------------------------------------------ Kacheln (Startseite) */
 
-add_shortcode('kurswasser_course_tiles', static function (): string {
-    $html = '<div class="kw-tiles">';
-    foreach (kurswasser_courses() as $slug => $def) {
-        $main = kurswasser_offer($def['main']);
-        $img = kurswasser_course_image($slug, true);
-        $html .= '<article class="kw-tile">';
-        $html .= '<div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill"><span class="kw-icon kw-icon-'.esc_attr($def['icon']).'" aria-hidden="true"></span>'.esc_html($def['eyebrow']).'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html($def['title']).'</span></div>';
-        $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url(kurswasser_course_url($slug)).'">'.esc_html($def['name']).'</a></h3>';
-        $html .= '<p class="kw-tile-text">'.esc_html($def['teaser']).'</p><ul class="kw-tile-facts">';
-        foreach (kurswasser_course_facts($def, 2) as [$icon, $text]) {
-            $html .= '<li><span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>'.esc_html($text).'</li>';
-        }
-        $html .= '</ul></div><footer class="kw-tile-foot">';
-        $html .= $main !== null ? '<p class="kw-tile-price">'.esc_html(kurswasser_money($main['price'])).'</p>' : '<p></p>';
-        $html .= '<span class="kw-tile-go">'.esc_html__('Kurs ansehen', 'kurswasser').'<span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></span></footer></article>';
-    }
-    // Pakete & Pässe als eigene Kachel
-    $bundle = kurswasser_offer('BP-KAPITAEN');
-    $img = kurswasser_course_image('pakete', true);
-    $html .= '<article class="kw-tile kw-tile-bundle"><div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill is-signal"><span class="kw-icon kw-icon-wheel" aria-hidden="true"></span>'.esc_html__('Sparen', 'kurswasser').'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></div>';
-    $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url(kurswasser_course_url('pakete')).'">'.esc_html__('Kombis, Bundle und Pässe', 'kurswasser').'</a></h3>';
-    $html .= '<p class="kw-tile-text">'.esc_html__('Kapitäns-Bundle mit SBF See, Binnen und Funk – oder ein Pass für alle Inhalte.', 'kurswasser').'</p><ul class="kw-tile-facts"><li><span class="kw-icon kw-icon-wheel" aria-hidden="true"></span>'.esc_html__('Kapitäns-Bundle', 'kurswasser').'</li><li><span class="kw-icon kw-icon-clock" aria-hidden="true"></span>'.esc_html__('Pässe für 1 oder 3 Monate', 'kurswasser').'</li></ul></div>';
-    $html .= '<footer class="kw-tile-foot">'.($bundle ? '<p class="kw-tile-price"><span>'.esc_html__('ab', 'kurswasser').'</span> '.esc_html(kurswasser_money(min(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? PHP_FLOAT_MAX, ['BP-KAPITAEN', 'BP-PASS-1M', 'BP-PASS-3M'])))).'</p>' : '<p></p>').'<span class="kw-tile-go">'.esc_html__('Ansehen', 'kurswasser').'<span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></span></footer></article>';
+add_shortcode('kurswasser_course_tiles', static function ($atts): string {
+    $set = sanitize_key((string) (shortcode_atts(['set' => 'main'], (array) $atts)['set']));
+    $slugs = kurswasser_tile_sets()[$set] ?? kurswasser_tile_sets()['main'];
 
-    return $html.'</div>';
+    return '<div class="kw-tiles'.(count($slugs) % 4 !== 0 && count($slugs) % 3 === 0 ? ' kw-tiles-3' : '').'">'.implode('', array_map('kurswasser_tile', $slugs)).'</div>';
 });
 
 /* ------------------------------------------------------------------ Kurs-Infoseite */
@@ -155,11 +223,14 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     if ($slug === 'pakete') {
         return kurswasser_packages_page();
     }
+    if ($slug === 'weitere') {
+        return kurswasser_more_page();
+    }
     $def = kurswasser_courses()[$slug] ?? null;
     if ($def === null) {
         return '';
     }
-    $stats = kurswasser_course_stats($def['code']);
+    $stats = kurswasser_course_stats($def);
     $main = kurswasser_offer($def['main'] ?? '');
     $from = $main['price'] ?? kurswasser_course_from_price($def);
     $trial = home_url('/bootsscheine/'.(class_exists(\Bootspruefung\Learning\Content\Repositories\ContentRepository::class) ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '').'/');
@@ -193,7 +264,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     if ($stats['videos']) {
         $features[] = ['play', __('Videokurs', 'kurswasser'), sprintf(__('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen.', 'kurswasser'), $stats['videos'])];
     }
-    if (in_array($def['code'], ['SRC', 'UBI'], true)) {
+    if (array_intersect($def['codes'] ?? [$def['code']], ['SRC', 'UBI', 'SRC-UBI']) !== []) {
         $features[] = ['radio', __('Funktraining', 'kurswasser'), __('Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Gerätesimulation.', 'kurswasser')];
     }
     $features[] = ['phone', __('Überall lernen', 'kurswasser'), __('Im Browser auf Rechner, Tablet und Smartphone – dein Fortschritt bleibt gespeichert.', 'kurswasser')];
@@ -216,27 +287,38 @@ add_shortcode('kurswasser_course', static function ($atts): string {
 /** Prüfungsrahmen aus der Anleitung der Quelle (erste Prüfungsform des Kurses). */
 function kurswasser_course_exam(array $def): string
 {
-    if (! class_exists(\Bootspruefung\Learning\ExamGuide\ExamGuideService::class)) {
+    if (($def['exam'] ?? true) === false || ! class_exists(\Bootspruefung\Learning\ExamGuide\ExamGuideService::class)) {
         return '';
     }
-    $tabs = (new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->payload($def['code'])['tabs'] ?? [];
-    $tab = $tabs[0] ?? null;
-    $variant = $tab['variants'][0] ?? null;
-    if ($tab === null || $variant === null) {
+    $tabs = array_values(array_filter((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->payload($def['code'])['tabs'] ?? [], static fn ($t) => ! empty($t['variants'])));
+    if ($tabs === []) {
         return '';
     }
-    $html = '<section class="kw-section kw-course-exam"><div class="kw-exam-grid"><div><p class="kw-eyebrow">'.esc_html__('Die Prüfung', 'kurswasser').'</p><h2>'.esc_html__('So läuft die Prüfung ab.', 'kurswasser').'</h2>';
+    $multi = count($tabs) > 1;
+    $html = '<section class="kw-section kw-course-exam"><div class="kw-exam-grid"><div><p class="kw-eyebrow">'.esc_html__('Die Prüfung', 'kurswasser').'</p><h2>'.esc_html($multi ? __('So laufen die Prüfungen ab.', 'kurswasser') : __('So läuft die Prüfung ab.', 'kurswasser')).'</h2>';
     $html .= '<p class="kw-lead">'.esc_html__('Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab. Wir bereiten dich auf jeden Teil vor.', 'kurswasser').'</p>';
-    $html .= '<dl class="kw-exam-facts"><div><dt>'.esc_html__('Theorie', 'kurswasser').'</dt><dd>'.esc_html((string) $variant['scope']).'</dd></div>';
-    if (! empty($variant['pass_text'])) {
-        $html .= '<div><dt>'.esc_html__('Bestanden', 'kurswasser').'</dt><dd>'.esc_html((string) $variant['pass_text']).'</dd></div>';
+    foreach ($tabs as $tab) {
+        $variant = $tab['variants'][0];
+        $html .= ($multi ? '<h3 class="kw-exam-tab">'.esc_html((string) $tab['tab']).' <span>· '.esc_html((string) $variant['label']).'</span></h3>' : '').'<dl class="kw-exam-facts"><div><dt>'.esc_html__('Theorie', 'kurswasser').'</dt><dd>'.esc_html((string) $variant['scope']).'</dd></div>';
+        if (! empty($variant['pass_text'])) {
+            $html .= '<div><dt>'.esc_html__('Bestanden', 'kurswasser').'</dt><dd>'.esc_html((string) $variant['pass_text']).'</dd></div>';
+        }
+        if (! empty($variant['minutes'])) {
+            $html .= '<div><dt>'.esc_html__('Zeit', 'kurswasser').'</dt><dd>'.esc_html(sprintf(__('%d Minuten', 'kurswasser'), (int) $variant['minutes'])).'</dd></div>';
+        }
+        $html .= '</dl>';
     }
-    if (! empty($variant['minutes'])) {
-        $html .= '<div><dt>'.esc_html__('Zeit', 'kurswasser').'</dt><dd>'.esc_html(sprintf(__('%d Minuten', 'kurswasser'), (int) $variant['minutes'])).'</dd></div>';
-    }
-    $html .= '</dl><p class="kw-exam-note">'.esc_html__('Angaben für die Vollprüfung laut amtlichem Prüfungsrahmen; maßgeblich ist dein Prüfungsausschuss.', 'kurswasser').'</p></div><ol class="kw-exam-parts">';
-    foreach ($tab['exam_parts'] as $part) {
-        $html .= '<li><h3>'.esc_html((string) $part['title']).'</h3><p>'.esc_html((string) $part['text']).'</p></li>';
+    $html .= '<p class="kw-exam-note">'.esc_html__('Angaben laut amtlichem Prüfungsrahmen; maßgeblich ist dein Prüfungsausschuss.', 'kurswasser').'</p></div><ol class="kw-exam-parts">';
+    $seen = [];
+    foreach ($tabs as $tab) {
+        foreach ($tab['exam_parts'] as $part) {
+            $title = ($multi ? $tab['tab'].': ' : '').$part['title'];
+            if (isset($seen[$title])) {
+                continue;
+            }
+            $seen[$title] = true;
+            $html .= '<li><h3>'.esc_html((string) $title).'</h3><p>'.esc_html((string) $part['text']).'</p></li>';
+        }
     }
 
     return $html.'</ol></div></section>';
@@ -253,6 +335,17 @@ function kurswasser_packages_page(): string
     return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/groups"} /--><!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
 }
 
+/** Seite „Weitere Kurse“: Kacheln für Segel, SKN, FKN, Ergänzungen, Pässe, Gruppen. */
+function kurswasser_more_page(): string
+{
+    $photo = kurswasser_course_image('weitere');
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('weitere', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Weitere Kurse', 'kurswasser').'</span></nav>';
+    $html .= '<div class="kw-course-hero-grid is-single"><div><p class="kw-eyebrow">'.esc_html__('Mehr Kurse', 'kurswasser').'</p><h1>'.esc_html__('Weitere Kurse', 'kurswasser').'</h1><p class="kw-course-lead">'.esc_html__('Segeln auf Binnengewässern, Seenotsignalmittel, Ergänzungskurse für Scheininhaber, Pässe für alle Inhalte und Pakete für Gruppen.', 'kurswasser').'</p></div></div></div></section>';
+    $html .= '<section class="kw-section">'.do_shortcode('[kurswasser_course_tiles set="more"]').kurswasser_offer_trust().'</section>';
+
+    return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
+}
+
 /** Kursseiten anlegen (Elternseite „Kurse“ + je Kurs), wiederholbar. */
 function kurswasser_create_course_pages(): void
 {
@@ -262,12 +355,12 @@ function kurswasser_create_course_pages(): void
     if ($parentId && ! $parent) {
         update_post_meta($parentId, '_wp_page_template', 'landing');
     }
-    $pages = array_map(static fn ($d) => $d['title'], kurswasser_courses()) + ['pakete' => __('Pakete & Pässe', 'kurswasser')];
+    $pages = array_map(static fn ($d) => $d['title'], kurswasser_courses()) + ['pakete' => __('Pakete & Pässe', 'kurswasser'), 'weitere' => __('Weitere Kurse', 'kurswasser')];
     foreach ($pages as $slug => $title) {
         if (get_page_by_path('kurse/'.$slug)) {
             continue;
         }
-        $name = $slug === 'pakete' ? $title : (kurswasser_courses()[$slug]['name'] ?? $title);
+        $name = kurswasser_courses()[$slug]['name'] ?? $title;
         $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_parent' => $parentId, 'post_name' => $slug, 'post_title' => $name,
             'post_content' => '<!-- wp:shortcode -->[kurswasser_course id="'.$slug.'"]<!-- /wp:shortcode -->']);
         if ($id && ! is_wp_error($id)) {

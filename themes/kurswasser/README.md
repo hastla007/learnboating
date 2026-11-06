@@ -10,7 +10,7 @@ des Plugins bzw. Website-Titel).
 | Vorlage | Zweck |
 |---|---|
 | `front-page` | Startseite aus Mustern: Hero, Vorteilsleiste, **Kurs-Kacheln** (Preis, Kennzahlen, Link zur Kursseite), Funktionen, Ablauf, Gruppen, Garantie, FAQ, Abschluss-Aufruf |
-| `course` | **Kurs-Infoseiten** `/kurse/<kurs>/` (SBF See, SBF Binnen, Binnen Segel, SRC, UBI, SKN, FKN, Pakete): Hero mit Kennzahlen, Inhalte, Prüfungsablauf (aus den Prüfungsanleitungen der Quelle), Preise & Kauf, Garantie, FAQ |
+| `course` | **Kurs-Infoseiten** `/kurse/<kurs>/` (SBF See, SBF Binnen, Kombi SBF, Kapitäns-Bundle, SRC, UBI, Kombi Funk, Binnen Segel, SKN, FKN, Pakete, Weitere Kurse): Hero mit Kennzahlen, Inhalte, Prüfungsablauf (aus den Prüfungsanleitungen der Quelle), Preise & Kauf, Garantie, FAQ |
 | `archive-product`, `taxonomy-product_cat`, `product-search-results` | Shop und Kategorien mit Kategorie-Navigation, Garantie und FAQ |
 | `single-product` | Produktseite mit Kaufbox, Zusicherungen und Beschreibung (aus dem Plugin-Katalog) |
 | `page-cart`, `page-checkout` | Warenkorb und Kasse (Block-Checkout), Kasse mit reduziertem Kopfbereich |
@@ -37,7 +37,7 @@ Beim Aktivieren (und mit `tests/demo-setup.php`) legt das Theme die Seite „Kur
 Unterseite an (Vorlage „Kursseite“). Definitionen in `inc/courses.php` (Texte, Angebote,
 Farbe); Zahlen kommen aus dem Plugin (`ShopCatalog::courseStats`), der Prüfungsablauf aus den
 Prüfungsanleitungen (Umfang, Bestehensgrenze, Zeit, Prüfungsteile) – keine Gebühren/Fristen.
-Startseiten-Kacheln: `[kurswasser_course_tiles]`.
+Kacheln: `[kurswasser_course_tiles]` (Startseite, zwei Reihen: SBF See · SBF Binnen · Kombi · Kapitäns-Bundle / SRC · UBI · Kombi · Weitere Kurse) und `[kurswasser_course_tiles set="more"]` (Seite „Weitere Kurse“). Reihen in `kurswasser_tile_sets()`. Kombis zeigen „Du sparst … €“ aus den Shop-Preisen.
 
 ## Kurse & Preise (`[kurswasser_offers]`)
 

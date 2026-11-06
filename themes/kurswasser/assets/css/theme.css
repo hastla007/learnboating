@@ -344,6 +344,7 @@ img { height: auto; }
    ====================================================================== */
 .kw-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; }
 @media (max-width: 1100px) { .kw-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1101px) { .kw-tiles-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .kw-tiles { grid-template-columns: 1fr; } }
 .kw-tile { position: relative; display: flex; flex-direction: column; border-radius: 18px; background: #fff; border: 1px solid var(--kw-line); overflow: hidden; box-shadow: 0 1px 2px rgba(7, 27, 46, .04); transition: transform .25s var(--kw-ease), box-shadow .25s var(--kw-ease); }
 .kw-tile:hover { transform: translateY(-4px); box-shadow: 0 22px 48px rgba(7, 27, 46, .16); }
@@ -365,6 +366,11 @@ img { height: auto; }
 .kw-tile-facts { list-style: none; margin: .2rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .kw-tile-facts li { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 999px; background: var(--kw-mist); border: 1px solid var(--kw-line); font-size: .78rem; font-weight: 700; color: var(--kw-navy); }
 .kw-tile-facts .kw-icon { color: var(--kw-blue-dark); width: .95rem; height: .95rem; }
+.kw-tile-facts li.is-save { background: #E3F7EE; border-color: #bfe8d4; color: #0F6B45; }
+.kw-tile-facts li.is-save .kw-icon { color: #168A5B; }
+.kw-exam-tab { margin: 1.5rem 0 0; font-size: 1.05rem; }
+.kw-exam-tab span { color: var(--kw-muted); font-weight: 650; }
+.kw-exam-tab + .kw-exam-facts { margin-top: .6rem; }
 .kw-tile-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .9rem 1.25rem 1.1rem; border-top: 1px solid var(--kw-line); }
 .kw-tile-price { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--kw-navy); letter-spacing: -.02em; }
 .kw-tile-price span { font-size: .8rem; font-weight: 700; color: var(--kw-muted); letter-spacing: 0; }

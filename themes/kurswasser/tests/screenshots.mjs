@@ -8,7 +8,7 @@ const base = process.env.BP_URL ?? 'http://127.0.0.1:8099';
 const out = process.env.BP_SHOTS ?? '.';
 const user = process.env.BP_USER;
 const pass = process.env.BP_PASS;
-const pages = (process.env.KW_PAGES ?? '/,/kurse/sbf-see/,/kurse/src/,/kurse/pakete/,/shop/,/?product_cat=gruppen,/bootsscheine/,/gibt-es-nicht/').split(',');
+const pages = (process.env.KW_PAGES ?? '/,/kurse/sbf-see/,/kurse/sbf-kombi/,/kurse/kapitaen/,/kurse/src/,/kurse/weitere/,/kurse/pakete/,/shop/,/?product_cat=gruppen,/bootsscheine/,/gibt-es-nicht/').split(',');
 const browser = await chromium.launch();
 const problems = [];
 
