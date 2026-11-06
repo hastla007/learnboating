@@ -104,6 +104,12 @@ final class Ui
             'module_links' => __('Modul-Fragen-Zuordnung', 'bootspruefung-learning'),
             'course_links' => __('Kurs-Modul-Zuordnung', 'bootspruefung-learning'),
             'archive' => __('Archivierung', 'bootspruefung-learning'),
+            'video_modules' => __('Videokapitel', 'bootspruefung-learning'),
+            'video_module' => __('Videokapitel', 'bootspruefung-learning'),
+            'video_lessons' => __('Videolektionen', 'bootspruefung-learning'),
+            'radio_texts' => __('Funktexte', 'bootspruefung-learning'),
+            'radio_text' => __('Funktext', 'bootspruefung-learning'),
+            'radio_vocabulary' => __('Funk-Vokabeln', 'bootspruefung-learning'),
         ];
 
         return $labels[$entity] ?? $entity;

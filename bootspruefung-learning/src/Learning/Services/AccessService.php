@@ -17,8 +17,12 @@ final class AccessService
     public const QUESTION_BANK = 'question_bank';
     public const EXPLANATIONS = 'learning_explanations';
     public const EXAM = 'exam_simulation';
+    public const NAVIGATION = 'navigation_trainer';
+    public const PRAXIS = 'praxis_trainer';
+    public const VIDEO = 'video_course';
+    public const RADIO = 'radio_training';
 
-    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM];
+    public const FEATURES = [self::QUESTION_BANK, self::EXPLANATIONS, self::EXAM, self::NAVIGATION, self::PRAXIS, self::VIDEO, self::RADIO];
 
     public function can(int $userId, string $courseCode, string $feature): bool
     {

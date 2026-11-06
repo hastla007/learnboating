@@ -53,3 +53,7 @@ BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/
 ```bash
 BP_ADMIN=admin BP_ADMIN_PASS=Admin-Passwort-123 BP_ZIP=build/<package_id>.zip node bootspruefung-learning/tests/e2e/admin-import.mjs
 ```
+
+```bash
+BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs
+```

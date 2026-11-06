@@ -284,7 +284,9 @@ final class Schema
 {$src}
   course_id bigint(20) unsigned NOT NULL,
   title varchar(255) NOT NULL,
+  group_label varchar(255) NULL,
   sort_order int(11) NOT NULL DEFAULT 0,
+  rights_status varchar(20) NOT NULL DEFAULT 'unknown',
 {$ts}
   PRIMARY KEY  (id),
   UNIQUE KEY source (source_system,source_id),
@@ -353,6 +355,9 @@ final class Schema
 {$src}
   catalog varchar(16) NOT NULL,
   exercise_type varchar(32) NOT NULL,
+  number int(11) NOT NULL DEFAULT 0,
+  course_codes varchar(255) NULL,
+  source_text varchar(255) NULL,
   direction varchar(32) NULL,
   message_kind varchar(64) NULL,
   text_de longtext NULL,
@@ -371,6 +376,8 @@ final class Schema
   category varchar(255) NULL,
   term_de varchar(255) NOT NULL,
   term_en varchar(255) NOT NULL,
+  hint varchar(255) NULL,
+  course_codes varchar(255) NULL,
   variants longtext NULL,
   audio_media_id bigint(20) unsigned NULL,
   sort_order int(11) NOT NULL DEFAULT 0,

@@ -19,6 +19,9 @@ final class Overrides
         'media' => ['rights_status'],
         'navigation_task' => ['rights_status'],
         'praxis_task' => ['rights_status'],
+        'video_module' => ['rights_status'],
+        'radio_text' => ['rights_status'],
+        'radio_vocabulary' => ['rights_status'],
         'exam_rule' => ['verified', 'valid_from', 'valid_until'],
     ];
 

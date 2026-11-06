@@ -10,7 +10,10 @@ use ZipArchive;
 /** Ein entpacktes Content-Paket auf der Festplatte (Format: schema/v1). */
 final class Package
 {
-    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks'];
+    public const ENTITIES = ['courses', 'modules', 'questions', 'media', 'exam_rules', 'exam_papers', 'navigation_tasks', 'praxis_tasks', 'video_modules', 'radio_texts', 'radio_vocabulary'];
+
+    /** Seit Schema 1.1 enthalten; ältere Pakete liefern dafür leere Listen. */
+    public const SINCE_1_1 = ['video_modules', 'radio_texts', 'radio_vocabulary'];
     public const MAX_ZIP_BYTES = 200 * 1024 * 1024;
     public const MAX_ENTRIES = 20000;
 
@@ -80,6 +83,10 @@ final class Package
     {
         if (! in_array($entity, self::ENTITIES, true)) {
             throw new RuntimeException("Unbekannte Entität {$entity}");
+        }
+
+        if (in_array($entity, self::SINCE_1_1, true) && ! is_file($this->path('data/'.$entity.'.json')) && version_compare((string) ($this->manifest()['schema_version'] ?? '1.0.0'), '1.1.0', '<')) {
+            return $this->cache[$entity] = [];
         }
 
         return $this->cache[$entity] ??= (array) $this->json('data/'.$entity.'.json');
@@ -192,6 +199,19 @@ final class Package
         foreach ($this->entities('navigation_tasks') as $t) {
             foreach ($t['course_codes'] as $code) {
                 isset($courses[$code]) || $add("Navigationsaufgabe {$t['source_id']}: Kurs {$code} fehlt");
+            }
+        }
+        foreach ($this->entities('video_modules') as $m) {
+            isset($courses[$m['course_code']]) || $add("Videokapitel {$m['source_id']}: Kurs fehlt");
+            foreach ($m['lessons'] as $l) {
+                foreach ($l['questions'] as $q) {
+                    isset($questions[$q['question_source_id']]) || $add("Lektion {$l['source_id']}: Frage {$q['question_source_id']} fehlt");
+                }
+            }
+        }
+        foreach (array_merge($this->entities('radio_texts'), $this->entities('radio_vocabulary')) as $r) {
+            foreach ($r['course_codes'] as $code) {
+                isset($courses[$code]) || $add("Funkeintrag {$r['source_id']}: Kurs {$code} fehlt");
             }
         }
         foreach ($this->entities('praxis_tasks') as $t) {

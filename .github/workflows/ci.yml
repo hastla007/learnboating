@@ -79,7 +79,7 @@ jobs:
           BS_USER: boatingschool
         run: |
           php tools/content-build/bin/build-package.php --no-zip
-          BS_PASSWORD="$DB_PW" php tools/content-build/golden-master/compare.php build/boatingschool-*/
+          BS_PASSWORD="$DB_PW" BS_LARAVEL_DIR="$RUNNER_TEMP/laravel" php tools/content-build/golden-master/compare.php build/boatingschool-*/
 
   plugin:
     name: WordPress-Plugin
@@ -138,3 +138,5 @@ jobs:
           export NODE_PATH="$RUNNER_TEMP/pw/node_modules"
           BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/learning-flow.mjs
           BP_ADMIN=admin BP_ADMIN_PASS=Admin-Passwort-123 BP_ZIP="$(ls build/*.zip)" node bootspruefung-learning/tests/e2e/admin-import.mjs
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/setup.php
+          BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs

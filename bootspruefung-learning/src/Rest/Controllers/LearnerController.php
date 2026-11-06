@@ -45,11 +45,11 @@ final class LearnerController
         $code = ['type' => 'string', 'required' => true, 'pattern' => '^[A-Za-z0-9-]+$'];
         $id = ['type' => 'integer', 'required' => true, 'minimum' => 1];
 
-        register_rest_route($ns, '/me/courses', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'courses']), 'permission_callback' => $auth]);
-        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'course']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
+        register_rest_route($ns, '/me/courses', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'courses']), 'permission_callback' => $auth]);
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'course']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
         register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/next-question', [
             'methods' => WP_REST_Server::READABLE,
-            'callback' => $this->wrap([$this, 'next']),
+            'callback' => self::wrap([$this, 'next']),
             'permission_callback' => $auth,
             'args' => [
                 'code' => $code,
@@ -59,7 +59,7 @@ final class LearnerController
         ]);
         register_rest_route($ns, '/answers', [
             'methods' => WP_REST_Server::CREATABLE,
-            'callback' => $this->wrap([$this, 'answer']),
+            'callback' => self::wrap([$this, 'answer']),
             'permission_callback' => $auth,
             'args' => [
                 'token' => ['type' => 'string', 'required' => true, 'maxLength' => 2000],
@@ -71,31 +71,31 @@ final class LearnerController
         ]);
         register_rest_route($ns, '/answers/reveal', [
             'methods' => WP_REST_Server::CREATABLE,
-            'callback' => $this->wrap([$this, 'reveal']),
+            'callback' => self::wrap([$this, 'reveal']),
             'permission_callback' => $auth,
             'args' => ['token' => ['type' => 'string', 'required' => true, 'maxLength' => 2000]],
         ]);
         register_rest_route($ns, '/favorites/(?P<question>\d+)', [
-            ['methods' => 'PUT', 'callback' => $this->wrap(fn (WP_REST_Request $r) => $this->favorite($r, true)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
-            ['methods' => WP_REST_Server::DELETABLE, 'callback' => $this->wrap(fn (WP_REST_Request $r) => $this->favorite($r, false)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
+            ['methods' => 'PUT', 'callback' => self::wrap(fn (WP_REST_Request $r) => $this->favorite($r, true)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
+            ['methods' => WP_REST_Server::DELETABLE, 'callback' => self::wrap(fn (WP_REST_Request $r) => $this->favorite($r, false)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
         ]);
 
-        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/exam', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'examOverview']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/exam', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'examOverview']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
         register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/exam-sessions', [
             'methods' => WP_REST_Server::CREATABLE,
-            'callback' => $this->wrap([$this, 'examStart']),
+            'callback' => self::wrap([$this, 'examStart']),
             'permission_callback' => $auth,
             'args' => ['code' => $code, 'paper_id' => ['type' => ['integer', 'null'], 'minimum' => 1, 'default' => null]],
         ]);
-        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'examShow']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
+        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'examShow']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)', [
             'methods' => 'PUT',
-            'callback' => $this->wrap([$this, 'examAnswer']),
+            'callback' => self::wrap([$this, 'examAnswer']),
             'permission_callback' => $auth,
             'args' => ['id' => $id, 'position' => $id, 'answer_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'default' => [], 'maxItems' => 26], 'known' => ['type' => ['boolean', 'null'], 'default' => null]],
         ]);
-        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/reveal', ['methods' => WP_REST_Server::CREATABLE, 'callback' => $this->wrap([$this, 'examReveal']), 'permission_callback' => $auth, 'args' => ['id' => $id, 'position' => $id]]);
-        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/submit', ['methods' => WP_REST_Server::CREATABLE, 'callback' => $this->wrap([$this, 'examSubmit']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
+        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/reveal', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examReveal']), 'permission_callback' => $auth, 'args' => ['id' => $id, 'position' => $id]]);
+        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/submit', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examSubmit']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
     }
 
     public function courses(): array
@@ -132,6 +132,7 @@ final class LearnerController
             'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course) : null,
             'favorites' => count($this->learning->favoriteIds($user)),
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null,
+            'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
         ];
     }
 
@@ -224,7 +225,7 @@ final class LearnerController
     }
 
     /** Wandelt fachliche Fehler in REST-Fehler um und verhindert Caching. */
-    private function wrap(callable $callback): callable
+    public static function wrap(callable $callback): callable
     {
         return static function (WP_REST_Request $request) use ($callback) {
             try {

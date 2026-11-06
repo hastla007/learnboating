@@ -98,6 +98,7 @@ final class Router
             'base' => wp_make_link_relative(self::url()),
             'user' => wp_get_current_user()->display_name,
             'logoutUrl' => wp_logout_url(self::url()),
+            'voice' => \Bootspruefung\Learning\Settings\Settings::get('radio_voice_output'),
             'i18n' => Strings::all(),
         ]);
     }

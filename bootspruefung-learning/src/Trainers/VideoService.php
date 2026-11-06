@@ -1,0 +1,180 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Trainers;
+
+use Bootspruefung\Learning\Content\Repositories\ContentRepository;
+use Bootspruefung\Learning\Content\Repositories\Overrides;
+use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
+use Bootspruefung\Learning\Support\AccessDenied;
+use Bootspruefung\Learning\Support\NotFound;
+
+/**
+ * Videokurs (Kap. 4.8, 6.4): Kapitel und Lektionen je Kurs, Sehfortschritt
+ * (abgeschlossen, letzte Position), Schrittgalerien und Videoquiz mit Fragen
+ * der zentralen Fragenbank (ausgewertet über den Lernmodus, Kontext „video“).
+ * Platzhalter-Lektionen werden angezeigt, aber als solche gekennzeichnet.
+ */
+final class VideoService
+{
+    private \wpdb $db;
+
+    public function __construct(
+        private readonly AccessService $access,
+        private readonly ContentRepository $content,
+        private readonly QuestionPresenter $presenter,
+    ) {
+        global $wpdb;
+        $this->db = $wpdb;
+    }
+
+    private function t(string $name): string
+    {
+        return $this->db->prefix.'bp_'.$name;
+    }
+
+    /** @return array<string,mixed> */
+    public function course(int $userId, object $course): array
+    {
+        $this->require($userId, $course);
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT m.id AS module_id, m.title AS module_title, m.group_label, l.id, l.title, l.duration_seconds, l.is_placeholder,
+                    COALESCE(vp.completed, 0) AS completed, COALESCE(vp.position_seconds, 0) AS position,
+                    (SELECT COUNT(*) FROM {$this->t('video_lesson_question')} vq WHERE vq.lesson_id = l.id) AS quiz,
+                    (SELECT COUNT(*) FROM {$this->t('video_lesson_step')} vs WHERE vs.lesson_id = l.id) AS steps
+             FROM {$this->t('video_module')} m ".Overrides::rightsJoin('video_module', 'm', 'o')."
+             JOIN {$this->t('video_lesson')} l ON l.module_id = m.id AND l.status <> 'source_archived'
+             LEFT JOIN {$this->t('video_progress')} vp ON vp.lesson_id = l.id AND vp.user_id = %d
+             WHERE m.course_id = %d AND m.status = 'published' AND COALESCE(o.value, m.rights_status) NOT IN (".Overrides::blockingList().')
+             ORDER BY m.sort_order, l.sort_order',
+            $userId,
+            $course->id
+        ));
+        $modules = [];
+        $next = null;
+        foreach ($rows as $r) {
+            $modules[(int) $r->module_id] ??= ['id' => (int) $r->module_id, 'title' => $r->module_title, 'group' => $r->group_label, 'lessons' => []];
+            $modules[(int) $r->module_id]['lessons'][] = [
+                'id' => (int) $r->id,
+                'title' => $r->title,
+                'duration' => $r->duration_seconds === null ? null : (int) $r->duration_seconds,
+                'placeholder' => (bool) $r->is_placeholder,
+                'completed' => (bool) $r->completed,
+                'position' => (int) $r->position,
+                'quiz' => (int) $r->quiz,
+                'steps' => (int) $r->steps,
+            ];
+            // Nächste Lektion: erste nicht abgeschlossene außerhalb des Knoten-Kapitels (wie VideoCourseLessons der Quelle).
+            if ($next === null && ! $r->completed && $r->module_title !== 'Knoten') {
+                $next = (int) $r->id;
+            }
+        }
+        $lessons = array_merge(...array_map(static fn ($m) => $m['lessons'], array_values($modules)) ?: [[]]);
+
+        return [
+            'modules' => array_values($modules),
+            'lessons' => count($lessons),
+            'completed' => count(array_filter($lessons, static fn ($l) => $l['completed'])),
+            'next_lesson' => $next,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public function lesson(int $userId, object $course, int $lessonId): array
+    {
+        $this->require($userId, $course);
+        $lesson = $this->lessonRow($course, $lessonId);
+        $steps = $this->db->get_results($this->db->prepare("SELECT title, sort_order FROM {$this->t('video_lesson_step')} WHERE lesson_id = %d ORDER BY sort_order", $lessonId));
+        $quiz = [];
+        foreach ($this->db->get_results($this->db->prepare(
+            "SELECT q.id FROM {$this->t('video_lesson_question')} vq JOIN {$this->t('question')} q ON q.id = vq.question_id WHERE vq.lesson_id = %d ORDER BY vq.sort_order",
+            $lessonId
+        )) as $row) {
+            if (! $this->content->isDeliverable((int) $row->id)) {
+                continue;
+            }
+            $revisionId = (int) $this->db->get_var($this->db->prepare("SELECT current_revision_id FROM {$this->t('question')} WHERE id = %d", $row->id));
+            $presented = $this->presenter->present($revisionId);
+            $presented['token'] = $this->presenter->token($userId, $revisionId, $presented['answer_order'], 'video:'.$course->code);
+            unset($presented['answer_order']);
+            $quiz[] = $presented;
+        }
+        $progress = $this->db->get_row($this->db->prepare("SELECT completed, position_seconds FROM {$this->t('video_progress')} WHERE user_id = %d AND lesson_id = %d", $userId, $lessonId));
+        $siblings = $this->course($userId, $course);
+        $flat = [];
+        foreach ($siblings['modules'] as $m) {
+            foreach ($m['lessons'] as $l) {
+                $flat[] = $l['id'];
+            }
+        }
+        $pos = array_search($lessonId, $flat, true);
+        $this->touch($userId, $lessonId);
+
+        return [
+            'id' => (int) $lesson->id,
+            'title' => $lesson->title,
+            'module' => $lesson->module_title,
+            'video_url' => $lesson->video_url,
+            'placeholder' => (bool) $lesson->is_placeholder,
+            'duration' => $lesson->duration_seconds === null ? null : (int) $lesson->duration_seconds,
+            'completed' => (bool) ($progress->completed ?? false),
+            'position' => (int) ($progress->position_seconds ?? 0),
+            'steps' => array_map(static fn ($s) => ['title' => $s->title, 'number' => (int) $s->sort_order], $steps),
+            'quiz' => $quiz,
+            'previous' => $pos > 0 ? $flat[$pos - 1] : null,
+            'next' => $pos !== false && isset($flat[$pos + 1]) ? $flat[$pos + 1] : null,
+        ];
+    }
+
+    public function progress(int $userId, object $course, int $lessonId, int $position, ?bool $completed): array
+    {
+        $this->require($userId, $course);
+        $this->lessonRow($course, $lessonId);
+        $this->db->query($this->db->prepare(
+            "INSERT INTO {$this->t('video_progress')} (user_id, lesson_id, completed, position_seconds, last_access_at) VALUES (%d, %d, %d, %d, %s)
+             ON DUPLICATE KEY UPDATE position_seconds = VALUES(position_seconds), last_access_at = VALUES(last_access_at)".($completed === null ? '' : ', completed = VALUES(completed)'),
+            $userId,
+            $lessonId,
+            $completed ? 1 : 0,
+            max(0, min($position, 86400)),
+            current_time('mysql', true)
+        ));
+
+        return ['completed' => (bool) $this->db->get_var($this->db->prepare("SELECT completed FROM {$this->t('video_progress')} WHERE user_id = %d AND lesson_id = %d", $userId, $lessonId))];
+    }
+
+    private function touch(int $userId, int $lessonId): void
+    {
+        $this->db->query($this->db->prepare(
+            "INSERT INTO {$this->t('video_progress')} (user_id, lesson_id, last_access_at) VALUES (%d, %d, %s) ON DUPLICATE KEY UPDATE last_access_at = VALUES(last_access_at)",
+            $userId,
+            $lessonId,
+            current_time('mysql', true)
+        ));
+    }
+
+    private function lessonRow(object $course, int $lessonId): object
+    {
+        $row = $this->db->get_row($this->db->prepare(
+            "SELECT l.*, m.title AS module_title FROM {$this->t('video_lesson')} l JOIN {$this->t('video_module')} m ON m.id = l.module_id
+             ".Overrides::rightsJoin('video_module', 'm', 'o')."
+             WHERE l.id = %d AND m.course_id = %d AND l.status <> 'source_archived' AND m.status = 'published' AND COALESCE(o.value, m.rights_status) NOT IN (".Overrides::blockingList().')',
+            $lessonId,
+            $course->id
+        ));
+        if (! $row) {
+            throw new NotFound(__('Lektion nicht gefunden.', 'bootspruefung-learning'));
+        }
+
+        return $row;
+    }
+
+    private function require(int $userId, object $course): void
+    {
+        if (! $this->access->can($userId, $course->code, AccessService::VIDEO)) {
+            throw new AccessDenied(__('Der Videokurs ist für deinen Kurs nicht freigeschaltet.', 'bootspruefung-learning'));
+        }
+    }
+}

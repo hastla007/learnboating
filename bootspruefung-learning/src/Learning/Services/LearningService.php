@@ -128,8 +128,9 @@ final class LearningService
             throw new RuntimeException('Ungültiger Idempotency-Key.');
         }
         $data = $this->presenter->verify($token, $userId);
-        $courseCode = (string) substr($data['c'], strlen('learn:'));
-        if (! str_starts_with($data['c'], 'learn:') || ! $this->access->can($userId, $courseCode, AccessService::QUESTION_BANK)) {
+        [$context, $courseCode] = array_pad(explode(':', $data['c'], 2), 2, '');
+        $feature = $context === 'video' ? AccessService::VIDEO : AccessService::QUESTION_BANK;
+        if (! in_array($context, ['learn', 'video'], true) || ! $this->access->can($userId, $courseCode, $feature)) {
             throw new AccessDenied('Kein Zugriff auf diesen Kurs.');
         }
         $revision = $this->content->revision($data['r']);
@@ -170,7 +171,7 @@ final class LearningService
                 'user_id' => $userId,
                 'question_id' => (int) $revision->question_id,
                 'revision_id' => (int) $revision->id,
-                'context' => 'learn',
+                'context' => $context,
                 'context_ref' => $courseCode,
                 'is_correct' => $correct ? 1 : 0,
                 'self_assessment' => $revision->question_type === 'open_text' ? ($known ? 'known' : 'unknown') : null,

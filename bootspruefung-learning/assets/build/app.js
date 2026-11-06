@@ -176,6 +176,18 @@
 			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart');
 		} else if (parts[1] === 'pruefung' && parts[2]) {
 			view = viewExam(parts[0], parseInt(parts[2], 10));
+		} else if (parts[1] === 'navigation') {
+			view = parts[2] ? viewNavigationTask(parts[0], parseInt(parts[2], 10)) : viewNavigation(parts[0]);
+		} else if (parts[1] === 'praxis') {
+			view = viewPraxis(parts[0], query.get('kategorie'));
+		} else if (parts[1] === 'video') {
+			view = parts[2] ? viewVideoLesson(parts[0], parseInt(parts[2], 10)) : viewVideos(parts[0]);
+		} else if (parts[1] === 'funk' && parts[2] === 'text' && parts[3]) {
+			view = viewRadioText(parts[0], parts[3], query.get('richtung') || 'de-en');
+		} else if (parts[1] === 'funk' && parts[2] === 'vokabeln') {
+			view = viewVocabulary(parts[0], query.get('katalog') || 'SRC', query.get('kategorie'));
+		} else if (parts[1] === 'funk') {
+			view = viewRadio(parts[0]);
 		} else {
 			view = Promise.reject(Object.assign(new Error(t('not_found')), { status: 404 }));
 		}
@@ -260,6 +272,7 @@
 			}
 
 			nodes.push(c.exam ? examSection(slug, c.exam) : el('section', { class: 'bp-card bp-locked' }, [el('h2', { text: t('section_exam') }), el('p', { text: t('locked_feature') })]));
+			nodes.push(trainerSection(slug, c.trainers));
 			mount(nodes, c.name);
 		});
 	}
@@ -529,6 +542,561 @@
 			card.appendChild(el('p', { class: 'bp-muted bp-remaining', text: t('remaining', { n: q.remaining }) }));
 		}
 		return card;
+	}
+
+	// ------------------------------------------------------------------ Spezialtrainer
+
+	function trainerSection(slug, tr) {
+		if (!tr) {
+			return null;
+		}
+		var tiles = [];
+		if (tr.navigation.tasks > 0) {
+			tiles.push(['navigation/', t('trainer_navigation'), t('trainer_navigation_meta', { done: tr.navigation.done, total: tr.navigation.questions, tasks: tr.navigation.tasks })]);
+		}
+		if (tr.praxis.cards > 0) {
+			tiles.push(['praxis/', t('trainer_praxis'), t('trainer_praxis_meta', { known: tr.praxis.known, total: tr.praxis.cards })]);
+		}
+		if (tr.video.lessons > 0) {
+			tiles.push(['video/', t('trainer_video'), t('trainer_video_meta', { done: tr.video.completed, total: tr.video.lessons })]);
+		}
+		if (tr.radio.texts + tr.radio.vocabulary > 0) {
+			tiles.push(['funk/', t('trainer_radio'), t('trainer_radio_meta', { texts: tr.radio.texts, vocabulary: tr.radio.vocabulary })]);
+		}
+		if (!tiles.length) {
+			return null;
+		}
+		return el('section', { class: 'bp-section', 'aria-labelledby': 'bp-trainer-h' }, [
+			el('h2', { id: 'bp-trainer-h', text: t('section_trainers') }),
+			el('ul', { class: 'bp-module-list' }, tiles.map(function (tile) {
+				return el('li', { class: 'bp-card bp-tile' }, [el('h3', {}, [link(slug + '/' + tile[0], tile[1])]), el('p', { class: 'bp-muted', text: tile[2] })]);
+			}))
+		]);
+	}
+
+	function crumbs(slug, courseName, parts) {
+		var nodes = [link('', t('overview_title')), ' › ', link(slug + '/', courseName)];
+		parts.forEach(function (p) {
+			nodes.push(' › ');
+			nodes.push(p[1] ? link(p[1], p[0]) : el('span', { text: p[0] }));
+		});
+		return el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, nodes);
+	}
+
+	function withCourse(slug, fn) {
+		return api('GET', 'courses/' + encodeURIComponent(slug)).then(fn);
+	}
+
+	// Navigation
+	function viewNavigation(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/navigation').then(function (tasks) {
+				var list = el('ol', { class: 'bp-module-list' }, tasks.map(function (task) {
+					return el('li', { class: 'bp-card' }, [
+						el('h2', {}, [link(slug + '/navigation/' + task.id + '/', t('nav_task_title', { number: task.number }))]),
+						el('p', { class: 'bp-muted', text: task.teaser + ' …' }),
+						progressBar({ questions: task.questions, mastered: task.done, learning: 0, unsure: 0, percent: Math.floor(task.done * 100 / Math.max(task.questions, 1)) }, t('nav_progress', { done: task.done, total: task.questions }))
+					]);
+				}));
+				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), list], t('trainer_navigation') + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewNavigationTask(slug, taskId) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/navigation/' + taskId).then(function (task) {
+				var items = el('ol', { class: 'bp-review' });
+				task.questions.forEach(function (q) { items.appendChild(navigationQuestion(slug, q)); });
+				var title = t('nav_task_title', { number: task.number });
+				mount([
+					crumbs(slug, c.name, [[t('trainer_navigation'), slug + '/navigation/'], [title]]),
+					el('header', { class: 'bp-header' }, [el('h1', { text: title })]),
+					el('div', { class: 'bp-card' }, [el('h2', { text: t('nav_scenario') }), multiline('p', task.scenario)]),
+					task.hint ? el('p', { class: 'bp-note', text: task.hint }) : null,
+					items,
+					el('div', { class: 'bp-actions' }, [
+						task.previous ? link(slug + '/navigation/' + task.previous + '/', t('nav_previous'), 'bp-button') : null,
+						task.next ? link(slug + '/navigation/' + task.next + '/', t('nav_next'), 'bp-button bp-button-primary') : link(slug + '/navigation/', t('nav_all'), 'bp-button')
+					]),
+					task.source ? el('p', { class: 'bp-muted bp-source', text: t('source', { source: task.source }) }) : null
+				], title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function navigationQuestion(slug, q) {
+		var item = el('li', { class: 'bp-card bp-nav-question' + (q.done ? ' is-correct' : '') });
+		function render() {
+			item.textContent = '';
+			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
+			item.appendChild(multiline('h3', q.text, 'bp-question-text'));
+			var area = el('textarea', { class: 'bp-notes', rows: '2', 'aria-label': t('nav_own_solution'), placeholder: t('nav_own_solution') });
+			area.value = q.my_answer || '';
+			item.appendChild(area);
+			if (q.answer === null) {
+				var reveal = el('button', { type: 'button', class: 'bp-button', text: t('nav_show_solution') });
+				reveal.addEventListener('click', function () {
+					reveal.disabled = true;
+					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null }).then(function (r) {
+						q.answer = r.answer;
+						q.my_answer = area.value;
+						render();
+					}).catch(function (e) { reveal.disabled = false; alertMessage(item, e.message); });
+				});
+				item.appendChild(el('div', { class: 'bp-actions' }, [reveal]));
+				return;
+			}
+			item.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer)]));
+			var group = el('div', { class: 'bp-actions', role: 'group', 'aria-label': t('self_assessment') });
+			['correct', 'partly', 'wrong'].forEach(function (a) {
+				var b = el('button', { type: 'button', class: 'bp-button' + (q.self_assessment === a ? ' bp-button-primary' : ''), 'aria-pressed': q.self_assessment === a ? 'true' : 'false', text: t('assess_' + a) });
+				b.addEventListener('click', function () {
+					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null, self_assessment: a }).then(function () {
+						q.self_assessment = a;
+						q.done = true;
+						q.my_answer = area.value;
+						item.classList.add('is-correct');
+						render();
+					}).catch(function (e) { alertMessage(item, e.message); });
+				});
+				group.appendChild(b);
+			});
+			item.appendChild(group);
+		}
+		render();
+		return item;
+	}
+
+	// Praxis
+	function viewPraxis(slug, category) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/praxis').then(function (data) {
+				var cats = data.categories;
+				var active = cats.filter(function (x) { return x.name === category; })[0] || null;
+				var nav = el('ul', { class: 'bp-chips', 'aria-label': t('praxis_categories') }, [el('li', {}, [link(slug + '/praxis/', t('praxis_all'), 'bp-chip' + (active ? '' : ' is-active'))])].concat(cats.map(function (x) {
+					return el('li', {}, [link(slug + '/praxis/?kategorie=' + encodeURIComponent(x.name), x.name + ' (' + x.known + '/' + x.cards.length + ')', 'bp-chip' + (active === x ? ' is-active' : ''))]);
+				})));
+				var cards = active ? active.cards : [].concat.apply([], cats.map(function (x) { return x.cards; }));
+				var stage = el('div', { class: 'bp-praxis-stage' });
+				var onlyOpen = el('input', { type: 'checkbox', id: 'bp-only-open' });
+				var index = 0;
+				function pool() {
+					return onlyOpen.checked ? cards.filter(function (x) { return x.status !== 'known'; }) : cards;
+				}
+				function show() {
+					var list = pool();
+					stage.textContent = '';
+					if (!list.length) {
+						stage.appendChild(el('div', { class: 'bp-card bp-done' }, [el('h2', { text: t('done_title') }), el('p', { text: t('praxis_all_known') })]));
+						return;
+					}
+					index = index % list.length;
+					var card = list[index];
+					var box = el('article', { class: 'bp-card bp-question' }, [
+						el('p', { class: 'bp-question-meta' }, [el('span', { text: t('praxis_card_of', { n: index + 1, total: list.length }) }), card.reference ? el('span', { text: card.reference }) : null, card.status ? badge(t('praxis_status_' + card.status), card.status === 'known' ? 'ok' : 'warn') : null]),
+						card.title ? el('h2', { text: card.title }) : null,
+						card.image ? el('div', { class: 'bp-media' }, [el('img', { src: card.image.url, alt: card.image.alt || '', loading: 'lazy' })]) : null,
+						multiline('p', card.question, 'bp-question-text')
+					]);
+					var actions = el('div', { class: 'bp-actions' });
+					var reveal = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('praxis_show_answer') });
+					reveal.addEventListener('click', function () {
+						reveal.remove();
+						box.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', card.answer), card.explanation ? multiline('p', card.explanation, 'bp-explanation') : null]), actions);
+						[['known', t('praxis_known')], ['practice', t('praxis_practice')]].forEach(function (opt) {
+							var b = el('button', { type: 'button', class: 'bp-button' + (opt[0] === 'known' ? ' bp-button-primary' : ''), text: opt[1] });
+							b.addEventListener('click', function () {
+								api('PUT', 'courses/' + encodeURIComponent(slug) + '/praxis/' + card.id, { status: opt[0] }).then(function () {
+									card.status = opt[0];
+									if (!(onlyOpen.checked && opt[0] === 'known')) {
+										index++;
+									}
+									show();
+								});
+							});
+							actions.appendChild(b);
+						});
+					});
+					actions.appendChild(reveal);
+					box.appendChild(actions);
+					if (card.source) {
+						box.appendChild(el('p', { class: 'bp-muted bp-source', text: t('source', { source: card.source }) }));
+					}
+					stage.appendChild(box);
+				}
+				onlyOpen.addEventListener('change', function () { index = 0; show(); });
+				mount([
+					crumbs(slug, c.name, [[t('trainer_praxis')]]),
+					el('header', { class: 'bp-header' }, [el('h1', { text: active ? active.name : t('trainer_praxis') }), el('p', { class: 'bp-muted', text: t('trainer_praxis_meta', { known: data.known, total: data.total }) })]),
+					nav,
+					el('p', {}, [onlyOpen, ' ', el('label', { for: 'bp-only-open', text: t('praxis_only_open') })]),
+					stage
+				], t('trainer_praxis') + ' – ' + c.name);
+				show();
+			});
+		});
+	}
+
+	// Video
+	function duration(sec) {
+		if (sec === null || sec === undefined) {
+			return '';
+		}
+		return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2);
+	}
+
+	function viewVideos(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').then(function (v) {
+				var nodes = [crumbs(slug, c.name, [[t('trainer_video')]]), el('header', { class: 'bp-header' }, [
+					el('h1', { text: t('trainer_video') }),
+					progressBar({ questions: v.lessons, mastered: v.completed, learning: 0, unsure: 0, percent: Math.floor(v.completed * 100 / Math.max(v.lessons, 1)) }, t('trainer_video_meta', { done: v.completed, total: v.lessons })),
+					v.next_lesson ? el('p', {}, [link(slug + '/video/' + v.next_lesson + '/', t('video_continue'), 'bp-button bp-button-primary')]) : null
+				])];
+				var lastGroup = null;
+				v.modules.forEach(function (m) {
+					if (m.group && m.group !== lastGroup) {
+						nodes.push(el('h2', { class: 'bp-group', text: m.group }));
+						lastGroup = m.group;
+					}
+					nodes.push(el('section', { class: 'bp-card' }, [
+						el('h3', { text: m.title }),
+						el('ol', { class: 'bp-lessons' }, m.lessons.map(function (l) {
+							return el('li', { class: l.completed ? 'is-done' : '' }, [
+								link(slug + '/video/' + l.id + '/', l.title),
+								el('span', { class: 'bp-muted', text: ' ' + duration(l.duration) }),
+								l.completed ? el('span', { class: 'bp-lesson-done', text: ' ✓ ' + t('video_done') }) : null,
+								l.quiz ? el('span', { class: 'bp-muted', text: ' · ' + t('video_quiz_count', { n: l.quiz }) }) : null
+							]);
+						}))
+					]));
+				});
+				mount(nodes, t('trainer_video') + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewVideoLesson(slug, lessonId) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos/' + lessonId).then(function (l) {
+				var path = 'courses/' + encodeURIComponent(slug) + '/videos/' + l.id + '/progress';
+				var video = l.video_url ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+				var doneBtn = el('button', { type: 'button', class: 'bp-button' + (l.completed ? '' : ' bp-button-primary'), 'aria-pressed': l.completed ? 'true' : 'false', text: l.completed ? t('video_done') : t('video_mark_done') });
+				function saveProgress(completed) {
+					return api('PUT', path, { position: video ? Math.floor(video.currentTime || 0) : 0, completed: completed });
+				}
+				doneBtn.addEventListener('click', function () {
+					saveProgress(!l.completed).then(function (r) {
+						l.completed = r.completed;
+						doneBtn.textContent = l.completed ? t('video_done') : t('video_mark_done');
+						doneBtn.setAttribute('aria-pressed', l.completed ? 'true' : 'false');
+						doneBtn.classList.toggle('bp-button-primary', !l.completed);
+					});
+				});
+				if (video) {
+					video.addEventListener('loadedmetadata', function () {
+						if (l.position > 0 && l.position < (video.duration || 0) - 2) {
+							video.currentTime = l.position;
+						}
+					});
+					video.addEventListener('pause', function () { saveProgress(null); });
+					video.addEventListener('ended', function () {
+						saveProgress(true).then(function () {
+							l.completed = true;
+							doneBtn.textContent = t('video_done');
+							doneBtn.classList.remove('bp-button-primary');
+						});
+					});
+					timers.push(setInterval(function () { if (!video.paused) { saveProgress(null); } }, 15000));
+				}
+				var quiz = null;
+				if (l.quiz.length) {
+					quiz = el('section', { class: 'bp-section' }, [el('h2', { text: t('video_quiz') })].concat(l.quiz.map(function (q) { return quizQuestion(q); })));
+				}
+				mount([
+					crumbs(slug, c.name, [[t('trainer_video'), slug + '/video/'], [l.title]]),
+					el('header', { class: 'bp-header bp-header-compact' }, [el('p', { class: 'bp-eyebrow bp-muted', text: l.module }), el('h1', { text: l.title })]),
+					l.placeholder ? el('p', { class: 'bp-note', text: t('video_placeholder') }) : null,
+					video ? el('div', { class: 'bp-video-wrap' }, [video]) : el('p', { text: t('video_missing') }),
+					el('div', { class: 'bp-actions' }, [
+						doneBtn,
+						l.previous ? link(slug + '/video/' + l.previous + '/', t('prev'), 'bp-button') : null,
+						l.next ? link(slug + '/video/' + l.next + '/', t('next'), 'bp-button') : null
+					]),
+					l.steps.length ? el('section', { class: 'bp-section' }, [el('h2', { text: t('video_steps') }), el('ol', { class: 'bp-steps' }, l.steps.map(function (st) { return el('li', { text: st.title }); }))]) : null,
+					quiz
+				], l.title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function quizQuestion(q) {
+		var key = uuid();
+		var started = Date.now();
+		var name = 'bp-quiz-' + q.question_id;
+		var card = el('article', { class: 'bp-card bp-question' }, [multiline('h3', q.text, 'bp-question-text'), questionMedia(q.media)]);
+		var feedback = el('div', { class: 'bp-feedback', 'aria-live': 'polite' });
+		var actions = el('div', { class: 'bp-actions' });
+		function result(r, fieldset) {
+			if (fieldset) {
+				markAnswers(fieldset, r.correct_ids, r.selected_ids);
+			}
+			feedback.className = 'bp-feedback ' + (r.correct ? 'bp-feedback-ok' : 'bp-feedback-bad');
+			feedback.textContent = '';
+			feedback.appendChild(el('p', { class: 'bp-feedback-title', text: r.correct ? t('result_correct') : t('result_wrong') }));
+			if (r.explanation) {
+				feedback.appendChild(multiline('p', r.explanation, 'bp-explanation'));
+			}
+			actions.textContent = '';
+		}
+		function send(body, fieldset, button) {
+			button.disabled = true;
+			body.token = q.token;
+			body.idempotency_key = key;
+			body.response_ms = Date.now() - started;
+			api('POST', 'answers', body).then(function (r) { result(r, fieldset); }).catch(function (e) { button.disabled = false; alertMessage(feedback, e.message); });
+		}
+		if (q.type === 'open_text') {
+			var reveal = el('button', { type: 'button', class: 'bp-button', text: t('reveal_answer') });
+			reveal.addEventListener('click', function () {
+				reveal.disabled = true;
+				api('POST', 'answers/reveal', { token: q.token }).then(function (r) {
+					card.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]), actions);
+					actions.textContent = '';
+					var yes = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('known_yes') });
+					var no = el('button', { type: 'button', class: 'bp-button', text: t('known_no') });
+					yes.addEventListener('click', function () { send({ known: true }, null, yes); });
+					no.addEventListener('click', function () { send({ known: false }, null, no); });
+					actions.appendChild(yes);
+					actions.appendChild(no);
+				});
+			});
+			actions.appendChild(reveal);
+		} else {
+			var fieldset = answerList(q, name, null, false);
+			var check = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('check_answer'), disabled: true });
+			fieldset.addEventListener('change', function () { check.disabled = selectedIds(fieldset).length === 0; });
+			check.addEventListener('click', function () { send({ answer_ids: selectedIds(fieldset) }, fieldset, check); });
+			card.appendChild(fieldset);
+			actions.appendChild(check);
+		}
+		card.appendChild(actions);
+		card.appendChild(feedback);
+		return card;
+	}
+
+	// Funk
+	function speakButton(text, lang) {
+		if (cfg.voice === 'off' || !('speechSynthesis' in window)) {
+			return null;
+		}
+		var b = el('button', { type: 'button', class: 'bp-button', text: t('radio_read_aloud') });
+		b.addEventListener('click', function () {
+			window.speechSynthesis.cancel();
+			var u = new window.SpeechSynthesisUtterance(text);
+			u.lang = lang;
+			u.rate = 0.9;
+			window.speechSynthesis.speak(u);
+		});
+		return b;
+	}
+
+	function viewRadio(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio').then(function (o) {
+				var nodes = [crumbs(slug, c.name, [[t('trainer_radio')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_radio') }), el('p', { class: 'bp-muted', text: t('radio_intro') })])];
+				o.texts.forEach(function (g) {
+					var done = g.items.filter(function (i) { return i.done; }).length;
+					nodes.push(el('section', { class: 'bp-section' }, [
+						el('h2', { text: t('radio_type_' + g.type, { catalog: g.catalog }) }),
+						el('p', { class: 'bp-muted', text: t('radio_type_' + g.type + '_explain') + ' ' + t('radio_done_count', { done: done, total: g.items.length }) }),
+						el('ul', { class: 'bp-paper-grid' }, g.items.map(function (i) {
+							return el('li', {}, [el('a', { href: base + slug + '/funk/text/' + i.id + '/', 'data-bp-link': '1', class: 'bp-paper' + (i.done ? ' bp-paper-passed' : ''), title: i.teaser, 'aria-label': t('radio_text_aria', { number: i.number, state: i.done ? t('radio_done') : t('paper_state_open') }) }, [el('span', { class: 'bp-paper-number', text: String(i.number) }), el('span', { class: 'bp-paper-state', text: i.done ? t('radio_done') : (i.direction ? t('radio_direction_' + i.direction) : '') })])]);
+						}))
+					]));
+				});
+				if (o.vocabulary.length) {
+					nodes.push(el('section', { class: 'bp-section' }, [
+						el('h2', { text: t('radio_vocabulary') }),
+						el('ul', { class: 'bp-module-list' }, o.vocabulary.map(function (v) {
+							return el('li', { class: 'bp-card' }, [
+								el('h3', { text: v.category }),
+								progressBar({ questions: v.total, mastered: v.learned, learning: 0, unsure: 0, percent: Math.floor(v.learned * 100 / Math.max(v.total, 1)) }, t('radio_learned', { learned: v.learned, total: v.total })),
+								el('p', {}, [link(slug + '/funk/vokabeln/?katalog=' + v.catalog + '&kategorie=' + encodeURIComponent(v.category), t('radio_practice'), 'bp-button')])
+							]);
+						}))
+					]));
+				}
+				mount(nodes, t('trainer_radio') + ' – ' + c.name);
+			});
+		});
+	}
+
+	function evaluationBox(label, ev) {
+		if (!ev) {
+			return null;
+		}
+		return el('div', { class: 'bp-card' }, [
+			el('p', { class: 'bp-feedback-title', text: label + ': ' + t('radio_percent', { percent: ev.percent }) }),
+			ev.missing.length ? el('p', { class: 'bp-muted', text: t('radio_missing', { words: ev.missing.join(', ') }) }) : el('p', { class: 'bp-muted', text: t('radio_complete') })
+		]);
+	}
+
+	function viewRadioText(slug, key, direction) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/texts/' + encodeURIComponent(key)).then(function (x) {
+				var title = t('radio_type_' + x.type, { catalog: x.catalog }) + ' ' + x.number;
+				var body = el('div', { class: 'bp-card' });
+				var result = el('div', { class: 'bp-radio-result', 'aria-live': 'polite' });
+				var doneBtn = el('button', { type: 'button', class: 'bp-button', 'aria-pressed': x.done ? 'true' : 'false', text: x.done ? t('radio_done') : t('radio_mark_done') });
+				doneBtn.addEventListener('click', function () {
+					api('PUT', 'courses/' + encodeURIComponent(slug) + '/radio/texts/' + x.id + '/done', { done: !x.done }).then(function (r) {
+						x.done = r.done;
+						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
+						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+					});
+				});
+				if (x.type === 'spelling') {
+					body.appendChild(el('p', { class: 'bp-muted', text: t('radio_type_spelling_explain') }));
+					var list = el('ol', { class: 'bp-spelling' });
+					x.lines.forEach(function (line) {
+						var li = el('li', {}, [el('span', { class: 'bp-spell-line', text: line.text })]);
+						line.spell.forEach(function (s) {
+							var hidden = el('span', { class: 'bp-spell-solution', hidden: true, text: s.word + ': ' + s.spelled });
+							li.appendChild(el('br'));
+							li.appendChild(el('mark', { text: s.word }));
+							li.appendChild(document.createTextNode(' '));
+							li.appendChild(hidden);
+						});
+						list.appendChild(li);
+					});
+					var show = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('radio_show_spelling') });
+					show.addEventListener('click', function () {
+						Array.prototype.forEach.call(list.querySelectorAll('.bp-spell-solution'), function (n) { n.hidden = false; });
+						show.remove();
+					});
+					body.appendChild(list);
+					body.appendChild(el('div', { class: 'bp-actions' }, [show]));
+				} else {
+					var translation = x.type === 'translation';
+					var from = translation && direction === 'en-de' ? x.text_en : x.text_de;
+					var lang = translation && direction === 'en-de' ? 'en-GB' : 'de-DE';
+					var answers = translation ? ((x.answers && x.answers[direction]) || {}) : (x.answers || {});
+					if (translation) {
+						body.appendChild(el('p', { class: 'bp-actions' }, [
+							link(slug + '/funk/text/' + x.id + '/?richtung=de-en', t('radio_direction_de_en'), 'bp-chip' + (direction === 'de-en' ? ' is-active' : '')),
+							link(slug + '/funk/text/' + x.id + '/?richtung=en-de', t('radio_direction_en_de'), 'bp-chip' + (direction === 'en-de' ? ' is-active' : ''))
+						]));
+					}
+					body.appendChild(el('p', { class: 'bp-muted', text: t('radio_type_' + x.type + '_explain') }));
+					var source = multiline('p', from, 'bp-radio-source');
+					source.hidden = cfg.voice !== 'off';
+					var toggle = el('button', { type: 'button', class: 'bp-button', text: t('radio_show_text') });
+					toggle.addEventListener('click', function () { source.hidden = !source.hidden; toggle.textContent = source.hidden ? t('radio_show_text') : t('radio_hide_text'); });
+					body.appendChild(el('div', { class: 'bp-actions' }, [speakButton(from, lang), cfg.voice !== 'off' ? toggle : null]));
+					body.appendChild(source);
+					var transcript = el('textarea', { class: 'bp-notes', rows: '4', id: 'bp-transcript' });
+					transcript.value = answers.transcript || '';
+					body.appendChild(el('label', { for: 'bp-transcript', class: 'bp-label', text: t('radio_transcript') }));
+					body.appendChild(transcript);
+					var trans = null;
+					if (translation) {
+						trans = el('textarea', { class: 'bp-notes', rows: '4', id: 'bp-translation' });
+						trans.value = answers.translation || '';
+						body.appendChild(el('label', { for: 'bp-translation', class: 'bp-label', text: t('radio_translation') }));
+						body.appendChild(trans);
+					}
+					var evalBtn = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('radio_evaluate') });
+					evalBtn.addEventListener('click', function () {
+						evalBtn.disabled = true;
+						api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/texts/' + x.id + '/evaluate', { direction: translation ? direction : '', transcript: transcript.value, translation: trans ? trans.value : '' }).then(function (r) {
+							result.textContent = '';
+							result.appendChild(evaluationBox(t('radio_transcript'), r.transcript) || el('span'));
+							var tr = evaluationBox(t('radio_translation'), r.translation);
+							if (tr) {
+								result.appendChild(tr);
+							}
+							result.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', r.solution.from), r.solution.to ? multiline('p', r.solution.to) : null]));
+						}).catch(function (e) { alertMessage(result, e.message); }).finally(function () { evalBtn.disabled = false; });
+					});
+					body.appendChild(el('div', { class: 'bp-actions' }, [evalBtn]));
+				}
+				mount([
+					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [title]]),
+					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: title }), x.direction ? el('p', { class: 'bp-muted', text: t('radio_direction_' + x.direction) }) : null]),
+					body,
+					result,
+					el('div', { class: 'bp-actions' }, [doneBtn, x.previous ? link(slug + '/funk/text/' + x.previous + '/', t('prev'), 'bp-button') : null, x.next ? link(slug + '/funk/text/' + x.next + '/', t('next'), 'bp-button') : null])
+				], title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewVocabulary(slug, catalog, category) {
+		return withCourse(slug, function (c) {
+			var params = new URLSearchParams({ catalog: catalog });
+			if (category) {
+				params.set('category', category);
+			}
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/vocabulary?' + params.toString()).then(function (v) {
+				var cards = v.cards.slice().sort(function (a, b) { return (a.learned - b.learned) || (a.streak - b.streak); });
+				var index = 0;
+				var learned = v.learned;
+				var stage = el('div', { class: 'bp-vocab-stage' });
+				var counter = el('p', { class: 'bp-muted', 'aria-live': 'polite' });
+				function updateCounter() {
+					counter.textContent = t('radio_learned', { learned: learned, total: cards.length });
+				}
+				function show() {
+					stage.textContent = '';
+					if (!cards.length) {
+						return;
+					}
+					var card = cards[index % cards.length];
+					var box = el('article', { class: 'bp-card bp-vocab' }, [
+						el('p', { class: 'bp-question-meta' }, [el('span', { text: card.category }), card.learned ? badge(t('radio_learned_badge'), 'ok') : el('span', { text: t('streak', { n: card.streak }) })]),
+						el('p', { class: 'bp-vocab-term', lang: 'de', text: card.de })
+					]);
+					var actions = el('div', { class: 'bp-actions' });
+					var reveal = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('radio_show_translation') });
+					reveal.addEventListener('click', function () {
+						reveal.remove();
+						box.insertBefore(el('p', { class: 'bp-vocab-solution', lang: 'en', text: card.en + (card.hint ? ' (' + card.hint + ')' : '') }), actions);
+						var sp = speakButton(card.en, 'en-GB');
+						[[true, t('known_yes')], [false, t('known_no')]].forEach(function (opt) {
+							var b = el('button', { type: 'button', class: 'bp-button' + (opt[0] ? ' bp-button-primary' : ''), text: opt[1] });
+							b.addEventListener('click', function () {
+								api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/vocabulary/' + card.id, { known: opt[0] }).then(function (r) {
+									if (r.learned && !card.learned) {
+										learned++;
+									}
+									card.streak = r.streak;
+									card.learned = r.learned;
+									updateCounter();
+									index++;
+									show();
+								});
+							});
+							actions.appendChild(b);
+						});
+						if (sp) {
+							actions.appendChild(sp);
+						}
+					});
+					actions.appendChild(reveal);
+					box.appendChild(actions);
+					stage.appendChild(box);
+				}
+				mount([
+					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [category || t('radio_vocabulary')]]),
+					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: category || t('radio_vocabulary') }), el('p', { class: 'bp-muted', text: t('radio_vocab_explain', { n: v.streak_to_learn }) }), counter]),
+					stage
+				], (category || t('radio_vocabulary')) + ' – ' + c.name);
+				updateCounter();
+				show();
+			});
+		});
 	}
 
 	// ------------------------------------------------------------------ Prüfung

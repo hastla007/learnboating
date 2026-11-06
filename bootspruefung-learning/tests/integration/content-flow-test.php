@@ -53,13 +53,15 @@ $preview = $service->preview($id);
 $service->approve($id, 'Integrationstest');
 $service->runAll($id);
 $check($service->batch($id)->status === 'published', 'Paket veröffentlicht');
-foreach (['courses' => 'course', 'modules' => 'module', 'questions' => 'question', 'media' => 'media', 'exam_rules' => 'exam_rule', 'exam_papers' => 'exam_paper', 'navigation_tasks' => 'navigation_task', 'praxis_tasks' => 'praxis_task'] as $entity => $table) {
+foreach (['courses' => 'course', 'modules' => 'module', 'questions' => 'question', 'media' => 'media', 'exam_rules' => 'exam_rule', 'exam_papers' => 'exam_paper', 'navigation_tasks' => 'navigation_task', 'praxis_tasks' => 'praxis_task', 'video_modules' => 'video_module', 'radio_texts' => 'radio_text', 'radio_vocabulary' => 'radio_vocabulary'] as $entity => $table) {
     $check($count($table, "status <> 'source_archived'") === $manifest['counts'][$entity], "{$entity}: ".$manifest['counts'][$entity].' wie im Manifest');
 }
 $check($count('answer', "revision_id IN (SELECT current_revision_id FROM {$p}question)") === $manifest['counts']['answers'], 'Antworten wie im Manifest');
 $check($count('exam_paper_question') === $manifest['counts']['exam_paper_questions'], 'Bogenfragen wie im Manifest');
 $check($count('navigation_question', "status <> 'source_archived'") === $manifest['counts']['navigation_questions'], 'Navigations-Teilaufgaben wie im Manifest');
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}media WHERE storage_key IS NOT NULL") === $manifest['counts']['media'], 'alle Mediendateien abgelegt');
+$check($count('video_lesson', "status <> 'source_archived'") === $manifest['counts']['video_lessons'], 'Videolektionen wie im Manifest');
+$check($count('video_lesson_question') === $manifest['counts']['video_lesson_questions'], 'Videoquiz-Zuordnungen wie im Manifest');
 
 echo "Reimport\n";
 $id2 = $service->createFromDirectory($packageDir);
@@ -227,6 +229,52 @@ if ($d['question']['type'] === 'open_text') {
     [, $r2] = $req('POST', '/answers', ['token' => $d['question']['token'], 'known' => true, 'idempotency_key' => wp_generate_uuid4()]);
     $check($s === 200 && $r['model_answer'] !== '' && $r2['correct'] === true, 'offene Frage: Musterantwort und Selbsteinschätzung');
 }
+
+echo "Spezialtrainer\n";
+wp_set_current_user(1);
+foreach (['navigation_task', 'praxis_task', 'video_module'] as $type) {
+    Overrides::set($type, array_map('intval', $wpdb->get_col("SELECT id FROM {$p}{$type}")), 'rights_status', 'licensed', 'Integrationstest');
+}
+wp_set_current_user($uid);
+[, $course] = $req('GET', '/courses/SBF-SEE');
+$check($course['trainers']['navigation']['tasks'] === 15 && $course['trainers']['praxis']['cards'] > 0 && $course['trainers']['video']['lessons'] > 0, 'Kursseite meldet Navigation, Praxis und Video');
+[, $tasks] = $req('GET', '/courses/SBF-SEE/navigation');
+[, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+$check(count($task['questions']) === 9 && $task['questions'][0]['answer'] === null, 'Navigationsaufgabe: 9 Teilaufgaben, Ergebnis verborgen');
+[$s, $a] = $req('POST', '/courses/SBF-SEE/navigation-questions/'.$task['questions'][0]['id'], ['answer' => 'Test', 'self_assessment' => 'correct']);
+[, $tasks] = $req('GET', '/courses/SBF-SEE/navigation');
+$check($s === 200 && $a['answer'] !== '' && $tasks[0]['done'] === 1, 'Navigation: Ergebnis und Selbsteinschätzung gespeichert');
+[, $praxis] = $req('GET', '/courses/SBF-SEE/praxis');
+[$s] = $req('PUT', '/courses/SBF-SEE/praxis/'.$praxis['categories'][0]['cards'][0]['id'], ['status' => 'known']);
+[, $praxis] = $req('GET', '/courses/SBF-SEE/praxis');
+$check($s === 200 && $praxis['known'] === 1, 'Praxis: Karte als sicher markiert');
+[, $videos] = $req('GET', '/courses/SBF-SEE/videos');
+$lessonId = null;
+foreach ($videos['modules'] as $m) {
+    foreach ($m['lessons'] as $l) {
+        $lessonId ??= $l['quiz'] > 0 ? $l['id'] : null;
+    }
+}
+[, $lesson] = $req('GET', '/courses/SBF-SEE/videos/'.$lessonId);
+$check(count($lesson['quiz']) > 0 && ! str_contains((string) wp_json_encode($lesson['quiz']), 'is_correct'), 'Videolektion mit Quiz ohne Lösungen');
+$vq = $lesson['quiz'][0];
+$vright = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $vq['revision_id']));
+[$s, $r] = $req('POST', '/answers', ['token' => $vq['token'], 'answer_ids' => [$vright], 'idempotency_key' => wp_generate_uuid4()]);
+$check($s === 200 && $r['correct'] === true && $wpdb->get_var("SELECT context FROM {$p}attempt ORDER BY id DESC LIMIT 1") === 'video', 'Videoquiz ausgewertet (Kontext video)');
+$req('PUT', '/courses/SBF-SEE/videos/'.$lessonId.'/progress', ['position' => 30, 'completed' => true]);
+[, $videos] = $req('GET', '/courses/SBF-SEE/videos');
+$check($videos['completed'] === 1, 'Lektion abgeschlossen');
+[, $radio] = $req('GET', '/courses/SRC/radio');
+$check(count($radio['texts'][0]['items']) === 27 && count($radio['vocabulary']) > 0, 'Funktraining SRC: 27 Texte und Vokabeln');
+[, $text] = $req('GET', '/courses/SRC/radio/texts/TXT-SRC-01');
+[$s, $ev] = $req('POST', '/courses/SRC/radio/texts/TXT-SRC-01/evaluate', ['direction' => 'de-en', 'transcript' => $text['text_de'], 'translation' => $text['text_en']]);
+$check($s === 200 && $ev['transcript']['percent'] === 100 && $ev['translation']['percent'] === 100, 'Funktext: vollständige Mitschrift und Übersetzung = 100 %');
+foreach ([true, true, true] as $known) {
+    [, $va] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-B', ['known' => $known]);
+}
+$check($va['learned'] === true && $va['streak'] === 3, 'Buchstabiertafel: nach 3 × gewusst gelernt');
+[$s] = $req('GET', '/courses/SBF-SEE/radio/texts/TXT-SRC-01');
+$check($s === 404, 'Funktext außerhalb des passenden Kurses nicht erreichbar');
 
 echo "Zugriffsschutz\n";
 $other = wp_insert_user(['user_login' => $login.'b', 'user_email' => $login.'b@example.invalid', 'user_pass' => wp_generate_password()]);

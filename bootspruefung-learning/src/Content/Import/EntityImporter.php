@@ -32,6 +32,9 @@ final class EntityImporter
         'exam_papers' => 'exam_paper',
         'navigation_tasks' => 'navigation_task',
         'praxis_tasks' => 'praxis_task',
+        'video_modules' => 'video_module',
+        'radio_texts' => 'radio_text',
+        'radio_vocabulary' => 'radio_vocabulary',
     ];
 
     /** @var array<string,array<string,int>> Tabelle => source_id/code => id */
@@ -71,6 +74,9 @@ final class EntityImporter
             'exam_papers' => $this->examPaper($record),
             'navigation_tasks' => $this->navigationTask($record),
             'praxis_tasks' => $this->praxisTask($record),
+            'video_modules' => $this->videoModule($record),
+            'radio_texts' => $this->radioText($record),
+            'radio_vocabulary' => $this->radioVocabulary($record),
             default => throw new RuntimeException("Unbekannte Entität {$entity}"),
         };
     }
@@ -93,6 +99,13 @@ final class EntityImporter
             }
         }
         $archived['navigation_questions'] = $this->archiveTable('navigation_question', $navQuestions);
+        $lessons = [];
+        foreach ($this->package->entities('video_modules') as $module) {
+            foreach ($module['lessons'] as $lesson) {
+                $lessons[] = $lesson['source_id'];
+            }
+        }
+        $archived['video_lessons'] = $this->archiveTable('video_lesson', $lessons);
 
         return array_filter($archived);
     }
@@ -418,6 +431,91 @@ final class EntityImporter
             'active' => $r['active'] ? 1 : 0,
             'rights_status' => $r['rights_status'],
             'copied_from' => $r['copied_from'],
+            'status' => 'published',
+        ]);
+    }
+
+    /** @param array<string,mixed> $r */
+    private function videoModule(array $r): string
+    {
+        $action = $this->upsert('video_module', $r, [
+            'course_id' => $this->dryRun ? 0 : $this->idOf('course', $r['course_code']),
+            'title' => $r['title'],
+            'group_label' => $r['group_label'],
+            'sort_order' => $r['sort_order'],
+            'rights_status' => $r['rights_status'],
+            'status' => $r['status'],
+        ]);
+        if ($this->dryRun || $action === 'unchanged') {
+            return $action;
+        }
+        $moduleId = $this->idOf('video_module', $r['source_id']);
+        foreach ($r['lessons'] as $lesson) {
+            // Lektionen behalten ihre ID (Sehfortschritt verweist darauf).
+            $this->upsert('video_lesson', $lesson + ['hash' => 'sha256:'.hash('sha256', (string) wp_json_encode($lesson))], [
+                'module_id' => $moduleId,
+                'title' => $lesson['title'],
+                'video_url' => $lesson['video_url'],
+                'provider' => $lesson['provider'],
+                'duration_seconds' => $lesson['duration_seconds'],
+                'is_placeholder' => $lesson['is_placeholder'] ? 1 : 0,
+                'sort_order' => $lesson['sort_order'],
+                'status' => $r['status'],
+            ]);
+            $lessonId = $this->idOf('video_lesson', $lesson['source_id']);
+            $this->db->delete($this->t('video_lesson_step'), ['lesson_id' => $lessonId]);
+            foreach ($lesson['steps'] as $step) {
+                $this->insert('video_lesson_step', [
+                    'source_system' => self::SOURCE_SYSTEM,
+                    'source_id' => $step['source_id'],
+                    'lesson_id' => $lessonId,
+                    'title' => $step['title'],
+                    'media_id' => $step['media_source_id'] === null ? null : $this->idOf('media', $step['media_source_id']),
+                    'sort_order' => $step['sort_order'],
+                    'status' => 'published',
+                ]);
+            }
+            $desired = [];
+            foreach ($lesson['questions'] as $q) {
+                $desired[$this->idOf('question', $q['question_source_id'])] = ['sort_order' => $q['sort_order']];
+            }
+            $this->syncLinks('video_lesson_question', 'lesson_id', $lessonId, 'question_id', $desired);
+        }
+
+        return $action;
+    }
+
+    /** @param array<string,mixed> $r */
+    private function radioText(array $r): string
+    {
+        return $this->upsert('radio_text', $r, [
+            'catalog' => $r['catalog'],
+            'exercise_type' => $r['exercise_type'],
+            'number' => $r['number'],
+            'course_codes' => implode(',', $r['course_codes']),
+            'source_text' => $r['source'] === null ? null : mb_substr($r['source'], 0, 255),
+            'direction' => $r['direction'],
+            'text_de' => $r['text_de'],
+            'text_en' => $r['text_en'],
+            'segments' => $r['lines'] === null ? null : wp_json_encode($r['lines']),
+            'sort_order' => $r['sort_order'],
+            'rights_status' => $r['rights_status'],
+            'status' => 'published',
+        ]);
+    }
+
+    /** @param array<string,mixed> $r */
+    private function radioVocabulary(array $r): string
+    {
+        return $this->upsert('radio_vocabulary', $r, [
+            'catalog' => $r['catalog'],
+            'category' => $r['category'],
+            'term_de' => $r['term_de'],
+            'term_en' => $r['term_en'],
+            'hint' => $r['hint'],
+            'course_codes' => implode(',', $r['course_codes']),
+            'sort_order' => $r['sort_order'],
+            'rights_status' => $r['rights_status'],
             'status' => 'published',
         ]);
     }

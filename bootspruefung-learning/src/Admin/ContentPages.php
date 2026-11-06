@@ -60,6 +60,9 @@ final class ContentPages
             'media' => ['media', 'm', 'COALESCE(o.value, x.rights_status)', ''],
             'navigation_tasks' => ['navigation_task', 'n', 'COALESCE(o.value, x.rights_status)', ''],
             'praxis_tasks' => ['praxis_task', 'p', 'COALESCE(o.value, x.rights_status)', ''],
+            'video_modules' => ['video_module', 'v', 'COALESCE(o.value, x.rights_status)', ''],
+            'radio_texts' => ['radio_text', 'r', 'COALESCE(o.value, x.rights_status)', ''],
+            'radio_vocabulary' => ['radio_vocabulary', 'r', 'COALESCE(o.value, x.rights_status)', ''],
         ] as $entity => [$table, , $rightsExpr, $join]) {
             $r = $this->db->get_row(
                 "SELECT COUNT(*) AS total, SUM(x.status = 'source_archived') AS archived, SUM({$rightsExpr} IN (".Overrides::blockingList().") AND x.status <> 'source_archived') AS blocked
@@ -352,6 +355,9 @@ final class ContentPages
             'media' => [__('Medien nach Quelle', 'bootspruefung-learning'), '', "SUBSTRING_INDEX(COALESCE(x.source_text, '–'), ':', 1)", 'x.rights_status'],
             'navigation_task' => [__('Navigationsaufgaben nach Quelle', 'bootspruefung-learning'), '', "COALESCE(x.source_text, '–')", 'x.rights_status'],
             'praxis_task' => [__('Praxiskarten nach Kurs', 'bootspruefung-learning'), "JOIN {$this->t('course')} c ON c.id = x.course_id", 'c.code', 'x.rights_status'],
+            'video_module' => [__('Videokapitel nach Kurs', 'bootspruefung-learning'), "JOIN {$this->t('course')} c ON c.id = x.course_id", 'c.code', 'x.rights_status'],
+            'radio_text' => [__('Funktexte nach Katalog', 'bootspruefung-learning'), '', "CONCAT(x.catalog, ' · ', x.exercise_type)", 'x.rights_status'],
+            'radio_vocabulary' => [__('Funk-Vokabeln nach Katalog', 'bootspruefung-learning'), '', 'x.catalog', 'x.rights_status'],
         ];
     }
 
