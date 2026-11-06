@@ -162,3 +162,9 @@
 .bp-locked { border-style: dashed; }
 .bp-offers { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .bp-offers li { display: flex; align-items: center; gap: 0.4rem; }
+.bp-paper-locked { opacity: 0.55; cursor: not-allowed; }
+.bp-lessons li.is-locked { opacity: 0.6; }
+.bp-input { min-width: 0; flex: 1 1 240px; padding: 0.45rem 0.6rem; border: 1px solid currentColor; border-radius: 6px; font: inherit; background: transparent; color: inherit; }
+.bp-scopes, .bp-members { margin: 0.4rem 0 0.8rem; padding-left: 1.2rem; }
+.bp-members li { margin: 0.3rem 0; }
+.bp-button-small { padding: 0.2rem 0.6rem; font-size: 0.85em; }

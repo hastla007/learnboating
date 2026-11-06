@@ -98,6 +98,13 @@ final class ProductPanel
             'revoke_on_any_refund' => __('Widerruf bei jeder Erstattung der Position', 'bootspruefung-learning'),
             'keep' => __('Zugang bleibt bei Erstattung bestehen', 'bootspruefung-learning'),
         ];
+        printf(
+            '<p><label>%s <input type="number" min="0" step="1" name="%s" value="%s" style="width:90px"></label> <span class="description">%s</span></p>',
+            esc_html__('Gruppenlizenz: Plätze je Stück', 'bootspruefung-learning'),
+            esc_attr($name.'[seats]'),
+            esc_attr($first && ! empty($first->seats) ? (string) $first->seats : ''),
+            esc_html__('leer = Einzelzugang für den Käufer; sonst erhält der Käufer ein Kontingent und lädt Teilnehmende ein (Menge = Anzahl Pakete)', 'bootspruefung-learning')
+        );
         $this->select($name.'[renewal]', __('Verlängerung', 'bootspruefung-learning'), $renewal, $first->renewal_mode ?? 'extend');
         $this->select($name.'[refund]', __('Erstattung', 'bootspruefung-learning'), $refund, $first->refund_rule ?? 'revoke_on_full_refund');
     }
@@ -154,7 +161,8 @@ final class ProductPanel
             }
         }
         $duration = isset($input['duration']) && $input['duration'] !== '' ? absint($input['duration']) : null;
-        $result = $this->repo()->save($productId, $variationId, $scopes, $duration, sanitize_key((string) ($input['renewal'] ?? '')), sanitize_key((string) ($input['refund'] ?? '')));
+        $seats = isset($input['seats']) && $input['seats'] !== '' ? absint($input['seats']) : null;
+        $result = $this->repo()->save($productId, $variationId, $scopes, $duration, sanitize_key((string) ($input['renewal'] ?? '')), sanitize_key((string) ($input['refund'] ?? '')), $seats);
         if ($result['added'] + $result['removed'] > 0) {
             AuditLog::record('product_access_saved', 'product', (string) ($variationId ?: $productId), null, ['product_id' => $productId, 'variation_id' => $variationId, 'scopes' => count($scopes)] + $result);
         }

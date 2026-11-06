@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.6.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -113,6 +113,8 @@ final class Plugin
             (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->expireDue();
         });
         PersonalData::register();
+        (new \Bootspruefung\Learning\Gate\ContentGate())->register();
+        (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
 
         if (defined('WP_CLI') && WP_CLI) {
             Commands::register();

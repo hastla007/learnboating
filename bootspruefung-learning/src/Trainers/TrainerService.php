@@ -52,13 +52,38 @@ final class TrainerService
             $course->id
         ));
 
-        return array_map(static fn ($r) => ['id' => (int) $r->id, 'number' => (int) $r->task_number, 'teaser' => $r->teaser, 'questions' => (int) $r->questions, 'done' => (int) $r->done], $rows);
+        $limit = $this->access->limit($userId, $course->code, AccessService::NAVIGATION);
+        $out = [];
+        foreach ($rows as $i => $r) {
+            $locked = $limit !== null && $i >= $limit;
+            $out[] = ['id' => (int) $r->id, 'number' => (int) $r->task_number, 'teaser' => $locked ? null : $r->teaser, 'questions' => (int) $r->questions, 'done' => (int) $r->done, 'locked' => $locked];
+        }
+
+        return $out;
+    }
+
+    /** Teilumfang: nur die ersten n Aufgaben (Reihenfolge wie Liste). */
+    private function requireNavigationTask(int $userId, object $course, int $taskId): void
+    {
+        if ($this->access->limit($userId, $course->code, AccessService::NAVIGATION) === null) {
+            return;
+        }
+        foreach ($this->navigationTasks($userId, $course) as $task) {
+            if ($task['id'] === $taskId) {
+                if ($task['locked']) {
+                    throw new AccessDenied(__('Diese Aufgabe ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
+                }
+
+                return;
+            }
+        }
     }
 
     /** @return array<string,mixed> */
     public function navigationTask(int $userId, object $course, int $taskId): array
     {
         $this->require($userId, $course, AccessService::NAVIGATION);
+        $this->requireNavigationTask($userId, $course, $taskId);
         $task = $this->db->get_row($this->db->prepare(
             "SELECT t.* FROM {$this->t('navigation_task')} t JOIN {$this->t('navigation_task_course')} tc ON tc.task_id = t.id AND tc.course_id = %d
              ".Overrides::rightsJoin('navigation_task', 't', 'o')."
@@ -115,6 +140,7 @@ final class TrainerService
         if (! $q) {
             throw new NotFound(__('Teilaufgabe nicht gefunden.', 'bootspruefung-learning'));
         }
+        $this->requireNavigationTask($userId, $course, (int) $q->task_id);
         if ($assessment !== null && ! in_array($assessment, ['correct', 'partly', 'wrong'], true)) {
             throw new RuntimeException(__('Ungültige Selbsteinschätzung.', 'bootspruefung-learning'));
         }
@@ -149,8 +175,14 @@ final class TrainerService
             $course->id
         ));
         $categories = [];
-        foreach ($rows as $r) {
+        $limit = $this->access->limit($userId, $course->code, AccessService::PRAXIS);
+        foreach ($rows as $i => $r) {
             $categories[$r->category] ??= ['name' => $r->category, 'cards' => [], 'known' => 0];
+            if ($limit !== null && $i >= $limit) {
+                // Teilumfang: Karte nur als gesperrter Titel.
+                $categories[$r->category]['cards'][] = ['id' => (int) $r->id, 'title' => $r->subcategory, 'locked' => true];
+                continue;
+            }
             $image = $r->storage_key && ! in_array($r->media_rights, Overrides::BLOCKING_RIGHTS, true) ? ['url' => MediaStorage::url($r->storage_key), 'alt' => $r->alt_text ?: (string) $r->subcategory] : null;
             $categories[$r->category]['cards'][] = [
                 'id' => (int) $r->id,
@@ -164,6 +196,7 @@ final class TrainerService
                 'source' => $r->source_text,
                 'source_url' => $r->source_url,
                 'status' => $r->progress,
+                'locked' => false,
             ];
             $categories[$r->category]['known'] += $r->progress === 'known' ? 1 : 0;
         }
@@ -180,6 +213,15 @@ final class TrainerService
         $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->t('praxis_task')} WHERE id = %d AND course_id = %d AND status = 'published'", $taskId, $course->id));
         if (! $exists) {
             throw new NotFound(__('Praxiskarte nicht gefunden.', 'bootspruefung-learning'));
+        }
+        if ($this->access->limit($userId, $course->code, AccessService::PRAXIS) !== null) {
+            foreach ($this->praxis($userId, $course)['categories'] as $cat) {
+                foreach ($cat['cards'] as $card) {
+                    if ($card['id'] === $taskId && $card['locked']) {
+                        throw new AccessDenied(__('Diese Karte ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
+                    }
+                }
+            }
         }
         $this->db->query($this->db->prepare(
             "INSERT INTO {$this->t('praxis_progress')} (user_id, praxis_task_id, status) VALUES (%d, %d, %s) ON DUPLICATE KEY UPDATE status = VALUES(status)",

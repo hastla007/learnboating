@@ -135,6 +135,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
           ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" commerce.log
+      - name: Teilumfänge, Freigaben, Schutz, Gruppen (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/membership-test.php | tee membership.log
+          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" membership.log
       - name: WooCommerce bereitstellen
         run: |
           curl -fsSL -o "$RUNNER_TEMP/woocommerce.zip" "https://github.com/woocommerce/woocommerce/releases/download/${WC_VERSION}/woocommerce.zip"
@@ -163,3 +167,5 @@ jobs:
           BP_ADMIN=admin BP_ADMIN_PASS=Admin-Passwort-123 BP_ZIP="$(ls build/*.zip)" node bootspruefung-learning/tests/e2e/admin-import.mjs
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/setup.php
           BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs
+          BP_TOKEN="$(WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php)" node bootspruefung-learning/tests/e2e/membership-flow.mjs
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/e2e/membership-setup.php reset

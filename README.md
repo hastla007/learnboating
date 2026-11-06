@@ -51,6 +51,13 @@ wp bootspruefung reconcile
 wp bootspruefung reconcile --apply
 ```
 
+Membership-Funktionen (ohne Zusatz-Plugin): kostenlose Teilumfänge und zeitgesteuerte Freigaben unter
+Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „Lernzugang erforderlich“,
+Abschnitte über den Block „Nur mit Lernzugang“ bzw. `[bootspruefung_zugang kurs="SBF-SEE" funktion="video_course"]…[/bootspruefung_zugang]`,
+geschützte PDFs über das Feld „Lernzugang erforderlich“ in der Mediathek (nginx: Ordner
+`uploads/bootspruefung/protected-*` zusätzlich sperren); Gruppenlizenzen über „Plätze je Stück“ im
+Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte.
+
 ### Tests des Plugins
 
 Gegen eine WordPress-Installation mit MySQL/MariaDB, Plugin unter `wp-content/plugins/bootspruefung-learning`:
@@ -73,6 +80,10 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/commerce-
 WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/woocommerce-test.php
 ```
 
+```bash
+WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/membership-test.php
+```
+
 Browser-Tests (Playwright) laufen gegen einen laufenden Server; Vorbereitung mit
 `tests/e2e/setup.php`, Server z. B. `php -S 127.0.0.1:8099 router.php` mit `tests/e2e/router.php`:
 
@@ -86,4 +97,8 @@ BP_ADMIN=admin BP_ADMIN_PASS=Admin-Passwort-123 BP_ZIP=build/<package_id>.zip no
 
 ```bash
 BP_USER=lerner1 BP_PASS=Test-Passwort-123 node bootspruefung-learning/tests/e2e/trainers-flow.mjs
+```
+
+```bash
+BP_TOKEN="$(WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/e2e/membership-setup.php)" node bootspruefung-learning/tests/e2e/membership-flow.mjs
 ```

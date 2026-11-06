@@ -48,17 +48,18 @@ final class LearningService
         if (! in_array($mode, self::MODES, true)) {
             throw new RuntimeException('Unbekannter Lernmodus.');
         }
-        $moduleIds = array_map(static fn ($m) => (int) $m->id, $this->content->modules((int) $course->id));
+        $gates = $this->moduleGates($userId, $course);
+        $moduleIds = array_keys($gates);
         if ($moduleId !== null) {
             if (! in_array($moduleId, $moduleIds, true)) {
                 throw new RuntimeException('Modul gehört nicht zum Kurs.');
             }
+            if ($gates[$moduleId]['locked']) {
+                throw new AccessDenied(sprintf(__('Dieses Modul wird am %s freigeschaltet.', 'bootspruefung-learning'), wp_date(get_option('date_format'), strtotime($gates[$moduleId]['unlock_at'].' UTC'))));
+            }
             $moduleIds = [$moduleId];
         }
-        $questions = [];
-        foreach ($this->content->questionsForModules($moduleIds) as $row) {
-            $questions[(int) $row->question_id] ??= $row;
-        }
+        $questions = $this->allowedQuestions($userId, $course, $moduleIds, $gates);
         foreach ($this->runningExamQuestionIds($userId) as $blocked) {
             unset($questions[$blocked]);
         }
@@ -209,16 +210,67 @@ final class LearningService
     {
         $modules = [];
         $all = [];
+        $gates = $this->moduleGates($userId, $course);
         foreach ($this->content->modules((int) $course->id) as $module) {
-            $ids = [];
+            $allIds = [];
             foreach ($this->content->questionsForModules([(int) $module->id]) as $row) {
-                $ids[(int) $row->question_id] = true;
+                $allIds[(int) $row->question_id] = true;
             }
-            $all += $ids;
-            $modules[] = ['id' => (int) $module->id, 'code' => $module->code, 'name' => $module->name] + $this->summary($userId, array_keys($ids));
+            $gate = $gates[(int) $module->id];
+            $ids = array_keys($this->allowedQuestions($userId, $course, [(int) $module->id], $gates));
+            $all += array_flip($ids);
+            $modules[] = ['id' => (int) $module->id, 'code' => $module->code, 'name' => $module->name] + $this->summary($userId, $ids)
+                + ['available' => count($ids), 'catalog' => count($allIds), 'locked' => $gate['locked'], 'unlock_at' => $gate['unlock_at']];
         }
 
-        return ['total' => $this->summary($userId, array_keys($all)), 'modules' => $modules];
+        return ['total' => $this->summary($userId, array_keys($all)), 'modules' => $modules, 'limit' => $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK)];
+    }
+
+    /**
+     * Freigabezustand der Module (zeitgesteuerte Freigabe, Kap. 7.2).
+     *
+     * @return array<int,array{code:string,locked:bool,unlock_at:?string}>
+     */
+    public function moduleGates(int $userId, object $course): array
+    {
+        $now = current_time('mysql', true);
+        $out = [];
+        foreach ($this->content->modules((int) $course->id) as $module) {
+            $at = $this->access->unlockAt($userId, $course->code, AccessService::QUESTION_BANK, (string) $module->code);
+            $out[(int) $module->id] = ['code' => (string) $module->code, 'locked' => $at !== null && $at > $now, 'unlock_at' => $at];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fragen, die der Nutzer in diesen Modulen lernen darf: ohne gesperrte
+     * Module, bei Teilumfang nur die ersten n Fragen je Modul.
+     *
+     * @param list<int> $moduleIds
+     * @param array<int,array{locked:bool}> $gates
+     * @return array<int,object> question_id => Zeile
+     */
+    public function allowedQuestions(int $userId, object $course, array $moduleIds, ?array $gates = null): array
+    {
+        $gates ??= $this->moduleGates($userId, $course);
+        $limit = $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK);
+        if ($limit === 0) {
+            return [];
+        }
+        $moduleIds = array_values(array_filter($moduleIds, static fn ($id) => isset($gates[$id]) && ! $gates[$id]['locked']));
+        $questions = [];
+        $perModule = [];
+        foreach ($this->content->questionsForModules($moduleIds) as $row) {
+            $m = (int) $row->module_id;
+            if ($limit !== null && ($perModule[$m] ?? 0) >= $limit) {
+                continue;
+            }
+            $perModule[$m] = ($perModule[$m] ?? 0) + 1;
+            $questions[(int) $row->question_id] ??= $row;
+        }
+
+        return $questions;
     }
 
     /** @param list<int> $questionIds @return array{questions:int,new:int,unsure:int,learning:int,mastered:int,percent:int} */

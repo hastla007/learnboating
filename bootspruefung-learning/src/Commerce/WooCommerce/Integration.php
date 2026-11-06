@@ -35,7 +35,7 @@ final class Integration
     {
         global $wpdb;
         if (self::$sync === null) {
-            self::$sync = new OrderSync(new WooOrderSource(), new ProductAccessRepository($wpdb), new EntitlementService($wpdb));
+            self::$sync = new OrderSync(new WooOrderSource(), new ProductAccessRepository($wpdb), new EntitlementService($wpdb), new \Bootspruefung\Learning\Commerce\EntitlementPlanner(), new \Bootspruefung\Learning\Commerce\GroupService($wpdb));
         }
 
         return self::$sync;
@@ -86,13 +86,14 @@ final class Integration
         }
 
         (new ProductPanel())->register();
+        (new MemberDiscounts())->register();
     }
 
     // ------------------------------------------------------------------ Checkout
 
     public function soldIndividually($value, $product)
     {
-        if ($product instanceof \WC_Product && self::productHasLearning($product)) {
+        if ($product instanceof \WC_Product && self::productHasLearning($product) && ! self::isGroupProduct($product)) {
             return true;
         }
 
@@ -136,6 +137,16 @@ final class Integration
         }
 
         return false;
+    }
+
+    /** Gruppenlizenzen dürfen in Mengen gekauft werden (Menge = Anzahl Pakete). */
+    public static function isGroupProduct(\WC_Product $product): bool
+    {
+        global $wpdb;
+        $repo = new ProductAccessRepository($wpdb);
+        $rows = $product->is_type('variation') ? $repo->forItem((int) $product->get_parent_id(), (int) $product->get_id()) : $repo->rows((int) $product->get_id(), 0, true);
+
+        return ProductAccessRepository::seats($rows) !== null;
     }
 
     public static function productHasLearning(\WC_Product $product): bool
@@ -215,7 +226,11 @@ final class Integration
     public function renderAccount(): void
     {
         $rows = $this->entitlements()->summaryForUser(get_current_user_id());
-        echo '<p><a class="button" href="'.esc_url(Router::url()).'">'.esc_html__('Zum Lernbereich', 'bootspruefung-learning').'</a></p>';
+        echo '<p><a class="button" href="'.esc_url(Router::url()).'">'.esc_html__('Zum Lernbereich', 'bootspruefung-learning').'</a>';
+        if ((self::sync()->groups()?->forOwner(get_current_user_id()) ?? []) !== []) {
+            echo ' <a class="button" href="'.esc_url(Router::url('gruppen')).'">'.esc_html__('Meine Gruppen verwalten', 'bootspruefung-learning').'</a>';
+        }
+        echo '</p>';
         if ($rows === []) {
             echo '<p>'.esc_html__('Für dein Konto sind noch keine Lernzugänge gebucht.', 'bootspruefung-learning').'</p>';
 
@@ -254,6 +269,16 @@ final class Integration
     private function accessNotice(int $orderId, bool $plain): string
     {
         $rows = $this->entitlements()->forOrder($orderId);
+        $groups = array_filter(self::sync()->groups()?->forOrder($orderId) ?? [], static fn ($g) => $g->status === 'active');
+        if ($groups !== []) {
+            $url = Router::url('gruppen');
+            $seats = array_sum(array_map(static fn ($g) => (int) $g->seats, $groups));
+            $text = esc_html(sprintf(_n('Deine Gruppenlizenz mit %d Platz ist bereit.', 'Deine Gruppenlizenz mit %d Plätzen ist bereit.', $seats, 'bootspruefung-learning'), $seats)).' '
+                .($plain ? __('Teilnehmende einladen:', 'bootspruefung-learning').' '.$url : '<a href="'.esc_url($url).'">'.esc_html__('Teilnehmende einladen', 'bootspruefung-learning').'</a>');
+            if ($rows === []) {
+                return $plain ? $text : '<section class="woocommerce-order-bp-access"><h2>'.esc_html__('Lernzugang', 'bootspruefung-learning').'</h2><p>'.$text.'</p></section>';
+            }
+        }
         if ($rows === []) {
             return '';
         }

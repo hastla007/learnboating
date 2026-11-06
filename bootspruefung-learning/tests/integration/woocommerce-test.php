@@ -260,6 +260,59 @@ $check(isset($plans[$bacs]) && count($plans[$bacs]->changes) === 1 && $plans[$ba
 Integration::sync()->entitlements()->apply($plans[$bacs], 'reconcile');
 $check(count($entitlements->forOrder($bacs)) === 2, 'Abgleich angewendet');
 
+echo "Mitgliederrabatte\n";
+$GLOBALS['current_screen'] = null; // Frontend-Kontext (nach Admin-Prüfungen oben)
+$md = \Bootspruefung\Learning\Commerce\WooCommerce\MemberDiscounts::class;
+update_option($md::OPTION, []);
+$md::add('', 10, 'other', 'Schülerrabatt');
+$md::add($course, 20, 'learning', 'Verlängerung');
+$nobody = $customer('wc_ohne_zugang');
+$check($md::discountFor($alice, wc_get_product($book))['percent'] === 10.0, 'Mitglied: 10 % auf andere Produkte');
+$check($md::discountFor($alice, wc_get_product($video))['percent'] === 20.0, 'Mitglied: 20 % auf Lernprodukte des Kurses');
+$check($md::discountFor($nobody, wc_get_product($book)) === null, 'ohne gekauften Zugang kein Rabatt');
+if (function_exists('wc_load_cart')) {
+    wp_set_current_user($alice);
+    wc_load_cart();
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($book);
+    WC()->cart->calculate_totals();
+    WC()->cart->calculate_totals();
+    $check(abs((float) WC()->cart->get_total('edit') - 22.5) < 0.001, 'Warenkorb: 25 € → 22,50 € (auch bei wiederholter Berechnung)');
+    $html = wc_get_product($book)->get_price_html();
+    $check(str_contains($html, 'bp-member-price') && str_contains($html, 'Schülerrabatt'), 'Preisanzeige „Für dich“');
+    WC()->cart->empty_cart();
+    wp_set_current_user($nobody);
+    WC()->cart->add_to_cart($book);
+    WC()->cart->calculate_totals();
+    $check(abs((float) WC()->cart->get_total('edit') - 25.0) < 0.001, 'ohne Zugang: voller Preis');
+    WC()->cart->empty_cart();
+    wp_set_current_user(1);
+}
+update_option($md::OPTION, []);
+
+echo "Gruppenlizenz über WooCommerce\n";
+$school = $make('Schulpaket 5 Plätze', '250');
+$_POST['bp_access'] = ['present' => '1', 'scope' => [$course => ['question_bank' => '1']], 'duration' => '', 'renewal' => 'extend', 'refund' => 'revoke_on_full_refund', 'seats' => '5'];
+do_action('woocommerce_process_product_meta', $school);
+unset($_POST['bp_access']);
+$check(! wc_get_product($school)->is_sold_individually(), 'Gruppenprodukt in Mengen kaufbar');
+$order = wc_create_order(['customer_id' => $bob]);
+$schoolItem = $order->add_product(wc_get_product($school), 2);
+$order->set_payment_method('stripe');
+$order->calculate_totals();
+$order->save();
+$order->payment_complete();
+$groups = Integration::sync()->groups()->forOrder((int) $order->get_id());
+$check(count($groups) === 1 && (int) $groups[0]->seats === 10 && $entitlements->forOrder((int) $order->get_id()) === [], 'Zahlung: Gruppe mit 10 Plätzen, kein Einzelzugang');
+remove_all_actions('woocommerce_thankyou', 10);
+ob_start();
+do_action('woocommerce_thankyou', $order->get_id());
+$check(str_contains((string) ob_get_clean(), '/bootsscheine/gruppen/'), 'Bestellbestätigung verlinkt die Gruppenverwaltung');
+Integration::sync()->groups()->join((string) $groups[0]->join_token, $nobody);
+$check($access->can($nobody, $course, 'question_bank'), 'Beitritt über Link schaltet frei');
+wc_create_refund(['order_id' => $order->get_id(), 'amount' => 500, 'reason' => 'Test', 'line_items' => [$schoolItem => ['qty' => 2, 'refund_total' => 500]], 'refund_payment' => false, 'restock_items' => false]);
+$check(Integration::sync()->groups()->find((int) $groups[0]->id)->status === 'revoked' && ! $access->can($nobody, $course, 'question_bank'), 'Erstattung beendet Gruppe und Plätze');
+
 update_option(Settings::OPTION, $settingsBefore);
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 ob_end_flush();

@@ -40,7 +40,7 @@ final class VideoService
     {
         $this->require($userId, $course);
         $rows = $this->db->get_results($this->db->prepare(
-            "SELECT m.id AS module_id, m.title AS module_title, m.group_label, l.id, l.title, l.duration_seconds, l.is_placeholder,
+            "SELECT m.id AS module_id, m.source_id AS module_key, m.title AS module_title, m.group_label, l.id, l.title, l.duration_seconds, l.is_placeholder,
                     COALESCE(vp.completed, 0) AS completed, COALESCE(vp.position_seconds, 0) AS position,
                     (SELECT COUNT(*) FROM {$this->t('video_lesson_question')} vq WHERE vq.lesson_id = l.id) AS quiz,
                     (SELECT COUNT(*) FROM {$this->t('video_lesson_step')} vs WHERE vs.lesson_id = l.id) AS steps
@@ -54,9 +54,19 @@ final class VideoService
         ));
         $modules = [];
         $next = null;
+        $limit = $this->access->limit($userId, $course->code, AccessService::VIDEO);
+        $now = current_time('mysql', true);
+        $index = 0;
         foreach ($rows as $r) {
-            $modules[(int) $r->module_id] ??= ['id' => (int) $r->module_id, 'title' => $r->module_title, 'group' => $r->group_label, 'lessons' => []];
+            if (! isset($modules[(int) $r->module_id])) {
+                $at = $this->access->unlockAt($userId, $course->code, AccessService::VIDEO, (string) $r->module_key);
+                $modules[(int) $r->module_id] = ['id' => (int) $r->module_id, 'title' => $r->module_title, 'group' => $r->group_label, 'lessons' => [],
+                    'locked' => $at !== null && $at > $now, 'unlock_at' => $at];
+            }
+            $locked = $modules[(int) $r->module_id]['locked'] || ($limit !== null && $index >= $limit);
+            $index++;
             $modules[(int) $r->module_id]['lessons'][] = [
+                'locked' => $locked,
                 'id' => (int) $r->id,
                 'title' => $r->title,
                 'duration' => $r->duration_seconds === null ? null : (int) $r->duration_seconds,
@@ -67,7 +77,7 @@ final class VideoService
                 'steps' => (int) $r->steps,
             ];
             // Nächste Lektion: erste nicht abgeschlossene außerhalb des Knoten-Kapitels (wie VideoCourseLessons der Quelle).
-            if ($next === null && ! $r->completed && $r->module_title !== 'Knoten') {
+            if ($next === null && ! $locked && ! $r->completed && $r->module_title !== 'Knoten') {
                 $next = (int) $r->id;
             }
         }
@@ -86,6 +96,7 @@ final class VideoService
     {
         $this->require($userId, $course);
         $lesson = $this->lessonRow($course, $lessonId);
+        $this->requireUnlocked($userId, $course, $lessonId);
         $steps = $this->db->get_results($this->db->prepare("SELECT title, sort_order FROM {$this->t('video_lesson_step')} WHERE lesson_id = %d ORDER BY sort_order", $lessonId));
         $quiz = [];
         foreach ($this->db->get_results($this->db->prepare(
@@ -132,6 +143,7 @@ final class VideoService
     {
         $this->require($userId, $course);
         $this->lessonRow($course, $lessonId);
+        $this->requireUnlocked($userId, $course, $lessonId);
         $this->db->query($this->db->prepare(
             "INSERT INTO {$this->t('video_progress')} (user_id, lesson_id, completed, position_seconds, last_access_at) VALUES (%d, %d, %d, %d, %s)
              ON DUPLICATE KEY UPDATE position_seconds = VALUES(position_seconds), last_access_at = VALUES(last_access_at)".($completed === null ? '' : ', completed = VALUES(completed)'),
@@ -169,6 +181,20 @@ final class VideoService
         }
 
         return $row;
+    }
+
+    /** Teilumfang (erste n Lektionen) und zeitgesteuerte Kapitel. */
+    private function requireUnlocked(int $userId, object $course, int $lessonId): void
+    {
+        foreach ($this->course($userId, $course)['modules'] as $module) {
+            foreach ($module['lessons'] as $lesson) {
+                if ($lesson['id'] === $lessonId && $lesson['locked']) {
+                    throw new AccessDenied($module['locked'] && $module['unlock_at']
+                        ? sprintf(__('Dieses Kapitel wird am %s freigeschaltet.', 'bootspruefung-learning'), wp_date(get_option('date_format'), strtotime($module['unlock_at'].' UTC')))
+                        : __('Diese Lektion ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
+                }
+            }
+        }
     }
 
     private function require(int $userId, object $course): void

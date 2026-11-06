@@ -49,7 +49,8 @@ final class ExamService
         $this->expireRunning($userId);
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
         $papers = [];
-        foreach ($this->content->papers((int) $course->id) as $paper) {
+        $limit = $this->access->limit($userId, $course->code, AccessService::EXAM);
+        foreach ($this->content->papers((int) $course->id) as $index => $paper) {
             $last = $this->db->get_row($this->db->prepare(
                 "SELECT id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND paper_id = %d ORDER BY (status = 'running') DESC, id DESC LIMIT 1",
                 $userId,
@@ -59,6 +60,7 @@ final class ExamService
                 'id' => (int) $paper->id,
                 'number' => (int) $paper->paper_number,
                 'questions' => (int) $paper->question_count,
+                'locked' => $limit !== null && $index >= $limit,
                 'last' => $last ? ['session_id' => (int) $last->id, 'status' => $last->status, 'score' => $last->score === null ? null : (int) $last->score, 'max' => $last->max_score === null ? null : (int) $last->max_score, 'passed' => $last->passed === null ? null : (bool) $last->passed] : null,
             ];
         }
@@ -78,6 +80,9 @@ final class ExamService
             'live' => $live,
             'rule' => $rule ? $this->ruleSummary($rule) : null,
             'running_simulation' => $running ? (int) $running : null,
+            // Im kostenlosen Teilumfang nur die ersten n festen Bögen, keine Zufallsprüfung.
+            'limit' => $limit,
+            'simulation_locked' => $limit !== null,
             'papers' => $papers,
             'history' => array_map(static fn ($h) => ['session_id' => (int) $h->id, 'paper_id' => $h->paper_id ? (int) $h->paper_id : null, 'score' => (int) $h->score, 'max' => (int) $h->max_score, 'passed' => (bool) $h->passed, 'submitted_at' => $h->submitted_at], $history),
         ];
@@ -88,6 +93,13 @@ final class ExamService
     {
         if (! $this->access->can($userId, $course->code, AccessService::EXAM)) {
             throw new AccessDenied('Kein Zugriff auf die Prüfungssimulation dieses Kurses.');
+        }
+        $limit = $this->access->limit($userId, $course->code, AccessService::EXAM);
+        if ($limit !== null) {
+            $allowed = array_slice(array_map(static fn ($p) => (int) $p->id, $this->content->papers((int) $course->id)), 0, $limit);
+            if (! $paperId || ! in_array($paperId, $allowed, true)) {
+                throw new AccessDenied(__('Im kostenlosen Umfang sind nur die ersten Prüfungsbögen enthalten.', 'bootspruefung-learning'));
+            }
         }
         $this->expireRunning($userId);
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);

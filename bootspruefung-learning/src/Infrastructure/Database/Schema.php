@@ -26,7 +26,7 @@ final class Schema
         'attempt', 'attempt_answer', 'progress', 'favorite', 'exam_session', 'exam_session_question',
         'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
         // Zugang und Verkauf
-        'entitlement', 'access_rule', 'product_access',
+        'entitlement', 'access_rule', 'product_access', 'learning_group', 'learning_group_member',
     ];
 
     public function __construct(private readonly string $prefix, private readonly string $charsetCollate)
@@ -657,11 +657,47 @@ final class Schema
   duration_days int(11) NULL,
   renewal_mode varchar(16) NOT NULL DEFAULT 'extend',
   refund_rule varchar(32) NOT NULL DEFAULT 'revoke_on_full_refund',
+  seats int(11) NULL,
   active tinyint(1) NOT NULL DEFAULT 1,
 {$ts}
   PRIMARY KEY  (id),
   UNIQUE KEY product_scope (product_id,variation_id,course_code,feature_code),
   KEY course_feature (course_code,feature_code)",
+            // Gruppenlizenzen: Kontingent aus einer Bestellposition, Plätze als Zugänge (Quelle "group").
+            'learning_group' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  owner_user_id bigint(20) unsigned NOT NULL,
+  name varchar(190) NOT NULL,
+  scopes longtext NOT NULL,
+  seats int(11) NOT NULL DEFAULT 0,
+  status varchar(16) NOT NULL DEFAULT 'active',
+  valid_from datetime NULL,
+  valid_until datetime NULL,
+  order_id bigint(20) unsigned NULL,
+  order_item_id bigint(20) unsigned NULL,
+  product_id bigint(20) unsigned NULL,
+  join_token varchar(64) NOT NULL,
+  reason longtext NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY order_item (order_item_id),
+  UNIQUE KEY join_token (join_token),
+  KEY owner (owner_user_id)",
+            'learning_group_member' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  group_id bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned NULL,
+  email varchar(190) NULL,
+  status varchar(16) NOT NULL DEFAULT 'invited',
+  invite_token varchar(64) NULL,
+  invited_at datetime NULL,
+  joined_at datetime NULL,
+  removed_at datetime NULL,
+{$ts}
+  PRIMARY KEY  (id),
+  UNIQUE KEY invite_token (invite_token),
+  KEY group_status (group_id,status),
+  KEY user_id (user_id)",
         ];
 
         $sql = [];
@@ -719,6 +755,7 @@ final class Schema
             ['navigation_progress', 'navigation_question_id', 'navigation_question', 'RESTRICT'],
             ['praxis_progress', 'praxis_task_id', 'praxis_task', 'RESTRICT'],
             ['video_progress', 'lesson_id', 'video_lesson', 'RESTRICT'],
+            ['learning_group_member', 'group_id', 'learning_group', 'CASCADE'],
         ];
     }
 

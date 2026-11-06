@@ -38,13 +38,16 @@ final class RadioPracticeService
         $rows = $this->rows($course);
         $done = $this->progress($userId, array_column($rows, 'source_id'));
         $catalogs = [];
+        $limit = $this->access->limit($userId, $course->code, AccessService::RADIO);
         foreach ($rows as $r) {
             $catalogs[$r->catalog] ??= ['catalog' => $r->catalog, 'tasks' => []];
+            $locked = $limit !== null && count($catalogs[$r->catalog]['tasks']) >= $limit;
             $catalogs[$r->catalog]['tasks'][] = [
+                'locked' => $locked,
                 'id' => $r->source_id,
                 'number' => (int) $r->number,
                 'kind' => $r->message_kind,
-                'teaser' => mb_substr((string) $r->task_text, 0, 140),
+                'teaser' => $locked ? null : mb_substr((string) $r->task_text, 0, 140),
                 'done' => (bool) ($done[$r->source_id]->done ?? false),
                 'evaluated' => isset($done[$r->source_id]) && $done[$r->source_id]->data !== null,
             ];
@@ -58,6 +61,7 @@ final class RadioPracticeService
     {
         $this->require($userId, $course);
         $row = $this->row($course, $key);
+        $this->requireUnlocked($userId, $course, $row);
         $p = $this->progress($userId, [$key])[$key] ?? null;
         $siblings = array_column(array_filter($this->rows($course), static fn ($r) => $r->catalog === $row->catalog), 'source_id');
         $pos = array_search($key, $siblings, true);
@@ -86,6 +90,7 @@ final class RadioPracticeService
     {
         $this->require($userId, $course);
         $row = $this->row($course, $key);
+        $this->requireUnlocked($userId, $course, $row);
         $fields = json_decode((string) $row->checkpoints, true) ?: [];
         $names = array_column($fields, 'name');
         $answers = array_map(static fn ($v) => mb_substr((string) $v, 0, 5000), array_intersect_key($answers, array_flip($names)));
@@ -109,7 +114,7 @@ final class RadioPracticeService
     public function setDone(int $userId, object $course, string $key, bool $done): void
     {
         $this->require($userId, $course);
-        $this->row($course, $key);
+        $this->requireUnlocked($userId, $course, $this->row($course, $key));
         $this->save($userId, $key, ['done' => $done ? 1 : 0]);
     }
 
@@ -133,6 +138,20 @@ final class RadioPracticeService
              ORDER BY x.catalog, x.sort_order',
             $course->code
         ));
+    }
+
+    /** Teilumfang: erste n Szenarien je Katalog. */
+    private function requireUnlocked(int $userId, object $course, object $row): void
+    {
+        $limit = $this->access->limit($userId, $course->code, AccessService::RADIO);
+        if ($limit === null) {
+            return;
+        }
+        $siblings = array_column(array_filter($this->rows($course), static fn ($r) => $r->catalog === $row->catalog), 'source_id');
+        $pos = array_search($row->source_id, array_values($siblings), true);
+        if ($pos === false || $pos >= $limit) {
+            throw new AccessDenied(__('Diese Übung ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
+        }
     }
 
     private function row(object $course, string $key): object

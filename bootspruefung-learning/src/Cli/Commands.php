@@ -195,8 +195,9 @@ final class Commands
             WP_CLI::confirm(sprintf('%d Zugang/Zugänge werden widerrufen oder ausgesetzt. Fortfahren?', $removals), $assoc);
         }
         $applied = 0;
-        foreach ($plans as $plan) {
-            $applied += $sync->entitlements()->apply($plan, 'reconcile');
+        foreach (array_keys($plans) as $orderId) {
+            // Neu berechnen und anwenden (inkl. Gruppenlizenzen); idempotent.
+            $applied += count($sync->sync((int) $orderId, 'reconcile')?->changes ?? []);
         }
         WP_CLI::success("{$applied} Änderung(en) angewendet.");
     }

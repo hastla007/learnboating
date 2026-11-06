@@ -18,8 +18,12 @@ final class OrderSync
         private readonly ProductAccessRepository $products,
         private readonly EntitlementService $entitlements,
         private readonly EntitlementPlanner $planner = new EntitlementPlanner(),
+        private readonly ?GroupService $groups = null,
     ) {
     }
+
+    /** @var array{order:OrderSnapshot,groups:array<int,list<object>>,target:array{0:?string,1:string}}|null */
+    private ?array $context = null;
 
     /**
      * @param array{0:?string,1:string}|null $target Soll-Status erzwingen (Gateway-Hooks/Admin)
@@ -31,8 +35,15 @@ final class OrderSync
             return null;
         }
         $mappings = [];
+        $groupMappings = [];
         foreach ($order->items as $item) {
-            $mappings[$item->id] = $this->products->forItem($item->productId, $item->variationId);
+            $rows = $this->products->forItem($item->productId, $item->variationId);
+            // Gruppenlizenz: Zugänge entstehen erst beim Beitritt der Mitglieder.
+            if (ProductAccessRepository::seats($rows) !== null || ($this->groups !== null && $this->groups->byItem($item->id) !== null)) {
+                $groupMappings[$item->id] = $rows;
+                $rows = [];
+            }
+            $mappings[$item->id] = $rows;
         }
         $existing = $this->entitlements->forOrder($orderId);
         if ($target === null) {
@@ -43,8 +54,9 @@ final class OrderSync
             $filtered = apply_filters('bootspruefung_order_access_target', EntitlementPlanner::orderTarget($order), $order);
             $target = is_array($filtered) && count($filtered) === 2 ? array_values($filtered) : null;
         }
+        $this->context = ['order' => $order, 'groups' => $groupMappings, 'target' => $target ?? EntitlementPlanner::orderTarget($order)];
         if ($existing === [] && ! array_filter($mappings)) {
-            return new Plan($orderId, null, 'no_learning_products');
+            return new Plan($orderId, $groupMappings !== [] ? $this->context['target'][0] : null, $groupMappings !== [] ? 'group_only' : 'no_learning_products');
         }
 
         return $this->planner->plan($order, $mappings, $existing, $target);
@@ -60,14 +72,46 @@ final class OrderSync
             AuditLog::record('order_without_account', 'order', (string) $orderId, null, ['via' => $via]);
         }
         $this->entitlements->apply($plan, $via);
+        $this->syncGroups();
 
         return $plan;
+    }
+
+    private function syncGroups(): void
+    {
+        if ($this->groups === null || $this->context === null || $this->context['groups'] === []) {
+            return;
+        }
+        $order = $this->context['order'];
+        foreach ($order->items as $item) {
+            if (isset($this->context['groups'][$item->id])) {
+                $this->groups->syncItem($order, $item, $this->context['groups'][$item->id], $this->context['target']);
+            }
+        }
+    }
+
+    public function groups(): ?GroupService
+    {
+        return $this->groups;
     }
 
     /** Admin/Gateway: bezahlte Bestellung suspendieren (z. B. PayPal-/Klarna-Konflikt). */
     public function suspendOrder(int $orderId, string $reason): int
     {
-        return $this->manualForOrder($orderId, EntitlementPlanner::SUSPENDED, $reason);
+        return $this->manualForOrder($orderId, EntitlementPlanner::SUSPENDED, $reason) + $this->manualGroups($orderId, GroupService::SUSPENDED, $reason);
+    }
+
+    private function manualGroups(int $orderId, string $status, string $reason): int
+    {
+        $n = 0;
+        foreach ($this->groups?->forOrder($orderId) ?? [] as $group) {
+            if ($group->status !== GroupService::REVOKED) {
+                $this->groups->setStatus((int) $group->id, $status, $reason, true);
+                $n++;
+            }
+        }
+
+        return $n;
     }
 
     /** Admin: vor Zahlungseingang freischalten (z. B. Überweisung angekündigt, Kap. 7.5). */
@@ -78,6 +122,8 @@ final class OrderSync
             return 0;
         }
         $this->entitlements->apply($plan, 'manual_approval');
+        $this->syncGroups();
+        $this->manualGroups($orderId, GroupService::ACTIVE, $reason);
 
         return $this->manualForOrder($orderId, EntitlementPlanner::ACTIVE, $reason);
     }
@@ -88,6 +134,12 @@ final class OrderSync
         foreach ($this->entitlements->forOrder($orderId) as $row) {
             if (isset(EntitlementPlanner::meta($row)['manual'])) {
                 $this->entitlements->releaseManual((int) $row->id, $reason);
+            }
+        }
+        foreach ($this->groups?->forOrder($orderId) ?? [] as $group) {
+            if ($group->status !== GroupService::REVOKED) {
+                // Manuelle Entscheidung aufheben; der Abgleich setzt den Shop-Stand.
+                $this->groups->setStatus((int) $group->id, $group->status, $reason, false);
             }
         }
 

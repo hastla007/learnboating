@@ -55,6 +55,17 @@ final class ProductAccessRepository
         return $this->db->get_results($this->db->prepare($sql, $productId, $variationId));
     }
 
+    /** Plätze je gekauftem Stück bei Gruppenlizenzen, sonst null. @param list<object> $rows */
+    public static function seats(array $rows): ?int
+    {
+        $seats = 0;
+        foreach ($rows as $row) {
+            $seats = max($seats, (int) ($row->seats ?? 0));
+        }
+
+        return $seats > 0 ? $seats : null;
+    }
+
     public function hasAccess(int $productId, int $variationId = 0): bool
     {
         return $this->forItem($productId, $variationId) !== [];
@@ -66,8 +77,9 @@ final class ProductAccessRepository
      * @param list<array{course_code:string,feature_code:string}> $scopes
      * @return array{added:int,removed:int}
      */
-    public function save(int $productId, int $variationId, array $scopes, ?int $durationDays, string $renewalMode, string $refundRule): array
+    public function save(int $productId, int $variationId, array $scopes, ?int $durationDays, string $renewalMode, string $refundRule, ?int $seats = null): array
     {
+        $seats = $seats !== null && $seats > 0 ? $seats : null;
         $renewalMode = in_array($renewalMode, self::RENEWAL_MODES, true) ? $renewalMode : 'extend';
         $refundRule = in_array($refundRule, self::REFUND_RULES, true) ? $refundRule : 'revoke_on_full_refund';
         $durationDays = $durationDays !== null && $durationDays > 0 ? $durationDays : null;
@@ -81,7 +93,7 @@ final class ProductAccessRepository
         }
         $added = 0;
         foreach ($wanted as $key => $scope) {
-            $data = ['duration_days' => $durationDays, 'renewal_mode' => $renewalMode, 'refund_rule' => $refundRule, 'active' => 1];
+            $data = ['duration_days' => $durationDays, 'renewal_mode' => $renewalMode, 'refund_rule' => $refundRule, 'seats' => $seats, 'active' => 1];
             if (isset($before[$key])) {
                 $this->db->update($this->table, $data, ['id' => $before[$key]->id]);
             } else {

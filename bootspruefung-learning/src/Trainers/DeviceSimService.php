@@ -51,7 +51,7 @@ final class DeviceSimService
 
     public function available(int $userId, object $course): bool
     {
-        return $this->data() !== [] && $this->catalogs($course) !== [] && $this->access->can($userId, $course->code, AccessService::DEVICE);
+        return $this->data() !== [] && $this->catalogs($course) !== [] && $this->access->full($userId, $course->code, AccessService::DEVICE); // kein Teilumfang
     }
 
     /** @return list<string> */

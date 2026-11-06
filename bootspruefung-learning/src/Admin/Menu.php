@@ -45,10 +45,14 @@ final class Menu
             [self::SLUG.'-rules', __('Prüfungsregeln', 'bootspruefung-learning'), $read, [$content, 'renderRules']],
             [self::SLUG.'-rights', __('Rechte', 'bootspruefung-learning'), $read, [$content, 'renderRights']],
             [AccessPages::SLUG, __('Zugänge', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'render']],
+            [AccessPages::GROUP_SLUG, __('Gruppenlizenzen', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderGroups']],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
         ];
+        if (\Bootspruefung\Learning\Commerce\WooCommerce\Integration::active()) {
+            array_splice($pages, 8, 0, [[AccessPages::DISCOUNT_SLUG, __('Mitgliederrabatte', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderDiscounts']]]);
+        }
         foreach ($pages as [$slug, $title, $cap, $callback]) {
             add_submenu_page(self::SLUG, $title, $title, $cap, $slug, $callback);
         }

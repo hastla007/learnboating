@@ -361,6 +361,8 @@ Welche amtlichen Fragen kostenlos oder kostenpflichtig sind, ist eine Produktent
 
 Datenstruktur `bp_access_rule`: Kurscode, optional Modulcode, Feature-Code, Zugriffsart (`free`, `paid`, `free_limited`), Limit-Typ und -Wert (z. B. Anzahl Fragen je Modul, Anzahl Prüfungsbögen, erste n Lektionen), gültig ab/bis. Die Zugriffsprüfung ist eine zentrale Funktion `can_access(user, course, feature, item)`, die Free-Regeln und Entitlements gemeinsam auswertet.
 
+*Umsetzung (`AccessService`):* voll (Zugang, Free-Regel ohne Limit oder „Zugang ohne Shop“), Teilumfang (`free_limited`) oder kein Zugriff. Limit-Typen: Fragen je Modul (`questions_per_module`), Prüfungsbögen (`exam_papers`, erste n feste Bögen, keine Zufallsprüfung) und erste n Einträge (`first_items`: Navigationsaufgaben, Praxiskarten, Videolektionen, Funktexte/-szenarien je Übungsart). Die Gerätesimulation hat keinen Teilumfang. Gesperrte Einträge werden ohne Inhalt gelistet; die REST-Endpunkte weisen sie ab. Zeitgesteuerte Freigabe (`drip`, Modulcode, Tage) gilt für Fragenmodule und Videokapitel; Beginn ist der früheste aktive Zugang, ohne Kauf die Registrierung.
+
 ### 7.3 Zugangstabelle und Idempotenz
 
 `bp_entitlement` speichert:
@@ -437,6 +439,10 @@ Die Regeln gelten pro Bestellposition. Bei Paketen wird pro enthaltenem Kurs/Fea
 - **Mein Konto:** WooCommerce-Tab oder Lernplugin-Endpoint zeigt aktive/abgelaufene Zugänge und Kurslink.
 - **Order-Admin:** Bestellposition zeigt zugehörige Entitlements und Synchronisationsstatus, ohne Woo-Core-Bestellfelder zu überschreiben.
 - **Reconciliation:** Admin-Tool/CLI gleicht Woo-Order-Items und Entitlements ab; Vorschau zuerst, keine stille Massenwiderrufe.
+- **Gruppenlizenzen:** Produkt mit „Plätzen je Stück“; Menge = Anzahl Pakete. Bezahlte Position ergibt eine Gruppe (`bp_learning_group`) mit Kontingent und Laufzeit; die verwaltende Person lädt per Link oder E-Mail ein (`/bootsscheine/gruppen/`), jeder belegte Platz erhält eigene Zugänge (Quelle `group`). Dispute/Erstattung/Storno wirken über die Gruppe auf alle Plätze, eine Teilerstattung reduziert die Plätze. Platz freigeben widerruft die Zugänge des Mitglieds.
+- **Mitgliederrabatte:** Prozentrabatt für Nutzer mit aktivem Zugang (Kauf, manuell, Gruppe; kostenlose Bereiche zählen nicht) auf andere Produkte, Lernprodukte oder alles; im Warenkorb auf den Positionspreis angewendet und an der Bestellposition vermerkt.
+- **Geschützte WordPress-Inhalte:** Seiten/Beiträge (Metabox), Abschnitte (Block „Nur mit Lernzugang“, Shortcode `[bootspruefung_zugang]`) und Dateien (Mediathek-Feld; Datei wird in einen gesperrten Ordner verschoben und nur über `/bootsscheine/datei/<id>/` nach Prüfung ausgeliefert). Geschützte Inhalte verlangen vollen Zugang; REST, Feeds und automatische Auszüge enthalten den Text nicht.
+- **Kein Abo in V1:** wiederkehrende Zahlungen nur über WooCommerce Subscriptions o. ä.; das Plugin würde dann auf deren Status reagieren.
 
 ### 7.7 Kompatibilität
 
@@ -511,7 +517,9 @@ bootspruefung-learning/
 - **Medien:** fehlende Dateien, Lizenzstatus, verwaiste Assets.
 - **WooCommerce-Zuordnungen:** Produkt → Kurs/Features, Dauer und Rückerstattungsregel. *Umsetzung: Reiter „Lernzugang“ im Produkt bzw. in der Variation.*
 - **Zugänge:** Suche nach Nutzer/Order, manuelle Freigabe/Verlängerung/Aussetzung/Widerruf mit Pflichtbegründung und Audit.
-- **Kostenlose Bereiche:** Free-Regeln (`bp_access_rule`) je Kurs und Funktion, optional befristet.
+- **Kostenlose Bereiche und Freigaben:** Free-Regeln (`bp_access_rule`) je Kurs und Funktion – ganz oder Teilumfang, optional befristet – und zeitgesteuerte Freigaben je Modul/Videokapitel.
+- **Gruppenlizenzen:** Liste, Detail mit Teilnehmenden, Aussetzen/Beenden/Platz freigeben mit Begründung.
+- **Mitgliederrabatte:** Regeln je Kurs, Prozentsatz und Geltungsbereich (nur mit WooCommerce).
 - **Systemstatus:** DB-Schemaversion, Woo-Kompatibilität, letzter Export/Import, Cron/Action Scheduler Fehler.
 
 ### Lernende
@@ -546,6 +554,7 @@ bootspruefung-learning/
    - 8a: **Funkpraxis (Sprechfunk-Szenarien)** als eigener Meilenstein. *Stand: ✅ 72 Szenarien (42 SRC, 30 UBI); der Konverter nutzt den Generator `FunkPraxis` der Quelle unverändert, das Plugin wertet Rang, DSC/Verkehrskreis, Funkgerät und Meldung serverseitig gegen die Prüfpunkte aus (Spracheingabe optional per Browser).*
    - 8b: **Gerätesimulation** als eigener Meilenstein. *Stand: ✅ Original-JavaScript der Quelle unverändert übernommen (`tools/sync-device-sim.sh`, CSS per Tailwind auf den Lernbereich begrenzt); 7 Geräte, 48 Lektionen, 4 Prüfungsreihen, freies Üben. Server: Konfiguration, Bewertung von Funksprüchen, Stufen 1–3 und Prüfungsergebnisse – wie in der Quelle meldet der Browser die Gerätebedienung, serverseitig geprüft werden die Funksprüche.*
 9. **WooCommerce:** Produktmapping, paid-order-Freischaltung, Bundles, Refunds, My Account und Adminsupport. *Stand: ✅ gateway-neutral für Überweisung, Klarna, PayPal, Stripe und weitere (Kap. 7.5): Reiter „Lernzugang“ (Kurse × Funktionen, Dauer, Verlängerung/parallel, Erstattungsregel, Variationen erben oder überschreiben); idempotente Zugänge je Bestellposition; Aussetzung bei Dispute, Widerruf je Position bei Erstattung bzw. bei Storno; Lernprodukte einzeln und nur mit Kundenkonto; „Mein Lernen“ in Mein Konto, Kurslink in Bestellbestätigung und E-Mail, Sperrhinweis mit Produktlink im Lernbereich; Bestellposition zeigt Zugänge, Bestellaktionen (abgleichen, vorab freischalten, aussetzen, aufheben); Adminseiten „Zugänge“ und „Kostenlose Bereiche“; `wp bootspruefung reconcile [--apply]` mit Vorschau und Rückfrage vor Widerrufen; stündlicher Ablauf befristeter Zugänge; Systemstatus mit Zahlungsarten. Getestet mit Testbestellungen und gegen WooCommerce 11.2 (CI). Bis zum Shopstart steht „Zugang ohne Shop“ weiter auf „alle angemeldeten Nutzer“ – danach auf „Nur kostenlose Regeln und Freischaltungen“ umstellen.*
+9a. **Membership-Funktionen ohne Zusatz-Plugin:** *Stand: ✅ kostenlose Teilumfänge, zeitgesteuerte Freigabe, geschützte Seiten/Abschnitte/Dateien, Gruppenlizenzen, Mitgliederrabatte (Kap. 7.2, 7.6); DB-Schema 1.4.0; Integrations- und Browser-Tests, Rabatte und Gruppen zusätzlich gegen WooCommerce (CI).*
 10. **Content-Freigabe und Go-live:** Rechtsstatus, Katalogaktualität, Regelwerksverifizierung, Medienersatz, Backup/Restore und Supportablauf bestätigen.
 
 ## 12. Abnahmekriterien

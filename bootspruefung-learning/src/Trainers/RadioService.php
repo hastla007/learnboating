@@ -42,10 +42,13 @@ final class RadioService
         $vocab = $this->items('radio_vocabulary', $course, ['id', 'source_id', 'catalog', 'category']);
         $progress = $this->progress($userId, array_merge(array_column($texts, 'source_id'), array_column($vocab, 'source_id')));
         $groups = [];
+        $limit = $this->access->limit($userId, $course->code, AccessService::RADIO);
         foreach ($texts as $t) {
             $key = $t->catalog.'|'.$t->exercise_type;
             $groups[$key] ??= ['catalog' => $t->catalog, 'type' => $t->exercise_type, 'items' => []];
-            $groups[$key]['items'][] = ['id' => $t->source_id, 'number' => (int) $t->number, 'direction' => $t->direction, 'teaser' => $t->teaser, 'done' => (bool) ($progress[$t->source_id]->done ?? false)];
+            // Teilumfang: erste n Texte je Übungsart.
+            $locked = $limit !== null && count($groups[$key]['items']) >= $limit;
+            $groups[$key]['items'][] = ['id' => $t->source_id, 'number' => (int) $t->number, 'direction' => $t->direction, 'teaser' => $locked ? null : $t->teaser, 'done' => (bool) ($progress[$t->source_id]->done ?? false), 'locked' => $locked];
         }
         $categories = [];
         foreach ($vocab as $v) {
@@ -71,6 +74,7 @@ final class RadioService
     {
         $this->require($userId, $course);
         $row = $this->item('radio_text', $course, $sourceId);
+        $this->requireText($userId, $course, $row);
         $p = $this->progress($userId, [$sourceId])[$sourceId] ?? null;
         $data = $p && $p->data ? json_decode((string) $p->data, true) : [];
         $lines = $row->segments ? json_decode((string) $row->segments, true) : null;
@@ -105,6 +109,7 @@ final class RadioService
     {
         $this->require($userId, $course);
         $row = $this->item('radio_text', $course, $sourceId);
+        $this->requireText($userId, $course, $row);
         if (trim($transcript.$translation) === '') {
             throw new RuntimeException(__('Schreib zuerst mit oder übersetze, dann kannst du auswerten.', 'bootspruefung-learning'));
         }
@@ -137,7 +142,7 @@ final class RadioService
     public function setDone(int $userId, object $course, string $sourceId, bool $done): void
     {
         $this->require($userId, $course);
-        $this->item('radio_text', $course, $sourceId);
+        $this->requireText($userId, $course, $this->item('radio_text', $course, $sourceId));
         $this->save($userId, 'text', $sourceId, ['done' => $done ? 1 : 0]);
     }
 
@@ -216,6 +221,20 @@ final class RadioService
         }
 
         return $this->db->get_results($this->db->prepare($sql.' ORDER BY x.sort_order, x.id', $args));
+    }
+
+    /** Teilumfang: Position des Textes in seiner Übungsart prüfen. */
+    private function requireText(int $userId, object $course, object $row): void
+    {
+        $limit = $this->access->limit($userId, $course->code, AccessService::RADIO);
+        if ($limit === null) {
+            return;
+        }
+        $siblings = array_column($this->items('radio_text', $course, ['source_id', 'exercise_type', 'catalog'], ['exercise_type' => $row->exercise_type, 'catalog' => $row->catalog]), 'source_id');
+        $pos = array_search($row->source_id, $siblings, true);
+        if ($pos === false || $pos >= $limit) {
+            throw new AccessDenied(__('Diese Übung ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
+        }
     }
 
     private function item(string $table, object $course, string $sourceId): object

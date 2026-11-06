@@ -49,6 +49,7 @@ final class PersonalData
             $count = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM `'.esc_sql($wpdb->prefix.'bp_'.$table).'` WHERE user_id = %d', $user->ID));
             $items[] = ['name' => $table, 'value' => (string) $count];
         }
+        $items[] = ['name' => 'learning_group_member', 'value' => (string) (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM `'.esc_sql($wpdb->prefix.'bp_learning_group_member').'` WHERE user_id = %d OR email = %s', $user->ID, strtolower($email)))];
 
         return [
             'data' => [[
@@ -80,6 +81,8 @@ final class PersonalData
                 }
                 $removed = $removed || $deleted > 0;
             }
+            // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
+            $wpdb->query($wpdb->prepare('UPDATE `'.esc_sql($wpdb->prefix.'bp_learning_group_member').'` SET email = NULL, invite_token = NULL WHERE user_id = %d OR email = %s', $user->ID, strtolower($email)));
             $wpdb->insert($wpdb->prefix.'bp_audit_log', [
                 'actor_user_id' => get_current_user_id() ?: null,
                 'action' => 'personal_data_erased',

@@ -21,6 +21,7 @@ final class RestRegistrar
             (new ImportController())->registerRoutes();
             (new LearnerController())->registerRoutes();
             (new TrainerController())->registerRoutes();
+            (new \Bootspruefung\Learning\Rest\Controllers\GroupController())->registerRoutes();
         });
     }
 }

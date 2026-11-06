@@ -170,6 +170,10 @@
 		var view;
 		if (parts.length === 0) {
 			view = viewOverview();
+		} else if (parts[0] === 'gruppe' && parts[1]) {
+			view = viewGroupJoin(parts[1]);
+		} else if (parts[0] === 'gruppen') {
+			view = viewGroups();
 		} else if (parts.length === 1) {
 			view = viewCourse(parts[0]);
 		} else if (parts[1] === 'lernen') {
@@ -232,9 +236,101 @@
 					el('h1', { text: t('overview_title') }),
 					el('p', { class: 'bp-muted', text: t('overview_intro', { name: cfg.user }) })
 				]),
-				courses.length ? grid : el('p', { text: t('no_courses') })
+				courses.length ? grid : el('p', { text: t('no_courses') }),
+				cfg.groups ? el('p', {}, [link('gruppen/', t('groups_title'), 'bp-button')]) : null
 			], t('overview_title'));
 		});
+	}
+
+	// ------------------------------------------------------------------ Gruppenlizenzen
+
+	function scopeList(scopes) {
+		return el('ul', { class: 'bp-scopes' }, scopes.map(function (s) { return el('li', { text: s.course + ' · ' + s.feature }); }));
+	}
+
+	function viewGroupJoin(token) {
+		return api('GET', 'groups/join/' + encodeURIComponent(token)).then(function (g) {
+			var box = el('section', { class: 'bp-card' }, [
+				el('h1', { text: t('group_join_title', { name: g.name }) }),
+				g.owner ? el('p', { class: 'bp-muted', text: t('group_owner', { name: g.owner }) }) : null,
+				scopeList(g.scopes),
+				g.valid_until ? el('p', { class: 'bp-muted', text: t('group_valid_until', { date: fmtDate(g.valid_until) }) }) : null
+			]);
+			if (g.status !== 'active' || g.free_seats < 1) {
+				box.appendChild(el('p', { class: 'bp-inline-error', text: g.status !== 'active' ? t('group_inactive') : t('group_full') }));
+			} else {
+				var join = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_join') });
+				join.addEventListener('click', function () {
+					join.disabled = true;
+					api('POST', 'groups/join', { token: token }).then(function () { navigate(''); }).catch(function (e) { join.disabled = false; alertMessage(box, e.message); });
+				});
+				box.appendChild(el('div', { class: 'bp-actions' }, [join]));
+			}
+			mount([el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title'))]), box], t('group_join_title', { name: g.name }));
+		});
+	}
+
+	function viewGroups() {
+		return api('GET', 'me/groups').then(function (groups) {
+			var nodes = [
+				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('groups_title') })]),
+				el('header', { class: 'bp-header' }, [el('h1', { text: t('groups_title') }), el('p', { class: 'bp-muted', text: t('groups_intro') })])
+			];
+			if (!groups.length) {
+				nodes.push(el('p', { text: t('groups_none') }));
+			}
+			groups.forEach(function (g) { nodes.push(groupCard(g)); });
+			mount(nodes, t('groups_title'));
+		});
+	}
+
+	function groupCard(g) {
+		var card = el('section', { class: 'bp-card bp-group', 'aria-label': g.name });
+		function render(data) {
+			g = data;
+			card.textContent = '';
+			var name = el('input', { type: 'text', value: g.name, 'aria-label': t('group_name'), class: 'bp-input' });
+			var save = el('button', { type: 'button', class: 'bp-button', text: t('save') });
+			save.addEventListener('click', function () { api('PUT', 'me/groups/' + g.id, { name: name.value }).then(render).catch(function (e) { alertMessage(card, e.message); }); });
+			card.appendChild(el('div', { class: 'bp-actions' }, [name, save]));
+			card.appendChild(el('p', {}, [badge(t('group_status_' + g.status), g.status === 'active' ? 'ok' : 'warn'), ' ', el('span', { text: t('group_seats', { used: g.seats - g.free_seats, total: g.seats }) }), g.valid_until ? el('span', { class: 'bp-muted', text: ' · ' + t('group_valid_until', { date: fmtDate(g.valid_until) }) }) : null]));
+			card.appendChild(scopeList(g.scopes));
+			if (g.join_url) {
+				var url = el('input', { type: 'text', readonly: 'readonly', value: g.join_url, 'aria-label': t('group_link'), class: 'bp-input' });
+				var copy = el('button', { type: 'button', class: 'bp-button', text: t('group_copy') });
+				copy.addEventListener('click', function () { url.select(); if (navigator.clipboard) { navigator.clipboard.writeText(url.value); } });
+				var renew = el('button', { type: 'button', class: 'bp-button', text: t('group_new_link') });
+				renew.addEventListener('click', function () { api('POST', 'me/groups/' + g.id + '/token', {}).then(render); });
+				card.appendChild(el('h3', { text: t('group_link') }));
+				card.appendChild(el('p', { class: 'bp-muted', text: t('group_link_explain') }));
+				card.appendChild(el('div', { class: 'bp-actions' }, [url, copy, renew]));
+				var emails = el('textarea', { rows: 3, class: 'bp-input', 'aria-label': t('group_invite_emails'), placeholder: 'name@example.de' });
+				var send = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_invite') });
+				send.addEventListener('click', function () {
+					var list = emails.value.split(/[\s,;]+/).filter(Boolean);
+					if (!list.length) { return; }
+					send.disabled = true;
+					api('POST', 'me/groups/' + g.id + '/invite', { emails: list }).then(function (r) {
+						render(r.group);
+						if (r.skipped.length) { alertMessage(card, t('group_skipped', { list: r.skipped.join(', ') })); }
+					}).catch(function (e) { send.disabled = false; alertMessage(card, e.message); });
+				});
+				card.appendChild(el('h3', { text: t('group_invite_emails') }));
+				card.appendChild(el('div', { class: 'bp-actions' }, [emails, send]));
+			}
+			card.appendChild(el('h3', { text: t('group_members') }));
+			card.appendChild(g.members.length ? el('ul', { class: 'bp-members' }, g.members.map(function (m) {
+				var remove = el('button', { type: 'button', class: 'bp-button bp-button-small', text: t('group_remove') });
+				remove.addEventListener('click', function () {
+					var reason = window.prompt(t('group_remove_confirm', { name: m.name || m.email }));
+					if (reason === null) { return; }
+					api('DELETE', 'me/groups/' + g.id + '/members/' + m.id, { reason: reason }).then(render).catch(function (e) { alertMessage(card, e.message); });
+				});
+				return el('li', {}, [el('span', { text: (m.name || m.email || '–') + (m.name && m.email ? ' <' + m.email + '>' : '') + ' · ' + t('group_member_' + m.status) }), ' ', remove]);
+			})) : el('p', { class: 'bp-muted', text: t('group_no_members') }));
+		}
+		render(g);
+		return card;
 	}
 
 	// ------------------------------------------------------------------ Kurs
@@ -259,29 +355,32 @@
 				]);
 				var list = el('ul', { class: 'bp-module-list' });
 				c.progress.modules.forEach(function (m) {
-					list.appendChild(el('li', { class: 'bp-card' }, [
+					list.appendChild(el('li', { class: 'bp-card' + (m.locked ? ' bp-locked' : '') }, [
 						el('h3', { text: m.name }),
-						progressBar(m),
-						el('p', {}, [link(slug + '/lernen/?modul=' + m.id, t('learn_module'), 'bp-button')])
+						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : progressBar(m),
+						m.locked ? null : el('p', {}, [link(slug + '/lernen/?modul=' + m.id, t('learn_module'), 'bp-button')])
 					]));
 				});
+				var limitNote = c.progress.limit ? el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_questions', { n: c.progress.limit }) })].concat(offerNodes((c.shop || {}).question_bank))) : null;
 				nodes.push(el('section', { class: 'bp-section', 'aria-labelledby': 'bp-learn-h' }, [
 					el('h2', { id: 'bp-learn-h', text: t('section_learn') }),
 					el('p', { class: 'bp-muted', text: t('smart_explain') }),
 					modes,
+					limitNote,
 					list
 				]));
 			} else {
 				nodes.push(lockedBox(t('section_learn'), (c.shop || {}).question_bank));
 			}
 
-			nodes.push(c.exam ? examSection(slug, c.exam) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
+			nodes.push(c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
 			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
 			mount(nodes, c.name);
 		});
 	}
 
-	function examSection(slug, exam) {
+	function examSection(slug, exam, shop) {
+		shop = shop || {};
 		var section = el('section', { class: 'bp-section', 'aria-labelledby': 'bp-exam-h' }, [el('h2', { id: 'bp-exam-h', text: t('section_exam') })]);
 		if (!exam.available) {
 			section.appendChild(el('p', { text: t('exam_unavailable') }));
@@ -298,18 +397,26 @@
 		if (exam.rule.note) {
 			section.appendChild(el('p', { class: 'bp-note', text: exam.rule.note }));
 		}
-		var start = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: exam.running_simulation ? t('exam_resume') : t('exam_start') });
-		start.addEventListener('click', function () {
-			start.disabled = true;
-			startExam(slug, null).catch(function (e) { start.disabled = false; alertMessage(section, e.message); });
-		});
-		section.appendChild(el('div', { class: 'bp-actions' }, [start]));
+		if (exam.simulation_locked) {
+			section.appendChild(el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_papers', { n: exam.limit }) })].concat(offerNodes(shop.exam_simulation))));
+		} else {
+			var start = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: exam.running_simulation ? t('exam_resume') : t('exam_start') });
+			start.addEventListener('click', function () {
+				start.disabled = true;
+				startExam(slug, null).catch(function (e) { start.disabled = false; alertMessage(section, e.message); });
+			});
+			section.appendChild(el('div', { class: 'bp-actions' }, [start]));
+		}
 
 		if (exam.papers.length) {
 			section.appendChild(el('h3', { text: t('papers_title') }));
 			var grid = el('ul', { class: 'bp-paper-grid' });
 			exam.papers.forEach(function (p) {
 				var state = p.last ? (p.last.status === 'running' ? 'running' : (p.last.passed ? 'passed' : 'failed')) : 'open';
+				if (p.locked) {
+					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('paper_aria', { number: p.number, state: t('locked_short') }) }, [el('span', { class: 'bp-paper-number', text: String(p.number) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])]));
+					return;
+				}
 				var btn = el('button', { type: 'button', class: 'bp-paper bp-paper-' + state, 'aria-label': t('paper_aria', { number: p.number, state: t('paper_state_' + state) }) }, [
 					el('span', { class: 'bp-paper-number', text: String(p.number) }),
 					el('span', { class: 'bp-paper-state', text: p.last && p.last.status !== 'running' ? p.last.score + '/' + p.last.max : t('paper_state_' + state) })
@@ -569,6 +676,22 @@
 		];
 	}
 
+	function lockedNote(offers, text) {
+		return el('div', { class: 'bp-card bp-locked' }, [el('p', { text: text || t('locked_free') })].concat(offerNodes(offers)));
+	}
+
+	function lockedPaper(number) {
+		return el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('locked_free') }, [el('span', { class: 'bp-paper-number', text: String(number) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })]);
+	}
+
+	function fmtDate(utc) {
+		if (!utc) {
+			return '';
+		}
+		var d = new Date(String(utc).replace(' ', 'T') + 'Z');
+		return isNaN(d.getTime()) ? String(utc) : d.toLocaleDateString(document.documentElement.lang || 'de-DE');
+	}
+
 	var TRAINER_FEATURES = { 'navigation/': 'navigation_trainer', 'praxis/': 'praxis_trainer', 'video/': 'video_course', 'funk/': 'radio_training' };
 
 	function trainerSection(slug, tr, features, shop) {
@@ -621,13 +744,17 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/navigation').then(function (tasks) {
 				var list = el('ol', { class: 'bp-module-list' }, tasks.map(function (task) {
+					if (task.locked) {
+						return el('li', { class: 'bp-card bp-locked' }, [el('h2', { text: t('nav_task_title', { number: task.number }) }), el('p', { class: 'bp-muted', text: t('locked_free') })]);
+					}
 					return el('li', { class: 'bp-card' }, [
 						el('h2', {}, [link(slug + '/navigation/' + task.id + '/', t('nav_task_title', { number: task.number }))]),
 						el('p', { class: 'bp-muted', text: task.teaser + ' …' }),
 						progressBar({ questions: task.questions, mastered: task.done, learning: 0, unsure: 0, percent: Math.floor(task.done * 100 / Math.max(task.questions, 1)) }, t('nav_progress', { done: task.done, total: task.questions }))
 					]);
 				}));
-				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), list], t('trainer_navigation') + ' – ' + c.name);
+				var hasLocked = tasks.some(function (x) { return x.locked; });
+				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list], t('trainer_navigation') + ' – ' + c.name);
 			});
 		});
 	}
@@ -706,7 +833,9 @@
 				var nav = el('ul', { class: 'bp-chips', 'aria-label': t('praxis_categories') }, [el('li', {}, [link(slug + '/praxis/', t('praxis_all'), 'bp-chip' + (active ? '' : ' is-active'))])].concat(cats.map(function (x) {
 					return el('li', {}, [link(slug + '/praxis/?kategorie=' + encodeURIComponent(x.name), x.name + ' (' + x.known + '/' + x.cards.length + ')', 'bp-chip' + (active === x ? ' is-active' : ''))]);
 				})));
-				var cards = active ? active.cards : [].concat.apply([], cats.map(function (x) { return x.cards; }));
+				var allCards = active ? active.cards : [].concat.apply([], cats.map(function (x) { return x.cards; }));
+				var cards = allCards.filter(function (x) { return !x.locked; });
+				var lockedCount = allCards.length - cards.length;
 				var stage = el('div', { class: 'bp-praxis-stage' });
 				var onlyOpen = el('input', { type: 'checkbox', id: 'bp-only-open' });
 				var index = 0;
@@ -758,6 +887,7 @@
 				mount([
 					crumbs(slug, c.name, [[t('trainer_praxis')]]),
 					el('header', { class: 'bp-header' }, [el('h1', { text: active ? active.name : t('trainer_praxis') }), el('p', { class: 'bp-muted', text: t('trainer_praxis_meta', { known: data.known, total: data.total }) })]),
+					lockedCount ? lockedNote((c.shop || {}).praxis_trainer, t('locked_more', { n: lockedCount })) : null,
 					nav,
 					el('p', {}, [onlyOpen, ' ', el('label', { for: 'bp-only-open', text: t('praxis_only_open') })]),
 					stage
@@ -789,9 +919,13 @@
 						nodes.push(el('h2', { class: 'bp-group', text: m.group }));
 						lastGroup = m.group;
 					}
-					nodes.push(el('section', { class: 'bp-card' }, [
+					nodes.push(el('section', { class: 'bp-card' + (m.locked ? ' bp-locked' : '') }, [
 						el('h3', { text: m.title }),
+						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : null,
 						el('ol', { class: 'bp-lessons' }, m.lessons.map(function (l) {
+							if (l.locked) {
+								return el('li', { class: 'is-locked' }, [el('span', { text: l.title }), el('span', { class: 'bp-muted', text: ' · ' + t('locked_badge') }), m.locked ? null : el('span', { class: 'bp-muted', text: ' · ' + t('locked_free') })]);
+							}
 							return el('li', { class: l.completed ? 'is-done' : '' }, [
 								link(slug + '/video/' + l.id + '/', l.title),
 								el('span', { class: 'bp-muted', text: ' ' + duration(l.duration) }),
@@ -948,6 +1082,9 @@
 						el('h2', { text: t('practice_title', { catalog: g.catalog }) }),
 						el('p', { class: 'bp-muted', text: t('practice_explain') + ' ' + t('radio_done_count', { done: done, total: g.tasks.length }) }),
 						el('ul', { class: 'bp-paper-grid' }, g.tasks.map(function (x) {
+							if (x.locked) {
+								return el('li', {}, [lockedPaper(x.number)]);
+							}
 							return el('li', {}, [el('a', { href: base + slug + '/funk/praxis/' + x.id + '/', 'data-bp-link': '1', class: 'bp-paper' + (x.done ? ' bp-paper-passed' : (x.evaluated ? ' bp-paper-running' : '')), title: x.teaser, 'aria-label': t('practice_aria', { number: x.number, kind: t('kind_' + x.kind), state: x.done ? t('radio_done') : t('paper_state_open') }) }, [el('span', { class: 'bp-paper-number', text: String(x.number) }), el('span', { class: 'bp-paper-state', text: t('kind_' + x.kind) })])]);
 						}))
 					]));
@@ -958,6 +1095,9 @@
 						el('h2', { text: t('radio_type_' + g.type, { catalog: g.catalog }) }),
 						el('p', { class: 'bp-muted', text: t('radio_type_' + g.type + '_explain') + ' ' + t('radio_done_count', { done: done, total: g.items.length }) }),
 						el('ul', { class: 'bp-paper-grid' }, g.items.map(function (i) {
+							if (i.locked) {
+								return el('li', {}, [lockedPaper(i.number)]);
+							}
 							return el('li', {}, [el('a', { href: base + slug + '/funk/text/' + i.id + '/', 'data-bp-link': '1', class: 'bp-paper' + (i.done ? ' bp-paper-passed' : ''), title: i.teaser, 'aria-label': t('radio_text_aria', { number: i.number, state: i.done ? t('radio_done') : t('paper_state_open') }) }, [el('span', { class: 'bp-paper-number', text: String(i.number) }), el('span', { class: 'bp-paper-state', text: i.done ? t('radio_done') : (i.direction ? t('radio_direction_' + i.direction) : '') })])]);
 						}))
 					]));

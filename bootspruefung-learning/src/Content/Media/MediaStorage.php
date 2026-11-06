@@ -31,6 +31,24 @@ final class MediaStorage
         return $dir;
     }
 
+    /**
+     * Geschützte Dateien (PDFs etc. mit Lernzugang). Per .htaccess gesperrt; der
+     * Ordnername enthält ein Zufallssuffix, damit er auch unter nginx ohne
+     * eigene Regel nicht erratbar ist. Auslieferung nur über /bootsscheine/datei/<id>/.
+     */
+    public static function protectedDir(): string
+    {
+        $suffix = get_option('bp_learning_protected_suffix');
+        if (! is_string($suffix) || $suffix === '') {
+            $suffix = wp_generate_password(20, false, false);
+            update_option('bp_learning_protected_suffix', $suffix, false);
+        }
+        $dir = self::baseDir().'/protected-'.$suffix;
+        self::ensureDir($dir, true);
+
+        return $dir;
+    }
+
     public static function mediaDir(): string
     {
         $dir = self::baseDir().'/media';

@@ -134,7 +134,9 @@ final class LearnerController
             'favorites' => count($this->learning->favoriteIds($user)),
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
-            'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, $features),
+            // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
+            'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES))),
+            'limits' => $this->access->limits($user, $course->code),
         ];
     }
 
