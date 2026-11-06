@@ -2,7 +2,7 @@
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.10.0
+Stable tag: 0.11.0
 WC requires at least: 8.0
 WC tested up to: 11.3
 
@@ -10,7 +10,7 @@ Lernplattform für Bootsführerscheine mit Fragenkatalog, Prüfungssimulation, S
 
 == Description ==
 
-Stand 0.10.0 (Konzept Kap. 11, Schritte 3–9c):
+Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 
 * Content-Import: ZIP-Upload oder `wp bootspruefung import <paket>`, Prüfung (Prüfsummen, Schemata, Querverweise), Dry-Run, Freigabe, Import in Teilschritten, Revisionen, Archivierung, Protokoll; Rollback auf einen früheren Stand (`wp bootspruefung rollback`)
 * Content-Browser: Übersicht, Kurse & Module, Fragen, Medien, Prüfungsregeln, Rechtefreigabe mit Begründung und Audit-Log
@@ -21,7 +21,8 @@ Stand 0.10.0 (Konzept Kap. 11, Schritte 3–9c):
 * WooCommerce: Produktfeld „Lernzugang“ (Kurse × Funktionen, Dauer, Verlängerung, Erstattungsregel, Variationen), Freischaltung bei bezahlter Bestellung unabhängig vom Gateway (Überweisung, Klarna, PayPal, Stripe, weitere), Aussetzung bei Dispute, Widerruf bei Erstattung/Storno je Position, Kundenkonto Pflicht, „Mein Lernen“ in Mein Konto, Kurslink in Bestätigung und E-Mail, Bestellaktionen, Abgleich `wp bootspruefung reconcile`; HPOS und Checkout-Blocks
 * Membership: kostenlose Teilumfänge (n Fragen je Modul, n Prüfungsbögen, erste n Lektionen/Aufgaben/Übungen), zeitgesteuerte Freigabe von Modulen und Videokapiteln, Seiten/Beiträge per Metabox, Abschnitte per Block „Nur mit Lernzugang“ oder Shortcode [bootspruefung_zugang], geschützte Dateien (PDF) über /bootsscheine/datei/<id>/, Gruppenlizenzen (Plätze je Paket, Einladung per Link oder E-Mail, Verwaltung unter /bootsscheine/gruppen/), Mitgliederrabatte im Shop
 * Prüfung anmelden (vorbereitet, standardmäßig deaktiviert): Anleitung je Prüfung wie die Quelle (Gebühr, Fristen, Mindestalter, Unterlagen, Prüfungsformen mit Umfang und Bestehensgrenze, Prüfungsteile, FAQ, DSV/DMYV) und alle Prüfungsausschüsse mit Suche; Lernende melden sich selbst an
-* Shop-Katalog (17 Produkte, Preise, Laufzeiten) und Schnupper-Paket per Knopf oder `wp bootspruefung shop setup`; Geld-zurück-Garantie je Produkt (Tage, Lernstand-Grenze) mit Anfrage unter „Mein Lernen“
+* Tipps & Tricks (/bootsscheine/tipps/, im Admin pflegbar), Seekarten (BSH) per Upload, Sammelfreigaben für Rechte und Prüfungsregelwerke, korrigierte Gebühren in den Prüfungsanleitungen
+* Shop-Katalog (17 Produkte + 17 Gruppenpakete, Preise, Laufzeiten) und Schnupper-Paket per Knopf oder `wp bootspruefung shop setup`; Geld-zurück-Garantie je Produkt (Tage, Lernstand-Grenze) mit Anfrage unter „Mein Lernen“
 * Checkout-Block: Gäste mit Lernprodukt sehen statt Bestellknopf Konto-Hinweis mit Anmeldung/Registrierung und kehren danach zur Kasse zurück; Rückkehr nach Registrierung auch für Gruppeneinladungen; `reconcile`-Vorschau zeigt Gruppenänderungen; Systemstatus nennt, was ins Backup gehört
 * Downloads (PDF) je Kurs, Zuordnungsfehler in der Admin-Übersicht, Dispute-Webhooks für PayPal und gateway-neutral (Klarna u. a.)
 * Zugang: kostenlose Bereiche, manuelle Freigaben (mit Begründung) und Shop-Freischaltungen; solange der Shop nicht live ist, wahlweise alle angemeldeten Nutzer

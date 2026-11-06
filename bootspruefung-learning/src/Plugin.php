@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.10.0';
+    public const VERSION = '0.11.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -117,6 +117,7 @@ final class Plugin
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
         (new \Bootspruefung\Learning\Gate\Charts())->register();
+        (new \Bootspruefung\Learning\Tips\Tips())->register();
         (new \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks())->register();
 
         if (defined('WP_CLI') && WP_CLI) {

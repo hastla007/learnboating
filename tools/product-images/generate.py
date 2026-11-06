@@ -37,6 +37,20 @@ PRODUCTS = [
     ('BP-PASS-3M', '3-Monats-\nPass', 'Alle Inhalte', '90 Tage', 'clock', (247, 181, 0)),
 ]
 
+# Gruppenpakete: SKU, Titel, Kurs, Personen
+GROUPS = [
+    ('GRP-PAIR-01', 'Crew-Ticket', 'SBF See', 2), ('GRP-PAIR-02', 'Crew-Ticket', 'SBF Binnen', 2),
+    ('GRP-PAIR-03', 'Crew-Ticket', 'SBF See & Binnen', 2), ('GRP-PAIR-04', 'Crew-Ticket', 'Funk SRC & UBI', 2),
+    ('GRP-FAM-01', 'Familien-\nFlotte', 'SBF See', 3), ('GRP-FAM-02', 'Familien-\nFlotte', 'SBF See & Binnen', 3),
+    ('GRP-FAM-03', 'Familien-\nFlotte', 'SBF See & Binnen', 4), ('GRP-CREW-01', 'Skipper-\nCrew 5', 'SBF See', 5),
+    ('GRP-CREW-02', 'Skipper-\nCrew 5', 'SBF See & Binnen', 5), ('GRP-CREW-03', 'Skipper-\nCrew 5', 'Funk SRC & UBI', 5),
+    ('GRP-CREW-04', 'Yacht-\nCrew 7', 'SBF See', 7), ('GRP-CREW-05', 'Yacht-\nCrew 7', 'SBF See & Binnen', 7),
+    ('GRP-CLUB-10', 'Flottille 10', 'SBF See', 10), ('GRP-CLUB-11', 'Flottille 10', 'SBF See & Binnen', 10),
+    ('GRP-CLUB-20', 'Vereins-\nPaket 20', 'SBF See', 20), ('GRP-CLUB-21', 'Vereins-\nPaket 20', 'SBF See & Binnen', 20),
+    ('GRP-CLUB-50', 'Partner-\nFlat 50', 'SBF See & Binnen', 50),
+]
+GROUP_ACCENT = {'PAIR': (255, 150, 170), 'FAM': (247, 181, 0), 'CREW': (64, 196, 255), 'CLUB': (102, 220, 160)}
+
 NAVY_TOP = (10, 37, 64)
 NAVY_BOTTOM = (4, 18, 36)
 WHITE = (255, 255, 255)
@@ -95,6 +109,12 @@ def icon(d, kind, cx, cy, r, color):
             x2 = cx + math.cos(math.radians(a)) * (r + 5)
             y2 = cy + math.sin(math.radians(a)) * (r + 5)
             d.line([(x1, y1), (x2, y2)], fill=color, width=12)
+    elif kind == 'crew':
+        for dx, sc in [(-80, 0.8), (80, 0.8), (0, 1.0)]:
+            hr = int(38 * sc)
+            x = cx + dx
+            d.ellipse([x - hr, cy - 70 - hr, x + hr, cy - 70 + hr], fill=color)
+            d.pieslice([x - int(75 * sc), cy - 10, x + int(75 * sc), cy + int(140 * sc)], 180, 360, fill=color)
     elif kind == 'clock':
         d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=w)
         d.line([(cx, cy), (cx, cy - r + 40)], fill=color, width=w)
@@ -131,4 +151,7 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     for p in PRODUCTS:
         render(*p)
-    print(len(PRODUCTS), 'Bilder nach', os.path.normpath(OUT))
+    for sku, title, course, persons in GROUPS:
+        accent = GROUP_ACCENT[sku.split('-')[1]]
+        render(sku, title, course + '\n' + str(persons) + ' Personen', '12 Monate', 'crew', accent)
+    print(len(PRODUCTS) + len(GROUPS), 'Bilder nach', os.path.normpath(OUT))

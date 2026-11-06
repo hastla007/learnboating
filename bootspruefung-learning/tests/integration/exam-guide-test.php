@@ -36,6 +36,16 @@ update_option(Settings::OPTION, array_merge(Settings::all(), ['exam_guide_enable
 $service = new ExamGuideService();
 
 echo "Inhalte\n";
+// Tipps & Tricks (Starttexte)
+\Bootspruefung\Learning\Tips\Tips::maybeSeed();
+$tips = \Bootspruefung\Learning\Tips\Tips::payload();
+$tipText = wp_json_encode($tips, JSON_UNESCAPED_UNICODE);
+$check(array_column($tips, 'name') === ['Lernen mit der Plattform', 'Prüfungsvorbereitung', 'Anmeldung und Prüfungstag'] && array_sum(array_map(static fn ($g) => count($g['tips']), $tips)) === 13, 'Tipps: 3 Kategorien, 13 Starttexte');
+$check(! preg_match('/€|\bEuro\b|\d+\s*(Jahre|Tage vor|Wochen vor)|Bootsschule/u', $tipText), 'Tipps ohne Gebühren, Altersgrenzen, Fristen oder Bootsschul-Bezug');
+$prevUser = get_current_user_id();
+wp_set_current_user(0);
+$check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/tips'))->get_status() === 401, 'Tipps nur angemeldet');
+wp_set_current_user($prevUser);
 $check(count($service->guides()) === 6, '6 Anleitungen (SRC, UBI, SBF See, SBF Binnen, FKN, SKN)');
 $check(count($service->committees()) === 18, '18 Prüfungsausschüsse');
 
@@ -61,6 +71,15 @@ $check($fkn['key'] === 'FKN' && str_starts_with($fkn['variants'][0]['pass_text']
 $skn = $service->payload('ADD-FKN-TO-SKN')['tabs'][0]['variants'][0];
 $check($skn['key'] === 'addon' && $skn['pass_text'] === null && str_starts_with($skn['scope'], 'Fragen aus dem amtlichen Katalog'), 'SKN für FKN-Inhaber: ohne Bestehensgrenze');
 $check(count($see['faq']) >= 5 && $see['fee'] === '148,38 €' && count($see['providers']) === 2, 'FAQ, Gebühr, DSV/DMYV');
+$bin = $service->payload('SBF-BIN-MOTOR')['tabs'][0];
+$fknTab = $service->payload('FKN')['tabs'][0];
+$allText = wp_json_encode(array_map(static fn ($g) => $g['faq'], $service->guides()), JSON_UNESCAPED_UNICODE);
+$check($bin['fee'] === '130,78 €' && str_contains(wp_json_encode($bin['faq'], JSON_UNESCAPED_UNICODE), 'ca. 130,78 €') && $fknTab['fee'] === '28,89 €', 'Gebühren korrigiert: SBF Binnen 130,78 €, FKN 28,89 €');
+$check(! str_contains($allText, 'Bootsschule') && str_contains($allText, 'nicht über diese Lernplattform') && str_contains((string) $see['fee_note'], 'Stand November 2026'), 'kein Bootsschul-Bezug, Gebühr mit Stand');
+$funk = $service->committees('SRC');
+$funkIdx = array_search('Postanschrift Funk (UBI/SRC/LRC)', array_column($funk, 'location_type'), true);
+$sbfIdx = array_search('Geschäftsstelle SBF/SKS/FKN', array_column($funk, 'location_type'), true);
+$check($funkIdx === 0 && $sbfIdx === count($funk) - 1, 'SRC: Funk-Anschrift zuerst, SBF/FKN-Stelle zuletzt');
 
 echo "Prüfungsausschüsse\n";
 $first = $service->committees()[3];

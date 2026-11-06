@@ -42,7 +42,7 @@ final class ExamGuideService
         foreach ($rows as $row) {
             $data = json_decode((string) $row->data, true);
             if (is_array($data)) {
-                $out[] = ['key' => $row->source_id] + $data;
+                $out[] = GuideCorrections::apply(['key' => $row->source_id] + $data);
             }
         }
 
@@ -77,7 +77,7 @@ final class ExamGuideService
             $g = $page['guide'];
             $tabs[] = [
                 'key' => $g['key'], 'tab' => $g['tab'], 'title' => $g['title'], 'intro' => $g['intro'],
-                'fee' => $g['fee'], 'lead_time' => $g['lead_time'], 'min_age' => $g['min_age'],
+                'fee' => $g['fee'], 'fee_note' => $g['fee_note'] ?? null, 'lead_time' => $g['lead_time'], 'min_age' => $g['min_age'],
                 'apply' => $g['apply'], 'deadline' => $g['deadline'], 'documents' => $g['documents'],
                 'variants' => $this->variants($g['variants'], $page['first']),
                 'exam_parts' => $g['exam_parts'], 'faq' => $g['faq'], 'providers' => $g['providers'],
@@ -163,6 +163,7 @@ final class ExamGuideService
         $out = [];
         foreach ($rows as $c) {
             $codes = array_values(array_filter(array_map('trim', explode(',', (string) $c->course_codes))));
+            $derived = $codes === [] ? GuideCorrections::committeeCourses($c->location_type) : [];
             $out[] = [
                 'id' => (int) $c->id,
                 'label' => $c->location_type ? $c->commission.' — '.$c->location_type : $c->commission,
@@ -171,10 +172,12 @@ final class ExamGuideService
                 'postal_code' => $c->postal_code, 'city' => $c->city,
                 'phone' => $c->phone, 'fax' => $c->fax, 'email' => $c->email, 'website' => $c->website,
                 'office_hours' => $c->office_hours, 'note' => $c->note, 'course_codes' => $codes,
-                'matches' => $courseCode !== null && in_array($courseCode, $codes, true),
+                // 2 = für diesen Kurs gepflegt/abgeleitet, 1 = allgemeine Stelle, 0 = Stelle für andere Prüfungen
+                'rank' => $courseCode === null ? 1 : (in_array($courseCode, $codes ?: $derived, true) ? 2 : (($codes ?: $derived) === [] ? 1 : 0)),
+                'matches' => $courseCode !== null && in_array($courseCode, $codes ?: $derived, true),
             ];
         }
-        usort($out, static fn ($a, $b) => $b['matches'] <=> $a['matches']);
+        usort($out, static fn ($a, $b) => $b['rank'] <=> $a['rank']);
 
         return $out;
     }

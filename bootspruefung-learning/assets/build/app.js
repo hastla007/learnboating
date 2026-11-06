@@ -174,6 +174,8 @@
 			view = viewGroupJoin(parts[1]);
 		} else if (parts[0] === 'gruppen') {
 			view = viewGroups();
+		} else if (parts[0] === 'tipps') {
+			view = viewTips();
 		} else if (parts.length === 1) {
 			view = viewCourse(parts[0]);
 		} else if (parts[1] === 'pruefung-anmelden') {
@@ -239,8 +241,30 @@
 					el('p', { class: 'bp-muted', text: t('overview_intro', { name: cfg.user }) })
 				]),
 				courses.length ? grid : el('p', { text: t('no_courses') }),
-				cfg.groups ? el('p', {}, [link('gruppen/', t('groups_title'), 'bp-button')]) : null
+				el('p', {}, [link('tipps/', t('tips_title'), 'bp-button'), cfg.groups ? ' ' : null, cfg.groups ? link('gruppen/', t('groups_title'), 'bp-button') : null])
 			], t('overview_title'));
+		});
+	}
+
+	// ------------------------------------------------------------------ Tipps & Tricks
+
+	function viewTips() {
+		return api('GET', 'tips').then(function (groups) {
+			var sections = groups.map(function (g) {
+				return el('section', { class: 'bp-tips-group' }, [
+					el('h2', { text: g.name }),
+					el('div', { class: 'bp-tips' }, g.tips.map(function (tip) {
+						var body = el('div', { class: 'bp-tip-body' });
+						body.innerHTML = tip.html; // serverseitig mit wp_kses_post bereinigt
+						return el('details', { class: 'bp-card bp-tip' }, [el('summary', { text: tip.title }), body]);
+					}))
+				]);
+			});
+			mount([
+				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('tips_title') })]),
+				el('header', { class: 'bp-header' }, [el('h1', { text: t('tips_title') }), el('p', { class: 'bp-muted', text: t('tips_intro') })]),
+				groups.length ? el('div', {}, sections) : el('p', { text: t('tips_empty') })
+			], t('tips_title'));
 		});
 	}
 
@@ -706,7 +730,7 @@
 					nodes.push(el('p', { class: 'bp-note', text: focus.note }));
 				}
 				nodes.push(el('ul', { class: 'bp-stats' }, [
-					el('li', {}, [el('strong', { text: t('guide_fee') }), ' ' + t('guide_approx', { value: page.fee })]),
+					el('li', {}, [el('strong', { text: t('guide_fee') }), ' ' + t('guide_approx', { value: page.fee }), page.fee_note ? el('small', { class: 'bp-muted', text: ' (' + page.fee_note + ')' }) : null]),
 					page.lead_time ? el('li', {}, [el('strong', { text: t('guide_lead_time') }), ' ' + page.lead_time]) : null,
 					el('li', {}, [el('strong', { text: t('guide_min_age') }), ' ' + page.min_age])
 				]));

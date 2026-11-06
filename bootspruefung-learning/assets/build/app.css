@@ -188,3 +188,10 @@
 .bp-committees { margin-top: 0.8rem; }
 .bp-faq { border-top: 1px solid rgba(127,127,127,.25); padding: 0.5rem 0; }
 .bp-faq summary { cursor: pointer; font-weight: 600; }
+
+/* Tipps & Tricks */
+.bp-tips-group { margin: 0 0 1.5rem; }
+.bp-tip summary { cursor: pointer; font-weight: 600; }
+.bp-tip[open] summary { margin-bottom: .6rem; }
+.bp-tip-body p:last-child { margin-bottom: 0; }
+.bp-chart-note p { margin: 0; }

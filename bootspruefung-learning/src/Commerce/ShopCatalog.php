@@ -33,7 +33,7 @@ final class ShopCatalog
     ];
     public const FREE_REASON = 'Schnupper-Paket (Shop-Katalog)';
 
-    /** @return list<array{sku:string,name:string,price:string,days:int,courses:list<string>,group:string}> */
+    /** @return list<array{sku:string,name:string,price:string,days:int,courses:list<string>,group:string,seats?:int}> */
     public static function products(): array
     {
         $list = [
@@ -59,6 +59,30 @@ final class ShopCatalog
         $all = array_keys($names);
         $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '13.90', 'days' => 30, 'courses' => $all, 'group' => 'bundle'];
         $list[] = ['sku' => 'BP-PASS-3M', 'name' => '3-Monats-Pass (alle Inhalte)', 'price' => '28.90', 'days' => 90, 'courses' => $all, 'group' => 'bundle'];
+        // Gruppenpakete (Festlegung 06.11.2026): Käufer erhält ein Kontingent und lädt Mitlernende ein.
+        $see = ['SBF-SEE'];
+        $bin = ['SBF-BIN-MOTOR'];
+        foreach ([
+            ['GRP-PAIR-01', 'Crew-Ticket: SBF See (2 Pers.)', 2, $see, '49.90'],
+            ['GRP-PAIR-02', 'Crew-Ticket: SBF Binnen (2 Pers.)', 2, $bin, '47.90'],
+            ['GRP-PAIR-03', 'Crew-Ticket: Kombi See/Binnen (2 Pers.)', 2, self::SBF_ALL, '84.90'],
+            ['GRP-PAIR-04', 'Crew-Ticket: Funk SRC/UBI (2 Pers.)', 2, self::RADIO_ALL, '66.90'],
+            ['GRP-FAM-01', 'Familien-Flotte: SBF See (3 Pers.)', 3, $see, '69.90'],
+            ['GRP-FAM-02', 'Familien-Flotte: Kombi See/Binnen (3 Pers.)', 3, self::SBF_ALL, '119.90'],
+            ['GRP-FAM-03', 'Familien-Flotte: Kombi See/Binnen (4 Pers.)', 4, self::SBF_ALL, '149.90'],
+            ['GRP-CREW-01', 'Skipper-Crew 5: SBF See', 5, $see, '109.90'],
+            ['GRP-CREW-02', 'Skipper-Crew 5: Kombi See/Binnen', 5, self::SBF_ALL, '189.90'],
+            ['GRP-CREW-03', 'Skipper-Crew 5: Funk SRC/UBI', 5, self::RADIO_ALL, '149.90'],
+            ['GRP-CREW-04', 'Yacht-Crew 7: SBF See', 7, $see, '149.90'],
+            ['GRP-CREW-05', 'Yacht-Crew 7: Kombi See/Binnen', 7, self::SBF_ALL, '249.90'],
+            ['GRP-CLUB-10', 'Flottille 10: SBF See', 10, $see, '199.90'],
+            ['GRP-CLUB-11', 'Flottille 10: Kombi See/Binnen', 10, self::SBF_ALL, '329.90'],
+            ['GRP-CLUB-20', 'Vereins-Paket 20: SBF See', 20, $see, '369.90'],
+            ['GRP-CLUB-21', 'Vereins-Paket 20: Kombi See/Binnen', 20, self::SBF_ALL, '599.90'],
+            ['GRP-CLUB-50', 'Partner-Flat 50: Kombi See/Binnen', 50, self::SBF_ALL, '1249.00'],
+        ] as [$sku, $name, $seats, $courses, $price]) {
+            $list[] = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => 365, 'courses' => $courses, 'group' => 'groups', 'seats' => $seats];
+        }
 
         return $list;
     }
@@ -95,7 +119,9 @@ final class ShopCatalog
             $product->set_name($def['name']);
             $product->set_regular_price($def['price']);
             $product->set_virtual(true);
-            $product->set_sold_individually(true);
+            $seats = (int) ($def['seats'] ?? 0);
+            // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
+            $product->set_sold_individually($seats === 0);
             $product->set_catalog_visibility('visible');
             $text = self::texts($def);
             // Texte nur setzen, solange sie nicht im Shop von Hand geändert wurden.
@@ -121,8 +147,9 @@ final class ShopCatalog
                     $scopes[] = ['course_code' => $course, 'feature_code' => $feature];
                 }
             }
-            $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund');
-            MoneyBack::setPolicy($id, self::MONEY_BACK_DAYS, self::MONEY_BACK_MAX_PROGRESS);
+            $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund', $seats > 0 ? $seats : null);
+            // Garantie nur für Einzelzugänge: bei Gruppen lernen die Eingeladenen, nicht der Käufer.
+            MoneyBack::setPolicy($id, $seats > 0 ? null : self::MONEY_BACK_DAYS, $seats > 0 ? null : self::MONEY_BACK_MAX_PROGRESS);
             $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action];
         }
         if (! $dryRun) {
@@ -143,6 +170,7 @@ final class ShopCatalog
         'signal' => 'Seenotsignalmittel',
         'addon' => 'Ergänzungskurse',
         'bundle' => 'Pakete & Pässe',
+        'groups' => 'Gruppen & Vereine',
     ];
 
     private static function category(string $group): int
@@ -224,7 +252,9 @@ final class ShopCatalog
         $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 180 ? '6 Monate' : $def['days'].' Tage');
         $names = array_map([Labels::class, 'course'], $all);
 
+        $seats = (int) ($def['seats'] ?? 0);
         $intro = match ($def['group']) {
+            'groups' => sprintf('%d Lernzugänge für %s – zum Beispiel für Paare, Familien, Crews oder Vereine, die gemeinsam auf die Prüfung lernen.', $seats, implode(' und ', array_unique(array_map(static fn ($n) => preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $n), [$names[0]])))),
             'bundle' => str_starts_with($def['sku'], 'BP-PASS')
                 ? sprintf('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', $months)
                 : 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.',
@@ -252,11 +282,18 @@ final class ShopCatalog
             $items[] = sprintf('Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos', count($all));
         }
         $items[] = 'Lernfortschritt wird gespeichert – überall weiterlernen';
+        if ($seats > 0) {
+            array_unshift($items, sprintf('%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein.', $seats));
+        }
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
             .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, freigeschaltet sobald die Zahlung eingegangen ist. Du lernst im Bereich „Bootsscheine“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months)).'</p>'
-            .'<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
+            .($seats > 0
+                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Kauf. Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
+                : '<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>')
             .(count($all) > 1 && ! $pass ? '<p>'.esc_html('Enthält: '.implode(', ', $names)).'</p>' : '');
-        $short = sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
+        $short = $seats > 0
+            ? sprintf('%d Lernzugänge · %s · Zugang %s', $seats, $questions > 0 ? $questions.' Prüfungsfragen je Person' : 'Alle Inhalte', $months)
+            : sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
 
         return ['short' => esc_html($short), 'long' => $long];
     }

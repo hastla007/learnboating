@@ -116,6 +116,11 @@ step('Übungsmodus bei unverifiziertem Regelwerk');
 await page.goto(`${base}/bootsscheine/sbf-see-bin/`);
 await page.getByText('Übungsmodus', { exact: true }).waitFor();
 
+step('Tipps & Tricks');
+await page.goto(`${base}/bootsscheine/tipps/`);
+await page.getByText('Mit dem Smarttrainer starten').click();
+await page.getByText('dreimal hintereinander richtig').waitFor();
+
 step('Mobile Ansicht');
 await page.setViewportSize({ width: 390, height: 844 });
 await page.goto(`${base}/bootsscheine/sbf-see/lernen/`);
