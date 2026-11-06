@@ -286,7 +286,7 @@ final class ShopCatalog
             array_unshift($items, sprintf('%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein.', $seats));
         }
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
-            .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, freigeschaltet sobald die Zahlung eingegangen ist. Du lernst im Bereich „Bootsscheine“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months)).'</p>'
+            .'<p>'.esc_html(sprintf('Zugang %1$s ab Kauf, freigeschaltet sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months, \Bootspruefung\Learning\Settings\Settings::brand())).'</p>'
             .($seats > 0
                 ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Kauf. Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
                 : '<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>')

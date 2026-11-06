@@ -19,6 +19,8 @@ final class Settings
         'default_access' => 'logged_in',
         // Prüfungsanmeldung (Anleitung + Prüfungsausschüsse): vorbereitet, aber noch nicht freigeschaltet.
         'exam_guide_enabled' => false,
+        // Markenname (Platzhalter, bis Name/Logo feststehen) – Lernbereich, Seitentitel, Produkttexte.
+        'brand_name' => 'XXXX',
     ];
 
     /** @return array<string,mixed> */
@@ -27,6 +29,11 @@ final class Settings
         $stored = get_option(self::OPTION, []);
 
         return array_merge(self::DEFAULTS, is_array($stored) ? $stored : []);
+    }
+
+    public static function brand(): string
+    {
+        return (string) (self::get('brand_name') ?: self::DEFAULTS['brand_name']);
     }
 
     public static function get(string $key): mixed
@@ -54,6 +61,7 @@ final class Settings
             'default_access' => in_array($input['default_access'] ?? '', ['logged_in', 'entitled_only'], true) ? $input['default_access'] : 'logged_in',
             'radio_voice_output' => in_array($input['radio_voice_output'] ?? '', ['browser', 'recording', 'off'], true) ? $input['radio_voice_output'] : 'browser',
             'exam_guide_enabled' => ! empty($input['exam_guide_enabled']),
+            'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' ? mb_substr($brand, 0, 60) : self::DEFAULTS['brand_name'],
         ];
     }
 }

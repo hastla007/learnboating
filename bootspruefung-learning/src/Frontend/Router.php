@@ -116,7 +116,7 @@ final class Router
         }
         $slug = explode('/', (string) get_query_var('bp_path'))[0];
         $course = $slug !== '' ? (new ContentRepository())->courseBySlug($slug) : null;
-        $parts['title'] = $course ? $course->name.' – '.__('Bootsscheine', 'bootspruefung-learning') : __('Bootsscheine', 'bootspruefung-learning');
+        $parts['title'] = $course ? $course->name.' – '.\Bootspruefung\Learning\Settings\Settings::brand() : \Bootspruefung\Learning\Settings\Settings::brand();
 
         return $parts;
     }

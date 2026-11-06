@@ -11,7 +11,7 @@ $bp_content = static function (): void {
     echo '<div id="bp-app" class="bp-app" aria-live="polite">';
     if (! is_user_logged_in()) {
         $here = home_url(add_query_arg([], (string) wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));
-        echo '<div class="bp-card bp-login"><h1>'.esc_html__('Bootsscheine', 'bootspruefung-learning').'</h1>';
+        echo '<div class="bp-card bp-login"><h1>'.esc_html(\Bootspruefung\Learning\Settings\Settings::brand()).'</h1>';
         echo '<p>'.esc_html__('Melde dich an, um zu lernen, deinen Fortschritt zu speichern und Prüfungen zu simulieren.', 'bootspruefung-learning').'</p>';
         echo '<p><a class="bp-button bp-button-primary" href="'.esc_url(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::loginUrl($here)).'">'.esc_html__('Anmelden', 'bootspruefung-learning').'</a>';
         if (get_option('users_can_register') || get_option('woocommerce_enable_myaccount_registration') === 'yes') {

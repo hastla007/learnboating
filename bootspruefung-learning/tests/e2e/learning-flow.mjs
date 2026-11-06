@@ -22,7 +22,7 @@ const step = (s) => console.log('·', s);
 
 step('Anmeldehinweis ohne Login');
 await page.goto(`${base}/bootsscheine/`);
-await page.getByRole('heading', { name: 'Bootsscheine' }).waitFor();
+await page.getByRole('heading', { name: 'XXXX' }).waitFor();
 assert.ok(await page.getByRole('link', { name: 'Anmelden' }).isVisible());
 
 step('Anmelden');
@@ -31,7 +31,7 @@ await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');
 await page.waitForURL(/\/bootsscheine\/$/);
-await page.getByRole('heading', { name: 'Bootsscheine', level: 1 }).waitFor();
+await page.getByRole('heading', { name: 'XXXX', level: 1 }).waitFor();
 const cards = await page.locator('.bp-course-card').count();
 assert.equal(cards, 14, 'alle 14 Kurse sichtbar');
 await shot('01-uebersicht');

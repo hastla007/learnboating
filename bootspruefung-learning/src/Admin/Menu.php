@@ -162,6 +162,13 @@ final class Menu
         }
         echo '</select></td></tr>';
         printf(
+            '<tr><th scope="row">%s</th><td><input type="text" class="regular-text" name="%s[brand_name]" value="%s" maxlength="60"><p class="description">%s</p></td></tr>',
+            esc_html__('Markenname', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            esc_attr(Settings::brand()),
+            esc_html__('Erscheint als Titel des Lernbereichs, im Seitentitel und in den Produkttexten. Platzhalter „XXXX“, bis der Name feststeht.', 'bootspruefung-learning')
+        );
+        printf(
             '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[exam_guide_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
             esc_html__('Prüfungsanmeldung', 'bootspruefung-learning'),
             esc_attr(Settings::OPTION),

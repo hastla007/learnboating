@@ -15,6 +15,8 @@ OUT = os.path.join(os.path.dirname(__file__), '..', '..', 'bootspruefung-learnin
 FONT_BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 SIZE = 1000
+# Markenname (Platzhalter, bis Name/Logo feststehen): BRAND=… python3 generate.py
+BRAND = os.environ.get('BRAND', 'XXXX')
 
 # SKU, Zeile 1 (groß), Zeile 2, Laufzeit, Symbol, Akzentfarbe
 PRODUCTS = [
@@ -132,7 +134,7 @@ def render(sku, title, subtitle, duration, kind, accent):
     mid = ImageFont.truetype(FONT, 46)
     small = ImageFont.truetype(FONT_BOLD, 38)
     tiny = ImageFont.truetype(FONT, 30)
-    d.text((80, 70), 'BOOTSSCHEINE ONLINE', font=small, fill=accent)
+    d.text((80, 70), BRAND.upper(), font=small, fill=accent)
     icon(d, kind, 790, 230, 120, accent)
     d.multiline_text((80, 400), title, font=big, fill=WHITE, spacing=10)
     lines = title.count('\n') + 1

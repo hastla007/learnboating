@@ -89,7 +89,7 @@ final class Strings
             'back_overview' => __('Zur Übersicht', $d),
             'back_course' => __('Zurück zum Kurs', $d),
             'breadcrumb' => __('Brotkrümelnavigation', $d),
-            'overview_title' => __('Bootsscheine', $d),
+            'overview_title' => \Bootspruefung\Learning\Settings\Settings::brand(),
             'overview_intro' => __('Hallo {name}! Wähle einen Schein, um zu lernen oder eine Prüfung zu simulieren.', $d),
             'no_courses' => __('Derzeit sind keine Kurse verfügbar.', $d),
             'open_course' => __('Öffnen', $d),
