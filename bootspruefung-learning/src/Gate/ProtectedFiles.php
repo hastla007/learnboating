@@ -67,6 +67,10 @@ final class ProtectedFiles
         if ($req !== null) {
             $html .= '<p class="description">'.esc_html__('Link für Lernende:', 'bootspruefung-learning').' <code>'.esc_html(self::downloadUrl((int) $post->ID)).'</code></p>';
         }
+        $slot = SectionFiles::slot((int) $post->ID);
+        $fields['bp_file_slot'] = ['label' => __('Anzeige im Lernbereich', 'bootspruefung-learning'), 'input' => 'html',
+            'html' => '<select name="attachments['.(int) $post->ID.'][bp_file_slot]"><option value="">'.esc_html__('Hauptseite des Bereichs', 'bootspruefung-learning').'</option><option value="vocabulary" '.selected($slot, 'vocabulary', false).'>'.esc_html__('Funk: auch auf der Vokabelseite', 'bootspruefung-learning').'</option></select>',
+            'helps' => __('Nur für PDFs mit Lernzugang. Funk-PDFs (z. B. Muster-Funksprüche, Buchstabiertafel) erscheinen auf der Funk-Seite, das Vokabel-PDF zusätzlich auf der Vokabelseite.', 'bootspruefung-learning')];
         $fields['bp_required_access'] = ['label' => __('Lernzugang erforderlich', 'bootspruefung-learning'), 'input' => 'html', 'html' => $html,
             'helps' => __('Die Datei wird dann nur angemeldeten Nutzern mit Zugang ausgeliefert. PDFs zu Navigationstrainer, Prüfungssimulation, Praxistrainer oder Funk erscheinen oben auf der jeweiligen Lernseite (Titel = Name, Beschriftung = Kurztext); laden dürfen sie nur Nutzer mit vollem Zugang.', 'bootspruefung-learning')];
 
@@ -84,6 +88,10 @@ final class ProtectedFiles
             return $post;
         }
         $id = (int) $post['ID'];
+        if (isset($input['bp_file_slot'])) {
+            $slot = sanitize_key((string) $input['bp_file_slot']);
+            in_array($slot, SectionFiles::SLOTS, true) ? update_post_meta($id, SectionFiles::SLOT_META, $slot) : delete_post_meta($id, SectionFiles::SLOT_META);
+        }
         $value = sanitize_text_field((string) $input['bp_required_access']);
         if ($value === '') {
             self::unprotect($id);

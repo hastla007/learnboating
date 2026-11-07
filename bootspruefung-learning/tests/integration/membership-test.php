@@ -307,6 +307,16 @@ $sf = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SBF-SEE');
 $check(! $sf['navigation_trainer'][0]['locked'] && str_contains((string) $sf['navigation_trainer'][0]['url'], '/bootsscheine/datei/') && $sf['navigation_trainer'][0]['description'] === 'Alle Aufgaben zum Ausdrucken', 'Bereichs-PDF mit Vollzugang: Link');
 $check(! in_array((int) $sectionPdf, array_column(\Bootspruefung\Learning\Gate\DownloadService::items($free, 'SBF-SEE'), 'id'), true), 'Bereichs-PDF nicht in der Downloadliste');
 wp_delete_attachment((int) $sectionPdf, true);
+$vocPath = $uploads['path'].'/bp-voc-'.wp_generate_password(6, false).'.pdf';
+file_put_contents($vocPath, "%PDF-1.4\n% Vokabeln\n");
+$vocPdf = wp_insert_attachment(['post_title' => 'Vokabeln (PDF)', 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit'], $vocPath);
+update_post_meta($vocPdf, '_wp_attached_file', _wp_relative_upload_path($vocPath));
+ProtectedFiles::protect((int) $vocPdf, 'SRC', 'radio_training');
+update_post_meta($vocPdf, \Bootspruefung\Learning\Gate\SectionFiles::SLOT_META, 'vocabulary');
+$combo = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SRC-UBI')['radio_training'] ?? [];
+$check(in_array((int) $vocPdf, array_column($combo, 'id'), true) && $combo[array_search((int) $vocPdf, array_column($combo, 'id'), true)]['slot'] === 'vocabulary', 'Kombikurs zeigt PDFs der Teilkurse, Vokabelseite als Anzeigeort');
+$check(! in_array((int) $vocPdf, array_column(\Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SBF-SEE')['radio_training'] ?? [], 'id'), true), 'fremder Kurs zeigt die Datei nicht');
+wp_delete_attachment((int) $vocPdf, true);
 wp_set_current_user(1);
 foreach ($pdfs as $id) {
     wp_delete_attachment($id, true);

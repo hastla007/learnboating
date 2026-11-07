@@ -1845,8 +1845,8 @@
 	}
 
 	// PDFs des Betreibers zu einem Lernbereich (Mediathek: „Kurs · Funktion“). Laden nur mit vollem Zugang.
-	function sectionFiles(c, feature) {
-		var files = (c.files || {})[feature] || [];
+	function sectionFiles(c, feature, slot) {
+		var files = ((c.files || {})[feature] || []).filter(function (f) { return !slot || f.slot === slot; });
 		if (!files.length) {
 			return null;
 		}
@@ -2897,6 +2897,7 @@
 				}
 				mount([
 					pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [category || t('radio_vocabulary')]]), eyebrow: t('radio_vocabulary') + ' · ' + catalog, title: category || t('radio_vocabulary'), intro: t('radio_vocab_explain', { n: v.streak_to_learn }), extra: counter }),
+					sectionFiles(c, 'radio_training', 'vocabulary'),
 					stage
 				], (category || t('radio_vocabulary')) + ' – ' + c.name);
 				updateCounter();
