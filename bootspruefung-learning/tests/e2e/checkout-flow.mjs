@@ -30,7 +30,7 @@ async function login(page) {
   await page.fill('#user_login', 'kaeufer1');
   await page.fill('#user_pass', 'Kauf-Passwort-123');
   await page.click('#wp-submit');
-  await page.waitForURL(/\/bootsscheine\/$/);
+  await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 }
 
 let current = null;

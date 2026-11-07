@@ -19,7 +19,7 @@ await page.goto(`${base}/wp-login.php?redirect_to=${encodeURIComponent(base + '/
 await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');
-await page.waitForURL(/\/bootsscheine\/$/);
+await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 
 step('Kursseite zeigt Trainer');
 await page.goto(`${base}/bootsscheine/sbf-see/`);

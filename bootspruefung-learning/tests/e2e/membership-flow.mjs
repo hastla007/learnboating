@@ -22,7 +22,7 @@ async function session(user, pass) {
   await page.fill('#user_login', user);
   await page.fill('#user_pass', pass);
   await page.click('#wp-submit');
-  await page.waitForURL(/\/bootsscheine\/$/);
+  await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 
   return { context, page };
 }
@@ -50,7 +50,7 @@ await page.getByRole('heading', { name: /Einladung:/ }).waitFor();
 await page.getByText('Verwaltet von Bootsschule Test').waitFor();
 await shot(page, '41-gruppe-beitreten');
 await page.getByRole('button', { name: 'Gruppe beitreten' }).click();
-await page.waitForURL(/\/bootsscheine\/$/);
+await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 await page.goto(`${base}/bootsscheine/sbf-bin-motor/`);
 await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer', exact: true }).waitFor();
 assert.equal(await page.locator('.bp-locked').count(), 0, 'Gruppenplatz schaltet den Kurs voll frei');

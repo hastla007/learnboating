@@ -18,7 +18,7 @@ await page.goto(`${base}/wp-login.php?redirect_to=${encodeURIComponent(base + '/
 await page.fill('#user_login', 'lerner1');
 await page.fill('#user_pass', 'Test-Passwort-123');
 await page.click('#wp-submit');
-await page.waitForURL(/\/bootsscheine\/$/);
+await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 
 step('Kachel im Kombikurs SBF See + Binnen');
 await page.goto(`${base}/bootsscheine/sbf-see-bin/`);

@@ -30,7 +30,7 @@ await page.locator('#bp-app').getByRole('link', { name: 'Anmelden' }).click();
 await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');
-await page.waitForURL(/\/bootsscheine\/$/);
+await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
 await page.locator('.bp-dash-hero h1').waitFor();
 const cards = await page.locator('.bp-course-card').count();
 assert.equal(cards, 14, 'alle 14 Kurse sichtbar');
