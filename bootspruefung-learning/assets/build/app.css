@@ -1297,3 +1297,25 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-pager-info { font-size: 0.85rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
 .bp-app a.bp-chart-point::after { display: none; }
 .bp-app a.bp-chart-point:hover::after, .bp-app a.bp-chart-point:focus-visible::after { display: block; }
+
+/* ---------- PDF-Dateien zu einem Lernbereich ---------- */
+.bp-pdf-section { margin: 0 0 1.6rem; }
+.bp-pdf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.7rem; }
+.bp-app .bp-pdf { display: flex; align-items: center; gap: 1rem; padding: 0.95rem 1.2rem; border: 1px solid var(--bp-border); border-radius: 16px; background: var(--bp-surface); box-shadow: var(--bp-shadow); color: inherit; text-decoration: none; transition: border-color 0.15s, transform 0.15s; }
+.bp-app a.bp-pdf:hover { border-color: var(--bp-accent); transform: translateY(-1px); }
+.bp-app a.bp-pdf:focus-visible { outline: 3px solid var(--bp-accent); outline-offset: 2px; }
+.bp-pdf-ico { flex: none; display: grid; place-items: center; width: 2.8rem; height: 3.2rem; border: 2px solid currentColor; border-radius: 6px 14px 6px 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; color: var(--bp-bad); }
+.bp-pdf-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.bp-pdf-text strong { font-size: 1rem; overflow-wrap: anywhere; }
+.bp-pdf-text span { font-size: 0.85rem; opacity: 0.7; }
+.bp-pdf-action { flex: none; font-size: 0.88rem; font-weight: 700; color: var(--bp-accent); white-space: nowrap; }
+.bp-pdf.is-locked { cursor: default; }
+.bp-pdf.is-locked .bp-pdf-ico { opacity: 0.45; }
+.bp-pro-badge { flex: none; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--bp-signal); color: var(--bp-navy); font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
+.bp-pro-badge::before { content: ''; width: 0.8rem; height: 0.8rem; background: currentColor; -webkit-mask: var(--bp-i-lock) center / contain no-repeat; mask: var(--bp-i-lock) center / contain no-repeat; }
+.bp-pdf-note { margin-top: 0.7rem; padding: 0.8rem 1rem; border-radius: 12px; background: color-mix(in srgb, var(--bp-signal) 12%, var(--bp-surface)); }
+.bp-pdf-note > p:first-child { margin: 0 0 0.3rem; font-weight: 600; }
+@media (max-width: 600px) {
+	.bp-app .bp-pdf { padding: 0.8rem; gap: 0.7rem; }
+	.bp-pdf-action { display: none; }
+}

@@ -1001,6 +1001,7 @@
 			}
 			mount([
 				pageHero({ code: c.code, icon: 'timer', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('hub_exam_intro'), stats: stats, percent: best ? Math.floor(best.score * 100 / best.max) : null, percentLabel: t('exam_best') }),
+				sectionFiles(c, 'exam_simulation'),
 				exam ? examSection(slug, exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation)
 			], title + ' – ' + c.name);
 		});
@@ -1770,7 +1771,7 @@
 		return el('section', { class: 'bp-section', 'aria-labelledby': 'bp-downloads-h' }, [
 			el('h2', { id: 'bp-downloads-h', text: t('section_downloads') }),
 			el('ul', { class: 'bp-downloads' }, items.map(function (d) {
-				var meta = (d.size ? ' · ' + Math.max(1, Math.round(d.size / 1024)) + ' KB' : '');
+				var meta = (d.size ? ' · ' + fileSize(d.size) : '');
 				return d.locked
 					? el('li', { class: 'is-locked' }, [el('span', { text: d.title }), el('span', { class: 'bp-muted', text: ' · ' + t('locked_badge') })])
 					: el('li', {}, [el('a', { href: d.url, target: '_blank', rel: 'noopener', text: d.title }), el('span', { class: 'bp-muted', text: meta })]);
@@ -1843,6 +1844,36 @@
 		return el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, nodes);
 	}
 
+	// PDFs des Betreibers zu einem Lernbereich (Mediathek: „Kurs · Funktion“). Laden nur mit vollem Zugang.
+	function sectionFiles(c, feature) {
+		var files = (c.files || {})[feature] || [];
+		if (!files.length) {
+			return null;
+		}
+		var locked = files.some(function (f) { return f.locked; });
+		var list = el('ul', { class: 'bp-pdf-list' }, files.map(function (f) {
+			var inner = [
+				el('span', { class: 'bp-pdf-ico', 'aria-hidden': 'true', text: 'PDF' }),
+				el('span', { class: 'bp-pdf-text' }, [
+					el('strong', { text: f.title }),
+					el('span', { text: (f.description || t('pdf_desc')) + (f.size ? ' · ' + fileSize(f.size) : '') })
+				]),
+				f.locked ? el('span', { class: 'bp-pro-badge', text: t('pdf_pro') }) : el('span', { class: 'bp-pdf-action', 'aria-hidden': 'true', text: t('pdf_open') + ' ↓' })
+			];
+			return el('li', {}, [f.locked
+				? el('div', { class: 'bp-pdf is-locked', 'aria-label': t('pdf_locked_aria', { title: f.title }) }, inner)
+				: el('a', { class: 'bp-pdf', href: f.url, target: '_blank', rel: 'noopener', 'aria-label': t('pdf_open_aria', { title: f.title }) }, inner)]);
+		}));
+		return el('section', { class: 'bp-pdf-section', 'aria-label': t('pdf_section') }, [
+			list,
+			locked ? el('div', { class: 'bp-pdf-note' }, [el('p', { text: t('pdf_locked_note') })].concat(offerNodes((c.shop || {})[feature]))) : null
+		]);
+	}
+
+	function fileSize(bytes) {
+		return bytes >= 1048576 ? (Math.round(bytes / 104857.6) / 10).toString().replace('.', ',') + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+	}
+
 	function withCourse(slug, fn) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(fn);
 	}
@@ -1871,7 +1902,7 @@
 				var finished = tasks.filter(function (x) { return !x.locked && x.questions > 0 && x.done >= x.questions; }).length;
 				mount([
 					pageHero({ code: c.code, icon: 'compass', crumbs: crumbs(slug, c.name, [[t('trainer_navigation')]]), eyebrow: c.name, title: t('trainer_navigation'), intro: t('nav_intro'), stats: [[tasks.length, t('nav_stat_tasks')], [finished, t('nav_stat_finished')], [qDone + '/' + qAll, t('nav_stat_parts')]], percent: Math.floor(qDone * 100 / Math.max(qAll, 1)), percentLabel: t('nav_stat_done') }),
-					chartNote(c), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list
+					sectionFiles(c, 'navigation_trainer'), chartNote(c), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list
 				], t('trainer_navigation') + ' – ' + c.name);
 			});
 		});
@@ -2026,6 +2057,7 @@
 				var scopeTotal = active ? active.cards.length : data.total;
 				mount([
 					pageHero({ code: c.code, icon: 'cards', crumbs: crumbs(slug, c.name, active ? [[t('trainer_praxis'), slug + '/praxis/'], [active.name]] : [[t('trainer_praxis')]]), eyebrow: active ? t('trainer_praxis') : c.name, title: active ? active.name : t('trainer_praxis'), intro: t('praxis_intro'), stats: [[scopeTotal, t('praxis_stat_cards')], [scopeKnown, t('praxis_stat_known')], [cats.length, t('praxis_stat_categories')]], percent: Math.floor(scopeKnown * 100 / Math.max(scopeTotal, 1)), percentLabel: t('praxis_stat_known') }),
+					active ? null : sectionFiles(c, 'praxis_trainer'),
 					lockedCount ? lockedNote((c.shop || {}).praxis_trainer, t('locked_more', { n: lockedCount })) : null,
 					el('div', { class: 'bp-praxis-toolbar' }, [nav, el('p', { class: 'bp-switch' }, [onlyOpen, el('label', { for: 'bp-only-open', text: t('praxis_only_open') })])]),
 					stage
@@ -2310,6 +2342,7 @@
 				var vocDone = o.vocabulary.reduce(function (a, v) { return a + v.learned; }, 0);
 				var pracAll = (o.practice || []).reduce(function (a, g) { return a + g.tasks.length; }, 0);
 				var nodes = [pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio')]]), eyebrow: c.name, title: t('trainer_radio'), intro: t('radio_intro'), stats: [pracAll ? [pracAll, t('radio_stat_practice')] : null, [textsDone + '/' + textsAll, t('radio_stat_texts')], [vocDone + '/' + vocAll, t('radio_stat_vocab')]] })];
+				nodes.push(sectionFiles(c, 'radio_training'));
 				if (o.device && o.device.lessons > 0) {
 					nodes.push(el('section', { class: 'bp-radio-device' }, [
 						el('span', { class: 'bp-ico bp-ico-radio', 'aria-hidden': 'true' }),

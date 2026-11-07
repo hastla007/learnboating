@@ -68,7 +68,7 @@ final class ProtectedFiles
             $html .= '<p class="description">'.esc_html__('Link für Lernende:', 'bootspruefung-learning').' <code>'.esc_html(self::downloadUrl((int) $post->ID)).'</code></p>';
         }
         $fields['bp_required_access'] = ['label' => __('Lernzugang erforderlich', 'bootspruefung-learning'), 'input' => 'html', 'html' => $html,
-            'helps' => __('Die Datei wird dann nur angemeldeten Nutzern mit Zugang ausgeliefert.', 'bootspruefung-learning')];
+            'helps' => __('Die Datei wird dann nur angemeldeten Nutzern mit Zugang ausgeliefert. PDFs zu Navigationstrainer, Prüfungssimulation, Praxistrainer oder Funk erscheinen oben auf der jeweiligen Lernseite (Titel = Name, Beschriftung = Kurztext); laden dürfen sie nur Nutzer mit vollem Zugang.', 'bootspruefung-learning')];
 
         return $fields;
     }

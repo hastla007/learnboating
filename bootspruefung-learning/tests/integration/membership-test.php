@@ -295,6 +295,18 @@ $check(\Bootspruefung\Learning\Gate\DownloadService::allowed($free, $pdfs[2]), '
 wp_set_current_user($free);
 $payload = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see'))->get_data();
 $check(count($payload['downloads'] ?? []) === 3 && str_contains((string) $payload['downloads'][0]['url'], '/bootsscheine/datei/'), 'Kursdaten enthalten die Downloadliste');
+// PDFs zu Lernbereichen (Navigationsaufgaben, Prüfungsbögen): nur mit vollem Zugang
+$sectionPath = $uploads['path'].'/bp-nav-'.wp_generate_password(6, false).'.pdf';
+file_put_contents($sectionPath, "%PDF-1.4\n% Navigationsaufgaben\n");
+$sectionPdf = wp_insert_attachment(['post_title' => 'Navigationsaufgaben (PDF)', 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit', 'post_excerpt' => 'Alle Aufgaben zum Ausdrucken'], $sectionPath);
+update_post_meta($sectionPdf, '_wp_attached_file', _wp_relative_upload_path($sectionPath));
+ProtectedFiles::protect((int) $sectionPdf, 'SBF-SEE', 'navigation_trainer');
+$sf = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($stranger, 'SBF-SEE');
+$check(isset($sf['navigation_trainer'][0]) && $sf['navigation_trainer'][0]['locked'] && $sf['navigation_trainer'][0]['url'] === null && ! \Bootspruefung\Learning\Gate\DownloadService::allowed($stranger, (int) $sectionPdf), 'Bereichs-PDF ohne Zugang: gelistet, gesperrt, nicht ausgeliefert');
+$sf = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SBF-SEE');
+$check(! $sf['navigation_trainer'][0]['locked'] && str_contains((string) $sf['navigation_trainer'][0]['url'], '/bootsscheine/datei/') && $sf['navigation_trainer'][0]['description'] === 'Alle Aufgaben zum Ausdrucken', 'Bereichs-PDF mit Vollzugang: Link');
+$check(! in_array((int) $sectionPdf, array_column(\Bootspruefung\Learning\Gate\DownloadService::items($free, 'SBF-SEE'), 'id'), true), 'Bereichs-PDF nicht in der Downloadliste');
+wp_delete_attachment((int) $sectionPdf, true);
 wp_set_current_user(1);
 foreach ($pdfs as $id) {
     wp_delete_attachment($id, true);
