@@ -111,9 +111,9 @@ final class PricePage
         echo '</p></form>';
 
         if (ShopCatalog::ownPrices() !== []) {
-            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\''.esc_js(__('Alle eigenen Preise entfernen und wieder die Katalogpreise verwenden?', 'bootspruefung-learning')).'\')">'
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'
                 .wp_nonce_field('bp_shop_prices', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_prices">'
-                .'<button class="button-link-delete" name="op" value="reset">'.esc_html__('Alle eigenen Preise zurücksetzen', 'bootspruefung-learning').'</button></form>';
+                .'<button class="button-link-delete" name="op" value="reset" data-bp-confirm="'.esc_attr__('Alle eigenen Preise entfernen und wieder die Katalogpreise verwenden?', 'bootspruefung-learning').'">'.esc_html__('Alle eigenen Preise zurücksetzen', 'bootspruefung-learning').'</button></form>';
         }
         echo '</div>';
     }

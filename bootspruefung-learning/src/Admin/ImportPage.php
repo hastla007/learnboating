@@ -214,6 +214,10 @@ final class ImportPage
                     (int) $batch->id,
                     esc_html($batch->status === 'importing' ? __('Import fortsetzen', 'bootspruefung-learning') : __('Import starten', 'bootspruefung-learning'))
                 );
+                // Abgebrochener Import: fortsetzen oder verwerfen (blockiert sonst keine weiteren Importe).
+                if ($batch->status === 'importing' && (string) ($batch->error ?? '') !== '') {
+                    echo ' '.$form('discard', __('Abgebrochenen Import verwerfen', 'bootspruefung-learning'), 'delete');
+                }
                 break;
             case 'published':
                 if ($batch->package_id !== get_option('bp_learning_active_package')) {

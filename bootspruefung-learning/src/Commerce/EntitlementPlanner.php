@@ -138,9 +138,10 @@ final class EntitlementPlanner
         if (is_array($manual) && $status !== self::REVOKED) {
             return;
         }
-        // Widerruf nach Freischaltung ist endgültig (Erstattung/Storno); ein nie aktiver Zugang
-        // (fehlgeschlagene Zahlung, später doch bezahlt) darf wieder aufleben.
-        if (($row->status === self::REVOKED && $row->valid_from !== null) || ($row->status === self::EXPIRED && $status === self::ACTIVE)) {
+        // Ein automatischer Widerruf (Erstattung/Storno) lebt wieder auf, wenn die Bestellung wieder bezahlt
+        // und die Position nicht mehr erstattet ist (z. B. Erstattung gelöscht, Storno zurückgenommen).
+        // Manuelle Widerrufe (Admin, verlorener Zahlungskonflikt) bleiben – siehe oben. Abgelaufen bleibt abgelaufen.
+        if ($row->status === self::EXPIRED && $status === self::ACTIVE) {
             return;
         }
         if ($row->status === self::PENDING && $status === self::SUSPENDED) {

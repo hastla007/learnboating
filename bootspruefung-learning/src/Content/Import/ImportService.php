@@ -182,7 +182,8 @@ final class ImportService
     public function discard(int $batchId): void
     {
         $batch = $this->batch($batchId);
-        if (in_array($batch->status, ['importing', 'published'], true)) {
+        // Abgebrochene Importe (Status „importing“ mit Fehler) lassen sich verwerfen, laufende nicht.
+        if ($batch->status === 'published' || ($batch->status === 'importing' && (string) ($batch->error ?? '') === '')) {
             throw new RuntimeException('Laufende oder veröffentlichte Importe können nicht verworfen werden.');
         }
         $this->updateBatch($batchId, ['status' => 'discarded']);
@@ -202,8 +203,8 @@ final class ImportService
         if (! in_array($batch->status, ['approved', 'importing'], true)) {
             throw new RuntimeException('Import ist nicht freigegeben.');
         }
-        // Nur ein Import zur Zeit: ein anderer, noch nicht abgeschlossener Import hat Vorrang.
-        $other = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}bp_import_batch WHERE status = 'importing' AND id <> %d LIMIT 1", $batchId));
+        // Nur ein Import zur Zeit: ein anderer, noch laufender Import hat Vorrang (abgebrochene mit Fehler blockieren nicht).
+        $other = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}bp_import_batch WHERE status = 'importing' AND (error IS NULL OR error = '') AND id <> %d LIMIT 1", $batchId));
         if ($other !== null) {
             throw new RuntimeException(sprintf('Import #%d läuft noch – bitte erst abschließen.', (int) $other));
         }

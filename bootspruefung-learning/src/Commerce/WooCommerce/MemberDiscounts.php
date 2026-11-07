@@ -92,9 +92,11 @@ final class MemberDiscounts
         $now = current_time('mysql', true);
 
         return $wpdb->get_col($wpdb->prepare(
+            // Mitglied = eigener Kurszugang; reine Upgrades (Video/Simulator) ohne Basiskurs zählen nicht.
             "SELECT DISTINCT course_code FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d AND status = 'active'
-             AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s)",
-            $userId, $now, $now
+             AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s)
+             AND (sku_snapshot IS NULL OR (sku_snapshot NOT LIKE %s AND sku_snapshot <> %s))",
+            $userId, $now, $now, '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX), \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE
         ));
     }
 
@@ -116,8 +118,11 @@ final class MemberDiscounts
             unset($cart->cart_contents[$key]['bp_base_price']);
             $discount = self::discountFor($userId, $product);
             if ($discount === null) {
-                $product->set_price($base);
-                unset($cart->cart_contents[$key]['bp_member_discount']);
+                // Nur zurücksetzen, wenn wir vorher rabattiert hatten – Preise anderer Plugins nicht überschreiben.
+                if (isset($cart->cart_contents[$key]['bp_member_discount'])) {
+                    $product->set_price($base);
+                    unset($cart->cart_contents[$key]['bp_member_discount']);
+                }
                 continue;
             }
             $product->set_price(round($base * (1 - $discount['percent'] / 100), wc_get_price_decimals()));

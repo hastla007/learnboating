@@ -20,16 +20,23 @@ final class MoneyBackWoo
     public static function snapshot(\WC_Order $order): array
     {
         $items = [];
+        $allocated = 0.0;
         foreach ($order->get_items('line_item') as $item) {
             if ($item instanceof \WC_Order_Item_Product) {
-                $qty = (int) $item->get_quantity();
+                $refundedAmount = abs((float) $order->get_total_refunded_for_item($item->get_id()));
+                $allocated += $refundedAmount;
                 $items[] = [
                     'product_id' => (int) $item->get_product_id(),
                     'variation_id' => (int) $item->get_variation_id(),
-                    // Position vollständig erstattet (Menge oder Betrag)?
-                    'refunded' => ($qty > 0 && abs((int) $order->get_qty_refunded_for_item($item->get_id())) >= $qty)
-                        || ((float) $item->get_total() > 0 && abs((float) $order->get_total_refunded_for_item($item->get_id())) >= (float) $item->get_total() - 0.001),
+                    // Position (auch teilweise, z. B. Kulanz) erstattet? Dann gilt für sie keine Garantie mehr.
+                    'refunded' => $refundedAmount > 0 || abs((int) $order->get_qty_refunded_for_item($item->get_id())) > 0,
                 ];
+            }
+        }
+        // Erstattung ohne Positionsbezug (nur Betrag): gilt für die ganze Bestellung.
+        if ((float) $order->get_total_refunded() - $allocated > 0.009) {
+            foreach ($items as $i => $row) {
+                $items[$i]['refunded'] = true;
             }
         }
         $paid = $order->get_date_paid();
@@ -104,8 +111,9 @@ final class MoneyBackWoo
             $rows[] = sprintf(
                 '<tr><td>#%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s%s</td></tr>',
                 (int) $order->get_id(),
-                esc_html(wc_format_localized_decimal((string) $s['progress']).' % / '.wc_format_localized_decimal((string) $s['max_progress']).' %'),
-                esc_html(Labels::date($s['deadline'])),
+                // Erstattet bzw. ohne Frist: keine Lernstand-/Fristangaben (sonst „0 % / 0 %“, „dauerhaft“).
+                $s['deadline'] === null ? '–' : esc_html(wc_format_localized_decimal((string) $s['progress']).' % / '.wc_format_localized_decimal((string) $s['max_progress']).' %'),
+                $s['deadline'] === null ? '–' : esc_html(Labels::date($s['deadline'])),
                 esc_html(MoneyBack::reasonLabel($s['reason'])),
                 $action,
                 ''
@@ -115,7 +123,7 @@ final class MoneyBackWoo
             return;
         }
         echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
-        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt werden beantwortete Fragen und abgeschlossene Video-Lektionen seit dem Kauf. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
+        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt wird seit dem Kauf, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen). Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
         echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
     }
 
@@ -179,6 +187,11 @@ final class MoneyBackWoo
             return;
         }
         echo '<p class="form-field form-field-wide bp-money-back-admin"><strong>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').':</strong><br>';
+        if ($s['deadline'] === null) {
+            echo esc_html(MoneyBack::reasonLabel($s['reason'])).'</p>';
+
+            return;
+        }
         echo esc_html(sprintf(
             __('Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s – %4$s', 'bootspruefung-learning'),
             wc_format_localized_decimal((string) $s['progress']),

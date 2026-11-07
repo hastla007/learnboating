@@ -412,11 +412,16 @@ $orders->put(910002, $buyer, 'processing', '2026-10-01 10:00:00', [new OrderItem
 $sync->sync(910002);
 $g2 = $groupsService->forOrder(910002)[0];
 $check((int) $g2->seats === 6, 'Menge 2: 6 Plätze');
+foreach (array_slice($students, 0, 4) as $st) {
+    $groupsService->join((string) $g2->join_token, $st);
+}
 $orders->put(910002, $buyer, 'processing', '2026-10-01 10:00:00', [new OrderItemSnapshot(91200, 991001, 0, 2, 'SCHULE-3', 600.0, 1, 300.0)], 'klarna_payments');
 $sync->plan(910002);
 $check(array_column($sync->groupChanges(), 'change') === ['Plätze 6 → 3'], 'Vorschau: Plätze nach Teilerstattung');
 $sync->sync(910002);
 $check((int) $groupsService->find((int) $g2->id)->seats === 3 && $groupsService->find((int) $g2->id)->status === 'active', 'Teilerstattung eines Pakets: Plätze reduziert, Gruppe bleibt');
+$activeMembers = array_values(array_filter($groupsService->membersOf((int) $g2->id), static fn ($m) => $m->status === 'active'));
+$check(count($activeMembers) === 3 && (int) $activeMembers[0]->user_id === $students[0] && ! $access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank'), 'Teilerstattung: zuletzt beigetretenes Mitglied verliert den Platz, 3 bleiben');
 $check(count($groupsService->forOwner($buyer)) === 2, 'Besitzer sieht beide Gruppen');
 // Rückkehr nach Registrierung/Anmeldung (Gruppeneinladung, Kasse)
 $join = GroupService::joinUrl('gTEST');

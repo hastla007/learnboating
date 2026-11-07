@@ -99,11 +99,17 @@ final class VideoService
         $this->requireUnlocked($userId, $course, $lessonId);
         $steps = $this->db->get_results($this->db->prepare("SELECT title, sort_order FROM {$this->t('video_lesson_step')} WHERE lesson_id = %d ORDER BY sort_order", $lessonId));
         $quiz = [];
+        // Fragen einer laufenden Prüfung nicht im Videoquiz zeigen (Auswertung würde die Lösung verraten).
+        $inExam = array_flip(array_map('intval', $this->db->get_col($this->db->prepare(
+            "SELECT sq.question_id FROM {$this->t('exam_session')} s JOIN {$this->t('exam_session_question')} sq ON sq.session_id = s.id
+             WHERE s.user_id = %d AND s.status = 'running' AND (s.deadline_at IS NULL OR s.deadline_at > %s)",
+            $userId, current_time('mysql', true)
+        ))));
         foreach ($this->db->get_results($this->db->prepare(
             "SELECT q.id FROM {$this->t('video_lesson_question')} vq JOIN {$this->t('question')} q ON q.id = vq.question_id WHERE vq.lesson_id = %d ORDER BY vq.sort_order",
             $lessonId
         )) as $row) {
-            if (! $this->content->isDeliverable((int) $row->id)) {
+            if (isset($inExam[(int) $row->id]) || ! $this->content->isDeliverable((int) $row->id)) {
                 continue;
             }
             $revisionId = (int) $this->db->get_var($this->db->prepare("SELECT current_revision_id FROM {$this->t('question')} WHERE id = %d", $row->id));

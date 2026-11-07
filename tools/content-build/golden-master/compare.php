@@ -178,6 +178,11 @@ $lv = [];
 foreach ($q('SELECT r.*, c.code FROM exam_rule_set r JOIN course_definition c ON c.id = r.course_id WHERE c.tenant_id IS NULL') as $r) {
     $rule = json_decode((string) $r['passing_rule'], true);
     $bp = $blueprints[$r['id']] ?? [];
+    // Bekannte, dokumentierte Korrekturen des Konverters gegenüber der Quelle (PackageBuilder::EXAM_COUNT_CORRECTIONS).
+    $corrections = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24]; // = PackageBuilder::EXAM_COUNT_CORRECTIONS
+    if (isset($corrections[$r['code']])) {
+        $bp = array_map(static fn () => $corrections[$r['code']], $bp);
+    }
     ksort($bp);
     $lv[$r['code'].'@'.$r['version']] = [
         'time_limit_seconds' => (int) $r['time_limit_seconds'],

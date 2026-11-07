@@ -261,6 +261,9 @@ $check(count($task['questions']) === 9 && $task['questions'][0]['answer'] === nu
 [$s, $a] = $req('POST', '/courses/SBF-SEE/navigation-questions/'.$task['questions'][0]['id'], ['answer' => 'Test', 'self_assessment' => 'correct']);
 [, $tasks] = $req('GET', '/courses/SBF-SEE/navigation');
 $check($s === 200 && $a['answer'] !== '' && $tasks[0]['done'] === 1, 'Navigation: Ergebnis und Selbsteinschätzung gespeichert');
+$req('POST', '/courses/SBF-SEE/navigation-questions/'.$task['questions'][0]['id'], ['answer' => 'Neu 50%d']);
+$saved = $wpdb->get_row($wpdb->prepare("SELECT answer_text, self_assessment FROM {$p}navigation_progress WHERE navigation_question_id = %d ORDER BY id DESC LIMIT 1", $task['questions'][0]['id']));
+$check($saved && $saved->self_assessment === 'correct' && $saved->answer_text === 'Neu 50%d', 'Navigation: neue Antwort ohne Einschätzung behält die Einschätzung (auch mit %)');
 [, $praxis] = $req('GET', '/courses/SBF-SEE/praxis');
 [$s] = $req('PUT', '/courses/SBF-SEE/praxis/'.$praxis['categories'][0]['cards'][0]['id'], ['status' => 'known']);
 [, $praxis] = $req('GET', '/courses/SBF-SEE/praxis');

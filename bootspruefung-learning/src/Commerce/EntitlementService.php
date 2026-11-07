@@ -124,6 +124,10 @@ final class EntitlementService
         if ($to === EntitlementPlanner::ACTIVE && $row->valid_from === null) {
             $this->setValidity($id, $c['date_paid'] ?? null);
         }
+        // Erstatteter/widerrufener Zugang: anschließende Verlängerungen rücken nach vorn (sonst bezahlt, aber nicht nutzbar).
+        if ($row->status === EntitlementPlanner::ACTIVE && $to === EntitlementPlanner::REVOKED && $row->valid_until !== null) {
+            $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
+        }
 
         return true;
     }
@@ -153,6 +157,41 @@ final class EntitlementService
         }
         $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until], ['id' => $id]);
         $this->alignVideoUpgrades($row);
+    }
+
+    /**
+     * Noch nicht begonnene Verlängerungen (renewal_mode extend) neu verketten: Beginn = Ende der vorher
+     * gültigen aktiven Zugänge bzw. jetzt, Laufzeit bleibt gleich.
+     */
+    private function restackExtensions(int $userId, string $course, string $feature): void
+    {
+        $now = self::now();
+        $future = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_from > %s AND valid_until IS NOT NULL ORDER BY valid_from, id",
+            $userId, $course, $feature, $now
+        ));
+        if ($future === []) {
+            return;
+        }
+        $anchor = (string) ($this->db->get_var($this->db->prepare(
+            "SELECT MAX(valid_until) FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND (valid_from IS NULL OR valid_from <= %s) AND valid_until IS NOT NULL",
+            $userId, $course, $feature, $now
+        )) ?? $now);
+        foreach ($future as $f) {
+            if ((EntitlementPlanner::meta($f)['renewal_mode'] ?? 'extend') !== 'extend') {
+                continue;
+            }
+            $length = strtotime($f->valid_until.' UTC') - strtotime($f->valid_from.' UTC');
+            $start = max($anchor, $now);
+            if ($start < $f->valid_from) {
+                $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $length);
+                $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'updated_at' => $now], ['id' => (int) $f->id]);
+                AuditLog::record('entitlement_restacked', 'entitlement', (string) $f->id, null, ['from' => $f->valid_from, 'to' => $start]);
+                $anchor = $until;
+            } else {
+                $anchor = (string) $f->valid_until;
+            }
+        }
     }
 
     /**
@@ -206,6 +245,7 @@ final class EntitlementService
         if (get_userdata($userId) === false) {
             throw new \InvalidArgumentException(__('Benutzer nicht gefunden.', 'bootspruefung-learning'));
         }
+        self::assertFuture($validUntil);
         $ids = [];
         $reference = 'manual:'.wp_generate_uuid4();
         $now = self::now();
@@ -222,12 +262,24 @@ final class EntitlementService
         return $ids;
     }
 
+    /** Enddatum muss in der Zukunft liegen (sonst „aktiv“ angezeigt, aber wirkungslos). */
+    private static function assertFuture(?string $validUntil): void
+    {
+        if ($validUntil !== null && $validUntil <= self::now()) {
+            throw new \InvalidArgumentException(__('Das Enddatum liegt in der Vergangenheit. Bitte ein künftiges Datum wählen oder „dauerhaft“.', 'bootspruefung-learning'));
+        }
+    }
+
     /** Enddatum setzen/verlängern (null = dauerhaft). */
     public function extend(int $id, ?string $validUntil, string $reason): void
     {
         $reason = self::requireReason($reason);
         $row = $this->mustFind($id);
         $this->db->update($this->table, ['valid_until' => $validUntil, 'updated_at' => self::now()], ['id' => $id]);
+        // Enddatum in der Vergangenheit = sofort beenden: als abgelaufen kennzeichnen statt „aktiv“ anzuzeigen.
+        if ($validUntil !== null && $validUntil <= self::now() && $row->status === EntitlementPlanner::ACTIVE) {
+            $this->db->update($this->table, ['status' => EntitlementPlanner::EXPIRED], ['id' => $id]);
+        }
         if ($row->status === EntitlementPlanner::EXPIRED && ($validUntil === null || $validUntil > self::now())) {
             $this->db->update($this->table, ['status' => EntitlementPlanner::ACTIVE], ['id' => $id]);
         }

@@ -24,6 +24,7 @@ final class Menu
     {
         add_action('admin_menu', [$this, 'addPages']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue']);
+        add_action('admin_footer', [$this, 'confirmScript']);
         (new ImportPage())->register();
         (new ContentPages())->register();
         (new AccessPages())->register();
@@ -60,6 +61,17 @@ final class Menu
         foreach ($pages as [$slug, $title, $cap, $callback]) {
             add_submenu_page(self::SLUG, $title, $title, $cap, $slug, $callback);
         }
+    }
+
+    /** Rückfrage vor endgültigen Aktionen (Löschen, Widerrufen, Verwerfen) auf den Bootsprüfung-Seiten. */
+    public function confirmScript(): void
+    {
+        $page = sanitize_key((string) ($_GET['page'] ?? ''));
+        if (! str_starts_with($page, 'bootspruefung')) {
+            return;
+        }
+        $default = esc_js(__('Wirklich ausführen? Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning'));
+        echo "<script>document.addEventListener('submit',function(e){var b=e.submitter;if(!b){return;}var m=b.getAttribute('data-bp-confirm')||((b.classList.contains('button-link-delete')||b.classList.contains('delete'))?'{$default}':null);if(m&&!window.confirm(m)){e.preventDefault();}},true);</script>"; // phpcs:ignore
     }
 
     public function enqueue(string $hook): void
@@ -143,6 +155,11 @@ final class Menu
         }
         $settings = Settings::all();
         echo '<div class="wrap"><h1>'.esc_html__('Bootsprüfung – Einstellungen', 'bootspruefung-learning').'</h1>';
+        // Untermenü-Seiten zeigen die „Gespeichert“-Meldung nicht von selbst.
+        if (! empty($_GET['settings-updated'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>'.esc_html__('Einstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
+        }
+        settings_errors('bp_learning');
         echo '<form method="post" action="options.php">';
         settings_fields('bp_learning');
         echo '<table class="form-table"><tbody>';
@@ -151,7 +168,7 @@ final class Menu
             esc_html__('Deinstallation', 'bootspruefung-learning'),
             esc_attr(Settings::OPTION),
             checked($settings['delete_data_on_uninstall'], true, false),
-            esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände und Zugänge entfernen', 'bootspruefung-learning')
+            esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände, Zugänge, Einstellungen, Tipps und importierten Medien entfernen (Seekarten werden gelöscht, geschützte Kurs-PDFs bleiben gesperrt unter uploads/bootspruefung/)', 'bootspruefung-learning')
         );
         printf('<tr><th scope="row">%s</th><td><select name="%s[default_access]">', esc_html__('Zugang ohne Shop', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'), 'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning')] as $value => $label) {

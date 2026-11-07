@@ -155,7 +155,7 @@ final class AccessPages
         echo '<button class="button" name="op" value="extend">'.esc_html__('Enddatum setzen', 'bootspruefung-learning').'</button></p><p>';
         foreach (['active' => __('Aktivieren', 'bootspruefung-learning'), 'suspended' => __('Aussetzen', 'bootspruefung-learning'), 'revoked' => __('Widerrufen', 'bootspruefung-learning')] as $op => $label) {
             if ($row->status !== $op) {
-                printf('<button class="button" name="op" value="%s">%s</button> ', esc_attr($op), esc_html($label));
+                printf('<button class="button" name="op" value="%s"%s>%s</button> ', esc_attr($op), $op === 'revoked' ? ' data-bp-confirm="'.esc_attr__('Zugang wirklich widerrufen?', 'bootspruefung-learning').'"' : '', esc_html($label));
             }
         }
         if (isset($meta['manual']) && $row->source === EntitlementService::SOURCE_WOO) {
@@ -206,7 +206,7 @@ final class AccessPages
                 throw new \InvalidArgumentException(__('Bitte Kurs und mindestens eine Funktion wählen.', 'bootspruefung-learning'));
             }
             $ids = $this->service()->grantManual((int) $user->ID, $course, $features, self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? ''))), sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
-            Ui::flash(sprintf(__('%d Zugang/Zugänge freigegeben.', 'bootspruefung-learning'), count($ids)));
+            Ui::flash(sprintf(_n('%d Zugang freigegeben.', '%d Zugänge freigegeben.', count($ids), 'bootspruefung-learning'), count($ids)));
         } catch (\InvalidArgumentException $e) {
             Ui::flash($e->getMessage(), 'error');
         }
@@ -463,7 +463,7 @@ final class AccessPages
                 $remove = $m->status === 'removed' ? '' : '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline">'.wp_nonce_field('bp_group_admin', '_wpnonce', true, false)
                     .'<input type="hidden" name="action" value="bp_group_admin"><input type="hidden" name="op" value="remove"><input type="hidden" name="group" value="'.(int) $group->id.'"><input type="hidden" name="member" value="'.(int) $m->id.'">'
                     .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> <button class="button-link-delete">'.esc_html__('Platz freigeben', 'bootspruefung-learning').'</button></form>';
-                $rows[] = [esc_html(($m->display_name ?: '–').($m->email ? ' <'.$m->email.'>' : '')), esc_html($m->status), esc_html(Ui::date($m->joined_at ?: $m->invited_at)), $remove];
+                $rows[] = [esc_html(($m->display_name ?: '–').($m->email ? ' <'.$m->email.'>' : '')), esc_html(['active' => __('aktiv', 'bootspruefung-learning'), 'invited' => __('eingeladen', 'bootspruefung-learning'), 'removed' => __('entfernt', 'bootspruefung-learning')][$m->status] ?? $m->status), esc_html(Ui::date($m->joined_at ?: $m->invited_at)), $remove];
             }
             echo '<h2>'.esc_html__('Teilnehmende', 'bootspruefung-learning').'</h2>';
             Ui::table([__('Person', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('seit', 'bootspruefung-learning'), ''], $rows, __('Noch niemand eingeladen.', 'bootspruefung-learning'));
@@ -473,7 +473,7 @@ final class AccessPages
             echo '<p><input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"></p><p>';
             foreach (['active' => __('Aktivieren', 'bootspruefung-learning'), 'suspended' => __('Aussetzen', 'bootspruefung-learning'), 'revoked' => __('Beenden (alle Plätze widerrufen)', 'bootspruefung-learning')] as $status => $label) {
                 if ($group->status !== $status && $group->status !== 'revoked') {
-                    printf('<button class="button" name="status" value="%s">%s</button> ', esc_attr($status), esc_html($label));
+                    printf('<button class="button" name="status" value="%s"%s>%s</button> ', esc_attr($status), $status === 'revoked' ? ' data-bp-confirm="'.esc_attr__('Gruppe wirklich beenden? Alle Plätze werden widerrufen.', 'bootspruefung-learning').'"' : '', esc_html($label));
                 }
             }
             echo '</p></form></div>';

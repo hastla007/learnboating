@@ -113,10 +113,12 @@ final class GroupService
             return $this->find((int) $this->db->insert_id);
         }
 
-        // Plätze nach Teilerstattung anpassen (bestehende Mitglieder bleiben, neue Einladungen sind gesperrt).
+        // Plätze nach Teilerstattung anpassen; überzählige Plätze werden frei (offene Einladungen zuerst,
+        // dann die zuletzt beigetretenen Mitglieder) – bezahlt ist nur die verbleibende Anzahl.
         if ($decision['seats'] !== null) {
             $this->db->update($this->groups, ['seats' => $decision['seats'], 'updated_at' => EntitlementService::now()], ['id' => $group->id]);
             AuditLog::record('group_seats_changed', 'group', (string) $group->id, $reason, ['from' => (int) $group->seats, 'to' => $decision['seats']]);
+            $this->trimMembers((int) $group->id, (int) $decision['seats'], $reason);
         }
         if ($order->userId > 0 && (int) $group->owner_user_id !== $order->userId) {
             $this->db->update($this->groups, ['owner_user_id' => $order->userId], ['id' => $group->id]);
@@ -264,6 +266,25 @@ final class GroupService
             $reason !== '' ? $reason : 'group_member_removed', $now, self::reference($groupId, $memberId)
         ));
         AuditLog::record('group_member_removed', 'group', (string) $groupId, $reason, ['member' => $memberId, 'user_id' => $member->user_id]);
+    }
+
+    /** Mitglieder über der Platzzahl entfernen (Einladungen zuerst, dann zuletzt Beigetretene). */
+    private function trimMembers(int $groupId, int $seats, string $reason): void
+    {
+        $members = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->members} WHERE group_id = %d AND status IN ('active','invited') ORDER BY (status = 'active'), id DESC",
+            $groupId
+        ));
+        $surplus = count($members) - max(0, $seats);
+        $now = EntitlementService::now();
+        foreach (array_slice($members, 0, max(0, $surplus)) as $member) {
+            $this->db->update($this->members, ['status' => 'removed', 'invite_token' => null, 'removed_at' => $now, 'updated_at' => $now], ['id' => (int) $member->id]);
+            $this->db->query($this->db->prepare(
+                "UPDATE {$this->entitlements} SET status = 'revoked', reason = %s, updated_at = %s WHERE reference_key = %s",
+                'group_seats_reduced', $now, self::reference($groupId, (int) $member->id)
+            ));
+            AuditLog::record('group_member_removed', 'group', (string) $groupId, $reason, ['member' => (int) $member->id, 'user_id' => $member->user_id, 'cause' => 'seats_reduced']);
+        }
     }
 
     /** Neuer Gruppenlink (alter Link wird ungültig). */

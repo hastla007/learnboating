@@ -119,7 +119,8 @@ $orders->put(900003, $alice, 'completed', '2026-03-01 10:00:00', [$item(3001, 99
 $sync->sync(900003);
 $check($statuses(900003) === ['revoked'], 'vollständige Erstattung der Position widerruft');
 $orders->put(900003, $alice, 'completed', '2026-03-01 10:00:00', [$item(3001, 990002), $item(3002, 12345)]);
-$check($changes($sync->sync(900003)) === 0, 'Widerruf nach Erstattung ist endgültig');
+$sync->sync(900003);
+$check($statuses(900003) === ['active'], 'Erstattung zurückgenommen: Zugang lebt wieder auf');
 
 // Bundle: zwei Lernpositionen, nur eine erstattet.
 $orders->put(900004, $bob, 'processing', '2026-03-02 10:00:00', [$item(4001, 990001), $item(4002, 990002)]);
@@ -225,7 +226,14 @@ $check($threw, 'manuelle Freigabe ohne Begründung abgewiesen');
 $ids = $entitlements->grantManual($alice, $course, ['praxis_trainer', 'navigation_trainer'], '2030-01-01 00:00:00', 'Kulanz');
 $check(count($ids) === 2 && $access->can($alice, $course, 'praxis_trainer'), 'manuelle Freigabe zweier Features');
 $entitlements->extend($ids[0], '2020-01-01 00:00:00', 'Test abgelaufen');
-$check(! $access->can($alice, $course, 'praxis_trainer'), 'Enddatum in der Vergangenheit sperrt');
+$check(! $access->can($alice, $course, 'praxis_trainer') && $entitlements->find($ids[0])->status === 'expired', 'Enddatum in der Vergangenheit sperrt und zeigt „abgelaufen“');
+$threwPast = false;
+try {
+    $entitlements->grantManual($alice, $course, ['praxis_trainer'], '2020-01-01 00:00:00', 'Test');
+} catch (\InvalidArgumentException $e) {
+    $threwPast = true;
+}
+$check($threwPast, 'Freigabe mit Enddatum in der Vergangenheit abgewiesen');
 $entitlements->extend($ids[0], null, 'dauerhaft');
 $check($access->can($alice, $course, 'praxis_trainer'), 'dauerhaft verlängert');
 $entitlements->setStatusManual($ids[1], 'revoked', 'Missbrauch');

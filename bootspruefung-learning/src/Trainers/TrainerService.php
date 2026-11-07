@@ -144,15 +144,14 @@ final class TrainerService
         if ($assessment !== null && ! in_array($assessment, ['correct', 'partly', 'wrong'], true)) {
             throw new RuntimeException(__('Ungültige Selbsteinschätzung.', 'bootspruefung-learning'));
         }
-        $this->db->query($this->db->prepare(
-            "INSERT INTO {$this->t('navigation_progress')} (user_id, navigation_question_id, answer_text, self_assessment, done) VALUES (%d, %d, %s, %s, %d)
-             ON DUPLICATE KEY UPDATE answer_text = COALESCE(VALUES(answer_text), answer_text), self_assessment = COALESCE(VALUES(self_assessment), self_assessment), done = GREATEST(done, VALUES(done))",
-            $userId,
-            $questionId,
-            $answer === null ? null : mb_substr($answer, 0, 5000),
-            $assessment,
-            $assessment !== null ? 1 : 0
-        ));
+        // NULL als SQL-Literal (prepare('%s', null) ergäbe '' und würde gespeicherte Werte überschreiben).
+        $answerSql = $answer === null ? 'NULL' : $this->db->prepare('%s', mb_substr($answer, 0, 5000));
+        $assessmentSql = $assessment === null ? 'NULL' : $this->db->prepare('%s', $assessment);
+        // Werte oben einzeln vorbereitet, IDs als int – kein zweites prepare() über Nutzertext (wegen „%“).
+        $this->db->query(
+            "INSERT INTO {$this->t('navigation_progress')} (user_id, navigation_question_id, answer_text, self_assessment, done) VALUES (".(int) $userId.', '.(int) $questionId.", {$answerSql}, {$assessmentSql}, ".($assessment !== null ? 1 : 0).')
+             ON DUPLICATE KEY UPDATE answer_text = COALESCE(VALUES(answer_text), answer_text), self_assessment = COALESCE(VALUES(self_assessment), self_assessment), done = GREATEST(done, VALUES(done))'
+        );
 
         return ['answer' => $q->answer_text, 'self_assessment' => $assessment, 'done' => $assessment !== null];
     }

@@ -24,9 +24,9 @@ if (! Settings::get('delete_data_on_uninstall')) {
 }
 
 global $wpdb;
-// Geschützte Mediathek-Dateien vorher an ihren Ort zurücklegen (die Dateien gehören dem Betreiber).
-foreach (get_posts(['post_type' => 'attachment', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => \Bootspruefung\Learning\Gate\ProtectedFiles::PATH_META]) as $attachmentId) {
-    \Bootspruefung\Learning\Gate\ProtectedFiles::unprotect((int) $attachmentId);
+// Lizenzierte Seekarten (BSH) ganz löschen – sie dürfen nach der Deinstallation nicht öffentlich werden.
+foreach (get_posts(['post_type' => 'attachment', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_bp_chart']) as $chartId) {
+    wp_delete_attachment((int) $chartId, true);
 }
 (new Migrator($wpdb))->dropAll();
 Capabilities::removeFromAllRoles();
@@ -38,8 +38,11 @@ foreach (get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE,
     wp_delete_post((int) $tipId, true);
 }
 wp_clear_scheduled_hook('bp_learning_hourly');
-// Importierte Medien und Pakete (uploads/bootspruefung/).
+// Importierte Medien und Pakete löschen. Geschützte Kurs-PDFs bleiben im gesperrten Ordner
+// uploads/bootspruefung/protected-*/ (nicht öffentlich abrufbar), damit nichts ungewollt frei wird.
 $dir = \Bootspruefung\Learning\Content\Media\MediaStorage::baseDir();
-if (is_dir($dir)) {
-    \Bootspruefung\Learning\Content\Import\ImportService::removeDir($dir);
+foreach (['media', 'packages'] as $sub) {
+    if (is_dir($dir.'/'.$sub)) {
+        \Bootspruefung\Learning\Content\Import\ImportService::removeDir($dir.'/'.$sub);
+    }
 }

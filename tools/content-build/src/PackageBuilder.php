@@ -539,6 +539,13 @@ final class PackageBuilder
         }
     }
 
+    /**
+     * Korrekturen gegenüber der Quelle (Review 07.11.2026): dort fehlt die Fragenzahl der Zufallsprüfung,
+     * sodass 10 Fragen (statt wie in den amtlichen Bögen 7 bzw. 24) gezogen und die Bestehensgrenze verfälscht wurde.
+     * Der Golden-Master-Vergleich wendet dieselben Korrekturen auf die Laravel-Seite an.
+     */
+    public const EXAM_COUNT_CORRECTIONS = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24];
+
     /** Wie ExamRuleSetSeeder (Version draft-2026-09). @return list<array<string,mixed>> */
     private function buildExamRules(): array
     {
@@ -548,7 +555,7 @@ final class PackageBuilder
             'SBF-SEE' => ['SBF_BASIS' => 7, 'SBF_SEE' => 23],
             'SBF-BIN-MOTOR' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23],
             'SBF-BIN-SEGEL' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23, 'SBF_BINNEN_SEGELN' => 7],
-        ];
+        ] + self::EXAM_COUNT_CORRECTIONS;
         $timeLimits = [
             'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
             'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'SBF-BIN-SEGEL' => 3600, 'SKN' => 3600, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,

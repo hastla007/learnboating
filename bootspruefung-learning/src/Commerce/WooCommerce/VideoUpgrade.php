@@ -98,7 +98,8 @@ final class VideoUpgrade
         foreach (self::cartBasesWithoutVideo(self::cartSkus()) as $base) {
             $upgrade = self::product(ShopCatalog::videoSku($base));
             $course = self::baseCourse($base);
-            if (! $upgrade || $course === null || (get_current_user_id() > 0 && (new AccessService())->full(get_current_user_id(), $course, AccessService::VIDEO))) {
+            // Auch bei Verlängerung (Theorie erneut im Warenkorb, Video noch aktiv): Upgrade für die neue Laufzeit anbieten.
+            if (! $upgrade || $course === null) {
                 continue;
             }
             $price = wp_strip_all_tags(wc_price((float) $upgrade->get_price()));
@@ -174,7 +175,8 @@ final class VideoUpgrade
         }
         $skus = self::cartSkus();
         $course = (string) self::baseCourse($base);
-        if (isset($skus[ShopCatalog::komplettSku($base)]) || isset($skus[ShopCatalog::videoSku($base)]) || (get_current_user_id() > 0 && (new AccessService())->full(get_current_user_id(), $course, AccessService::VIDEO))) {
+        $renewal = isset($skus[$base]); // Theorie im Warenkorb: Upgrade gilt für die neue Laufzeit
+        if (isset($skus[ShopCatalog::komplettSku($base)]) || isset($skus[ShopCatalog::videoSku($base)]) || (! $renewal && get_current_user_id() > 0 && (new AccessService())->full(get_current_user_id(), $course, AccessService::VIDEO))) {
             wc_add_notice(__('Der Videokurs ist bereits enthalten.', 'bootspruefung-learning'), 'error');
 
             return false;
@@ -218,7 +220,7 @@ final class VideoUpgrade
                 $message = $isTheory
                     ? __('Der Theoriekurs wurde entfernt, weil der Kurs als „Komplett mit Videokurs“ im Warenkorb liegt.', 'bootspruefung-learning')
                     : __('Das Video-Upgrade wurde entfernt, weil der Kurs als „Komplett mit Videokurs“ im Warenkorb liegt.', 'bootspruefung-learning');
-            } elseif ($isUpgrade && $userId > 0 && (new AccessService())->full($userId, $course, AccessService::VIDEO)) {
+            } elseif ($isUpgrade && ! isset($skus[$base]) && $userId > 0 && (new AccessService())->full($userId, $course, AccessService::VIDEO)) {
                 $message = __('Das Video-Upgrade wurde entfernt, weil dein Videokurs bereits freigeschaltet ist.', 'bootspruefung-learning');
             } elseif ($isUpgrade && ! isset($skus[$base]) && ! self::ownsTheory($userId, $course)) {
                 $message = __('Das Video-Upgrade wurde entfernt, weil der passende Theoriekurs nicht mehr im Warenkorb liegt.', 'bootspruefung-learning');

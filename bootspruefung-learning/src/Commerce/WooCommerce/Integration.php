@@ -57,6 +57,16 @@ final class Integration
         add_action('woocommerce_order_refunded', $sync, 20, 1);
         add_action('woocommerce_refund_deleted', static fn ($refundId, $orderId) => self::sync()->sync((int) $orderId), 20, 2);
         add_action('woocommerce_process_shop_order_meta', $sync, 60, 1);
+        // Bestellung endgültig gelöscht: Zugänge und Gruppen widerrufen (der Abgleich findet sie danach nicht mehr).
+        $deleted = static function ($orderId): void {
+            self::sync()->revokeOrder((int) $orderId, __('Bestellung gelöscht', 'bootspruefung-learning'));
+        };
+        add_action('woocommerce_before_delete_order', $deleted, 10, 1);
+        add_action('before_delete_post', static function ($postId) use ($deleted): void {
+            if (in_array(get_post_type((int) $postId), ['shop_order', 'shop_order_placehold'], true)) {
+                $deleted($postId);
+            }
+        }, 10, 1);
 
         // Öffentliche Hooks für Gateway-spezifische Ereignisse (z. B. Dispute-Webhooks).
         add_action('bootspruefung_suspend_order', static fn ($orderId, $reason = '') => self::sync()->suspendOrder((int) $orderId, (string) ($reason ?: __('Zahlungskonflikt gemeldet', 'bootspruefung-learning'))), 10, 2);
@@ -313,6 +323,8 @@ final class Integration
         if ($sentToAdmin || ! $order instanceof \WC_Order) {
             return;
         }
+        // WooCommerce verschickt die Mail vor unserem Abgleich (Statushooks) – erst abgleichen, dann den Stand nennen.
+        self::sync()->sync((int) $order->get_id(), 'email');
         $notice = $this->accessNotice((int) $order->get_id(), (bool) $plainText);
         echo $plainText ? esc_html(wp_strip_all_tags($notice))."\n\n" : $notice; // phpcs:ignore
     }
@@ -333,7 +345,10 @@ final class Integration
         if ($rows === []) {
             return '';
         }
-        $active = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::ACTIVE);
+        // Nur Zugänge nennen, die wirklich nutzbar sind (z. B. kein Video-Upgrade ohne Theorie).
+        $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
+        $active = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::ACTIVE
+            && ($r->feature_code === 'all' ? $access->full((int) $r->user_id, (string) $r->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK) : $access->full((int) $r->user_id, (string) $r->course_code, (string) $r->feature_code)));
         $pending = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::PENDING);
         if ($active !== []) {
             $courses = array_unique(array_map(static fn ($r) => $r->course_code, $active));
