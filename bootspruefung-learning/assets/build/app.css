@@ -1265,3 +1265,24 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-chart-time span::before { content: ''; position: absolute; left: 50%; top: -0.4rem; height: 0.3rem; border-left: 1px solid currentColor; }
 .bp-chart-key.is-failed::before { background: var(--bp-bad); }
 .bp-chart-key::before { border-radius: 50%; }
+
+/* Filter über Prüfungsverlauf */
+.bp-results-wrap { display: flex; flex-direction: column; gap: 0.9rem; }
+.bp-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.7rem 1rem; padding: 0.9rem 1.1rem; border: 1px solid var(--bp-border); border-radius: 16px; background: var(--bp-surface); }
+.bp-filter-bar label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; }
+.bp-filter-bar label > span { opacity: 0.7; }
+.bp-filter-bar input, .bp-filter-bar select { min-height: 42px; padding: 0.3rem 0.7rem; border: 1.5px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 10px; background: var(--bp-surface); color: inherit; font: inherit; font-size: 0.92rem; font-weight: 500; }
+.bp-filter-bar select { min-width: 190px; }
+.bp-filter-bar input:focus-visible, .bp-filter-bar select:focus-visible { outline: 3px solid var(--bp-accent); outline-offset: 1px; }
+.bp-filter-bar .bp-link-button { min-height: 42px; }
+.bp-results-empty { padding: 1.5rem; border: 1px dashed var(--bp-border); border-radius: 16px; text-align: center; grid-column: 1 / -1; }
+.bp-history-more { margin: -0.3rem 0 0.4rem; font-size: 0.8rem; }
+@media (max-width: 600px) {
+	.bp-filter-bar label { flex: 1 1 140px; }
+	.bp-filter-bar select { min-width: 0; width: 100%; }
+	.bp-filter-bar input { width: 100%; box-sizing: border-box; }
+}
+.bp-chart { max-height: 360px; }
+.bp-chart-foot { margin-top: auto; padding-top: 0.6rem; }
+.bp-exam-results { align-items: start; }
+.bp-chart { flex: none; height: 300px; max-height: none; }

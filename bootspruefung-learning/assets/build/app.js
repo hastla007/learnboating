@@ -1076,35 +1076,109 @@
 				el('div', { class: 'bp-topic-group-body' }, [grid])
 			]));
 		}
-		if (exam.history.length) {
-			var list = el('ul', { class: 'bp-history' });
-			exam.history.forEach(function (h) {
+		var results = exam.results || exam.history;
+		if (results.length) {
+			section.appendChild(examResults(slug, results));
+		}
+		return section;
+	}
+
+	function resultKind(h) {
+		return h.paper_number ? t('paper_short', { number: h.paper_number }) : (h.paper_id ? t('paper_label') : t('simulation_label'));
+	}
+
+	function resultTime(h) {
+		var d = h.submitted_at ? new Date(String(h.submitted_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+		return isNaN(d) ? null : d;
+	}
+
+	function localDay(ms) {
+		var d = new Date(ms);
+		return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+	}
+
+	// Ergebnisse mit Filtern (Zeitraum von–bis, einzelner Test): Liste „Letzte Ergebnisse“ + Prüfungsverlauf.
+	function examResults(slug, results) {
+		// Neueste zuerst nach Abgabezeit (nicht nach ID), damit Liste und Linie chronologisch sind.
+		results = results.slice().sort(function (a, b) { return (resultTime(b) || 0) - (resultTime(a) || 0); });
+		var days = results.map(resultTime).filter(function (x) { return x !== null; }).map(localDay).sort();
+		var minDay = days[0] || '';
+		var maxDay = days[days.length - 1] || '';
+		var tests = [];
+		if (results.some(function (h) { return !h.paper_id; })) { tests.push(['sim', t('filter_test_sim')]); }
+		var nums = {};
+		results.forEach(function (h) { if (h.paper_id) { nums[h.paper_id] = h.paper_number || 0; } });
+		Object.keys(nums).sort(function (a, b) { return nums[a] - nums[b]; }).forEach(function (id) { tests.push(['p' + id, nums[id] ? t('paper_title', { number: nums[id] }) : t('paper_label')]); });
+
+		var from = el('input', { type: 'date', id: 'bp-res-from', min: minDay, max: maxDay, value: minDay });
+		var to = el('input', { type: 'date', id: 'bp-res-to', min: minDay, max: maxDay, value: maxDay });
+		var test = el('select', { id: 'bp-res-test' }, [el('option', { value: '', text: t('filter_test_all') })].concat(tests.map(function (o) { return el('option', { value: o[0], text: o[1] }); })));
+		var reset = el('button', { type: 'button', class: 'bp-link-button', text: t('filter_reset') });
+		var status = el('p', { class: 'bp-sr', role: 'status' });
+		var body = el('div', { class: 'bp-exam-results' });
+		var bar = el('div', { class: 'bp-filter-bar', role: 'group', 'aria-label': t('filter_label') }, [
+			el('label', { for: 'bp-res-from' }, [el('span', { text: t('filter_from') }), from]),
+			el('label', { for: 'bp-res-to' }, [el('span', { text: t('filter_to') }), to]),
+			el('label', { for: 'bp-res-test' }, [el('span', { text: t('filter_test') }), test]),
+			reset, status
+		]);
+
+		function render() {
+			var f = from.value || minDay;
+			var tt = to.value || maxDay;
+			if (f > tt) { var tmp = f; f = tt; tt = tmp; }
+			var sel = test.value;
+			var list = results.filter(function (h) {
+				var ms = resultTime(h);
+				var day = ms === null ? null : localDay(ms);
+				if (day !== null && (day < f || day > tt)) { return false; }
+				if (sel === 'sim') { return !h.paper_id; }
+				if (sel) { return 'p' + h.paper_id === sel; }
+				return true;
+			});
+			var testName = sel ? test.options[test.selectedIndex].text : null;
+			reset.hidden = from.value === minDay && to.value === maxDay && !sel;
+			status.textContent = t('filter_status', { n: list.length });
+			if (!list.length) {
+				body.replaceChildren(el('div', { class: 'bp-empty bp-results-empty' }, [el('p', { text: t('filter_empty') })]));
+				return;
+			}
+			var ul = el('ul', { class: 'bp-history' });
+			list.slice(0, 10).forEach(function (h) {
 				var pct = h.max ? Math.floor(h.score * 100 / h.max) : 0;
-				list.appendChild(el('li', { class: h.passed ? 'is-passed' : 'is-failed' }, [
+				ul.appendChild(el('li', { class: h.passed ? 'is-passed' : 'is-failed' }, [
 					el('span', { class: 'bp-history-ico', 'aria-hidden': 'true' }),
 					el('span', { class: 'bp-history-text' }, [
-						link(slug + '/pruefung/' + h.session_id + '/', (h.paper_id ? t('paper_label') : t('simulation_label')) + ' · ' + h.score + '/' + h.max),
+						link(slug + '/pruefung/' + h.session_id + '/', resultKind(h) + ' · ' + h.score + '/' + h.max),
 						el('span', { class: 'bp-history-meta', text: (h.submitted_at ? fmtDate(h.submitted_at) + ' · ' : '') + pct + ' %' })
 					]),
 					badge(h.passed ? t('passed') : t('failed'), h.passed ? 'ok' : 'bad')
 				]));
 			});
-			section.appendChild(el('div', { class: 'bp-exam-results' }, [
-				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list]),
-				examChart(slug, exam.history)
-			]));
+			body.replaceChildren(
+				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list.length > 10 ? el('p', { class: 'bp-muted bp-history-more', text: t('history_more', { n: list.length }) }) : null, ul]),
+				examChart(slug, list, testName, [new Date(f + 'T00:00:00').getTime(), new Date(tt + 'T23:59:59').getTime()])
+			);
 		}
-		return section;
+		[from, to, test].forEach(function (c) { c.addEventListener('change', render); });
+		reset.addEventListener('click', function () { from.value = minDay; to.value = maxDay; test.value = ''; render(); from.focus(); });
+		render();
+		return el('div', { class: 'bp-results-wrap' }, [bar, body]);
 	}
 
 	// Verlauf der Prüfungsergebnisse auf einer Zeitachse: x = Abgabezeitpunkt, y = Prozent der Punkte, Punktfarbe = bestanden/nicht bestanden.
-	function examChart(slug, history) {
+	function examChart(slug, history, testName, range) {
 		var runs = history.slice().reverse();
 		var pcts = runs.map(function (h) { return h.max ? Math.round(h.score * 100 / h.max) : 0; });
-		var times = runs.map(function (h) { var d = h.submitted_at ? new Date(String(h.submitted_at).replace(' ', 'T') + 'Z').getTime() : NaN; return isNaN(d) ? null : d; });
+		var times = runs.map(resultTime);
 		var known = times.filter(function (x) { return x !== null; });
 		var t0 = known.length ? Math.min.apply(null, known) : 0;
 		var t1 = known.length ? Math.max.apply(null, known) : 0;
+		// Achse über den gewählten Zeitraum, falls angegeben.
+		if (range && range[1] > range[0] && !isNaN(range[0]) && !isNaN(range[1])) {
+			t0 = Math.min(t0 || range[0], range[0]);
+			t1 = Math.max(t1, range[1]);
+		}
 		var span = t1 - t0;
 		var xs = runs.map(function (h, i) {
 			if (span <= 0 || times[i] === null) { return runs.length === 1 ? 50 : 4 + i * 92 / (runs.length - 1); }
@@ -1130,8 +1204,9 @@
 			svg.appendChild(line);
 		}
 		var points = el('ol', { class: 'bp-chart-points' }, runs.map(function (h, i) {
-			var label = t('chart_point_aria', { kind: h.paper_id ? t('paper_label') : t('simulation_label'), date: times[i] !== null ? new Date(times[i]).toLocaleDateString('de-DE') : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
-			var showValue = i === runs.length - 1 || i === bestIdx;
+			var label = t('chart_point_aria', { kind: resultKind(h), date: times[i] !== null ? new Date(times[i]).toLocaleDateString('de-DE') : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
+			var lastI = runs.length - 1;
+			var showValue = i === lastI || (i === bestIdx && (Math.abs(xs[i] - xs[lastI]) > 10 || Math.abs(pcts[i] - pcts[lastI]) > 12));
 			var edge = xs[i] < 20 ? ' is-left' : (xs[i] > 80 ? ' is-right' : '');
 			return el('li', { style: 'left:' + xs[i] + '%;bottom:' + pcts[i] + '%' }, [
 				el('a', { href: base + slug + '/pruefung/' + h.session_id + '/', 'data-bp-link': '1', class: 'bp-chart-point ' + (h.passed ? 'is-passed' : 'is-failed') + edge, 'aria-label': label, 'data-tip': label }, [el('span', { class: 'bp-chart-dot', 'aria-hidden': 'true' })]),
@@ -1146,7 +1221,7 @@
 		}
 		return el('div', { class: 'bp-chart-card' }, [
 			el('div', { class: 'bp-chart-head' }, [
-				el('h3', { text: t('chart_title') }),
+				el('h3', { text: testName ? t('chart_title') + ' · ' + testName : t('chart_title') }),
 				el('ul', { class: 'bp-chart-kpis' }, [[avg + ' %', t('chart_avg')], [best + ' %', t('chart_best')], [last + ' %', t('chart_last')]].map(function (k2) { return el('li', {}, [el('strong', { text: k2[0] }), el('span', { text: k2[1] })]); }))
 			]),
 			el('div', { class: 'bp-chart', role: 'group', 'aria-label': t('chart_title') }, [
