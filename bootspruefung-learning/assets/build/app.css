@@ -964,3 +964,28 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app a.bp-paper { text-decoration: none; color: inherit; }
 .bp-app .bp-page-hero h1 { max-width: 26ch; }
 .bp-app h2.bp-nav-scenario-h { font-size: 0.85rem; margin: 0; }
+
+/* Prüfungsausschüsse: kompakte Liste mit aufklappbarem Kontakt */
+.bp-committee-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.7rem 1.5rem; margin: 1.6rem 0 0.9rem; }
+.bp-app .bp-committee-bar h3 { margin: 0; font-size: 1.1rem; }
+.bp-committee-filter { display: flex; align-items: center; gap: 0.8rem; flex: 1 1 320px; justify-content: flex-end; }
+.bp-app .bp-committee-search { flex: 0 1 320px; min-height: 42px; padding: 0.5rem 0.9rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); }
+.bp-committee-count { font-size: 0.85rem; opacity: 0.7; white-space: nowrap; }
+.bp-app .bp-committees { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.6rem; align-items: start; }
+.bp-app .bp-committee { margin: 0; padding: 0.75rem 0.9rem; border-radius: 14px; box-shadow: none; }
+.bp-app .bp-committee.is-open { box-shadow: var(--bp-shadow); border-color: color-mix(in srgb, var(--bp-accent) 40%, transparent); }
+.bp-committee-head { display: flex; align-items: center; gap: 0.8rem; }
+.bp-committee-name { flex: 1; min-width: 0; }
+.bp-app .bp-committee h3 { margin: 0; font-size: 0.95rem; line-height: 1.3; }
+.bp-committee-name p { margin: 0.1rem 0 0; font-size: 0.82rem; }
+.bp-committee-toggle { flex: none; display: inline-flex; align-items: center; gap: 0.35rem; min-height: 36px; padding: 0.3rem 0.8rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--bp-accent) 45%, transparent); background: var(--bp-surface); color: color-mix(in srgb, var(--bp-accent) 70%, #000); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.bp-committee-toggle::after { content: ""; width: 0.8rem; height: 0.8rem; background: currentColor; -webkit-mask: var(--bp-i-chev) center / contain no-repeat; mask: var(--bp-i-chev) center / contain no-repeat; transform: rotate(90deg); transition: transform 0.2s; }
+.bp-committee-toggle[aria-expanded="true"] { background: var(--bp-navy); border-color: var(--bp-navy); color: #fff; }
+.bp-committee-toggle[aria-expanded="true"]::after { transform: rotate(-90deg); }
+.bp-committee-detail { margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent); font-size: 0.88rem; }
+.bp-committee-line { display: flex; align-items: baseline; gap: 0.5rem; margin: 0 0 0.35rem; }
+.bp-committee-line .bp-ico { flex: none; width: 0.95rem; height: 0.95rem; color: var(--bp-accent); align-self: center; }
+.bp-committee-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0 0; }
+.bp-committee-actions .bp-button { min-height: 36px; padding: 0.3em 0.9em; font-size: 0.85rem; }
+.bp-committee-none { grid-column: 1 / -1; padding: 1rem 0; }
+@media (max-width: 600px) { .bp-committee-filter { justify-content: stretch; } .bp-app .bp-committee-search { flex: 1; } }

@@ -1123,37 +1123,62 @@
 
 	function committeeSection(page, committees) {
 		var list = el('ul', { class: 'bp-committees' });
-		var input = el('input', { type: 'search', class: 'bp-input', 'aria-label': t('guide_committee_search'), placeholder: t('guide_committee_search') });
+		var count = el('span', { class: 'bp-committee-count', 'aria-live': 'polite' });
+		var input = el('input', { type: 'search', class: 'bp-input bp-committee-search', 'aria-label': t('guide_committee_search'), placeholder: t('guide_committee_search') });
+		var short = function (label) { return String(label || '').replace(/\s+[–-]\s+(Geschäftsstelle|Postanschrift).*$/u, ''); };
+		var suffix = function (label) { var m = String(label || '').match(/\s+[–-]\s+((Geschäftsstelle|Postanschrift).*)$/u); return m ? m[1] : null; };
+		function row(c, i) {
+			var id = 'bp-committee-' + i;
+			var detail = el('div', { class: 'bp-committee-detail', id: id, hidden: true }, [
+				c.address ? el('p', { class: 'bp-committee-line' }, [el('span', { class: 'bp-ico bp-ico-flag', 'aria-hidden': 'true' }), c.address]) : null,
+				c.contact_person ? el('p', { class: 'bp-committee-line' }, [el('span', { class: 'bp-ico bp-ico-group', 'aria-hidden': 'true' }), c.contact_person]) : null,
+				c.phone ? el('p', { class: 'bp-committee-line' }, [el('span', { class: 'bp-ico bp-ico-radio', 'aria-hidden': 'true' }), el('a', { href: 'tel:' + String(c.phone).replace(/[^+\d]/g, ''), text: c.phone }), c.office_hours ? el('span', { class: 'bp-muted', text: ' · ' + c.office_hours }) : null]) : (c.office_hours ? el('p', { class: 'bp-committee-line bp-muted', text: c.office_hours }) : null),
+				c.note ? el('p', { class: 'bp-committee-line bp-muted', text: c.note }) : null,
+				(c.email || c.website) ? el('p', { class: 'bp-committee-actions' }, [
+					c.email ? el('a', { class: 'bp-button', href: 'mailto:' + c.email, text: t('guide_mail') }) : null,
+					c.website ? el('a', { class: 'bp-button', href: c.website, target: '_blank', rel: 'noopener', text: t('guide_website') }) : null
+				]) : null
+			]);
+			var toggle = el('button', { type: 'button', class: 'bp-committee-toggle', 'aria-expanded': 'false', 'aria-controls': id }, [el('span', { class: 'bp-sr', text: t('guide_contact_for', { name: short(c.label) }) }), el('span', { 'aria-hidden': 'true', text: t('guide_contact') })]);
+			var li = el('li', { class: 'bp-card bp-committee' }, [
+				el('div', { class: 'bp-committee-head' }, [
+					el('div', { class: 'bp-committee-name' }, [
+						el('h3', { text: c.label }),
+						el('p', { class: 'bp-muted' }, [[c.postal_code, c.city].filter(Boolean).join(' '), suffix(c.label) ? ' · ' + suffix(c.label) : null])
+					]),
+					toggle
+				]),
+				detail
+			]);
+			toggle.addEventListener('click', function () {
+				var open = toggle.getAttribute('aria-expanded') !== 'true';
+				toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+				detail.hidden = !open;
+				li.classList.toggle('is-open', open);
+			});
+			return li;
+		}
 		function render() {
 			var q = input.value.trim().toLowerCase();
 			list.textContent = '';
-			committees.filter(function (c) {
+			var hits = committees.filter(function (c) {
 				return !q || [c.label, c.address, c.postal_code, c.city].join(' ').toLowerCase().indexOf(q) !== -1;
-			}).forEach(function (c) {
-				var contact = [c.phone ? t('guide_phone', { v: c.phone }) : null, c.office_hours].filter(Boolean).join(' · ');
-				list.appendChild(el('li', { class: 'bp-card' }, [
-					el('h3', { text: c.label }),
-					c.address ? el('p', { text: c.address }) : null,
-					c.contact_person ? el('p', { class: 'bp-muted', text: c.contact_person }) : null,
-					contact ? el('p', { class: 'bp-muted', text: contact }) : null,
-					el('p', {}, [c.email ? el('a', { href: 'mailto:' + c.email, text: c.email }) : null, c.email && c.website ? ' · ' : null, c.website ? el('a', { href: c.website, target: '_blank', rel: 'noopener', text: t('guide_website') }) : null]),
-					c.note ? el('p', { class: 'bp-muted', text: c.note }) : null
-				]));
 			});
-			if (!list.children.length) {
-				list.appendChild(el('li', { class: 'bp-muted', text: t('guide_committee_none') }));
+			hits.forEach(function (c, i) { list.appendChild(row(c, i)); });
+			count.textContent = q ? t('guide_committee_hits', { n: hits.length, total: committees.length }) : t('guide_committee_all', { n: committees.length });
+			if (!hits.length) {
+				list.appendChild(el('li', { class: 'bp-muted bp-committee-none', text: t('guide_committee_none') }));
 			}
 		}
 		input.addEventListener('input', render);
 		render();
-		return el('section', { class: 'bp-card' }, [
+		return el('section', { class: 'bp-card bp-guide-book' }, [
 			el('h2', { text: t('guide_book') }),
 			el('p', { class: 'bp-muted', text: t('guide_book_text') }),
 			el('ul', { class: 'bp-providers' }, page.providers.map(function (p) {
 				return el('li', { class: 'bp-card' }, [el('strong', { text: p.name }), el('span', { class: 'bp-muted', text: ' ' + p.full }), el('p', { text: p.text }), el('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'bp-button', text: t('guide_to_provider', { name: p.name }) })]);
 			})),
-			el('h3', { text: t('guide_committees', { n: committees.length }) }),
-			input,
+			el('div', { class: 'bp-committee-bar' }, [el('h3', { text: t('guide_committees', { n: committees.length }) }), el('div', { class: 'bp-committee-filter' }, [input, count])]),
 			list
 		]);
 	}
