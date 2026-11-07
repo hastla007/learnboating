@@ -1,0 +1,101 @@
+# Staging für die Abnahme: WordPress 7.1.4 · PHP 8.5 · MariaDB 12.3.3 · WooCommerce 11.2.2
+# mit Plugin bootspruefung-learning, Theme Kurswasser, Content-Paket und Shop-Katalog.
+#
+#   cp .env.example .env   # Passwörter und Adresse eintragen
+#   docker compose up -d
+#
+# Details: staging/README.md
+name: kurswasser-staging
+
+x-wp-env: &wp-env
+  WORDPRESS_DB_HOST: db
+  WORDPRESS_DB_NAME: wordpress
+  WORDPRESS_DB_USER: wordpress
+  WORDPRESS_DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD in .env setzen}
+  WORDPRESS_CONFIG_EXTRA: |
+    define('WP_ENVIRONMENT_TYPE', 'staging');
+    define('DISALLOW_FILE_EDIT', true);
+    define('WP_DEBUG_LOG', true);
+    define('WP_DEBUG_DISPLAY', false);
+
+services:
+  db:
+    image: ${IMAGE_REGISTRY:-docker.io/library}/mariadb:12.3.3
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD in .env setzen}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress:
+    image: ${IMAGE_REGISTRY:-docker.io/library}/wordpress:7.1.4-php8.5-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *wp-env
+      WORDPRESS_DEBUG: ${WP_DEBUG:-}
+    volumes:
+      - wordpress:/var/www/html
+      - ../bootspruefung-learning:/var/www/html/wp-content/plugins/bootspruefung-learning:ro
+      - ../themes/kurswasser:/var/www/html/wp-content/themes/kurswasser:ro
+      - ./php.ini:/usr/local/etc/php/conf.d/zz-staging.ini:ro
+    ports:
+      - "${STAGING_BIND:-127.0.0.1}:${STAGING_PORT:-8080}:80"
+
+  # Einrichtung (läuft bei jedem „up“ einmal durch und beendet sich; wiederholbar).
+  setup:
+    image: ${IMAGE_REGISTRY:-docker.io/library}/wordpress:cli-php8.5
+    user: "33:33" # www-data wie im WordPress-Container
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    environment:
+      <<: *wp-env
+      HOME: /tmp
+      STAGING_URL: ${STAGING_URL:-http://localhost:8080}
+      STAGING_TITLE: ${STAGING_TITLE:-Kurswasser Staging}
+      STAGING_ADMIN_USER: ${STAGING_ADMIN_USER:-admin}
+      STAGING_ADMIN_PASSWORD: ${STAGING_ADMIN_PASSWORD:?STAGING_ADMIN_PASSWORD in .env setzen}
+      STAGING_ADMIN_EMAIL: ${STAGING_ADMIN_EMAIL:-admin@example.invalid}
+      STAGING_DEMO_PASSWORD: ${STAGING_DEMO_PASSWORD:-}
+      STAGING_RELEASE_RIGHTS: ${STAGING_RELEASE_RIGHTS:-1}
+      WC_VERSION: 11.2.2
+    volumes:
+      - wordpress:/var/www/html
+      - ../bootspruefung-learning:/var/www/html/wp-content/plugins/bootspruefung-learning:ro
+      - ../themes/kurswasser:/var/www/html/wp-content/themes/kurswasser:ro
+      - ..:/repo:ro
+    entrypoint: ["sh", "/repo/staging/setup.sh"]
+    restart: "no"
+
+  # Optional: HTTPS mit eigenem Domainnamen (Let's Encrypt), siehe README.
+  caddy:
+    image: ${IMAGE_REGISTRY:-docker.io/library}/caddy:2.10
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on: [wordpress]
+    environment:
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+
+volumes:
+  db:
+  wordpress:
+  caddy:

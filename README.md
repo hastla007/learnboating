@@ -119,6 +119,17 @@ Kaufablauf (WooCommerce aktiv, vorher `woocommerce-setup.php`):
 WP_DIR=/pfad/zu/wordpress node bootspruefung-learning/tests/e2e/checkout-flow.mjs
 ```
 
+## Staging (Docker)
+
+`staging/` enthält eine Testinstallation mit dem Zielsystem (PHP 8.5, WordPress 7.1.4, MariaDB 12.3.3, WooCommerce 11.2.2), samt Plugin, Theme, Content-Paket und Shop-Katalog:
+
+```bash
+cd staging && cp .env.example .env   # Passwörter eintragen
+docker compose up -d
+```
+
+Anleitung (auch für einen Server mit HTTPS) und Abnahme-Checkliste: [`staging/README.md`](staging/README.md). Die CI startet das Staging bei jedem Push einmal komplett.
+
 ## Theme
 
 `themes/kurswasser/` – Block-Theme „Kurswasser 2.0“ für Startseite, Shop, Produktseiten, Block-Checkout, Rechtstexte und Lernbereich. Details in `themes/kurswasser/README.md`.

@@ -223,3 +223,36 @@ jobs:
           name: checkout-screenshots-wc-${{ matrix.wc }}
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
+
+  staging:
+    name: Docker-Staging (Erststart und Neustart)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Staging starten
+        working-directory: staging
+        run: |
+          printf 'DB_PASSWORD=%s\nSTAGING_ADMIN_PASSWORD=%s\nSTAGING_DEMO_PASSWORD=Demo-Passwort-123\n' "$(openssl rand -hex 16)" "$(openssl rand -hex 16)" > .env
+          docker compose config -q
+          docker compose up -d
+          test "$(docker compose wait setup)" = 0 || { docker compose logs setup; exit 1; }
+          docker compose logs setup | tail -n 5
+      - name: Seiten erreichbar
+        run: |
+          for path in / /kurse/ /bootsscheine/ /shop/ /wp-login.php; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$path")
+            echo "$code $path"; test "$code" = 200
+          done
+          curl -s http://localhost:8080/shop/ | grep -q 'SBF See'
+      - name: Neustart (Einrichtung wiederholbar)
+        working-directory: staging
+        run: |
+          docker compose run --rm setup > rerun.log 2>&1 || { cat rerun.log; exit 1; }
+          tail -n 3 rerun.log
+      - name: Keine PHP-Fehler aus Plugin/Theme
+        if: always()
+        working-directory: staging
+        run: |
+          docker compose logs wordpress setup > all.log 2>&1 || true
+          ! grep -E "PHP (Fatal|Warning|Deprecated).*(bootspruefung-learning|kurswasser)" all.log
+          docker compose down -v
