@@ -789,3 +789,16 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-hub-card-video { padding-right: 1.6rem; }
 	.bp-hub-card-art { opacity: 0.5; right: -20px; }
 }
+/* Videokurs-Karten im Kurswasser-Design: Navy mit Kursfoto, Akzent Wasserblau/Signalgelb */
+.bp-app .bp-hub-card-video { background: linear-gradient(120deg, var(--bp-navy) 0%, #0b2c48 55%, #0A6F91 130%); }
+.bp-hub-card-video::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--bp-accent) 35%, transparent), transparent 60%); }
+.bp-hub-card-video.has-image::before { background: linear-gradient(90deg, var(--bp-navy) 35%, color-mix(in srgb, var(--bp-navy) 70%, transparent) 60%, color-mix(in srgb, var(--bp-navy) 15%, transparent)); }
+.bp-hub-card-img { position: absolute; inset: 0 0 0 auto; width: 65%; height: 100%; object-fit: cover; z-index: -2; }
+.bp-app .bp-hub-card-video .bp-hub-bar > span { background: var(--bp-accent); }
+.bp-app .bp-hub-card-video .bp-button-light { color: var(--bp-navy); }
+.bp-app .bp-hub-card-video .bp-hub-card-go { background: var(--bp-signal); border-color: var(--bp-signal); color: var(--bp-navy); }
+.bp-app .bp-hub-card-video .bp-hub-card-go:hover { background: color-mix(in srgb, var(--bp-signal) 88%, #fff); }
+@media (max-width: 600px) {
+	.bp-hub-card-img { width: 100%; opacity: 0.45; }
+	.bp-hub-card-video.has-image::before { background: linear-gradient(180deg, color-mix(in srgb, var(--bp-navy) 55%, transparent), var(--bp-navy) 75%); }
+}

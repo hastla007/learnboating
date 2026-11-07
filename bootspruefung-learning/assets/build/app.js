@@ -494,8 +494,9 @@
 		var v = part.videos;
 		var percent = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
 		var bar = el('div', { class: 'bp-hub-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent), 'aria-label': t('trainer_video_meta', { done: v.completed, total: v.lessons }) }, [el('span', { style: 'width:' + percent + '%' })]);
-		return el('article', { class: 'bp-hub-card bp-hub-card-video ' + (index % 2 ? 'is-teal' : 'is-blue') }, [
-			el('span', { class: 'bp-hub-card-art bp-hub-art-' + (index % 2 ? 'anchor' : 'compass'), 'aria-hidden': 'true' }),
+		var img = courseImage(part.slug, 'hero');
+		return el('article', { class: 'bp-hub-card bp-hub-card-video' + (img ? ' has-image' : '') }, [
+			img ? el('img', { class: 'bp-hub-card-img', src: img, alt: '', loading: 'lazy' }) : el('span', { class: 'bp-hub-card-art bp-hub-art-' + (index % 2 ? 'anchor' : 'compass'), 'aria-hidden': 'true' }),
 			el('p', { class: 'bp-hub-eyebrow', text: index === 0 ? t('hub_next') : t('hub_part') }),
 			el('h2', { text: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }),
 			el('p', { class: 'bp-hub-card-text', text: t('hub_video_for', { name: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }) }),
