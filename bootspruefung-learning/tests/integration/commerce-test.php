@@ -193,6 +193,21 @@ $check($entitlements->expireDue() >= 2 && $statuses(900020) === ['expired'], 'Cr
 $orders->put(900020, $bob, 'completed', '2026-04-01 00:00:00', [$item(20001, 990002, 990012)]);
 $check($changes($sync->sync(900020)) === 0, 'abgelaufener Zugang lebt durch Abgleich nicht wieder auf');
 
+// Verlängerungskette: erstatteter Vorkauf zieht die Verlängerung vor, zurückgenommene Erstattung schiebt sie zurück.
+$carol = $userId('bp_buyer_carol');
+$wpdb->delete($p.'entitlement', ['user_id' => $carol]);
+$orders->put(900060, $carol, 'completed', '2027-01-01 00:00:00', [$item(60001, 990002, 990012)]);
+$sync->sync(900060);
+$orders->put(900061, $carol, 'completed', '2027-01-05 00:00:00', [$item(61001, 990002, 990012)]);
+$sync->sync(900061);
+$check($rows(900061)[0]->valid_from === '2027-01-31 00:00:00', 'Verlängerung schließt an');
+$orders->put(900060, $carol, 'refunded', '2027-01-01 00:00:00', [$item(60001, 990002, 990012, 49.0, 1, 49.0)]);
+$sync->sync(900060);
+$check($statuses(900060) === ['revoked'] && $rows(900061)[0]->valid_from === '2027-01-05 00:00:00' && $rows(900061)[0]->valid_until === '2027-02-04 00:00:00', 'Vorkauf erstattet: Verlängerung beginnt ab eigener Zahlung');
+$orders->put(900060, $carol, 'completed', '2027-01-01 00:00:00', [$item(60001, 990002, 990012)]);
+$sync->sync(900060);
+$check($statuses(900060) === ['active'] && $rows(900061)[0]->valid_from === '2027-01-31 00:00:00' && $rows(900061)[0]->valid_until === '2027-03-02 00:00:00', 'Erstattung zurückgenommen: Vorkauf lebt auf, Verlängerung wieder dahinter');
+
 echo "Doppelkauf\n";
 $orders->put(900030, $bob, 'completed', '2026-05-01 00:00:00', [$item(30001, 990001)]);
 $sync->sync(900030);

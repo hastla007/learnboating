@@ -114,6 +114,17 @@ function kurswasser_url(string $target): string
  * Platzhalter-Links in Vorlagen/Mustern: href="#kw:shop" usw. werden beim Ausgeben ersetzt,
  * damit Vorlagen ohne feste IDs/Slugs auskommen.
  */
+// Navigationslinks maskiert WordPress vor render_block (esc_url verwirft „#kw:…“) – daher schon die Blockdaten ersetzen.
+add_filter('render_block_data', static function (array $block): array {
+    $url = $block['attrs']['url'] ?? null;
+    if (in_array($block['blockName'] ?? '', ['core/navigation-link', 'core/navigation-submenu'], true) && is_string($url)
+        && preg_match('/^#kw:([a-z0-9\/-]*)(#[a-z0-9-]+)?$/', $url, $m)) {
+        $block['attrs']['url'] = kurswasser_url($m[1]).($m[2] ?? '');
+    }
+
+    return $block;
+});
+
 add_filter('render_block', static function (string $html): string {
     if (! str_contains($html, '#kw:')) {
         return $html;

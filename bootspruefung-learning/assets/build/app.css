@@ -683,6 +683,16 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-app .bp-exam-hero .bp-timer { position: fixed; top: 0.6rem; right: 0.6rem; z-index: 50; flex-direction: row; align-items: baseline; gap: 0.5rem; padding: 0.45rem 0.85rem; background: var(--bp-navy); box-shadow: 0 6px 20px rgba(7, 27, 46, 0.3); }
 	.bp-app .bp-exam-hero .bp-timer .bp-timer-time { font-size: 1.25rem; }
 	.bp-app .bp-exam-hero .bp-timer.is-low { background: #8f1d14; }
+	/* Hero ist ein eigener Stapelkontext (isolation) – nach oben heben, sonst überdecken Fragen den fixierten Timer. */
+	.bp-app .bp-exam-hero { z-index: 60; }
+	body.admin-bar .bp-app .bp-exam-hero .bp-timer { top: calc(32px + 0.6rem); }
+}
+@media (max-width: 782px) {
+	body.admin-bar .bp-app .bp-exam-hero .bp-timer { top: calc(46px + 0.6rem); }
+}
+@media (max-width: 600px) {
+	/* Adminleiste scrollt hier mit, der Timer bleibt oben. */
+	body.admin-bar .bp-app .bp-exam-hero .bp-timer { top: 0.6rem; }
 }
 @media (prefers-color-scheme: dark) {
 	#bp-device-sim [role="tab"].bp-sim-tab-off { background: #334155 !important; color: #e2e8f0 !important; }
@@ -1373,3 +1383,20 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app a.bp-hub-card-unlock { position: relative; z-index: 1; color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .bp-app a.bp-hub-card-unlock:hover { color: var(--bp-signal); }
 .bp-app a.bp-hub-card-unlock:focus-visible { outline: 3px solid var(--bp-signal); outline-offset: 2px; }
+
+.bp-paper-rule { display: block; font-size: 0.78rem; color: var(--bp-muted); margin-top: 0.15rem; }
+
+/* Barrierefreiheit (WCAG 2.2 AA, Review 07.11.2026) */
+/* Gesperrte Inhalte: Text bleibt lesbar (≥ 4,5:1) – Sperre über Farbe/Symbol statt Deckkraft. */
+.bp-paper-locked, .bp-lessons li.is-locked, .bp-vc-lesson.is-locked { opacity: 1; color: #4a5565; background: color-mix(in srgb, currentColor 4%, var(--bp-surface)); }
+.bp-paper-locked .bp-paper-state, .bp-vc-lesson.is-locked .bp-vc-time { color: #4a5565; opacity: 1; }
+.bp-area-badge.is-free { color: #6b4500; }
+.bp-saved-tag { color: #a3221a; }
+/* Antwortoptionen: Rahmen und Markierung ≥ 3:1 (1.4.11) */
+.bp-app .bp-answer { border-color: #8a94a3; }
+.bp-app .bp-answer-key { border-color: #6b7685; }
+@media (forced-colors: active) {
+	.bp-app .bp-answer { border: 1px solid CanvasText; }
+	.bp-app .bp-answer:has(input:checked) { border: 3px solid Highlight; }
+	.bp-app .bp-answer:has(input:checked) .bp-answer-key { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+}

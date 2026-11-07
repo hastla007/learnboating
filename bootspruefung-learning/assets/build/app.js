@@ -175,6 +175,7 @@
 	// nicht abbauen. Nach dem Verlassen des Simulators die Zielseite daher frisch laden.
 	var simLoaded = false;
 	var learnCollection = null; // Sammlung im Lernmodus (?sammlung=)
+	var learnExam = null; // Fehler einer Prüfung wiederholen (?pruefung=)
 
 	function route() {
 		var path = window.location.pathname;
@@ -201,6 +202,7 @@
 			view = viewExamGuide(parts[0], query.get('teil'));
 		} else if (parts[1] === 'lernen') {
 			learnCollection = query.get('sammlung');
+			learnExam = /^\d+$/.test(query.get('pruefung') || '') ? query.get('pruefung') : null;
 			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart', query.get('thema'));
 		} else if (parts[1] === 'pruefung' && parts[2]) {
 			view = viewExam(parts[0], parseInt(parts[2], 10));
@@ -1103,16 +1105,21 @@
 			exam.papers.forEach(function (p) {
 				var state = p.last ? (p.last.status === 'running' ? 'running' : (p.last.passed ? 'passed' : 'failed')) : 'open';
 				if (p.locked) {
-					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('paper_aria', { number: p.number, state: t('locked_short') }) }, [
+					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked' }, [
 						el('span', { class: 'bp-paper-lock', 'aria-hidden': 'true' }),
-						el('span', { class: 'bp-paper-text', 'aria-hidden': 'true' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])
+						el('span', { class: 'bp-paper-text' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])
 					])]));
 					return;
 				}
 				var scored = p.last && p.last.status !== 'running' && p.last.max;
-				var btn = el('button', { type: 'button', class: 'bp-paper bp-paper-' + state, 'aria-label': t('paper_aria', { number: p.number, state: t('paper_state_' + state) }) }, [
+				var btn = el('button', { type: 'button', class: 'bp-paper bp-paper-' + state, 'aria-label': t('paper_aria', { number: p.number, state: t('paper_state_' + state) }) + (p.rule ? ' · ' + p.rule : '') }, [
 					scored ? miniRing(Math.floor(p.last.score * 100 / p.last.max), p.last.score + '/' + p.last.max) : el('span', { class: 'bp-paper-badge', 'aria-hidden': 'true', text: String(p.number) }),
-					el('span', { class: 'bp-paper-text', 'aria-hidden': 'true' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('paper_state_' + state) + (p.questions ? ' · ' + t('paper_questions', { n: p.questions }) : '') })])
+					el('span', { class: 'bp-paper-text', 'aria-hidden': 'true' }, [
+						el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }),
+						el('span', { class: 'bp-paper-state', text: t('paper_state_' + state) + (p.questions ? ' · ' + t('paper_questions', { n: p.questions }) : '') }),
+						// Kombis: geltende Teilgrenzen und Zeit dieses Bogens
+						p.rule ? el('span', { class: 'bp-paper-rule', text: p.rule }) : null
+					])
 				]);
 				btn.addEventListener('click', function () {
 					btn.disabled = true;
@@ -1384,7 +1391,7 @@
 			if (collectionId && res[1]) {
 				res[1].collections.forEach(function (c) { if (String(c.id) === String(collectionId)) { collection = c; } });
 			}
-			var heading = collection ? collection.name : (topic || (module ? module.name : null) || t('mode_' + mode));
+			var heading = learnExam ? t('learn_exam_heading') : (collection ? collection.name : (topic || (module ? module.name : null) || t('mode_' + mode)));
 			var parent = collectionId ? link(slug + '/merkliste/' + (collection ? '?sammlung=' + collection.id : ''), t('saved_title')) : link(slug + '/smarttrainer/', t('mode_smart'));
 			var showHeading = heading !== t('mode_smart');
 			var container = el('div', { class: 'bp-learn' });
@@ -1453,6 +1460,18 @@
 		if (learnCollection) {
 			params.set('collection', learnCollection);
 		}
+		if (learnExam) {
+			params.set('exam', learnExam);
+		}
+		// Tastatur/Screenreader: kam der Klick aus der Frage („Nächste Frage“), danach auf die neue Frage fokussieren.
+		var refocus = container.contains(document.activeElement);
+		var focusNew = function () {
+			var h = container.querySelector('.bp-question-text, .bp-done h2');
+			if (refocus && h) {
+				h.setAttribute('tabindex', '-1');
+				h.focus();
+			}
+		};
 		container.textContent = '';
 		var collectionId = learnCtx && learnCtx.collectionId;
 		var backLinks = function () {
@@ -1482,9 +1501,11 @@
 					el('p', { text: collectionId && mode === 'favorites' ? t('done_collection') : t('done_' + mode) }),
 					backLinks()
 				]));
+				focusNew();
 				return;
 			}
 			container.appendChild(questionCard(slug, moduleId, mode, r.question, container, topic));
+			focusNew();
 		}).catch(function (e) {
 			container.textContent = '';
 			container.appendChild(el('div', { class: 'bp-card bp-done' }, [el('p', { class: 'bp-inline-error', role: 'alert', text: e.message }), backLinks()]));
@@ -1943,7 +1964,7 @@
 	}
 
 	function lockedPaper(number) {
-		return el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('locked_free') }, [el('span', { class: 'bp-paper-number', text: String(number) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })]);
+		return el('span', { class: 'bp-paper bp-paper-locked', title: t('locked_free') }, [el('span', { class: 'bp-paper-number', text: String(number) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') }), el('span', { class: 'bp-sr', text: ' – ' + t('locked_free') })]);
 	}
 
 	function fmtDate(utc) {
@@ -2114,7 +2135,7 @@
 			item.textContent = '';
 			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
 			item.appendChild(multiline('h3', q.text, 'bp-question-text'));
-			var area = el('textarea', { class: 'bp-notes', rows: '2', 'aria-label': t('nav_own_solution'), placeholder: t('nav_own_solution') });
+			var area = el('textarea', { class: 'bp-notes', rows: '2', 'aria-label': t('nav_own_solution') + ' – ' + t('nav_question', { number: q.number }), placeholder: t('nav_own_solution') });
 			area.value = q.my_answer || '';
 			item.appendChild(area);
 			if (q.answer === null) {
@@ -2726,6 +2747,7 @@
 					}
 					body.appendChild(el('p', { class: 'bp-muted', text: t('radio_type_' + x.type + '_explain') }));
 					var source = multiline('p', from, 'bp-radio-source');
+					source.setAttribute('lang', lang.slice(0, 2)); // englische Funktexte als Englisch auszeichnen (3.1.2)
 					source.hidden = cfg.voice !== 'off';
 					var toggle = el('button', { type: 'button', class: 'bp-button', text: t('radio_show_text') });
 					toggle.addEventListener('click', function () { source.hidden = !source.hidden; toggle.textContent = source.hidden ? t('radio_show_text') : t('radio_hide_text'); });
@@ -3455,7 +3477,7 @@
 						r.open_text.total > 0 ? el('p', { class: 'bp-verdict-note', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null
 					]),
 					el('div', { class: 'bp-hero-actions' }, [
-						wrong ? link(slug + '/lernen/?modus=wrong', t('learn_wrong'), 'bp-button bp-button-signal') : null,
+						wrong ? link(slug + '/lernen/?pruefung=' + s.id, t('learn_wrong'), 'bp-button bp-button-signal') : null,
 						link(slug + '/', t('back_course'), 'bp-button bp-button-ghost')
 					])
 				]),

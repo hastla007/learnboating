@@ -585,7 +585,7 @@ final class PackageBuilder
      * sodass 10 Fragen (statt wie in den amtlichen Bögen 7 bzw. 24) gezogen und die Bestehensgrenze verfälscht wurde.
      * Der Golden-Master-Vergleich wendet dieselben Korrekturen auf die Laravel-Seite an.
      */
-    public const EXAM_COUNT_CORRECTIONS = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24];
+    public const EXAM_COUNT_CORRECTIONS = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24, 'FKN' => 15];
 
     /**
      * Kombis mit Teilgrenzen wie die Einzelprüfungen (Festlegung 07.11.2026): je Teil Grenze und Zeit;

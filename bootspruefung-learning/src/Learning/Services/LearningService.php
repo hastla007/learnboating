@@ -152,12 +152,10 @@ final class LearningService
             throw new RuntimeException('Diese Frage gehört zu deiner laufenden Prüfung. Beende zuerst die Prüfung.');
         }
 
-        // Ein Frage-Token zählt nur einmal: erneutes Einreichen mit neuem Key liefert das erste Ergebnis.
-        $tokenKey = 'bp_tok_'.substr(hash('sha256', $token), 0, 40);
-        $firstKey = get_transient($tokenKey);
-        if (is_string($firstKey) && $firstKey !== $idempotencyKey) {
-            $idempotencyKey = $firstKey;
-        }
+        // Ein Frage-Token zählt nur einmal: der Idempotenzschlüssel wird aus dem Token abgeleitet, erneutes
+        // Einreichen (auch mit anderem Client-Key) liefert das erste Ergebnis – ohne Zwischenspeicher in wp_options.
+        $h = hash('sha256', 'bp-token|'.$token);
+        $idempotencyKey = substr($h, 0, 8).'-'.substr($h, 8, 4).'-'.substr($h, 12, 4).'-'.substr($h, 16, 4).'-'.substr($h, 20, 12);
 
         $existing = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t('attempt')} WHERE idempotency_key = %s", $idempotencyKey));
         if ($existing) {
@@ -217,7 +215,6 @@ final class LearningService
             }
             $this->applyProgress($userId, (int) $revision->question_id, $correct, $now);
             $this->db->query('COMMIT');
-            set_transient($tokenKey, $idempotencyKey, DAY_IN_SECONDS + HOUR_IN_SECONDS);
         } catch (\Throwable $e) {
             $this->db->query('ROLLBACK');
             throw $e;

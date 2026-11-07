@@ -124,10 +124,7 @@ final class EntitlementService
         if ($to === EntitlementPlanner::ACTIVE && $row->valid_from === null) {
             $this->setValidity($id, $c['date_paid'] ?? null);
         }
-        // Erstatteter/widerrufener Zugang: anschließende Verlängerungen rücken nach vorn (sonst bezahlt, aber nicht nutzbar).
-        if ($row->status === EntitlementPlanner::ACTIVE && $to === EntitlementPlanner::REVOKED && $row->valid_until !== null) {
-            $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
-        }
+        $this->restackIfNeeded($row, $to);
 
         return true;
     }
@@ -155,42 +152,52 @@ final class EntitlementService
             }
             $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $days * DAY_IN_SECONDS);
         }
-        $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until], ['id' => $id]);
+        $meta['paid_at'] = $datePaid ?? self::now(); // für die Neu-Verkettung von Verlängerungen
+        $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'meta' => wp_json_encode($meta)], ['id' => $id]);
         $this->alignVideoUpgrades($row);
+    }
+
+    /** Befristeter Zugang wird (nicht mehr) nutzbar → Verlängerungskette neu berechnen (in beide Richtungen). */
+    private function restackIfNeeded(object $row, string $to): void
+    {
+        $was = $row->status === EntitlementPlanner::ACTIVE;
+        $now = $to === EntitlementPlanner::ACTIVE;
+        if ($row->valid_until !== null && $was !== $now) {
+            $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
+        }
     }
 
     /**
      * Noch nicht begonnene Verlängerungen (renewal_mode extend) neu verketten: Beginn = Ende der vorher
-     * gültigen aktiven Zugänge bzw. jetzt, Laufzeit bleibt gleich.
+     * gültigen aktiven Zugänge bzw. jetzt, Laufzeit bleibt gleich – nach vorn (Erstattung) wie nach hinten
+     * (Erstattung zurückgenommen), damit keine bezahlte Zeit verloren geht oder doppelt läuft.
      */
     private function restackExtensions(int $userId, string $course, string $feature): void
     {
         $now = self::now();
-        $future = $this->db->get_results($this->db->prepare(
-            "SELECT * FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_from > %s AND valid_until IS NOT NULL ORDER BY valid_from, id",
-            $userId, $course, $feature, $now
+        // Kette in Kaufreihenfolge: jede Verlängerung beginnt am Ende der vorher gekauften aktiven Zugänge,
+        // frühestens beim eigenen Zahlungszeitpunkt; die gekaufte Laufzeit bleibt gleich.
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_from IS NOT NULL AND valid_until IS NOT NULL ORDER BY id",
+            $userId, $course, $feature
         ));
-        if ($future === []) {
-            return;
-        }
-        $anchor = (string) ($this->db->get_var($this->db->prepare(
-            "SELECT MAX(valid_until) FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND (valid_from IS NULL OR valid_from <= %s) AND valid_until IS NOT NULL",
-            $userId, $course, $feature, $now
-        )) ?? $now);
-        foreach ($future as $f) {
-            if ((EntitlementPlanner::meta($f)['renewal_mode'] ?? 'extend') !== 'extend') {
+        $anchor = null;
+        foreach ($rows as $row) {
+            $meta = EntitlementPlanner::meta($row);
+            if (($meta['renewal_mode'] ?? null) !== 'extend' || ! isset($meta['paid_at'])) {
+                $anchor = $anchor === null ? (string) $row->valid_until : max($anchor, (string) $row->valid_until);
                 continue;
             }
-            $length = strtotime($f->valid_until.' UTC') - strtotime($f->valid_from.' UTC');
-            $start = max($anchor, $now);
-            if ($start < $f->valid_from) {
+            $paidAt = (string) $meta['paid_at'];
+            $start = $anchor === null ? $paidAt : max($anchor, $paidAt);
+            if ($start !== $row->valid_from) {
+                $length = strtotime($row->valid_until.' UTC') - strtotime($row->valid_from.' UTC');
                 $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $length);
-                $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'updated_at' => $now], ['id' => (int) $f->id]);
-                AuditLog::record('entitlement_restacked', 'entitlement', (string) $f->id, null, ['from' => $f->valid_from, 'to' => $start]);
-                $anchor = $until;
-            } else {
-                $anchor = (string) $f->valid_until;
+                $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'updated_at' => $now], ['id' => (int) $row->id]);
+                AuditLog::record('entitlement_restacked', 'entitlement', (string) $row->id, null, ['from' => $row->valid_from, 'to' => $start]);
+                $row->valid_until = $until;
             }
+            $anchor = max($anchor, (string) $row->valid_until);
         }
     }
 
@@ -283,6 +290,7 @@ final class EntitlementService
         if ($row->status === EntitlementPlanner::EXPIRED && ($validUntil === null || $validUntil > self::now())) {
             $this->db->update($this->table, ['status' => EntitlementPlanner::ACTIVE], ['id' => $id]);
         }
+        $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
         AuditLog::record('entitlement_extended', 'entitlement', (string) $id, $reason, ['from' => $row->valid_until, 'to' => $validUntil]);
     }
 
@@ -303,6 +311,7 @@ final class EntitlementService
         if ($to === EntitlementPlanner::ACTIVE && $row->valid_from === null) {
             $this->setValidity($id, null);
         }
+        $this->restackIfNeeded($row, $to);
         AuditLog::record('entitlement_manual_'.$to, 'entitlement', (string) $id, $reason, ['from' => $row->status, 'order_id' => $row->order_id]);
     }
 

@@ -203,6 +203,11 @@ final class ImportService
         if (! in_array($batch->status, ['approved', 'importing'], true)) {
             throw new RuntimeException('Import ist nicht freigegeben.');
         }
+        // Abgebrochener Import, inzwischen wurde ein neuerer veröffentlicht: nicht fortsetzen (würde neue Inhalte überschreiben).
+        $newer = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}bp_import_batch WHERE status = 'published' AND id > %d LIMIT 1", $batchId));
+        if ($newer !== null && $batch->status === 'importing') {
+            throw new RuntimeException(sprintf('Seit diesem Import wurde Import #%d veröffentlicht. Bitte diesen abgebrochenen Import verwerfen.', (int) $newer));
+        }
         // Nur ein Import zur Zeit: ein anderer, noch laufender Import hat Vorrang (abgebrochene mit Fehler blockieren nicht).
         $other = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}bp_import_batch WHERE status = 'importing' AND (error IS NULL OR error = '') AND id <> %d LIMIT 1", $batchId));
         if ($other !== null) {

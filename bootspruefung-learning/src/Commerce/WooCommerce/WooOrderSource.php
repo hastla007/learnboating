@@ -47,6 +47,7 @@ final class WooOrderSource implements OrderSource
             $paid ? gmdate('Y-m-d H:i:s', $paid->getTimestamp()) : null,
             (string) $order->get_payment_method(),
             $items,
+            max(0.0, (float) $order->get_total_refunded() - array_sum(array_map(static fn ($i) => $i->refundedTotal, $items))),
         );
     }
 

@@ -59,6 +59,11 @@ final class Integration
         add_action('woocommerce_process_shop_order_meta', $sync, 60, 1);
         // Bestellung endgültig gelöscht: Zugänge und Gruppen widerrufen (der Abgleich findet sie danach nicht mehr).
         $deleted = static function ($orderId): void {
+            static $done = [];
+            if (isset($done[(int) $orderId])) {
+                return; // CPT und HPOS-Sync lösen beide Hooks aus
+            }
+            $done[(int) $orderId] = true;
             self::sync()->revokeOrder((int) $orderId, __('Bestellung gelöscht', 'bootspruefung-learning'));
         };
         add_action('woocommerce_before_delete_order', $deleted, 10, 1);
@@ -356,6 +361,17 @@ final class Integration
         }
         // WooCommerce verschickt die Mail vor unserem Abgleich (Statushooks) – erst abgleichen, dann den Stand nennen.
         self::sync()->sync((int) $order->get_id(), 'email');
+        // Erstattungsmail: Zugang (der erstatteten Kurse) endet – nicht „freigeschaltet“ melden.
+        $emailId = is_object($email) && isset($email->id) ? (string) $email->id : '';
+        if ($emailId === 'customer_refunded_order') {
+            $partial = (float) $order->get_total_refunded() < (float) $order->get_total() - 0.009;
+            $text = $partial
+                ? __('Für die erstatteten Positionen endet der Lernzugang. Deine übrigen Zugänge findest du unter „Mein Lernen“.', 'bootspruefung-learning')
+                : __('Mit der Erstattung endet der Lernzugang aus dieser Bestellung.', 'bootspruefung-learning');
+            echo $plainText ? esc_html($text)."\n\n" : '<section class="woocommerce-order-bp-access"><h2>'.esc_html__('Lernzugang', 'bootspruefung-learning').'</h2><p>'.esc_html($text).'</p></section>'; // phpcs:ignore
+
+            return;
+        }
         $notice = $this->accessNotice((int) $order->get_id(), (bool) $plainText);
         echo $plainText ? esc_html(wp_strip_all_tags($notice))."\n\n" : $notice; // phpcs:ignore
     }
@@ -364,10 +380,11 @@ final class Integration
     {
         $rows = $this->entitlements()->forOrder($orderId);
         $groups = array_filter(self::sync()->groups()?->forOrder($orderId) ?? [], static fn ($g) => $g->status === 'active');
+        $groupText = '';
         if ($groups !== []) {
             $url = Router::url('gruppen');
             $seats = array_sum(array_map(static fn ($g) => (int) $g->seats, $groups));
-            $text = esc_html(sprintf(_n('Deine Gruppenlizenz mit %d Platz ist bereit.', 'Deine Gruppenlizenz mit %d Plätzen ist bereit.', $seats, 'bootspruefung-learning'), $seats)).' '
+            $groupText = $text = esc_html(sprintf(_n('Deine Gruppenlizenz mit %d Platz ist bereit.', 'Deine Gruppenlizenz mit %d Plätzen ist bereit.', $seats, 'bootspruefung-learning'), $seats)).' '
                 .($plain ? __('Teilnehmende einladen:', 'bootspruefung-learning').' '.$url : '<a href="'.esc_url($url).'">'.esc_html__('Teilnehmende einladen', 'bootspruefung-learning').'</a>');
             if ($rows === []) {
                 return $plain ? $text : '<section class="woocommerce-order-bp-access"><h2>'.esc_html__('Lernzugang', 'bootspruefung-learning').'</h2><p>'.$text.'</p></section>';
@@ -388,10 +405,15 @@ final class Integration
         } elseif ($pending !== []) {
             $text = esc_html__('Dein Lernzugang wird freigeschaltet, sobald die Zahlung eingegangen ist.', 'bootspruefung-learning');
         } else {
+            $text = '';
+        }
+        // Kombi + Gruppenpaket in einer Bestellung: beide Hinweise.
+        $parts = array_values(array_filter([$text, $groupText]));
+        if ($parts === []) {
             return '';
         }
 
-        return $plain ? $text : '<section class="woocommerce-order-bp-access"><h2>'.esc_html__('Lernzugang', 'bootspruefung-learning').'</h2><p>'.$text.'</p></section>';
+        return $plain ? implode("\n", $parts) : '<section class="woocommerce-order-bp-access"><h2>'.esc_html__('Lernzugang', 'bootspruefung-learning').'</h2><p>'.implode('</p><p>', $parts).'</p></section>';
     }
 
     // ------------------------------------------------------------------ Admin

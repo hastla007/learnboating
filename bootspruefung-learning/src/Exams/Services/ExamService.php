@@ -51,7 +51,14 @@ final class ExamService
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
         $papers = [];
         $limit = $this->access->limit($userId, $course->code, AccessService::EXAM);
+        // Kombis: je Bogen die geltenden Teile und Zeit (See-Bogen 60 Min., Binnen-Bogen 35 Min.) direkt auf der Kachel.
+        $perPaper = $rule !== null && array_filter((array) ($rule->passing['parts'] ?? []), static fn ($p) => isset($p['seconds'])) !== [];
         foreach ($this->content->papers((int) $course->id) as $index => $paper) {
+            $paperRule = null;
+            if ($perPaper) {
+                [$pp, $pt] = $this->applicableParts((array) $rule->passing, array_map(static fn ($r) => (int) $r->question_id, $this->content->paperQuestions((int) $paper->id)), (int) $rule->time_limit_seconds);
+                $paperRule = $this->passingText($pp, (int) $paper->question_count, $pt);
+            }
             $last = $this->db->get_row($this->db->prepare(
                 "SELECT id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND paper_id = %d ORDER BY (status = 'running') DESC, id DESC LIMIT 1",
                 $userId,
@@ -61,6 +68,7 @@ final class ExamService
                 'id' => (int) $paper->id,
                 'number' => (int) $paper->paper_number,
                 'questions' => (int) $paper->question_count,
+                'rule' => $paperRule,
                 'locked' => $limit !== null && $index >= $limit,
                 'last' => $last ? ['session_id' => (int) $last->id, 'status' => $last->status, 'score' => $last->score === null ? null : (int) $last->score, 'max' => $last->max_score === null ? null : (int) $last->max_score, 'passed' => $last->passed === null ? null : (bool) $last->passed] : null,
             ];
@@ -347,7 +355,22 @@ final class ExamService
         if ($session->status !== 'running') {
             return;
         }
-        $this->evaluate($sessionId, $this->expired($session));
+        // Hinweis „Zeit abgelaufen“ ab dem Fristende (die Kulanzzeit gilt nur für das Werten später Antworten).
+        $this->evaluate($sessionId, $session->deadline_at !== null && time() >= strtotime($session->deadline_at.' UTC'));
+    }
+
+    /** Falsch beantwortete Fragen einer eigenen, ausgewerteten Prüfung. @return list<int> */
+    public function wrongQuestionIds(int $userId, int $sessionId): array
+    {
+        $session = $this->session($userId, $sessionId);
+        if ($session->status !== 'evaluated') {
+            return [];
+        }
+
+        return array_map('intval', $this->db->get_col($this->db->prepare(
+            "SELECT question_id FROM {$this->t('exam_session_question')} WHERE session_id = %d AND is_correct = 0 ORDER BY position",
+            $sessionId
+        )));
     }
 
     /** Schließt abgelaufene Sitzungen (Cron und vor jedem Zugriff). */
@@ -573,16 +596,14 @@ final class ExamService
 
             return false;
         }));
+        $withSeconds = static fn (array $list): bool => $list !== [] && count(array_filter($list, static fn ($p) => (int) ($p['seconds'] ?? 0) > 0)) === count($list);
         if ($applicable === [] || count($applicable) === count($parts)) {
-            $seconds = array_sum(array_map(static fn ($p) => (int) ($p['seconds'] ?? 0), $parts));
-
-            return [$passing, $seconds > 0 ? $seconds : $timeLimit];
+            return [$passing, $withSeconds($parts) ? array_sum(array_map(static fn ($p) => (int) $p['seconds'], $parts)) : $timeLimit];
         }
         $passing['parts'] = $applicable;
         $passing['min_correct_ratio'] = array_sum(array_column($applicable, 'min_correct')) / max(1, array_sum(array_column($applicable, 'of')));
-        $seconds = array_sum(array_map(static fn ($p) => (int) ($p['seconds'] ?? 0), $applicable));
 
-        return [$passing, $seconds > 0 ? $seconds : $timeLimit];
+        return [$passing, $withSeconds($applicable) ? array_sum(array_map(static fn ($p) => (int) $p['seconds'], $applicable)) : $timeLimit];
     }
 
     /** Wie ExamRuleSet::passingSummary der Quelle. @param array<string,mixed> $passing */

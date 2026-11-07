@@ -57,7 +57,7 @@ foreach (['courses' => 'course', 'modules' => 'module', 'questions' => 'question
     $check($count($table, "status <> 'source_archived'") === $manifest['counts'][$entity], "{$entity}: ".$manifest['counts'][$entity].' wie im Manifest');
 }
 $check($count('answer', "revision_id IN (SELECT current_revision_id FROM {$p}question)") === $manifest['counts']['answers'], 'Antworten wie im Manifest');
-$check($count('exam_paper_question') === $manifest['counts']['exam_paper_questions'], 'Bogenfragen wie im Manifest');
+$check($count('exam_paper_question', "paper_id IN (SELECT id FROM {$p}exam_paper WHERE status <> 'source_archived')") === $manifest['counts']['exam_paper_questions'], 'Bogenfragen wie im Manifest');
 $check($count('navigation_question', "status <> 'source_archived'") === $manifest['counts']['navigation_questions'], 'Navigations-Teilaufgaben wie im Manifest');
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}media WHERE storage_key IS NOT NULL") === $manifest['counts']['media'], 'alle Mediendateien abgelegt');
 $check($count('video_lesson', "status <> 'source_archived'") === $manifest['counts']['video_lessons'], 'Videolektionen wie im Manifest');

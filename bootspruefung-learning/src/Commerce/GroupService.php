@@ -103,7 +103,8 @@ final class GroupService
             $suppress = $this->db->suppress_errors(true);
             $ok = $this->db->insert($this->groups, [
                 'owner_user_id' => $order->userId,
-                'name' => sprintf(__('Gruppe aus Bestellung #%d', 'bootspruefung-learning'), $order->id).($user ? ' ('.$user->display_name.')' : ''),
+                // Neutraler Name (erscheint in Einladungsmails): Produkt, nicht Bestellnummer/Käufername.
+                'name' => (function_exists('wc_get_product') && ($product = wc_get_product($item->productId))) ? mb_substr(wp_specialchars_decode($product->get_name()), 0, 60) : __('Lerngruppe', 'bootspruefung-learning'),
                 'scopes' => wp_json_encode($scopes), 'seats' => max(0, $perUnit * max(0, $item->quantity - $item->refundedQuantity)),
                 'status' => self::ACTIVE, 'valid_from' => $start, 'valid_until' => $days > 0 ? gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $days * DAY_IN_SECONDS) : null,
                 'order_id' => $order->id, 'order_item_id' => $item->id, 'product_id' => $item->productId,
@@ -199,7 +200,7 @@ final class GroupService
             $invited++;
             $group = $this->find($groupId);
             /* translators: 1: group name, 2: link */
-            wp_mail($email, sprintf(__('Einladung zum Lernzugang: %s', 'bootspruefung-learning'), $group->name),
+            \Bootspruefung\Learning\Support\Mail::send($email, sprintf(__('Einladung zum Lernzugang: %s', 'bootspruefung-learning'), $group->name),
                 sprintf(__("Du wurdest zu „%1\$s“ eingeladen.\n\nZugang annehmen: %2\$s\n\nFalls du noch kein Konto hast, kannst du dich dort registrieren.", 'bootspruefung-learning'), $group->name, self::joinUrl($token)));
         }
         AuditLog::record('group_invited', 'group', (string) $groupId, null, ['count' => $invited, 'skipped' => count($skipped)]);
@@ -283,7 +284,7 @@ final class GroupService
     private function trimMembers(int $groupId, int $seats, string $reason): void
     {
         $members = $this->db->get_results($this->db->prepare(
-            "SELECT * FROM {$this->members} WHERE group_id = %d AND status IN ('active','invited') ORDER BY (status = 'active'), id DESC",
+            "SELECT * FROM {$this->members} WHERE group_id = %d AND status IN ('active','invited') ORDER BY (status = 'active'), COALESCE(joined_at, invited_at) DESC, id DESC",
             $groupId
         ));
         $surplus = count($members) - max(0, $seats);

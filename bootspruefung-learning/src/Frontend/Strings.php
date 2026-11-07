@@ -388,6 +388,7 @@ final class Strings
             'result' => __('Ergebnis', $d),
             'topics_title' => __('Ergebnis nach Themen', $d),
             'learn_wrong' => __('Falsch beantwortete Fragen lernen', $d),
+            'learn_exam_heading' => __('Fehler aus der Prüfung', $d),
             'review_title' => __('Alle Fragen', $d),
             'only_wrong' => __('Nur falsch beantwortete anzeigen', $d),
             'section_trainers' => __('Weitere Trainer', $d),

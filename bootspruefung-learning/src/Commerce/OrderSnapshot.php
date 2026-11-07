@@ -19,6 +19,8 @@ final class OrderSnapshot
         public readonly ?string $datePaid,
         public readonly string $paymentMethod,
         public readonly array $items,
+        /** Erstattung ohne Positionsbezug (nur Betrag, z. B. im Gateway-Dashboard), brutto. */
+        public readonly float $unallocatedRefund = 0.0,
     ) {
     }
 }

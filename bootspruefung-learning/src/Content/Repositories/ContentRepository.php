@@ -125,7 +125,13 @@ final class ContentRepository
     /** @return list<object> Antworten einer Revision in Quellreihenfolge */
     public function answers(int $revisionId): array
     {
-        return $this->db->get_results($this->db->prepare("SELECT id, answer_key, answer_text, is_correct, sort_order FROM {$this->t('answer')} WHERE revision_id = %d ORDER BY sort_order, id", $revisionId));
+        // Antworten einer Revision ändern sich nie (neue Inhalte = neue Revision) – je Anfrage nur einmal laden.
+        static $memo = [];
+        if (count($memo) > 2000) {
+            $memo = [];
+        }
+
+        return $memo[$this->db->prefix.$revisionId] ??= $this->db->get_results($this->db->prepare("SELECT id, answer_key, answer_text, is_correct, sort_order FROM {$this->t('answer')} WHERE revision_id = %d ORDER BY sort_order, id", $revisionId));
     }
 
     /** @return list<array{url:string,alt:string,caption:?string}> auslieferbare Bilder einer Revision */

@@ -144,6 +144,10 @@ final class EntitlementPlanner
         if ($row->status === self::EXPIRED && $status === self::ACTIVE) {
             return;
         }
+        // Erstattet über einen Betrag ohne Positionsbezug: Geld ist zurück, kein Wiederaufleben.
+        if ($row->status === self::REVOKED && $status === self::ACTIVE && $order->unallocatedRefund > 0.009) {
+            return;
+        }
         if ($row->status === self::PENDING && $status === self::SUSPENDED) {
             return;
         }

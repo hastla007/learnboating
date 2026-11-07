@@ -24,7 +24,12 @@ final class MoneyBackWoo
         foreach ($order->get_items('line_item') as $item) {
             if ($item instanceof \WC_Order_Item_Product) {
                 $refundedAmount = abs((float) $order->get_total_refunded_for_item($item->get_id()));
-                $allocated += $refundedAmount;
+                // Brutto zählen (Positionsbetrag ist netto; get_total_refunded() ist brutto).
+                $taxRefunded = 0.0;
+                foreach ($order->get_taxes() as $tax) {
+                    $taxRefunded += abs((float) $order->get_tax_refunded_for_item($item->get_id(), $tax->get_rate_id()));
+                }
+                $allocated += $refundedAmount + $taxRefunded;
                 $items[] = [
                     'product_id' => (int) $item->get_product_id(),
                     'variation_id' => (int) $item->get_variation_id(),
@@ -159,7 +164,7 @@ final class MoneyBackWoo
         ));
         $order->save();
         $to = (string) apply_filters('bootspruefung_money_back_recipient', get_option('admin_email'), $order);
-        wp_mail($to, sprintf(__('Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
+        \Bootspruefung\Learning\Support\Mail::send($to, sprintf(__('Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
             __("Kunde %1\$s fordert die Geld-zurück-Garantie an.\n\nBestellung: #%2\$d\nLernstand: %3\$s %% (Grenze %4\$s %%)\nFrist bis: %5\$s\n%7\$s\n\nBestellung öffnen: %6\$s", 'bootspruefung-learning'),
             $order->get_billing_email(),
             $orderId,
@@ -168,6 +173,13 @@ final class MoneyBackWoo
             Labels::date($status['deadline']),
             $order->get_edit_order_url(),
             $scope
+        ));
+        // Bestätigung an den Kunden
+        \Bootspruefung\Learning\Support\Mail::send((string) $order->get_billing_email(), sprintf(__('Deine Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
+            __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDein gesetzliches Widerrufsrecht bleibt davon unberührt.", 'bootspruefung-learning'),
+            $orderId,
+            self::money($parts['amount']),
+            $parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))
         ));
         do_action('bootspruefung_money_back_requested', $orderId, $request);
         wc_add_notice($parts['excluded'] === []

@@ -59,6 +59,7 @@ final class LearnerController
                 'module' => ['type' => 'integer', 'minimum' => 1],
                 'topic' => ['type' => 'string', 'maxLength' => 190],
                 'collection' => ['type' => 'integer', 'minimum' => 1],
+                'exam' => ['type' => 'integer', 'minimum' => 1],
                 'mode' => ['type' => 'string', 'enum' => LearningService::MODES, 'default' => 'smart'],
             ],
         ]);
@@ -179,6 +180,10 @@ final class LearnerController
             throw new AccessDenied(__('Für diesen Kurs ist der Fragenkatalog nicht freigeschaltet.', 'bootspruefung-learning'));
         }
         $only = $request['collection'] ? $this->collections->questionIds($user, $course, (int) $request['collection']) : null;
+        // Fehler einer abgegebenen Prüfung gezielt wiederholen (Knopf auf der Ergebnisseite).
+        if ($request['exam']) {
+            $only = $this->exams->wrongQuestionIds($user, (int) $request['exam']);
+        }
         $question = $this->learning->next($user, $course, $request['module'] ? (int) $request['module'] : null, (string) $request['mode'], $request['topic'] ? (string) $request['topic'] : null, $only);
 
         return $question === null ? ['done' => true] : ['done' => false, 'question' => $question];
