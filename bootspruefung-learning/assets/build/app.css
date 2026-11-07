@@ -1363,3 +1363,5 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-sample-steps { grid-template-columns: 1fr; gap: 0.1rem; }
 	.bp-sample-steps dd { margin-bottom: 0.5rem; }
 }
+/* Einzelkurs: Videokarte in der Höhe einer Kombi-Karte, nicht auf die Fortschrittsbox gestreckt */
+.bp-hub-cards.is-one { align-self: start; }

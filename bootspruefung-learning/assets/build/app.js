@@ -639,7 +639,7 @@
 			]) : null;
 			// Oben immer die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
 			var cards = parts.length ? parts.map(videoCard) : [next, exam];
-			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' }, cards), progress]));
+			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' + (cards.length === 1 ? ' is-one' : '') }, cards), progress]));
 
 			// Lernbereiche
 			var areas = [];
