@@ -992,3 +992,32 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app .bp-nav-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .bp-nav-card h2 { margin-bottom: 0.8rem !important; }
 .bp-app .bp-nav-list { grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); }
+
+/* Prüfungsausschüsse mit Deutschlandkarte */
+.bp-committee-layout { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.bp-committee-mapcol { position: sticky; top: 1rem; }
+.bp-committee-map { padding: 1rem; border-radius: 18px; background: linear-gradient(180deg, #0a2540, #041224); }
+.bp-de-map { display: block; width: 100%; height: auto; }
+.bp-de-state path { fill: #1d4466; stroke: #0a2540; stroke-width: 1.4; transition: fill 0.15s; cursor: pointer; }
+.bp-de-state.has-committee path { fill: #2a6a93; }
+.bp-de-state:hover path { fill: #3b8fc0; }
+.bp-de-state.is-hover path { fill: #29B6E6; }
+.bp-de-state.is-selected path { fill: #F5B900; }
+.bp-de-count { cursor: pointer; }
+.bp-de-count circle { fill: #fff; stroke: #0a2540; stroke-width: 2; }
+.bp-de-count text { font: 700 15px/1 system-ui, sans-serif; fill: #071B2E; pointer-events: none; }
+.bp-map-legend { display: flex; align-items: center; gap: 0.5rem; margin: 0.6rem 0 0; font-size: 0.78rem; color: rgba(255,255,255,0.75); }
+.bp-map-swatch { width: 0.9rem; height: 0.9rem; border-radius: 50%; background: #fff; border: 2px solid #0a2540; }
+.bp-map-note { margin: 0.6rem 0 0; font-size: 0.78rem; }
+.bp-app .bp-state-select { min-height: 42px; padding: 0.45rem 0.8rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); background: var(--bp-surface); flex: 0 1 220px; }
+.bp-state-bar { display: flex; align-items: center; gap: 0.7rem; margin: 0 0 0.8rem; padding: 0.6rem 0.9rem; border-radius: 12px; background: color-mix(in srgb, #F5B900 14%, var(--bp-surface)); border: 1px solid color-mix(in srgb, #F5B900 50%, transparent); }
+.bp-state-bar[hidden] { display: none; }
+.bp-state-bar .bp-ico { color: #8a5a00; }
+.bp-state-bar strong { flex: 1; }
+.bp-state-bar .bp-button { min-height: 34px; padding: 0.25em 0.9em; font-size: 0.85rem; }
+.bp-committee-listcol .bp-committees { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+@media (max-width: 900px) {
+	.bp-committee-layout { grid-template-columns: minmax(0, 1fr); }
+	.bp-committee-mapcol { position: static; max-width: 420px; margin: 0 auto; }
+	.bp-committee-filter { flex-wrap: wrap; }
+}

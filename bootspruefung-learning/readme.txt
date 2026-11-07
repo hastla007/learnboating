@@ -15,6 +15,7 @@ Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 * Content-Import: ZIP-Upload oder `wp bootspruefung import <paket>`, Prüfung (Prüfsummen, Schemata, Querverweise), Dry-Run, Freigabe, Import in Teilschritten, Revisionen, Archivierung, Protokoll; Rollback auf einen früheren Stand (`wp bootspruefung rollback`)
 * Content-Browser: Übersicht, Kurse & Module, Fragen, Medien, Prüfungsregeln, Rechtefreigabe mit Begründung und Audit-Log
 * Lernbereich unter /bootsscheine/: Kursübersicht, Smarttrainer, Modi Neu/Falsch/Merkliste, Modulfilter, offene Fragen
+* Prüfung anmelden: Prüfungsausschüsse mit Deutschlandkarte (Bundesländer aus Natural Earth, gemeinfrei, lokal unter assets/maps; Zuordnung aus den Namen der Ausschüsse, neu erzeugbar mit tools/maps/make_de_states.py)
 * Spezialtrainer: Navigationsaufgaben, Praxiskarten, Videokurs (Fortschritt, Schrittgalerien, Quiz), Funktraining (SRC-Seefunktexte mit Auswertung, UBI-Aufnahme/-Abgabe, Vokabeln, Buchstabiertafel), Funkpraxis-Szenarien mit Auswertung, Gerätesimulation (Original-JavaScript der Quelle unter assets/device-sim; kostenlose Testversion mit Geräte-Lektionen und einem Routineanruf, Vollversion über Simulator-Pässe 14 Tage/3/12 Monate, Kapitäns-Bundle, 1-/3-Monats-Pass oder das Checkout-Upgrade zu einem Funkkurs)
 * Prüfungssimulation: Zufallsprüfung nach Regelwerk, feste Bögen, Zeitlimit, Teilgrenzen, Ergebnis mit Rückblick
 * REST unter /wp-json/bootspruefung/v1/ (Status, Import-Schritte, Kurse, Fragen, Antworten, Merkliste, Prüfungen)

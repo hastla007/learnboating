@@ -172,6 +172,7 @@ final class ExamGuideService
                 'postal_code' => $c->postal_code, 'city' => $c->city,
                 'phone' => $c->phone, 'fax' => $c->fax, 'email' => $c->email, 'website' => $c->website,
                 'office_hours' => $c->office_hours, 'note' => $c->note, 'course_codes' => $codes,
+                'states' => self::statesFor((string) $c->commission),
                 // 2 = für diesen Kurs gepflegt/abgeleitet, 1 = allgemeine Stelle, 0 = Stelle für andere Prüfungen
                 'rank' => $courseCode === null ? 1 : (in_array($courseCode, $codes ?: $derived, true) ? 2 : (($codes ?: $derived) === [] ? 1 : 0)),
                 'matches' => $courseCode !== null && in_array($courseCode, $codes ?: $derived, true),
@@ -180,6 +181,31 @@ final class ExamGuideService
         usort($out, static fn ($a, $b) => $b['rank'] <=> $a['rank']);
 
         return $out;
+    }
+
+    /**
+     * Bundesländer, für die ein Prüfungsausschuss laut seinem Namen tätig ist (Karte im Lernbereich).
+     * Abgeleitet aus Orts- und Regionsnamen – keine amtliche Zuständigkeitsliste.
+     *
+     * @return list<string> ISO-3166-2-Codes, z. B. DE-BY
+     */
+    public static function statesFor(string $commission): array
+    {
+        $rules = [
+            '/\bNRW\b|Nordrhein/u' => 'DE-NW', '/Aurich|Niedersachsen|Ostfriesland/u' => 'DE-NI', '/Berlin/u' => 'DE-BE', '/Mecklenburg/u' => 'DE-MV',
+            '/Bodensee|Stuttgart|Mannheim|Baden/u' => 'DE-BW', '/Brandenburg/u' => 'DE-BB', '/Sachsen-Anhalt/u' => 'DE-ST', '/Sachsen(?!-Anhalt)/u' => 'DE-SN',
+            '/Thüringen/u' => 'DE-TH', '/Bremen/u' => 'DE-HB', '/Hamburg/u' => 'DE-HH', '/Deggendorf|München|Nürnberg|Regensburg|Bayern|\bMain\b/u' => 'DE-BY',
+            '/Koblenz|Rhein-Mosel|Pfalz|Saar-Mosel/u' => 'DE-RP', '/Darmstadt|Wetzlar|Offenbach|Hessen|Frankfurt/u' => 'DE-HE', '/Saar/u' => 'DE-SL',
+            '/Schleswig-Holstein|Kiel/u' => 'DE-SH',
+        ];
+        $states = [];
+        foreach ($rules as $pattern => $code) {
+            if (preg_match($pattern, $commission)) {
+                $states[] = $code;
+            }
+        }
+
+        return array_values(array_unique($states));
     }
 
     public static function address(?string $street, ?string $postal, ?string $city): ?string

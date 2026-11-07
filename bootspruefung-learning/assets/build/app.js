@@ -1125,6 +1125,9 @@
 		var list = el('ul', { class: 'bp-committees' });
 		var count = el('span', { class: 'bp-committee-count', 'aria-live': 'polite' });
 		var input = el('input', { type: 'search', class: 'bp-input bp-committee-search', 'aria-label': t('guide_committee_search'), placeholder: t('guide_committee_search') });
+		var selected = null; // ISO-Code des gewählten Bundeslands
+		var mapApi = null;
+		var stateName = function (code) { return mapApi ? mapApi.name(code) : code; };
 		var short = function (label) { return String(label || '').replace(/\s+[–-]\s+(Geschäftsstelle|Postanschrift).*$/u, ''); };
 		var suffix = function (label) { var m = String(label || '').match(/\s+[–-]\s+((Geschäftsstelle|Postanschrift).*)$/u); return m ? m[1] : null; };
 		function row(c, i) {
@@ -1140,7 +1143,7 @@
 				]) : null
 			]);
 			var toggle = el('button', { type: 'button', class: 'bp-committee-toggle', 'aria-expanded': 'false', 'aria-controls': id }, [el('span', { class: 'bp-sr', text: t('guide_contact_for', { name: short(c.label) }) }), el('span', { 'aria-hidden': 'true', text: t('guide_contact') })]);
-			var li = el('li', { class: 'bp-card bp-committee' }, [
+			var li = el('li', { class: 'bp-card bp-committee', 'data-states': (c.states || []).join(' ') }, [
 				el('div', { class: 'bp-committee-head' }, [
 					el('div', { class: 'bp-committee-name' }, [
 						el('h3', { text: c.label }),
@@ -1150,6 +1153,8 @@
 				]),
 				detail
 			]);
+			li.addEventListener('mouseenter', function () { if (mapApi) { mapApi.hover(c.states || []); } });
+			li.addEventListener('mouseleave', function () { if (mapApi) { mapApi.hover([]); } });
 			toggle.addEventListener('click', function () {
 				var open = toggle.getAttribute('aria-expanded') !== 'true';
 				toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -1162,24 +1167,97 @@
 			var q = input.value.trim().toLowerCase();
 			list.textContent = '';
 			var hits = committees.filter(function (c) {
-				return !q || [c.label, c.address, c.postal_code, c.city].join(' ').toLowerCase().indexOf(q) !== -1;
+				return (!q || [c.label, c.address, c.postal_code, c.city].join(' ').toLowerCase().indexOf(q) !== -1)
+					&& (!selected || (c.states || []).indexOf(selected) !== -1);
 			});
 			hits.forEach(function (c, i) { list.appendChild(row(c, i)); });
-			count.textContent = q ? t('guide_committee_hits', { n: hits.length, total: committees.length }) : t('guide_committee_all', { n: committees.length });
+			count.textContent = (q || selected) ? t('guide_committee_hits', { n: hits.length, total: committees.length }) : t('guide_committee_all', { n: committees.length });
+			stateBar.hidden = !selected;
+			stateLabel.textContent = selected ? t('guide_state_selected', { state: stateName(selected), n: hits.length }) : '';
+			if (stateSelect.value !== (selected || '')) { stateSelect.value = selected || ''; }
 			if (!hits.length) {
 				list.appendChild(el('li', { class: 'bp-muted bp-committee-none', text: t('guide_committee_none') }));
 			}
 		}
+		var stateLabel = el('strong');
+		var resetState = el('button', { type: 'button', class: 'bp-button', text: t('guide_state_all') });
+		var stateBar = el('div', { class: 'bp-state-bar', hidden: true }, [el('span', { class: 'bp-ico bp-ico-flag', 'aria-hidden': 'true' }), stateLabel, resetState]);
+		var stateSelect = el('select', { class: 'bp-input bp-state-select', 'aria-label': t('guide_state_choose') }, [el('option', { value: '', text: t('guide_state_choose') })]);
+		function choose(code) {
+			selected = code || null;
+			if (mapApi) { mapApi.select(selected); }
+			render();
+		}
+		resetState.addEventListener('click', function () { choose(null); });
+		stateSelect.addEventListener('change', function () { choose(stateSelect.value); });
+		var mapBox = el('div', { class: 'bp-committee-map', 'aria-hidden': 'true' });
 		input.addEventListener('input', render);
 		render();
+		// Karte der Bundesländer (lokal, Natural Earth): Klick wählt das Land, Zahl = Ausschüsse laut Name.
+		fetch(cfg.maps + 'de-states.json?ver=' + encodeURIComponent(cfg.version), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (geo) {
+			var ns = 'http://www.w3.org/2000/svg';
+			var svg = document.createElementNS(ns, 'svg');
+			svg.setAttribute('viewBox', geo.viewBox);
+			svg.setAttribute('class', 'bp-de-map');
+			var names = {};
+			var shapes = {};
+			var counts = {};
+			committees.forEach(function (c) { (c.states || []).forEach(function (s2) { counts[s2] = (counts[s2] || 0) + 1; }); });
+			var states = geo.states.slice().sort(function (a, b) { return b.d.length - a.d.length; }); // kleine Länder oben
+			states.forEach(function (st) {
+				names[st.code] = st.name;
+				var g = document.createElementNS(ns, 'g');
+				g.setAttribute('class', 'bp-de-state' + (counts[st.code] ? ' has-committee' : ''));
+				var path = document.createElementNS(ns, 'path');
+				path.setAttribute('d', st.d);
+				var title = document.createElementNS(ns, 'title');
+				title.textContent = st.name + ': ' + t('guide_committee_all', { n: counts[st.code] || 0 });
+				g.appendChild(title);
+				g.appendChild(path);
+				g.addEventListener('click', function () { choose(selected === st.code ? null : st.code); });
+				svg.appendChild(g);
+				shapes[st.code] = g;
+				stateSelect.appendChild(el('option', { value: st.code, text: st.name + ' (' + (counts[st.code] || 0) + ')' }));
+			});
+			// Zahlen-Marker zuletzt, damit sie über allen Flächen liegen
+			states.forEach(function (st) {
+				if (!counts[st.code] || ['DE-BE', 'DE-HB', 'DE-HH'].indexOf(st.code) !== -1) { return; }
+				var m = document.createElementNS(ns, 'g');
+				m.setAttribute('class', 'bp-de-count');
+				m.setAttribute('transform', 'translate(' + st.cx + ' ' + st.cy + ')');
+				var circle = document.createElementNS(ns, 'circle');
+				circle.setAttribute('r', '15');
+				var text = document.createElementNS(ns, 'text');
+				text.setAttribute('text-anchor', 'middle');
+				text.setAttribute('dy', '5');
+				text.textContent = String(counts[st.code]);
+				m.appendChild(circle);
+				m.appendChild(text);
+				m.addEventListener('click', function () { choose(selected === st.code ? null : st.code); });
+				svg.appendChild(m);
+			});
+			var opts = Array.prototype.slice.call(stateSelect.options, 1).sort(function (a, b) { return a.text.localeCompare(b.text, 'de'); });
+			opts.forEach(function (o) { stateSelect.appendChild(o); });
+			mapBox.appendChild(svg);
+			mapBox.appendChild(el('p', { class: 'bp-map-legend' }, [el('span', { class: 'bp-map-swatch' }), t('guide_map_legend')]));
+			mapApi = {
+				name: function (code) { return names[code] || code; },
+				select: function (code) { Object.keys(shapes).forEach(function (k) { shapes[k].classList.toggle('is-selected', k === code); }); },
+				hover: function (codes) { Object.keys(shapes).forEach(function (k) { shapes[k].classList.toggle('is-hover', codes.indexOf(k) !== -1); }); }
+			};
+			render();
+		}).catch(function () { mapBox.hidden = true; });
 		return el('section', { class: 'bp-card bp-guide-book' }, [
 			el('h2', { text: t('guide_book') }),
 			el('p', { class: 'bp-muted', text: t('guide_book_text') }),
 			el('ul', { class: 'bp-providers' }, page.providers.map(function (p) {
 				return el('li', { class: 'bp-card' }, [el('strong', { text: p.name }), el('span', { class: 'bp-muted', text: ' ' + p.full }), el('p', { text: p.text }), el('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'bp-button', text: t('guide_to_provider', { name: p.name }) })]);
 			})),
-			el('div', { class: 'bp-committee-bar' }, [el('h3', { text: t('guide_committees', { n: committees.length }) }), el('div', { class: 'bp-committee-filter' }, [input, count])]),
-			list
+			el('div', { class: 'bp-committee-bar' }, [el('h3', { text: t('guide_committees', { n: committees.length }) }), el('div', { class: 'bp-committee-filter' }, [stateSelect, input, count])]),
+			el('div', { class: 'bp-committee-layout' }, [
+				el('div', { class: 'bp-committee-mapcol' }, [mapBox, el('p', { class: 'bp-muted bp-map-note', text: t('guide_map_note') })]),
+				el('div', { class: 'bp-committee-listcol' }, [stateBar, list])
+			])
 		]);
 	}
 

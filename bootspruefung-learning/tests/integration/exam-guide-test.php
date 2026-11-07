@@ -97,5 +97,13 @@ $check($importer->import('exam_committees', $record) === 'unchanged' && $wpdb->g
 $wpdb->update($p.'exam_committee', ['phone' => $record['phone'], 'course_codes' => '', 'locally_modified' => 0], ['id' => $first['id']]);
 
 update_option(Settings::OPTION, $settingsBefore);
+echo "Bundesländer der Prüfungsausschüsse (Karte)\n";
+$check(\Bootspruefung\Learning\ExamGuide\ExamGuideService::statesFor('Prüfungszentrum Brandenburg, Sachsen, Sachsen-Anhalt und Thüringen Nord') === ['DE-BB', 'DE-ST', 'DE-SN', 'DE-TH'], 'Brandenburg … Thüringen Nord: 4 Länder, Sachsen und Sachsen-Anhalt getrennt');
+$check(\Bootspruefung\Learning\ExamGuide\ExamGuideService::statesFor('Prüfungsausschuss Mannheim-Darmstadt/Saar-Mosel') === ['DE-BW', 'DE-RP', 'DE-HE', 'DE-SL'], 'Mannheim-Darmstadt/Saar-Mosel: BW, RP, HE, SL');
+$allStates = [];
+foreach ((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->committees() as $cm) {
+    $allStates = array_merge($allStates, $cm['states']);
+}
+$check(count(array_unique($allStates)) === 16, 'alle 16 Bundesländer haben mindestens einen Prüfungsausschuss');
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

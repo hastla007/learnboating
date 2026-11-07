@@ -101,6 +101,7 @@ final class Router
             'logoutUrl' => wp_logout_url(self::url()),
             'voice' => \Bootspruefung\Learning\Settings\Settings::get('radio_voice_output'),
             'deviceSim' => plugins_url('assets/device-sim/', $file),
+            'maps' => plugins_url('assets/maps/', $file),
             'version' => Plugin::VERSION,
             'groups' => is_user_logged_in() ? count((new \Bootspruefung\Learning\Commerce\GroupService($GLOBALS['wpdb']))->forOwner(get_current_user_id())) : 0,
             'accountUrl' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::accountUrl(),
