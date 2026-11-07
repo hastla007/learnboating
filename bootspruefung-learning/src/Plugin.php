@@ -114,6 +114,7 @@ final class Plugin
             (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->expireDue();
         });
         PersonalData::register();
+        \Bootspruefung\Learning\Security\Hardening::register();
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
         (new \Bootspruefung\Learning\Gate\Charts())->register();

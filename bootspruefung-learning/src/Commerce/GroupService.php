@@ -16,6 +16,11 @@ use Bootspruefung\Learning\Frontend\Router;
  */
 final class GroupService
 {
+    /** Einladungen je Gruppe und Tag (mindestens; bei großen Gruppen 2 × Plätze). */
+    public const INVITE_LIMIT = 20;
+    /** Gültigkeit persönlicher Einladungslinks in Tagen. */
+    public const INVITE_DAYS = 30;
+
     public const SOURCE = 'group';
     public const ACTIVE = 'active';
     public const SUSPENDED = 'suspended';
@@ -170,6 +175,12 @@ final class GroupService
     public function invite(int $groupId, int $actorId, array $emails): array
     {
         $group = $this->managed($groupId, $actorId);
+        // Schutz vor Missbrauch als Mail-Relay: höchstens INVITE_LIMIT Einladungen je Gruppe und Tag.
+        $sentToday = (int) $this->db->get_var($this->db->prepare(
+            "SELECT COUNT(*) FROM {$this->members} WHERE group_id = %d AND invited_at >= %s",
+            $groupId, gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS)
+        ));
+        $budget = max(0, max(self::INVITE_LIMIT, 2 * (int) $group->seats) - $sentToday);
         $invited = 0;
         $skipped = [];
         foreach (array_unique(array_map('strtolower', array_map('trim', $emails))) as $email) {
@@ -178,7 +189,7 @@ final class GroupService
                 continue;
             }
             $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->members} WHERE group_id = %d AND email = %s AND status IN ('invited','active')", $groupId, $email));
-            if ($exists || $this->freeSeats($group) <= 0) {
+            if ($exists || $this->freeSeats($group) <= 0 || $invited >= $budget) {
                 $skipped[] = $email;
                 continue;
             }
@@ -300,9 +311,11 @@ final class GroupService
     public function rename(int $groupId, int $actorId, string $name): void
     {
         $this->managed($groupId, $actorId);
-        $name = trim($name);
+        // Name erscheint in Einladungsmails: keine Links/Adressen, kein HTML, kurz.
+        $name = trim((string) preg_replace('~(https?://|www\.)\S*|\S+@\S+|\S+\.(de|com|net|org|info|io|ru|xyz)\b~iu', '', wp_strip_all_tags($name)));
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
         if ($name !== '') {
-            $this->db->update($this->groups, ['name' => mb_substr($name, 0, 190)], ['id' => $groupId]);
+            $this->db->update($this->groups, ['name' => mb_substr($name, 0, 60)], ['id' => $groupId]);
         }
     }
 
@@ -409,7 +422,11 @@ final class GroupService
             return [null, null];
         }
         if ($token[0] === 'i') {
-            $member = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->members} WHERE invite_token = %s AND status = 'invited'", $token));
+            // Persönliche Einladungen gelten INVITE_DAYS Tage.
+            $member = $this->db->get_row($this->db->prepare(
+                "SELECT * FROM {$this->members} WHERE invite_token = %s AND status = 'invited' AND (invited_at IS NULL OR invited_at >= %s)",
+                $token, gmdate('Y-m-d H:i:s', time() - self::INVITE_DAYS * DAY_IN_SECONDS)
+            ));
 
             return $member ? [$this->find((int) $member->group_id), $member] : [null, null];
         }

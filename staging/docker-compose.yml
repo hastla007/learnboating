@@ -105,7 +105,8 @@ services:
     image: ${MAILPIT_IMAGE:-docker.io/axllent/mailpit:v1.27}
     restart: unless-stopped
     ports:
-      - "${STAGING_BIND:-127.0.0.1}:${MAILPIT_PORT:-8025}:8025"
+      # Nur lokal (Passwort-Reset-Mails!) – auf dem Server per SSH-Tunnel ansehen.
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
 
   # Optional: HTTPS mit eigenem Domainnamen (Let's Encrypt), siehe README.
   caddy:

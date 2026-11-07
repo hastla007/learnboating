@@ -423,6 +423,19 @@ $check((int) $groupsService->find((int) $g2->id)->seats === 3 && $groupsService-
 $activeMembers = array_values(array_filter($groupsService->membersOf((int) $g2->id), static fn ($m) => $m->status === 'active'));
 $check(count($activeMembers) === 3 && (int) $activeMembers[0]->user_id === $students[0] && ! $access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank'), 'Teilerstattung: zuletzt beigetretenes Mitglied verliert den Platz, 3 bleiben');
 $check(count($groupsService->forOwner($buyer)) === 2, 'Besitzer sieht beide Gruppen');
+// Gruppen: Name ohne Links, Einladungen begrenzt
+$groupsService->rename((int) $g2->id, $buyer, 'Segelclub https://evil.example Gewinn www.spam.de info@spam.de');
+$check($groupsService->find((int) $g2->id)->name === 'Segelclub Gewinn', 'Gruppenname ohne Links/Adressen');
+// DSGVO-Export: echte Datensätze statt Zähler
+$exp = [];
+$pageNo = 1;
+do {
+    $r = \Bootspruefung\Learning\Privacy\PersonalData::export(get_userdata($students[0])->user_email, $pageNo++);
+    foreach ($r['data'] as $d) {
+        $exp[$d['group_id']][] = $d;
+    }
+} while (! $r['done'] && $pageNo < 100);
+$check(isset($exp['bootspruefung-learning-learning_group_member']) && ! str_contains((string) wp_json_encode($exp), 'invite_token'), 'Export enthält Mitgliedschaften als Datensätze, ohne Tokens');
 // Rückkehr nach Registrierung/Anmeldung (Gruppeneinladung, Kasse)
 $join = GroupService::joinUrl('gTEST');
 $_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM] = $join;

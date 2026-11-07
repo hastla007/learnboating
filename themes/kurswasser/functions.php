@@ -178,3 +178,18 @@ add_action('init', static function (): void {
 
 /** Lernende sehen keine WordPress-Werkzeugleiste (nur wer Beiträge bearbeiten darf). */
 add_filter('show_admin_bar', static fn (bool $show): bool => $show && current_user_can('edit_posts'));
+
+/*
+ * Datenschutz: keine Gravatar-Abrufe (E-Mail-Hash an einen US-Dienst) und kein von WooCommerce
+ * automatisch eingefügter zweiter Konto-Block im Kopf (lädt den Avatar, Festlegung 07.11.2026).
+ */
+add_filter('hooked_block_types', static function (array $hooked): array {
+    return array_values(array_diff($hooked, ['woocommerce/customer-account']));
+}, 20);
+add_filter('pre_option_show_avatars', static fn () => '0');
+add_filter('pre_get_avatar_data', static function (array $args): array {
+    $args['url'] = '';
+    $args['found_avatar'] = false;
+
+    return $args;
+});

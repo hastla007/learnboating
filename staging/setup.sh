@@ -44,6 +44,8 @@ wp eval 'if (class_exists("WC_Install")) { WC_Install::install(); }' >/dev/null
 # WooCommerce schaltet neue Shops auf „Coming soon“ – für die Abnahme sichtbar machen.
 wp option update woocommerce_coming_soon no >/dev/null
 wp option update woocommerce_store_pages_only no >/dev/null
+# Keine Herkunfts-Cookies (sbjs_*) ohne Einwilligung
+wp option update woocommerce_feature_order_attribution_enabled no >/dev/null
 # Registrierung im Konto/Checkout mit eigenem Passwort (Abnahme „Registrieren“)
 wp option update woocommerce_enable_myaccount_registration yes >/dev/null
 wp option update woocommerce_enable_signup_and_login_from_checkout yes >/dev/null

@@ -65,7 +65,7 @@ final class DisputeWebhooks
             return new WP_Error('bp_invalid', 'Invalid payload.', ['status' => 400]);
         }
         if (! $this->verifyPaypal($request, $event, $settings)) {
-            AuditLog::record('dispute_webhook_rejected', 'webhook', 'paypal', 'signature', ['event' => (string) $event['id']]);
+            self::logRejected('paypal', ['event' => mb_substr((string) $event['id'], 0, 64)]);
 
             return new WP_Error('bp_signature', 'Signature verification failed.', ['status' => 401]);
         }
@@ -98,6 +98,17 @@ final class DisputeWebhooks
         return null;
     }
 
+    /** Abgewiesene Webhooks höchstens einmal je 10 Minuten und Quelle protokollieren (Protokoll nicht flutbar). */
+    private static function logRejected(string $source, array $context): void
+    {
+        $key = 'bp_webhook_rejected_'.$source;
+        $count = (int) get_transient($key);
+        if ($count === 0) {
+            AuditLog::record('dispute_webhook_rejected', 'webhook', $source, 'signature', $context);
+        }
+        set_transient($key, $count + 1, 10 * MINUTE_IN_SECONDS);
+    }
+
     /** @param array<string,mixed> $event @param array<string,string> $settings */
     private function verifyPaypal(WP_REST_Request $request, array $event, array $settings): bool
     {
@@ -106,6 +117,17 @@ final class DisputeWebhooks
         if (is_bool($forced)) {
             return $forced;
         }
+        // Ohne PayPal-Signaturkopfzeilen gar nicht erst bei PayPal anfragen; Prüfungen gedrosselt (Schutz vor Flut).
+        foreach (['paypal_auth_algo', 'paypal_cert_url', 'paypal_transmission_id', 'paypal_transmission_sig', 'paypal_transmission_time'] as $header) {
+            if ((string) $request->get_header($header) === '') {
+                return false;
+            }
+        }
+        $calls = (int) get_transient('bp_paypal_verify_calls');
+        if ($calls >= 60) {
+            return false;
+        }
+        set_transient('bp_paypal_verify_calls', $calls + 1, MINUTE_IN_SECONDS);
         $api = $settings['paypal_mode'] === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
         $token = wp_remote_post($api.'/v1/oauth2/token', [
             'timeout' => 15,
@@ -144,7 +166,7 @@ final class DisputeWebhooks
         $body = (string) $request->get_body();
         $signature = (string) $request->get_header('x_bootspruefung_signature');
         if (! hash_equals('sha256='.hash_hmac('sha256', $body, $secret), $signature)) {
-            AuditLog::record('dispute_webhook_rejected', 'webhook', 'generic', 'signature');
+            self::logRejected('generic', []);
 
             return new WP_Error('bp_signature', 'Signature verification failed.', ['status' => 401]);
         }
