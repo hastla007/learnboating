@@ -194,6 +194,8 @@
 			view = viewExam(parts[0], parseInt(parts[2], 10));
 		} else if (parts[1] === 'pruefung') {
 			view = viewExamHub(parts[0]);
+		} else if (parts[1] === 'knoten') {
+			view = viewKnots(parts[0]);
 		} else if (parts[1] === 'themen') {
 			view = viewTopics(parts[0]);
 		} else if (parts[1] === 'downloads') {
@@ -508,11 +510,17 @@
 
 	function viewCourse(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
-			return videoParts(c).then(function (parts) { renderCourseHub(slug, c, parts); });
+			var own = api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').catch(function () { return null; });
+			return Promise.all([videoParts(c), own]).then(function (r) { renderCourseHub(slug, c, r[0], r[1]); });
 		});
 	}
 
-	function renderCourseHub(slug, c, parts) {
+	// Videokapitel „Knoten“ eines Kurses (SBF See, SBF Binnen, Kombi).
+	function knotModule(videos) {
+		return videos ? (videos.modules || []).filter(function (m) { return /^Knoten$/i.test(m.title); })[0] || null : null;
+	}
+
+	function renderCourseHub(slug, c, parts, ownVideos) {
 		{
 			var shop = c.shop || {};
 			var p = c.progress ? c.progress.total : null;
@@ -566,13 +574,18 @@
 			var tr = c.trainers;
 			var pct = function (a, b) { return b > 0 ? Math.floor(a * 100 / b) : null; };
 			areas.push({ path: qb ? 'lernen/' : 'themen/', icon: 'spark', title: t('mode_smart'), meta: t('hub_smart_meta'), locked: !qb });
+			var knots = knotModule(ownVideos);
+			if (knots && knots.lessons.length) {
+				var seen = knots.lessons.filter(function (l) { return l.completed; }).length;
+				areas.push({ path: 'knoten/', icon: 'rope', title: t('knots_title'), meta: t('knots_meta', { done: seen, total: knots.lessons.length }), locked: c.features.video_course === false, percent: pct(seen, knots.lessons.length) });
+			}
 			areas.push({ path: 'themen/', icon: 'layers', title: t('hub_topics'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.length }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
 			areas.push({ path: 'pruefung/', icon: 'timer', title: t('section_exam'), meta: c.exam && c.exam.papers.length ? t('hub_exam_meta', { n: c.exam.papers.length }) : (c.exam ? t('hub_exam_meta_random') : t('locked_short')), locked: !c.exam });
 			if (tr && tr.navigation.tasks > 0) {
 				areas.push({ path: 'navigation/', icon: 'compass', title: t('trainer_navigation'), meta: t('trainer_navigation_meta', { done: tr.navigation.done, total: tr.navigation.questions, tasks: tr.navigation.tasks }), locked: c.features.navigation_trainer === false, percent: pct(tr.navigation.done, tr.navigation.questions) });
 			}
 			if (tr && tr.praxis.cards > 0) {
-				areas.push({ path: 'praxis/', icon: 'knot', title: t('trainer_praxis'), meta: t('trainer_praxis_meta', { known: tr.praxis.known, total: tr.praxis.cards }), locked: c.features.praxis_trainer === false, percent: pct(tr.praxis.known, tr.praxis.cards) });
+				areas.push({ path: 'praxis/', icon: 'cards', title: t('trainer_praxis'), meta: t('trainer_praxis_meta', { known: tr.praxis.known, total: tr.praxis.cards }), locked: c.features.praxis_trainer === false, percent: pct(tr.praxis.known, tr.praxis.cards) });
 			}
 			if (tr && tr.video.lessons > 0) {
 				areas.push({ path: 'video/', icon: 'play', title: t('trainer_video'), meta: t('trainer_video_meta', { done: tr.video.completed, total: tr.video.lessons }), locked: c.features.video_course === false, percent: pct(tr.video.completed, tr.video.lessons) });
@@ -609,6 +622,45 @@
 
 	function detailHeader(slug, c, title, intro) {
 		return [crumbs(slug, c.name, [[title]]), el('header', { class: 'bp-header bp-detail-head' }, [el('p', { class: 'bp-learn-course', text: c.name }), el('h1', { text: title }), intro ? el('p', { class: 'bp-muted', text: intro }) : null])];
+	}
+
+	function viewKnots(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').catch(function () { return null; }).then(function (v) {
+				var m = knotModule(v);
+				var nodes = detailHeader(slug, c, t('knots_title'), t('knots_intro'));
+				if (!m) {
+					nodes.push(c.features.video_course === false ? lockedBox(t('knots_title'), (c.shop || {}).video_course) : el('p', { text: t('knots_none') }));
+					mount(nodes, t('knots_title') + ' – ' + c.name);
+					return;
+				}
+				var done = m.lessons.filter(function (l) { return l.completed; }).length;
+				var pctDone = Math.floor(done * 100 / Math.max(m.lessons.length, 1));
+				nodes.push(el('div', { class: 'bp-knots-progress' }, [
+					el('p', {}, [el('strong', { text: t('knots_meta', { done: done, total: m.lessons.length }) })]),
+					el('div', { class: 'bp-hub-bar bp-knots-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pctDone), 'aria-label': t('knots_meta', { done: done, total: m.lessons.length }) }, [el('span', { style: 'width:' + pctDone + '%' })])
+				]));
+				if (m.locked) {
+					nodes.push(el('p', { class: 'bp-note', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }));
+				}
+				nodes.push(el('ol', { class: 'bp-knots' }, m.lessons.map(function (l, i) {
+					var state = l.locked ? 'locked' : (l.completed ? 'done' : 'open');
+					return el('li', { class: 'bp-knot is-' + state }, [
+						el('span', { class: 'bp-knot-no', 'aria-hidden': 'true', text: String(i + 1) }),
+						el('div', { class: 'bp-knot-text' }, [
+							el('h2', {}, [l.locked ? el('span', { text: l.title }) : link(slug + '/video/' + l.id + '/', l.title)]),
+							el('p', { class: 'bp-knot-meta' }, [
+								l.steps ? t('knots_steps', { n: l.steps }) : null,
+								l.duration ? ' · ' + duration(l.duration) : null,
+								el('span', { class: 'bp-knot-state', text: state === 'done' ? t('knots_done') : (state === 'locked' ? t('locked_badge') : t('knots_open')) })
+							])
+						]),
+						el('span', { class: 'bp-area-chevron', 'aria-hidden': 'true' })
+					]);
+				})));
+				mount(nodes, t('knots_title') + ' – ' + c.name);
+			});
+		});
 	}
 
 	function viewTopics(slug) {
