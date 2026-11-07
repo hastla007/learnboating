@@ -429,16 +429,46 @@
 
 	// ------------------------------------------------------------------ Kurs
 
+	// Kopfbereich der Kursseite im Stil der Produktbilder: Navy, Wellen, Liniensymbol, Akzentfarbe je Kurs.
+	var HERO_STYLE = {
+		'SBF-SEE': ['anchor', '#40C4FF'], 'SBF-BIN-MOTOR': ['anchor', '#66DCA0'], 'SBF-BIN-SEGEL': ['sail', '#66DCA0'], 'SBF-SEE-BIN': ['anchor', '#F7B500'],
+		'ADD-SEE-TO-BIN': ['plus', '#66DCA0'], 'ADD-BIN-TO-SEE': ['plus', '#40C4FF'], 'ADD-BIN-SEGEL': ['plus', '#66DCA0'], 'ADD-UBI-TO-SRC': ['plus', '#40C4FF'], 'ADD-FKN-TO-SKN': ['plus', '#FF8C5A'],
+		'SRC': ['radio', '#40C4FF'], 'UBI': ['radio', '#66DCA0'], 'SRC-UBI': ['radio', '#F7B500'], 'SKN': ['flare', '#FF785A'], 'FKN': ['flare', '#FFA05A']
+	};
+	var HERO_ICONS = {
+		anchor: '<circle cx="60" cy="22" r="11"/><path d="M60 33v70"/><path d="M36 52h48"/><path d="M22 74c4 18 20 29 38 29s34-11 38-29"/>',
+		radio: '<rect x="54" y="58" width="12" height="50" rx="2" fill="currentColor" stroke="none"/><path d="M44 46a22 22 0 0 1 32 0"/><path d="M33 35a38 38 0 0 1 54 0"/><path d="M22 24a54 54 0 0 1 76 0"/>',
+		sail: '<path d="M56 12v74H22z" fill="currentColor" stroke="none"/><path d="M64 26v60h30z" fill="currentColor" stroke="none"/><path d="M18 94h84l-10 14H28z" fill="currentColor" stroke="none"/>',
+		flare: '<rect x="53" y="62" width="14" height="46" rx="2" fill="currentColor" stroke="none"/><path d="M60 40V8M60 40l23-23M60 40h32M60 40l23 23M60 40l-23-23M60 40H28M60 40 37 63"/><circle cx="60" cy="40" r="10" fill="#fff" stroke="none"/>',
+		plus: '<circle cx="60" cy="60" r="44"/><path d="M60 36v48M36 60h48" stroke-width="10"/>'
+	};
+
+	function heroArt(kind) {
+		var wrap = el('span', { class: 'bp-brand-art', 'aria-hidden': 'true' });
+		wrap.innerHTML = '<svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' + (HERO_ICONS[kind] || HERO_ICONS.anchor) + '</svg>'; // feste Symbole, keine Nutzerdaten
+		return wrap;
+	}
+
+	function heroWaves() {
+		var wrap = el('span', { class: 'bp-brand-waves', 'aria-hidden': 'true' });
+		wrap.innerHTML = '<svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0 40 C150 10 300 70 450 40 S750 10 900 40 S1100 70 1200 40 V120 H0Z" fill="rgba(120,190,255,0.18)"/><path d="M0 70 C200 45 350 95 600 68 S1000 45 1200 72 V120 H0Z" fill="rgba(120,190,255,0.14)"/><path d="M0 95 C250 80 450 110 700 92 S1050 80 1200 98 V120 H0Z" fill="rgba(120,190,255,0.12)"/></svg>';
+		return wrap;
+	}
+
 	function courseHero(slug, c) {
-		var img = courseImage(slug, 'hero');
 		var p = c.progress ? c.progress.total : null;
-		var hero = el('section', { class: 'bp-hero bp-course-hero bp-hub-hero' + (img ? ' has-image' : '') }, [
-			img ? el('img', { class: 'bp-hero-img', src: img, alt: '' }) : null,
+		var style = HERO_STYLE[c.code] || ['anchor', '#40C4FF'];
+		var hero = el('section', { class: 'bp-hero bp-course-hero bp-hub-hero bp-brand-hero', style: '--bp-hero-accent:' + style[1] }, [
+			heroArt(style[0]),
+			heroWaves(),
 			el('div', { class: 'bp-hero-text' }, [
 				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: c.name })]),
-				el('p', { class: 'bp-eyebrow' }, [el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) })]),
+				el('p', { class: 'bp-brand-eyebrow', text: t('overview_title') + ' · ' + typeLabel(c.type) }),
 				el('h1', { text: c.name }),
-				el('p', { class: 'bp-hero-lead', text: p ? t('hub_intro_progress', { percent: p.percent, mastered: p.mastered, total: p.questions }) : t('hub_intro') })
+				el('div', { class: 'bp-brand-foot' }, [
+					p ? el('span', { class: 'bp-brand-pill', text: t('hub_pill', { percent: p.percent }) }) : null,
+					el('span', { class: 'bp-brand-tag', text: t('hub_tagline') })
+				])
 			])
 		]);
 		return hero;

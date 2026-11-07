@@ -126,6 +126,8 @@ final class Strings
             'knots_done' => __('angesehen', $d),
             'knots_open' => __('offen', $d),
             'knots_none' => __('In diesem Kurs gibt es keine Knoten-Lektionen.', $d),
+            'hub_pill' => __('{percent} % gefestigt', $d),
+            'hub_tagline' => __('Lernen · Üben · Prüfen', $d),
             'hub_part' => __('Dein Teilkurs', $d),
             'hub_video_for' => __('Dein Videokurs für {name}', $d),
             'hub_video_progress' => __('Kursfortschritt {percent} %', $d),

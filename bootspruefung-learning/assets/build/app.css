@@ -828,3 +828,19 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-knot.is-locked { opacity: 0.6; }
 
 .bp-app { --bp-i-rope: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 12c-2-3-4-5-6.5-5S2 9 2 12s1.5 5 3.5 5 4.5-2 6.5-5 4-5 6.5-5S22 9 22 12s-1.5 5-3.5 5-4.5-2-6.5-5z'/%3E%3C/svg%3E"); }
+
+/* Kopfbereich im Stil der Produktbilder */
+.bp-app .bp-brand-hero { display: block; min-height: 240px; padding: clamp(1.5rem, 3.5vw, 2.4rem) clamp(1.5rem, 4vw, 3rem) clamp(2.6rem, 5vw, 3.6rem); background: linear-gradient(180deg, #0a2540 0%, #041224 100%); }
+.bp-app .bp-brand-hero::before { display: none; }
+.bp-brand-eyebrow { margin: 0.6rem 0 0.2rem; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bp-hero-accent); }
+.bp-app .bp-brand-hero h1 { font-size: clamp(2.2rem, 5.5vw, 3.6rem); margin: 0.1em 0 0.5em; max-width: 14ch; }
+.bp-brand-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.2rem; }
+.bp-brand-pill { display: inline-block; padding: 0.35em 1em; border-radius: 999px; background: var(--bp-hero-accent); color: #071B2E; font-weight: 800; font-size: 0.92rem; }
+.bp-brand-tag { font-size: 0.88rem; color: rgba(255,255,255,0.75); }
+.bp-brand-art { position: absolute; z-index: -1; right: clamp(1.5rem, 7%, 5rem); top: 50%; width: clamp(110px, 16vw, 190px); transform: translateY(-58%); color: var(--bp-hero-accent); }
+.bp-brand-art svg { display: block; width: 100%; height: auto; }
+.bp-brand-waves { position: absolute; z-index: -1; left: 0; right: 0; bottom: 0; height: 32%; }
+.bp-brand-waves svg { display: block; width: 100%; height: 100%; }
+@media (max-width: 600px) {
+	.bp-brand-art { width: 90px; top: 1.2rem; transform: none; opacity: 0.55; right: 1rem; }
+}
