@@ -1,4 +1,4 @@
-# Offene Punkte (Stand 06.11.2026, Plugin 0.11.0)
+# Offene Punkte (Stand 07.11.2026, Plugin 0.11.0)
 
 Legende Status: 🔴 offen · 🟡 teilweise/zu prüfen · ⏸ bewusst zurückgestellt
 Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code · **Beide** = Test/Abnahme gemeinsam
@@ -8,6 +8,8 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 30 | Recht & Content | Rechte und Prüfungsregelwerke im Live-System freigeben (vorläufig, ohne Seekarten) | 🔴 | Du | ja | Nach dem Content-Import: „Rechte“ › „Alles freigeben (außer Seekarten)“ und „Prüfungsregeln“ › „Alle Regelwerke freigeben“ (oder `wp bootspruefung rights release --exam-rules`) |
 | 32 | Recht & Content | Kombi-Regelwerke prüfen: SBF See & Binnen, SRC & UBI, Ergänzung FKN → SKN sind in der Quelle Entwürfe (30 bzw. 20/10 Fragen, 75 %) | 🟡 | Du | nein | Mit der Freigabe live; bei Bedarf Fragenzahl/Grenze im Quell-Repo anpassen |
 | 31 | Recht & Content | Seekarte D49: BSH-Lizenz einholen, Datei hochladen, Lizenz bestätigen | 🔴 | Du | nein (Trainer zeigt bis dahin Hinweis auf gedruckte Karte) | Admin „Rechte“ › „Seekarten“ oder `wp bootspruefung chart upload D49 <datei>` und `wp bootspruefung chart license D49 --note=…` |
+| 34 | Recht & Content | PDFs erstellen und hochladen: Navigationsaufgaben, Lösungen, Prüfungsbögen (SBF See/Binnen, SRC, UBI), Vokabeln, Muster-Funksprüche, Buchstabiertafel | 🔴 | Du | nein (Seiten funktionieren ohne PDFs) | Mediathek: „Lernzugang erforderlich: Kurs · Bereich“ und ggf. „Anzeige im Lernbereich“ setzen; Kombis und Ergänzungen zeigen sie automatisch mit. Rechte an Kartenausschnitten/Abbildungen beachten |
+| 35 | Shop | Preise der Videokurs-Stufen prüfen (Theorie/Komplett/Upgrade, Kombis, Bundle, Pässe, Gruppenpakete) – vorläufig festgelegt am 07.11.2026 | 🟡 | Du | ja | Preise in `ShopCatalog.php` (`VIDEO_TIERS`, Kombis, Gruppen) anpassen, danach Produktkatalog abgleichen |
 | 3 | Recht & Content | Platzhaltervideos ersetzen | 🔴 | Du | ja | Videos liefern (URL/Datei je Lektion) |
 | 27 | Shop | Katalog im Live-System anlegen und veröffentlichen | 🔴 | Du | ja | Ein Klick: „Kostenlose Bereiche“ › „Produktkatalog anlegen/abgleichen“ mit Haken „veröffentlichen“ (oder `wp bootspruefung shop setup --publish`); Bilder, Kategorien und Texte kommen mit, von Hand geänderte Texte/Bilder bleiben |
 | 28 | Recht | Geld-zurück-Garantie in AGB/Produkttext beschreiben; gesetzliches Widerrufsrecht für digitale Inhalte (Zustimmung zur sofortigen Ausführung) separat regeln | 🔴 | Du | ja | Texte festlegen; Garantie gilt zusätzlich, schränkt das Widerrufsrecht nicht ein |
