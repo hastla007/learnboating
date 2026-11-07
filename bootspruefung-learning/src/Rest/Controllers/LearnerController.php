@@ -54,6 +54,7 @@ final class LearnerController
             'args' => [
                 'code' => $code,
                 'module' => ['type' => 'integer', 'minimum' => 1],
+                'topic' => ['type' => 'string', 'maxLength' => 190],
                 'mode' => ['type' => 'string', 'enum' => LearningService::MODES, 'default' => 'smart'],
             ],
         ]);
@@ -153,7 +154,7 @@ final class LearnerController
         if (! $this->access->can($user, $course->code, AccessService::QUESTION_BANK)) {
             throw new AccessDenied(__('Für diesen Kurs ist der Fragenkatalog nicht freigeschaltet.', 'bootspruefung-learning'));
         }
-        $question = $this->learning->next($user, $course, $request['module'] ? (int) $request['module'] : null, (string) $request['mode']);
+        $question = $this->learning->next($user, $course, $request['module'] ? (int) $request['module'] : null, (string) $request['mode'], $request['topic'] ? (string) $request['topic'] : null);
 
         return $question === null ? ['done' => true] : ['done' => false, 'question' => $question];
     }

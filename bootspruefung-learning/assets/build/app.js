@@ -189,7 +189,7 @@
 		} else if (parts[1] === 'pruefung-anmelden') {
 			view = viewExamGuide(parts[0], query.get('teil'));
 		} else if (parts[1] === 'lernen') {
-			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart');
+			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart', query.get('thema'));
 		} else if (parts[1] === 'pruefung' && parts[2]) {
 			view = viewExam(parts[0], parseInt(parts[2], 10));
 		} else if (parts[1] === 'pruefung') {
@@ -452,7 +452,8 @@
 		cards: '<rect x="18" y="34" width="62" height="74" rx="8"/><path d="M40 14h54a8 8 0 0 1 8 8v66"/>',
 		bulb: '<path d="M44 92h32M48 106h24"/><path d="M60 12a32 32 0 0 0-19 57c4 3 6 8 6 13h26c0-5 2-10 6-13a32 32 0 0 0-19-57z"/>',
 		group: '<circle cx="44" cy="40" r="15"/><path d="M14 100a30 30 0 0 1 60 0"/><circle cx="84" cy="46" r="12"/><path d="M80 72a26 26 0 0 1 28 28"/>',
-		flag: '<path d="M28 110V14"/><path d="M28 16h58l-12 22 12 22H28" fill="currentColor" fill-opacity=".25"/>'
+		flag: '<path d="M28 110V14"/><path d="M28 16h58l-12 22 12 22H28" fill="currentColor" fill-opacity=".25"/>',
+		timer: '<circle cx="60" cy="66" r="40"/><path d="M60 44v22l14 14"/><path d="M46 14h28M60 14v12"/>'
 	};
 
 	function heroArt(kind) {
@@ -723,37 +724,103 @@
 		});
 	}
 
+	// Kleiner Fortschrittsring mit Prozentzahl (Themen-Kacheln, Prüfungsbögen).
+	function miniRing(percent, label) {
+		return el('span', { class: 'bp-mini-ring', 'aria-hidden': 'true' }, [ring(percent), el('span', { class: 'bp-mini-ring-val', text: label !== undefined ? label : percent + ' %' })]);
+	}
+
+	function topicHref(slug, moduleId, topic) {
+		return slug + '/lernen/?modul=' + moduleId + (topic ? '&thema=' + encodeURIComponent(topic) : '');
+	}
+
+	function topicTile(href, name, p) {
+		return el('li', {}, [el('a', { href: base + href, 'data-bp-link': '1', class: 'bp-topic', 'aria-label': t('topics_tile_aria', { name: name, mastered: p.mastered, total: p.questions }) }, [
+			miniRing(p.percent),
+			el('span', { class: 'bp-topic-text', 'aria-hidden': 'true' }, [el('strong', { text: name }), el('span', { text: t('topics_count', { mastered: p.mastered, total: p.questions }) })]),
+			el('span', { class: 'bp-ico bp-ico-bulb bp-topic-ico', 'aria-hidden': 'true' })
+		])]);
+	}
+
 	function viewTopics(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
-			var nodes = detailHeader(slug, c, t('hub_topics'), t('smart_explain'));
-			if (c.features.question_bank) {
-				var modes = el('ul', { class: 'bp-modes' }, [
-					modeTile(slug + '/lernen/', t('mode_smart'), null, t('mode_smart_desc'), 'spark', true),
-					modeTile(slug + '/lernen/?modus=new', t('mode_new'), c.progress.total.new, t('mode_new_desc'), 'plus'),
-					modeTile(slug + '/lernen/?modus=wrong', t('mode_wrong'), c.progress.total.unsure, t('mode_wrong_desc'), 'repeat'),
-					modeTile(slug + '/lernen/?modus=favorites', t('mode_favorites'), c.favorites, t('mode_favorites_desc'), 'bookmark')
-				]);
-				var list = el('ul', { class: 'bp-module-list' });
-				c.progress.modules.forEach(function (m) {
-					list.appendChild(el('li', { class: 'bp-card bp-module' + (m.locked ? ' bp-locked' : '') }, [
-						el('h4', { text: m.name }),
-						m.locked ? el('p', { class: 'bp-muted', text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : el('p', { class: 'bp-module-pct' }, [el('strong', { text: m.percent + ' %' }), ' ' + t('course_hero_mastered')]),
-						m.locked ? null : progressBar(m, t('progress_short', { mastered: m.mastered, total: m.questions })),
-						m.locked ? null : el('p', { class: 'bp-module-go' }, [link(slug + '/lernen/?modul=' + m.id, t('learn_module'), 'bp-button')])
-					]));
-				});
-				var limitNote = c.progress.limit ? el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_questions', { n: c.progress.limit }) })].concat(offerNodes((c.shop || {}).question_bank))) : null;
-				nodes.push(el('section', { class: 'bp-section bp-section-first' }, [modes, limitNote, el('h2', { class: 'bp-subhead', text: t('modules_title') }), list]));
-			} else {
-				nodes.push(lockedBox(t('section_learn'), (c.shop || {}).question_bank));
+			var title = t('hub_topics');
+			if (!c.features.question_bank) {
+				mount(detailHeader(slug, c, title, t('smart_explain')).concat([lockedBox(t('section_learn'), (c.shop || {}).question_bank)]), title + ' – ' + c.name);
+				return;
 			}
-			mount(nodes, t('hub_topics') + ' – ' + c.name);
+			var p = c.progress.total;
+			var topicCount = 0;
+			c.progress.modules.forEach(function (m) { topicCount += (m.topics && m.topics.length) ? m.topics.length : 1; });
+			var nodes = [pageHero({
+				code: c.code, icon: 'bulb', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title,
+				stats: [[p.questions, t('topics_stat_questions')], [topicCount, t('topics_stat_topics')], [p.unsure, t('mode_wrong')]],
+				percent: p.percent, percentLabel: t('course_hero_mastered')
+			})];
+
+			nodes.push(el('div', { class: 'bp-infobox' }, [el('span', { class: 'bp-ico bp-ico-bulb', 'aria-hidden': 'true' }), el('p', { text: t('smart_explain') })]));
+			if (c.progress.limit) {
+				nodes.push(el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_questions', { n: c.progress.limit }) })].concat(offerNodes((c.shop || {}).question_bank))));
+			}
+
+			// Hervorgehoben: Smarttrainer und Merkliste, darunter weitere Lernmodi.
+			nodes.push(el('div', { class: 'bp-feature-cards' }, [
+				el('a', { href: base + slug + '/lernen/', 'data-bp-link': '1', class: 'bp-feature-card is-smart', 'aria-label': t('mode_smart') }, [
+					miniRing(p.percent),
+					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('mode_smart') }), el('span', { text: t('progress_short', { mastered: p.mastered, total: p.questions }) }), el('span', { class: 'bp-feature-cta', text: t('topics_smart_cta') + ' →' })]),
+					el('span', { class: 'bp-ico bp-ico-spark bp-feature-ico', 'aria-hidden': 'true' })
+				]),
+				el('a', { href: base + slug + '/lernen/?modus=favorites', 'data-bp-link': '1', class: 'bp-feature-card is-saved', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [
+					el('span', { class: 'bp-feature-count', 'aria-hidden': 'true', text: String(c.favorites) }),
+					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('topics_saved') }), el('span', { text: c.favorites ? t('topics_saved_text') : t('topics_saved_empty') }), c.favorites ? el('span', { class: 'bp-feature-cta', text: t('topics_saved_cta') + ' →' }) : null]),
+					el('span', { class: 'bp-ico bp-ico-bookmark bp-feature-ico', 'aria-hidden': 'true' })
+				])
+			]));
+			nodes.push(el('ul', { class: 'bp-modes bp-modes-2' }, [
+				modeTile(slug + '/lernen/?modus=new', t('mode_new'), p.new, t('mode_new_desc'), 'plus'),
+				modeTile(slug + '/lernen/?modus=wrong', t('mode_wrong'), p.unsure, t('mode_wrong_desc'), 'repeat')
+			]));
+
+			// Module als Gruppen, darin die Themen als Kacheln.
+			var list = el('ul', { class: 'bp-module-list bp-topic-groups' });
+			c.progress.modules.forEach(function (m) {
+				var head = el('summary', {}, [
+					el('span', { class: 'bp-topic-group-title' }, [el('strong', { text: m.name }), m.locked ? el('span', { text: t('unlocks_on', { date: fmtDate(m.unlock_at) }) }) : el('span', { text: t('topics_group_meta', { mastered: m.mastered, total: m.questions, percent: m.percent }) })]),
+					m.locked ? badge(t('locked_badge'), 'warn') : el('span', { class: 'bp-topic-group-bar', 'aria-hidden': 'true' }, [el('span', { style: 'width:' + m.percent + '%' })]),
+					el('span', { class: 'bp-topic-chevron', 'aria-hidden': 'true' })
+				]);
+				var body = el('div', { class: 'bp-topic-group-body' });
+				if (!m.locked) {
+					if (m.topics && m.topics.length) {
+						body.appendChild(el('ul', { class: 'bp-topic-tiles' }, m.topics.map(function (tp) { return topicTile(topicHref(slug, m.id, tp.name), tp.name, tp); })));
+					} else {
+						body.appendChild(el('ul', { class: 'bp-topic-tiles' }, [topicTile(topicHref(slug, m.id, null), m.name, m)]));
+					}
+					body.appendChild(el('p', { class: 'bp-module-go' }, [link(topicHref(slug, m.id, null), t('learn_module_all', { name: m.name }), 'bp-button')]));
+				}
+				var details = el('details', { class: 'bp-topic-group' + (m.locked ? ' is-locked' : '') }, [head, body]);
+				details.open = !m.locked;
+				list.appendChild(el('li', { class: 'bp-card bp-module' + (m.locked ? ' bp-locked' : '') }, [details]));
+			});
+			nodes.push(el('section', { class: 'bp-section bp-topics-section', 'aria-labelledby': 'bp-topics-h' }, [el('h2', { class: 'bp-subhead', id: 'bp-topics-h', text: t('modules_title') }), list]));
+			mount(nodes, title + ' – ' + c.name);
 		});
 	}
 
 	function viewExamHub(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
-			mount(detailHeader(slug, c, t('simulation_title'), t('hub_exam_intro')).concat([c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation)]), t('simulation_title') + ' – ' + c.name);
+			var title = t('simulation_title');
+			var exam = c.exam;
+			var stats = [];
+			var best = null;
+			if (exam && exam.available) {
+				var passedPapers = exam.papers.filter(function (p) { return p.last && p.last.passed; }).length;
+				exam.history.forEach(function (h) { if (h.max > 0 && (best === null || h.score / h.max > best.score / best.max)) { best = h; } });
+				stats = [[exam.rule.questions, t('exam_stat_questions')], exam.papers.length ? [passedPapers + '/' + exam.papers.length, t('exam_stat_papers')] : null, [exam.history.length, t('exam_stat_attempts')]];
+			}
+			mount([
+				pageHero({ code: c.code, icon: 'timer', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('hub_exam_intro'), stats: stats, percent: best ? Math.floor(best.score * 100 / best.max) : null, percentLabel: t('exam_best') }),
+				exam ? examSection(slug, exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation)
+			], title + ' – ' + c.name);
 		});
 	}
 
@@ -765,21 +832,24 @@
 
 	function examSection(slug, exam, shop) {
 		shop = shop || {};
-		var section = el('section', { class: 'bp-section bp-panel bp-exam-panel', id: 'bp-exam', 'aria-labelledby': 'bp-exam-h' }, [el('h2', { id: 'bp-exam-h' }, [el('span', { class: 'bp-ico bp-ico-timer', 'aria-hidden': 'true' }), t('section_exam')])]);
+		var section = el('section', { class: 'bp-section bp-exam-page', id: 'bp-exam', 'aria-labelledby': 'bp-exam-h' });
+		var startCard = el('div', { class: 'bp-exam-start' }, [el('h2', { id: 'bp-exam-h' }, [el('span', { class: 'bp-ico bp-ico-timer', 'aria-hidden': 'true' }), t('section_exam')])]);
+		section.appendChild(startCard);
 		if (!exam.available) {
-			section.appendChild(el('p', { text: t('exam_unavailable') }));
+			startCard.appendChild(el('p', { text: t('exam_unavailable') }));
 			return section;
 		}
-		section.appendChild(el('p', { class: 'bp-exam-rule' }, [
+		startCard.appendChild(el('p', { class: 'bp-exam-rule' }, [
 			exam.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'),
 			' ',
 			el('span', { text: t('exam_rule_line', { questions: exam.rule.questions, passing: exam.rule.passing }) })
 		]));
+		startCard.appendChild(el('p', { class: 'bp-exam-start-text', text: t('exam_start_text') }));
 		if (!exam.live) {
-			section.appendChild(el('p', { class: 'bp-muted', text: t('exam_practice_explain') }));
+			startCard.appendChild(el('p', { class: 'bp-exam-start-text', text: t('exam_practice_explain') }));
 		}
 		if (exam.rule.note) {
-			section.appendChild(el('p', { class: 'bp-note', text: exam.rule.note }));
+			startCard.appendChild(el('p', { class: 'bp-note', text: exam.rule.note }));
 		}
 		if (exam.simulation_locked) {
 			section.appendChild(el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_papers', { n: exam.limit }) })].concat(offerNodes(shop.exam_simulation))));
@@ -789,21 +859,25 @@
 				start.disabled = true;
 				startExam(slug, null).catch(function (e) { start.disabled = false; alertMessage(section, e.message); });
 			});
-			section.appendChild(el('div', { class: 'bp-actions' }, [start]));
+			startCard.appendChild(el('div', { class: 'bp-actions' }, [start]));
 		}
 
 		if (exam.papers.length) {
-			section.appendChild(el('h3', { text: t('papers_title') }));
+			var passed = exam.papers.filter(function (p) { return p.last && p.last.passed; }).length;
 			var grid = el('ul', { class: 'bp-paper-grid' });
 			exam.papers.forEach(function (p) {
 				var state = p.last ? (p.last.status === 'running' ? 'running' : (p.last.passed ? 'passed' : 'failed')) : 'open';
 				if (p.locked) {
-					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('paper_aria', { number: p.number, state: t('locked_short') }) }, [el('span', { class: 'bp-paper-number', text: String(p.number) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])]));
+					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked', 'aria-label': t('paper_aria', { number: p.number, state: t('locked_short') }) }, [
+						el('span', { class: 'bp-paper-lock', 'aria-hidden': 'true' }),
+						el('span', { class: 'bp-paper-text', 'aria-hidden': 'true' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])
+					])]));
 					return;
 				}
+				var scored = p.last && p.last.status !== 'running' && p.last.max;
 				var btn = el('button', { type: 'button', class: 'bp-paper bp-paper-' + state, 'aria-label': t('paper_aria', { number: p.number, state: t('paper_state_' + state) }) }, [
-					el('span', { class: 'bp-paper-number', text: String(p.number) }),
-					el('span', { class: 'bp-paper-state', text: p.last && p.last.status !== 'running' ? p.last.score + '/' + p.last.max : t('paper_state_' + state) })
+					scored ? miniRing(Math.floor(p.last.score * 100 / p.last.max), p.last.score + '/' + p.last.max) : el('span', { class: 'bp-paper-badge', 'aria-hidden': 'true', text: String(p.number) }),
+					el('span', { class: 'bp-paper-text', 'aria-hidden': 'true' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('paper_state_' + state) + (p.questions ? ' · ' + t('paper_questions', { n: p.questions }) : '') })])
 				]);
 				btn.addEventListener('click', function () {
 					btn.disabled = true;
@@ -811,19 +885,29 @@
 				});
 				grid.appendChild(el('li', {}, [btn]));
 			});
-			section.appendChild(grid);
+			section.appendChild(el('details', { class: 'bp-topic-group bp-paper-group', open: true }, [
+				el('summary', {}, [
+					el('span', { class: 'bp-topic-group-title' }, [el('strong', { text: t('papers_title') }), el('span', { text: t('papers_meta', { passed: passed, total: exam.papers.length }) })]),
+					el('span', { class: 'bp-topic-group-bar', 'aria-hidden': 'true' }, [el('span', { style: 'width:' + Math.floor(passed * 100 / exam.papers.length) + '%' })]),
+					el('span', { class: 'bp-topic-chevron', 'aria-hidden': 'true' })
+				]),
+				el('div', { class: 'bp-topic-group-body' }, [grid])
+			]));
 		}
 		if (exam.history.length) {
-			section.appendChild(el('h3', { text: t('history_title') }));
 			var list = el('ul', { class: 'bp-history' });
 			exam.history.forEach(function (h) {
-				list.appendChild(el('li', {}, [
-					link(slug + '/pruefung/' + h.session_id + '/', (h.paper_id ? t('paper_label') : t('simulation_label')) + ' · ' + h.score + '/' + h.max),
-					' ',
+				var pct = h.max ? Math.floor(h.score * 100 / h.max) : 0;
+				list.appendChild(el('li', { class: h.passed ? 'is-passed' : 'is-failed' }, [
+					el('span', { class: 'bp-history-ico', 'aria-hidden': 'true' }),
+					el('span', { class: 'bp-history-text' }, [
+						link(slug + '/pruefung/' + h.session_id + '/', (h.paper_id ? t('paper_label') : t('simulation_label')) + ' · ' + h.score + '/' + h.max),
+						el('span', { class: 'bp-history-meta', text: (h.submitted_at ? fmtDate(h.submitted_at) + ' · ' : '') + pct + ' %' })
+					]),
 					badge(h.passed ? t('passed') : t('failed'), h.passed ? 'ok' : 'bad')
 				]));
 			});
-			section.appendChild(list);
+			section.appendChild(el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list]));
 		}
 		return section;
 	}
@@ -844,13 +928,16 @@
 
 	// ------------------------------------------------------------------ Lernmodus
 
-	function viewLearn(slug, moduleId, mode) {
+	function viewLearn(slug, moduleId, mode, topic) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (course) {
 			var moduleName = null;
 			if (moduleId && course.progress) {
 				course.progress.modules.forEach(function (m) { if (String(m.id) === String(moduleId)) { moduleName = m.name; } });
 			}
-			var heading = moduleName || t('mode_' + mode);
+			if (!moduleName) {
+				topic = null;
+			}
+			var heading = topic || moduleName || t('mode_' + mode);
 			var container = el('div', { class: 'bp-learn' });
 			mount([
 				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', el('span', { text: heading })]),
@@ -860,14 +947,17 @@
 				]),
 				container
 			], heading + ' – ' + course.name);
-			loadQuestion(slug, moduleId, mode, container);
+			loadQuestion(slug, moduleId, mode, container, topic);
 		});
 	}
 
-	function loadQuestion(slug, moduleId, mode, container) {
+	function loadQuestion(slug, moduleId, mode, container, topic) {
 		var params = new URLSearchParams({ mode: mode });
 		if (moduleId) {
 			params.set('module', moduleId);
+		}
+		if (moduleId && topic) {
+			params.set('topic', topic);
 		}
 		container.textContent = '';
 		container.appendChild(el('p', { class: 'bp-loading', text: t('loading') }));
@@ -877,11 +967,11 @@
 				container.appendChild(el('div', { class: 'bp-card bp-done' }, [
 					el('h2', { text: t('done_title') }),
 					el('p', { text: t('done_' + mode) }),
-					el('p', {}, [link(slug + '/', t('back_course'), 'bp-button bp-button-primary'), ' ', mode !== 'smart' ? link(slug + '/lernen/' + (moduleId ? '?modul=' + moduleId : ''), t('mode_smart'), 'bp-button') : null])
+					el('p', {}, [link(slug + '/', t('back_course'), 'bp-button bp-button-primary'), ' ', mode !== 'smart' ? link(moduleId ? topicHref(slug, moduleId, topic) : slug + '/lernen/', t('mode_smart'), 'bp-button') : null, topic ? ' ' : null, topic ? link(slug + '/themen/', t('topics_back'), 'bp-button') : null])
 				]));
 				return;
 			}
-			container.appendChild(questionCard(slug, moduleId, mode, r.question, container));
+			container.appendChild(questionCard(slug, moduleId, mode, r.question, container, topic));
 		}).catch(function (e) {
 			container.textContent = '';
 			container.appendChild(el('p', { class: 'bp-inline-error', role: 'alert', text: e.message }));
@@ -955,7 +1045,7 @@
 		return btn;
 	}
 
-	function questionCard(slug, moduleId, mode, q, container) {
+	function questionCard(slug, moduleId, mode, q, container, topic) {
 		var started = Date.now();
 		var key = uuid();
 		var name = 'bp-q-' + q.question_id;
@@ -974,7 +1064,7 @@
 		var feedback = el('div', { class: 'bp-feedback', 'aria-live': 'polite' });
 		var actions = el('div', { class: 'bp-actions' });
 		var next = el('button', { type: 'button', class: 'bp-button bp-button-primary bp-next' }, [t('next_question'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })]);
-		next.addEventListener('click', function () { loadQuestion(slug, moduleId, mode, container); });
+		next.addEventListener('click', function () { loadQuestion(slug, moduleId, mode, container, topic); });
 
 		function showResult(r, fieldset) {
 			if (fieldset) {

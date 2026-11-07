@@ -128,6 +128,21 @@ for ($i = 0; $i < 4; $i++) {
     $seen[] = $next['question_id'];
 }
 $check(array_diff($seen, $allowed) === [], 'Smarttrainer zeigt nur Fragen aus dem Teilumfang');
+$topicsOk = true;
+$topicLearn = null;
+foreach ($progress['modules'] as $m) {
+    if ($m['topics'] !== []) {
+        $topicsOk = $topicsOk && array_sum(array_map(static fn ($tp) => $tp['questions'], $m['topics'])) === $m['questions'];
+        $topicLearn ??= [$m['id'], $m['topics'][0]['name']];
+    }
+}
+$check($topicsOk, 'Themen eines Moduls ergeben zusammen den Modulumfang');
+if ($topicLearn !== null) {
+    $rows = $learning->allowedQuestions($free, $course, [$topicLearn[0]]);
+    $q = $learning->next($free, $course, $topicLearn[0], 'smart', $topicLearn[1]);
+    $check($q !== null && (string) $rows[$q['question_id']]->topic === $topicLearn[1], 'Lernen nach Thema zeigt nur Fragen des Themas');
+}
+$check($learning->next($free, $course, (int) $progress['modules'][0]['id'], 'smart', 'Kein solches Thema') === null, 'unbekanntes Thema liefert keine Frage');
 
 $rule('SBF-SEE', 'exam_simulation', 'free_limited', 2);
 $overview = $exams->overview($free, $course);

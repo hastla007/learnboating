@@ -43,7 +43,7 @@ final class LearningService
      * Nächste Frage für den Nutzer oder null, wenn im Modus nichts übrig ist.
      * @return array<string,mixed>|null
      */
-    public function next(int $userId, object $course, ?int $moduleId, string $mode): ?array
+    public function next(int $userId, object $course, ?int $moduleId, string $mode, ?string $topic = null): ?array
     {
         if (! in_array($mode, self::MODES, true)) {
             throw new RuntimeException('Unbekannter Lernmodus.');
@@ -62,6 +62,9 @@ final class LearningService
         $questions = $this->allowedQuestions($userId, $course, $moduleIds, $gates);
         foreach ($this->runningExamQuestionIds($userId) as $blocked) {
             unset($questions[$blocked]);
+        }
+        if ($topic !== null && $topic !== '') {
+            $questions = array_filter($questions, static fn ($q) => (string) ($q->topic ?? '') === $topic);
         }
         if ($mode === 'favorites') {
             $favorites = array_flip($this->favoriteIds($userId));
@@ -217,13 +220,42 @@ final class LearningService
                 $allIds[(int) $row->question_id] = true;
             }
             $gate = $gates[(int) $module->id];
-            $ids = array_keys($this->allowedQuestions($userId, $course, [(int) $module->id], $gates));
+            $rows = $this->allowedQuestions($userId, $course, [(int) $module->id], $gates);
+            $ids = array_keys($rows);
             $all += array_flip($ids);
             $modules[] = ['id' => (int) $module->id, 'code' => $module->code, 'name' => $module->name] + $this->summary($userId, $ids)
-                + ['available' => count($ids), 'catalog' => count($allIds), 'locked' => $gate['locked'], 'unlock_at' => $gate['unlock_at']];
+                + ['available' => count($ids), 'catalog' => count($allIds), 'locked' => $gate['locked'], 'unlock_at' => $gate['unlock_at'],
+                    'topics' => $this->topicSummary($userId, $rows, (string) $module->name)];
         }
 
         return ['total' => $this->summary($userId, array_keys($all)), 'modules' => $modules, 'limit' => $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK)];
+    }
+
+    /**
+     * Themen eines Moduls mit Fortschritt (nur wenn das Modul in mindestens zwei Themen gegliedert ist).
+     * @param array<int,object> $rows question_id => Zeile
+     * @return list<array<string,mixed>>
+     */
+    private function topicSummary(int $userId, array $rows, string $moduleName): array
+    {
+        $groups = [];
+        foreach ($rows as $id => $row) {
+            $topic = trim((string) ($row->topic ?? ''));
+            if ($topic === '' || $topic === $moduleName) {
+                continue;
+            }
+            $groups[$topic][] = (int) $id;
+        }
+        if (count($groups) < 2) {
+            return [];
+        }
+        $out = [];
+        foreach ($groups as $topic => $ids) {
+            $out[] = ['name' => $topic] + $this->summary($userId, $ids);
+        }
+        usort($out, static fn ($a, $b) => $b['questions'] <=> $a['questions'] ?: strcmp($a['name'], $b['name']));
+
+        return $out;
     }
 
     /**
