@@ -111,7 +111,8 @@ final class Charts
                 continue;
             }
             $url = null;
-            if (self::available($code) && (new AccessService())->can($userId, $courseCode, AccessService::NAVIGATION)) {
+            // Lizenzierte Karte nur mit vollem Navigationstrainer-Zugang (Kauf), nicht im Schnupper-Paket (Festlegung 07.11.2026).
+            if (self::available($code) && (new AccessService())->full($userId, $courseCode, AccessService::NAVIGATION)) {
                 $url = ProtectedFiles::downloadUrl((int) self::state($code)['attachment_id']);
             }
             $out[] = ['code' => $code, 'title' => $def['title'], 'url' => $url];
@@ -120,7 +121,7 @@ final class Charts
         return $out;
     }
 
-    /** Auslieferung: Lizenz bestätigt und Navigationstrainer in irgendeinem Kurs der Karte. */
+    /** Auslieferung: Lizenz bestätigt und voller Navigationstrainer-Zugang (Kauf) in irgendeinem Kurs der Karte. */
     public static function allowFile(bool $allowed, int $userId, int $attachmentId): bool
     {
         $code = (string) get_post_meta($attachmentId, '_bp_chart', true);
@@ -132,7 +133,7 @@ final class Charts
         }
         $access = new AccessService();
         foreach (self::catalog()[$code]['courses'] as $course) {
-            if ($access->can($userId, $course, AccessService::NAVIGATION)) {
+            if ($access->full($userId, $course, AccessService::NAVIGATION)) {
                 return true;
             }
         }

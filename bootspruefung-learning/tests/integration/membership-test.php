@@ -539,8 +539,14 @@ $check($threw, 'Lizenz nur mit Nachweis');
 $charts::setLicense('D49', true, 'BSH-Lizenz Test 2026');
 $check(\Bootspruefung\Learning\Gate\DownloadService::allowed($sailor, (int) $chartId) && $charts::forCourse($sailor, 'ADD-BIN-TO-SEE')[0]['url'] !== null, 'nach Lizenz: sichtbar mit Navigationstrainer (auch Ergänzungskurs)');
 $noNav = $user('bp_ohne_nav');
-$canNav = (bool) array_filter(['SBF-SEE', 'SBF-SEE-BIN', 'ADD-BIN-TO-SEE'], static fn ($c) => $access->can($noNav, $c, 'navigation_trainer'));
-$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($noNav, (int) $chartId) === $canNav, 'Karte folgt dem Navigationstrainer-Zugang (auch Schnupper-Umfang)');
+$rule('SBF-SEE', 'navigation_trainer', 'free_limited', 1);
+$settings = \Bootspruefung\Learning\Settings\Settings::all();
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge($settings, ['default_access' => 'entitled_only']));
+$anyFull = (bool) array_filter(['SBF-SEE', 'SBF-SEE-BIN', 'ADD-BIN-TO-SEE'], static fn ($c) => $access->full($noNav, $c, 'navigation_trainer'));
+$check($access->can($noNav, 'SBF-SEE', 'navigation_trainer') && ! $access->full($noNav, 'SBF-SEE', 'navigation_trainer') && $charts::forCourse($noNav, 'SBF-SEE')[0]['url'] === null
+    && \Bootspruefung\Learning\Gate\DownloadService::allowed($noNav, (int) $chartId) === $anyFull, 'Schnupper-Paket (Teilumfang Navigation): Karte gesperrt, nur mit vollem Zugang');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $settings);
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}access_rule WHERE course_code = 'SBF-SEE' AND feature_code = 'navigation_trainer' AND access_type = 'free_limited' AND limit_value = %d", 1));
 $check(\Bootspruefung\Learning\Gate\DownloadService::items($sailor, 'SBF-SEE') === [] || ! in_array((int) $chartId, array_column(\Bootspruefung\Learning\Gate\DownloadService::items($sailor, 'SBF-SEE'), 'id'), true), 'Karte erscheint nicht in der Downloadliste');
 $charts::remove('D49');
 $check(get_post((int) $chartId) === null && ! $charts::available('D49'), 'Datei gelöscht');
