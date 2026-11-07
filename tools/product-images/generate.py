@@ -20,10 +20,10 @@ BRAND = os.environ.get('BRAND', 'XXXX')
 
 # SKU, Zeile 1 (groß), Zeile 2, Laufzeit, Symbol, Akzentfarbe
 PRODUCTS = [
-    ('BP-SBF-SEE-BIN', 'SBF See\n& Binnen', 'Kombikurs', '12 Monate', 'anchor', (247, 181, 0)),
+    ('BP-SBF-SEE-BIN', 'SBF See\n& Binnen', 'Kombikurs', '12 Monate', 'anchor', (142, 168, 255)),
     ('BP-SBF-SEE', 'SBF See', 'Einzelkurs', '12 Monate', 'anchor', (64, 196, 255)),
     ('BP-SBF-BIN', 'SBF Binnen', 'Einzelkurs', '12 Monate', 'anchor', (102, 220, 160)),
-    ('BP-SRC-UBI', 'SRC & UBI', 'Funk-Kombikurs', '12 Monate', 'radio', (247, 181, 0)),
+    ('BP-SRC-UBI', 'SRC & UBI', 'Funk-Kombikurs', '12 Monate', 'radio', (142, 168, 255)),
     ('BP-SRC', 'SRC', 'Funk-Vollkurs', '12 Monate', 'radio', (64, 196, 255)),
     ('BP-UBI', 'UBI', 'Funk-Vollkurs', '12 Monate', 'radio', (102, 220, 160)),
     ('BP-SBF-BIN-SEGEL', 'SBF Binnen\nunter Segel', 'Vollkurs', '12 Monate', 'sail', (102, 220, 160)),
@@ -34,7 +34,7 @@ PRODUCTS = [
     ('BP-ADD-BIN-SEGEL', 'Binnen →\nSegeln', 'Ergänzungskurs', '6 Monate', 'plus', (102, 220, 160)),
     ('BP-ADD-UBI-TO-SRC', 'SRC → UBI', 'Ergänzungskurs', '6 Monate', 'plus', (64, 196, 255)),
     ('BP-ADD-FKN-TO-SKN', 'FKN → SKN', 'Ergänzungskurs', '6 Monate', 'plus', (255, 140, 90)),
-    ('BP-KAPITAEN', 'Kapitäns-\nBundle', 'SBF See + Binnen + Funk', '12 Monate', 'wheel', (247, 181, 0)),
+    ('BP-KAPITAEN', 'Kapitäns-\nBundle', 'SBF See + Binnen + Funk', '12 Monate', 'wheel', (142, 168, 255)),
     ('BP-PASS-1M', '1-Monats-\nPass', 'Alle Inhalte', '30 Tage', 'clock', (64, 196, 255)),
     ('BP-PASS-3M', '3-Monats-\nPass', 'Alle Inhalte', '90 Tage', 'clock', (247, 181, 0)),
     ('SIM-PASS-14D', 'Funkgerät-\nSimulator', '14-Tage-Sprint · SRC/UBI', '14 Tage', 'radio', (255, 120, 90)),

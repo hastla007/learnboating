@@ -446,9 +446,9 @@
 
 	// Kopfbereich der Kursseite im Stil der Produktbilder: Navy, Wellen, Liniensymbol, Akzentfarbe je Kurs.
 	var HERO_STYLE = {
-		'SBF-SEE': ['anchor', '#40C4FF'], 'SBF-BIN-MOTOR': ['anchor', '#66DCA0'], 'SBF-BIN-SEGEL': ['sail', '#66DCA0'], 'SBF-SEE-BIN': ['anchor', '#F7B500'],
+		'SBF-SEE': ['anchor', '#40C4FF'], 'SBF-BIN-MOTOR': ['anchor', '#66DCA0'], 'SBF-BIN-SEGEL': ['sail', '#66DCA0'], 'SBF-SEE-BIN': ['anchor', '#8EA8FF'],
 		'ADD-SEE-TO-BIN': ['plus', '#66DCA0'], 'ADD-BIN-TO-SEE': ['plus', '#40C4FF'], 'ADD-BIN-SEGEL': ['plus', '#66DCA0'], 'ADD-UBI-TO-SRC': ['plus', '#40C4FF'], 'ADD-FKN-TO-SKN': ['plus', '#FF8C5A'],
-		'SRC': ['radio', '#40C4FF'], 'UBI': ['radio', '#66DCA0'], 'SRC-UBI': ['radio', '#F7B500'], 'SKN': ['flare', '#FF785A'], 'FKN': ['flare', '#FFA05A']
+		'SRC': ['radio', '#40C4FF'], 'UBI': ['radio', '#66DCA0'], 'SRC-UBI': ['radio', '#8EA8FF'], 'SKN': ['flare', '#FF785A'], 'FKN': ['flare', '#FFA05A']
 	};
 	var HERO_ICONS = {
 		anchor: '<circle cx="60" cy="22" r="11"/><path d="M60 33v70"/><path d="M36 52h48"/><path d="M22 74c4 18 20 29 38 29s34-11 38-29"/>',
