@@ -115,8 +115,10 @@ final class CollectionService
     public function questionIds(int $userId, object $course, int $id): array
     {
         $this->own($userId, $course, $id);
+        // Nur Favoriten (wie in der Übersicht): Altbestand ohne Stern wird nicht gelernt.
+        $favorites = array_flip($this->learning->favoriteIds($userId));
 
-        return $this->itemsByCollection([$id])[$id] ?? [];
+        return array_values(array_filter($this->itemsByCollection([$id])[$id] ?? [], static fn ($q) => isset($favorites[$q])));
     }
 
     /**

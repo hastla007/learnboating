@@ -78,8 +78,11 @@ final class RadioService
     {
         $this->require($userId, $course);
         $hints = [];
-        foreach ($this->db->get_results("SELECT term_de, term_en, hint FROM {$this->t('radio_vocabulary')} WHERE category = 'Buchstabiertafel' AND hint IS NOT NULL AND hint <> ''") as $v) {
-            $hints[mb_strtoupper(trim((string) $v->term_de))] ??= (string) $v->hint;
+        // Nur freigegebene Vokabeln dieses Kurses (Status, Kurszuordnung, Rechte wie überall im Funktraining).
+        foreach ($this->items('radio_vocabulary', $course, ['term_de', 'hint'], ['category' => 'Buchstabiertafel']) as $v) {
+            if ((string) $v->hint !== '') {
+                $hints[mb_strtoupper(trim((string) $v->term_de))] ??= (string) $v->hint;
+            }
         }
         $catalogs = (new RadioPracticeService($this->access))->catalogsFor($course);
         if ($catalogs === []) {

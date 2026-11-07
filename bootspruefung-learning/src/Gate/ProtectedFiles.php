@@ -84,10 +84,10 @@ final class ProtectedFiles
      */
     public function saveFields(array $post, array $input): array
     {
-        if (! isset($input['bp_required_access']) || ! current_user_can('upload_files')) {
+        $id = (int) ($post['ID'] ?? 0);
+        if (! isset($input['bp_required_access']) || ! current_user_can('upload_files') || ! current_user_can('edit_post', $id)) {
             return $post;
         }
-        $id = (int) $post['ID'];
         if (isset($input['bp_file_slot'])) {
             $slot = sanitize_key((string) $input['bp_file_slot']);
             in_array($slot, SectionFiles::SLOTS, true) ? update_post_meta($id, SectionFiles::SLOT_META, $slot) : delete_post_meta($id, SectionFiles::SLOT_META);
