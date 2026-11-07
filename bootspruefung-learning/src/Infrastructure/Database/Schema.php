@@ -23,7 +23,7 @@ final class Schema
         // Import und Audit
         'import_batch', 'import_item_log', 'audit_log', 'override',
         // Lernende
-        'attempt', 'attempt_answer', 'progress', 'favorite', 'exam_session', 'exam_session_question',
+        'attempt', 'attempt_answer', 'progress', 'favorite', 'favorite_collection', 'favorite_collection_item', 'exam_session', 'exam_session_question',
         'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
         // Zugang und Verkauf
         'entitlement', 'access_rule', 'product_access', 'learning_group', 'learning_group_member',
@@ -530,6 +530,21 @@ final class Schema
   PRIMARY KEY  (id),
   UNIQUE KEY user_question_context (user_id,question_id,context),
   KEY question_id (question_id)",
+            'favorite_collection' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  course_id bigint(20) unsigned NOT NULL,
+  name varchar(80) NOT NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (id),
+  KEY user_course (user_id,course_id),
+  KEY course_id (course_id)",
+            'favorite_collection_item' => "
+  collection_id bigint(20) unsigned NOT NULL,
+  question_id bigint(20) unsigned NOT NULL,
+  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY  (collection_id,question_id),
+  KEY question_id (question_id)",
             'exam_session' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   user_id bigint(20) unsigned NOT NULL,
@@ -787,6 +802,9 @@ final class Schema
             ['attempt_answer', 'attempt_id', 'attempt', 'CASCADE'],
             ['progress', 'question_id', 'question', 'RESTRICT'],
             ['favorite', 'question_id', 'question', 'CASCADE'],
+            ['favorite_collection', 'course_id', 'course', 'CASCADE'],
+            ['favorite_collection_item', 'collection_id', 'favorite_collection', 'CASCADE'],
+            ['favorite_collection_item', 'question_id', 'question', 'CASCADE'],
             ['exam_session', 'course_id', 'course', 'RESTRICT'],
             ['exam_session_question', 'session_id', 'exam_session', 'CASCADE'],
             ['exam_session_question', 'question_id', 'question', 'RESTRICT'],
@@ -800,7 +818,7 @@ final class Schema
 
     /** Tabellen mit personenbezogenen Lerndaten (Export/Löschung, Kap. 10). */
     public const USER_DATA_TABLES = [
-        'attempt', 'progress', 'favorite', 'exam_session', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
+        'attempt', 'progress', 'favorite', 'favorite_collection', 'exam_session', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
     ];
 
     private static function sourceColumns(): string

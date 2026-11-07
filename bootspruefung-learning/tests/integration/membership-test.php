@@ -34,6 +34,7 @@ use Bootspruefung\Learning\Exams\Services\ExamService;
 use Bootspruefung\Learning\Gate\ContentGate;
 use Bootspruefung\Learning\Gate\ProtectedFiles;
 use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Learning\Services\CollectionService;
 use Bootspruefung\Learning\Learning\Services\LearningService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Settings\Settings;
@@ -58,6 +59,15 @@ $denied = static function (callable $fn): bool {
     }
 
     return false;
+};
+$invalidRt = static function (callable $fn): string {
+    try {
+        $fn();
+    } catch (\RuntimeException $e) {
+        return $e->getMessage();
+    }
+
+    return '';
 };
 $invalid = static function (callable $fn): string {
     try {
@@ -94,7 +104,7 @@ $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id 
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");
 $wpdb->query("DELETE FROM {$p}learning_group WHERE order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}product_access WHERE product_id >= 991000");
-foreach (['progress', 'favorite', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress', 'exam_session'] as $table) {
+foreach (['favorite_collection', 'progress', 'favorite', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress', 'exam_session'] as $table) {
     $wpdb->query("DELETE FROM {$p}{$table} WHERE user_id IN ({$all})");
 }
 
@@ -143,6 +153,31 @@ if ($topicLearn !== null) {
     $check($q !== null && (string) $rows[$q['question_id']]->topic === $topicLearn[1], 'Lernen nach Thema zeigt nur Fragen des Themas');
 }
 $check($learning->next($free, $course, (int) $progress['modules'][0]['id'], 'smart', 'Kein solches Thema') === null, 'unbekanntes Thema liefert keine Frage');
+
+echo "Favoriten & Fehler: Sammlungen\n";
+$collections = new CollectionService($learning, $content);
+$col = $collections->create($free, $course, '  Notverkehr  ');
+$check($col['name'] === 'Notverkehr' && $col['id'] > 0, 'Sammlung angelegt (Name bereinigt)');
+$check($invalidRt(fn () => $collections->create($free, $course, 'notverkehr')) !== '', 'doppelter Name abgewiesen');
+$check($invalidRt(fn () => $collections->create($free, $course, '   ')) !== '', 'leerer Name abgewiesen');
+[$q1, $q2] = array_slice($allowed, 0, 2);
+$check($invalidRt(fn () => $collections->assign($free, $course, $q1, false, [$col['id']])) !== '', 'nur Favoriten lassen sich einsortieren');
+$collections->assign($free, $course, $q1, true, [$col['id']]);
+$collections->assign($free, $course, $q2, true, []);
+$ov = $collections->overview($free, $course);
+$byId = array_column($ov['items'], null, 'question_id');
+$check(isset($byId[$q1]) && $byId[$q1]['collections'] === [$col['id']] && $byId[$q2]['favorite'] && $byId[$q2]['collections'] === [] && $ov['collections'][0]['count'] === 1, 'Übersicht: Favoriten mit Sammlungen');
+$learnt = $learning->next($free, $course, null, 'favorites', null, $collections->questionIds($free, $course, $col['id']));
+$check($learnt !== null && $learnt['question_id'] === $q1, 'Lernen nach Sammlung');
+$outside = (int) $wpdb->get_var("SELECT mq.question_id FROM {$p}module_question mq JOIN {$p}course_module cm ON cm.module_id = mq.module_id WHERE cm.course_id = ".(int) $course->id.' AND mq.question_id NOT IN ('.implode(',', $allowed).') LIMIT 1');
+$check($invalidRt(fn () => $collections->assign($free, $course, $outside, true, [])) !== '', 'Frage außerhalb des Teilumfangs abgewiesen');
+$check($invalidRt(fn () => $collections->rename($buyer, $course, $col['id'], 'X')) !== '' && $invalidRt(fn () => $collections->assign($buyer, $course, $q1, false, [$col['id']])) !== '', 'fremde Sammlung nicht nutzbar');
+$learning->setFavorite($free, $q1, false);
+$check($collections->questionIds($free, $course, $col['id']) === [], 'aus Favoriten entfernt = aus Sammlungen entfernt');
+$collections->rename($free, $course, $col['id'], 'Seenot');
+$collections->delete($free, $course, $col['id']);
+$check($collections->collections($free, $course) === [] && (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}favorite_collection_item WHERE collection_id = ".(int) $col['id']) === 0, 'Sammlung gelöscht, Zuordnungen entfernt');
+$collections->assign($free, $course, $q2, false, []);
 
 $rule('SBF-SEE', 'exam_simulation', 'free_limited', 2);
 $overview = $exams->overview($free, $course);

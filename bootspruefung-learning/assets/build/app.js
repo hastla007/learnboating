@@ -164,6 +164,7 @@
 	// Das Geräte-JavaScript der Quelle hängt Tastatur-Listener und einen Takt an das Dokument und lässt sich
 	// nicht abbauen. Nach dem Verlassen des Simulators die Zielseite daher frisch laden.
 	var simLoaded = false;
+	var learnCollection = null; // Sammlung im Lernmodus (?sammlung=)
 
 	function route() {
 		var path = window.location.pathname;
@@ -189,6 +190,7 @@
 		} else if (parts[1] === 'pruefung-anmelden') {
 			view = viewExamGuide(parts[0], query.get('teil'));
 		} else if (parts[1] === 'lernen') {
+			learnCollection = query.get('sammlung');
 			view = viewLearn(parts[0], query.get('modul'), query.get('modus') || 'smart', query.get('thema'));
 		} else if (parts[1] === 'pruefung' && parts[2]) {
 			view = viewExam(parts[0], parseInt(parts[2], 10));
@@ -196,6 +198,8 @@
 			view = viewExamHub(parts[0]);
 		} else if (parts[1] === 'knoten') {
 			view = viewKnots(parts[0]);
+		} else if (parts[1] === 'merkliste') {
+			view = viewSaved(parts[0], query.get('sammlung'), query.get('ansicht'));
 		} else if (parts[1] === 'themen') {
 			view = viewTopics(parts[0]);
 		} else if (parts[1] === 'downloads') {
@@ -453,6 +457,7 @@
 		bulb: '<path d="M44 92h32M48 106h24"/><path d="M60 12a32 32 0 0 0-19 57c4 3 6 8 6 13h26c0-5 2-10 6-13a32 32 0 0 0-19-57z"/>',
 		group: '<circle cx="44" cy="40" r="15"/><path d="M14 100a30 30 0 0 1 60 0"/><circle cx="84" cy="46" r="12"/><path d="M80 72a26 26 0 0 1 28 28"/>',
 		flag: '<path d="M28 110V14"/><path d="M28 16h58l-12 22 12 22H28" fill="currentColor" fill-opacity=".25"/>',
+		bookmark: '<path d="M34 12h52a6 6 0 0 1 6 6v92L60 90 28 110V18a6 6 0 0 1 6-6z"/><path d="M60 34l6 12 13 2-9.5 9 2.3 13L60 64l-11.8 6 2.3-13-9.5-9 13-2z" fill="currentColor" stroke="none"/>',
 		timer: '<circle cx="60" cy="66" r="40"/><path d="M60 44v22l14 14"/><path d="M46 14h28M60 14v12"/>'
 	};
 
@@ -625,7 +630,7 @@
 				el('p', { class: 'bp-hub-hint' }, [el('span', { class: 'bp-ico bp-ico-flag', 'aria-hidden': 'true' }), p.mastered >= p.questions ? t('hub_hint_done') : t('hub_hint', { n: p.questions - p.mastered })]),
 				el('div', { class: 'bp-hub-shortcuts' }, [
 					el('a', { href: base + slug + '/lernen/?modus=wrong', 'data-bp-link': '1', 'aria-label': t('mode_wrong') + ' (' + p.unsure + ')' }, [el('span', { class: 'bp-ico bp-ico-repeat', 'aria-hidden': 'true' }), el('span', { 'aria-hidden': 'true', text: t('mode_wrong') }), el('strong', { 'aria-hidden': 'true', text: String(p.unsure) })]),
-					el('a', { href: base + slug + '/lernen/?modus=favorites', 'data-bp-link': '1', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('span', { 'aria-hidden': 'true', text: t('mode_favorites') }), el('strong', { 'aria-hidden': 'true', text: String(c.favorites) })])
+					el('a', { href: base + slug + '/merkliste/', 'data-bp-link': '1', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('span', { 'aria-hidden': 'true', text: t('mode_favorites') }), el('strong', { 'aria-hidden': 'true', text: String(c.favorites) })])
 				])
 			]) : null;
 			// Oben immer die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
@@ -643,6 +648,7 @@
 				areas.push({ path: 'knoten/', icon: 'rope', title: t('knots_title'), meta: t('knots_meta', { done: seen, total: knots.lessons.length }), locked: c.features.video_course === false, percent: pct(seen, knots.lessons.length) });
 			}
 			areas.push({ path: 'themen/', icon: 'layers', title: t('hub_topics'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.length }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
+			areas.push({ path: 'merkliste/', icon: 'bookmark', title: t('saved_title'), meta: qb ? t('saved_meta', { n: c.favorites }) : t('locked_short'), locked: !qb });
 			areas.push({ path: 'pruefung/', icon: 'timer', title: t('section_exam'), meta: c.exam && c.exam.papers.length ? t('hub_exam_meta', { n: c.exam.papers.length }) : (c.exam ? t('hub_exam_meta_random') : t('locked_short')), locked: !c.exam });
 			if (tr && tr.navigation.tasks > 0) {
 				areas.push({ path: 'navigation/', icon: 'compass', title: t('trainer_navigation'), meta: t('trainer_navigation_meta', { done: tr.navigation.done, total: tr.navigation.questions, tasks: tr.navigation.tasks }), locked: c.features.navigation_trainer === false, percent: pct(tr.navigation.done, tr.navigation.questions) });
@@ -769,9 +775,9 @@
 					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('mode_smart') }), el('span', { text: t('progress_short', { mastered: p.mastered, total: p.questions }) }), el('span', { class: 'bp-feature-cta', text: t('topics_smart_cta') + ' →' })]),
 					el('span', { class: 'bp-ico bp-ico-spark bp-feature-ico', 'aria-hidden': 'true' })
 				]),
-				el('a', { href: base + slug + '/lernen/?modus=favorites', 'data-bp-link': '1', class: 'bp-feature-card is-saved', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [
+				el('a', { href: base + slug + '/merkliste/', 'data-bp-link': '1', class: 'bp-feature-card is-saved', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [
 					el('span', { class: 'bp-feature-count', 'aria-hidden': 'true', text: String(c.favorites) }),
-					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('topics_saved') }), el('span', { text: c.favorites ? t('topics_saved_text') : t('topics_saved_empty') }), c.favorites ? el('span', { class: 'bp-feature-cta', text: t('topics_saved_cta') + ' →' }) : null]),
+					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('topics_saved') }), el('span', { text: c.favorites ? t('topics_saved_text') : t('topics_saved_empty') }), el('span', { class: 'bp-feature-cta', text: t('topics_saved_cta') + ' →' })]),
 					el('span', { class: 'bp-ico bp-ico-bookmark bp-feature-ico', 'aria-hidden': 'true' })
 				])
 			]));
@@ -804,6 +810,182 @@
 			nodes.push(el('section', { class: 'bp-section bp-topics-section', 'aria-labelledby': 'bp-topics-h' }, [el('h2', { class: 'bp-subhead', id: 'bp-topics-h', text: t('modules_title') }), list]));
 			mount(nodes, title + ' – ' + c.name);
 		});
+	}
+
+	// ------------------------------------------------------------------ Favoriten & Fehler (Sammlungen)
+
+	function viewSaved(slug, collectionParam, tabParam) {
+		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
+			var title = t('saved_title');
+			if (!c.features.question_bank) {
+				mount(detailHeader(slug, c, title, t('saved_intro')).concat([lockedBox(t('section_learn'), (c.shop || {}).question_bank)]), title + ' – ' + c.name);
+				return;
+			}
+			var state = { filter: collectionParam ? parseInt(collectionParam, 10) : 'all', tab: tabParam === 'fehler' ? 'wrong' : 'fav', creating: false, message: null, data: null };
+			var hero = el('div');
+			var body = el('section', { class: 'bp-section bp-saved', 'aria-labelledby': 'bp-saved-h' });
+			mount([hero, el('div', { class: 'bp-infobox' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('p', { text: t('saved_info') })]), body], title + ' – ' + c.name);
+
+			function load(message) {
+				return api('GET', 'courses/' + encodeURIComponent(slug) + '/saved').then(function (d) {
+					state.data = d;
+					if (typeof state.filter === 'number' && !d.collections.some(function (x) { return x.id === state.filter; })) {
+						state.filter = 'all';
+					}
+					state.message = message || null;
+					render();
+				});
+			}
+
+			function fail(e) {
+				state.message = null;
+				render();
+				alertMessage(body, e.message);
+			}
+
+			function syncUrl() {
+				var q = [];
+				if (typeof state.filter === 'number') { q.push('sammlung=' + state.filter); }
+				if (state.tab === 'wrong') { q.push('ansicht=fehler'); }
+				try { history.replaceState(null, '', base + slug + '/merkliste/' + (q.length ? '?' + q.join('&') : '')); } catch (e) { /* ohne History-API weiter */ }
+			}
+
+			function inFilter(item) {
+				if (state.filter === 'all') { return true; }
+				if (state.filter === 'fav') { return item.favorite; }
+				return item.collections.indexOf(state.filter) !== -1;
+			}
+
+			function chip(label, value, count, icon) {
+				var on = state.filter === value;
+				var b = el('button', { type: 'button', class: 'bp-chip' + (on ? ' is-active' : ''), 'aria-pressed': on ? 'true' : 'false' }, [icon ? el('span', { class: 'bp-ico bp-ico-' + icon, 'aria-hidden': 'true' }) : null, label, count !== null ? el('span', { class: 'bp-chip-count', text: String(count) }) : null]);
+				b.addEventListener('click', function () { state.filter = value; state.creating = false; state.message = null; syncUrl(); render(); });
+				return b;
+			}
+
+			function render() {
+				var d = state.data;
+				var items = d.items;
+				var favCount = items.filter(function (i) { return i.favorite; }).length;
+				var wrongCount = items.filter(function (i) { return i.wrong; }).length;
+				hero.replaceChildren(pageHero({ code: c.code, icon: 'bookmark', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('saved_intro'), stats: [[favCount, t('saved_favorites')], [wrongCount, t('saved_tab_wrong')], [d.collections.length, t('saved_stat_collections')]] }));
+
+				var nodes = [el('h2', { id: 'bp-saved-h', class: 'bp-sr', text: t('saved_collections') })];
+				if (state.message) {
+					nodes.push(el('p', { class: 'bp-saved-msg', role: 'status', text: state.message }));
+				}
+				var chips = [chip(t('saved_all_fav'), 'all', favCount, 'star')];
+				d.collections.forEach(function (col) { chips.push(chip(col.name, col.id, col.count)); });
+				var add = el('button', { type: 'button', class: 'bp-chip bp-chip-add', 'aria-expanded': state.creating ? 'true' : 'false', text: '+ ' + t('saved_new') });
+				add.addEventListener('click', function () { state.creating = !state.creating; render(); if (state.creating) { body.querySelector('#bp-saved-new').focus(); } });
+				chips.push(add);
+				nodes.push(el('div', { class: 'bp-chips', role: 'group', 'aria-label': t('saved_collections') }, chips));
+
+				if (state.creating) {
+					var input = el('input', { type: 'text', id: 'bp-saved-new', maxlength: '60', placeholder: t('saved_new_placeholder'), 'aria-label': t('saved_new_label') });
+					var form = el('form', { class: 'bp-saved-form' }, [input, el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('saved_create') })]);
+					form.addEventListener('submit', function (ev) {
+						ev.preventDefault();
+						api('POST', 'courses/' + encodeURIComponent(slug) + '/collections', { name: input.value }).then(function (col) {
+							state.creating = false;
+							state.filter = col.id;
+							syncUrl();
+							return load(t('saved_created'));
+						}).catch(fail);
+					});
+					nodes.push(form);
+				}
+				var current = typeof state.filter === 'number' ? d.collections.filter(function (x) { return x.id === state.filter; })[0] : null;
+				if (current) {
+					var nameInput = el('input', { type: 'text', value: current.name, maxlength: '60', 'aria-label': t('saved_rename_label') });
+					var renameForm = el('form', { class: 'bp-saved-form bp-saved-edit' }, [
+						nameInput,
+						el('button', { type: 'submit', class: 'bp-link-button', text: t('saved_rename') }),
+						el('button', { type: 'button', class: 'bp-link-button is-danger', text: t('saved_delete'), onclick: function () {
+							if (!window.confirm(t('saved_delete_confirm', { name: current.name }))) { return; }
+							api('DELETE', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id).then(function () {
+								state.filter = 'all';
+								syncUrl();
+								return load(t('saved_deleted'));
+							}).catch(fail);
+						} })
+					]);
+					renameForm.addEventListener('submit', function (ev) {
+						ev.preventDefault();
+						api('PUT', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id, { name: nameInput.value }).then(function () { return load(t('saved_renamed')); }).catch(fail);
+					});
+					nodes.push(renameForm);
+				}
+
+				var visible = items.filter(inFilter);
+				var favList = visible.filter(function (i) { return i.favorite; });
+				var wrongList = visible.filter(function (i) { return i.wrong; });
+				var tabs = el('div', { class: 'bp-tabs', role: 'tablist', 'aria-label': title }, [['fav', t('saved_tab_fav'), favList.length], ['wrong', t('saved_tab_wrong'), wrongList.length]].map(function (tb) {
+					var on = state.tab === tb[0];
+					var b = el('button', { type: 'button', role: 'tab', id: 'bp-saved-tab-' + tb[0], 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'bp-saved-panel', tabindex: on ? '0' : '-1', class: 'bp-tab' + (on ? ' is-active' : '') }, [tb[1], el('span', { class: 'bp-chip-count', text: String(tb[2]) })]);
+					b.addEventListener('click', function () { state.tab = tb[0]; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + tb[0]).focus(); });
+					b.addEventListener('keydown', function (ev) {
+						if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') { state.tab = state.tab === 'fav' ? 'wrong' : 'fav'; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + state.tab).focus(); }
+					});
+					return b;
+				}));
+				nodes.push(tabs);
+
+				var list = state.tab === 'fav' ? favList : wrongList;
+				var panel = el('div', { id: 'bp-saved-panel', role: 'tabpanel', 'aria-labelledby': 'bp-saved-tab-' + state.tab });
+				if (list.length) {
+					var learnHref = slug + '/lernen/?modus=' + (state.tab === 'wrong' ? 'wrong' : 'favorites') + (typeof state.filter === 'number' ? '&sammlung=' + state.filter : '');
+					var canLearn = true;
+					panel.appendChild(el('div', { class: 'bp-saved-actions' }, [
+						el('p', { class: 'bp-muted', text: list.length === 1 ? t('saved_count_one') : t('saved_count', { n: list.length }) }),
+						canLearn ? link(learnHref, t(state.tab === 'wrong' ? 'saved_learn_wrong' : 'saved_learn'), 'bp-button bp-button-primary') : null
+					]));
+					panel.appendChild(el('ul', { class: 'bp-saved-list' }, list.map(function (item) { return savedItem(item); })));
+				} else {
+					panel.appendChild(el('div', { class: 'bp-empty bp-saved-empty' }, [
+						el('span', { class: 'bp-ico bp-ico-' + (state.tab === 'wrong' ? 'check' : 'bookmark'), 'aria-hidden': 'true' }),
+						el('p', { text: state.tab === 'wrong' ? t('saved_empty_wrong') : (typeof state.filter === 'number' ? t('saved_empty_collection') : t('saved_empty_fav')) }),
+						link(slug + '/lernen/', t('mode_smart'), 'bp-button')
+					]));
+				}
+				nodes.push(panel);
+				body.replaceChildren.apply(body, nodes);
+			}
+
+			function savedItem(item) {
+				var star = el('button', { type: 'button', class: 'bp-icon-button bp-star' + (item.favorite ? ' is-on' : ''), 'aria-pressed': item.favorite ? 'true' : 'false', 'aria-label': (item.favorite ? t('fav_remove') : t('fav_add')) + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-star', 'aria-hidden': 'true' })]);
+				star.addEventListener('click', function () {
+					star.disabled = true;
+					assign(item, !item.favorite, item.favorite ? [] : item.collections, item.favorite ? t('saved_fav_removed') : t('saved_fav_added'));
+				});
+				var sortBtn = el('button', { type: 'button', class: 'bp-icon-button', 'aria-expanded': 'false', 'aria-label': t('saved_sort_label') + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-folder', 'aria-hidden': 'true' })]);
+				var li = el('li', { class: 'bp-saved-item' + (item.wrong ? ' is-wrong' : '') }, [
+					el('span', { class: 'bp-saved-badge', 'aria-hidden': 'true' }, [el('span', { class: 'bp-ico bp-ico-' + (item.wrong && state.tab === 'wrong' ? 'repeat' : 'star') })]),
+					el('div', { class: 'bp-saved-text' }, [
+						el('p', { class: 'bp-saved-q', text: item.text }),
+						el('p', { class: 'bp-saved-meta' }, [item.module, item.topic && item.topic !== item.module ? ' · ' + item.topic : null, item.number ? ' · ' + t('question_number', { number: item.number }) : null, item.wrong ? el('span', { class: 'bp-saved-tag', text: t('saved_tag_wrong') }) : null].concat(item.collections.map(function (cid) {
+							var col = state.data.collections.filter(function (x) { return x.id === cid; })[0];
+							return col ? el('span', { class: 'bp-saved-tag is-col', text: col.name }) : null;
+						})))
+					]),
+					el('div', { class: 'bp-saved-tools' }, [star, item.favorite ? sortBtn : null])
+				]);
+				sortBtn.addEventListener('click', function () {
+					toggleSortPop(li, sortBtn, { favorite: item.favorite, collections: item.collections, all: state.data.collections, onSave: function (fav, ids) { assign(item, fav, ids, t('saved_updated')); } });
+				});
+				return li;
+			}
+
+			function assign(item, favorite, collections, message) {
+				api('PUT', 'courses/' + encodeURIComponent(slug) + '/saved/' + item.question_id, { favorite: favorite, collections: collections }).then(function () { return load(message); }).catch(fail);
+			}
+
+			return load();
+		});
+	}
+
+	function shorten(text) {
+		return text.length > 70 ? text.slice(0, 67) + '…' : text;
 	}
 
 	function viewExamHub(slug) {
@@ -959,6 +1141,9 @@
 		if (moduleId && topic) {
 			params.set('topic', topic);
 		}
+		if (learnCollection) {
+			params.set('collection', learnCollection);
+		}
 		container.textContent = '';
 		container.appendChild(el('p', { class: 'bp-loading', text: t('loading') }));
 		api('GET', 'courses/' + encodeURIComponent(slug) + '/next-question?' + params.toString()).then(function (r) {
@@ -1029,6 +1214,59 @@
 		});
 	}
 
+	// Popover „In Sammlungen einsortieren“ (Favoriten-Seite und Lernmodus).
+	function toggleSortPop(host, trigger, opts) {
+		var open = host.querySelector('.bp-sort-pop');
+		document.querySelectorAll('.bp-sort-pop').forEach(function (p) { p.remove(); });
+		document.querySelectorAll('.bp-sort-trigger[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+		if (open) {
+			return;
+		}
+		trigger.classList.add('bp-sort-trigger');
+		trigger.setAttribute('aria-expanded', 'true');
+		var favBox = el('input', { type: 'checkbox' });
+		favBox.checked = !!opts.favorite;
+		var boxes = opts.all.map(function (col) {
+			var cb = el('input', { type: 'checkbox', value: String(col.id) });
+			cb.checked = opts.collections.indexOf(col.id) !== -1;
+			return [cb, col.name];
+		});
+		var newName = opts.onCreate ? el('input', { type: 'text', maxlength: '60', placeholder: t('saved_new_placeholder') }) : null;
+		function syncBoxes() {
+			boxes.forEach(function (b) {
+				b[0].disabled = !favBox.checked;
+				if (!favBox.checked) { b[0].checked = false; }
+			});
+		}
+		favBox.addEventListener('change', syncBoxes);
+		var pop = el('form', { class: 'bp-sort-pop' }, [
+			el('fieldset', {}, [el('legend', { text: t('saved_sort_title') }), el('label', {}, [favBox, ' ' + t('saved_favorites')])].concat(boxes.map(function (b) { return el('label', {}, [b[0], ' ' + b[1]]); }))),
+			!opts.all.length && !newName ? el('p', { class: 'bp-muted', text: t('saved_sort_none') }) : null,
+			newName ? el('label', { class: 'bp-sort-new' }, [el('span', { text: t('saved_new') }), newName]) : null,
+			el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('saved_save') })
+		]);
+		function close() {
+			pop.remove();
+			trigger.setAttribute('aria-expanded', 'false');
+			trigger.focus();
+		}
+		pop.addEventListener('submit', function (ev) {
+			ev.preventDefault();
+			var ids = boxes.filter(function (b) { return favBox.checked && b[0].checked; }).map(function (b) { return parseInt(b[0].value, 10); });
+			var create = newName && newName.value.trim() ? opts.onCreate(newName.value) : Promise.resolve(null);
+			create.then(function (col) {
+				if (col) { ids.push(col.id); }
+				return opts.onSave(favBox.checked, ids);
+			}).then(function () { if (pop.isConnected) { close(); } }).catch(function (e) { alertMessage(pop, e.message); });
+		});
+		pop.addEventListener('keydown', function (ev) {
+			if (ev.key === 'Escape') { close(); }
+		});
+		syncBoxes();
+		host.appendChild(pop);
+		favBox.focus();
+	}
+
 	function favoriteButton(q) {
 		var on = !!q.favorite;
 		var label = el('span', { text: on ? t('fav_remove') : t('fav_add') });
@@ -1042,6 +1280,12 @@
 				label.textContent = on ? t('fav_remove') : t('fav_add');
 			}).finally(function () { btn.disabled = false; });
 		});
+		btn.bpSet = function (value) {
+			on = value;
+			q.favorite = on;
+			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+			label.textContent = on ? t('fav_remove') : t('fav_add');
+		};
 		return btn;
 	}
 

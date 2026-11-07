@@ -7,6 +7,7 @@ namespace Bootspruefung\Learning\Rest\Controllers;
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Exams\Services\ExamService;
 use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Learning\Services\CollectionService;
 use Bootspruefung\Learning\Learning\Services\LearningService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Rest\RestRegistrar;
@@ -28,6 +29,7 @@ final class LearnerController
     private AccessService $access;
     private LearningService $learning;
     private ExamService $exams;
+    private CollectionService $collections;
 
     public function __construct()
     {
@@ -36,6 +38,7 @@ final class LearnerController
         $presenter = new QuestionPresenter($this->content);
         $this->learning = new LearningService($this->content, $presenter, $this->access);
         $this->exams = new ExamService($this->content, $presenter, $this->access);
+        $this->collections = new CollectionService($this->learning, $this->content);
     }
 
     public function registerRoutes(): void
@@ -55,6 +58,7 @@ final class LearnerController
                 'code' => $code,
                 'module' => ['type' => 'integer', 'minimum' => 1],
                 'topic' => ['type' => 'string', 'maxLength' => 190],
+                'collection' => ['type' => 'integer', 'minimum' => 1],
                 'mode' => ['type' => 'string', 'enum' => LearningService::MODES, 'default' => 'smart'],
             ],
         ]);
@@ -79,6 +83,25 @@ final class LearnerController
         register_rest_route($ns, '/favorites/(?P<question>\d+)', [
             ['methods' => 'PUT', 'callback' => self::wrap(fn (WP_REST_Request $r) => $this->favorite($r, true)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
             ['methods' => WP_REST_Server::DELETABLE, 'callback' => self::wrap(fn (WP_REST_Request $r) => $this->favorite($r, false)), 'permission_callback' => $auth, 'args' => ['question' => $id]],
+        ]);
+
+        // Favoriten & Fehler: Übersicht, Sammlungen, Einsortieren
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/saved', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'saved']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/saved/(?P<question>\d+)', [
+            'methods' => 'PUT',
+            'callback' => self::wrap([$this, 'assign']),
+            'permission_callback' => $auth,
+            'args' => ['code' => $code, 'question' => $id, 'favorite' => ['type' => 'boolean', 'required' => true], 'collections' => ['type' => 'array', 'items' => ['type' => 'integer'], 'default' => [], 'maxItems' => CollectionService::MAX_COLLECTIONS]],
+        ]);
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/collections', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'callback' => self::wrap([$this, 'collectionCreate']),
+            'permission_callback' => $auth,
+            'args' => ['code' => $code, 'name' => ['type' => 'string', 'required' => true, 'maxLength' => 200]],
+        ]);
+        register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/collections/(?P<id>\d+)', [
+            ['methods' => 'PUT', 'callback' => self::wrap([$this, 'collectionRename']), 'permission_callback' => $auth, 'args' => ['code' => $code, 'id' => $id, 'name' => ['type' => 'string', 'required' => true, 'maxLength' => 200]]],
+            ['methods' => WP_REST_Server::DELETABLE, 'callback' => self::wrap([$this, 'collectionDelete']), 'permission_callback' => $auth, 'args' => ['code' => $code, 'id' => $id]],
         ]);
 
         register_rest_route($ns, '/courses/(?P<code>[A-Za-z0-9-]+)/exam', ['methods' => WP_REST_Server::READABLE, 'callback' => self::wrap([$this, 'examOverview']), 'permission_callback' => $auth, 'args' => ['code' => $code]]);
@@ -132,7 +155,7 @@ final class LearnerController
             'type' => $course->course_type,
             'features' => $features,
             'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course) : null,
-            'favorites' => count($this->learning->favoriteIds($user)),
+            'favorites' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseFavoriteCount($user, $course) : 0,
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
             // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
@@ -154,7 +177,8 @@ final class LearnerController
         if (! $this->access->can($user, $course->code, AccessService::QUESTION_BANK)) {
             throw new AccessDenied(__('Für diesen Kurs ist der Fragenkatalog nicht freigeschaltet.', 'bootspruefung-learning'));
         }
-        $question = $this->learning->next($user, $course, $request['module'] ? (int) $request['module'] : null, (string) $request['mode'], $request['topic'] ? (string) $request['topic'] : null);
+        $only = $request['collection'] ? $this->collections->questionIds($user, $course, (int) $request['collection']) : null;
+        $question = $this->learning->next($user, $course, $request['module'] ? (int) $request['module'] : null, (string) $request['mode'], $request['topic'] ? (string) $request['topic'] : null, $only);
 
         return $question === null ? ['done' => true] : ['done' => false, 'question' => $question];
     }
@@ -181,6 +205,44 @@ final class LearnerController
         $this->learning->setFavorite(get_current_user_id(), (int) $request['question'], $on);
 
         return ['favorite' => $on];
+    }
+
+    /** Kurs mit freigeschaltetem Fragenkatalog oder 403. */
+    private function bankCourse(WP_REST_Request $request): object
+    {
+        $course = $this->courseOr404((string) $request['code']);
+        if (! $this->access->can(get_current_user_id(), $course->code, AccessService::QUESTION_BANK)) {
+            throw new AccessDenied(__('Für diesen Kurs ist der Fragenkatalog nicht freigeschaltet.', 'bootspruefung-learning'));
+        }
+
+        return $course;
+    }
+
+    public function saved(WP_REST_Request $request): array
+    {
+        return $this->collections->overview(get_current_user_id(), $this->bankCourse($request));
+    }
+
+    public function assign(WP_REST_Request $request): array
+    {
+        return $this->collections->assign(get_current_user_id(), $this->bankCourse($request), (int) $request['question'], (bool) $request['favorite'], array_map('intval', (array) $request['collections']));
+    }
+
+    public function collectionCreate(WP_REST_Request $request): array
+    {
+        return $this->collections->create(get_current_user_id(), $this->bankCourse($request), (string) $request['name']);
+    }
+
+    public function collectionRename(WP_REST_Request $request): array
+    {
+        return $this->collections->rename(get_current_user_id(), $this->bankCourse($request), (int) $request['id'], (string) $request['name']);
+    }
+
+    public function collectionDelete(WP_REST_Request $request): array
+    {
+        $this->collections->delete(get_current_user_id(), $this->bankCourse($request), (int) $request['id']);
+
+        return ['deleted' => true];
     }
 
     public function examOverview(WP_REST_Request $request): array

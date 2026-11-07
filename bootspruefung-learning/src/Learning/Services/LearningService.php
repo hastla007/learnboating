@@ -43,7 +43,8 @@ final class LearningService
      * Nächste Frage für den Nutzer oder null, wenn im Modus nichts übrig ist.
      * @return array<string,mixed>|null
      */
-    public function next(int $userId, object $course, ?int $moduleId, string $mode, ?string $topic = null): ?array
+    /** @param list<int>|null $onlyIds Fragenauswahl (z. B. eine Sammlung); ersetzt im Modus „favorites“ die Merkliste */
+    public function next(int $userId, object $course, ?int $moduleId, string $mode, ?string $topic = null, ?array $onlyIds = null): ?array
     {
         if (! in_array($mode, self::MODES, true)) {
             throw new RuntimeException('Unbekannter Lernmodus.');
@@ -66,7 +67,9 @@ final class LearningService
         if ($topic !== null && $topic !== '') {
             $questions = array_filter($questions, static fn ($q) => (string) ($q->topic ?? '') === $topic);
         }
-        if ($mode === 'favorites') {
+        if ($onlyIds !== null) {
+            $questions = array_intersect_key($questions, array_flip($onlyIds));
+        } elseif ($mode === 'favorites') {
             $favorites = array_flip($this->favoriteIds($userId));
             $questions = array_intersect_key($questions, $favorites);
         }
@@ -330,6 +333,11 @@ final class LearningService
             ));
         } else {
             $this->db->delete($this->t('favorite'), ['user_id' => $userId, 'question_id' => $questionId, 'context' => 'question']);
+            $this->db->query($this->db->prepare(
+                "DELETE i FROM {$this->t('favorite_collection_item')} i JOIN {$this->t('favorite_collection')} c ON c.id = i.collection_id WHERE c.user_id = %d AND i.question_id = %d",
+                $userId,
+                $questionId
+            ));
         }
     }
 
@@ -452,6 +460,22 @@ final class LearningService
         }
 
         return [$base, __('Gefestigt, niedrige Priorität', 'bootspruefung-learning')];
+    }
+
+    /** Gemerkte Fragen im freigeschalteten Umfang des Kurses. */
+    public function courseFavoriteCount(int $userId, object $course): int
+    {
+        $ids = $this->allowedQuestions($userId, $course, array_map(static fn ($m) => (int) $m->id, $this->content->modules((int) $course->id)));
+
+        return count(array_intersect_key($ids, array_flip($this->favoriteIds($userId))));
+    }
+
+    /** Zuletzt falsch beantwortete Fragen aus der Auswahl. @param list<int> $questionIds @return list<int> */
+    public function wrongIds(int $userId, array $questionIds): array
+    {
+        $progress = $this->progressFor($userId, $questionIds);
+
+        return array_values(array_filter($questionIds, static fn ($id) => self::lastWrong($progress[$id] ?? null)));
     }
 
     private static function lastWrong(?object $p): bool
