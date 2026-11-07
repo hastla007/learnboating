@@ -44,7 +44,8 @@ final class ExamService
     }
 
     /** Übersicht für die Kursseite. @return array<string,mixed> */
-    public function overview(int $userId, object $course): array
+    /** @param bool $withResults alle ausgewerteten Versuche mitliefern (nur Prüfungsseite) */
+    public function overview(int $userId, object $course, bool $withResults = false): array
     {
         $this->expireRunning($userId);
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
@@ -86,7 +87,7 @@ final class ExamService
             'papers' => $papers,
             'history' => array_map(static fn ($h) => ['session_id' => (int) $h->id, 'paper_id' => $h->paper_id ? (int) $h->paper_id : null, 'score' => (int) $h->score, 'max' => (int) $h->max_score, 'passed' => (bool) $h->passed, 'submitted_at' => $h->submitted_at], $history),
             // Alle ausgewerteten Versuche (für Prüfungsverlauf und Filter), neueste zuerst.
-            'results' => array_map(static fn ($h) => ['session_id' => (int) $h->id, 'paper_id' => $h->paper_id ? (int) $h->paper_id : null, 'paper_number' => $h->paper_number !== null ? (int) $h->paper_number : null, 'score' => (int) $h->score, 'max' => (int) $h->max_score, 'passed' => (bool) $h->passed, 'submitted_at' => $h->submitted_at], $this->db->get_results($this->db->prepare(
+            'results' => ! $withResults ? null : array_map(static fn ($h) => ['session_id' => (int) $h->id, 'paper_id' => $h->paper_id ? (int) $h->paper_id : null, 'paper_number' => $h->paper_number !== null ? (int) $h->paper_number : null, 'score' => (int) $h->score, 'max' => (int) $h->max_score, 'passed' => (bool) $h->passed, 'submitted_at' => $h->submitted_at], $this->db->get_results($this->db->prepare(
                 "SELECT s.id, s.paper_id, p.paper_number, s.score, s.max_score, s.passed, s.submitted_at FROM {$this->t('exam_session')} s LEFT JOIN {$this->t('exam_paper')} p ON p.id = s.paper_id WHERE s.user_id = %d AND s.course_id = %d AND s.status = 'evaluated' ORDER BY s.id DESC LIMIT 500",
                 $userId,
                 $course->id

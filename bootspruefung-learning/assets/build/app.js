@@ -147,6 +147,12 @@
 		]);
 	}
 
+	// Kinder ersetzen (ohne replaceChildren, für ältere Browser).
+	function setChildren(node, children) {
+		node.textContent = '';
+		(children || []).forEach(function (c) { if (c) { node.appendChild(c); } });
+	}
+
 	function badge(text, kind) {
 		return el('span', { class: 'bp-badge bp-badge-' + (kind || 'neutral'), text: text });
 	}
@@ -809,7 +815,7 @@
 					}
 					body.appendChild(el('p', { class: 'bp-module-go' }, [link(topicHref(slug, m.id, null), t('learn_module_all', { name: m.name }), 'bp-button')]));
 				}
-				var details = el('details', { class: 'bp-topic-group' + (m.locked ? ' is-locked' : '') }, [head, body]);
+				var details = m.locked ? el('div', { class: 'bp-topic-group is-locked' }, [el('div', { class: 'bp-topic-group-head' }, Array.prototype.slice.call(head.childNodes))]) : el('details', { class: 'bp-topic-group' }, [head, body]);
 				details.open = !m.locked;
 				list.appendChild(el('li', { class: 'bp-card bp-module' + (m.locked ? ' bp-locked' : '') }, [details]));
 			});
@@ -829,8 +835,9 @@
 			}
 			var state = { filter: collectionParam ? parseInt(collectionParam, 10) : 'all', tab: tabParam === 'fehler' ? 'wrong' : 'fav', creating: false, message: null, data: null };
 			var hero = el('div');
+			var live = el('p', { class: 'bp-sr', role: 'status' });
 			var body = el('section', { class: 'bp-section bp-saved', 'aria-labelledby': 'bp-saved-h' });
-			mount([hero, el('div', { class: 'bp-infobox' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('p', { text: t('saved_info') })]), body], title + ' – ' + c.name);
+			mount([hero, el('div', { class: 'bp-infobox' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('p', { text: t('saved_info') })]), live, body], title + ' – ' + c.name);
 
 			function load(message) {
 				return api('GET', 'courses/' + encodeURIComponent(slug) + '/saved').then(function (d) {
@@ -839,6 +846,7 @@
 						state.filter = 'all';
 					}
 					state.message = message || null;
+					live.textContent = message || '';
 					render();
 				});
 			}
@@ -858,31 +866,31 @@
 
 			function inFilter(item) {
 				if (state.filter === 'all') { return true; }
-				if (state.filter === 'fav') { return item.favorite; }
 				return item.collections.indexOf(state.filter) !== -1;
 			}
 
 			function chip(label, value, count, icon) {
 				var on = state.filter === value;
-				var b = el('button', { type: 'button', class: 'bp-chip' + (on ? ' is-active' : ''), 'aria-pressed': on ? 'true' : 'false' }, [icon ? el('span', { class: 'bp-ico bp-ico-' + icon, 'aria-hidden': 'true' }) : null, label, count !== null ? el('span', { class: 'bp-chip-count', text: String(count) }) : null]);
+				var b = el('button', { type: 'button', class: 'bp-chip' + (on ? ' is-active' : ''), 'aria-pressed': on ? 'true' : 'false', 'data-key': 'chip-' + value }, [icon ? el('span', { class: 'bp-ico bp-ico-' + icon, 'aria-hidden': 'true' }) : null, label, count !== null ? ' ' : null, count !== null ? el('span', { class: 'bp-chip-count', text: String(count) }) : null]);
 				b.addEventListener('click', function () { state.filter = value; state.creating = false; state.message = null; syncUrl(); render(); });
 				return b;
 			}
 
 			function render() {
+				var activeKey = document.activeElement && body.contains(document.activeElement) ? document.activeElement.getAttribute('data-key') : null;
 				var d = state.data;
 				var items = d.items;
 				var favCount = items.filter(function (i) { return i.favorite; }).length;
 				var wrongCount = items.filter(function (i) { return i.wrong; }).length;
-				hero.replaceChildren(pageHero({ code: c.code, icon: 'bookmark', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('saved_intro'), stats: [[favCount, t('saved_favorites')], [wrongCount, t('saved_tab_wrong')], [d.collections.length, t('saved_stat_collections')]] }));
+				setChildren(hero, [pageHero({ code: c.code, icon: 'bookmark', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('saved_intro'), stats: [[favCount, t('saved_favorites')], [wrongCount, t('saved_tab_wrong')], [d.collections.length, t('saved_stat_collections')]] })]);
 
 				var nodes = [el('h2', { id: 'bp-saved-h', class: 'bp-sr', text: t('saved_collections') })];
 				if (state.message) {
-					nodes.push(el('p', { class: 'bp-saved-msg', role: 'status', text: state.message }));
+					nodes.push(el('p', { class: 'bp-saved-msg', text: state.message }));
 				}
 				var chips = [chip(t('saved_all_fav'), 'all', favCount, 'star')];
 				d.collections.forEach(function (col) { chips.push(chip(col.name, col.id, col.count)); });
-				var add = el('button', { type: 'button', class: 'bp-chip bp-chip-add', 'aria-expanded': state.creating ? 'true' : 'false', text: '+ ' + t('saved_new') });
+				var add = el('button', { type: 'button', class: 'bp-chip bp-chip-add', 'aria-expanded': state.creating ? 'true' : 'false', 'data-key': 'chip-add', text: '+ ' + t('saved_new') });
 				add.addEventListener('click', function () { state.creating = !state.creating; render(); if (state.creating) { body.querySelector('#bp-saved-new').focus(); } });
 				chips.push(add);
 				nodes.push(el('div', { class: 'bp-chips', role: 'group', 'aria-label': t('saved_collections') }, chips));
@@ -895,6 +903,7 @@
 						api('POST', 'courses/' + encodeURIComponent(slug) + '/collections', { name: input.value }).then(function (col) {
 							state.creating = false;
 							state.filter = col.id;
+							state.focusKey = 'chip-' + col.id;
 							syncUrl();
 							return load(t('saved_created'));
 						}).catch(fail);
@@ -903,7 +912,7 @@
 				}
 				var current = typeof state.filter === 'number' ? d.collections.filter(function (x) { return x.id === state.filter; })[0] : null;
 				if (current) {
-					var nameInput = el('input', { type: 'text', value: current.name, maxlength: '60', 'aria-label': t('saved_rename_label') });
+					var nameInput = el('input', { type: 'text', value: current.name, maxlength: '60', 'aria-label': t('saved_rename_label'), 'data-key': 'rename' });
 					var renameForm = el('form', { class: 'bp-saved-form bp-saved-edit' }, [
 						nameInput,
 						el('button', { type: 'submit', class: 'bp-link-button', text: t('saved_rename') }),
@@ -911,6 +920,7 @@
 							if (!window.confirm(t('saved_delete_confirm', { name: current.name }))) { return; }
 							api('DELETE', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id).then(function () {
 								state.filter = 'all';
+								state.focusKey = 'chip-all';
 								syncUrl();
 								return load(t('saved_deleted'));
 							}).catch(fail);
@@ -928,10 +938,11 @@
 				var wrongList = visible.filter(function (i) { return i.wrong; });
 				var tabs = el('div', { class: 'bp-tabs', role: 'tablist', 'aria-label': title }, [['fav', t('saved_tab_fav'), favList.length], ['wrong', t('saved_tab_wrong'), wrongList.length]].map(function (tb) {
 					var on = state.tab === tb[0];
-					var b = el('button', { type: 'button', role: 'tab', id: 'bp-saved-tab-' + tb[0], 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'bp-saved-panel', tabindex: on ? '0' : '-1', class: 'bp-tab' + (on ? ' is-active' : '') }, [tb[1], el('span', { class: 'bp-chip-count', text: String(tb[2]) })]);
+					var b = el('button', { type: 'button', role: 'tab', id: 'bp-saved-tab-' + tb[0], 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'bp-saved-panel', tabindex: on ? '0' : '-1', class: 'bp-tab' + (on ? ' is-active' : '') }, [tb[1], ' ', el('span', { class: 'bp-chip-count', text: String(tb[2]) })]);
 					b.addEventListener('click', function () { state.tab = tb[0]; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + tb[0]).focus(); });
 					b.addEventListener('keydown', function (ev) {
-						if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') { state.tab = state.tab === 'fav' ? 'wrong' : 'fav'; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + state.tab).focus(); }
+						var to = ev.key === 'ArrowRight' || ev.key === 'ArrowLeft' ? (state.tab === 'fav' ? 'wrong' : 'fav') : (ev.key === 'Home' ? 'fav' : (ev.key === 'End' ? 'wrong' : null));
+						if (to) { ev.preventDefault(); state.tab = to; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + state.tab).focus(); }
 					});
 					return b;
 				}));
@@ -941,10 +952,9 @@
 				var panel = el('div', { id: 'bp-saved-panel', role: 'tabpanel', 'aria-labelledby': 'bp-saved-tab-' + state.tab });
 				if (list.length) {
 					var learnHref = slug + '/lernen/?modus=' + (state.tab === 'wrong' ? 'wrong' : 'favorites') + (typeof state.filter === 'number' ? '&sammlung=' + state.filter : '');
-					var canLearn = true;
 					panel.appendChild(el('div', { class: 'bp-saved-actions' }, [
 						el('p', { class: 'bp-muted', text: list.length === 1 ? t('saved_count_one') : t('saved_count', { n: list.length }) }),
-						canLearn ? link(learnHref, t(state.tab === 'wrong' ? 'saved_learn_wrong' : 'saved_learn'), 'bp-button bp-button-primary') : null
+						link(learnHref, t(state.tab === 'wrong' ? 'saved_learn_wrong' : 'saved_learn'), 'bp-button bp-button-primary')
 					]));
 					panel.appendChild(el('ul', { class: 'bp-saved-list' }, list.map(function (item) { return savedItem(item); })));
 				} else {
@@ -955,16 +965,23 @@
 					]));
 				}
 				nodes.push(panel);
-				body.replaceChildren.apply(body, nodes);
+				setChildren(body, nodes);
+				var focusKey = state.focusKey || activeKey;
+				state.focusKey = null;
+				if (focusKey) {
+					var target = body.querySelector('[data-key="' + focusKey + '"]');
+					if (target) { target.focus(); }
+				}
 			}
 
 			function savedItem(item) {
-				var star = el('button', { type: 'button', class: 'bp-icon-button bp-star' + (item.favorite ? ' is-on' : ''), 'aria-pressed': item.favorite ? 'true' : 'false', 'aria-label': (item.favorite ? t('fav_remove') : t('fav_add')) + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-star', 'aria-hidden': 'true' })]);
+				var star = el('button', { type: 'button', class: 'bp-icon-button bp-star' + (item.favorite ? ' is-on' : ''), 'data-key': 'star-' + item.question_id, 'aria-pressed': item.favorite ? 'true' : 'false', 'aria-label': (item.favorite ? t('fav_remove') : t('fav_add')) + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-star', 'aria-hidden': 'true' })]);
 				star.addEventListener('click', function () {
 					star.disabled = true;
+					state.focusKey = 'star-' + item.question_id;
 					assign(item, !item.favorite, item.favorite ? [] : item.collections, item.favorite ? t('saved_fav_removed') : t('saved_fav_added'));
 				});
-				var sortBtn = el('button', { type: 'button', class: 'bp-icon-button', 'aria-expanded': 'false', 'aria-label': t('saved_sort_label') + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-folder', 'aria-hidden': 'true' })]);
+				var sortBtn = el('button', { type: 'button', class: 'bp-icon-button', 'data-key': 'sort-' + item.question_id, 'aria-expanded': 'false', 'aria-label': t('saved_sort_label') + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-folder', 'aria-hidden': 'true' })]);
 				var li = el('li', { class: 'bp-saved-item' + (item.wrong ? ' is-wrong' : '') }, [
 					el('span', { class: 'bp-saved-badge', 'aria-hidden': 'true' }, [el('span', { class: 'bp-ico bp-ico-' + (item.wrong && state.tab === 'wrong' ? 'repeat' : 'star') })]),
 					el('div', { class: 'bp-saved-text' }, [
@@ -977,13 +994,13 @@
 					el('div', { class: 'bp-saved-tools' }, [star, item.favorite ? sortBtn : null])
 				]);
 				sortBtn.addEventListener('click', function () {
-					toggleSortPop(li, sortBtn, { favorite: item.favorite, collections: item.collections, all: state.data.collections, onSave: function (fav, ids) { assign(item, fav, ids, t('saved_updated')); } });
+					toggleSortPop(li, sortBtn, { favorite: item.favorite, collections: item.collections, all: state.data.collections, onSave: function (fav, ids) { state.focusKey = 'sort-' + item.question_id; return assign(item, fav, ids, t('saved_updated')); } });
 				});
 				return li;
 			}
 
 			function assign(item, favorite, collections, message) {
-				api('PUT', 'courses/' + encodeURIComponent(slug) + '/saved/' + item.question_id, { favorite: favorite, collections: collections }).then(function () { return load(message); }).catch(fail);
+				return api('PUT', 'courses/' + encodeURIComponent(slug) + '/saved/' + item.question_id, { favorite: favorite, collections: collections }).then(function () { return load(message); }).catch(fail);
 			}
 
 			return load();
@@ -995,18 +1012,19 @@
 	}
 
 	function viewExamHub(slug) {
-		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
+		return api('GET', 'courses/' + encodeURIComponent(slug) + '?ergebnisse=1').then(function (c) {
 			var title = t('simulation_title');
 			var exam = c.exam;
 			var stats = [];
 			var best = null;
 			if (exam && exam.available) {
 				var passedPapers = exam.papers.filter(function (p) { return p.last && p.last.passed; }).length;
-				exam.history.forEach(function (h) { if (h.max > 0 && (best === null || h.score / h.max > best.score / best.max)) { best = h; } });
-				stats = [[exam.rule.questions, t('exam_stat_questions')], exam.papers.length ? [passedPapers + '/' + exam.papers.length, t('exam_stat_papers')] : null, [exam.history.length, t('exam_stat_attempts')]];
+				var all = exam.results || exam.history;
+				all.forEach(function (h) { if (h.max > 0 && (best === null || h.score / h.max > best.score / best.max)) { best = h; } });
+				stats = [[exam.rule.questions, t('exam_stat_questions')], exam.papers.length ? [passedPapers + '/' + exam.papers.length, t('exam_stat_papers')] : null, [all.length, t('exam_stat_attempts')]];
 			}
 			mount([
-				pageHero({ code: c.code, icon: 'timer', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('hub_exam_intro'), stats: stats, percent: best ? Math.floor(best.score * 100 / best.max) : null, percentLabel: t('exam_best') }),
+				pageHero({ code: c.code, icon: 'timer', crumbs: crumbs(slug, c.name, [[title]]), eyebrow: c.name, title: title, intro: t('hub_exam_intro'), stats: stats, percent: best ? resultPct(best) : null, percentLabel: t('exam_best') }),
 				sectionFiles(c, 'exam_simulation'),
 				exam ? examSection(slug, exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation)
 			], title + ' – ' + c.name);
@@ -1090,6 +1108,11 @@
 		return section;
 	}
 
+	// Einheitlich abgerundet (wie die Bestehensgrenze: knapp darunter ist nicht bestanden).
+	function resultPct(h) {
+		return h.max ? Math.floor(h.score * 100 / h.max) : 0;
+	}
+
 	function resultKind(h) {
 		return h.paper_number ? t('paper_short', { number: h.paper_number }) : (h.paper_id ? t('paper_label') : t('simulation_label'));
 	}
@@ -1136,7 +1159,7 @@
 		function render() {
 			var f = from.value || minDay;
 			var tt = to.value || maxDay;
-			if (f > tt) { var tmp = f; f = tt; tt = tmp; }
+			if (f > tt) { var tmp = f; f = tt; tt = tmp; from.value = f; to.value = tt; }
 			var sel = test.value;
 			var list = results.filter(function (h) {
 				var ms = resultTime(h);
@@ -1150,14 +1173,14 @@
 			reset.hidden = from.value === minDay && to.value === maxDay && !sel;
 			status.textContent = t('filter_status', { n: list.length });
 			if (!list.length) {
-				body.replaceChildren(el('div', { class: 'bp-empty bp-results-empty' }, [el('p', { text: t('filter_empty') })]));
+				setChildren(body, [el('div', { class: 'bp-empty bp-results-empty' }, [el('p', { text: t('filter_empty') })])]);
 				return;
 			}
 			var pages = Math.ceil(list.length / PAGE);
 			page = Math.min(page, pages - 1);
 			var ul = el('ul', { class: 'bp-history', id: 'bp-history-list' });
 			list.slice(page * PAGE, page * PAGE + PAGE).forEach(function (h) {
-				var pct = h.max ? Math.floor(h.score * 100 / h.max) : 0;
+				var pct = resultPct(h);
 				ul.appendChild(el('li', { class: h.passed ? 'is-passed' : 'is-failed' }, [
 					el('span', { class: 'bp-history-ico', 'aria-hidden': 'true' }),
 					el('span', { class: 'bp-history-text' }, [
@@ -1167,21 +1190,26 @@
 					badge(h.passed ? t('passed') : t('failed'), h.passed ? 'ok' : 'bad')
 				]));
 			});
-			body.replaceChildren(
+			setChildren(body, [
 				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), ul, pages > 1 ? pager(pages, list.length) : null]),
-				examChart(slug, list, testName, [new Date(f + 'T00:00:00').getTime(), new Date(tt + 'T23:59:59').getTime()])
-			);
+				examChart(slug, list, testName, [new Date(f + 'T00:00:00').getTime(), new Date(tt + 'T00:00:00').getTime() + 86400000])
+			]);
 		}
 		function pager(pages, total) {
-			var prev = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', 'aria-label': t('pager_prev_label'), disabled: page === 0 }, ['‹ ', t('pager_prev')]);
-			var next = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', 'aria-label': t('pager_next_label'), disabled: page >= pages - 1 }, [t('pager_next'), ' ›']);
-			prev.addEventListener('click', function () { page--; render(); focusPager('prev'); });
-			next.addEventListener('click', function () { page++; render(); focusPager('next'); });
+			var prev = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', disabled: page === 0 }, ['‹ ', t('pager_prev')]);
+			var next = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', disabled: page >= pages - 1 }, [t('pager_next'), ' ›']);
+			prev.addEventListener('click', function () { page--; render(); announcePage(); focusPager('prev'); });
+			next.addEventListener('click', function () { page++; render(); announcePage(); focusPager('next'); });
 			return el('nav', { class: 'bp-pager', 'aria-label': t('pager_label') }, [
 				prev,
-				el('span', { class: 'bp-pager-info', 'aria-live': 'polite', text: t('pager_range', { from: page * PAGE + 1, to: Math.min(total, page * PAGE + PAGE), total: total }) }),
+				el('span', { class: 'bp-pager-info', text: t('pager_range', { from: page * PAGE + 1, to: Math.min(total, page * PAGE + PAGE), total: total }) }),
 				next
 			]);
+		}
+
+		function announcePage() {
+			var info = body.querySelector('.bp-pager-info');
+			if (info) { status.textContent = info.textContent; }
 		}
 
 		function focusPager(which) {
@@ -1200,7 +1228,7 @@
 	// Verlauf der Prüfungsergebnisse auf einer Zeitachse: x = Abgabezeitpunkt, y = Prozent der Punkte, Punktfarbe = bestanden/nicht bestanden.
 	function examChart(slug, history, testName, range) {
 		var runs = history.slice().reverse();
-		var pcts = runs.map(function (h) { return h.max ? Math.round(h.score * 100 / h.max) : 0; });
+		var pcts = runs.map(resultPct);
 		var times = runs.map(resultTime);
 		var known = times.filter(function (x) { return x !== null; });
 		var t0 = known.length ? Math.min.apply(null, known) : 0;
@@ -1215,12 +1243,12 @@
 			if (span <= 0 || times[i] === null) { return runs.length === 1 ? 50 : 4 + i * 92 / (runs.length - 1); }
 			return 4 + (times[i] - t0) * 92 / span;
 		});
-		var avg = Math.round(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length);
+		var avg = Math.floor(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length);
 		var best = Math.max.apply(null, pcts);
 		var last = pcts[pcts.length - 1];
-		var bestIdx = pcts.lastIndexOf(best);
-		var short = span > 0 && span < 2 * 86400000;
-		var fmt = function (ms) { return new Date(ms).toLocaleString('de-DE', short ? { hour: '2-digit', minute: '2-digit' } : { day: '2-digit', month: '2-digit' }); };
+		var locale = document.documentElement.lang || 'de-DE';
+		var DAY = 86400000;
+		var xOf = function (ms) { return span > 0 ? 4 + (ms - t0) * 92 / span : 50; };
 
 		var ns = 'http://www.w3.org/2000/svg';
 		var svg = document.createElementNS(ns, 'svg');
@@ -1235,20 +1263,33 @@
 			svg.appendChild(line);
 		}
 		var points = el('ol', { class: 'bp-chart-points' }, runs.map(function (h, i) {
-			var label = t('chart_point_aria', { kind: resultKind(h), date: times[i] !== null ? new Date(times[i]).toLocaleDateString('de-DE') : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
-			var lastI = runs.length - 1;
-			var showValue = i === lastI || (i === bestIdx && (Math.abs(xs[i] - xs[lastI]) > 10 || Math.abs(pcts[i] - pcts[lastI]) > 12));
+			var label = t('chart_point_aria', { kind: resultKind(h), date: times[i] !== null ? new Date(times[i]).toLocaleDateString(locale) : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
+			// Nur der letzte Versuch wird beschriftet (bestes Ergebnis steht in den Kennzahlen).
+			var showValue = i === runs.length - 1;
 			var edge = xs[i] < 35 ? ' is-left' : (xs[i] > 65 ? ' is-right' : '');
 			return el('li', { style: 'left:' + xs[i] + '%;bottom:' + pcts[i] + '%' }, [
-				el('a', { href: base + slug + '/pruefung/' + h.session_id + '/', 'data-bp-link': '1', class: 'bp-chart-point ' + (h.passed ? 'is-passed' : 'is-failed') + edge, 'aria-label': label, 'data-tip': label }, [el('span', { class: 'bp-chart-dot', 'aria-hidden': 'true' })]),
+				el('a', { href: base + slug + '/pruefung/' + h.session_id + '/', 'data-bp-link': '1', tabindex: '-1', class: 'bp-chart-point ' + (h.passed ? 'is-passed' : 'is-failed') + edge, 'aria-label': label, 'data-tip': label }, [el('span', { class: 'bp-chart-dot', 'aria-hidden': 'true' })]),
 				showValue ? el('span', { class: 'bp-chart-value', 'aria-hidden': 'true', text: pcts[i] + ' %' }) : null
 			]);
 		}));
+		// Achsenmarken an Tagesgrenzen (höchstens 6), bei nur einem Tag Uhrzeiten; keine doppelten Beschriftungen.
 		var ticks = [];
 		if (span > 0) {
-			for (var k = 0; k <= 4; k++) { ticks.push([4 + k * 23, fmt(t0 + span * k / 4)]); }
+			var days = Math.round(span / DAY);
+			if (days <= 1) {
+				for (var hh = 0; hh <= 24; hh += 6) { ticks.push([xOf(t0 + hh * 3600000), new Date(t0 + hh * 3600000).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })]); }
+				ticks[ticks.length - 1][1] = '24:00';
+			} else {
+				var step = Math.max(1, Math.ceil(days / 5));
+				var seen = {};
+				for (var d0 = 0; d0 < days; d0 += step) {
+					var ms = new Date(t0).setHours(0, 0, 0, 0) + d0 * DAY;
+					var label = new Date(ms + 3600000 * 3).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
+					if (!seen[label] && ms <= t1) { seen[label] = true; ticks.push([xOf(ms), label]); }
+				}
+			}
 		} else if (known.length) {
-			ticks.push([50, new Date(t0).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })]);
+			ticks.push([50, new Date(t0).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })]);
 		}
 		return el('div', { class: 'bp-chart-card' }, [
 			el('div', { class: 'bp-chart-head' }, [
@@ -1388,15 +1429,13 @@
 		});
 	}
 
-	// Popover „In Sammlungen einsortieren“ (Favoriten-Seite und Lernmodus).
+	// Popover „In Sammlungen einsortieren“ (Favoriten-Seite).
 	function toggleSortPop(host, trigger, opts) {
 		var open = host.querySelector('.bp-sort-pop');
-		document.querySelectorAll('.bp-sort-pop').forEach(function (p) { p.remove(); });
-		document.querySelectorAll('.bp-sort-trigger[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+		document.querySelectorAll('.bp-sort-pop').forEach(function (p) { if (p.bpClose) { p.bpClose(false); } else { p.remove(); } });
 		if (open) {
 			return;
 		}
-		trigger.classList.add('bp-sort-trigger');
 		trigger.setAttribute('aria-expanded', 'true');
 		var favBox = el('input', { type: 'checkbox' });
 		favBox.checked = !!opts.favorite;
@@ -1405,7 +1444,6 @@
 			cb.checked = opts.collections.indexOf(col.id) !== -1;
 			return [cb, col.name];
 		});
-		var newName = opts.onCreate ? el('input', { type: 'text', maxlength: '60', placeholder: t('saved_new_placeholder') }) : null;
 		function syncBoxes() {
 			boxes.forEach(function (b) {
 				b[0].disabled = !favBox.checked;
@@ -1415,29 +1453,34 @@
 		favBox.addEventListener('change', syncBoxes);
 		var pop = el('form', { class: 'bp-sort-pop' }, [
 			el('fieldset', {}, [el('legend', { text: t('saved_sort_title') }), el('label', {}, [favBox, ' ' + t('saved_favorites')])].concat(boxes.map(function (b) { return el('label', {}, [b[0], ' ' + b[1]]); }))),
-			!opts.all.length && !newName ? el('p', { class: 'bp-muted', text: t('saved_sort_none') }) : null,
-			newName ? el('label', { class: 'bp-sort-new' }, [el('span', { text: t('saved_new') }), newName]) : null,
+			!opts.all.length ? el('p', { class: 'bp-muted', text: t('saved_sort_none') }) : null,
 			el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('saved_save') })
 		]);
-		function close() {
+		function outside(ev) {
+			if (!pop.contains(ev.target) && !trigger.contains(ev.target)) { close(false); }
+		}
+		function onKey(ev) {
+			if (ev.key === 'Escape') { close(true); }
+		}
+		function close(refocus) {
+			document.removeEventListener('pointerdown', outside, true);
+			document.removeEventListener('focusin', outside, true);
+			document.removeEventListener('keydown', onKey, true);
 			pop.remove();
 			trigger.setAttribute('aria-expanded', 'false');
-			trigger.focus();
+			if (refocus && trigger.isConnected) { trigger.focus(); }
 		}
+		pop.bpClose = close;
 		pop.addEventListener('submit', function (ev) {
 			ev.preventDefault();
 			var ids = boxes.filter(function (b) { return favBox.checked && b[0].checked; }).map(function (b) { return parseInt(b[0].value, 10); });
-			var create = newName && newName.value.trim() ? opts.onCreate(newName.value) : Promise.resolve(null);
-			create.then(function (col) {
-				if (col) { ids.push(col.id); }
-				return opts.onSave(favBox.checked, ids);
-			}).then(function () { if (pop.isConnected) { close(); } }).catch(function (e) { alertMessage(pop, e.message); });
-		});
-		pop.addEventListener('keydown', function (ev) {
-			if (ev.key === 'Escape') { close(); }
+			Promise.resolve(opts.onSave(favBox.checked, ids)).then(function () { if (pop.isConnected) { close(true); } }).catch(function (e) { alertMessage(pop, e.message); });
 		});
 		syncBoxes();
 		host.appendChild(pop);
+		document.addEventListener('pointerdown', outside, true);
+		document.addEventListener('focusin', outside, true);
+		document.addEventListener('keydown', onKey, true);
 		favBox.focus();
 	}
 
@@ -1454,12 +1497,6 @@
 				label.textContent = on ? t('fav_remove') : t('fav_add');
 			}).finally(function () { btn.disabled = false; });
 		});
-		btn.bpSet = function (value) {
-			on = value;
-			q.favorite = on;
-			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-			label.textContent = on ? t('fav_remove') : t('fav_add');
-		};
 		return btn;
 	}
 
@@ -1867,8 +1904,8 @@
 				f.locked ? el('span', { class: 'bp-pro-badge', text: t('pdf_pro') }) : el('span', { class: 'bp-pdf-action', 'aria-hidden': 'true', text: t('pdf_open') + ' ↓' })
 			];
 			return el('li', {}, [f.locked
-				? el('div', { class: 'bp-pdf is-locked', 'aria-label': t('pdf_locked_aria', { title: f.title }) }, inner)
-				: el('a', { class: 'bp-pdf', href: f.url, target: '_blank', rel: 'noopener', 'aria-label': t('pdf_open_aria', { title: f.title }) }, inner)]);
+				? el('div', { class: 'bp-pdf is-locked' }, inner.concat([el('span', { class: 'bp-sr', text: t('pdf_locked_sr') })]))
+				: el('a', { class: 'bp-pdf', href: f.url, target: '_blank', rel: 'noopener' }, inner.concat([el('span', { class: 'bp-sr', text: t('pdf_open_sr') })]))]);
 		}));
 		return el('section', { class: 'bp-pdf-section', 'aria-label': t('pdf_section') }, [
 			list,
@@ -2445,7 +2482,7 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/spelling').then(function (d) {
 				var title = t('spelling_title');
-				var search = el('input', { type: 'search', class: 'bp-spell-search', placeholder: t('spelling_try'), 'aria-label': t('spelling_try'), maxlength: '40', autocomplete: 'off' });
+				var search = el('input', { type: 'search', class: 'bp-spell-search', placeholder: t('spelling_try'), maxlength: '40', autocomplete: 'off' });
 				var out = el('p', { class: 'bp-spell-out', 'aria-live': 'polite' });
 				var map = {};
 				d.letters.forEach(function (l) { map[l.letter] = l.word; });
@@ -2517,9 +2554,8 @@
 						nodes.push(det);
 					});
 				});
-				var first = null;
 				mount(nodes, title + ' – ' + c.name);
-				first = root.querySelector('.bp-sample:not(.is-locked)');
+				var first = root.querySelector('.bp-sample:not(.is-locked)');
 				if (first) { first.open = true; }
 			});
 		});

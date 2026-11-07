@@ -1188,9 +1188,6 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-saved-tools { width: 100%; justify-content: flex-end; margin-top: -0.4rem; }
 	.bp-sort-pop { top: auto; bottom: 3.4rem; }
 }
-.bp-collect { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; }
-.bp-collect .bp-sort-pop { top: calc(100% + 0.4rem); right: auto; left: 0; width: 280px; }
-.bp-collect-note { font-size: 0.85rem; color: var(--bp-ok); font-weight: 600; }
 .bp-sort-new { margin: 0 0 0.8rem; }
 .bp-sort-new input { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0.3rem 0.7rem; border: 1.5px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 10px; font: inherit; background: var(--bp-surface); color: inherit; }
 .bp-app .bp-sort-pop label.bp-sort-new { display: flex; flex-direction: column; align-items: stretch; gap: 0.3rem; min-height: 0; cursor: default; }
@@ -1276,7 +1273,6 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-filter-bar input:focus-visible, .bp-filter-bar select:focus-visible { outline: 3px solid var(--bp-accent); outline-offset: 1px; }
 .bp-filter-bar .bp-link-button { min-height: 42px; }
 .bp-results-empty { padding: 1.5rem; border: 1px dashed var(--bp-border); border-radius: 16px; text-align: center; grid-column: 1 / -1; }
-.bp-history-more { margin: -0.3rem 0 0.4rem; font-size: 0.8rem; }
 @media (max-width: 600px) {
 	.bp-filter-bar label { flex: 1 1 140px; }
 	.bp-filter-bar select { min-width: 0; width: 100%; }
@@ -1365,3 +1361,9 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 }
 /* Einzelkurs: Videokarte in der Höhe einer Kombi-Karte, nicht auf die Fortschrittsbox gestreckt */
 .bp-hub-cards.is-one { align-self: start; }
+
+/* Review: Kontrast der Achsenbeschriftung, kleinere Trefferflächen, gesperrte Themen-Gruppen */
+.bp-chart-grid span, .bp-chart-time span { opacity: 0.72; }
+.bp-app a.bp-chart-point { left: -12px; top: -12px; width: 24px; height: 24px; }
+.bp-topic-group-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 1.05rem 1.3rem; }
+.bp-topic-group-head .bp-topic-chevron { display: none; }

@@ -156,7 +156,7 @@ final class LearnerController
             'features' => $features,
             'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course) : null,
             'favorites' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseFavoriteCount($user, $course) : 0,
-            'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null,
+            'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course, (bool) $request['ergebnisse']) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
             // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
             'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES))),
