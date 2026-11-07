@@ -22,8 +22,21 @@ final class SectionFiles
     public const SLOT_META = '_bp_file_slot';
     public const SLOTS = ['vocabulary', 'samples', 'spelling'];
 
-    /** Kombikurse zeigen auch die Dateien ihrer Teilkurse. */
-    public const PARTS = ['SRC-UBI' => ['SRC', 'UBI'], 'SBF-SEE-BIN' => ['SBF-SEE', 'SBF-BIN-MOTOR']];
+    /**
+     * Kombikurse zeigen die Dateien ihrer Teilkurse, Ergänzungskurse die Dateien des Zielscheins
+     * (Festlegung 07.11.2026: z. B. Ergänzung SRC → UBI erhält die UBI-PDFs).
+     */
+    public const PARTS = [
+        'SRC-UBI' => ['SRC', 'UBI'], 'SBF-SEE-BIN' => ['SBF-SEE', 'SBF-BIN-MOTOR'],
+        'ADD-UBI-TO-SRC' => ['UBI'], 'ADD-BIN-TO-SEE' => ['SBF-SEE'], 'ADD-SEE-TO-BIN' => ['SBF-BIN-MOTOR'],
+        'ADD-BIN-SEGEL' => ['SBF-BIN-SEGEL'], 'ADD-FKN-TO-SKN' => ['SKN'],
+    ];
+
+    /** Kurse, die die Dateien dieses Kurses mit anzeigen (Kombis, Ergänzungen). @return list<string> */
+    public static function includedIn(string $courseCode): array
+    {
+        return array_keys(array_filter(self::PARTS, static fn ($parts) => in_array($courseCode, $parts, true)));
+    }
 
     /**
      * @return array<string,list<array{id:int,title:string,description:string,size:?int,url:?string,locked:bool,slot:string}>>

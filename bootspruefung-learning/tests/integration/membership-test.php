@@ -318,6 +318,21 @@ update_post_meta($vocPdf, \Bootspruefung\Learning\Gate\SectionFiles::SLOT_META, 
 $combo = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SRC-UBI')['radio_training'] ?? [];
 $check(in_array((int) $vocPdf, array_column($combo, 'id'), true) && $combo[array_search((int) $vocPdf, array_column($combo, 'id'), true)]['slot'] === 'vocabulary', 'Kombikurs zeigt PDFs der Teilkurse, Vokabelseite als Anzeigeort');
 $check(! in_array((int) $vocPdf, array_column(\Bootspruefung\Learning\Gate\SectionFiles::forCourse($free, 'SBF-SEE')['radio_training'] ?? [], 'id'), true), 'fremder Kurs zeigt die Datei nicht');
+$addUser = $user('bp_add_ubi');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $addUser));
+$ubiPath = $uploads['path'].'/bp-ubi-'.wp_generate_password(6, false).'.pdf';
+file_put_contents($ubiPath, "%PDF-1.4\n% UBI\n");
+$ubiPdf = wp_insert_attachment(['post_title' => 'UBI-Prüfungsbögen (PDF)', 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit'], $ubiPath);
+update_post_meta($ubiPdf, '_wp_attached_file', _wp_relative_upload_path($ubiPath));
+ProtectedFiles::protect((int) $ubiPdf, 'UBI', 'radio_training');
+$check(! \Bootspruefung\Learning\Gate\DownloadService::allowed($addUser, (int) $ubiPdf), 'Ergänzung ohne Kauf: UBI-PDF gesperrt');
+$now = current_time('mysql', true);
+$wpdb->insert($p.'entitlement', ['user_id' => $addUser, 'course_code' => 'ADD-UBI-TO-SRC', 'feature_code' => 'all', 'status' => 'active', 'valid_from' => $now, 'source' => 'manual', 'reference_key' => 'add-ubi-'.$addUser, 'created_at' => $now, 'updated_at' => $now]);
+$addFiles = \Bootspruefung\Learning\Gate\SectionFiles::forCourse($addUser, 'ADD-UBI-TO-SRC')['radio_training'] ?? [];
+$check(\Bootspruefung\Learning\Gate\DownloadService::allowed($addUser, (int) $ubiPdf) && in_array((int) $ubiPdf, array_column(array_filter($addFiles, static fn ($f) => ! $f['locked']), 'id'), true), 'Ergänzung SRC → UBI: UBI-PDF gelistet und freigegeben');
+$check(! \Bootspruefung\Learning\Gate\DownloadService::allowed($addUser, (int) $vocPdf), 'Ergänzung SRC → UBI: SRC-PDF bleibt gesperrt');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $addUser));
+wp_delete_attachment((int) $ubiPdf, true);
 wp_delete_attachment((int) $vocPdf, true);
 wp_set_current_user(1);
 foreach ($pdfs as $id) {

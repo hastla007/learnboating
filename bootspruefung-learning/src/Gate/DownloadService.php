@@ -63,7 +63,17 @@ final class DownloadService
             return true;
         }
         if ($req['feature'] !== AccessService::DOWNLOADS) {
-            return ContentGate::allows($userId, $req['course'], $req['feature']);
+            if (ContentGate::allows($userId, $req['course'], $req['feature'])) {
+                return true;
+            }
+            // Dateien eines Teil- bzw. Zielkurses: auch mit vollem Zugang über Kombi oder Ergänzung.
+            foreach (SectionFiles::includedIn($req['course']) as $course) {
+                if (ContentGate::allows($userId, $course, $req['feature'])) {
+                    return true;
+                }
+            }
+
+            return false;
         }
         foreach (self::items($userId, $req['course']) as $item) {
             if ($item['id'] === $attachmentId) {
