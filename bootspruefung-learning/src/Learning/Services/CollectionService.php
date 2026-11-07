@@ -40,6 +40,8 @@ final class CollectionService
             $course->id
         ));
         $items = $this->itemsByCollection(array_map(static fn ($r) => (int) $r->id, $rows));
+        // Wie im Lernmodus: nur Favoriten zählen (Altbestand ohne Stern nicht).
+        $allowed = array_values(array_intersect($allowed, $this->learning->favoriteIds($userId)));
 
         return array_map(static fn ($r) => [
             'id' => (int) $r->id,

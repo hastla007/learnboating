@@ -15,7 +15,8 @@ x-wp-env: &wp-env
   WORDPRESS_CONFIG_EXTRA: |
     define('WP_ENVIRONMENT_TYPE', 'staging');
     define('DISALLOW_FILE_EDIT', true);
-    define('WP_DEBUG_LOG', true);
+    define('DISABLE_WP_CRON', true); // Cron läuft im Dienst „cron“ (Loopback auf STAGING_URL geht im Container nicht)
+    define('WP_DEBUG_LOG', '/tmp/wp-debug.log'); // außerhalb des Webroots, nicht öffentlich abrufbar
     define('WP_DEBUG_DISPLAY', false);
 
 services:
@@ -49,6 +50,7 @@ services:
       - ../bootspruefung-learning:/var/www/html/wp-content/plugins/bootspruefung-learning:ro
       - ../themes/kurswasser:/var/www/html/wp-content/themes/kurswasser:ro
       - ./php.ini:/usr/local/etc/php/conf.d/zz-staging.ini:ro
+      - ./mu-plugins/staging-mail.php:/var/www/html/wp-content/mu-plugins/staging-mail.php:ro
     ports:
       - "${STAGING_BIND:-127.0.0.1}:${STAGING_PORT:-8080}:80"
 
@@ -79,6 +81,31 @@ services:
       - ..:/repo:ro
     entrypoint: ["sh", "/repo/staging/setup.sh"]
     restart: "no"
+
+  # WP-Cron jede Minute (Zugänge/Prüfungen ablaufen lassen, WooCommerce-Aufgaben).
+  cron:
+    image: ${IMAGE_REGISTRY:-docker.io/library}/wordpress:cli-php8.5
+    user: "33:33"
+    restart: unless-stopped
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    environment:
+      <<: *wp-env
+      HOME: /tmp
+    volumes:
+      - wordpress:/var/www/html
+      - ../bootspruefung-learning:/var/www/html/wp-content/plugins/bootspruefung-learning:ro
+      - ../themes/kurswasser:/var/www/html/wp-content/themes/kurswasser:ro
+      - ./mu-plugins/staging-mail.php:/var/www/html/wp-content/mu-plugins/staging-mail.php:ro
+    entrypoint: ["sh", "-c", "while true; do wp cron event run --due-now --quiet || true; sleep 60; done"]
+
+  # Test-Postfach: alle E-Mails der Staging-Seite landen hier (http://localhost:8025), nichts geht raus.
+  mailpit:
+    image: ${MAILPIT_IMAGE:-docker.io/axllent/mailpit:v1.27}
+    restart: unless-stopped
+    ports:
+      - "${STAGING_BIND:-127.0.0.1}:${MAILPIT_PORT:-8025}:8025"
 
   # Optional: HTTPS mit eigenem Domainnamen (Let's Encrypt), siehe README.
   caddy:

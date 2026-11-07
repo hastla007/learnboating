@@ -18,6 +18,10 @@
 	// ------------------------------------------------------------------ Helfer
 
 	function t(key, vars) {
+		// Einzahl automatisch: bei {n} = 1 die Variante <key>_one, falls vorhanden.
+		if (vars && vars.n === 1 && T[key + '_one']) {
+			key = key + '_one';
+		}
 		var s = T[key] || key;
 		if (vars) {
 			Object.keys(vars).forEach(function (k) {
@@ -1343,11 +1347,20 @@
 
 	function viewLearn(slug, moduleId, mode, topic) {
 		var collectionId = learnCollection;
+		// Unbekannter Modus per Deep-Link (?modus=xyz): wie Smarttrainer.
+		if (['smart', 'new', 'wrong', 'favorites'].indexOf(mode) === -1) {
+			mode = 'smart';
+		}
 		return Promise.all([
 			api('GET', 'courses/' + encodeURIComponent(slug)),
 			collectionId ? api('GET', 'courses/' + encodeURIComponent(slug) + '/saved').catch(function () { return null; }) : null
 		]).then(function (res) {
 			var course = res[0];
+			// Ohne Fragenkatalog-Zugang (Deep-Link): Angebot wie im Smarttrainer statt nur Fehlermeldung.
+			if (course.features && course.features.question_bank === false) {
+				mount([crumbs(slug, course.name, [[t('mode_smart'), slug + '/smarttrainer/'], [t('section_learn')]]), lockedBox(t('section_learn'), (course.shop || {}).question_bank)], t('section_learn') + ' – ' + course.name);
+				return;
+			}
 			var module = null;
 			if (moduleId && course.progress) {
 				course.progress.modules.forEach(function (m) { if (String(m.id) === String(moduleId)) { module = m; } });
@@ -1584,6 +1597,8 @@
 				q.favorite = on;
 				btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 				label.textContent = on ? t('fav_remove') : t('fav_add');
+			}).catch(function (e) {
+				alertMessage(btn.parentNode || btn, e.message);
 			}).finally(function () { btn.disabled = false; });
 		});
 		return btn;
@@ -1773,7 +1788,7 @@
 				c.note ? el('p', { class: 'bp-committee-line bp-muted', text: c.note }) : null,
 				(c.email || c.website) ? el('p', { class: 'bp-committee-actions' }, [
 					c.email ? el('a', { class: 'bp-button', href: 'mailto:' + c.email, text: t('guide_mail') }) : null,
-					c.website ? el('a', { class: 'bp-button', href: c.website, target: '_blank', rel: 'noopener', text: t('guide_website') }) : null
+					c.website && /^https?:\/\//i.test(c.website) ? el('a', { class: 'bp-button', href: c.website, target: '_blank', rel: 'noopener', text: t('guide_website') }) : null
 				]) : null
 			]);
 			var toggle = el('button', { type: 'button', class: 'bp-committee-toggle', 'aria-expanded': 'false', 'aria-controls': id }, [el('span', { class: 'bp-sr', text: t('guide_contact_for', { name: short(c.label) }) }), el('span', { 'aria-hidden': 'true', text: t('guide_contact') })]);
@@ -2449,8 +2464,8 @@
 		return card;
 	}
 
-	// Funk
-	function speakButton(text, lang) {
+	// Funk: Diktat/Text vorlesen (sichtbarer Knopf, Text nicht im Label – sonst verrät der Screenreader die Lösung)
+	function speakTextButton(text, lang) {
 		if (cfg.voice === 'off' || !('speechSynthesis' in window)) {
 			return null;
 		}
@@ -2549,7 +2564,7 @@
 
 	// Vorlesen über die Sprachausgabe des Browsers (keine externen Dienste).
 	function speakButton(text, lang, label) {
-		if (!('speechSynthesis' in window)) {
+		if (cfg.voice === 'off' || !('speechSynthesis' in window)) {
 			return null;
 		}
 		var b = el('button', { type: 'button', class: 'bp-speak', 'aria-label': t('speak_label', { text: label || text }) }, [el('span', { class: 'bp-ico bp-ico-play', 'aria-hidden': 'true' })]);
@@ -2662,6 +2677,8 @@
 						x.done = r.done;
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+					}).catch(function (e) {
+						alertMessage(doneBtn.parentNode || doneBtn, e.message);
 					});
 				});
 				if (x.type === 'spelling') {
@@ -2701,7 +2718,7 @@
 					source.hidden = cfg.voice !== 'off';
 					var toggle = el('button', { type: 'button', class: 'bp-button', text: t('radio_show_text') });
 					toggle.addEventListener('click', function () { source.hidden = !source.hidden; toggle.textContent = source.hidden ? t('radio_show_text') : t('radio_hide_text'); });
-					body.appendChild(el('div', { class: 'bp-actions' }, [speakButton(from, lang), cfg.voice !== 'off' ? toggle : null]));
+					body.appendChild(el('div', { class: 'bp-actions' }, [speakTextButton(from, lang), cfg.voice !== 'off' ? toggle : null]));
 					body.appendChild(source);
 					var transcript = el('textarea', { class: 'bp-notes', rows: '4', id: 'bp-transcript' });
 					transcript.value = answers.transcript || '';
@@ -2810,6 +2827,8 @@
 						x.done = r.done;
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+					}).catch(function (e) {
+						alertMessage(doneBtn.parentNode || doneBtn, e.message);
 					});
 				});
 				mount([
@@ -3109,7 +3128,7 @@
 					reveal.addEventListener('click', function () {
 						reveal.remove();
 						box.insertBefore(el('p', { class: 'bp-vocab-solution', lang: 'en', text: card.en + (card.hint ? ' (' + card.hint + ')' : '') }), actions);
-						var sp = speakButton(card.en, 'en-GB');
+						var sp = speakTextButton(card.en, 'en-GB');
 						[[true, t('known_yes')], [false, t('known_no')]].forEach(function (opt) {
 							var b = el('button', { type: 'button', class: 'bp-button' + (opt[0] ? ' bp-button-primary' : ''), text: opt[1] });
 							b.addEventListener('click', function () {
@@ -3185,7 +3204,7 @@
 			nav.textContent = '';
 			questions.forEach(function (q, i) {
 				var b = el('button', { type: 'button', class: 'bp-exam-nav-item' + (answered(q) ? ' is-answered' : '') + (i === current ? ' is-current' : ''), 'aria-current': i === current ? 'step' : null, 'aria-label': t('exam_nav_item', { n: q.position, state: answered(q) ? t('answered') : t('unanswered') }), text: String(q.position) });
-				b.addEventListener('click', function () { current = i; renderQuestion(); });
+				b.addEventListener('click', function () { current = i; renderQuestion(true); });
 				nav.appendChild(el('li', {}, [b]));
 			});
 		}
@@ -3203,7 +3222,7 @@
 			});
 		}
 
-		function renderQuestion() {
+		function renderQuestion(focus) {
 			var q = questions[current];
 			stage.textContent = '';
 			var name = 'bp-e-' + q.position;
@@ -3212,6 +3231,10 @@
 				multiline('h2', q.text, 'bp-question-text'),
 				questionMedia(q.media)
 			]);
+			var heading = card.querySelector('.bp-question-text');
+			if (heading) {
+				heading.setAttribute('tabindex', '-1');
+			}
 			if (q.type === 'open_text') {
 				var area = el('div', { class: 'bp-open' });
 				if (q.model_answer) {
@@ -3221,7 +3244,7 @@
 						var b = el('button', { type: 'button', class: 'bp-button' + (q.known === opt[0] ? ' bp-button-primary' : ''), 'aria-pressed': q.known === opt[0] ? 'true' : 'false', text: opt[1] });
 						b.addEventListener('click', function () {
 							q.known = opt[0];
-							save(q, { known: opt[0] }).then(renderQuestion);
+							save(q, { known: opt[0] }).then(function () { renderQuestion(true); });
 						});
 						group.appendChild(b);
 					});
@@ -3233,7 +3256,7 @@
 						reveal.disabled = true;
 						api('POST', 'exam-sessions/' + s.id + '/answers/' + q.position + '/reveal').then(function (r) {
 							q.model_answer = r.model_answer;
-							renderQuestion();
+							renderQuestion(true);
 						}).catch(function (e) { reveal.disabled = false; status.textContent = e.message; });
 					});
 					area.appendChild(reveal);
@@ -3244,19 +3267,23 @@
 				fieldset.addEventListener('change', function () {
 					var ids = selectedIds(fieldset);
 					q.selected_ids = ids;
-					if (ids.length) {
-						save(q, { answer_ids: ids });
-					}
+					// Auch das Leeren speichern (alle Kästchen abgehakt = unbeantwortet).
+					save(q, { answer_ids: ids });
+					renderNav();
 				});
 				card.appendChild(fieldset);
 			}
 			var prev = el('button', { type: 'button', class: 'bp-button', disabled: current === 0 }, [el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '←' }), t('prev')]);
 			var nextB = el('button', { type: 'button', class: 'bp-button bp-button-primary', disabled: current === questions.length - 1 }, [t('next'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })]);
-			prev.addEventListener('click', function () { current--; renderQuestion(); });
-			nextB.addEventListener('click', function () { current++; renderQuestion(); });
+			prev.addEventListener('click', function () { current--; renderQuestion(true); });
+			nextB.addEventListener('click', function () { current++; renderQuestion(true); });
 			card.appendChild(el('div', { class: 'bp-actions bp-exam-pager' }, [prev, nextB]));
 			stage.appendChild(card);
 			renderNav();
+			// Tastatur/Screenreader: nach dem Fragenwechsel auf die neue Frage, nicht auf <body>.
+			if (focus && heading) {
+				heading.focus();
+			}
 		}
 
 		function submit(auto) {
@@ -3402,7 +3429,7 @@
 			]);
 		}));
 
-		var percent = Math.round((r.ratio || 0) * 100);
+		var percent = resultPct({ score: r.score, max: r.max });
 		mount([
 			el('header', { class: 'bp-hero bp-result-hero' + (r.passed ? ' is-passed' : ' is-failed') }, [
 				el('div', { class: 'bp-hero-text' }, [

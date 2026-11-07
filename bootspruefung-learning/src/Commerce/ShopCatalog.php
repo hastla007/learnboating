@@ -342,7 +342,7 @@ final class ShopCatalog
 
     private static function fingerprint(\WC_Product $product): string
     {
-        return md5(implode('|', [wp_specialchars_decode($product->get_name()), $product->get_regular_price(), $product->get_status(), $product->get_menu_order(), $product->get_short_description(), $product->get_description(), implode(',', $product->get_category_ids()), $product->get_image_id()]));
+        return md5(implode('|', [wp_specialchars_decode($product->get_name()), $product->get_regular_price(), $product->get_status(), $product->get_menu_order(), $product->get_short_description(), $product->get_description(), implode(',', $product->get_category_ids()), $product->get_image_id(), $product->get_catalog_visibility(), (int) $product->get_sold_individually()]));
     }
 
     private const CATEGORIES = [

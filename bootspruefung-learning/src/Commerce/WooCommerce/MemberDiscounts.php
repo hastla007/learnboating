@@ -109,11 +109,11 @@ final class MemberDiscounts
             if (! $product instanceof \WC_Product) {
                 continue;
             }
-            // Ausgangspreis einmal merken, damit wiederholte Berechnungen nicht doppelt rabattieren.
-            if (! isset($cart->cart_contents[$key]['bp_base_price'])) {
-                $cart->cart_contents[$key]['bp_base_price'] = (float) $product->get_price('edit');
-            }
-            $base = (float) $cart->cart_contents[$key]['bp_base_price'];
+            // Ausgangspreis bei jeder Berechnung frisch aus dem Produkt lesen (nicht im Warenkorb speichern):
+            // kein doppelter Rabatt bei wiederholter Berechnung, und Preisänderungen/Sale-Ende greifen sofort.
+            $fresh = wc_get_product($product->get_id());
+            $base = (float) ($fresh instanceof \WC_Product ? $fresh->get_price('edit') : $product->get_price('edit'));
+            unset($cart->cart_contents[$key]['bp_base_price']);
             $discount = self::discountFor($userId, $product);
             if ($discount === null) {
                 $product->set_price($base);

@@ -449,7 +449,7 @@ $check(\Bootspruefung\Learning\Commerce\ShopCatalog::tierBase('BP-SRC-VIDEO') ==
 // Eigene Preise (Admin „Preise“): überschreiben den Katalogpreis, ungültige werden abgewiesen.
 $SC = \Bootspruefung\Learning\Commerce\ShopCatalog::class;
 delete_option($SC::PRICE_OPTION);
-$r = $SC::saveOwnPrices(['BP-SBF-SEE' => '31,50', 'BP-SBF-SEE-VIDEO' => '9.9', 'BP-SRC' => 'abc', 'BP-PASS-1M' => '-3', 'BP-SKN' => '', 'BP-UNBEKANNT' => '5', 'BP-SBF-BIN-MOTOR' => $bySku['BP-SBF-BIN-MOTOR']['price']]);
+$r = $SC::saveOwnPrices(['BP-SBF-SEE' => '31,50', 'BP-SBF-SEE-VIDEO' => '9.9', 'BP-SRC' => 'abc', 'BP-PASS-1M' => '-3', 'BP-SKN' => '', 'BP-UNBEKANNT' => '5', 'BP-SBF-BIN' => $bySku['BP-SBF-BIN']['price']]);
 $own = $SC::ownPrices();
 $check($own === ['BP-SBF-SEE' => '31.50', 'BP-SBF-SEE-VIDEO' => '9.90'] && array_keys($r['errors']) === ['BP-SRC', 'BP-PASS-1M'], 'eigene Preise: Komma/Punkt, Katalogpreis und leer werden nicht gespeichert, ungültige abgewiesen');
 $now = $SC::find('BP-SBF-SEE');
@@ -478,14 +478,40 @@ $answer(array_slice($qids, 0, 40), gmdate('Y-m-d H:i:s', time() - 10 * DAY_IN_SE
 $answer(array_slice($qids, 40, 10), gmdate('Y-m-d H:i:s'));
 $st = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder);
 $lessonCount = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code = 'SKN'");
-$expect = round(10 * 100 / (count($qids) + $lessonCount), 1);
-$check($st['applies'] && $st['eligible'] && abs($st['progress'] - $expect) < 0.01, "berechtigt: {$st['progress']} % seit Kauf gelernt (Fragen + Lektionen, vor dem Kauf zählt nicht)");
+$expect = round(10 * 100 / count($qids), 1); // Produkt nur mit Fragenkatalog: Lektionen zählen nicht
+$check($st['applies'] && $st['eligible'] && abs($st['progress'] - $expect) < 0.01, "berechtigt: {$st['progress']} % seit Kauf gelernt (nur gekaufte Inhalte, vor dem Kauf zählt nicht)");
 $answer(array_slice($qids, 50, (int) ceil(count($qids) * 0.2)), gmdate('Y-m-d H:i:s'));
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'ab 20 % gelernt: keine Garantie mehr');
 $wpdb->delete($p.'progress', ['user_id' => $mbUser]);
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['date_paid' => gmdate('Y-m-d H:i:s', time() - 15 * DAY_IN_SECONDS)] + $mbOrder)['reason'] === 'expired', 'nach 14 Tagen: Frist abgelaufen');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $paid, 'progress' => 1.0])['reason'] === 'requested', 'Anfrage gestellt: kein zweiter Antrag');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['refunded' => true] + $mbOrder)['reason'] === 'refunded' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => 991001, 'variation_id' => 0]]] + $mbOrder)['applies'] === false, 'erstattet bzw. Produkt ohne Garantie');
+// Video-Upgrade: Garantie misst nur die Lektionen; Teilerstattung (nur Theorie erstattet) beendet die Garantie des Rests nicht.
+$mbVideo = 995002;
+$products->save($mbVideo, 0, [['course_code' => 'SKN', 'feature_code' => 'video_course']], 182, 'extend', 'revoke_on_full_refund');
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbVideo, 14, 20.0);
+$videoOrder = ['refunded' => true, 'items' => [['product_id' => $mbProduct, 'variation_id' => 0, 'refunded' => true], ['product_id' => $mbVideo, 'variation_id' => 0, 'refunded' => false]]] + $mbOrder;
+$vs = \Bootspruefung\Learning\Commerce\MoneyBack::status($videoOrder);
+$check($lessonCount > 0 && $vs['eligible'] && $vs['progress'] === 0.0, "Upgrade: viele Fragen geübt, keine Lektion gesehen → Garantie bleibt (Teilerstattung der Theorie zählt nicht)");
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => $mbProduct, 'variation_id' => 0, 'refunded' => true], ['product_id' => $mbVideo, 'variation_id' => 0, 'refunded' => true]]] + $videoOrder)['reason'] === 'refunded', 'alle Garantie-Positionen erstattet → Erstattet');
+$products->save($mbVideo, 0, [], null, 'extend', 'revoke_on_full_refund');
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbVideo, null, null);
+
+// Upgrades hängen am Basiskurs: Video-Upgrade nur mit aktiver Theorie, Simulator-Upgrade nur mit Funkkurs.
+$upUser = $user('bp_upgrade');
+$wpdb->delete($p.'entitlement', ['user_id' => $upUser]);
+$upNow = gmdate('Y-m-d H:i:s', time() - 60);
+$row = static fn (string $course, string $feature, string $sku, string $ref) => ['user_id' => $upUser, 'course_code' => $course, 'feature_code' => $feature, 'status' => 'active', 'valid_from' => $upNow, 'valid_until' => gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS), 'source' => 'manual', 'reference_key' => $ref, 'sku_snapshot' => $sku, 'created_at' => $upNow, 'updated_at' => $upNow];
+$wpdb->insert($p.'entitlement', $row('SKN', 'question_bank', 'BP-SKN', 'up-theory'));
+$wpdb->insert($p.'entitlement', $row('SKN', 'video_course', 'BP-SKN-VIDEO', 'up-video'));
+$wpdb->insert($p.'entitlement', $row('SRC', 'device_simulation', \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE, 'up-sim'));
+$acc = new \Bootspruefung\Learning\Learning\Services\AccessService();
+$check($acc->full($upUser, 'SKN', 'video_course') && ! $acc->full($upUser, 'SRC', 'device_simulation'), 'Video-Upgrade mit Theorie aktiv; Simulator-Upgrade ohne Funkkurs nicht');
+$wpdb->insert($p.'entitlement', $row('SRC', 'question_bank', 'BP-SRC', 'up-src'));
+$wpdb->update($p.'entitlement', ['status' => 'revoked'], ['user_id' => $upUser, 'reference_key' => 'up-theory']);
+$check(! $acc->full($upUser, 'SKN', 'video_course') && $acc->full($upUser, 'SRC', 'device_simulation'), 'Theorie erstattet → Video-Upgrade ruht; mit Funkkurs gilt das Simulator-Upgrade');
+$wpdb->delete($p.'entitlement', ['user_id' => $upUser]);
+
 $products->save($mbProduct, 0, [], null, 'extend', 'revoke_on_full_refund');
 \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbProduct, null, null);
 // Seekarte D49 (Upload, gesperrt bis BSH-Lizenz) und Sammelfreigabe

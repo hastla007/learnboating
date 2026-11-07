@@ -114,6 +114,10 @@ final class ExamService
             throw new RuntimeException('Für diesen Kurs ist kein Prüfungsregelwerk vorhanden.');
         }
 
+        // Doppelklick/paralleler Start: Prüfen und Anlegen unter einer Sperre je Nutzer (sonst zwei laufende Sitzungen).
+        $lock = 'bp_exam_start_'.$userId;
+        $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lock));
+        try {
         $running = $this->db->get_var($this->db->prepare(
             "SELECT id FROM {$this->t('exam_session')} WHERE user_id = %d AND course_id = %d AND status = 'running' AND ".($paperId ? 'paper_id = %d' : 'paper_id IS NULL').' ORDER BY id DESC LIMIT 1',
             ...array_values(array_filter([$userId, (int) $course->id, $paperId], static fn ($v) => $v !== null))
@@ -141,6 +145,14 @@ final class ExamService
         } else {
             $picked = [];
             $taken = [];
+            // Zeitgesteuert gesperrte Module (Drip) nicht über die Zufallsprüfung vorab zeigen.
+            $nowUtc = current_time('mysql', true);
+            foreach ($this->content->blueprints((int) $rule->id) as $bp) {
+                $at = $this->access->unlockAt($userId, $course->code, AccessService::QUESTION_BANK, (string) $bp->code);
+                if ($at !== null && $at > $nowUtc) {
+                    throw new AccessDenied(__('Die Zufallsprüfung ist verfügbar, sobald alle Module freigegeben sind.', 'bootspruefung-learning'));
+                }
+            }
             foreach ($this->content->blueprints((int) $rule->id) as $bp) {
                 $pool = [];
                 foreach ($this->content->questionsForModules([(int) $bp->module_id]) as $row) {
@@ -208,6 +220,9 @@ final class ExamService
         }
 
         return $sessionId;
+        } finally {
+            $this->db->query($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+        }
     }
 
     /** Zustand einer Sitzung; abgelaufene werden dabei bewertet. @return array<string,mixed> */
@@ -281,15 +296,29 @@ final class ExamService
         } else {
             $allowed = json_decode((string) $sq->answer_order, true) ?: [];
             $selected = array_values(array_unique(array_map('intval', $answerIds)));
-            if ($selected === [] || array_diff($selected, $allowed) !== []) {
+            if ($selected === [] && $revision->question_type === 'multi_choice') {
+                // Alle Kästchen abgehakt: Antwort zurücknehmen (wieder unbeantwortet).
+                $data = ['answered_at' => null, 'given_answer' => null];
+                $selected = null;
+            } elseif ($selected === [] || array_diff($selected, $allowed) !== []) {
                 throw new RuntimeException('Bitte eine gültige Antwort auswählen.');
             }
-            if ($revision->question_type === 'single_choice' && count($selected) !== 1) {
+            if ($selected !== null && $revision->question_type === 'single_choice' && count($selected) !== 1) {
                 throw new RuntimeException('Bitte genau eine Antwort auswählen.');
             }
-            $data['given_answer'] = wp_json_encode(['answer_ids' => $selected]);
+            if ($selected !== null) {
+                $data['given_answer'] = wp_json_encode(['answer_ids' => $selected]);
+            }
+        }
+        // Nur speichern, solange die Sitzung (gesperrt) noch läuft – nicht zwischen Auswertung und Ergebnis.
+        $this->db->query('START TRANSACTION');
+        $status = $this->db->get_var($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
+        if ($status !== 'running') {
+            $this->db->query('ROLLBACK');
+            throw new RuntimeException('Die Prüfung ist bereits beendet.');
         }
         $this->db->update($this->t('exam_session_question'), $data, ['id' => (int) $sq->id]);
+        $this->db->query('COMMIT');
     }
 
     /** Musterantwort einer offenen Frage freigeben (Voraussetzung für die Selbsteinschätzung). */
@@ -533,6 +562,11 @@ final class ExamService
         $session = $this->session($userId, $sessionId);
         if ($session->status !== 'running') {
             throw new RuntimeException('Die Prüfung ist bereits abgeschlossen.');
+        }
+        // Zugang inzwischen beendet (Erstattung, Rückbuchung, Ablauf)? Dann nicht weiter bearbeiten.
+        $code = (string) (json_decode((string) $session->rule_snapshot, true)['course_code'] ?? '');
+        if ($code !== '' && ! $this->access->can($userId, $code, AccessService::EXAM)) {
+            throw new AccessDenied('Kein Zugriff mehr auf die Prüfungssimulation dieses Kurses.');
         }
         if ($this->expired($session)) {
             $this->evaluate($sessionId, true);

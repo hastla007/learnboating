@@ -19,7 +19,7 @@ final class ProtectedFiles
 {
     public const META = '_bp_required_access';
     public const COURSE_META = '_bp_access_course';
-    private const PATH_META = '_bp_protected_path';
+    public const PATH_META = '_bp_protected_path';
 
     public function register(): void
     {
@@ -29,6 +29,7 @@ final class ProtectedFiles
         add_filter('get_attached_file', [$this, 'attachedFile'], 20, 2);
         add_action('template_redirect', [$this, 'serve'], 0);
         add_action('delete_attachment', [$this, 'onDelete']);
+        add_filter('rest_prepare_attachment', [$this, 'restAttachment'], 20, 2);
     }
 
     public static function downloadUrl(int $attachmentId): string
@@ -126,6 +127,11 @@ final class ProtectedFiles
         $target = $dir.'/'.wp_basename($source);
         if (@rename($source, $target)) {
             update_post_meta($id, self::PATH_META, $target);
+            // Vorschaubilder/Größen (PDF-Vorschau, Bildgrößen, unskaliertes Original) mitnehmen – sonst öffentlich abrufbar.
+            foreach (self::derivedFiles($id, dirname($source)) as $file) {
+                wp_mkdir_p($dir.'/derived');
+                @rename($file, $dir.'/derived/'.wp_basename($file));
+            }
             AuditLog::record('file_protected', 'attachment', (string) $id, null, ['course' => $course, 'feature' => $feature]);
         }
     }
@@ -145,6 +151,10 @@ final class ProtectedFiles
         wp_mkdir_p(dirname($original));
         if (is_file($path) && @rename($path, $original)) {
             delete_post_meta($id, self::PATH_META);
+            foreach (glob(dirname($path).'/derived/*') ?: [] as $file) {
+                @rename($file, dirname($original).'/'.wp_basename($file));
+            }
+            @rmdir(dirname($path).'/derived');
             @rmdir(dirname($path));
             AuditLog::record('file_unprotected', 'attachment', (string) $id);
         }
@@ -167,8 +177,49 @@ final class ProtectedFiles
         $path = (string) get_post_meta($id, self::PATH_META, true);
         if ($path !== '' && is_file($path)) {
             @unlink($path);
+            foreach (glob(dirname($path).'/derived/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir(dirname($path).'/derived');
             @rmdir(dirname($path));
         }
+    }
+
+    /** Von WordPress erzeugte Ableitungen eines Anhangs (Größen, PDF-Vorschau, original_image). @return list<string> */
+    private static function derivedFiles(int $id, string $dir): array
+    {
+        $meta = wp_get_attachment_metadata($id);
+        $names = [];
+        foreach ((array) ($meta['sizes'] ?? []) as $size) {
+            if (! empty($size['file'])) {
+                $names[] = (string) $size['file'];
+            }
+        }
+        if (! empty($meta['original_image'])) {
+            $names[] = (string) $meta['original_image'];
+        }
+        $out = [];
+        foreach (array_unique($names) as $name) {
+            $file = $dir.'/'.wp_basename($name);
+            if (is_file($file)) {
+                $out[] = $file;
+            }
+        }
+
+        return $out;
+    }
+
+    /** REST-Medienantwort geschützter Dateien: keine Dateinamen/Größen/Pfade preisgeben. */
+    public function restAttachment($response, $post)
+    {
+        if ($response instanceof \WP_REST_Response && $post instanceof \WP_Post && self::requirement((int) $post->ID) !== null) {
+            $data = $response->get_data();
+            unset($data['media_details'], $data['guid'], $data['filename']);
+            $data['source_url'] = self::downloadUrl((int) $post->ID);
+            $response->set_data($data);
+        }
+
+        return $response;
     }
 
     /** Auslieferung unter /bootsscheine/datei/<id>/. */

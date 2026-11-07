@@ -188,7 +188,12 @@ final class VideoUpgrade
         return $passed;
     }
 
-    /** Theorie-Stufe entfernt (und nicht gekauft) → Upgrade ebenfalls entfernen. */
+    /**
+     * Warenkorb bereinigen (kein Videokurs doppelt):
+     * - Komplett-Stufe im Warenkorb → Theorie-Stufe und Upgrade derselben Basis entfernen,
+     * - Videokurs schon freigeschaltet → Upgrade entfernen,
+     * - Theorie-Stufe entfernt (und nicht gekauft) → Upgrade entfernen.
+     */
     public function removeOrphan($cart): void
     {
         static $busy = false;
@@ -196,17 +201,35 @@ final class VideoUpgrade
             return;
         }
         $skus = self::cartSkus();
+        $userId = get_current_user_id();
         $busy = true;
         foreach ($cart->get_cart() as $key => $item) {
             $product = $item['data'] ?? null;
             $sku = $product instanceof \WC_Product ? (string) $product->get_sku() : '';
-            $base = str_ends_with($sku, ShopCatalog::VIDEO_SUFFIX) ? ShopCatalog::tierBase($sku) : null;
-            if ($base === null || isset($skus[$base]) || self::ownsTheory(get_current_user_id(), (string) self::baseCourse($base))) {
+            $base = ShopCatalog::tierBase($sku);
+            if ($base === null) {
+                continue;
+            }
+            $isUpgrade = str_ends_with($sku, ShopCatalog::VIDEO_SUFFIX);
+            $isTheory = $sku === $base;
+            $course = (string) self::baseCourse($base);
+            $message = null;
+            if (($isUpgrade || $isTheory) && isset($skus[ShopCatalog::komplettSku($base)])) {
+                $message = $isTheory
+                    ? __('Der Theoriekurs wurde entfernt, weil der Kurs als „Komplett mit Videokurs“ im Warenkorb liegt.', 'bootspruefung-learning')
+                    : __('Das Video-Upgrade wurde entfernt, weil der Kurs als „Komplett mit Videokurs“ im Warenkorb liegt.', 'bootspruefung-learning');
+            } elseif ($isUpgrade && $userId > 0 && (new AccessService())->full($userId, $course, AccessService::VIDEO)) {
+                $message = __('Das Video-Upgrade wurde entfernt, weil dein Videokurs bereits freigeschaltet ist.', 'bootspruefung-learning');
+            } elseif ($isUpgrade && ! isset($skus[$base]) && ! self::ownsTheory($userId, $course)) {
+                $message = __('Das Video-Upgrade wurde entfernt, weil der passende Theoriekurs nicht mehr im Warenkorb liegt.', 'bootspruefung-learning');
+            }
+            if ($message === null) {
                 continue;
             }
             $cart->remove_cart_item($key);
+            unset($skus[$sku]);
             if (function_exists('wc_add_notice') && ! wp_doing_cron()) {
-                wc_add_notice(__('Das Video-Upgrade wurde entfernt, weil der passende Theoriekurs nicht mehr im Warenkorb liegt.', 'bootspruefung-learning'), 'notice');
+                wc_add_notice($message, 'notice');
             }
         }
         $busy = false;

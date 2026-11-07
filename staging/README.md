@@ -83,7 +83,13 @@ Nach `git pull` laufen Plugin und Theme sofort mit dem neuen Stand, weil sie dir
 docker compose run --rm setup
 ```
 
-Die Einrichtung ist wiederholbar: Unveränderte Inhalte bleiben unverändert, eigene Preise (Admin → Bootsprüfung → Preise) und Shop-Einstellungen bleiben erhalten.
+Die Einrichtung ist wiederholbar:
+
+- Unveränderte Inhalte bleiben unverändert.
+- „Zugang ohne Shop“, die Shop-Grundeinstellungen und der Veröffentlichungsstatus der Produkte werden nur beim ersten Start gesetzt.
+- Preise, Namen, Kategorien und Zuordnungen der Produkte werden bei jedem Lauf mit dem Katalog abgeglichen. Preise deshalb unter Admin → Bootsprüfung → Preise ändern, nicht direkt in WooCommerce (Angebotspreise in WooCommerce bleiben erhalten).
+
+Ein neues WordPress-Image aktualisiert den WordPress-Kern im Volume nicht automatisch. Für eine neue WordPress-Version das Staging neu aufbauen (`docker compose down -v`, dann `up -d`).
 
 ## Häufige Aufgaben
 
@@ -99,7 +105,11 @@ Beliebige WP-CLI-Befehle:
 docker compose run --rm --entrypoint wp setup bootspruefung status
 ```
 
-Fehlerprotokoll einschalten: `WP_DEBUG=1` in `.env`, dann `docker compose up -d`. Das Protokoll landet in `wp-content/debug.log`.
+Fehlerprotokoll einschalten: `WP_DEBUG=1` in `.env`, dann `docker compose up -d`. Das Protokoll liegt außerhalb des Webroots und lässt sich so ansehen:
+
+```bash
+docker compose exec wordpress tail -n 50 /tmp/wp-debug.log
+```
 
 Alles stoppen (Daten bleiben):
 
@@ -121,9 +131,10 @@ docker compose down -v
 | `STAGING_URL` | Adresse im Browser (ohne `/` am Ende) |
 | `STAGING_PORT`, `STAGING_BIND` | Port und Netzwerkschnittstelle (Standard nur lokal `127.0.0.1:8080`) |
 | `STAGING_DEMO_PASSWORD` | legt `demo_lernende` (ohne Kauf) an |
-| `STAGING_RELEASE_RIGHTS` | `1` gibt Inhalte mit ungeklärtem Rechtestatus und die Prüfungsregelwerke für die Abnahme frei; `0` zeigt nur bereits freigegebene Inhalte (wie beim Livestart vor der Rechteklärung) |
+| `STAGING_RELEASE_RIGHTS` | `1` gibt Inhalte mit ungeklärtem Rechtestatus und die Prüfungsregelwerke für die Abnahme frei; `0` zeigt nur bereits freigegebene Inhalte (wie beim Livestart vor der Rechteklärung). Freigaben werden nicht zurückgenommen: `0` wirkt nur bei einem Neuaufbau (`docker compose down -v`) |
 | `STAGING_DOMAIN` | Domain für das HTTPS-Profil |
 | `IMAGE_REGISTRY` | nur falls Docker Hub nicht erreichbar oder gedrosselt ist, z. B. `mirror.gcr.io/library` |
+| `MAILPIT_PORT`, `MAILPIT_IMAGE` | Port und Image des Test-Postfachs (Standard `8025`, `docker.io/axllent/mailpit:v1.27`) |
 
 Ohne Internet im Container (z. B. hinter einem Firmen-Proxy) kann WooCommerce nicht geladen werden. Dann die Datei `woocommerce.zip` der Version 11.2.2 von GitHub herunterladen und als `staging/woocommerce-11.2.2.zip` ablegen (wird nicht eingecheckt).
 
@@ -141,4 +152,6 @@ Ohne Internet im Container (z. B. hinter einem Firmen-Proxy) kann WooCommerce ni
 - [ ] Mobil (Smartphone) durchklicken
 - [ ] Rechtstexte und Firmenangaben (Impressum, AGB, Widerruf, Datenschutz) eingesetzt; Platzhalter „XXXX“ ersetzt
 
-E-Mails verschickt die Staging-Installation nicht (kein Mailserver im Container). Für Tests mit Mails ein SMTP-Plugin einrichten.
+E-Mails (Bestellbestätigung, Gruppeneinladungen, Geld-zurück, Passwort vergessen) gehen nicht ins Internet. Sie landen im Test-Postfach **Mailpit** unter `http://localhost:8025` (auf dem Server per SSH-Tunnel, z. B. `ssh -L 8025:localhost:8025 server`).
+
+Zeitgesteuerte Aufgaben (Ablauf von Zugängen und Prüfungen, WooCommerce-Aufgaben) erledigt der Dienst `cron` jede Minute.

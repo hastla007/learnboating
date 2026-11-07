@@ -22,7 +22,14 @@ final class MoneyBackWoo
         $items = [];
         foreach ($order->get_items('line_item') as $item) {
             if ($item instanceof \WC_Order_Item_Product) {
-                $items[] = ['product_id' => (int) $item->get_product_id(), 'variation_id' => (int) $item->get_variation_id()];
+                $qty = (int) $item->get_quantity();
+                $items[] = [
+                    'product_id' => (int) $item->get_product_id(),
+                    'variation_id' => (int) $item->get_variation_id(),
+                    // Position vollständig erstattet (Menge oder Betrag)?
+                    'refunded' => ($qty > 0 && abs((int) $order->get_qty_refunded_for_item($item->get_id())) >= $qty)
+                        || ((float) $item->get_total() > 0 && abs((float) $order->get_total_refunded_for_item($item->get_id())) >= (float) $item->get_total() - 0.001),
+                ];
             }
         }
         $paid = $order->get_date_paid();

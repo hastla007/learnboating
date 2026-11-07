@@ -47,7 +47,7 @@ final class MoneyBack
      * @param list<string> $courses
      * @return array{percent:float,done:int,total:int}
      */
-    public static function progress(int $userId, array $courses, string $since): array
+    public static function progress(int $userId, array $courses, string $since, bool $questions = true, bool $lessons = true): array
     {
         global $wpdb;
         $p = $wpdb->prefix.'bp_';
@@ -56,16 +56,18 @@ final class MoneyBack
             return ['percent' => 0.0, 'done' => 0, 'total' => 0];
         }
         $in = implode(',', array_fill(0, count($courses), '%s'));
+        $withQuestions = $questions;
+        $withLessons = $lessons;
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
         $questions = "SELECT DISTINCT mq.question_id FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})";
         $lessons = "SELECT DISTINCT vl.id FROM {$p}course c JOIN {$p}video_module vm ON vm.course_id = c.id JOIN {$p}video_lesson vl ON vl.module_id = vm.id WHERE c.code IN ({$in})";
-        $qTotal = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$questions}) q", ...$courses));
-        $lTotal = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$lessons}) l", ...$courses));
-        $qDone = (int) $wpdb->get_var($wpdb->prepare(
+        $qTotal = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$questions}) q", ...$courses));
+        $lTotal = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$lessons}) l", ...$courses));
+        $qDone = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$p}progress pr WHERE pr.user_id = %d AND pr.attempts > 0 AND pr.last_answered_at >= %s AND pr.question_id IN ({$questions})",
             $userId, $since, ...$courses
         ));
-        $lDone = (int) $wpdb->get_var($wpdb->prepare(
+        $lDone = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$p}video_progress vp WHERE vp.user_id = %d AND vp.completed = 1 AND vp.last_access_at >= %s AND vp.lesson_id IN ({$lessons})",
             $userId, $since, ...$courses
         ));
@@ -88,29 +90,47 @@ final class MoneyBack
         $repo = new ProductAccessRepository($GLOBALS['wpdb']);
         $policy = null;
         $courses = [];
+        $features = [];
+        $open = 0; // Garantie-Positionen, die nicht (vollständig) erstattet sind
+        $guaranteed = false;
         foreach ($order['items'] as $item) {
             $rows = $repo->forItem($item['product_id'], $item['variation_id']);
             $own = self::policy($item['product_id']);
             if ($own === null || $rows === []) {
                 continue;
             }
+            $guaranteed = true;
+            // Teilerstattung: eine erstattete Position (z. B. nur das Video-Upgrade) beendet nicht die Garantie der übrigen.
+            if (! empty($item['refunded'])) {
+                continue;
+            }
+            $open++;
             // Mehrere Produkte: die strengste Regel gilt (kürzeste Frist, niedrigste Grenze).
             $policy = $policy === null ? $own : ['days' => min($policy['days'], $own['days']), 'max_progress' => min($policy['max_progress'], $own['max_progress'])];
             foreach ($rows as $row) {
                 $courses[] = (string) $row->course_code;
+                $features[(string) $row->feature_code] = true;
             }
+        }
+        // Gezählt wird nur, was gekauft wurde: Video-Upgrade = Lektionen, Theorie = Fragen.
+        $all = isset($features[ProductAccessRepository::FEATURE_ALL]);
+        $countQuestions = $all || array_intersect_key($features, array_flip([\Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK, \Bootspruefung\Learning\Learning\Services\AccessService::EXAM])) !== [];
+        $countLessons = $all || isset($features[\Bootspruefung\Learning\Learning\Services\AccessService::VIDEO]);
+        $refunded = $order['refunded'] && ($open === 0 || ! array_key_exists('refunded', $order['items'][0] ?? []));
+        if ($policy === null && $guaranteed) {
+            return ['applies' => true, 'eligible' => false, 'deadline' => null, 'progress' => 0.0, 'max_progress' => 0.0, 'requested' => $requested, 'reason' => 'refunded'];
         }
         $base = ['applies' => $policy !== null, 'eligible' => false, 'deadline' => null, 'progress' => 0.0, 'max_progress' => $policy['max_progress'] ?? 0.0, 'requested' => $requested, 'reason' => ''];
         if ($policy === null) {
             return ['reason' => 'no_policy'] + $base;
         }
         if ($order['date_paid'] === null || ! in_array($order['status'], ['processing', 'completed'], true)) {
-            return ['reason' => $order['refunded'] || $order['status'] === 'refunded' ? 'refunded' : 'not_paid'] + $base;
+            return ['reason' => $refunded || $order['status'] === 'refunded' ? 'refunded' : 'not_paid'] + $base;
         }
         $deadline = gmdate('Y-m-d H:i:s', strtotime($order['date_paid'].' UTC') + $policy['days'] * DAY_IN_SECONDS);
-        $progress = self::progress($order['user_id'], $courses, $order['date_paid'])['percent'];
+        $progress = self::progress($order['user_id'], $courses, $order['date_paid'], $countQuestions, $countLessons || ! $countQuestions)['percent'];
         $base = ['deadline' => $deadline, 'progress' => $progress] + $base;
-        if ($order['refunded']) {
+        if ($refunded) {
             return ['reason' => 'refunded'] + $base;
         }
         if ($requested !== null) {

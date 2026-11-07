@@ -147,6 +147,17 @@ final class LearningService
         if ($revision === null) {
             throw new NotFound('Frage nicht gefunden.');
         }
+        // Fragen einer laufenden Prüfung nicht nebenbei (Lernmodus/Videoquiz) mit Lösung auswerten.
+        if (in_array((int) $revision->question_id, $this->runningExamQuestionIds($userId), true)) {
+            throw new RuntimeException('Diese Frage gehört zu deiner laufenden Prüfung. Beende zuerst die Prüfung.');
+        }
+
+        // Ein Frage-Token zählt nur einmal: erneutes Einreichen mit neuem Key liefert das erste Ergebnis.
+        $tokenKey = 'bp_tok_'.substr(hash('sha256', $token), 0, 40);
+        $firstKey = get_transient($tokenKey);
+        if (is_string($firstKey) && $firstKey !== $idempotencyKey) {
+            $idempotencyKey = $firstKey;
+        }
 
         $existing = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t('attempt')} WHERE idempotency_key = %s", $idempotencyKey));
         if ($existing) {
@@ -206,6 +217,7 @@ final class LearningService
             }
             $this->applyProgress($userId, (int) $revision->question_id, $correct, $now);
             $this->db->query('COMMIT');
+            set_transient($tokenKey, $idempotencyKey, DAY_IN_SECONDS + HOUR_IN_SECONDS);
         } catch (\Throwable $e) {
             $this->db->query('ROLLBACK');
             throw $e;

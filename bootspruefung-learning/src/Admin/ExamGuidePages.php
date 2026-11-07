@@ -107,6 +107,9 @@ final class ExamGuidePages
             foreach (['location_type', 'contact_person', 'street', 'postal_code', 'city', 'phone', 'fax', 'email', 'website', 'office_hours', 'note'] as $f) {
                 $data[$f] = $text($f);
             }
+            // Nur http(s)-Links (kein javascript: o. Ä.) und gültige E-Mail-Adressen.
+            $data['website'] = $data['website'] !== null && preg_match('#^https?://#i', $data['website']) ? (esc_url_raw($data['website'], ['http', 'https']) ?: null) : null;
+            $data['email'] = $data['email'] !== null && is_email($data['email']) ? $data['email'] : null;
             $data['course_codes'] = implode(',', array_values(array_intersect(array_map('sanitize_text_field', (array) wp_unslash($_POST['course_codes'] ?? [])), array_keys(Labels::courses()))));
             $data['locally_modified'] = 1;
             $data['updated_at'] = current_time('mysql', true);

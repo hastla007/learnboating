@@ -152,6 +152,44 @@ final class EntitlementService
             $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $days * DAY_IN_SECONDS);
         }
         $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until], ['id' => $id]);
+        $this->alignVideoUpgrades($row);
+    }
+
+    /**
+     * Video-Upgrade läuft so lange wie der Theoriekurs (Festlegung 07.11.2026), nicht eigene Tage ab Kauf.
+     * Ausgelöst beim Freischalten des Upgrades und beim Freischalten der Theorie in derselben Bestellung
+     * (Reihenfolge der Positionen egal, auch bei Verlängerung Theorie + Upgrade).
+     */
+    private function alignVideoUpgrades(object $row): void
+    {
+        $isUpgrade = $row->feature_code === \Bootspruefung\Learning\Learning\Services\AccessService::VIDEO
+            && str_ends_with((string) $row->sku_snapshot, ShopCatalog::VIDEO_SUFFIX);
+        if ($isUpgrade) {
+            $ids = [(int) $row->id];
+        } elseif ($row->feature_code === \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK && $row->order_id) {
+            $ids = array_map('intval', $this->db->get_col($this->db->prepare(
+                "SELECT id FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND order_id = %d AND status = 'active' AND sku_snapshot LIKE %s",
+                $row->user_id, $row->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::VIDEO, $row->order_id, '%'.$this->db->esc_like(ShopCatalog::VIDEO_SUFFIX)
+            )));
+        } else {
+            return;
+        }
+        if ($ids === []) {
+            return;
+        }
+        $theoryEnd = $this->db->get_var($this->db->prepare(
+            "SELECT MAX(valid_until) FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_until IS NOT NULL",
+            $row->user_id, $row->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK
+        ));
+        if ($theoryEnd === null) {
+            return; // keine aktive Theorie: Laufzeit aus der Produktregel bleibt
+        }
+        foreach ($ids as $id) {
+            $upgrade = $this->find($id);
+            if ($upgrade !== null && $upgrade->valid_from !== null && $theoryEnd > $upgrade->valid_from) {
+                $this->db->update($this->table, ['valid_until' => $theoryEnd], ['id' => $id]);
+            }
+        }
     }
 
     // ------------------------------------------------------------ manuelle Aktionen (Kap. 7.6)

@@ -63,7 +63,7 @@ const verdict = await page.locator('.bp-feedback-title').innerText();
 assert.ok(['Richtig!', 'Leider falsch.'].includes(verdict));
 assert.equal(await page.locator('.bp-answer-correct').count(), 1, 'richtige Antwort markiert');
 await shot('03-lernmodus-feedback');
-await page.getByRole('button', { name: 'Merken' }).click();
+await page.getByRole('button', { name: 'Zu Favoriten' }).click();
 await page.getByRole('button', { name: 'Aus Favoriten entfernen' }).waitFor();
 await page.getByRole('button', { name: 'Nächste Frage' }).click();
 await page.waitForFunction((t) => document.querySelector('.bp-question-text')?.innerText !== t, firstText);

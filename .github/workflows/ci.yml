@@ -142,25 +142,25 @@ jobs:
       - name: Rauchtest
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php | tee smoke.log
-          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" smoke.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" smoke.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Content-Paket bauen
         run: php tools/content-build/bin/build-package.php
       - name: Import, Lernen und Prüfung (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee flow.log
-          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Prüfungsanmeldung (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/exam-guide-test.php | tee guide.log
-          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" guide.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" guide.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Zugangslogik (Integration, ohne Shop)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
-          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" commerce.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" commerce.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Teilumfänge, Freigaben, Schutz, Gruppen (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/membership-test.php | tee membership.log
-          ! grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" membership.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" membership.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: WooCommerce bereitstellen
         run: |
           curl -fsSL -o "$RUNNER_TEMP/woocommerce.zip" "https://github.com/woocommerce/woocommerce/releases/download/${WC_VERSION}/woocommerce.zip"
@@ -171,8 +171,8 @@ jobs:
       - name: WooCommerce-Adapter (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-test.php | tee woo.log
-          ! grep -E "PHP Fatal" woo.log
-          ! grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" woo.log
+          if grep -E "PHP Fatal" woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Browser-Tests (Playwright)
@@ -208,7 +208,7 @@ jobs:
           WP_DIR="$RUNNER_TEMP/wp" BP_THEME=kurswasser php bootspruefung-learning/tests/e2e/setup.php
           mkdir -p "$RUNNER_TEMP/theme-shots"
           BP_SHOTS="$RUNNER_TEMP/theme-shots" BP_USER=lerner1 BP_PASS=Test-Passwort-123 node themes/kurswasser/tests/screenshots.mjs
-          ! grep -E "PHP (Fatal|Warning|Notice|Deprecated).*themes/kurswasser" "$RUNNER_TEMP/php-server.log"
+          if grep -E "PHP (Fatal|Warning|Notice|Deprecated).*themes/kurswasser" "$RUNNER_TEMP/php-server.log"; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Theme-Screenshots hochladen
         if: always() && matrix.e2e && matrix.theme == 'kurswasser'
         uses: actions/upload-artifact@v4
@@ -232,7 +232,7 @@ jobs:
       - name: Staging starten
         working-directory: staging
         run: |
-          printf 'DB_PASSWORD=%s\nSTAGING_ADMIN_PASSWORD=%s\nSTAGING_DEMO_PASSWORD=Demo-Passwort-123\n' "$(openssl rand -hex 16)" "$(openssl rand -hex 16)" > .env
+          printf 'DB_PASSWORD=%s\nSTAGING_ADMIN_PASSWORD=%s\nSTAGING_DEMO_PASSWORD=Demo-Passwort-123\nWP_DEBUG=1\n' "$(openssl rand -hex 16)" "$(openssl rand -hex 16)" > .env
           docker compose config -q
           docker compose up -d
           docker compose wait setup || true
@@ -257,5 +257,9 @@ jobs:
         working-directory: staging
         run: |
           docker compose logs wordpress setup > all.log 2>&1 || true
-          ! grep -E "PHP (Fatal|Warning|Deprecated).*(bootspruefung-learning|kurswasser)" all.log
-          docker compose down -v
+          docker compose exec -T wordpress cat /tmp/wp-debug.log >> all.log 2>/dev/null || true
+          if grep -E "PHP (Fatal|Warning|Deprecated).*(bootspruefung-learning|kurswasser)" all.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Staging abbauen
+        if: always()
+        working-directory: staging
+        run: docker compose down -v

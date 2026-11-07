@@ -202,6 +202,11 @@ final class ImportService
         if (! in_array($batch->status, ['approved', 'importing'], true)) {
             throw new RuntimeException('Import ist nicht freigegeben.');
         }
+        // Nur ein Import zur Zeit: ein anderer, noch nicht abgeschlossener Import hat Vorrang.
+        $other = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}bp_import_batch WHERE status = 'importing' AND id <> %d LIMIT 1", $batchId));
+        if ($other !== null) {
+            throw new RuntimeException(sprintf('Import #%d läuft noch – bitte erst abschließen.', (int) $other));
+        }
         if (! $this->acquireLock($batchId)) {
             throw new RuntimeException('Ein anderer Import läuft gerade.');
         }
@@ -281,7 +286,7 @@ final class ImportService
 
             return ['done' => $done, 'phase' => $phase, 'processed' => min($offset, $total), 'total' => $total];
         } finally {
-            $this->releaseLock();
+            $this->releaseLock($batchId);
         }
     }
 
@@ -439,9 +444,13 @@ final class ImportService
         return false;
     }
 
-    private function releaseLock(): void
+    /** Sperre nur freigeben, wenn sie noch diesem Lauf gehört (nach Ablauf kann ein anderer sie übernommen haben). */
+    private function releaseLock(int $batchId): void
     {
-        delete_option(self::LOCK);
+        [$owner] = array_pad(explode(':', (string) get_option(self::LOCK, '')), 1, '');
+        if ($owner === (string) $batchId) {
+            delete_option(self::LOCK);
+        }
     }
 
     private static function copyDir(string $from, string $to): void

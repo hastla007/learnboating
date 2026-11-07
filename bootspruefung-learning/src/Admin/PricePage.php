@@ -45,7 +45,7 @@ final class PricePage
 
         echo '<div class="wrap"><h1>'.esc_html__('Bootsprüfung – Preise', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p style="max-width:900px">'.esc_html__('Hier legst du die Verkaufspreise (brutto, in Euro) fest. Ein leeres Feld oder der Katalogpreis bedeutet: festgelegter Katalogpreis. Gespeicherte Preise gelten sofort für die Angebotskarten der Website; in den Shop kommen sie mit „Speichern und Katalog abgleichen“. Bereits gekaufte Zugänge bleiben unverändert.', 'bootspruefung-learning').'</p>';
+        echo '<p style="max-width:900px">'.esc_html__('Hier legst du die Verkaufspreise (brutto, in Euro) fest. Ein leeres Feld oder der Katalogpreis bedeutet: festgelegter Katalogpreis. Shop, Kasse und Angebotskarten der Website zeigen die Preise aus WooCommerce – geänderte Preise gelten dort erst nach „Speichern und Katalog abgleichen“. Ein Angebotspreis (Sale), den du in WooCommerce einträgst, bleibt beim Abgleich erhalten und hat Vorrang. Bereits gekaufte Zugänge bleiben unverändert.', 'bootspruefung-learning').'</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_shop_prices', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_prices">';
 
         // Kurse mit Videokurs-Stufen: Theorie | Komplett | Upgrade nebeneinander.
@@ -57,7 +57,17 @@ final class PricePage
             if (! isset($bySku[$base])) {
                 continue;
             }
-            echo '<tr><td><strong>'.esc_html($bySku[$base]['name']).'</strong><br><code>'.esc_html($base).'</code></td>';
+            $theory = (float) $bySku[$base]['price'];
+            $komplett = (float) ($bySku[ShopCatalog::komplettSku($base)]['price'] ?? 0);
+            $upgrade = (float) ($bySku[ShopCatalog::videoSku($base)]['price'] ?? 0);
+            $warn = '';
+            if ($komplett > 0 && $komplett <= $theory) {
+                $warn = __('Komplett ist nicht teurer als Theorie.', 'bootspruefung-learning');
+            } elseif ($komplett > 0 && $upgrade > 0 && $komplett > $theory + $upgrade + 0.001) {
+                $warn = __('Komplett ist teurer als Theorie + Upgrade – Theorie mit Upgrade wäre günstiger.', 'bootspruefung-learning');
+            }
+            echo '<tr><td><strong>'.esc_html($bySku[$base]['name']).'</strong><br><code>'.esc_html($base).'</code>'
+                .($warn !== '' ? '<br><span style="color:#996800">⚠ '.esc_html($warn).'</span>' : '').'</td>';
             foreach ([$base, ShopCatalog::komplettSku($base), ShopCatalog::videoSku($base)] as $sku) {
                 echo '<td>'.(isset($bySku[$sku]) ? $this->field($bySku[$sku], $errors, $woo) : '–').'</td>';
                 $shown[$sku] = true;
@@ -128,6 +138,9 @@ final class PricePage
             $shop = (string) $product->get_regular_price();
             if ($shop !== '' && number_format((float) $shop, 2, '.', '') !== $p['price']) {
                 $notes[] = '<span style="color:#996800">'.esc_html(sprintf(__('im Shop noch %s € – bitte abgleichen', 'bootspruefung-learning'), self::de($shop))).'</span>';
+            }
+            if ($product->is_on_sale('edit')) {
+                $notes[] = '<span style="color:#996800">'.esc_html(sprintf(__('Angebotspreis im Shop aktiv: %s €', 'bootspruefung-learning'), self::de((string) $product->get_sale_price('edit')))).'</span>';
             }
         } elseif ($woo) {
             $notes[] = esc_html__('noch nicht im Shop', 'bootspruefung-learning');

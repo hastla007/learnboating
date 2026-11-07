@@ -44,6 +44,10 @@ wp eval 'if (class_exists("WC_Install")) { WC_Install::install(); }' >/dev/null
 # WooCommerce schaltet neue Shops auf „Coming soon“ – für die Abnahme sichtbar machen.
 wp option update woocommerce_coming_soon no >/dev/null
 wp option update woocommerce_store_pages_only no >/dev/null
+# Registrierung im Konto/Checkout mit eigenem Passwort (Abnahme „Registrieren“)
+wp option update woocommerce_enable_myaccount_registration yes >/dev/null
+wp option update woocommerce_enable_signup_and_login_from_checkout yes >/dev/null
+wp option update woocommerce_registration_generate_password no >/dev/null
 if [ "$(wp option get bp_staging_shop_configured 2>/dev/null || true)" != 1 ]; then
     wp option update woocommerce_currency EUR >/dev/null
     wp option update woocommerce_currency_pos right_space >/dev/null
@@ -74,9 +78,16 @@ fi
 
 log "Seiten, Shop-Katalog und Zugangsregeln"
 wp eval 'kurswasser_create_pages(); kurswasser_create_course_pages();'
-# Lerninhalte nur mit Kauf (wie im Livebetrieb), kostenloses Schnupper-Paket über die Katalogregeln.
-wp eval '$o = \Bootspruefung\Learning\Settings\Settings::OPTION; update_option($o, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ["default_access" => "entitled_only"]));'
-wp bootspruefung shop setup --publish
+# Beim ersten Lauf: Lerninhalte nur mit Kauf (wie im Livebetrieb) und Produkte veröffentlichen.
+# Spätere Läufe lassen diese Admin-Einstellungen und den Veröffentlichungsstatus in Ruhe.
+if [ "$(wp option get bp_staging_initialized 2>/dev/null || true)" != 1 ]; then
+    wp eval '$o = \Bootspruefung\Learning\Settings\Settings::OPTION; update_option($o, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ["default_access" => "entitled_only"]));'
+    wp bootspruefung shop setup --publish
+    wp option update bp_staging_initialized 1 >/dev/null
+else
+    # Preise/Texte/Zuordnungen abgleichen (Preise aus Admin → Bootsprüfung → Preise)
+    wp bootspruefung shop setup
+fi
 wp rewrite flush >/dev/null
 wp option update woocommerce_coming_soon no >/dev/null
 

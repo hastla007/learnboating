@@ -176,10 +176,23 @@ final class AccessService
         global $wpdb;
         $now = current_time('mysql', true);
 
+        $t = $wpdb->prefix.'bp_entitlement';
+        $sim = implode(',', array_map(static fn ($c) => "'".esc_sql($c)."'", \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_COURSES));
+
+        // Upgrades gelten nur zusammen mit dem Basiskurs: Video-Upgrade mit der Theorie desselben Kurses,
+        // Simulator-Upgrade aus dem Checkout mit einem Funkkurs. Endet/erstattet der Basiskurs, ruht das Upgrade.
         return (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d AND course_code = %s AND feature_code IN (%s, 'all') AND status = 'active'
-             AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s) LIMIT 1",
-            $userId, $courseCode, $feature, $now, $now
+            "SELECT 1 FROM {$t} e WHERE e.user_id = %d AND e.course_code = %s AND e.feature_code IN (%s, 'all') AND e.status = 'active'
+             AND (e.valid_from IS NULL OR e.valid_from <= %s) AND (e.valid_until IS NULL OR e.valid_until >= %s)
+             AND (e.sku_snapshot IS NULL OR (e.sku_snapshot NOT LIKE %s AND e.sku_snapshot <> %s) OR EXISTS (
+                SELECT 1 FROM {$t} th WHERE th.user_id = e.user_id AND th.feature_code IN (%s, 'all') AND th.status = 'active'
+                AND (th.valid_from IS NULL OR th.valid_from <= %s) AND (th.valid_until IS NULL OR th.valid_until >= %s)
+                AND (th.course_code = e.course_code OR (e.sku_snapshot = %s AND th.course_code IN ({$sim}))) AND (th.sku_snapshot IS NULL OR th.sku_snapshot NOT LIKE %s)))
+             LIMIT 1",
+            $userId, $courseCode, $feature, $now, $now,
+            '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX), \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
+            self::QUESTION_BANK, $now, $now, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
+            '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX)
         ));
     }
 }
