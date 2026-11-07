@@ -32,7 +32,7 @@ const learner = await session('lerner1', 'Test-Passwort-123');
 let page = learner.page;
 
 step('Kostenloser Teilumfang: Hinweis und gesperrte Bögen');
-await page.goto(`${base}/bootsscheine/sbf-see/themen/`);
+await page.goto(`${base}/bootsscheine/sbf-see/smarttrainer/`);
 await page.getByText('Kostenloser Umfang: die ersten 3 Fragen je Modul.').first().waitFor();
 await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByText(/Kostenloser Umfang: die ersten 2 Prüfungsbögen/).waitFor();

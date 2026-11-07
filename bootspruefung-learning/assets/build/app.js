@@ -200,7 +200,10 @@
 			view = viewKnots(parts[0]);
 		} else if (parts[1] === 'merkliste') {
 			view = viewSaved(parts[0], query.get('sammlung'), query.get('ansicht'));
-		} else if (parts[1] === 'themen') {
+		} else if (parts[1] === 'smarttrainer' || parts[1] === 'themen') {
+			if (parts[1] === 'themen') {
+				try { history.replaceState(null, '', base + parts[0] + '/smarttrainer/'); } catch (e) { /* weiter */ }
+			}
 			view = viewTopics(parts[0]);
 		} else if (parts[1] === 'downloads') {
 			view = viewDownloads(parts[0]);
@@ -614,7 +617,7 @@
 				el('p', { class: 'bp-hub-card-text', text: p ? (p.new + p.unsure > 0 ? t('hub_next_text', { new: p.new, wrong: p.unsure }) : t('hub_next_done')) : t('locked_short') }),
 				p ? el('div', { class: 'bp-hub-bar', 'aria-hidden': 'true' }, [el('span', { style: 'width:' + p.percent + '%' })]) : null,
 				p ? el('p', { class: 'bp-hub-card-meta', text: t('progress_short', { mastered: p.mastered, total: p.questions }) }) : null,
-				hubLink(slug, qb ? 'lernen/' : 'themen/', qb ? t('dash_continue') : t('sim_unlock'), 'bp-button bp-button-light')
+				hubLink(slug, qb ? 'lernen/' : 'smarttrainer/', qb ? t('dash_continue') : t('sim_unlock'), 'bp-button bp-button-light')
 			]);
 			var lastExam = c.exam && c.exam.history && c.exam.history.length ? c.exam.history[0] : null;
 			var exam = el('article', { class: 'bp-hub-card bp-hub-card-exam' }, [
@@ -645,13 +648,12 @@
 			var areas = [];
 			var tr = c.trainers;
 			var pct = function (a, b) { return b > 0 ? Math.floor(a * 100 / b) : null; };
-			areas.push({ path: qb ? 'lernen/' : 'themen/', icon: 'spark', title: t('mode_smart'), meta: t('hub_smart_meta'), locked: !qb });
+			areas.push({ path: 'smarttrainer/', icon: 'spark', title: t('mode_smart'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.reduce(function (n, m) { return n + ((m.topics && m.topics.length) ? m.topics.length : 1); }, 0) }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
 			var knots = knotModule(ownVideos);
 			if (knots && knots.lessons.length) {
 				var seen = knots.lessons.filter(function (l) { return l.completed; }).length;
 				areas.push({ path: 'knoten/', icon: 'rope', title: t('knots_title'), meta: t('knots_meta', { done: seen, total: knots.lessons.length }), locked: c.features.video_course === false, percent: pct(seen, knots.lessons.length) });
 			}
-			areas.push({ path: 'themen/', icon: 'layers', title: t('hub_topics'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.reduce(function (n, m) { return n + ((m.topics && m.topics.length) ? m.topics.length : 1); }, 0) }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
 			areas.push({ path: 'merkliste/', icon: 'bookmark', title: t('saved_title'), meta: qb ? t('saved_meta', { n: c.favorites }) : t('locked_short'), locked: !qb });
 			areas.push({ path: 'pruefung/', icon: 'timer', title: t('section_exam'), meta: c.exam && c.exam.papers.length ? t('hub_exam_meta', { n: c.exam.papers.length }) : (c.exam ? t('hub_exam_meta_random') : t('locked_short')), locked: !c.exam });
 			if (tr && tr.navigation.tasks > 0) {
@@ -753,7 +755,7 @@
 
 	function viewTopics(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
-			var title = t('hub_topics');
+			var title = t('mode_smart');
 			if (!c.features.question_bank) {
 				mount(detailHeader(slug, c, title, t('smart_explain')).concat([lockedBox(t('section_learn'), (c.shop || {}).question_bank)]), title + ' – ' + c.name);
 				return;
@@ -774,7 +776,7 @@
 
 			// Hervorgehoben: Smarttrainer und Merkliste, darunter weitere Lernmodi.
 			nodes.push(el('div', { class: 'bp-feature-cards' }, [
-				el('a', { href: base + slug + '/lernen/', 'data-bp-link': '1', class: 'bp-feature-card is-smart', 'aria-label': t('mode_smart') }, [
+				el('a', { href: base + slug + '/lernen/', 'data-bp-link': '1', class: 'bp-feature-card is-smart', 'aria-label': t('topics_smart_aria') }, [
 					miniRing(p.percent),
 					el('span', { class: 'bp-feature-text', 'aria-hidden': 'true' }, [el('strong', { text: t('mode_smart') }), el('span', { text: t('progress_short', { mastered: p.mastered, total: p.questions }) }), el('span', { class: 'bp-feature-cta', text: t('topics_smart_cta') + ' →' })]),
 					el('span', { class: 'bp-ico bp-ico-spark bp-feature-ico', 'aria-hidden': 'true' })
@@ -1294,7 +1296,7 @@
 			var heading = topic || moduleName || t('mode_' + mode);
 			var container = el('div', { class: 'bp-learn' });
 			mount([
-				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', el('span', { text: heading })]),
+				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', link(slug + '/smarttrainer/', t('mode_smart')), heading !== t('mode_smart') ? ' › ' : null, heading !== t('mode_smart') ? el('span', { text: heading }) : null]),
 				el('header', { class: 'bp-header bp-learn-head' }, [
 					el('div', {}, [el('p', { class: 'bp-learn-course', text: course.name + (moduleName ? ' · ' + t('mode_' + mode) : '') }), el('h1', { text: heading })]),
 					course.progress ? el('div', { class: 'bp-learn-progress' }, [el('p', {}, [el('strong', { text: course.progress.total.percent + ' %' }), ' ' + t('course_hero_mastered')]), progressBar(course.progress.total, t('progress_short', { mastered: course.progress.total.mastered, total: course.progress.total.questions }))]) : null
@@ -1324,7 +1326,7 @@
 				container.appendChild(el('div', { class: 'bp-card bp-done' }, [
 					el('h2', { text: t('done_title') }),
 					el('p', { text: t('done_' + mode) }),
-					el('p', {}, [link(slug + '/', t('back_course'), 'bp-button bp-button-primary'), ' ', mode !== 'smart' ? link(moduleId ? topicHref(slug, moduleId, topic) : slug + '/lernen/', t('mode_smart'), 'bp-button') : null, topic ? ' ' : null, topic ? link(slug + '/themen/', t('topics_back'), 'bp-button') : null])
+					el('p', {}, [link(slug + '/', t('back_course'), 'bp-button bp-button-primary'), ' ', mode !== 'smart' ? link(moduleId ? topicHref(slug, moduleId, topic) : slug + '/lernen/', t('mode_smart'), 'bp-button') : null, ' ', link(slug + '/smarttrainer/', t('topics_back'), 'bp-button')])
 				]));
 				return;
 			}

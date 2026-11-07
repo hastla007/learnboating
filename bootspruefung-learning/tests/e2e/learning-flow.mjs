@@ -50,6 +50,9 @@ await page.locator('.bp-areas').waitFor();
 
 step('Smarttrainer: falsche Antwort, Erklärung, nächste Frage');
 await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer' }).click();
+await page.getByRole('heading', { name: 'Smarttrainer', level: 1 }).waitFor();
+await page.locator('.bp-topic-groups').waitFor();
+await page.locator('#bp-app').getByRole('link', { name: 'Weiterlernen mit dem Smarttrainer' }).click();
 await page.locator('.bp-question').waitFor();
 const firstText = await page.locator('.bp-question-text').innerText();
 assert.ok(firstText.length > 5);
