@@ -1200,3 +1200,68 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-app .bp-tab { padding: 0 0.6rem; font-size: 0.92rem; }
 	.bp-app .bp-page-hero .bp-brand-art { width: 54px; top: 1rem; right: 1rem; opacity: 0.35; }
 }
+
+/* ---------- Prüfungsverlauf (Chart neben „Letzte Ergebnisse“) ---------- */
+.bp-exam-results { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1.2rem; align-items: stretch; }
+.bp-app .bp-exam-results .bp-history-card .bp-history li { flex-wrap: wrap; }
+.bp-chart-card { display: flex; flex-direction: column; padding: 1.2rem 1.3rem; border: 1px solid var(--bp-border); border-radius: 20px; background: var(--bp-surface); box-shadow: var(--bp-shadow); }
+.bp-chart-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.6rem 1.5rem; margin-bottom: 1rem; }
+.bp-app .bp-chart-head h3 { margin: 0; font-size: 1.1rem; }
+.bp-chart-kpis { list-style: none; display: flex; flex-wrap: wrap; gap: 1.4rem; margin: 0; padding: 0; }
+.bp-chart-kpis li { display: flex; flex-direction: column; line-height: 1.15; }
+.bp-chart-kpis strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.bp-chart-kpis span { font-size: 0.78rem; opacity: 0.65; }
+.bp-chart { position: relative; flex: 1; min-height: 230px; padding: 0.6rem 0 1.6rem 2.8rem; }
+.bp-chart-grid { position: absolute; inset: 0.6rem 0 1.6rem 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.bp-chart-grid span { position: relative; height: 0; font-size: 0.7rem; opacity: 0.55; font-variant-numeric: tabular-nums; }
+.bp-chart-grid span::before { content: ''; position: absolute; left: 2.8rem; right: 0; top: 0; border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
+.bp-chart-grid span:last-child::before { border-top-color: color-mix(in srgb, currentColor 30%, transparent); }
+.bp-chart-grid span { transform: translateY(-0.45em); }
+.bp-chart-grid span::before { top: 0.45em; }
+.bp-chart-value { margin-bottom: 0.25rem; font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bp-chart-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; margin: 0.6rem 0 0; font-size: 0.8rem; }
+.bp-chart-key { display: inline-flex; align-items: center; gap: 0.35rem; }
+.bp-chart-key::before { content: ''; width: 0.75rem; height: 0.75rem; border-radius: 3px; }
+.bp-chart-key.is-passed::before { background: var(--bp-ok); }
+.bp-chart-key.is-failed::before { background: color-mix(in srgb, var(--bp-bad) 80%, var(--bp-surface)); }
+@media (max-width: 860px) {
+	.bp-exam-results { grid-template-columns: 1fr; }
+	.bp-chart-card { order: -1; }
+}
+.bp-chart { min-height: 240px; padding: 0; }
+.bp-chart-grid { inset: 1.4rem 0 1.6rem 0; }
+.bp-chart-value { position: absolute; left: 0; right: 0; margin: 0; text-align: center; }
+@media (max-width: 600px) {
+	.bp-chart-kpis { gap: 1rem; }
+}
+.bp-chart-value { white-space: nowrap; }
+.bp-app .bp-exam-results .bp-history-text { flex: 1 1 150px; }
+.bp-app .bp-history-text a, .bp-history-meta { white-space: nowrap; }
+.bp-app .bp-exam-results .bp-history-card .bp-history li { flex-wrap: nowrap; }
+.bp-app .bp-exam-results .bp-history-text { flex: 1 1 0; min-width: 0; }
+.bp-app .bp-exam-results .bp-history .bp-badge { flex: none; white-space: nowrap; }
+@media (max-width: 600px) { .bp-app .bp-exam-results .bp-history .bp-badge { font-size: 0.7rem; } }
+/* Zeitachse (Linie + Punkte) */
+.bp-chart { min-height: 250px; }
+.bp-chart-grid { inset: 1.4rem 0 2rem 0; }
+.bp-chart-plot { position: absolute; top: 1.4rem; bottom: 2rem; left: 2.8rem; right: 0.6rem; }
+.bp-chart-line { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bp-chart-line polyline { fill: none; stroke: color-mix(in srgb, var(--bp-accent) 75%, var(--bp-surface)); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.bp-chart-points { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
+.bp-chart-points li { position: absolute; width: 0; height: 0; }
+.bp-app a.bp-chart-point { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; }
+.bp-app a.bp-chart-point:focus-visible { outline: 2px solid var(--bp-accent); outline-offset: 0; }
+.bp-chart-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bp-surface); transition: transform 0.12s; }
+.bp-app a.bp-chart-point:hover .bp-chart-dot, .bp-app a.bp-chart-point:focus-visible .bp-chart-dot { transform: scale(1.35); }
+.is-passed .bp-chart-dot { background: var(--bp-ok); }
+.is-failed .bp-chart-dot { background: var(--bp-bad); }
+.bp-chart-points .bp-chart-value { position: absolute; left: 0; bottom: 10px; transform: translateX(-50%); font-size: 0.75rem; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.bp-app a.bp-chart-point::after { content: attr(data-tip); position: absolute; z-index: 5; bottom: calc(100% + 0.3rem); left: 50%; transform: translateX(-50%); width: max-content; max-width: 230px; padding: 0.45rem 0.65rem; border-radius: 10px; background: var(--bp-navy); color: #fff; font-size: 0.78rem; line-height: 1.35; white-space: normal; text-align: left; box-shadow: 0 8px 22px rgba(7, 27, 46, 0.25); opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.bp-app a.bp-chart-point.is-left::after { left: 0; transform: none; }
+.bp-app a.bp-chart-point.is-right::after { left: auto; right: 0; transform: none; }
+.bp-app a.bp-chart-point:hover::after, .bp-app a.bp-chart-point:focus-visible::after { opacity: 1; }
+.bp-chart-time { position: absolute; left: 2.8rem; right: 0.6rem; bottom: 0; height: 1.6rem; }
+.bp-chart-time span { position: absolute; top: 0.35rem; transform: translateX(-50%); font-size: 0.72rem; opacity: 0.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bp-chart-time span::before { content: ''; position: absolute; left: 50%; top: -0.4rem; height: 0.3rem; border-left: 1px solid currentColor; }
+.bp-chart-key.is-failed::before { background: var(--bp-bad); }
+.bp-chart-key::before { border-radius: 50%; }

@@ -1089,9 +1089,77 @@
 					badge(h.passed ? t('passed') : t('failed'), h.passed ? 'ok' : 'bad')
 				]));
 			});
-			section.appendChild(el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list]));
+			section.appendChild(el('div', { class: 'bp-exam-results' }, [
+				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list]),
+				examChart(slug, exam.history)
+			]));
 		}
 		return section;
+	}
+
+	// Verlauf der Prüfungsergebnisse auf einer Zeitachse: x = Abgabezeitpunkt, y = Prozent der Punkte, Punktfarbe = bestanden/nicht bestanden.
+	function examChart(slug, history) {
+		var runs = history.slice().reverse();
+		var pcts = runs.map(function (h) { return h.max ? Math.round(h.score * 100 / h.max) : 0; });
+		var times = runs.map(function (h) { var d = h.submitted_at ? new Date(String(h.submitted_at).replace(' ', 'T') + 'Z').getTime() : NaN; return isNaN(d) ? null : d; });
+		var known = times.filter(function (x) { return x !== null; });
+		var t0 = known.length ? Math.min.apply(null, known) : 0;
+		var t1 = known.length ? Math.max.apply(null, known) : 0;
+		var span = t1 - t0;
+		var xs = runs.map(function (h, i) {
+			if (span <= 0 || times[i] === null) { return runs.length === 1 ? 50 : 4 + i * 92 / (runs.length - 1); }
+			return 4 + (times[i] - t0) * 92 / span;
+		});
+		var avg = Math.round(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length);
+		var best = Math.max.apply(null, pcts);
+		var last = pcts[pcts.length - 1];
+		var bestIdx = pcts.lastIndexOf(best);
+		var short = span > 0 && span < 2 * 86400000;
+		var fmt = function (ms) { return new Date(ms).toLocaleString('de-DE', short ? { hour: '2-digit', minute: '2-digit' } : { day: '2-digit', month: '2-digit' }); };
+
+		var ns = 'http://www.w3.org/2000/svg';
+		var svg = document.createElementNS(ns, 'svg');
+		svg.setAttribute('class', 'bp-chart-line');
+		svg.setAttribute('viewBox', '0 0 100 100');
+		svg.setAttribute('preserveAspectRatio', 'none');
+		svg.setAttribute('aria-hidden', 'true');
+		if (runs.length > 1) {
+			var line = document.createElementNS(ns, 'polyline');
+			line.setAttribute('points', xs.map(function (x, i) { return x + ',' + (100 - pcts[i]); }).join(' '));
+			line.setAttribute('vector-effect', 'non-scaling-stroke');
+			svg.appendChild(line);
+		}
+		var points = el('ol', { class: 'bp-chart-points' }, runs.map(function (h, i) {
+			var label = t('chart_point_aria', { kind: h.paper_id ? t('paper_label') : t('simulation_label'), date: times[i] !== null ? new Date(times[i]).toLocaleDateString('de-DE') : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
+			var showValue = i === runs.length - 1 || i === bestIdx;
+			var edge = xs[i] < 20 ? ' is-left' : (xs[i] > 80 ? ' is-right' : '');
+			return el('li', { style: 'left:' + xs[i] + '%;bottom:' + pcts[i] + '%' }, [
+				el('a', { href: base + slug + '/pruefung/' + h.session_id + '/', 'data-bp-link': '1', class: 'bp-chart-point ' + (h.passed ? 'is-passed' : 'is-failed') + edge, 'aria-label': label, 'data-tip': label }, [el('span', { class: 'bp-chart-dot', 'aria-hidden': 'true' })]),
+				showValue ? el('span', { class: 'bp-chart-value', 'aria-hidden': 'true', text: pcts[i] + ' %' }) : null
+			]);
+		}));
+		var ticks = [];
+		if (span > 0) {
+			for (var k = 0; k <= 4; k++) { ticks.push([4 + k * 23, fmt(t0 + span * k / 4)]); }
+		} else if (known.length) {
+			ticks.push([50, new Date(t0).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })]);
+		}
+		return el('div', { class: 'bp-chart-card' }, [
+			el('div', { class: 'bp-chart-head' }, [
+				el('h3', { text: t('chart_title') }),
+				el('ul', { class: 'bp-chart-kpis' }, [[avg + ' %', t('chart_avg')], [best + ' %', t('chart_best')], [last + ' %', t('chart_last')]].map(function (k2) { return el('li', {}, [el('strong', { text: k2[0] }), el('span', { text: k2[1] })]); }))
+			]),
+			el('div', { class: 'bp-chart', role: 'group', 'aria-label': t('chart_title') }, [
+				el('div', { class: 'bp-chart-grid', 'aria-hidden': 'true' }, ['100 %', '75 %', '50 %', '25 %', '0 %'].map(function (v) { return el('span', { text: v }); })),
+				el('div', { class: 'bp-chart-plot' }, [svg, points]),
+				el('div', { class: 'bp-chart-time', 'aria-hidden': 'true' }, ticks.map(function (tk) { return el('span', { style: 'left:' + tk[0] + '%', text: tk[1] }); }))
+			]),
+			el('p', { class: 'bp-chart-foot' }, [
+				el('span', { class: 'bp-chart-key is-passed', text: t('passed') }),
+				el('span', { class: 'bp-chart-key is-failed', text: t('failed') }),
+				el('span', { class: 'bp-muted', text: t('chart_axis') })
+			])
+		]);
 	}
 
 	function alertMessage(container, message) {
