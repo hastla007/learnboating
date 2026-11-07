@@ -475,8 +475,44 @@
 		return link(slug + '/' + path, text, cls);
 	}
 
+	// Teilkurse der Kombis: oben je ein Videokurs-Kärtchen (Kombi selbst hat keine eigene Video-Reihenfolge).
+	var COURSE_PARTS = { 'SBF-SEE-BIN': ['SBF-SEE', 'SBF-BIN-MOTOR'], 'SRC-UBI': ['SRC', 'UBI'] };
+
+	function videoParts(c) {
+		var codes = COURSE_PARTS[c.code] || [c.code];
+		return Promise.all(codes.map(function (code) {
+			var partSlug = code.toLowerCase();
+			var info = code === c.code ? Promise.resolve(c) : api('GET', 'courses/' + encodeURIComponent(partSlug)).catch(function () { return null; });
+			var videos = api('GET', 'courses/' + encodeURIComponent(partSlug) + '/videos').catch(function () { return null; });
+			return Promise.all([info, videos]).then(function (r) { return { slug: partSlug, course: r[0], videos: r[1] }; });
+		})).then(function (parts) {
+			return parts.filter(function (x) { return x.course && x.videos && x.videos.lessons > 0; });
+		});
+	}
+
+	function videoCard(part, index) {
+		var v = part.videos;
+		var percent = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
+		var bar = el('div', { class: 'bp-hub-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent), 'aria-label': t('trainer_video_meta', { done: v.completed, total: v.lessons }) }, [el('span', { style: 'width:' + percent + '%' })]);
+		return el('article', { class: 'bp-hub-card bp-hub-card-video ' + (index % 2 ? 'is-teal' : 'is-blue') }, [
+			el('span', { class: 'bp-hub-card-art bp-hub-art-' + (index % 2 ? 'anchor' : 'compass'), 'aria-hidden': 'true' }),
+			el('p', { class: 'bp-hub-eyebrow', text: index === 0 ? t('hub_next') : t('hub_part') }),
+			el('h2', { text: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }),
+			el('p', { class: 'bp-hub-card-text', text: t('hub_video_for', { name: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }) }),
+			el('p', { class: 'bp-hub-card-meta' }, [t('hub_video_progress', { percent: percent }), el('span', { text: ' · ' + t('trainer_video_meta', { done: v.completed, total: v.lessons }) })]),
+			bar,
+			el('a', { href: base + part.slug + '/video/', 'data-bp-link': '1', class: 'bp-button bp-button-light bp-hub-card-go' }, [v.completed > 0 ? t('hub_video_continue') : t('hub_video_start'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })])
+		]);
+	}
+
 	function viewCourse(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
+			return videoParts(c).then(function (parts) { renderCourseHub(slug, c, parts); });
+		});
+	}
+
+	function renderCourseHub(slug, c, parts) {
+		{
 			var shop = c.shop || {};
 			var p = c.progress ? c.progress.total : null;
 			var qb = c.features.question_bank;
@@ -520,7 +556,9 @@
 					el('a', { href: base + slug + '/lernen/?modus=favorites', 'data-bp-link': '1', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('span', { 'aria-hidden': 'true', text: t('mode_favorites') }), el('strong', { 'aria-hidden': 'true', text: String(c.favorites) })])
 				])
 			]) : null;
-			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' }, [next, exam]), progress]));
+			// Oben immer die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
+			var cards = parts.length ? parts.map(videoCard) : [next, exam];
+			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' }, cards), progress]));
 
 			// Lernbereiche
 			var areas = [];
@@ -565,7 +603,7 @@
 				}))
 			]));
 			mount(nodes, c.name);
-		});
+		}
 	}
 
 	function detailHeader(slug, c, title, intro) {

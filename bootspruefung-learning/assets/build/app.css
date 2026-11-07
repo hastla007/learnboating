@@ -771,3 +771,21 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-hub-ring-wrap { align-self: center; }
 }
 .bp-app .bp-subhead { margin: 2.2rem 0 0.9rem; font-size: 1.15rem; }
+/* Videokurs-Karten oben auf der Kursseite */
+.bp-hub-card-video { min-height: 210px; padding-right: clamp(1.6rem, 30%, 18rem); }
+.bp-hub-card-video.is-blue { background: linear-gradient(120deg, #0b4da2 0%, #0a3a7d 55%, var(--bp-navy) 100%); }
+.bp-hub-card-video.is-teal { background: linear-gradient(120deg, #0b6b72 0%, #07505a 55%, #06343d 100%); }
+.bp-hub-card-video::after { display: none; }
+.bp-hub-card-art { position: absolute; z-index: -1; right: clamp(1rem, 6%, 4rem); top: 50%; width: clamp(110px, 18vw, 190px); aspect-ratio: 1; transform: translateY(-50%); border-radius: 50%; border: 2px solid rgba(255,255,255,0.14); }
+.bp-hub-card-art::before { content: ""; position: absolute; inset: 18%; background: rgba(255,255,255,0.22); -webkit-mask: var(--bp-i) center / contain no-repeat; mask: var(--bp-i) center / contain no-repeat; }
+.bp-hub-art-compass { --bp-i: var(--bp-i-compass); }
+.bp-hub-art-anchor { --bp-i: var(--bp-i-knot); }
+.bp-hub-card-video .bp-hub-card-meta { margin: 0.2rem 0 0.5rem; font-size: 0.9rem; color: rgba(255,255,255,0.9); }
+.bp-hub-card-video .bp-hub-card-meta span { color: rgba(255,255,255,0.65); }
+.bp-hub-card-video .bp-hub-bar { margin-bottom: 1.1rem; }
+.bp-hub-card-go { gap: 0.5rem; }
+.bp-hub-card-video.is-teal .bp-button-light { color: #07505a; }
+@media (max-width: 600px) {
+	.bp-hub-card-video { padding-right: 1.6rem; }
+	.bp-hub-card-art { opacity: 0.5; right: -20px; }
+}
