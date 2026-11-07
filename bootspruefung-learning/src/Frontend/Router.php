@@ -106,6 +106,13 @@ final class Router
             'accountUrl' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::accountUrl(),
             // Kursfotos für Kacheln/Kopfbereich: ['sbf-see' => ['card' => url, 'hero' => url]], z. B. vom Theme.
             'courseImages' => (array) apply_filters('bootspruefung_course_images', []),
+            // Shop-Kategorie der Gruppenpakete (leerer Zustand unter „Meine Gruppen“).
+            'groupsUrl' => (static function (): ?string {
+                $term = function_exists('get_term_by') ? get_term_by('slug', \Bootspruefung\Learning\Commerce\ShopCatalog::CATEGORY_SLUGS['groups'], 'product_cat') : false;
+                $link = $term instanceof \WP_Term ? get_term_link($term) : null;
+
+                return is_string($link) ? $link : null;
+            })(),
             'i18n' => Strings::all(),
         ]);
     }

@@ -318,9 +318,11 @@
 
 	function viewTips() {
 		return api('GET', 'tips').then(function (groups) {
-			var sections = groups.map(function (g) {
+			var icons = ['spark', 'timer', 'flag', 'compass', 'bookmark', 'layers'];
+			var total = groups.reduce(function (a, g) { return a + g.tips.length; }, 0);
+			var sections = groups.map(function (g, gi) {
 				return el('section', { class: 'bp-tips-group' }, [
-					el('h2', { text: g.name }),
+					el('div', { class: 'bp-tips-head' }, [el('span', { class: 'bp-ico bp-ico-' + icons[gi % icons.length], 'aria-hidden': 'true' }), el('h2', { text: g.name }), el('span', { class: 'bp-pill', text: t('tips_count', { n: g.tips.length }) })]),
 					el('div', { class: 'bp-tips' }, g.tips.map(function (tip) {
 						var body = el('div', { class: 'bp-tip-body' });
 						body.innerHTML = tip.html; // serverseitig mit wp_kses_post bereinigt
@@ -329,9 +331,8 @@
 				]);
 			});
 			mount([
-				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('tips_title') })]),
-				el('header', { class: 'bp-header' }, [el('h1', { text: t('tips_title') }), el('p', { class: 'bp-muted', text: t('tips_intro') })]),
-				groups.length ? el('div', {}, sections) : el('p', { text: t('tips_empty') })
+				pageHero({ icon: 'bulb', accent: '#F5B900', crumbs: el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('tips_title') })]), eyebrow: t('dash_eyebrow'), title: t('tips_title'), intro: t('tips_intro'), stats: groups.length ? [[total, t('tips_stat_tips')], [groups.length, t('tips_stat_groups')]] : [] }),
+				groups.length ? el('div', { class: 'bp-tips-wrap' }, sections) : el('p', { text: t('tips_empty') })
 			], t('tips_title'));
 		});
 	}
@@ -366,12 +367,18 @@
 
 	function viewGroups() {
 		return api('GET', 'me/groups').then(function (groups) {
+			var seats = groups.reduce(function (a, g) { return a + (g.seats || 0); }, 0);
+			var used = groups.reduce(function (a, g) { return a + ((g.seats || 0) - (g.free_seats || 0)); }, 0);
 			var nodes = [
-				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('groups_title') })]),
-				el('header', { class: 'bp-header' }, [el('h1', { text: t('groups_title') }), el('p', { class: 'bp-muted', text: t('groups_intro') })])
+				pageHero({ icon: 'group', accent: '#66DCA0', crumbs: el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', el('span', { text: t('groups_title') })]), eyebrow: t('dash_eyebrow'), title: t('groups_title'), intro: t('groups_intro'), stats: groups.length ? [[groups.length, t('groups_stat_groups')], [used + '/' + seats, t('groups_stat_seats')]] : [] })
 			];
 			if (!groups.length) {
-				nodes.push(el('p', { text: t('groups_none') }));
+				nodes.push(el('section', { class: 'bp-empty' }, [
+					el('span', { class: 'bp-ico bp-ico-group', 'aria-hidden': 'true' }),
+					el('h2', { text: t('groups_empty_title') }),
+					el('p', { class: 'bp-muted', text: t('groups_none') }),
+					cfg.groupsUrl ? el('p', {}, [el('a', { class: 'bp-button bp-button-primary', href: cfg.groupsUrl, text: t('groups_empty_cta') })]) : null
+				]));
 			}
 			groups.forEach(function (g) { nodes.push(groupCard(g)); });
 			mount(nodes, t('groups_title'));
@@ -440,7 +447,12 @@
 		radio: '<rect x="54" y="58" width="12" height="50" rx="2" fill="currentColor" stroke="none"/><path d="M44 46a22 22 0 0 1 32 0"/><path d="M33 35a38 38 0 0 1 54 0"/><path d="M22 24a54 54 0 0 1 76 0"/>',
 		sail: '<path d="M56 12v74H22z" fill="currentColor" stroke="none"/><path d="M64 26v60h30z" fill="currentColor" stroke="none"/><path d="M18 94h84l-10 14H28z" fill="currentColor" stroke="none"/>',
 		flare: '<rect x="53" y="62" width="14" height="46" rx="2" fill="currentColor" stroke="none"/><path d="M60 40V8M60 40l23-23M60 40h32M60 40l23 23M60 40l-23-23M60 40H28M60 40 37 63"/><circle cx="60" cy="40" r="10" fill="#fff" stroke="none"/>',
-		plus: '<circle cx="60" cy="60" r="44"/><path d="M60 36v48M36 60h48" stroke-width="10"/>'
+		plus: '<circle cx="60" cy="60" r="44"/><path d="M60 36v48M36 60h48" stroke-width="10"/>',
+		compass: '<circle cx="60" cy="60" r="46"/><path d="M78 42 68 68 42 78 52 52z" fill="currentColor" stroke="none"/><path d="M60 8v10M60 102v10M8 60h10M102 60h10"/>',
+		cards: '<rect x="18" y="34" width="62" height="74" rx="8"/><path d="M40 14h54a8 8 0 0 1 8 8v66"/>',
+		bulb: '<path d="M44 92h32M48 106h24"/><path d="M60 12a32 32 0 0 0-19 57c4 3 6 8 6 13h26c0-5 2-10 6-13a32 32 0 0 0-19-57z"/>',
+		group: '<circle cx="44" cy="40" r="15"/><path d="M14 100a30 30 0 0 1 60 0"/><circle cx="84" cy="46" r="12"/><path d="M80 72a26 26 0 0 1 28 28"/>',
+		flag: '<path d="M28 110V14"/><path d="M28 16h58l-12 22 12 22H28" fill="currentColor" fill-opacity=".25"/>'
 	};
 
 	function heroArt(kind) {
@@ -453,6 +465,26 @@
 		var wrap = el('span', { class: 'bp-brand-waves', 'aria-hidden': 'true' });
 		wrap.innerHTML = '<svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0 40 C150 10 300 70 450 40 S750 10 900 40 S1100 70 1200 40 V120 H0Z" fill="rgba(120,190,255,0.18)"/><path d="M0 70 C200 45 350 95 600 68 S1000 45 1200 72 V120 H0Z" fill="rgba(120,190,255,0.14)"/><path d="M0 95 C250 80 450 110 700 92 S1050 80 1200 98 V120 H0Z" fill="rgba(120,190,255,0.12)"/></svg>';
 		return wrap;
+	}
+
+	// Kopf der Detailseiten (gleicher Stil wie die Kursseite, kompakter): Brotkrümel, Titel, Kennzahlen, Fortschritt.
+	function pageHero(opts) {
+		var style = opts.code ? (HERO_STYLE[opts.code] || ['anchor', '#40C4FF']) : ['anchor', opts.accent || '#40C4FF'];
+		var kind = opts.icon || style[0];
+		var stats = (opts.stats || []).filter(Boolean);
+		return el('section', { class: 'bp-hero bp-brand-hero bp-page-hero', style: '--bp-hero-accent:' + style[1] }, [
+			heroArt(kind),
+			heroWaves(),
+			el('div', { class: 'bp-hero-text' }, [
+				opts.crumbs,
+				opts.eyebrow ? el('p', { class: 'bp-brand-eyebrow', text: opts.eyebrow }) : null,
+				el('h1', { text: opts.title }),
+				opts.intro ? el('p', { class: 'bp-hero-lead', text: opts.intro }) : null,
+				stats.length ? el('ul', { class: 'bp-page-stats' }, stats.map(function (x) { return el('li', {}, [el('strong', { text: String(x[0]) }), el('span', { text: x[1] })]); })) : null,
+				opts.percent !== undefined && opts.percent !== null ? el('div', { class: 'bp-page-progress' }, [el('span', { class: 'bp-page-bar', 'aria-hidden': 'true' }, [el('span', { style: 'width:' + opts.percent + '%' })]), el('span', { class: 'bp-page-pct', text: t('page_pct', { percent: opts.percent }) + (opts.percentLabel ? ' ' + opts.percentLabel : '') })]) : null,
+				opts.extra || null
+			])
+		]);
 	}
 
 	function courseHero(slug, c) {
@@ -1043,18 +1075,18 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/pruefung-anmelden').then(function (g) {
 				var page = g.tabs.filter(function (x) { return x.key === teil; })[0] || g.tabs[0];
-				var nodes = [crumbs(slug, c.name, [[t('guide_title')]])];
+				var nodes = [];
 				if (g.tabs.length > 1) {
 					nodes.push(el('ul', { class: 'bp-chips', 'aria-label': t('guide_tabs') }, g.tabs.map(function (x) {
 						return el('li', {}, [link(slug + '/pruefung-anmelden/?teil=' + encodeURIComponent(x.key), x.tab, 'bp-chip' + (x === page ? ' is-active' : ''))]);
 					})));
 				}
-				nodes.push(el('header', { class: 'bp-header' }, [el('h1', { text: page.title }), el('p', { class: 'bp-muted', text: page.intro })]));
+				nodes.unshift(pageHero({ code: c.code, icon: 'flag', crumbs: crumbs(slug, c.name, [[t('guide_title')]]), eyebrow: t('guide_title'), title: page.title, intro: page.intro }));
 				var focus = page.variants[0];
 				if (focus.note) {
 					nodes.push(el('p', { class: 'bp-note', text: focus.note }));
 				}
-				nodes.push(el('ul', { class: 'bp-stats' }, [
+				nodes.push(el('ul', { class: 'bp-stats bp-guide-facts' }, [
 					el('li', {}, [el('strong', { text: t('guide_fee') }), ' ' + t('guide_approx', { value: page.fee }), page.fee_note ? el('small', { class: 'bp-muted', text: ' (' + page.fee_note + ')' }) : null]),
 					page.lead_time ? el('li', {}, [el('strong', { text: t('guide_lead_time') }), ' ' + page.lead_time]) : null,
 					el('li', {}, [el('strong', { text: t('guide_min_age') }), ' ' + page.min_age])
@@ -1065,8 +1097,8 @@
 					el('li', {}, [el('strong', { text: t('guide_step_deadline') }), el('p', { text: page.deadline })]),
 					el('li', {}, [el('strong', { text: t('guide_step_day') }), el('p', { text: t('guide_step_day_text') })])
 				]);
-				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_how') }), steps]));
-				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_variants') })].concat(page.variants.map(function (v) {
+				nodes.push(el('section', { class: 'bp-card bp-guide-steps' }, [el('h2', { text: t('guide_how') }), steps]));
+				nodes.push(el('section', { class: 'bp-card bp-guide-variants' }, [el('h2', { text: t('guide_variants') })].concat(page.variants.map(function (v) {
 					return el('div', { class: 'bp-variant' }, [
 						el('h3', { text: v.label }),
 						el('p', { text: v.scope + (v.minutes ? ' · ' + t('guide_minutes', { n: v.minutes }) : '') }),
@@ -1075,12 +1107,12 @@
 						v !== focus && v.note ? el('p', { class: 'bp-muted', text: v.note }) : null
 					]);
 				}))));
-				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_parts') }), el('ul', { class: 'bp-module-list' }, page.exam_parts.map(function (p) {
+				nodes.push(el('section', { class: 'bp-card bp-guide-parts' }, [el('h2', { text: t('guide_parts') }), el('ul', { class: 'bp-module-list' }, page.exam_parts.map(function (p) {
 					var practice = p.link !== null && GUIDE_LINKS[p.link] !== undefined ? link(slug + '/' + GUIDE_LINKS[p.link], t('guide_practice'), 'bp-button') : null;
 					return el('li', { class: 'bp-card bp-tile' }, [el('h3', { text: p.title }), el('p', { class: 'bp-muted', text: p.text }), practice]);
 				}))]));
 				nodes.push(committeeSection(page, g.committees));
-				nodes.push(el('section', { class: 'bp-card' }, [el('h2', { text: t('guide_faq') })].concat(page.faq.map(function (f) {
+				nodes.push(el('section', { class: 'bp-card bp-guide-faq' }, [el('h2', { text: t('guide_faq') })].concat(page.faq.map(function (f) {
 					return el('details', { class: 'bp-faq' }, [el('summary', { text: f.question }), el('p', { text: f.answer })]);
 				}))));
 				nodes.push(el('p', { class: 'bp-muted', text: t('guide_disclaimer') }));
@@ -1215,18 +1247,29 @@
 	function viewNavigation(slug) {
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/navigation').then(function (tasks) {
-				var list = el('ol', { class: 'bp-module-list' }, tasks.map(function (task) {
+				var list = el('ol', { class: 'bp-module-list bp-nav-list' }, tasks.map(function (task) {
+					var head = function (state) {
+						return el('div', { class: 'bp-nav-card-head' }, [el('span', { class: 'bp-nav-no', 'aria-hidden': 'true', text: String(task.number) }), el('span', { class: 'bp-state bp-state-' + state, text: t('nav_state_' + state) })]);
+					};
 					if (task.locked) {
-						return el('li', { class: 'bp-card bp-locked' }, [el('h2', { text: t('nav_task_title', { number: task.number }) }), el('p', { class: 'bp-muted', text: t('locked_free') })]);
+						return el('li', { class: 'bp-card bp-nav-card bp-locked' }, [head('locked'), el('h2', { text: t('nav_task_title', { number: task.number }) }), el('p', { class: 'bp-muted', text: t('locked_free') })]);
 					}
-					return el('li', { class: 'bp-card' }, [
+					var state = task.done >= task.questions && task.questions > 0 ? 'done' : (task.done > 0 ? 'started' : 'open');
+					return el('li', { class: 'bp-card bp-nav-card is-' + state }, [
+						head(state),
 						el('h2', {}, [link(slug + '/navigation/' + task.id + '/', t('nav_task_title', { number: task.number }))]),
-						el('p', { class: 'bp-muted', text: task.teaser + ' …' }),
+						el('p', { class: 'bp-nav-teaser', text: task.teaser + ' …' }),
 						progressBar({ questions: task.questions, mastered: task.done, learning: 0, unsure: 0, percent: Math.floor(task.done * 100 / Math.max(task.questions, 1)) }, t('nav_progress', { done: task.done, total: task.questions }))
 					]);
 				}));
 				var hasLocked = tasks.some(function (x) { return x.locked; });
-				mount([crumbs(slug, c.name, [[t('trainer_navigation')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_navigation') }), el('p', { class: 'bp-muted', text: t('nav_intro') })]), chartNote(c), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list], t('trainer_navigation') + ' – ' + c.name);
+				var qDone = tasks.reduce(function (a, x) { return a + (x.done || 0); }, 0);
+				var qAll = tasks.reduce(function (a, x) { return a + (x.questions || 0); }, 0);
+				var finished = tasks.filter(function (x) { return !x.locked && x.questions > 0 && x.done >= x.questions; }).length;
+				mount([
+					pageHero({ code: c.code, icon: 'compass', crumbs: crumbs(slug, c.name, [[t('trainer_navigation')]]), eyebrow: c.name, title: t('trainer_navigation'), intro: t('nav_intro'), stats: [[tasks.length, t('nav_stat_tasks')], [finished, t('nav_stat_finished')], [qDone + '/' + qAll, t('nav_stat_parts')]], percent: Math.floor(qDone * 100 / Math.max(qAll, 1)), percentLabel: t('nav_stat_done') }),
+					chartNote(c), hasLocked ? lockedNote((c.shop || {}).navigation_trainer) : null, list
+				], t('trainer_navigation') + ' – ' + c.name);
 			});
 		});
 	}
@@ -1250,17 +1293,24 @@
 				var items = el('ol', { class: 'bp-review' });
 				task.questions.forEach(function (q) { items.appendChild(navigationQuestion(slug, q)); });
 				var title = t('nav_task_title', { number: task.number });
+				var done = task.questions.filter(function (q) { return q.done; }).length;
 				mount([
-					crumbs(slug, c.name, [[t('trainer_navigation'), slug + '/navigation/'], [title]]),
-					el('header', { class: 'bp-header' }, [el('h1', { text: title })]),
-					el('div', { class: 'bp-card' }, [el('h2', { text: t('nav_scenario') }), multiline('p', task.scenario)]),
-					task.hint ? el('p', { class: 'bp-note', text: task.hint }) : null,
-					items,
-					el('div', { class: 'bp-actions' }, [
-						task.previous ? link(slug + '/navigation/' + task.previous + '/', t('nav_previous'), 'bp-button') : null,
-						task.next ? link(slug + '/navigation/' + task.next + '/', t('nav_next'), 'bp-button bp-button-primary') : link(slug + '/navigation/', t('nav_all'), 'bp-button')
-					]),
-					task.source ? el('p', { class: 'bp-muted bp-source', text: t('source', { source: task.source }) }) : null
+					pageHero({ code: c.code, icon: 'compass', crumbs: crumbs(slug, c.name, [[t('trainer_navigation'), slug + '/navigation/'], [title]]), eyebrow: t('trainer_navigation'), title: title, stats: [[task.questions.length, t('nav_stat_parts')], [done, t('nav_stat_done')]], percent: Math.floor(done * 100 / Math.max(task.questions.length, 1)), percentLabel: t('nav_stat_done') }),
+					el('div', { class: 'bp-nav-layout' }, [
+						el('aside', { class: 'bp-nav-scenario' }, [
+							el('div', { class: 'bp-card bp-nav-scenario-card' }, [el('h2', { class: 'bp-learn-course bp-nav-scenario-h', text: t('nav_scenario') }), multiline('p', task.scenario, 'bp-nav-scenario-text')]),
+							task.hint ? el('p', { class: 'bp-note', text: task.hint }) : null,
+							chartNote(c)
+						]),
+						el('div', { class: 'bp-nav-questions' }, [
+							items,
+							el('div', { class: 'bp-actions bp-nav-pager' }, [
+								task.previous ? link(slug + '/navigation/' + task.previous + '/', '← ' + t('nav_previous'), 'bp-button') : el('span'),
+								task.next ? link(slug + '/navigation/' + task.next + '/', t('nav_next') + ' →', 'bp-button bp-button-primary') : link(slug + '/navigation/', t('nav_all'), 'bp-button')
+							]),
+							task.source ? el('p', { class: 'bp-muted bp-source', text: t('source', { source: task.source }) }) : null
+						])
+					])
 				], title + ' – ' + c.name);
 			});
 		});
@@ -1270,7 +1320,7 @@
 		var item = el('li', { class: 'bp-card bp-nav-question' + (q.done ? ' is-correct' : '') });
 		function render() {
 			item.textContent = '';
-			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
+			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
 			item.appendChild(multiline('h3', q.text, 'bp-question-text'));
 			var area = el('textarea', { class: 'bp-notes', rows: '2', 'aria-label': t('nav_own_solution'), placeholder: t('nav_own_solution') });
 			area.value = q.my_answer || '';
@@ -1336,8 +1386,8 @@
 					}
 					index = index % list.length;
 					var card = list[index];
-					var box = el('article', { class: 'bp-card bp-question' }, [
-						el('p', { class: 'bp-question-meta' }, [el('span', { text: t('praxis_card_of', { n: index + 1, total: list.length }) }), card.reference ? el('span', { text: card.reference }) : null, card.status ? badge(t('praxis_status_' + card.status), card.status === 'known' ? 'ok' : 'warn') : null]),
+					var box = el('article', { class: 'bp-card bp-question bp-flashcard' }, [
+						el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('praxis_card_of', { n: index + 1, total: list.length }) }), card.reference ? el('span', { text: card.reference }) : null, card.status ? badge(t('praxis_status_' + card.status), card.status === 'known' ? 'ok' : 'warn') : null]),
 						card.title ? el('h2', { text: card.title }) : null,
 						card.image ? el('div', { class: 'bp-media' }, [el('img', { src: card.image.url, alt: card.image.alt || '', loading: 'lazy' })]) : null,
 						multiline('p', card.question, 'bp-question-text')
@@ -1369,12 +1419,12 @@
 					stage.appendChild(box);
 				}
 				onlyOpen.addEventListener('change', function () { index = 0; show(); });
+				var scopeKnown = active ? active.known : data.known;
+				var scopeTotal = active ? active.cards.length : data.total;
 				mount([
-					crumbs(slug, c.name, [[t('trainer_praxis')]]),
-					el('header', { class: 'bp-header' }, [el('h1', { text: active ? active.name : t('trainer_praxis') }), el('p', { class: 'bp-muted', text: t('trainer_praxis_meta', { known: data.known, total: data.total }) })]),
+					pageHero({ code: c.code, icon: 'cards', crumbs: crumbs(slug, c.name, active ? [[t('trainer_praxis'), slug + '/praxis/'], [active.name]] : [[t('trainer_praxis')]]), eyebrow: active ? t('trainer_praxis') : c.name, title: active ? active.name : t('trainer_praxis'), intro: t('praxis_intro'), stats: [[scopeTotal, t('praxis_stat_cards')], [scopeKnown, t('praxis_stat_known')], [cats.length, t('praxis_stat_categories')]], percent: Math.floor(scopeKnown * 100 / Math.max(scopeTotal, 1)), percentLabel: t('praxis_stat_known') }),
 					lockedCount ? lockedNote((c.shop || {}).praxis_trainer, t('locked_more', { n: lockedCount })) : null,
-					nav,
-					el('p', {}, [onlyOpen, ' ', el('label', { for: 'bp-only-open', text: t('praxis_only_open') })]),
+					el('div', { class: 'bp-praxis-toolbar' }, [nav, el('p', { class: 'bp-switch' }, [onlyOpen, el('label', { for: 'bp-only-open', text: t('praxis_only_open') })])]),
 					stage
 				], t('trainer_praxis') + ' – ' + c.name);
 				show();
@@ -1651,19 +1701,33 @@
 	function viewRadio(slug) {
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio').then(function (o) {
-				var nodes = [crumbs(slug, c.name, [[t('trainer_radio')]]), el('header', { class: 'bp-header' }, [el('h1', { text: t('trainer_radio') }), el('p', { class: 'bp-muted', text: t('radio_intro') })])];
+				var textsAll = o.texts.reduce(function (a, g) { return a + g.items.length; }, 0);
+				var textsDone = o.texts.reduce(function (a, g) { return a + g.items.filter(function (i) { return i.done; }).length; }, 0);
+				var vocAll = o.vocabulary.reduce(function (a, v) { return a + v.total; }, 0);
+				var vocDone = o.vocabulary.reduce(function (a, v) { return a + v.learned; }, 0);
+				var pracAll = (o.practice || []).reduce(function (a, g) { return a + g.tasks.length; }, 0);
+				var nodes = [pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio')]]), eyebrow: c.name, title: t('trainer_radio'), intro: t('radio_intro'), stats: [pracAll ? [pracAll, t('radio_stat_practice')] : null, [textsDone + '/' + textsAll, t('radio_stat_texts')], [vocDone + '/' + vocAll, t('radio_stat_vocab')]] })];
 				if (o.device && o.device.lessons > 0) {
-					nodes.push(el('section', { class: 'bp-card bp-tile' }, [
-						el('h2', {}, [link(slug + '/funk/geraet/', t('device_title')), o.device.premium === false ? ' ' : null, o.device.premium === false ? badge(t('sim_free_badge'), 'warn') : null]),
-						el('p', { class: 'bp-muted', text: o.device.premium === false ? t('sim_free_short') : t('device_meta', { lessons: o.device.lessons, mastered: o.device.mastered }) }),
-						el('p', {}, [link(slug + '/funk/geraet/', t('device_open'), 'bp-button bp-button-primary')])
+					nodes.push(el('section', { class: 'bp-radio-device' }, [
+						el('span', { class: 'bp-ico bp-ico-radio', 'aria-hidden': 'true' }),
+						el('div', {}, [
+							el('h2', {}, [link(slug + '/funk/geraet/', t('device_title')), o.device.premium === false ? ' ' : null, o.device.premium === false ? badge(t('sim_free_badge'), 'warn') : null]),
+							el('p', { text: o.device.premium === false ? t('sim_free_short') : t('device_meta', { lessons: o.device.lessons, mastered: o.device.mastered }) })
+						]),
+						link(slug + '/funk/geraet/', t('device_open'), 'bp-button bp-button-signal')
 					]));
 				}
+				var sectionHead = function (title, explain, done, total) {
+					var pctv = Math.floor(done * 100 / Math.max(total, 1));
+					return el('div', { class: 'bp-radio-head' }, [
+						el('div', {}, [el('h2', { text: title }), el('p', { class: 'bp-muted', text: explain })]),
+						el('div', { class: 'bp-radio-count' }, [el('strong', { text: done + '/' + total }), el('span', { class: 'bp-page-bar is-light', 'aria-hidden': 'true' }, [el('span', { style: 'width:' + pctv + '%' })])])
+					]);
+				};
 				(o.practice || []).forEach(function (g) {
 					var done = g.tasks.filter(function (x) { return x.done; }).length;
-					nodes.push(el('section', { class: 'bp-section' }, [
-						el('h2', { text: t('practice_title', { catalog: g.catalog }) }),
-						el('p', { class: 'bp-muted', text: t('practice_explain') + ' ' + t('radio_done_count', { done: done, total: g.tasks.length }) }),
+					nodes.push(el('section', { class: 'bp-section bp-panel bp-radio-section' }, [
+						sectionHead(t('practice_title', { catalog: g.catalog }), t('practice_explain'), done, g.tasks.length),
 						el('ul', { class: 'bp-paper-grid' }, g.tasks.map(function (x) {
 							if (x.locked) {
 								return el('li', {}, [lockedPaper(x.number)]);
@@ -1674,9 +1738,8 @@
 				});
 				o.texts.forEach(function (g) {
 					var done = g.items.filter(function (i) { return i.done; }).length;
-					nodes.push(el('section', { class: 'bp-section' }, [
-						el('h2', { text: t('radio_type_' + g.type, { catalog: g.catalog }) }),
-						el('p', { class: 'bp-muted', text: t('radio_type_' + g.type + '_explain') + ' ' + t('radio_done_count', { done: done, total: g.items.length }) }),
+					nodes.push(el('section', { class: 'bp-section bp-panel bp-radio-section' }, [
+						sectionHead(t('radio_type_' + g.type, { catalog: g.catalog }), t('radio_type_' + g.type + '_explain'), done, g.items.length),
 						el('ul', { class: 'bp-paper-grid' }, g.items.map(function (i) {
 							if (i.locked) {
 								return el('li', {}, [lockedPaper(i.number)]);
@@ -1686,10 +1749,10 @@
 					]));
 				});
 				if (o.vocabulary.length) {
-					nodes.push(el('section', { class: 'bp-section' }, [
-						el('h2', { text: t('radio_vocabulary') }),
+					nodes.push(el('section', { class: 'bp-section bp-radio-vocab' }, [
+						el('div', { class: 'bp-section-head' }, [el('h2', { text: t('radio_vocabulary') }), el('p', { class: 'bp-muted', text: t('radio_learned', { learned: vocDone, total: vocAll }) })]),
 						el('ul', { class: 'bp-module-list' }, o.vocabulary.map(function (v) {
-							return el('li', { class: 'bp-card' }, [
+							return el('li', { class: 'bp-card bp-module bp-vocab-cat' + (v.learned >= v.total && v.total > 0 ? ' is-done' : '') }, [
 								el('h3', { text: v.category }),
 								progressBar({ questions: v.total, mastered: v.learned, learning: 0, unsure: 0, percent: Math.floor(v.learned * 100 / Math.max(v.total, 1)) }, t('radio_learned', { learned: v.learned, total: v.total })),
 								el('p', {}, [link(slug + '/funk/vokabeln/?katalog=' + v.catalog + '&kategorie=' + encodeURIComponent(v.category), t('radio_practice'), 'bp-button')])
@@ -2152,7 +2215,7 @@
 				var index = 0;
 				var learned = v.learned;
 				var stage = el('div', { class: 'bp-vocab-stage' });
-				var counter = el('p', { class: 'bp-muted', 'aria-live': 'polite' });
+				var counter = el('p', { class: 'bp-page-counter', 'aria-live': 'polite' });
 				function updateCounter() {
 					counter.textContent = t('radio_learned', { learned: learned, total: cards.length });
 				}
@@ -2162,8 +2225,8 @@
 						return;
 					}
 					var card = cards[index % cards.length];
-					var box = el('article', { class: 'bp-card bp-vocab' }, [
-						el('p', { class: 'bp-question-meta' }, [el('span', { text: card.category }), card.learned ? badge(t('radio_learned_badge'), 'ok') : el('span', { text: t('streak', { n: card.streak }) })]),
+					var box = el('article', { class: 'bp-card bp-vocab bp-flashcard' }, [
+						el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill', text: card.category }), card.learned ? badge(t('radio_learned_badge'), 'ok') : el('span', { text: t('streak', { n: card.streak }) })]),
 						el('p', { class: 'bp-vocab-term', lang: 'de', text: card.de })
 					]);
 					var actions = el('div', { class: 'bp-actions' });
@@ -2197,8 +2260,7 @@
 					stage.appendChild(box);
 				}
 				mount([
-					crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [category || t('radio_vocabulary')]]),
-					el('header', { class: 'bp-header bp-header-compact' }, [el('h1', { text: category || t('radio_vocabulary') }), el('p', { class: 'bp-muted', text: t('radio_vocab_explain', { n: v.streak_to_learn }) }), counter]),
+					pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [category || t('radio_vocabulary')]]), eyebrow: t('radio_vocabulary') + ' · ' + catalog, title: category || t('radio_vocabulary'), intro: t('radio_vocab_explain', { n: v.streak_to_learn }), extra: counter }),
 					stage
 				], (category || t('radio_vocabulary')) + ' – ' + c.name);
 				updateCounter();
