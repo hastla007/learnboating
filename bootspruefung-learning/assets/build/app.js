@@ -1283,7 +1283,6 @@
 					return el('li', { class: 'bp-card bp-nav-card is-' + state }, [
 						head(state),
 						el('h2', {}, [link(slug + '/navigation/' + task.id + '/', t('nav_task_title', { number: task.number }))]),
-						el('p', { class: 'bp-nav-teaser', text: task.teaser + ' …' }),
 						progressBar({ questions: task.questions, mastered: task.done, learning: 0, unsure: 0, percent: Math.floor(task.done * 100 / Math.max(task.questions, 1)) }, t('nav_progress', { done: task.done, total: task.questions }))
 					]);
 				}));

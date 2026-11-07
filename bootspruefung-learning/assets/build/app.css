@@ -989,3 +989,6 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-committee-actions .bp-button { min-height: 36px; padding: 0.3em 0.9em; font-size: 0.85rem; }
 .bp-committee-none { grid-column: 1 / -1; padding: 1rem 0; }
 @media (max-width: 600px) { .bp-committee-filter { justify-content: stretch; } .bp-app .bp-committee-search { flex: 1; } }
+.bp-app .bp-nav-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.bp-nav-card h2 { margin-bottom: 0.8rem !important; }
+.bp-app .bp-nav-list { grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); }
