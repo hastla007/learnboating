@@ -39,9 +39,14 @@ await shot('01-uebersicht');
 step('Kurs SBF See öffnen');
 await page.locator('#bp-app').getByRole('link', { name: 'SBF See', exact: true }).click();
 await page.getByRole('heading', { name: 'SBF See', level: 1 }).waitFor();
+await page.locator('.bp-areas').waitFor();
+await shot('02-kurs');
+await page.locator('#bp-app').getByRole('link', { name: 'Prüfung simulieren', exact: true }).click();
+await page.locator('#bp-exam-h').waitFor();
 assert.match(await page.locator('#bp-exam-h').locator('..').innerText(), /Basisfragen 5\/7 · See 18\/23 · 60 Minuten/);
 assert.equal(await page.locator('.bp-paper').count(), 15);
-await shot('02-kurs');
+await page.getByRole('navigation', { name: 'Brotkrümelnavigation' }).getByRole('link', { name: 'SBF See' }).click();
+await page.locator('.bp-areas').waitFor();
 
 step('Smarttrainer: falsche Antwort, Erklärung, nächste Frage');
 await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer' }).click();
@@ -75,7 +80,7 @@ await page.getByRole('button', { name: 'Gewusst', exact: true }).click();
 await page.locator('.bp-feedback-title', { hasText: 'Richtig!' }).waitFor();
 
 step('Prüfungssimulation SBF See');
-await page.goto(`${base}/bootsscheine/sbf-see/`);
+await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByRole('button', { name: /Prüfung (starten|fortsetzen)/ }).click();
 await page.waitForURL(/\/pruefung\/\d+\/$/);
 await page.locator('.bp-timer').waitFor();
@@ -105,15 +110,15 @@ await page.goto(examUrl);
 await page.locator('.bp-verdict').waitFor();
 
 step('Fester Bogen 1 starten und Kursseite zeigt Status');
-await page.goto(`${base}/bootsscheine/sbf-see/`);
+await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByRole('button', { name: /^Bogen 1:/ }).click();
 await page.waitForURL(/\/pruefung\/\d+\/$/);
 await page.getByRole('heading', { name: 'Prüfungsbogen 1' }).waitFor();
-await page.goto(`${base}/bootsscheine/sbf-see/`);
+await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByRole('button', { name: 'Bogen 1: läuft' }).waitFor();
 
 step('Übungsmodus bei unverifiziertem Regelwerk');
-await page.goto(`${base}/bootsscheine/sbf-see-bin/`);
+await page.goto(`${base}/bootsscheine/sbf-see-bin/pruefung/`);
 await page.getByText('Übungsmodus', { exact: true }).waitFor();
 
 step('Tipps & Tricks');

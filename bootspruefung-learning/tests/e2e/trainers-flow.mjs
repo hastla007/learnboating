@@ -23,7 +23,7 @@ await page.waitForURL(/\/bootsscheine\/$/);
 
 step('Kursseite zeigt Trainer');
 await page.goto(`${base}/bootsscheine/sbf-see/`);
-await page.getByRole('heading', { name: 'Weitere Trainer' }).waitFor();
+await page.getByRole('heading', { name: 'Lernbereiche' }).waitFor();
 for (const name of ['Navigationsaufgaben', 'Praxistrainer', 'Videokurs']) {
   assert.ok(await page.locator('#bp-app').getByRole('link', { name, exact: true }).isVisible(), name);
 }

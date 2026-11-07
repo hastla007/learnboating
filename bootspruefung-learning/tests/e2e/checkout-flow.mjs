@@ -82,7 +82,7 @@ try {
   await page.goto(`${base}/bootsscheine/sbf-bin-segel/`);
   await page.getByText('Freischalten mit:').first().waitFor();
   console.log('  ', setup('pay'));
-  await page.goto(`${base}/bootsscheine/sbf-bin-segel/`);
+  await page.goto(`${base}/bootsscheine/sbf-bin-segel/themen/`);
   await page.locator('.bp-module-list a.bp-button').first().waitFor();
   assert.equal(await page.getByText('Freischalten mit:').count(), 0, 'kein Sperrhinweis mehr für gekaufte Funktionen');
   await page.goto(env.account);
@@ -102,7 +102,7 @@ try {
   await page.waitForURL(/order-received/, { timeout: 60000 });
   await page.getByText(/sobald die Zahlung eingegangen ist/).waitFor();
   console.log('  ', setup('pay'));
-  await page.goto(`${base}/bootsscheine/sbf-bin-segel/`);
+  await page.goto(`${base}/bootsscheine/sbf-bin-segel/themen/`);
   await page.locator('.bp-module-list a.bp-button').first().waitFor();
 
 } catch (e) {

@@ -22,7 +22,7 @@ await page.waitForURL(/\/bootsscheine\/$/);
 
 step('Kachel im Kombikurs SBF See + Binnen');
 await page.goto(`${base}/bootsscheine/sbf-see-bin/`);
-await page.locator('#bp-app').getByRole('link', { name: 'Zur Anleitung' }).click();
+await page.locator('#bp-app').getByRole('link', { name: 'Prüfung anmelden', exact: true }).click();
 await page.getByRole('heading', { name: 'SBF-See-Prüfung buchen', level: 1 }).waitFor();
 await page.getByText('30 Fragen: 7 Basisfragen aus 72, 23 See-Fragen aus 213').first().waitFor();
 await page.getByText('Prüfungsgebühr:').waitFor();

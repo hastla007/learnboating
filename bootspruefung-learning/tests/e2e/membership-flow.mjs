@@ -32,8 +32,9 @@ const learner = await session('lerner1', 'Test-Passwort-123');
 let page = learner.page;
 
 step('Kostenloser Teilumfang: Hinweis und gesperrte Bögen');
-await page.goto(`${base}/bootsscheine/sbf-see/`);
-await page.getByText('Kostenloser Umfang: die ersten 3 Fragen je Modul.').waitFor();
+await page.goto(`${base}/bootsscheine/sbf-see/themen/`);
+await page.getByText('Kostenloser Umfang: die ersten 3 Fragen je Modul.').first().waitFor();
+await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByText(/Kostenloser Umfang: die ersten 2 Prüfungsbögen/).waitFor();
 assert.equal(await page.getByRole('button', { name: /Prüfung starten|Simulation starten/ }).count(), 0, 'keine Zufallsprüfung');
 assert.ok(await page.locator('.bp-paper-locked').count() > 0, 'gesperrte Bögen');
@@ -51,7 +52,7 @@ await shot(page, '41-gruppe-beitreten');
 await page.getByRole('button', { name: 'Gruppe beitreten' }).click();
 await page.waitForURL(/\/bootsscheine\/$/);
 await page.goto(`${base}/bootsscheine/sbf-bin-motor/`);
-await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer starten' }).or(page.locator('.bp-module-list a.bp-button').first()).first().waitFor();
+await page.locator('#bp-app').getByRole('link', { name: 'Smarttrainer', exact: true }).waitFor();
 assert.equal(await page.locator('.bp-locked').count(), 0, 'Gruppenplatz schaltet den Kurs voll frei');
 
 step('Gruppenverwaltung der Bootsschule');
