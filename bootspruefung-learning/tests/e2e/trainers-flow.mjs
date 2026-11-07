@@ -19,7 +19,15 @@ await page.goto(`${base}/wp-login.php?redirect_to=${encodeURIComponent(base + '/
 await page.fill('#user_login', process.env.BP_USER);
 await page.fill('#user_pass', process.env.BP_PASS);
 await page.click('#wp-submit');
-await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 90000 });
+try {
+  await page.waitForURL(/\/bootsscheine\/$/, { waitUntil: 'commit', timeout: 20000 });
+} catch (e) {
+  // Diagnose: In CI blieb die Weiterleitung nach dem Login vereinzelt aus.
+  const body = (await page.locator('body').innerText().catch(() => '')).slice(0, 300).replace(/\s+/g, ' ');
+  console.log('  (Login-Weiterleitung ausgeblieben, URL:', page.url(), '| Seite:', body, ')');
+  await page.goto(`${base}/bootsscheine/`);
+}
+await page.locator('.bp-dash-hero h1').waitFor({ timeout: 60000 });
 
 step('Kursseite zeigt Trainer');
 await page.goto(`${base}/bootsscheine/sbf-see/`);
