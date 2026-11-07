@@ -161,9 +161,17 @@
 
 	// ------------------------------------------------------------------ Router
 
+	// Das Geräte-JavaScript der Quelle hängt Tastatur-Listener und einen Takt an das Dokument und lässt sich
+	// nicht abbauen. Nach dem Verlassen des Simulators die Zielseite daher frisch laden.
+	var simLoaded = false;
+
 	function route() {
 		var path = window.location.pathname;
 		var rel = path.indexOf(base) === 0 ? path.slice(base.length) : '';
+		if (simLoaded && !/\/funk\/geraet\/?$/.test(rel)) {
+			window.location.reload();
+			return;
+		}
 		var parts = rel.split('/').filter(Boolean);
 		var query = new URLSearchParams(window.location.search);
 		loading();
@@ -483,7 +491,7 @@
 			}
 
 			nodes.push(c.exam ? examSection(slug, c.exam, c.shop || {}) : lockedBox(t('section_exam'), (c.shop || {}).exam_simulation));
-			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}));
+			nodes.push(trainerSection(slug, c.trainers, c.features, c.shop || {}, c.code));
 			nodes.push(downloadSection(c.downloads || [], (c.shop || {}).downloads));
 			if (c.exam_guide) {
 				nodes.push(el('section', { class: 'bp-section bp-guide-teaser', 'aria-labelledby': 'bp-guide-h' }, [
@@ -680,6 +688,7 @@
 			btn.disabled = true;
 			api(on ? 'DELETE' : 'PUT', 'favorites/' + q.question_id).then(function () {
 				on = !on;
+				q.favorite = on;
 				btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 				label.textContent = on ? t('fav_remove') : t('fav_add');
 			}).finally(function () { btn.disabled = false; });
@@ -925,7 +934,7 @@
 
 	var TRAINER_FEATURES = { 'navigation/': 'navigation_trainer', 'praxis/': 'praxis_trainer', 'video/': 'video_course', 'funk/': 'radio_training' };
 
-	function trainerSection(slug, tr, features, shop) {
+	function trainerSection(slug, tr, features, shop, code) {
 		if (!tr) {
 			return null;
 		}
@@ -942,7 +951,9 @@
 		}
 		if (tr.radio.texts + tr.radio.vocabulary > 0) {
 			tiles.push(['funk/', t('trainer_radio'), t('trainer_radio_meta', { texts: tr.radio.texts, vocabulary: tr.radio.vocabulary })]);
-			// Funkgerät-Simulator: Testversion für alle, Vollversion je nach Zugang.
+		}
+		// Funkgerät-Simulator: in allen Funkkursen, auch ohne Funktraining (z. B. nur Simulator-Pass gekauft).
+		if (['SRC', 'UBI', 'SRC-UBI', 'ADD-UBI-TO-SRC'].indexOf(code) !== -1) {
 			tiles.push(['funk/geraet/', t('device_title'), features && features.device_simulation ? t('device_tile_full') : t('sim_free_short')]);
 		}
 		if (!tiles.length) {
@@ -1240,6 +1251,15 @@
 			fill.style.width = p + '%';
 			pct.textContent = p + ' %';
 			count.textContent = t('video_lessons_count', { done: v.completed, total: v.lessons });
+			var bar = layout.querySelector('.bp-vc-bar');
+			bar.setAttribute('aria-valuenow', String(p));
+			bar.setAttribute('aria-label', t('trainer_video_meta', { done: v.completed, total: v.lessons }));
+			var doneText = item.querySelector('.bp-lesson-done');
+			if (isDone && !doneText) {
+				item.appendChild(el('span', { class: 'bp-lesson-done bp-sr', text: t('video_done') }));
+			} else if (!isDone && doneText) {
+				doneText.remove();
+			}
 			var chapter = item.closest('details');
 			chapter.classList.toggle('is-done', chapter.querySelectorAll('.bp-vc-lesson').length === chapter.querySelectorAll('.bp-vc-lesson.is-done').length);
 		};
@@ -1660,6 +1680,7 @@
 					document.head.appendChild(el('link', { id: 'bp-device-sim-css', rel: 'stylesheet', href: cfg.deviceSim + 'device-sim.css?ver=' + encodeURIComponent(cfg.version) }));
 				}
 				return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)).then(function (module) {
+					simLoaded = true;
 					module.mount(host, config);
 					if (free) {
 						return freeEvents.then(function (events) { simLockedUi(host, config, paywall, events); });
@@ -1697,7 +1718,9 @@
 	// Testversion: gesperrte Lektionen, Prüfungsreihen und Freies Üben ausgegraut in der Seitenleiste des
 	// Geräts zeigen. Das Original-JavaScript baut die Leiste bei jeder Aktion neu; ein Beobachter ergänzt sie.
 	function simLockedUi(host, config, paywall, freeEvents) {
-		var locked = config.locked || { units: [], series: [] };
+		var locked = config.locked || {};
+		locked.units = locked.units || [];
+		locked.series = locked.series || [];
 		var view = null; // 'exam' | 'free' | null
 
 		function lockNote(title, text) {
@@ -1771,6 +1794,9 @@
 			var tablist = list[0].parentElement;
 			list.forEach(function (tab) {
 				var kind = lockedTab(tab);
+				if (view) {
+					tab.setAttribute('aria-selected', kind === view ? 'true' : 'false');
+				}
 				tab.classList.toggle('bp-sim-tab-locked', !!kind);
 				tab.classList.toggle('bp-sim-tab-on', !!kind && kind === view);
 				tab.classList.toggle('bp-sim-tab-off', !kind && !!view);
@@ -1852,6 +1878,10 @@
 		var offers = config.offers || [];
 		var main = offers.filter(function (o) { return o.sku !== 'SIM-PASS-12M'; });
 		var extra = offers.filter(function (o) { return o.sku === 'SIM-PASS-12M'; })[0];
+		if (!main.length && extra) {
+			main = [extra];
+			extra = null;
+		}
 		var list = offers.length ? el('ul', { class: 'bp-paywall-offers' }, main.map(function (o) {
 			var rec = o.sku === 'SIM-PASS-3M';
 			return el('li', {}, [el('a', { href: o.url, class: 'bp-paywall-offer' + (rec ? ' is-recommended' : ''), rel: 'nofollow' }, [
@@ -1860,7 +1890,7 @@
 				el('span', { class: 'bp-paywall-offer-sub', text: subs[o.sku] || '' })
 			])]);
 		})) : el('p', { class: 'bp-note', text: t('sim_no_offers') });
-		var dialog = el('dialog', { class: 'bp-paywall', 'aria-labelledby': 'bp-paywall-h' }, [
+		var dialog = el('dialog', { class: 'bp-paywall', 'aria-labelledby': 'bp-paywall-h' }, [el('div', { class: 'bp-paywall-inner' }, [
 			close,
 			el('span', { class: 'bp-paywall-icon', 'aria-hidden': 'true' }),
 			title,
@@ -1870,7 +1900,7 @@
 			extra ? el('p', { class: 'bp-paywall-extra' }, [el('a', { href: extra.url, rel: 'nofollow', text: t('sim_offer_12m_link', { price: extra.price }) })]) : null,
 			el('p', { class: 'bp-paywall-once', text: t('sim_once') }),
 			el('div', { class: 'bp-paywall-benefits' }, [el('p', {}, [el('strong', { text: t('sim_benefits_title') })]), el('ul', {}, String(t('sim_benefits')).split('\n').map(function (x) { return el('li', { text: x }); }))])
-		]);
+		])]);
 		close.addEventListener('click', function () { dialog.close(); });
 		dialog.addEventListener('click', function (e) { if (e.target === dialog) { dialog.close(); } });
 		return {
@@ -2076,6 +2106,9 @@
 			api('POST', 'exam-sessions/' + s.id + '/submit').then(function (r) { examResult(slug, r); }).catch(function (e) {
 				submitting = false;
 				status.textContent = e.message;
+				if (auto) {
+					clearTimers(); // nicht jede Sekunde erneut abgeben; Knopf bleibt zum erneuten Versuch
+				}
 			});
 		}
 

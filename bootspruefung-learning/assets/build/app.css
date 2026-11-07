@@ -542,7 +542,7 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app .bp-exam-nav-item { width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; border: 1.5px solid color-mix(in srgb, currentColor 14%, transparent); font-size: 0.85rem; font-weight: 600; background: var(--bp-surface); transition: background-color 0.15s, border-color 0.15s; }
 .bp-app .bp-exam-nav-item:hover { border-color: var(--bp-accent); }
 .bp-app .bp-exam-nav-item.is-answered { background: color-mix(in srgb, var(--bp-accent) 16%, var(--bp-surface)); border-color: color-mix(in srgb, var(--bp-accent) 40%, transparent); }
-.bp-app .bp-exam-nav-item.is-current { outline: none; background: var(--bp-navy); border-color: var(--bp-navy); color: #fff; }
+.bp-app .bp-exam-nav-item.is-current { background: var(--bp-navy); border-color: var(--bp-navy); color: #fff; }
 .bp-exam-legend { display: flex; align-items: center; gap: 0.4rem; margin: 0.8rem 0 0; font-size: 0.78rem; opacity: 0.7; }
 .bp-exam-legend span { width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent); }
 .bp-exam-legend span.is-answered { background: color-mix(in srgb, var(--bp-accent) 30%, transparent); border-color: transparent; }
@@ -635,7 +635,7 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-sim-units ul li { position: relative; padding: 0.2rem 0 0.2rem 1.4rem; opacity: 0.8; }
 .bp-sim-units ul li::before { content: ""; position: absolute; left: 0; top: 0.42rem; width: 0.85rem; height: 0.85rem; background: currentColor; opacity: 0.55; -webkit-mask: var(--bp-i-lock) center / contain no-repeat; mask: var(--bp-i-lock) center / contain no-repeat; }
 .bp-sim-units > li.is-exam h3 { color: var(--bp-accent); }
-.bp-paywall { width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; padding: clamp(1.4rem, 4vw, 2.2rem); border: 0; border-radius: 22px; background: var(--wp--preset--color--base, #fff); color: var(--wp--preset--color--contrast, #071B2E); box-shadow: 0 30px 80px rgba(7, 27, 46, 0.45); line-height: 1.5; }
+.bp-paywall { width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; padding: 0; border: 0; border-radius: 22px; background: var(--wp--preset--color--base, #fff); color: var(--wp--preset--color--contrast, #071B2E); box-shadow: 0 30px 80px rgba(7, 27, 46, 0.45); line-height: 1.5; }
 .bp-paywall::backdrop { background: rgba(7, 27, 46, 0.55); backdrop-filter: blur(2px); }
 .bp-paywall h2 { margin: 0 0 0.6rem; font-size: 1.45rem; line-height: 1.2; letter-spacing: -0.01em; }
 .bp-paywall p { margin: 0 0 0.8rem; }
@@ -677,3 +677,13 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app .bp-sim-lock-note .bp-sim-unlock { min-height: 34px; padding: 0.25em 0.9em; font-size: 0.8rem; }
 #bp-device-sim .bp-sim-unlock { display: inline-flex; align-items: center; background: #F5B900; border: 1px solid #F5B900; color: #071B2E; border-radius: 999px; font-weight: 700; cursor: pointer; }
 #bp-device-sim .bp-sim-unlock:hover { background: #ffc81f; }
+
+.bp-paywall-inner { position: relative; padding: clamp(1.4rem, 4vw, 2.2rem); }
+@media (max-width: 900px) {
+	.bp-app .bp-exam-hero .bp-timer { position: fixed; top: 0.6rem; right: 0.6rem; z-index: 50; flex-direction: row; align-items: baseline; gap: 0.5rem; padding: 0.45rem 0.85rem; background: var(--bp-navy); box-shadow: 0 6px 20px rgba(7, 27, 46, 0.3); }
+	.bp-app .bp-exam-hero .bp-timer .bp-timer-time { font-size: 1.25rem; }
+	.bp-app .bp-exam-hero .bp-timer.is-low { background: #8f1d14; }
+}
+@media (prefers-color-scheme: dark) {
+	#bp-device-sim [role="tab"].bp-sim-tab-off { background: #334155 !important; color: #e2e8f0 !important; }
+}
