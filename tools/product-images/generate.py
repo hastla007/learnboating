@@ -121,6 +121,9 @@ def icon(d, kind, cx, cy, r, color):
             x = cx + dx
             d.ellipse([x - hr, cy - 70 - hr, x + hr, cy - 70 + hr], fill=color)
             d.pieslice([x - int(75 * sc), cy - 10, x + int(75 * sc), cy + int(140 * sc)], 180, 360, fill=color)
+    elif kind == 'play':
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=w)
+        d.polygon([(cx - r * 0.3, cy - r * 0.45), (cx - r * 0.3, cy + r * 0.45), (cx + r * 0.5, cy)], fill=color)
     elif kind == 'clock':
         d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=w)
         d.line([(cx, cy), (cx, cy - r + 40)], fill=color, width=w)
@@ -153,8 +156,27 @@ def render(sku, title, subtitle, duration, kind, accent):
     img.convert('RGB').save(os.path.join(OUT, sku + '.png'), optimize=True)
 
 
+# Videokurs-Stufen (Festlegung 07.11.2026): Basis = Theorie, <SKU>-KOMPLETT mit Videokurs, <SKU>-VIDEO = Upgrade.
+VIDEO_TIERS = ['BP-SBF-SEE', 'BP-SBF-BIN', 'BP-SBF-BIN-SEGEL', 'BP-SRC', 'BP-UBI', 'BP-SKN', 'BP-FKN',
+               'BP-ADD-SEE-TO-BIN', 'BP-ADD-BIN-TO-SEE', 'BP-ADD-BIN-SEGEL', 'BP-ADD-UBI-TO-SRC', 'BP-ADD-FKN-TO-SKN']
+
+
+def tiered(products):
+    out = []
+    for sku, title, subtitle, duration, kind, accent in products:
+        if sku not in VIDEO_TIERS:
+            out.append((sku, title, subtitle, duration, kind, accent))
+            continue
+        first = subtitle.split('\n')[0]
+        out.append((sku, title, first + '\nTheorie', duration, kind, accent))
+        out.append((sku + '-KOMPLETT', title, first + '\nKomplett mit Videokurs', duration, kind, accent))
+        out.append((sku + '-VIDEO', title.replace('\n', ' ').replace('- ', '') if len(title) < 14 else title, 'Videokurs-Upgrade', duration, 'play', accent))
+    return out
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
+    PRODUCTS = tiered(PRODUCTS)
     for p in PRODUCTS:
         render(*p)
     for sku, title, course, persons in GROUPS:

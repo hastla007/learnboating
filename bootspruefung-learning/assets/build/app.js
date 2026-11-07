@@ -573,8 +573,11 @@
 		});
 	}
 
-	function videoCard(part, index) {
+	function videoCard(part, index, c) {
 		var v = part.videos;
+		// Videokurs nicht (voll) freigeschaltet, z. B. Theorie-Stufe: erstes Angebot (Upgrade) direkt auf der Karte.
+		var locked = c && ((c.limits && c.limits.video_course) || c.features.video_course === false);
+		var offer = locked && c.shop && c.shop.video_course ? c.shop.video_course[0] : null;
 		var percent = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
 		var bar = el('div', { class: 'bp-hub-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent), 'aria-label': t('trainer_video_meta', { done: v.completed, total: v.lessons }) }, [el('span', { style: 'width:' + percent + '%' })]);
 		var img = courseImage(part.slug, 'hero');
@@ -585,7 +588,10 @@
 			el('p', { class: 'bp-hub-card-text', text: t('hub_video_for', { name: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }) }),
 			el('p', { class: 'bp-hub-card-meta' }, [t('hub_video_progress', { percent: percent }), el('span', { text: ' · ' + t('trainer_video_meta', { done: v.completed, total: v.lessons }) })]),
 			bar,
-			el('a', { href: base + part.slug + '/video/', 'data-bp-link': '1', class: 'bp-button bp-button-light bp-hub-card-go' }, [v.completed > 0 ? t('hub_video_continue') : t('hub_video_start'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })])
+			el('div', { class: 'bp-hub-card-actions' }, [
+				el('a', { href: base + part.slug + '/video/', 'data-bp-link': '1', class: 'bp-button bp-button-light bp-hub-card-go' }, [v.completed > 0 ? t('hub_video_continue') : (locked ? t('hub_video_try') : t('hub_video_start')), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })]),
+				offer ? el('a', { href: offer.url, class: 'bp-hub-card-unlock' }, [t('hub_video_unlock'), offer.price ? el('span', { text: ' · ' + offer.price }) : null]) : null
+			])
 		]);
 	}
 
@@ -647,7 +653,7 @@
 				])
 			]) : null;
 			// Oben immer die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
-			var cards = parts.length ? parts.map(videoCard) : [next, exam];
+			var cards = parts.length ? parts.map(function (part, i) { return videoCard(part, i, c); }) : [next, exam];
 			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' + (cards.length === 1 ? ' is-one' : '') }, cards), progress]));
 
 			// Lernbereiche

@@ -173,7 +173,7 @@ final class SimUpgrade
         $busy = false;
     }
 
-    private static function styles(): string
+    public static function styles(): string
     {
         static $done = false;
         if ($done) {

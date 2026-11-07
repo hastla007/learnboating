@@ -17,8 +17,8 @@ if (! defined('ABSPATH')) {
 function kurswasser_offer_tabs(): array
 {
     return [
-        'sbf' => ['short' => __('SBF', 'kurswasser'), 'label' => __('Sportbootführerschein', 'kurswasser'), 'icon' => 'anchor', 'skus' => ['BP-SBF-BIN', 'BP-SBF-SEE-BIN', 'BP-SBF-SEE'], 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'], 'more' => ['sbf', __('Auch: SBF Binnen unter Segel', 'kurswasser')]],
-        'funk' => ['short' => __('Funk', 'kurswasser'), 'label' => __('Funkzeugnis', 'kurswasser'), 'icon' => 'radio', 'skus' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'compare' => ['BP-SRC', 'BP-UBI'], 'more' => ['seenot', __('Auch: SKN und FKN (Seenotsignalmittel)', 'kurswasser')]],
+        'sbf' => ['short' => __('SBF', 'kurswasser'), 'label' => __('Sportbootführerschein', 'kurswasser'), 'icon' => 'anchor', 'skus' => ['BP-SBF-BIN', 'BP-SBF-SEE-BIN', 'BP-SBF-SEE'], 'compare' => ['BP-SBF-SEE-KOMPLETT', 'BP-SBF-BIN-KOMPLETT'], 'more' => ['sbf', __('Auch: SBF Binnen unter Segel', 'kurswasser')]],
+        'funk' => ['short' => __('Funk', 'kurswasser'), 'label' => __('Funkzeugnis', 'kurswasser'), 'icon' => 'radio', 'skus' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'compare' => ['BP-SRC-KOMPLETT', 'BP-UBI-KOMPLETT'], 'more' => ['seenot', __('Auch: SKN und FKN (Seenotsignalmittel)', 'kurswasser')]],
         'pakete' => ['short' => __('Pakete', 'kurswasser'), 'label' => __('Pakete & Pässe', 'kurswasser'), 'icon' => 'wheel', 'skus' => ['BP-PASS-1M', 'BP-KAPITAEN', 'BP-PASS-3M'], 'compare' => ['BP-SBF-SEE-BIN', 'BP-SRC-UBI'], 'more' => ['ergaenzung', __('Schon einen Schein? Ergänzungskurse', 'kurswasser')]],
     ];
 }
@@ -75,6 +75,7 @@ function kurswasser_offer_item(string $text): string
         '/^Prüfungsmodus: (\d+) Prüfungsaufgaben.*$/u' => 'Prüfungsmodus: $1 Aufgaben',
         '/^Notalarm \(DISTRESS\).*$/u' => 'Notalarm (DISTRESS) mit DSC',
         '/^Alle (\d+) Kurse:.*$/u' => 'Alle $1 Kurse mit allen Trainern',
+        '/^Videokurs \((\d+) Lektionen\) nicht enthalten – als Upgrade für ([\d,]+) € erhältlich.*$/u' => 'Videokurs optional (+$2 €)',
     ];
 
     return (string) preg_replace(array_keys($rules), array_values($rules), $text);
@@ -88,7 +89,7 @@ function kurswasser_money(float $value): string
 /** Kurzer Name ohne Zusätze in Klammern, Untertitel aus der Klammer. */
 function kurswasser_offer_title(string $name): array
 {
-    if (preg_match('/^(.*?)\s*\((.+)\)$/u', $name, $m)) {
+    if (preg_match('/^(.*?)\s*\((.+)\)$/u', $name, $m) || preg_match('/^(.*?)\s+–\s+(.+)$/u', $name, $m)) {
         return [$m[1], mb_strtoupper(mb_substr($m[2], 0, 1)).mb_substr($m[2], 1)];
     }
 
@@ -138,17 +139,30 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
         }
         $html .= '<ul class="kw-offer-list">';
         $list = array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt')));
-        $simLine = array_values(array_filter($list, static fn ($t) => $t === 'Funktraining mit Funkgerät-Simulator'));
-        $list = array_slice($list, 0, 4);
-        if ($simLine !== [] && ! in_array($simLine[0], $list, true)) {
-            $list[3] = $simLine[0]; // Bundle/Pass: Simulator ist ein Hauptunterschied – sichtbar halten
+        // Hauptunterschiede sichtbar halten: Videokurs (enthalten/optional) und Funkgerät-Simulator.
+        $priority = array_values(array_filter($list, static fn ($t) => str_starts_with($t, 'Videokurs') || $t === 'Funktraining mit Funkgerät-Simulator'));
+        $short = array_slice($list, 0, 4);
+        $slot = 3;
+        foreach ($priority as $line) {
+            if (! in_array($line, $short, true) && $slot >= 2) {
+                $short[$slot--] = $line;
+            }
         }
+        $list = $short;
         foreach ($list as $item) {
             $html .= '<li>'.esc_html($item).'</li>';
         }
         $html .= '</ul><div class="kw-offer-actions">';
+        // Theorie-Stufe: Komplett mit Videokurs als zweite Wahl auf derselben Karte.
+        $full = isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$sku]) ? kurswasser_offer(\Bootspruefung\Learning\Commerce\ShopCatalog::komplettSku($sku)) : null;
+        if ($full !== null) {
+            $html .= '<p class="kw-offer-variant"><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html(sprintf(__('Komplett mit Videokurs: %s', 'kurswasser'), kurswasser_money($full['price']))).'</p>';
+        }
         if ($o['buy']) {
-            $html .= '<a class="kw-offer-buy" href="'.esc_url($o['buy']).'" rel="nofollow">'.esc_html__('Jetzt starten', 'kurswasser').' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a>';
+            $html .= '<a class="kw-offer-buy" href="'.esc_url($o['buy']).'" rel="nofollow">'.esc_html($full !== null ? __('Theorie starten', 'kurswasser') : __('Jetzt starten', 'kurswasser')).' <span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></a>';
+            if ($full !== null && $full['buy']) {
+                $html .= '<a class="kw-offer-buy is-secondary" href="'.esc_url($full['buy']).'" rel="nofollow">'.esc_html__('Mit Videokurs starten', 'kurswasser').'</a>';
+            }
         } else {
             $html .= '<span class="kw-offer-buy is-disabled">'.esc_html__('Bald verfügbar', 'kurswasser').'</span>';
         }

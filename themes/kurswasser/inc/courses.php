@@ -23,13 +23,13 @@ function kurswasser_courses(): array
             'main' => 'BP-SBF-SEE', 'mark' => 'SEE', 'title' => 'SBF See', 'name' => 'Sportbootführerschein See', 'eyebrow' => 'Sportbootführerschein', 'code' => 'SBF-SEE', 'icon' => 'anchor', 'tone' => 'see',
             'teaser' => 'Für Küste und Seeschifffahrtsstraßen – mit Navigationsaufgaben in der Übungsseekarte.',
             'lead' => 'Bereite dich online auf die Theorie des SBF See vor: alle Prüfungsfragen im Smarttrainer, Navigationsaufgaben mit Musterlösungen, Praxiskarten für die Prüfungsfahrt und eine Prüfungssimulation mit Zeitlimit.',
-            'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'],
+            'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE-KOMPLETT', 'BP-SBF-BIN-KOMPLETT'],
         ],
         'sbf-binnen' => [
             'main' => 'BP-SBF-BIN', 'mark' => 'BINNEN', 'title' => 'SBF Binnen', 'name' => 'Sportbootführerschein Binnen', 'eyebrow' => 'Sportbootführerschein', 'code' => 'SBF-BIN-MOTOR', 'icon' => 'anchor', 'tone' => 'binnen',
             'teaser' => 'Für Binnenschifffahrtsstraßen unter Motor – Schifffahrtszeichen, Lichter und Vorfahrt.',
-            'lead' => 'Lerne online für den SBF Binnen unter Antriebsmaschine: alle Prüfungsfragen im Smarttrainer, Praxiskarten zu Zeichen, Lichtern und Manövern, ein Videokurs und die Prüfungssimulation mit Zeitlimit.',
-            'offers' => ['BP-SBF-BIN', 'BP-SBF-SEE-BIN', 'BP-SBF-BIN-SEGEL'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'],
+            'lead' => 'Lerne online für den SBF Binnen unter Antriebsmaschine: alle Prüfungsfragen im Smarttrainer, Praxiskarten zu Zeichen, Lichtern und Manövern und die Prüfungssimulation mit Zeitlimit – auf Wunsch mit Videokurs.',
+            'offers' => ['BP-SBF-BIN', 'BP-SBF-SEE-BIN', 'BP-SBF-BIN-SEGEL'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE-KOMPLETT', 'BP-SBF-BIN-KOMPLETT'],
         ],
         'sbf-binnen-segel' => [
             'main' => 'BP-SBF-BIN-SEGEL', 'mark' => 'SEGEL', 'title' => 'SBF Binnen Segel', 'name' => 'Sportbootführerschein Binnen unter Segel', 'eyebrow' => 'Sportbootführerschein', 'code' => 'SBF-BIN-SEGEL', 'icon' => 'sail', 'tone' => 'segel',
@@ -41,13 +41,13 @@ function kurswasser_courses(): array
             'main' => 'BP-SRC', 'mark' => 'SRC', 'title' => 'SRC', 'name' => 'Short Range Certificate', 'eyebrow' => 'Funkzeugnis', 'code' => 'SRC', 'icon' => 'radio', 'tone' => 'funk',
             'teaser' => 'UKW-Seefunk mit DSC – Fragen, englische Funktexte und Funkgerät-Simulator zum Testen.',
             'lead' => 'Lerne für das SRC: alle Prüfungsfragen im Smarttrainer, englische Funktexte mit Auswertung, Vokabeln und Buchstabiertafel – dazu der Funkgerät-Simulator für den praktischen Teil: kostenlos testen, Vollversion als Upgrade.',
-            'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
+            'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-UBI'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC-KOMPLETT', 'BP-UBI-KOMPLETT'],
         ],
         'ubi' => [
             'main' => 'BP-UBI', 'mark' => 'UBI', 'title' => 'UBI', 'name' => 'UKW-Sprechfunkzeugnis Binnen', 'eyebrow' => 'Funkzeugnis', 'code' => 'UBI', 'icon' => 'radio', 'tone' => 'ubi',
             'teaser' => 'Binnenfunk – Fragen, Textaufnahme und Textabgabe, Funkgerät-Simulator zum Testen.',
             'lead' => 'Lerne für das UBI: alle Prüfungsfragen im Smarttrainer, Funktexte für Textaufnahme und Textabgabe, Praxisszenarien und die Prüfungssimulation.',
-            'offers' => ['BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
+            'offers' => ['BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC-KOMPLETT', 'BP-UBI-KOMPLETT'],
         ],
         'skn' => [
             'main' => 'BP-SKN', 'mark' => 'SKN', 'title' => 'SKN', 'name' => 'Sachkundenachweis Seenotsignalmittel', 'eyebrow' => 'Seenotsignalmittel', 'code' => 'SKN', 'icon' => 'flare', 'tone' => 'signal',
@@ -65,7 +65,7 @@ function kurswasser_courses(): array
             'main' => 'BP-SBF-SEE-BIN', 'mark' => 'KOMBI', 'title' => 'SBF See & Binnen', 'name' => 'Kombi SBF See & Binnen', 'eyebrow' => 'Kombi', 'code' => 'SBF-SEE-BIN', 'icon' => 'anchor', 'tone' => 'see',
             'teaser' => 'Beide Sportbootführerscheine in einem Kurs – Küste und Binnen.',
             'lead' => 'Lerne SBF See und SBF Binnen in einem Kurs: alle Prüfungsfragen beider Scheine im Smarttrainer, Navigationsaufgaben, Praxiskarten, Videokurs und Prüfungssimulation – günstiger als zwei Einzelkurse.',
-            'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE', 'BP-SBF-BIN'],
+            'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE-KOMPLETT', 'BP-SBF-BIN-KOMPLETT'],
         ],
         'kapitaen' => [
             'main' => 'BP-KAPITAEN', 'mark' => 'BUNDLE', 'title' => 'Kapitäns-Bundle', 'name' => 'Kapitäns-Bundle: SBF See, Binnen, SRC & UBI', 'eyebrow' => 'Komplettpaket', 'code' => 'SBF-SEE-BIN', 'codes' => ['SBF-SEE-BIN', 'SRC-UBI'], 'exam' => false, 'icon' => 'wheel', 'tone' => 'bundle', 'signal' => true,
@@ -77,7 +77,7 @@ function kurswasser_courses(): array
             'main' => 'BP-SRC-UBI', 'mark' => 'KOMBI', 'title' => 'SRC & UBI', 'name' => 'Kombi SRC & UBI', 'eyebrow' => 'Kombi', 'code' => 'SRC-UBI', 'icon' => 'radio', 'tone' => 'funk',
             'teaser' => 'Seefunk und Binnenfunk zusammen – beide Funkzeugnisse in einem Kurs.',
             'lead' => 'Lerne SRC und UBI in einem Kurs: alle Prüfungsfragen beider Funkzeugnisse, englische und deutsche Funktexte, Vokabeln und Praxisszenarien – günstiger als zwei Einzelkurse. Den Funkgerät-Simulator testest du kostenlos und schaltest ihn als Upgrade frei.',
-            'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-KAPITAEN'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
+            'offers' => ['BP-SRC', 'BP-SRC-UBI', 'BP-KAPITAEN'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC-KOMPLETT', 'BP-UBI-KOMPLETT'],
         ],
     ];
 }
@@ -128,7 +128,7 @@ function kurswasser_tile(string $slug): string
             $saving = round(array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $def['compare'])) - $main['price'], 2);
         }
         $t = ['title' => $def['title'], 'name' => $def['name'], 'eyebrow' => $def['eyebrow'], 'icon' => $def['icon'], 'teaser' => $def['teaser'], 'facts' => $facts,
-            'url' => kurswasser_course_url($slug), 'price' => $main['price'] ?? null, 'from' => false, 'cta' => __('Kurs ansehen', 'kurswasser'), 'saving' => $saving, 'signal' => ! empty($def['signal'])];
+            'url' => kurswasser_course_url($slug), 'price' => $main['price'] ?? null, 'from' => class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class) && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main']]), 'cta' => __('Kurs ansehen', 'kurswasser'), 'saving' => $saving, 'signal' => ! empty($def['signal'])];
     } else {
         $t = kurswasser_special_tiles()[$slug] ?? null;
         if ($t === null) {
@@ -262,7 +262,10 @@ add_shortcode('kurswasser_course', static function ($atts): string {
         $features[] = ['cards', __('Praxiskarten', 'kurswasser'), sprintf(__('%d Karten zum Einprägen für den praktischen Teil.', 'kurswasser'), $stats['praxis'])];
     }
     if ($stats['videos']) {
-        $features[] = ['play', __('Videokurs', 'kurswasser'), sprintf(__('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen.', 'kurswasser'), $stats['videos'])];
+        $tiered = class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class) && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main'] ?? '']);
+        $features[] = ['play', __('Videokurs', 'kurswasser'), sprintf($tiered
+            ? __('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen – in der Komplett-Stufe oder als Upgrade; erste Lektion kostenlos.', 'kurswasser')
+            : __('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen.', 'kurswasser'), $stats['videos'])];
     }
     if (array_intersect($def['codes'] ?? [$def['code']], ['SRC', 'UBI', 'SRC-UBI']) !== []) {
         $features[] = ['radio', __('Funktraining', 'kurswasser'), kurswasser_course_has_sim($def)

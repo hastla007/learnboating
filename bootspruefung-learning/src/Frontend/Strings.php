@@ -164,6 +164,8 @@ final class Strings
             'hub_part' => __('Dein Teilkurs', $d),
             'hub_video_for' => __('Dein Videokurs für {name}', $d),
             'hub_video_progress' => __('Kursfortschritt {percent} %', $d),
+            'hub_video_try' => __('Erste Lektion kostenlos ansehen', $d),
+            'hub_video_unlock' => __('Videokurs freischalten', $d),
             'hub_video_continue' => __('Weiterschauen', $d),
             'hub_video_start' => __('Videokurs starten', $d),
             'hub_exam_eyebrow' => __('Bereit für die Prüfung?', $d),

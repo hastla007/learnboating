@@ -462,3 +462,7 @@ img { height: auto; }
 /* Funk-Kursseiten: Funkgerät-Simulator */
 .kw-sim { margin-top: var(--wp--preset--spacing--60); padding-bottom: var(--wp--preset--spacing--60); border-radius: 28px; background: linear-gradient(180deg, color-mix(in srgb, var(--wp--preset--color--primary) 8%, transparent), transparent 70%); }
 .kw-sim-note { max-width: 46rem; margin: 1rem auto 0; text-align: center; font-size: 0.88rem; opacity: 0.75; }
+/* Videokurs-Stufe: Komplett als zweite Wahl auf der Karte */
+.kw-offer-variant { margin: 0; display: flex; align-items: center; gap: .4rem; font-size: .92rem; font-weight: 700; color: var(--kw-navy); }
+.kw-offer-buy.is-secondary { background: transparent; color: var(--kw-navy); border: 2px solid var(--kw-navy); padding: .8rem 1.25rem; }
+.kw-offer-buy.is-secondary:hover { background: var(--kw-navy); color: #fff; }

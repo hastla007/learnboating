@@ -1367,3 +1367,9 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-app a.bp-chart-point { left: -12px; top: -12px; width: 24px; height: 24px; }
 .bp-topic-group-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 1.05rem 1.3rem; }
 .bp-topic-group-head .bp-topic-chevron { display: none; }
+/* Videokarte: Freischalten (z. B. Theorie-Stufe) */
+.bp-hub-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem; margin-top: 1rem; }
+.bp-hub-card-actions .bp-hub-card-go { margin-top: 0; }
+.bp-app a.bp-hub-card-unlock { position: relative; z-index: 1; color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.bp-app a.bp-hub-card-unlock:hover { color: var(--bp-signal); }
+.bp-app a.bp-hub-card-unlock:focus-visible { outline: 3px solid var(--bp-signal); outline-offset: 2px; }

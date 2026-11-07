@@ -26,7 +26,49 @@ final class ShopCatalog
     /** Upgrade im Checkout, nur zusammen mit einem Funkkurs (Order Bump). */
     public const SIM_UPGRADE = 'SIM-UPGRADE-CHECKOUT';
     /** Produkte, bei deren Kauf das Upgrade angeboten wird. */
-    public const SIM_UPGRADE_FOR = ['BP-SRC', 'BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC'];
+    public const SIM_UPGRADE_FOR = ['BP-SRC', 'BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC', 'BP-SRC-KOMPLETT', 'BP-UBI-KOMPLETT', 'BP-ADD-UBI-TO-SRC-KOMPLETT'];
+
+    /**
+     * Videokurs als eigene Stufe (Festlegung 07.11.2026): Basis-SKU = Theorie (ohne Videokurs),
+     * <SKU>-KOMPLETT = mit Videokurs (Aufschlag), <SKU>-VIDEO = Video-Upgrade zum Aufschlag
+     * (nur zusammen mit der Theorie-Stufe im Warenkorb oder im Konto). Kombis, Bundle, Pässe
+     * und Gruppenpakete enthalten den Videokurs immer.
+     */
+    public const VIDEO_TIERS = [
+        'BP-SBF-SEE' => '11.90', 'BP-SBF-BIN' => '11.90', 'BP-SBF-BIN-SEGEL' => '11.90',
+        'BP-SRC' => '7.90', 'BP-UBI' => '7.90', 'BP-SKN' => '4.90', 'BP-FKN' => '4.90',
+        'BP-ADD-SEE-TO-BIN' => '4.90', 'BP-ADD-BIN-TO-SEE' => '4.90', 'BP-ADD-BIN-SEGEL' => '4.90', 'BP-ADD-UBI-TO-SRC' => '4.90', 'BP-ADD-FKN-TO-SKN' => '4.90',
+    ];
+    public const KOMPLETT_SUFFIX = '-KOMPLETT';
+    public const VIDEO_SUFFIX = '-VIDEO';
+
+    public static function komplettSku(string $base): string
+    {
+        return $base.self::KOMPLETT_SUFFIX;
+    }
+
+    public static function videoSku(string $base): string
+    {
+        return $base.self::VIDEO_SUFFIX;
+    }
+
+    /** @return list<string> alle Video-Upgrade-SKUs */
+    public static function videoUpgradeSkus(): array
+    {
+        return array_map([self::class, 'videoSku'], array_keys(self::VIDEO_TIERS));
+    }
+
+    /** Theorie-Basis eines Komplett- oder Upgrade-Produkts (sonst null). */
+    public static function tierBase(string $sku): ?string
+    {
+        foreach ([self::KOMPLETT_SUFFIX, self::VIDEO_SUFFIX] as $suffix) {
+            if (str_ends_with($sku, $suffix) && isset(self::VIDEO_TIERS[substr($sku, 0, -strlen($suffix))])) {
+                return substr($sku, 0, -strlen($suffix));
+            }
+        }
+
+        return null;
+    }
 
     public const MONEY_BACK_DAYS = 14;
     public const MONEY_BACK_MAX_PROGRESS = 20.0;
@@ -45,10 +87,10 @@ final class ShopCatalog
     public static function products(): array
     {
         $list = [
-            ['sku' => 'BP-SBF-SEE-BIN', 'name' => 'SBF See & Binnen (Kombi)', 'price' => '48.90', 'days' => 365, 'courses' => self::SBF_ALL],
+            ['sku' => 'BP-SBF-SEE-BIN', 'name' => 'SBF See & Binnen (Kombi)', 'price' => '60.80', 'days' => 365, 'courses' => self::SBF_ALL],
             ['sku' => 'BP-SBF-SEE', 'name' => 'SBF See (Einzelkurs)', 'price' => '28.90', 'days' => 365, 'courses' => ['SBF-SEE']],
             ['sku' => 'BP-SBF-BIN', 'name' => 'SBF Binnen (Einzelkurs)', 'price' => '27.80', 'days' => 365, 'courses' => ['SBF-BIN-MOTOR']],
-            ['sku' => 'BP-SRC-UBI', 'name' => 'SRC & UBI Kombikurs (Funk)', 'price' => '38.90', 'days' => 365, 'courses' => self::RADIO_ALL],
+            ['sku' => 'BP-SRC-UBI', 'name' => 'SRC & UBI Kombikurs (Funk)', 'price' => '46.80', 'days' => 365, 'courses' => self::RADIO_ALL],
             ['sku' => 'BP-SRC', 'name' => 'SRC Vollkurs', 'price' => '23.90', 'days' => 365, 'courses' => ['SRC']],
             ['sku' => 'BP-UBI', 'name' => 'UBI Vollkurs', 'price' => '23.90', 'days' => 365, 'courses' => ['UBI']],
             ['sku' => 'BP-SBF-BIN-SEGEL', 'name' => 'SBF Binnen unter Segel', 'price' => '18.90', 'days' => 365, 'courses' => ['SBF-BIN-SEGEL']],
@@ -69,31 +111,47 @@ final class ShopCatalog
                 $list[$i]['features'] = self::featuresWithoutSim();
             }
         }
-        $list[] = ['sku' => 'BP-KAPITAEN', 'name' => 'Kapitäns-Bundle (SBF See + Binnen + Funk)', 'price' => '68.90', 'days' => 365, 'courses' => [...self::SBF_ALL, ...self::RADIO_ALL], 'group' => 'bundle'];
+        // Videokurs-Stufen: Basis = Theorie (ohne Video), dahinter Komplett (mit Video).
+        $tiered = [];
+        $upgrades = [];
+        foreach ($list as $item) {
+            $surcharge = self::VIDEO_TIERS[$item['sku']] ?? null;
+            if ($surcharge === null) {
+                $tiered[] = $item;
+                continue;
+            }
+            $label = trim((string) preg_replace('/\s*\((Einzelkurs|Funk)\)$|\s+Vollkurs$/u', '', $item['name']));
+            $features = $item['features'] ?? ProductAccessRepository::features();
+            $tiered[] = ['name' => $label.' – Theorie', 'features' => array_values(array_diff($features, [ProductAccessRepository::FEATURE_ALL, AccessService::VIDEO])), 'tier' => 'theorie'] + $item;
+            $tiered[] = ['sku' => self::komplettSku($item['sku']), 'name' => $label.' – Komplett mit Videokurs', 'price' => number_format((float) $item['price'] + (float) $surcharge, 2, '.', ''), 'features' => $features, 'tier' => 'komplett'] + $item;
+            $upgrades[] = ['sku' => self::videoSku($item['sku']), 'name' => 'Videokurs-Upgrade: '.$label, 'price' => $surcharge, 'days' => $item['days'], 'courses' => $item['courses'], 'group' => 'videoupgrade', 'features' => [AccessService::VIDEO], 'hidden' => true, 'tier' => 'upgrade', 'upgrade_for' => $item['sku'], 'category' => $item['group']];
+        }
+        $list = $tiered;
+        $list[] = ['sku' => 'BP-KAPITAEN', 'name' => 'Kapitäns-Bundle (SBF See + Binnen + Funk)', 'price' => '88.70', 'days' => 365, 'courses' => [...self::SBF_ALL, ...self::RADIO_ALL], 'group' => 'bundle'];
         $all = array_keys($names);
-        $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '13.90', 'days' => 30, 'courses' => $all, 'group' => 'bundle'];
-        $list[] = ['sku' => 'BP-PASS-3M', 'name' => '3-Monats-Pass (alle Inhalte)', 'price' => '28.90', 'days' => 90, 'courses' => $all, 'group' => 'bundle'];
+        $list[] = ['sku' => 'BP-PASS-1M', 'name' => '1-Monats-Pass (alle Inhalte)', 'price' => '16.90', 'days' => 30, 'courses' => $all, 'group' => 'bundle'];
+        $list[] = ['sku' => 'BP-PASS-3M', 'name' => '3-Monats-Pass (alle Inhalte)', 'price' => '34.90', 'days' => 90, 'courses' => $all, 'group' => 'bundle'];
         // Gruppenpakete (Festlegung 06.11.2026): Käufer erhält ein Kontingent und lädt Mitlernende ein.
         $see = ['SBF-SEE'];
         $bin = ['SBF-BIN-MOTOR'];
         foreach ([
-            ['GRP-PAIR-01', 'Crew-Ticket: SBF See (2 Pers.)', 2, $see, '49.90'],
-            ['GRP-PAIR-02', 'Crew-Ticket: SBF Binnen (2 Pers.)', 2, $bin, '47.90'],
-            ['GRP-PAIR-03', 'Crew-Ticket: Kombi See/Binnen (2 Pers.)', 2, self::SBF_ALL, '84.90'],
-            ['GRP-PAIR-04', 'Crew-Ticket: Funk SRC/UBI (2 Pers.)', 2, self::RADIO_ALL, '66.90'],
-            ['GRP-FAM-01', 'Familien-Flotte: SBF See (3 Pers.)', 3, $see, '69.90'],
-            ['GRP-FAM-02', 'Familien-Flotte: Kombi See/Binnen (3 Pers.)', 3, self::SBF_ALL, '119.90'],
-            ['GRP-FAM-03', 'Familien-Flotte: Kombi See/Binnen (4 Pers.)', 4, self::SBF_ALL, '149.90'],
-            ['GRP-CREW-01', 'Skipper-Crew 5: SBF See', 5, $see, '109.90'],
-            ['GRP-CREW-02', 'Skipper-Crew 5: Kombi See/Binnen', 5, self::SBF_ALL, '189.90'],
-            ['GRP-CREW-03', 'Skipper-Crew 5: Funk SRC/UBI', 5, self::RADIO_ALL, '149.90'],
-            ['GRP-CREW-04', 'Yacht-Crew 7: SBF See', 7, $see, '149.90'],
-            ['GRP-CREW-05', 'Yacht-Crew 7: Kombi See/Binnen', 7, self::SBF_ALL, '249.90'],
-            ['GRP-CLUB-10', 'Flottille 10: SBF See', 10, $see, '199.90'],
-            ['GRP-CLUB-11', 'Flottille 10: Kombi See/Binnen', 10, self::SBF_ALL, '329.90'],
-            ['GRP-CLUB-20', 'Vereins-Paket 20: SBF See', 20, $see, '369.90'],
-            ['GRP-CLUB-21', 'Vereins-Paket 20: Kombi See/Binnen', 20, self::SBF_ALL, '599.90'],
-            ['GRP-CLUB-50', 'Partner-Flat 50: Kombi See/Binnen', 50, self::SBF_ALL, '1249.00'],
+            ['GRP-PAIR-01', 'Crew-Ticket: SBF See (2 Pers.)', 2, $see, '68.90'],
+            ['GRP-PAIR-02', 'Crew-Ticket: SBF Binnen (2 Pers.)', 2, $bin, '66.90'],
+            ['GRP-PAIR-03', 'Crew-Ticket: Kombi See/Binnen (2 Pers.)', 2, self::SBF_ALL, '103.90'],
+            ['GRP-PAIR-04', 'Crew-Ticket: Funk SRC/UBI (2 Pers.)', 2, self::RADIO_ALL, '79.90'],
+            ['GRP-FAM-01', 'Familien-Flotte: SBF See (3 Pers.)', 3, $see, '98.90'],
+            ['GRP-FAM-02', 'Familien-Flotte: Kombi See/Binnen (3 Pers.)', 3, self::SBF_ALL, '148.90'],
+            ['GRP-FAM-03', 'Familien-Flotte: Kombi See/Binnen (4 Pers.)', 4, self::SBF_ALL, '187.90'],
+            ['GRP-CREW-01', 'Skipper-Crew 5: SBF See', 5, $see, '157.90'],
+            ['GRP-CREW-02', 'Skipper-Crew 5: Kombi See/Binnen', 5, self::SBF_ALL, '237.90'],
+            ['GRP-CREW-03', 'Skipper-Crew 5: Funk SRC/UBI', 5, self::RADIO_ALL, '181.90'],
+            ['GRP-CREW-04', 'Yacht-Crew 7: SBF See', 7, $see, '216.90'],
+            ['GRP-CREW-05', 'Yacht-Crew 7: Kombi See/Binnen', 7, self::SBF_ALL, '316.90'],
+            ['GRP-CLUB-10', 'Flottille 10: SBF See', 10, $see, '294.90'],
+            ['GRP-CLUB-11', 'Flottille 10: Kombi See/Binnen', 10, self::SBF_ALL, '424.90'],
+            ['GRP-CLUB-20', 'Vereins-Paket 20: SBF See', 20, $see, '559.90'],
+            ['GRP-CLUB-21', 'Vereins-Paket 20: Kombi See/Binnen', 20, self::SBF_ALL, '789.90'],
+            ['GRP-CLUB-50', 'Partner-Flat 50: Kombi See/Binnen', 50, self::SBF_ALL, '1725.00'],
         ] as [$sku, $name, $seats, $courses, $price]) {
             $item = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => 365, 'courses' => $courses, 'group' => 'groups', 'seats' => $seats];
             if ($courses === self::RADIO_ALL) {
@@ -110,6 +168,8 @@ final class ShopCatalog
         ] as [$sku, $name, $price, $days]) {
             $list[] = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => $days, 'courses' => self::SIM_COURSES, 'group' => 'simulator', 'features' => [AccessService::DEVICE], 'hidden' => $sku === self::SIM_UPGRADE, 'guarantee' => false];
         }
+        // Video-Upgrades: nicht im Shop gelistet, nur mit Theorie-Stufe kaufbar (Geld-zurück-Garantie wie der Kurs).
+        array_push($list, ...$upgrades);
 
         return $list;
     }
@@ -179,7 +239,7 @@ final class ShopCatalog
                 $product->set_description($text['long']);
                 $product->update_meta_data('_bp_catalog_text', md5($text['short'].'|'.$text['long']));
             }
-            $product->set_category_ids([self::category($def['group'])]);
+            $product->set_category_ids([self::category($def['category'] ?? $def['group'])]);
             $image = self::image($def['sku'], (int) $product->get_image_id());
             if ($image > 0) {
                 $product->set_image_id($image);
@@ -320,6 +380,9 @@ final class ShopCatalog
         if (($def['group'] ?? '') === 'simulator') {
             return self::simTexts($def);
         }
+        if (($def['group'] ?? '') === 'videoupgrade') {
+            return self::videoUpgradeTexts($def);
+        }
         global $wpdb;
         $p = $wpdb->prefix.'bp_';
         $all = array_values(array_unique($def['courses']));
@@ -350,7 +413,7 @@ final class ShopCatalog
         };
         $items = [];
         if ($questions > 0) {
-            $items[] = sprintf('%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Merkliste', $questions);
+            $items[] = sprintf('%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Favoriten', $questions);
         }
         $items[] = $papers > 0 ? sprintf('Prüfungssimulation mit Zeitlimit und Auswertung, inkl. %d Prüfungsbögen', $papers) : 'Prüfungssimulation mit Zeitlimit und Auswertung';
         if ($nav > 0) {
@@ -359,8 +422,11 @@ final class ShopCatalog
         if ($praxis > 0) {
             $items[] = sprintf('%d Praxiskarten zur Vorbereitung auf die praktische Prüfung', $praxis);
         }
-        if ($videos > 0) {
+        $withVideo = in_array(AccessService::VIDEO, $def['features'] ?? [AccessService::VIDEO], true);
+        if ($videos > 0 && $withVideo) {
             $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
+        } elseif ($videos > 0 && ($def['tier'] ?? '') === 'theorie') {
+            $items[] = sprintf('Videokurs (%d Lektionen) nicht enthalten – als Upgrade für %s € erhältlich, erste Lektion kostenlos', $videos, number_format((float) (self::VIDEO_TIERS[$def['sku']] ?? 0), 2, ',', '.'));
         }
         $withSim = in_array(AccessService::DEVICE, $def['features'] ?? [AccessService::DEVICE], true);
         if ($radio && $seats > 0 && ! $withSim) {
@@ -388,6 +454,19 @@ final class ShopCatalog
             : sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
 
         return ['short' => esc_html($short), 'long' => $long];
+    }
+
+    /** Texte des Video-Upgrades (nur zusammen mit der Theorie-Stufe). @return array{short:string,long:string} */
+    private static function videoUpgradeTexts(array $def): array
+    {
+        $course = Labels::course($def['courses'][0]);
+        $videos = self::courseStats([$def['courses'][0]])['videos'];
+        $months = $def['days'] >= 360 ? '12 Monate' : '6 Monate';
+        $long = '<p>'.esc_html(sprintf('Erweitere deinen Theoriekurs %s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt%s.', $course, $videos > 0 ? sprintf(' – %d Lektionen', $videos) : '')).'</p>'
+            .'<p>'.esc_html(sprintf('Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Zugang %s ab Kauf.', $course, $months)).'</p>'
+            .'<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>';
+
+        return ['short' => esc_html(sprintf('Videokurs zum Theoriekurs %s · Zugang %s · Geld-zurück-Garantie', $course, $months)), 'long' => $long];
     }
 
     /** Web-App-Vorteile des Simulators (ohne Vergleich mit Anbietern, Festlegung 06.11.2026). @return list<string> */

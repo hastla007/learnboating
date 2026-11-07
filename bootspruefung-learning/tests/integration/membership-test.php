@@ -422,7 +422,15 @@ $check($free['added'] === $free['courses'] * 5 && $again['added'] === 0, 'Schnup
 $taster = $user('bp_taster');
 $check($access->limit($taster, 'SKN', 'question_bank') === 10 && $access->limit($taster, 'SKN', 'exam_simulation') === 1 && ! $access->full($taster, 'SKN', 'question_bank'), 'ohne Kauf: 10 Fragen je Modul, 1 Prüfungsbogen');
 $wpdb->query("DELETE FROM {$p}access_rule WHERE id > {$ruleMax}");
-$check(count(\Bootspruefung\Learning\Commerce\ShopCatalog::products()) === 38, 'Katalog: 17 Einzelprodukte + 17 Gruppenpakete + 4 Simulator-Zugänge');
+$catalog = \Bootspruefung\Learning\Commerce\ShopCatalog::products();
+$check(count($catalog) === 62, 'Katalog: 17 Einzelprodukte + 12 Komplett-Stufen + 12 Video-Upgrades + 17 Gruppenpakete + 4 Simulator-Zugänge');
+$bySku = array_column($catalog, null, 'sku');
+$check(! in_array('video_course', $bySku['BP-SBF-SEE']['features'], true) && ! in_array('all', $bySku['BP-SBF-SEE']['features'], true) && in_array('question_bank', $bySku['BP-SBF-SEE']['features'], true), 'Theorie-Stufe ohne Videokurs');
+$check($bySku['BP-SBF-SEE-KOMPLETT']['price'] === '40.80' && in_array('all', $bySku['BP-SBF-SEE-KOMPLETT']['features'], true), 'Komplett-Stufe mit Videokurs, 40,80 €');
+$check($bySku['BP-SBF-SEE-VIDEO']['features'] === ['video_course'] && $bySku['BP-SBF-SEE-VIDEO']['hidden'] && $bySku['BP-SBF-SEE-VIDEO']['price'] === '11.90', 'Video-Upgrade: nur Videokurs, nicht gelistet, 11,90 €');
+$check(in_array('video_course', $bySku['BP-SRC-KOMPLETT']['features'], true) && ! in_array('device_simulation', $bySku['BP-SRC-KOMPLETT']['features'], true) && ! in_array('video_course', $bySku['BP-SRC']['features'], true), 'SRC: Theorie ohne Video, Komplett mit Video, beide ohne Simulator');
+$check(! isset($bySku['BP-SBF-SEE-BIN']['features']) && $bySku['BP-SBF-SEE-BIN']['price'] === '60.80', 'Kombi bleibt komplett (60,80 €)');
+$check(\Bootspruefung\Learning\Commerce\ShopCatalog::tierBase('BP-SRC-VIDEO') === 'BP-SRC' && \Bootspruefung\Learning\Commerce\ShopCatalog::tierBase('BP-SRC-UBI') === null, 'Stufen-Zuordnung über die Artikelnummer');
 
 $mbProduct = 995001;
 $products->save($mbProduct, 0, [['course_code' => 'SKN', 'feature_code' => 'question_bank']], 182, 'extend', 'revoke_on_full_refund');

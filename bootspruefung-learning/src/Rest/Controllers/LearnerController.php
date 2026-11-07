@@ -159,7 +159,7 @@ final class LearnerController
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course, (bool) $request['ergebnisse']) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
             // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
-            'shop' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES))),
+            'shop' => $this->shopOffers($user, $course),
             'limits' => $this->access->limits($user, $course->code),
             'downloads' => \Bootspruefung\Learning\Gate\DownloadService::items($user, $course->code),
             'files' => \Bootspruefung\Learning\Gate\SectionFiles::forCourse($user, $course->code),
@@ -206,6 +206,17 @@ final class LearnerController
         $this->learning->setFavorite(get_current_user_id(), (int) $request['question'], $on);
 
         return ['favorite' => $on];
+    }
+
+    /** Kaufangebote für gesperrte Funktionen; Theorie-Käufern zuerst das Video-Upgrade. @return array<string,list<array>> */
+    private function shopOffers(int $user, object $course): array
+    {
+        $shop = \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES)));
+        if (isset($shop[AccessService::VIDEO]) && ($upgrade = \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::offerFor($user, $course->code)) !== null) {
+            array_unshift($shop[AccessService::VIDEO], $upgrade);
+        }
+
+        return $shop;
     }
 
     /** Kurs mit freigeschaltetem Fragenkatalog oder 403. */
