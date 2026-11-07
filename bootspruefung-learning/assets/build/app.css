@@ -1286,3 +1286,14 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-chart-foot { margin-top: auto; padding-top: 0.6rem; }
 .bp-exam-results { align-items: start; }
 .bp-chart { flex: none; height: 300px; max-height: none; }
+/* Ergebnisliste so hoch wie das Diagramm, mit Blättern */
+.bp-exam-results { align-items: stretch; }
+.bp-exam-results .bp-history-card { display: flex; flex-direction: column; }
+.bp-pager { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: auto; padding-top: 0.8rem; border-top: 1px solid var(--bp-border); }
+.bp-app .bp-pager-btn { min-height: 40px; padding: 0 0.9rem; border: 1px solid var(--bp-border); border-radius: 999px; background: var(--bp-surface); color: inherit; font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+.bp-app .bp-pager-btn:hover:not(:disabled) { border-color: var(--bp-accent); color: var(--bp-accent); }
+.bp-app .bp-pager-btn:disabled { opacity: 0.4; cursor: default; }
+.bp-app .bp-pager-btn:focus-visible { outline: 3px solid var(--bp-accent); outline-offset: 1px; }
+.bp-pager-info { font-size: 0.85rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.bp-app a.bp-chart-point::after { display: none; }
+.bp-app a.bp-chart-point:hover::after, .bp-app a.bp-chart-point:focus-visible::after { display: block; }

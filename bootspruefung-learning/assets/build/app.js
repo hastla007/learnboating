@@ -1123,6 +1123,9 @@
 			reset, status
 		]);
 
+		var page = 0;
+		var PAGE = 5;
+
 		function render() {
 			var f = from.value || minDay;
 			var tt = to.value || maxDay;
@@ -1143,8 +1146,10 @@
 				body.replaceChildren(el('div', { class: 'bp-empty bp-results-empty' }, [el('p', { text: t('filter_empty') })]));
 				return;
 			}
-			var ul = el('ul', { class: 'bp-history' });
-			list.slice(0, 10).forEach(function (h) {
+			var pages = Math.ceil(list.length / PAGE);
+			page = Math.min(page, pages - 1);
+			var ul = el('ul', { class: 'bp-history', id: 'bp-history-list' });
+			list.slice(page * PAGE, page * PAGE + PAGE).forEach(function (h) {
 				var pct = h.max ? Math.floor(h.score * 100 / h.max) : 0;
 				ul.appendChild(el('li', { class: h.passed ? 'is-passed' : 'is-failed' }, [
 					el('span', { class: 'bp-history-ico', 'aria-hidden': 'true' }),
@@ -1156,12 +1161,31 @@
 				]));
 			});
 			body.replaceChildren(
-				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), list.length > 10 ? el('p', { class: 'bp-muted bp-history-more', text: t('history_more', { n: list.length }) }) : null, ul]),
+				el('div', { class: 'bp-history-card' }, [el('h3', { text: t('history_title') }), ul, pages > 1 ? pager(pages, list.length) : null]),
 				examChart(slug, list, testName, [new Date(f + 'T00:00:00').getTime(), new Date(tt + 'T23:59:59').getTime()])
 			);
 		}
-		[from, to, test].forEach(function (c) { c.addEventListener('change', render); });
-		reset.addEventListener('click', function () { from.value = minDay; to.value = maxDay; test.value = ''; render(); from.focus(); });
+		function pager(pages, total) {
+			var prev = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', 'aria-label': t('pager_prev_label'), disabled: page === 0 }, ['‹ ', t('pager_prev')]);
+			var next = el('button', { type: 'button', class: 'bp-pager-btn', 'aria-controls': 'bp-history-list', 'aria-label': t('pager_next_label'), disabled: page >= pages - 1 }, [t('pager_next'), ' ›']);
+			prev.addEventListener('click', function () { page--; render(); focusPager('prev'); });
+			next.addEventListener('click', function () { page++; render(); focusPager('next'); });
+			return el('nav', { class: 'bp-pager', 'aria-label': t('pager_label') }, [
+				prev,
+				el('span', { class: 'bp-pager-info', 'aria-live': 'polite', text: t('pager_range', { from: page * PAGE + 1, to: Math.min(total, page * PAGE + PAGE), total: total }) }),
+				next
+			]);
+		}
+
+		function focusPager(which) {
+			var btns = body.querySelectorAll('.bp-pager-btn');
+			var b = which === 'prev' ? btns[0] : btns[1];
+			if (b && b.disabled) { b = which === 'prev' ? btns[1] : btns[0]; }
+			if (b) { b.focus(); }
+		}
+
+		[from, to, test].forEach(function (c) { c.addEventListener('change', function () { page = 0; render(); }); });
+		reset.addEventListener('click', function () { from.value = minDay; to.value = maxDay; test.value = ''; page = 0; render(); from.focus(); });
 		render();
 		return el('div', { class: 'bp-results-wrap' }, [bar, body]);
 	}
@@ -1207,7 +1231,7 @@
 			var label = t('chart_point_aria', { kind: resultKind(h), date: times[i] !== null ? new Date(times[i]).toLocaleDateString('de-DE') : '', score: h.score, max: h.max, pct: pcts[i], verdict: h.passed ? t('passed') : t('failed') });
 			var lastI = runs.length - 1;
 			var showValue = i === lastI || (i === bestIdx && (Math.abs(xs[i] - xs[lastI]) > 10 || Math.abs(pcts[i] - pcts[lastI]) > 12));
-			var edge = xs[i] < 20 ? ' is-left' : (xs[i] > 80 ? ' is-right' : '');
+			var edge = xs[i] < 35 ? ' is-left' : (xs[i] > 65 ? ' is-right' : '');
 			return el('li', { style: 'left:' + xs[i] + '%;bottom:' + pcts[i] + '%' }, [
 				el('a', { href: base + slug + '/pruefung/' + h.session_id + '/', 'data-bp-link': '1', class: 'bp-chart-point ' + (h.passed ? 'is-passed' : 'is-failed') + edge, 'aria-label': label, 'data-tip': label }, [el('span', { class: 'bp-chart-dot', 'aria-hidden': 'true' })]),
 				showValue ? el('span', { class: 'bp-chart-value', 'aria-hidden': 'true', text: pcts[i] + ' %' }) : null
