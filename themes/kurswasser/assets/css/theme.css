@@ -476,3 +476,7 @@ html, body { overflow-x: clip; }
 .kw-offer-variant { margin: 0; display: flex; align-items: center; gap: .4rem; font-size: .92rem; font-weight: 700; color: var(--kw-navy); }
 .kw-offer-buy.is-secondary { background: transparent; color: var(--kw-navy); border: 2px solid var(--kw-navy); padding: .8rem 1.25rem; }
 .kw-offer-buy.is-secondary:hover { background: var(--kw-navy); color: #fff; }
+
+/* Preisangabe (PAngV) */
+.bp-price-note, .kw-price-note { font-size: .8em; font-weight: 500; color: var(--kw-muted); white-space: nowrap; }
+.bp-price-note-total { margin: .75rem 0 0; text-align: right; font-size: .9rem; color: var(--kw-muted); }

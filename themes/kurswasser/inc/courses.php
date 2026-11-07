@@ -147,7 +147,7 @@ function kurswasser_tile(string $slug): string
         $html .= '<li><span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>'.esc_html($text).'</li>';
     }
     $html .= '</ul></div><footer class="kw-tile-foot">';
-    $html .= $t['price'] !== null ? '<p class="kw-tile-price">'.($t['from'] ? '<span>'.esc_html__('ab', 'kurswasser').'</span> ' : '').esc_html(kurswasser_money((float) $t['price'])).'</p>' : '<p></p>';
+    $html .= $t['price'] !== null ? '<p class="kw-tile-price">'.($t['from'] ? '<span>'.esc_html__('ab', 'kurswasser').'</span> ' : '').esc_html(kurswasser_money((float) $t['price'])).(kurswasser_price_note() !== '' ? ' <small class="kw-price-note">'.esc_html(kurswasser_price_note()).'</small>' : '').'</p>' : '<p></p>';
 
     return $html.'<span class="kw-tile-go">'.esc_html($t['cta']).'<span class="kw-icon kw-icon-arrow" aria-hidden="true"></span></span></footer></article>';
 }

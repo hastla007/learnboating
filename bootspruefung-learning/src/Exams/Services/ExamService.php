@@ -174,14 +174,17 @@ final class ExamService
             throw new RuntimeException('Für diese Prüfung sind derzeit keine Fragen freigegeben.');
         }
 
+        // Kombis (Festlegung 07.11.2026): Teilgrenzen nur für die Teile, deren Modul im Bogen vorkommt;
+        // Gesamtgrenze und Zeit ergeben sich aus diesen Teilen (z. B. See-Bogen 60 Min., Binnen-Bogen 35 Min.).
+        [$passing, $timeLimit] = $this->applicableParts((array) $rule->passing, array_column($picked, 'question_id'), (int) $rule->time_limit_seconds);
         $now = time();
         $snapshot = [
             'rule_id' => (int) $rule->id,
             'rule_source_id' => $rule->source_id,
             'version' => $rule->version,
             'live' => $live,
-            'time_limit_seconds' => (int) $rule->time_limit_seconds,
-            'passing' => $rule->passing,
+            'time_limit_seconds' => $timeLimit,
+            'passing' => $passing,
             'course_code' => $course->code,
             'blueprints' => $modules,
             'paper_number' => $paperId ? (int) $paper->paper_number : null,
@@ -198,7 +201,7 @@ final class ExamService
                 'status' => 'running',
                 'start_token' => wp_generate_uuid4(),
                 'started_at' => gmdate('Y-m-d H:i:s', $now),
-                'deadline_at' => (int) $rule->time_limit_seconds > 0 ? gmdate('Y-m-d H:i:s', $now + (int) $rule->time_limit_seconds) : null,
+                'deadline_at' => $timeLimit > 0 ? gmdate('Y-m-d H:i:s', $now + $timeLimit) : null,
             ]);
             $sessionId = (int) $this->db->insert_id;
             if ($sessionId === 0) {
@@ -539,6 +542,47 @@ final class ExamService
             'passing' => $this->passingText($rule->passing, $count, (int) $rule->time_limit_seconds),
             'note' => $rule->passing['note'] ?? null,
         ];
+    }
+
+    /**
+     * Teile eines Regelwerks, die für diese Fragen gelten (Modul kommt vor). Mit Zeitangabe je Teil
+     * (seconds) ergibt sich die Prüfungszeit aus den geltenden Teilen; die Gesamtgrenze aus deren Summe.
+     * Ohne Teile oder wenn alle Teile gelten: Regelwerk unverändert.
+     * @param array<string,mixed> $passing
+     * @param list<int> $questionIds
+     * @return array{0:array<string,mixed>,1:int}
+     */
+    private function applicableParts(array $passing, array $questionIds, int $timeLimit): array
+    {
+        $parts = $passing['parts'] ?? [];
+        if ($parts === []) {
+            return [$passing, $timeLimit];
+        }
+        $moduleIds = [];
+        foreach ($this->db->get_results("SELECT id, code FROM {$this->t('module')} WHERE code IN ('".implode("','", array_map('esc_sql', array_column($parts, 'module')))."')") as $m) {
+            $moduleIds[$m->code] = (int) $m->id;
+        }
+        $byModule = $this->content->moduleQuestionIds(array_values($moduleIds));
+        $picked = array_flip(array_map('intval', $questionIds));
+        $applicable = array_values(array_filter($parts, static function ($p) use ($moduleIds, $byModule, $picked): bool {
+            foreach ($byModule[$moduleIds[$p['module']] ?? 0] ?? [] as $q) {
+                if (isset($picked[$q])) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
+        if ($applicable === [] || count($applicable) === count($parts)) {
+            $seconds = array_sum(array_map(static fn ($p) => (int) ($p['seconds'] ?? 0), $parts));
+
+            return [$passing, $seconds > 0 ? $seconds : $timeLimit];
+        }
+        $passing['parts'] = $applicable;
+        $passing['min_correct_ratio'] = array_sum(array_column($applicable, 'min_correct')) / max(1, array_sum(array_column($applicable, 'of')));
+        $seconds = array_sum(array_map(static fn ($p) => (int) ($p['seconds'] ?? 0), $applicable));
+
+        return [$passing, $seconds > 0 ? $seconds : $timeLimit];
     }
 
     /** Wie ExamRuleSet::passingSummary der Quelle. @param array<string,mixed> $passing */

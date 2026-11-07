@@ -30,7 +30,8 @@
                 "module": { "$ref": "common.schema.json#/$defs/moduleCode" },
                 "label": { "type": "string" },
                 "min_correct": { "type": "integer", "minimum": 0 },
-                "of": { "type": "integer", "minimum": 1 }
+                "of": { "type": "integer", "minimum": 1 },
+                "seconds": { "type": "integer", "minimum": 0, "description": "Prüfungszeit dieses Teils (Kombis: Zeit ergibt sich aus den geltenden Teilen)" }
               }
             }
           },

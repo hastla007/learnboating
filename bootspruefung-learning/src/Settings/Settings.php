@@ -21,6 +21,9 @@ final class Settings
         'exam_guide_enabled' => false,
         // Markenname (Platzhalter, bis Name/Logo feststehen) – Lernbereich, Seitentitel, Produkttexte.
         'brand_name' => 'XXXX',
+        // Preisangabe (PAngV): Hinweis an allen Preisen, Kasse und E-Mails; z. B. „inkl. MwSt.“
+        // oder bei Kleinunternehmern „gem. § 19 UStG ohne MwSt.“ (Festlegung 07.11.2026).
+        'price_note' => 'inkl. MwSt.',
     ];
 
     /** @return array<string,mixed> */
@@ -34,6 +37,11 @@ final class Settings
     public static function brand(): string
     {
         return (string) (self::get('brand_name') ?: self::DEFAULTS['brand_name']);
+    }
+
+    public static function priceNote(): string
+    {
+        return trim((string) self::get('price_note'));
     }
 
     public static function get(string $key): mixed
@@ -61,6 +69,7 @@ final class Settings
             'default_access' => in_array($input['default_access'] ?? '', ['logged_in', 'entitled_only'], true) ? $input['default_access'] : 'logged_in',
             'radio_voice_output' => in_array($input['radio_voice_output'] ?? '', ['browser', 'recording', 'off'], true) ? $input['radio_voice_output'] : 'browser',
             'exam_guide_enabled' => ! empty($input['exam_guide_enabled']),
+            'price_note' => mb_substr(trim(sanitize_text_field((string) ($input['price_note'] ?? self::DEFAULTS['price_note']))), 0, 80),
             'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' ? mb_substr($brand, 0, 60) : self::DEFAULTS['brand_name'],
         ];
     }

@@ -128,7 +128,7 @@ final class PackageBuilder
         $this->applyElwisPraxisImages();
         $this->buildVideoCourses();
 
-        return [
+        return $this->applyTextCorrections([
             'courses' => $this->buildCourses(),
             'modules' => $this->buildModules(),
             'questions' => array_values(array_map(fn ($q) => $this->finalize($q), $this->questions)),
@@ -144,7 +144,48 @@ final class PackageBuilder
             'device_simulation' => $this->deviceSimulationRecords(),
             'exam_committees' => $this->examCommitteeRecords(),
             'exam_guides' => $this->examGuideRecords(),
-        ];
+        ]);
+    }
+
+    /**
+     * Schreibkorrekturen gegenüber der Quelle (Festlegung 07.11.2026, offene Punkte Nr. 38), je Datensatz.
+     * Kennungen (source_id) bleiben unverändert, damit Lernstände erhalten bleiben. Der Golden-Master-Vergleich
+     * wendet dieselben Korrekturen auf die Laravel-Seite an.
+     */
+    public const TEXT_CORRECTIONS = [
+        'video_modules' => ['/Webeleinsteg/u' => 'Webeleinstek'],
+        'radio_vocabulary' => ['/^KI-BECK$/u' => 'KE-BECK', '/^WICK-TAR$/u' => 'WIK-TAH'],
+        'navigation_tasks' => ['/\brwk\b/u' => 'rwK'],
+    ];
+
+    /** @param array<string,list<array<string,mixed>>> $data @return array<string,list<array<string,mixed>>> */
+    private function applyTextCorrections(array $data): array
+    {
+        foreach (self::TEXT_CORRECTIONS as $entity => $rules) {
+            foreach ($data[$entity] ?? [] as $i => $record) {
+                $fixed = self::correctValue($record, $rules);
+                if ($fixed !== $record) {
+                    $data[$entity][$i] = isset($fixed['hash']) ? $this->finalize($fixed) : $fixed;
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /** @param array<string,string> $rules */
+    public static function correctValue(mixed $value, array $rules, string $key = ''): mixed
+    {
+        if (is_string($value)) {
+            return $key === 'source_id' || str_ends_with($key, '_source_id') ? $value : (string) preg_replace(array_keys($rules), array_values($rules), $value);
+        }
+        if (is_array($value)) {
+            foreach ($value as $k => $v) {
+                $value[$k] = self::correctValue($v, $rules, (string) $k);
+            }
+        }
+
+        return $value;
     }
 
     /** @return list<array{entity:string,source:string,reason:string}> */
@@ -546,6 +587,26 @@ final class PackageBuilder
      */
     public const EXAM_COUNT_CORRECTIONS = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24];
 
+    /**
+     * Kombis mit Teilgrenzen wie die Einzelprüfungen (Festlegung 07.11.2026): je Teil Grenze und Zeit;
+     * ein Bogen prüft nur die Teile, deren Fragen er enthält (See-Bogen 60 Min., Binnen-Bogen 35 Min.).
+     * Zufallsprüfung = alle Teile.
+     */
+    public const COMBO_RULES = [
+        'SBF-SEE-BIN' => ['parts' => [
+            ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7, 'seconds' => 840],
+            ['module' => 'SBF_SEE', 'label' => 'See', 'min_correct' => 18, 'of' => 23, 'seconds' => 2760],
+            ['module' => 'SBF_BINNEN', 'label' => 'Binnen', 'min_correct' => 18, 'of' => 23, 'seconds' => 2100],
+        ]],
+        'SRC-UBI' => ['parts' => [
+            ['module' => 'SRC', 'label' => 'SRC', 'min_correct' => 19, 'of' => 24, 'seconds' => 1800],
+            ['module' => 'UBI_ERG', 'label' => 'UBI-Ergänzung', 'min_correct' => 8, 'of' => 10, 'seconds' => 1800],
+        ]],
+    ];
+
+    /** Kombi-Bögen mit Fragen außerhalb der Kursmodule (volle UBI-Bögen im SRC-&-UBI-Kurs) – nicht übernommen. */
+    public const DROPPED_PAPERS = ['SRC-UBI#101', 'SRC-UBI#102', 'SRC-UBI#103', 'SRC-UBI#104', 'SRC-UBI#105', 'SRC-UBI#106', 'SRC-UBI#107', 'SRC-UBI#108', 'SRC-UBI#109', 'SRC-UBI#110', 'SRC-UBI#111', 'SRC-UBI#112'];
+
     /** Wie ExamRuleSetSeeder (Version draft-2026-09). @return list<array<string,mixed>> */
     private function buildExamRules(): array
     {
@@ -588,6 +649,12 @@ final class PackageBuilder
         $rules = [];
         foreach (self::COURSES as $course) {
             $code = $course['code'];
+            if (isset(self::COMBO_RULES[$code])) {
+                $combo = self::COMBO_RULES[$code]['parts'];
+                $passing[$code] = ['min_correct' => array_sum(array_column($combo, 'min_correct')), 'of' => array_sum(array_column($combo, 'of')), 'parts' => $combo];
+                $counts[$code] = array_column($combo, 'of', 'module');
+                $timeLimits[$code] = array_sum(array_column($combo, 'seconds'));
+            }
             $rule = $passing[$code] ?? null;
             $passingRule = $rule === null
                 ? ['min_correct_ratio' => 0.75]
@@ -955,6 +1022,9 @@ final class PackageBuilder
         $out = [];
         foreach (self::COURSES as $course) {
             foreach ($this->papers[$course['code']] ?? [] as $paper) {
+                if (in_array($paper['source_id'], self::DROPPED_PAPERS, true)) {
+                    continue;
+                }
                 $out[] = $this->finalize($paper);
             }
         }

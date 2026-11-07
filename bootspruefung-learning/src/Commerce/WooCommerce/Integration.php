@@ -107,6 +107,7 @@ final class Integration
         (new MoneyBackWoo())->register();
         (new SimUpgrade())->register();
         (new VideoUpgrade())->register();
+        (new PriceNote())->register();
     }
 
     // ------------------------------------------------------------------ Checkout

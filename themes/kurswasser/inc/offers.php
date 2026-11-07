@@ -23,6 +23,12 @@ function kurswasser_offer_tabs(): array
     ];
 }
 
+/** Preisangabe (PAngV), z. B. „inkl. MwSt.“ – aus den Plugin-Einstellungen. */
+function kurswasser_price_note(): string
+{
+    return class_exists(\Bootspruefung\Learning\Settings\Settings::class) ? \Bootspruefung\Learning\Settings\Settings::priceNote() : 'inkl. MwSt.';
+}
+
 /** @return array{name:string,price:float,days:int,url:?string,buy:?string,items:list<string>}|null */
 function kurswasser_offer(string $sku): ?array
 {
@@ -129,7 +135,7 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
         $html .= '<header><h3>'.esc_html($title).'</h3>'.($sub !== '' ? '<p class="kw-offer-sub">'.esc_html($sub).'</p>' : '').'</header>';
         $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span>'
             .($saving >= 1 ? '<s class="kw-offer-was" aria-label="'.esc_attr(sprintf(__('Einzeln %s', 'kurswasser'), kurswasser_money($o['price'] + $saving))).'">'.esc_html(kurswasser_money($o['price'] + $saving)).'</s>' : '<span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span>').'</div>';
-        $meta = [$duration];
+        $meta = array_filter([kurswasser_price_note(), $duration]);
         if ($months === 12) {
             $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
         }

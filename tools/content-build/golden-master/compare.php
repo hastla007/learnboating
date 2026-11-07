@@ -14,12 +14,39 @@ declare(strict_types=1);
  * Exit-Code 0 = keine Abweichungen außer den dokumentierten.
  */
 
+// Konverter-Klassen (für die dokumentierten Korrekturen gegenüber der Quelle).
+spl_autoload_register(static function (string $class): void {
+    if (str_starts_with($class, 'ContentBuild\\')) {
+        require dirname(__DIR__).'/src/'.str_replace('\\', '/', substr($class, 13)).'.php';
+    }
+});
+use ContentBuild\PackageBuilder;
+
 $package = rtrim($argv[1] ?? '', '/');
 if ($package === '' || ! is_file($package.'/manifest.json')) {
     fwrite(STDERR, "Paketordner angeben.\n");
     exit(2);
 }
 $pdo = new PDO((string) getenv('BS_DSN'), (string) getenv('BS_USER'), (string) getenv('BS_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+
+// Dokumentierte Schreibkorrekturen des Konverters (= PackageBuilder::TEXT_CORRECTIONS) auch auf die Laravel-Seite anwenden.
+$textCorrections = [
+    'video_module' => PackageBuilder::TEXT_CORRECTIONS['video_modules'],
+    'radio_vocabulary' => PackageBuilder::TEXT_CORRECTIONS['radio_vocabulary'],
+    'navigation_task' => PackageBuilder::TEXT_CORRECTIONS['navigation_tasks'],
+];
+$fix = static function (mixed $value, array $rules) use (&$fix): mixed {
+    if (is_string($value)) {
+        return (string) preg_replace(array_keys($rules), array_values($rules), $value);
+    }
+    if (is_array($value)) {
+        foreach ($value as $k => $v) {
+            $value[$k] = $fix($v, $rules);
+        }
+    }
+
+    return $value;
+};
 
 $n = static function (mixed $v): mixed {
     if ($v === null || is_bool($v) || is_int($v) || is_float($v)) {
@@ -179,9 +206,14 @@ foreach ($q('SELECT r.*, c.code FROM exam_rule_set r JOIN course_definition c ON
     $rule = json_decode((string) $r['passing_rule'], true);
     $bp = $blueprints[$r['id']] ?? [];
     // Bekannte, dokumentierte Korrekturen des Konverters gegenüber der Quelle (PackageBuilder::EXAM_COUNT_CORRECTIONS).
-    $corrections = ['ADD-BIN-SEGEL' => 7, 'SRC' => 24]; // = PackageBuilder::EXAM_COUNT_CORRECTIONS
-    if (isset($corrections[$r['code']])) {
-        $bp = array_map(static fn () => $corrections[$r['code']], $bp);
+    if (isset(PackageBuilder::EXAM_COUNT_CORRECTIONS[$r['code']])) {
+        $bp = array_map(static fn () => PackageBuilder::EXAM_COUNT_CORRECTIONS[$r['code']], $bp);
+    }
+    if (isset(PackageBuilder::COMBO_RULES[$r['code']])) {
+        $combo = PackageBuilder::COMBO_RULES[$r['code']]['parts'];
+        $bp = array_column($combo, 'of', 'module');
+        $r['time_limit_seconds'] = array_sum(array_column($combo, 'seconds'));
+        $rule = ['min_correct_ratio' => array_sum(array_column($combo, 'min_correct')) / array_sum(array_column($combo, 'of')), 'parts' => $combo] + $rule;
     }
     ksort($bp);
     $lv[$r['code'].'@'.$r['version']] = [
@@ -215,6 +247,9 @@ $lv = [];
 foreach ($q('SELECT c.code, p.paper_number, pq.position, q.content_id FROM exam_paper p JOIN course_definition c ON c.id = p.course_id JOIN exam_paper_question pq ON pq.exam_paper_id = p.id JOIN content_question q ON q.id = pq.question_id WHERE c.tenant_id IS NULL ORDER BY c.code, p.paper_number, pq.position') as $r) {
     $lv[sprintf('%s#%02d', $r['code'], $r['paper_number'])]['questions'][] = [(int) $r['position'], $r['content_id']];
 }
+foreach (PackageBuilder::DROPPED_PAPERS as $dropped) {
+    unset($lv[$dropped]);
+}
 $pk = [];
 foreach ($data('exam_papers') as $p) {
     $pk[$p['source_id']] = ['questions' => array_map(static fn ($x) => [$x['position'], $x['question_source_id']], $p['questions'])];
@@ -234,7 +269,7 @@ foreach ($data('navigation_tasks') as $t) {
         $pk[$code.'/'.$t['source_id']] = ['scenario_text' => $t['scenario_text'], 'hint' => $t['hint'], 'questions' => array_map(static fn ($x) => [$x['question_number'], $x['question_text'], $x['answer_text']], $t['questions'])];
     }
 }
-$compare('navigation_task', $lv, $pk);
+$compare('navigation_task', $fix($lv, $textCorrections['navigation_task']), $pk);
 
 // Praxistrainer
 $lv = [];
@@ -296,7 +331,7 @@ foreach ($data('video_modules') as $m) {
         })($l['questions']),
     ], $m['lessons'])];
 }
-$compare('video_module', $lv, $pk);
+$compare('video_module', $fix($lv, $textCorrections['video_module']), $pk);
 
 // Prüfungsausschüsse (PruefungsausschussSeeder)
 $lv = [];
@@ -341,7 +376,7 @@ if ($laravel) {
     foreach ($data('radio_vocabulary') as $v) {
         $pk[$v['source_id']] = ['category' => $v['category'], 'de' => $v['term_de'], 'en' => $v['term_en'], 'hint' => $v['hint']];
     }
-    $compare('radio_vocabulary', $lv, $pk);
+    $compare('radio_vocabulary', $fix($lv, $textCorrections['radio_vocabulary']), $pk);
 
     // Funkpraxis gegen FunkPraxis::tasks()
     $checks = static fn (array $list): array => array_map(static fn ($c) => is_array($c) && isset($c['pattern']) ? [$c['label'], $c['pattern'], $c['min']] : [$c[0], $c[1], (int) $c[2]], $list);
