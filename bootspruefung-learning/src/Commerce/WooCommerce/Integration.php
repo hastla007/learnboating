@@ -238,7 +238,8 @@ final class Integration
             foreach ($repo->grantingProducts($courseCode, $feature) as $ref) {
                 $product = wc_get_product($ref['variation_id'] ?: $ref['product_id']);
                 $parent = $product && $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
-                if (! $product || ! $parent || $parent->get_status() !== 'publish' || ! $product->is_purchasable() || isset($seen[$parent->get_id()])) {
+                // Nicht im Shop gelistete Produkte (z. B. Checkout-Upgrade, nur mit Funkkurs kaufbar) nicht anbieten.
+                if (! $product || ! $parent || $parent->get_status() !== 'publish' || ! $product->is_purchasable() || isset($seen[$parent->get_id()]) || in_array($parent->get_catalog_visibility(), ['hidden', 'search'], true)) {
                     continue;
                 }
                 $seen[$parent->get_id()] = true;

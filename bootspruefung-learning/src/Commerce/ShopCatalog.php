@@ -104,7 +104,7 @@ final class ShopCatalog
         // Funkgerät-Simulator als eigene Zugänge (Web-App, alle Geräte, kein Abo).
         foreach ([
             ['SIM-PASS-14D', '14-Tage-Prüfungs-Sprint (SRC/UBI Web-App)', '9.90', 14],
-            ['SIM-PASS-3M', '3-Monats-Standardzugang (SRC/UBI Web-App)', '23.50', 90],
+            ['SIM-PASS-3M', '3-Monats-Standardzugang (SRC/UBI Web-App)', '23.50', 92], // 3 Kalendermonate sicher abgedeckt
             ['SIM-PASS-12M', '12-Monats-Sorglos-Zugang (SRC/UBI Web-App)', '34.50', 365],
             [self::SIM_UPGRADE, 'Praxis-Sorglos-Upgrade: Funkgerät-Simulator 12 Monate', '13.90', 365],
         ] as [$sku, $name, $price, $days]) {
@@ -363,7 +363,9 @@ final class ShopCatalog
             $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
         }
         $withSim = in_array(AccessService::DEVICE, $def['features'] ?? [AccessService::DEVICE], true);
-        if ($radio) {
+        if ($radio && $seats > 0 && ! $withSim) {
+            $items[] = 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator nicht enthalten (für jede Person als Simulator-Zugang erhältlich)';
+        } elseif ($radio) {
             $items[] = $withSim
                 ? 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Funkgerät-Simulator'
                 : 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator als kostenlose Testversion (Vollversion als Upgrade)';
@@ -404,17 +406,17 @@ final class ShopCatalog
         $intro = match ($def['sku']) {
             'SIM-PASS-14D' => 'Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus.',
             'SIM-PASS-3M' => 'Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate.',
-            'SIM-PASS-12M' => 'Für Vereine, Ausbilder oder alle, die sich maximal Zeit lassen wollen: alle Funkgeräte-Simulationen für zwölf Monate.',
+            'SIM-PASS-12M' => 'Für alle, die sich maximal Zeit lassen wollen oder vor der Prüfung immer wieder üben möchten: alle Funkgeräte-Simulationen für zwölf Monate. Persönlicher Zugang für eine Person.',
             default => 'Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator für zwölf Monate frei.',
         };
         $sim = self::simStats();
         $items = [
             sprintf('%d Lektionen an %d Funkgeräten: Bedienung, Routineverkehr, DSC, Not-, Dringlichkeits- und Sicherheitsverkehr', $sim['lessons'], $sim['devices']),
             sprintf('Notalarm (DISTRESS) mit DSC-Controller und Notmeldung per Sprechfunk'),
-            sprintf('Prüfungsmodus: %d Prüfungsreihen mit %d Aufgaben wie in der praktischen SRC- und UBI-Prüfung', $sim['series'], $sim['tasks']),
+            sprintf('Prüfungsmodus: %d Prüfungsaufgaben in %d Prüfungsreihen wie in der praktischen SRC- und UBI-Prüfung', $sim['tasks'], $sim['series']),
             'Freies Üben: Rufe empfangen und beantworten',
         ];
-        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 85 ? '3 Monate' : $def['days'].' Tage');
+        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 91 ? '3 Monate' : $def['days'].' Tage');
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
             .'<p><strong>'.esc_html('Dein Vorteil: Web-App statt Download').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
             .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';

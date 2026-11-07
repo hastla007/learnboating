@@ -91,12 +91,12 @@ final class SimUpgrade
         $url = add_query_arg('add-to-cart', $product->get_id(), wc_get_checkout_url());
 
         $html = '<aside class="bp-upgrade" aria-labelledby="bp-upgrade-h">';
-        $html .= '<p class="bp-upgrade-flag">'.esc_html__('Nur jetzt beim Kauf', 'bootspruefung-learning').'</p>';
+        $html .= '<p class="bp-upgrade-flag">'.esc_html__('Nur zusammen mit einem Funkkurs', 'bootspruefung-learning').'</p>';
         $html .= '<h2 id="bp-upgrade-h">'.esc_html__('Praxis-Sorglos-Upgrade: Funkgerät-Simulator', 'bootspruefung-learning').'</h2>';
-        $html .= '<p>'.esc_html__('Übe die praktische Prüfung am virtuellen UKW-Funkgerät: alle Lektionen, Notalarm (DISTRESS), Dringlichkeits- und Sicherheitsmeldungen und der Prüfungsmodus – 12 Monate, direkt im Browser auf allen Geräten.', 'bootspruefung-learning').'</p>';
+        $html .= '<p>'.esc_html__('Übe die praktische Prüfung am virtuellen UKW-Funkgerät: alle Lektionen, Notalarm (DISTRESS), Dringlichkeits- und Sicherheitsmeldungen und den Prüfungsmodus – 12 Monate, direkt im Browser auf allen Geräten.', 'bootspruefung-learning').'</p>';
         $html .= '<p class="bp-upgrade-price"><strong>'.esc_html(sprintf(__('+ %s', 'bootspruefung-learning'), $price)).'</strong>';
         if ($was) {
-            $html .= ' <span>'.esc_html(sprintf(__('statt %s als Einzelzugang', 'bootspruefung-learning'), $was)).'</span>';
+            $html .= ' <span>'.esc_html(sprintf(__('(12-Monats-Zugang einzeln: %s)', 'bootspruefung-learning'), $was)).'</span>';
         }
         $html .= '</p>';
         $html .= '<p><a class="button bp-upgrade-add" rel="nofollow" href="'.esc_url($url).'">'.esc_html__('Upgrade hinzufügen', 'bootspruefung-learning').'</a></p>';
@@ -118,6 +118,9 @@ final class SimUpgrade
 
     public function classicBox(): void
     {
+        if (! is_user_logged_in()) {
+            return; // Gäste melden sich erst an (Lernzugänge brauchen ein Konto)
+        }
         $box = self::box();
         if ($box !== '') {
             echo self::styles().$box; // phpcs:ignore WordPress.Security.EscapeOutput -- oben maskiert
@@ -131,8 +134,14 @@ final class SimUpgrade
         if (! $passed || ! $product || $product->get_sku() !== ShopCatalog::SIM_UPGRADE) {
             return $passed;
         }
-        if (! self::hasRadioCourse(self::cartSkus())) {
-            wc_add_notice(__('Das Praxis-Sorglos-Upgrade gibt es nur zusammen mit einem Funkkurs (SRC, UBI oder Kombi). Den Simulator allein findest du als 14-Tage-, 3-Monats- oder 12-Monats-Zugang im Shop.', 'bootspruefung-learning'), 'error');
+        $skus = self::cartSkus();
+        if (! self::hasRadioCourse($skus)) {
+            wc_add_notice(__('Das Praxis-Sorglos-Upgrade gibt es nur zusammen mit einem Funkkurs (SRC, UBI, Funk-Kombi oder Ergänzung UBI). Den Simulator allein findest du als 14-Tage-, 3-Monats- oder 12-Monats-Zugang im Shop.', 'bootspruefung-learning'), 'error');
+
+            return false;
+        }
+        if (self::hasSimulator($skus)) {
+            wc_add_notice(__('Im Warenkorb liegt bereits ein Zugang zum Funkgerät-Simulator.', 'bootspruefung-learning'), 'error');
 
             return false;
         }

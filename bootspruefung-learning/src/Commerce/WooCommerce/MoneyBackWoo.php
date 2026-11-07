@@ -45,6 +45,34 @@ final class MoneyBackWoo
         return MoneyBack::status(self::snapshot($order), is_array($request) && $request !== [] ? $request : null);
     }
 
+    /**
+     * Welche Positionen fallen unter die Garantie? Simulator-Zugänge und Gruppenpakete nicht.
+     *
+     * @return array{amount:float,excluded:list<string>}
+     */
+    public static function breakdown(\WC_Order $order): array
+    {
+        $amount = 0.0;
+        $excluded = [];
+        foreach ($order->get_items('line_item') as $item) {
+            if (! $item instanceof \WC_Order_Item_Product) {
+                continue;
+            }
+            if (MoneyBack::policy((int) $item->get_product_id()) !== null) {
+                $amount += (float) $item->get_total() + (float) $item->get_total_tax();
+            } else {
+                $excluded[] = wp_strip_all_tags($item->get_name());
+            }
+        }
+
+        return ['amount' => round($amount, 2), 'excluded' => $excluded];
+    }
+
+    private static function money(float $value): string
+    {
+        return html_entity_decode(wp_strip_all_tags(wc_price($value)), ENT_QUOTES, 'UTF-8');
+    }
+
     /** Abschnitt unter „Mein Lernen“. */
     public static function renderAccountSection(int $userId): void
     {
@@ -57,7 +85,11 @@ final class MoneyBackWoo
             }
             $action = '';
             if ($s['eligible']) {
-                $action = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\''.esc_js(__('Erstattung anfordern? Nach der Erstattung endet dein Zugang.', 'bootspruefung-learning')).'\')">'
+                $parts = self::breakdown($order);
+                $confirm = $parts['excluded'] === []
+                    ? __('Erstattung anfordern? Nach der Erstattung endet dein Zugang.', 'bootspruefung-learning')
+                    : sprintf(__('Erstattung anfordern? Erstattet werden %1$s; nicht umfasst: %2$s. Nach der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded']));
+                $action = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\''.esc_js($confirm).'\')">'
                     .wp_nonce_field('bp_money_back_'.$order->get_id(), '_wpnonce', true, false)
                     .'<input type="hidden" name="action" value="bp_money_back"><input type="hidden" name="order" value="'.(int) $order->get_id().'">'
                     .'<button type="submit" class="button bp-money-back">'.esc_html__('Geld zurück anfordern', 'bootspruefung-learning').'</button></form>';
@@ -76,7 +108,7 @@ final class MoneyBackWoo
             return;
         }
         echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
-        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt werden beantwortete Fragen und abgeschlossene Video-Lektionen seit dem Kauf. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
+        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt werden beantwortete Fragen und abgeschlossene Video-Lektionen seit dem Kauf. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
         echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
     }
 
@@ -96,28 +128,36 @@ final class MoneyBackWoo
             wp_safe_redirect($back);
             exit;
         }
+        $parts = self::breakdown($order);
+        $scope = $parts['excluded'] === []
+            ? sprintf(__('Zu erstatten: %s (gesamte Bestellung).', 'bootspruefung-learning'), self::money($parts['amount']))
+            : sprintf(__('Zu erstatten: %1$s – nur die Positionen mit Garantie. Ausgenommen (nicht erstatten): %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded']));
         $request = MoneyBack::recordRequest($orderId, $userId, $status);
         $order->update_meta_data(MoneyBack::REQUEST_META, $request);
         $order->add_order_note(sprintf(
             /* translators: 1: Lernstand, 2: Grenze, 3: Frist */
-            __('Geld-zurück-Garantie angefragt. Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s. Bitte über „Erstattung“ erstatten – der Zugang endet dann automatisch.', 'bootspruefung-learning'),
+            __('Geld-zurück-Garantie angefragt. Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s. %4$s Bitte über „Erstattung“ die betreffenden Positionen erstatten – deren Zugang endet dann automatisch.', 'bootspruefung-learning'),
             wc_format_localized_decimal((string) $status['progress']),
             wc_format_localized_decimal((string) $status['max_progress']),
-            Labels::date($status['deadline'])
+            Labels::date($status['deadline']),
+            $scope
         ));
         $order->save();
         $to = (string) apply_filters('bootspruefung_money_back_recipient', get_option('admin_email'), $order);
         wp_mail($to, sprintf(__('Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
-            __("Kunde %1\$s fordert die Geld-zurück-Garantie an.\n\nBestellung: #%2\$d\nLernstand: %3\$s %% (Grenze %4\$s %%)\nFrist bis: %5\$s\n\nBestellung öffnen: %6\$s", 'bootspruefung-learning'),
+            __("Kunde %1\$s fordert die Geld-zurück-Garantie an.\n\nBestellung: #%2\$d\nLernstand: %3\$s %% (Grenze %4\$s %%)\nFrist bis: %5\$s\n%7\$s\n\nBestellung öffnen: %6\$s", 'bootspruefung-learning'),
             $order->get_billing_email(),
             $orderId,
             wc_format_localized_decimal((string) $status['progress']),
             wc_format_localized_decimal((string) $status['max_progress']),
             Labels::date($status['deadline']),
-            $order->get_edit_order_url()
+            $order->get_edit_order_url(),
+            $scope
         ));
         do_action('bootspruefung_money_back_requested', $orderId, $request);
-        wc_add_notice(__('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine Zahlungsart.', 'bootspruefung-learning'));
+        wc_add_notice($parts['excluded'] === []
+            ? __('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine Zahlungsart.', 'bootspruefung-learning')
+            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine Zahlungsart. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded'])));
         wp_safe_redirect($back);
         exit;
     }

@@ -326,7 +326,7 @@ final class Strings
             'sim_paywall_choose' => __('Wähle deinen Zugang – sofort freigeschaltet auf allen Geräten:', $d),
             'sim_offer_14d' => __('Perfekt für Last-Minute-Lerner vor der praktischen Prüfung. Endet automatisch.', $d),
             'sim_offer_3m' => __('Unsere Empfehlung für die reguläre Kurszeit.', $d),
-            'sim_offer_12m' => __('Für Vereine, Ausbilder und alle, die sich Zeit lassen wollen.', $d),
+            'sim_offer_12m' => __('Für alle, die sich Zeit lassen oder bis zur Prüfung immer wieder üben wollen.', $d),
             'sim_offer_12m_link' => __('Oder 12 Monate für {price}', $d),
             'sim_only' => __('Nur {price}', $d),
             'sim_recommended' => __('Empfehlung', $d),

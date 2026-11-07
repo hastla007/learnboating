@@ -245,12 +245,14 @@ final class DeviceSimService
         if (! $premium) {
             $lessons = array_filter($lessons, static fn ($l) => in_array($l['key'], self::FREE_LESSONS, true));
         }
-        $levels = $this->db->get_col($this->db->prepare(
-            "SELECT data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = 'geraet' AND item_source_id LIKE %s",
+        $levels = $this->db->get_results($this->db->prepare(
+            "SELECT item_source_id, data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = 'geraet' AND item_source_id LIKE %s",
             $userId,
             $this->db->esc_like(self::DEFAULT_DEVICE.':').'%'
         ));
-        $mastered = count(array_filter($levels, static fn ($d) => ((json_decode((string) $d, true) ?: [])['level'] ?? 0) >= 3));
+        // Nur Lektionen zählen, die gerade sichtbar sind (Testversion: nur die freien; je Kurs nur passende Funkscheine).
+        $keys = array_flip(array_column($lessons, 'key'));
+        $mastered = count(array_filter($levels, static fn ($r) => isset($keys[substr((string) $r->item_source_id, strlen(self::DEFAULT_DEVICE) + 1)]) && ((json_decode((string) $r->data, true) ?: [])['level'] ?? 0) >= 3));
 
         return ['lessons' => count($lessons), 'mastered' => $mastered, 'premium' => $premium];
     }

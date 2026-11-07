@@ -72,7 +72,7 @@ function kurswasser_offer_item(string $text): string
         '/^Funktraining:.*Testversion.*$/u' => 'Funktraining + Simulator zum Testen',
         '/^Funktraining:.*Simulator$/u' => 'Funktraining mit Funkgerät-Simulator',
         '/^(\d+) Lektionen an (\d+) Funkgeräten:.*$/u' => '$1 Lektionen an $2 Funkgeräten',
-        '/^Prüfungsmodus: (\d+) Prüfungsreihen mit (\d+) Aufgaben.*$/u' => 'Prüfungsmodus: $2 Aufgaben',
+        '/^Prüfungsmodus: (\d+) Prüfungsaufgaben.*$/u' => 'Prüfungsmodus: $1 Aufgaben',
         '/^Notalarm \(DISTRESS\).*$/u' => 'Notalarm (DISTRESS) mit DSC',
         '/^Alle (\d+) Kurse:.*$/u' => 'Alle $1 Kurse mit allen Trainern',
     ];
@@ -119,7 +119,7 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
             $sum = array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $compare));
             $saving = round($sum - $o['price'], 2);
         }
-        $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : ($o['days'] >= 85 ? 3 : 0));
+        $months = $o['days'] >= 360 ? 12 : ($o['days'] >= 180 ? 6 : ($o['days'] >= 91 ? 3 : 0));
         $duration = $months ? sprintf(_n('%d Monat Zugang', '%d Monate Zugang', $months, 'kurswasser'), $months) : sprintf(__('%d Tage Zugang', 'kurswasser'), $o['days']);
         $html .= '<article class="kw-offer'.($isFeatured ? ' is-featured' : '').'">';
         if ($isFeatured && $flag !== '') {
@@ -137,7 +137,13 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
             $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Du sparst %s gegenüber dem Einzelkauf', 'kurswasser'), kurswasser_money($saving))).'</p>';
         }
         $html .= '<ul class="kw-offer-list">';
-        foreach (array_slice(array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt'))), 0, 4) as $item) {
+        $list = array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt')));
+        $simLine = array_values(array_filter($list, static fn ($t) => $t === 'Funktraining mit Funkgerät-Simulator'));
+        $list = array_slice($list, 0, 4);
+        if ($simLine !== [] && ! in_array($simLine[0], $list, true)) {
+            $list[3] = $simLine[0]; // Bundle/Pass: Simulator ist ein Hauptunterschied – sichtbar halten
+        }
+        foreach ($list as $item) {
             $html .= '<li>'.esc_html($item).'</li>';
         }
         $html .= '</ul><div class="kw-offer-actions">';

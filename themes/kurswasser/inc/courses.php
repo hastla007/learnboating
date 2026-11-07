@@ -45,7 +45,7 @@ function kurswasser_courses(): array
         ],
         'ubi' => [
             'main' => 'BP-UBI', 'mark' => 'UBI', 'title' => 'UBI', 'name' => 'UKW-Sprechfunkzeugnis Binnen', 'eyebrow' => 'Funkzeugnis', 'code' => 'UBI', 'icon' => 'radio', 'tone' => 'ubi',
-            'teaser' => 'Binnenfunk – Fragen, Textaufnahme und Textabgabe, Praxis am Funkgerät.',
+            'teaser' => 'Binnenfunk – Fragen, Textaufnahme und Textabgabe, Funkgerät-Simulator zum Testen.',
             'lead' => 'Lerne für das UBI: alle Prüfungsfragen im Smarttrainer, Funktexte für Textaufnahme und Textabgabe, Praxisszenarien und die Prüfungssimulation.',
             'offers' => ['BP-UBI', 'BP-SRC-UBI', 'BP-ADD-UBI-TO-SRC'], 'featured' => 'BP-SRC-UBI', 'compare' => ['BP-SRC', 'BP-UBI'],
         ],
@@ -299,7 +299,7 @@ function kurswasser_course_exam(array $def): string
     }
     $multi = count($tabs) > 1;
     $html = '<section class="kw-section kw-course-exam"><div class="kw-exam-grid"><div><p class="kw-eyebrow">'.esc_html__('Die Prüfung', 'kurswasser').'</p><h2>'.esc_html($multi ? __('So laufen die Prüfungen ab.', 'kurswasser') : __('So läuft die Prüfung ab.', 'kurswasser')).'</h2>';
-    $html .= '<p class="kw-lead">'.esc_html__('Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab. Wir bereiten dich auf jeden Teil vor.', 'kurswasser').'</p>';
+    $html .= '<p class="kw-lead">'.esc_html__('Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab. Hier siehst du, wie sie abläuft und was dich erwartet.', 'kurswasser').'</p>';
     foreach ($tabs as $tab) {
         $variant = $tab['variants'][0];
         $html .= ($multi ? '<h3 class="kw-exam-tab">'.esc_html((string) $tab['tab']).' <span>· '.esc_html((string) $variant['label']).'</span></h3>' : '').'<dl class="kw-exam-facts"><div><dt>'.esc_html__('Theorie', 'kurswasser').'</dt><dd>'.esc_html((string) $variant['scope']).'</dd></div>';
