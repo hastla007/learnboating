@@ -149,6 +149,18 @@ await page.getByRole('button', { name: 'Lage auf Englisch' }).click();
 await page.locator('p[lang="en"]').waitFor();
 
 step('Gerätesimulation (Original-JS der Quelle)');
+step('Muster-Funksprüche und Buchstabiertafel (SRC, Kombi)');
+await page.goto(`${base}/bootsscheine/src/funk/muster/`);
+await page.getByRole('heading', { name: 'Muster-Funksprüche', level: 1 }).waitFor();
+assert.ok(await page.locator('.bp-sample').count() >= 4, 'je Meldungsart ein Beispiel');
+assert.match(await page.locator('.bp-sample[open] .bp-sample-msg').innerText(), /MAYDAY/);
+await page.goto(`${base}/bootsscheine/src-ubi/funk/buchstabiertafel/`);
+await page.getByRole('heading', { name: 'Internationale Buchstabiertafel', level: 1 }).waitFor();
+assert.equal(await page.locator('.bp-spell-grid').first().locator('li').count(), 26);
+await page.getByRole('heading', { name: 'Ziffern (UBI)' }).waitFor();
+await page.locator('.bp-spell-search').fill('DB5');
+assert.equal(await page.locator('.bp-spell-out').innerText(), 'DELTA BRAVO FIVE');
+
 await page.goto(`${base}/bootsscheine/src/funk/geraet/`);
 await page.locator('#bp-device-sim svg').first().waitFor();
 await page.getByRole('combobox', { name: 'Gerät' }).waitFor();

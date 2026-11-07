@@ -20,7 +20,7 @@ final class SectionFiles
 
     /** Zusätzliche Anzeigeorte (Mediathek-Feld „Anzeige im Lernbereich“). */
     public const SLOT_META = '_bp_file_slot';
-    public const SLOTS = ['vocabulary'];
+    public const SLOTS = ['vocabulary', 'samples', 'spelling'];
 
     /** Kombikurse zeigen auch die Dateien ihrer Teilkurse. */
     public const PARTS = ['SRC-UBI' => ['SRC', 'UBI'], 'SBF-SEE-BIN' => ['SBF-SEE', 'SBF-BIN-MOTOR']];

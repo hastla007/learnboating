@@ -69,8 +69,8 @@ final class ProtectedFiles
         }
         $slot = SectionFiles::slot((int) $post->ID);
         $fields['bp_file_slot'] = ['label' => __('Anzeige im Lernbereich', 'bootspruefung-learning'), 'input' => 'html',
-            'html' => '<select name="attachments['.(int) $post->ID.'][bp_file_slot]"><option value="">'.esc_html__('Hauptseite des Bereichs', 'bootspruefung-learning').'</option><option value="vocabulary" '.selected($slot, 'vocabulary', false).'>'.esc_html__('Funk: auch auf der Vokabelseite', 'bootspruefung-learning').'</option></select>',
-            'helps' => __('Nur für PDFs mit Lernzugang. Funk-PDFs (z. B. Muster-Funksprüche, Buchstabiertafel) erscheinen auf der Funk-Seite, das Vokabel-PDF zusätzlich auf der Vokabelseite.', 'bootspruefung-learning')];
+            'html' => '<select name="attachments['.(int) $post->ID.'][bp_file_slot]"><option value="">'.esc_html__('Hauptseite des Bereichs', 'bootspruefung-learning').'</option><option value="vocabulary" '.selected($slot, 'vocabulary', false).'>'.esc_html__('Funk: auch auf der Vokabelseite', 'bootspruefung-learning').'</option><option value="samples" '.selected($slot, 'samples', false).'>'.esc_html__('Funk: auch auf der Seite Muster-Funksprüche', 'bootspruefung-learning').'</option><option value="spelling" '.selected($slot, 'spelling', false).'>'.esc_html__('Funk: auch auf der Seite Buchstabiertafel', 'bootspruefung-learning').'</option></select>',
+            'helps' => __('Nur für PDFs mit Lernzugang. Funk-PDFs erscheinen auf der Funk-Seite und zusätzlich auf der gewählten Seite (Vokabeln, Muster-Funksprüche, Buchstabiertafel).', 'bootspruefung-learning')];
         $fields['bp_required_access'] = ['label' => __('Lernzugang erforderlich', 'bootspruefung-learning'), 'input' => 'html', 'html' => $html,
             'helps' => __('Die Datei wird dann nur angemeldeten Nutzern mit Zugang ausgeliefert. PDFs zu Navigationstrainer, Prüfungssimulation, Praxistrainer oder Funk erscheinen oben auf der jeweiligen Lernseite (Titel = Name, Beschriftung = Kurztext); laden dürfen sie nur Nutzer mit vollem Zugang.', 'bootspruefung-learning')];
 

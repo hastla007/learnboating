@@ -92,6 +92,8 @@ final class TrainerController
     private function registerRadioPracticeAndDevice(callable $route, array $key): void
     {
         $route('/radio/practice', WP_REST_Server::READABLE, fn ($r) => $this->practice->overview(get_current_user_id(), $this->course($r)));
+        $route('/radio/samples', WP_REST_Server::READABLE, fn ($r) => $this->practice->samples(get_current_user_id(), $this->course($r)));
+        $route('/radio/spelling', WP_REST_Server::READABLE, fn ($r) => $this->radio->spelling(get_current_user_id(), $this->course($r)));
         $route('/radio/practice/(?P<key>[A-Za-z0-9-]+)', WP_REST_Server::READABLE, fn ($r) => $this->practice->show(get_current_user_id(), $this->course($r), (string) $r['key']), ['key' => $key]);
         $route('/radio/practice/(?P<key>[A-Za-z0-9-]+)/evaluate', WP_REST_Server::CREATABLE, fn ($r) => $this->practice->evaluate(get_current_user_id(), $this->course($r), (string) $r['key'], array_map('strval', array_filter((array) $r['answers'], 'is_scalar'))), [
             'key' => $key, 'answers' => ['type' => 'object', 'required' => true],

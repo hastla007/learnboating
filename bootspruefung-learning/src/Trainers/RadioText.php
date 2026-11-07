@@ -19,6 +19,8 @@ final class RadioText
         'Y' => 'Yankee', 'Z' => 'Zulu',
     ];
     public const DIGITS = ['Null', 'Eins', 'Zwo', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun'];
+    /** Englische Ziffern im Seefunk (SRC), mit Sprechform wie in den Musterlösungen der Quelle. */
+    public const DIGITS_EN = [['ZERO'], ['ONE'], ['TWO'], ['THREE'], ['FOUR', 'FOWER'], ['FIVE', 'FIFE'], ['SIX'], ['SEVEN'], ['EIGHT'], ['NINE', 'NINER']];
 
     private const DIGIT_WORDS = [
         ['ZERO', 'NULL'], ['ONE', 'EINS', 'EIN'], ['TWO', 'ZWO', 'ZWEI'], ['THREE', 'DREI'], ['FOUR', 'FOWER', 'VIER'],

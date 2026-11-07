@@ -69,6 +69,38 @@ final class RadioService
         ];
     }
 
+    /**
+     * Buchstabiertafel: Alphabet der Quelle (RadioText::ALPHABET) mit Aussprachehilfen aus den
+     * Vokabeln (Kategorie „Buchstabiertafel“), Ziffern je Funkkatalog: SRC englisch, UBI deutsch.
+     * @return array<string,mixed>
+     */
+    public function spelling(int $userId, object $course): array
+    {
+        $this->require($userId, $course);
+        $hints = [];
+        foreach ($this->db->get_results("SELECT term_de, term_en, hint FROM {$this->t('radio_vocabulary')} WHERE category = 'Buchstabiertafel' AND hint IS NOT NULL AND hint <> ''") as $v) {
+            $hints[mb_strtoupper(trim((string) $v->term_de))] ??= (string) $v->hint;
+        }
+        $catalogs = (new RadioPracticeService($this->access))->catalogsFor($course);
+        if ($catalogs === []) {
+            $catalogs = array_values(array_unique(array_column($this->items('radio_vocabulary', $course, ['catalog']), 'catalog')));
+        }
+        $letters = [];
+        foreach (RadioText::ALPHABET as $letter => $word) {
+            $letters[] = ['letter' => $letter, 'word' => $word, 'hint' => $hints[$letter] ?? null];
+        }
+        $digits = [];
+        foreach ($catalogs as $catalog) {
+            $digits[] = ['catalog' => $catalog, 'items' => array_map(static fn ($n) => [
+                'digit' => (string) $n,
+                'word' => $catalog === 'UBI' ? RadioText::DIGITS[$n] : RadioText::DIGITS_EN[$n][0],
+                'spoken' => $catalog === 'UBI' ? null : (RadioText::DIGITS_EN[$n][1] ?? null),
+            ], range(0, 9))];
+        }
+
+        return ['letters' => $letters, 'digits' => $digits, 'catalogs' => $catalogs];
+    }
+
     /** @return array<string,mixed> */
     public function text(int $userId, object $course, string $sourceId): array
     {

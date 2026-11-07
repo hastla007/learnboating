@@ -216,6 +216,10 @@
 			view = viewRadioPractice(parts[0], parts[3]);
 		} else if (parts[1] === 'funk' && parts[2] === 'geraet') {
 			view = viewDeviceSim(parts[0]);
+		} else if (parts[1] === 'funk' && parts[2] === 'buchstabiertafel') {
+			view = viewRadioSpelling(parts[0]);
+		} else if (parts[1] === 'funk' && parts[2] === 'muster') {
+			view = viewRadioSamples(parts[0]);
 		} else if (parts[1] === 'funk' && parts[2] === 'vokabeln') {
 			view = viewVocabulary(parts[0], query.get('katalog') || 'SRC', query.get('kategorie'));
 		} else if (parts[1] === 'funk') {
@@ -2343,6 +2347,10 @@
 				var pracAll = (o.practice || []).reduce(function (a, g) { return a + g.tasks.length; }, 0);
 				var nodes = [pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio')]]), eyebrow: c.name, title: t('trainer_radio'), intro: t('radio_intro'), stats: [pracAll ? [pracAll, t('radio_stat_practice')] : null, [textsDone + '/' + textsAll, t('radio_stat_texts')], [vocDone + '/' + vocAll, t('radio_stat_vocab')]] })];
 				nodes.push(sectionFiles(c, 'radio_training'));
+				nodes.push(el('ul', { class: 'bp-radio-refs' }, [
+					el('li', {}, [el('a', { href: base + slug + '/funk/muster/', 'data-bp-link': '1', class: 'bp-radio-ref' }, [el('span', { class: 'bp-ico bp-ico-radio', 'aria-hidden': 'true' }), el('span', {}, [el('strong', { text: t('samples_title') }), el('span', { text: t('samples_tile') })]), el('span', { class: 'bp-area-chevron', 'aria-hidden': 'true' })])]),
+					el('li', {}, [el('a', { href: base + slug + '/funk/buchstabiertafel/', 'data-bp-link': '1', class: 'bp-radio-ref' }, [el('span', { class: 'bp-ico bp-ico-cards', 'aria-hidden': 'true' }), el('span', {}, [el('strong', { text: t('spelling_title') }), el('span', { text: t('spelling_tile') })]), el('span', { class: 'bp-area-chevron', 'aria-hidden': 'true' })])])
+				]));
 				if (o.device && o.device.lessons > 0) {
 					nodes.push(el('section', { class: 'bp-radio-device' }, [
 						el('span', { class: 'bp-ico bp-ico-radio', 'aria-hidden': 'true' }),
@@ -2409,6 +2417,110 @@
 			el('p', { class: 'bp-feedback-title', text: label + ': ' + t('radio_percent', { percent: ev.percent }) }),
 			ev.missing.length ? el('p', { class: 'bp-muted', text: t('radio_missing', { words: ev.missing.join(', ') }) }) : el('p', { class: 'bp-muted', text: t('radio_complete') })
 		]);
+	}
+
+	// Vorlesen über die Sprachausgabe des Browsers (keine externen Dienste).
+	function speakButton(text, lang, label) {
+		if (!('speechSynthesis' in window)) {
+			return null;
+		}
+		var b = el('button', { type: 'button', class: 'bp-speak', 'aria-label': t('speak_label', { text: label || text }) }, [el('span', { class: 'bp-ico bp-ico-play', 'aria-hidden': 'true' })]);
+		b.addEventListener('click', function () {
+			window.speechSynthesis.cancel();
+			var u = new SpeechSynthesisUtterance(text);
+			u.lang = lang;
+			u.rate = 0.85;
+			window.speechSynthesis.speak(u);
+		});
+		return b;
+	}
+
+	function radioRefHero(c, slug, icon, title, intro, stats) {
+		return pageHero({ code: c.code, icon: icon, crumbs: crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [title]]), eyebrow: t('trainer_radio') + ' · ' + c.name, title: title, intro: intro, stats: stats });
+	}
+
+	function viewRadioSpelling(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/spelling').then(function (d) {
+				var title = t('spelling_title');
+				var search = el('input', { type: 'search', class: 'bp-spell-search', placeholder: t('spelling_try'), 'aria-label': t('spelling_try'), maxlength: '40', autocomplete: 'off' });
+				var out = el('p', { class: 'bp-spell-out', 'aria-live': 'polite' });
+				var map = {};
+				d.letters.forEach(function (l) { map[l.letter] = l.word; });
+				var digitWords = (d.digits[0] || { items: [] }).items.map(function (x) { return x.word; });
+				search.addEventListener('input', function () {
+					var v = search.value.toUpperCase().replace(/Ä/g, 'AE').replace(/Ö/g, 'OE').replace(/Ü/g, 'UE').replace(/ß/g, 'SS');
+					out.textContent = v.split('').map(function (ch) { return map[ch] || (/[0-9]/.test(ch) ? digitWords[+ch] : (ch === ' ' ? '·' : null)); }).filter(Boolean).join(' ').toUpperCase();
+				});
+				var letters = el('section', { class: 'bp-section bp-spell', 'aria-labelledby': 'bp-spell-h' }, [
+					el('h2', { id: 'bp-spell-h', text: t('spelling_letters') }),
+					el('ul', { class: 'bp-spell-grid' }, d.letters.map(function (l) {
+						return el('li', {}, [
+							el('span', { class: 'bp-spell-letter', 'aria-hidden': 'true', text: l.letter }),
+							el('span', { class: 'bp-spell-word' }, [el('strong', { text: l.word }), l.hint ? el('span', { text: t('spelling_spoken', { hint: l.hint }) }) : null]),
+							speakButton(l.word, 'en-GB', l.letter + ': ' + l.word)
+						]);
+					}))
+				]);
+				var digits = d.digits.map(function (g) {
+					return el('section', { class: 'bp-section bp-spell', 'aria-labelledby': 'bp-spell-d-' + g.catalog }, [
+						el('h2', { id: 'bp-spell-d-' + g.catalog, text: t('spelling_digits', { catalog: g.catalog }) }),
+						el('p', { class: 'bp-muted', text: g.catalog === 'UBI' ? t('spelling_digits_ubi') : t('spelling_digits_src') }),
+						el('ul', { class: 'bp-spell-grid is-digits' }, g.items.map(function (x) {
+							return el('li', {}, [
+								el('span', { class: 'bp-spell-letter', 'aria-hidden': 'true', text: x.digit }),
+								el('span', { class: 'bp-spell-word' }, [el('strong', { text: x.word }), x.spoken ? el('span', { text: t('spelling_spoken', { hint: x.spoken }) }) : null]),
+								speakButton(x.spoken || x.word, g.catalog === 'UBI' ? 'de-DE' : 'en-GB', x.digit + ': ' + x.word)
+							]);
+						}))
+					]);
+				});
+				mount([
+					radioRefHero(c, slug, 'cards', title, t('spelling_intro'), [[d.letters.length, t('spelling_stat_letters')], [10, t('spelling_stat_digits')]]),
+					sectionFiles(c, 'radio_training', 'spelling'),
+					el('div', { class: 'bp-spell-try' }, [el('label', {}, [el('strong', { text: t('spelling_try_label') }), search]), out]),
+					letters
+				].concat(digits), title + ' – ' + c.name);
+			});
+		});
+	}
+
+	function viewRadioSamples(slug) {
+		return withCourse(slug, function (c) {
+			return api('GET', 'courses/' + encodeURIComponent(slug) + '/radio/samples').then(function (d) {
+				var title = t('samples_title');
+				var total = d.catalogs.reduce(function (n, g) { return n + g.samples.length; }, 0);
+				var locked = d.catalogs.some(function (g) { return g.samples.some(function (x) { return x.locked; }); });
+				var multi = d.catalogs.length > 1;
+				var nodes = [
+					radioRefHero(c, slug, 'radio', title, t('samples_intro'), [[total, t('samples_stat')]]),
+					sectionFiles(c, 'radio_training', 'samples'),
+					el('div', { class: 'bp-infobox' }, [el('span', { class: 'bp-ico bp-ico-bulb', 'aria-hidden': 'true' }), el('p', { text: t('samples_info') })]),
+					locked ? lockedNote((c.shop || {}).radio_training, t('samples_locked')) : null
+				];
+				d.catalogs.forEach(function (g) {
+					if (multi) {
+						nodes.push(el('h2', { class: 'bp-subhead bp-samples-catalog', text: g.catalog }));
+					}
+					g.samples.forEach(function (x) {
+						var head = el('summary', {}, [badge(t('kind_' + x.kind)), el('strong', { text: t('samples_kind_' + x.kind) }), x.locked ? el('span', { class: 'bp-pro-badge', text: t('pdf_pro') }) : null, el('span', { class: 'bp-topic-chevron', 'aria-hidden': 'true' })]);
+						var body = x.locked ? el('div', { class: 'bp-sample-body' }, [el('p', { class: 'bp-muted', text: t('samples_locked_one') })]) : el('div', { class: 'bp-sample-body' }, [
+							el('p', { class: 'bp-sample-situation' }, [el('strong', { text: t('samples_situation') + ' ' }), x.situation]),
+							x.steps.length ? el('dl', { class: 'bp-sample-steps' }, x.steps.reduce(function (a, st) { return a.concat([el('dt', { text: st.label }), el('dd', { text: st.text })]); }, [])) : null,
+							el('div', { class: 'bp-sample-msg-head' }, [el('strong', { text: t('samples_message') }), speakButton(x.message.replace(/\n/g, '. '), g.catalog === 'UBI' ? 'de-DE' : 'en-GB', t('samples_message'))]),
+							el('pre', { class: 'bp-sample-msg', text: x.message }),
+							el('p', {}, [link(slug + '/funk/praxis/' + x.id + '/', t('samples_practice', { number: x.number }), 'bp-button')])
+						]);
+						var det = el('details', { class: 'bp-sample' + (x.locked ? ' is-locked' : '') }, [head, body]);
+						nodes.push(det);
+					});
+				});
+				var first = null;
+				mount(nodes, title + ' – ' + c.name);
+				first = root.querySelector('.bp-sample:not(.is-locked)');
+				if (first) { first.open = true; }
+			});
+		});
 	}
 
 	function viewRadioText(slug, key, direction) {

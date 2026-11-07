@@ -118,6 +118,51 @@ final class RadioPracticeService
         $this->save($userId, $key, ['done' => $done ? 1 : 0]);
     }
 
+    public const SAMPLE_KINDS = ['distress', 'acknowledge', 'relay', 'false_alert', 'urgency', 'urgency_cancel', 'safety', 'routine'];
+
+    /**
+     * Muster-Funksprüche: je Katalog und Meldungsart das erste Übungsszenario mit Mustermeldung.
+     * Im Teilumfang nur Szenarien innerhalb der freien Übungen (sonst gesperrt, ohne Inhalt).
+     * @return array{catalogs:list<array{catalog:string,samples:list<array<string,mixed>>}>}
+     */
+    public function samples(int $userId, object $course): array
+    {
+        $this->require($userId, $course);
+        $limit = $this->access->limit($userId, $course->code, AccessService::RADIO);
+        $catalogs = [];
+        $pos = [];
+        foreach ($this->rows($course) as $r) {
+            $i = $pos[$r->catalog] = ($pos[$r->catalog] ?? -1) + 1;
+            $catalogs[$r->catalog] ??= [];
+            if (isset($catalogs[$r->catalog][$r->message_kind]) || ! in_array($r->message_kind, self::SAMPLE_KINDS, true)) {
+                continue;
+            }
+            $locked = $limit !== null && $i >= $limit;
+            $steps = [];
+            foreach ((json_decode((string) $r->checkpoints, true) ?: []) as $f) {
+                if (in_array($f['name'] ?? '', ['rank', 'dsc', 'radio', 'circle'], true) && ($f['solution'] ?? '') !== '') {
+                    $steps[] = ['label' => (string) $f['label'], 'text' => (string) $f['solution']];
+                }
+            }
+            $catalogs[$r->catalog][$r->message_kind] = [
+                'kind' => $r->message_kind,
+                'id' => $r->source_id,
+                'number' => (int) $r->number,
+                'locked' => $locked,
+                'situation' => $locked ? null : (string) $r->task_text,
+                'message' => $locked ? null : (string) $r->model_message,
+                'steps' => $locked ? [] : $steps,
+            ];
+        }
+        $out = [];
+        foreach ($catalogs as $catalog => $byKind) {
+            uksort($byKind, static fn ($a, $b) => array_search($a, self::SAMPLE_KINDS, true) <=> array_search($b, self::SAMPLE_KINDS, true));
+            $out[] = ['catalog' => $catalog, 'samples' => array_values($byKind)];
+        }
+
+        return ['catalogs' => $out];
+    }
+
     /** @return list<string> Funkkataloge, die zum Kurs gehören (wie FunkTraining::catalogsFor). */
     public function catalogsFor(object $course): array
     {
