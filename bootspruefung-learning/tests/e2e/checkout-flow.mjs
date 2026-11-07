@@ -83,7 +83,7 @@ try {
   await page.getByText('Freischalten mit:').first().waitFor();
   console.log('  ', setup('pay'));
   await page.goto(`${base}/bootsscheine/sbf-bin-segel/smarttrainer/`);
-  await page.locator('.bp-module-list a.bp-button').first().waitFor();
+  await page.locator('.bp-module-list a.bp-topic').first().waitFor();
   assert.equal(await page.getByText('Freischalten mit:').count(), 0, 'kein Sperrhinweis mehr für gekaufte Funktionen');
   await page.goto(env.account);
   await page.getByText('aktiv').first().waitFor();
@@ -103,7 +103,7 @@ try {
   await page.getByText(/sobald die Zahlung eingegangen ist/).waitFor();
   console.log('  ', setup('pay'));
   await page.goto(`${base}/bootsscheine/sbf-bin-segel/smarttrainer/`);
-  await page.locator('.bp-module-list a.bp-button').first().waitFor();
+  await page.locator('.bp-module-list a.bp-topic').first().waitFor();
 
 } catch (e) {
   // Für die Fehlersuche in CI: Zustand der aktuellen Seite sichern.

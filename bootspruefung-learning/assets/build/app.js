@@ -654,7 +654,7 @@
 			var areas = [];
 			var tr = c.trainers;
 			var pct = function (a, b) { return b > 0 ? Math.floor(a * 100 / b) : null; };
-			areas.push({ path: 'smarttrainer/', icon: 'spark', title: t('mode_smart'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.reduce(function (n, m) { return n + ((m.topics && m.topics.length) ? m.topics.length : 1); }, 0) }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
+			areas.push({ path: 'smarttrainer/', icon: 'spark', title: t('mode_smart'), meta: c.progress ? (function (n) { return t(n === 1 ? 'hub_topics_meta_one' : 'hub_topics_meta', { n: n }); })(c.progress.modules.reduce(function (n, m) { return n + ((m.topics && m.topics.length) ? m.topics.length : 1); }, 0)) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
 			var knots = knotModule(ownVideos);
 			if (knots && knots.lessons.length) {
 				var seen = knots.lessons.filter(function (l) { return l.completed; }).length;
@@ -810,10 +810,10 @@
 				if (!m.locked) {
 					if (m.topics && m.topics.length) {
 						body.appendChild(el('ul', { class: 'bp-topic-tiles' }, m.topics.map(function (tp) { return topicTile(topicHref(slug, m.id, tp.name), tp.name, tp); })));
+						body.appendChild(el('p', { class: 'bp-module-go' }, [link(topicHref(slug, m.id, null), t('learn_module_all', { name: m.name }), 'bp-button')]));
 					} else {
 						body.appendChild(el('ul', { class: 'bp-topic-tiles' }, [topicTile(topicHref(slug, m.id, null), m.name, m)]));
 					}
-					body.appendChild(el('p', { class: 'bp-module-go' }, [link(topicHref(slug, m.id, null), t('learn_module_all', { name: m.name }), 'bp-button')]));
 				}
 				var details = m.locked ? el('div', { class: 'bp-topic-group is-locked' }, [el('div', { class: 'bp-topic-group-head' }, Array.prototype.slice.call(head.childNodes))]) : el('details', { class: 'bp-topic-group' }, [head, body]);
 				details.open = !m.locked;
@@ -833,7 +833,7 @@
 				mount(detailHeader(slug, c, title, t('saved_intro')).concat([lockedBox(t('section_learn'), (c.shop || {}).question_bank)]), title + ' – ' + c.name);
 				return;
 			}
-			var state = { filter: collectionParam ? parseInt(collectionParam, 10) : 'all', tab: tabParam === 'fehler' ? 'wrong' : 'fav', creating: false, message: null, data: null };
+			var state = { filter: collectionParam && /^\d+$/.test(collectionParam) ? parseInt(collectionParam, 10) : 'all', tab: tabParam === 'fehler' ? 'wrong' : 'fav', creating: false, message: null, data: null };
 			var hero = el('div');
 			var live = el('p', { class: 'bp-sr', role: 'status' });
 			var body = el('section', { class: 'bp-section bp-saved', 'aria-labelledby': 'bp-saved-h' });
@@ -844,6 +844,10 @@
 					state.data = d;
 					if (typeof state.filter === 'number' && !d.collections.some(function (x) { return x.id === state.filter; })) {
 						state.filter = 'all';
+					}
+					if (collectionParam !== null && state.filter === 'all') {
+						collectionParam = null;
+						syncUrl(); // ungültige oder gelöschte Sammlung aus der Adresse entfernen
 					}
 					state.message = message || null;
 					live.textContent = message || '';
@@ -900,13 +904,16 @@
 					var form = el('form', { class: 'bp-saved-form' }, [input, el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('saved_create') })]);
 					form.addEventListener('submit', function (ev) {
 						ev.preventDefault();
+						var submit = form.querySelector('button[type=submit]');
+						if (submit.disabled) { return; }
+						submit.disabled = true;
 						api('POST', 'courses/' + encodeURIComponent(slug) + '/collections', { name: input.value }).then(function (col) {
 							state.creating = false;
 							state.filter = col.id;
 							state.focusKey = 'chip-' + col.id;
 							syncUrl();
 							return load(t('saved_created'));
-						}).catch(fail);
+						}).catch(function (e) { submit.disabled = false; fail(e); });
 					});
 					nodes.push(form);
 				}
@@ -1325,27 +1332,84 @@
 
 	// ------------------------------------------------------------------ Lernmodus
 
+	// Lernansicht: Kontext (Kurs, Modul, Thema, Sammlung) für Kopf, Brotkrumen, Fertig-Hinweise.
+	var learnCtx = null;
+
 	function viewLearn(slug, moduleId, mode, topic) {
-		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (course) {
-			var moduleName = null;
+		var collectionId = learnCollection;
+		return Promise.all([
+			api('GET', 'courses/' + encodeURIComponent(slug)),
+			collectionId ? api('GET', 'courses/' + encodeURIComponent(slug) + '/saved').catch(function () { return null; }) : null
+		]).then(function (res) {
+			var course = res[0];
+			var module = null;
 			if (moduleId && course.progress) {
-				course.progress.modules.forEach(function (m) { if (String(m.id) === String(moduleId)) { moduleName = m.name; } });
+				course.progress.modules.forEach(function (m) { if (String(m.id) === String(moduleId)) { module = m; } });
 			}
-			if (!moduleName) {
+			// Unbekanntes Thema: im Modul lernen statt leerer „Geschafft“-Meldung.
+			if (!module || (topic && !(module.topics || []).some(function (tp) { return tp.name === topic; }))) {
 				topic = null;
 			}
-			var heading = topic || moduleName || t('mode_' + mode);
+			var collection = null;
+			if (collectionId && res[1]) {
+				res[1].collections.forEach(function (c) { if (String(c.id) === String(collectionId)) { collection = c; } });
+			}
+			var heading = collection ? collection.name : (topic || (module ? module.name : null) || t('mode_' + mode));
+			var parent = collectionId ? link(slug + '/merkliste/' + (collection ? '?sammlung=' + collection.id : ''), t('saved_title')) : link(slug + '/smarttrainer/', t('mode_smart'));
+			var showHeading = heading !== t('mode_smart');
 			var container = el('div', { class: 'bp-learn' });
+			var progressBox = el('div', { class: 'bp-learn-progress' });
+			learnCtx = { slug: slug, course: course, module: module, topic: topic, collection: collection, collectionId: collectionId, repeat: false, progressBox: progressBox };
+			renderLearnProgress();
 			mount([
-				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', link(slug + '/smarttrainer/', t('mode_smart')), heading !== t('mode_smart') ? ' › ' : null, heading !== t('mode_smart') ? el('span', { text: heading }) : null]),
+				el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', course.name), ' › ', parent, showHeading ? ' › ' : null, showHeading ? el('span', { text: heading }) : null]),
 				el('header', { class: 'bp-header bp-learn-head' }, [
-					el('div', {}, [el('p', { class: 'bp-learn-course', text: course.name + (moduleName ? ' · ' + t('mode_' + mode) : '') }), el('h1', { text: heading })]),
-					course.progress ? el('div', { class: 'bp-learn-progress' }, [el('p', {}, [el('strong', { text: course.progress.total.percent + ' %' }), ' ' + t('course_hero_mastered')]), progressBar(course.progress.total, t('progress_short', { mastered: course.progress.total.mastered, total: course.progress.total.questions }))]) : null
+					el('div', {}, [el('p', { class: 'bp-learn-course', text: course.name + (module || collection ? ' · ' + t('mode_' + mode) : '') }), el('h1', { text: heading })]),
+					course.progress ? progressBox : null
 				]),
 				container
 			], heading + ' – ' + course.name);
 			loadQuestion(slug, moduleId, mode, container, topic);
 		});
+	}
+
+	function renderLearnProgress() {
+		var c = learnCtx && learnCtx.course;
+		if (!c || !c.progress) {
+			return;
+		}
+		var p = c.progress.total;
+		setChildren(learnCtx.progressBox, [el('p', {}, [el('strong', { text: p.percent + ' %' }), ' ' + t('course_hero_mastered')]), progressBar(p, t('progress_short', { mastered: p.mastered, total: p.questions }))]);
+	}
+
+	// Nach jeder Antwort Fortschritt im Kopf (und für den Fertig-Hinweis) aktualisieren.
+	function refreshLearnProgress(slug) {
+		if (!learnCtx || learnCtx.slug !== slug) {
+			return;
+		}
+		var ctx = learnCtx;
+		api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
+			if (learnCtx !== ctx) {
+				return;
+			}
+			ctx.course = c;
+			if (ctx.module) {
+				(c.progress ? c.progress.modules : []).forEach(function (m) { if (m.id === ctx.module.id) { ctx.module = m; } });
+			}
+			renderLearnProgress();
+		}).catch(function () { /* Anzeige bleibt beim letzten Stand */ });
+	}
+
+	// Ist der gewählte Bereich (Thema/Modul) vollständig gefestigt?
+	function learnScopeMastered(mode) {
+		if (!learnCtx || learnCtx.repeat || mode !== 'smart' || !learnCtx.module || learnCtx.collectionId) {
+			return null;
+		}
+		var scope = learnCtx.module;
+		if (learnCtx.topic) {
+			scope = (learnCtx.module.topics || []).filter(function (tp) { return tp.name === learnCtx.topic; })[0] || null;
+		}
+		return scope && scope.questions > 0 && scope.mastered >= scope.questions ? scope : null;
 	}
 
 	function loadQuestion(slug, moduleId, mode, container, topic) {
@@ -1360,21 +1424,40 @@
 			params.set('collection', learnCollection);
 		}
 		container.textContent = '';
+		var collectionId = learnCtx && learnCtx.collectionId;
+		var backLinks = function () {
+			return el('p', { class: 'bp-done-actions' }, [
+				collectionId ? link(slug + '/merkliste/?sammlung=' + encodeURIComponent(collectionId), t('saved_back'), 'bp-button bp-button-primary') : link(slug + '/smarttrainer/', t('topics_back'), 'bp-button bp-button-primary'),
+				' ',
+				mode !== 'smart' && !collectionId ? link(moduleId ? topicHref(slug, moduleId, topic) : slug + '/lernen/', t('done_go_smart'), 'bp-button') : null
+			]);
+		};
+		var mastered = learnScopeMastered(mode);
+		if (mastered) {
+			var again = el('button', { type: 'button', class: 'bp-button', text: t('done_repeat') });
+			again.addEventListener('click', function () { learnCtx.repeat = true; loadQuestion(slug, moduleId, mode, container, topic); });
+			container.appendChild(el('div', { class: 'bp-card bp-done' }, [
+				el('h2', { text: t('done_mastered_title') }),
+				el('p', { text: t('done_mastered', { n: mastered.questions }) }),
+				el('p', { class: 'bp-done-actions' }, [link(slug + '/smarttrainer/', t('topics_back'), 'bp-button bp-button-primary'), ' ', again])
+			]));
+			return;
+		}
 		container.appendChild(el('p', { class: 'bp-loading', text: t('loading') }));
 		api('GET', 'courses/' + encodeURIComponent(slug) + '/next-question?' + params.toString()).then(function (r) {
 			container.textContent = '';
 			if (r.done) {
 				container.appendChild(el('div', { class: 'bp-card bp-done' }, [
 					el('h2', { text: t('done_title') }),
-					el('p', { text: t('done_' + mode) }),
-					el('p', {}, [link(slug + '/', t('back_course'), 'bp-button bp-button-primary'), ' ', mode !== 'smart' ? link(moduleId ? topicHref(slug, moduleId, topic) : slug + '/lernen/', t('mode_smart'), 'bp-button') : null, ' ', link(slug + '/smarttrainer/', t('topics_back'), 'bp-button')])
+					el('p', { text: collectionId && mode === 'favorites' ? t('done_collection') : t('done_' + mode) }),
+					backLinks()
 				]));
 				return;
 			}
 			container.appendChild(questionCard(slug, moduleId, mode, r.question, container, topic));
 		}).catch(function (e) {
 			container.textContent = '';
-			container.appendChild(el('p', { class: 'bp-inline-error', role: 'alert', text: e.message }));
+			container.appendChild(el('div', { class: 'bp-card bp-done' }, [el('p', { class: 'bp-inline-error', role: 'alert', text: e.message }), backLinks()]));
 		});
 	}
 
@@ -1508,7 +1591,7 @@
 			q.official_number ? el('span', { class: 'bp-pill bp-pill-strong', text: t('question_number', { number: q.official_number }) }) : null,
 			q.topic ? el('span', { class: 'bp-pill', text: q.topic }) : null,
 			el('span', { class: 'bp-pill bp-reason', text: q.reason }),
-			q.remaining !== null && q.remaining !== undefined ? el('span', { class: 'bp-remaining', text: t('remaining', { n: q.remaining }) }) : null
+			q.remaining !== null && q.remaining !== undefined ? el('span', { class: 'bp-remaining', text: t(q.remaining === 1 ? 'remaining_one' : 'remaining', { n: q.remaining }) }) : null
 		]);
 		var card = el('article', { class: 'bp-card bp-question', 'aria-labelledby': name + '-text' }, [
 			meta,
@@ -1551,7 +1634,7 @@
 			body.token = q.token;
 			body.idempotency_key = key;
 			body.response_ms = Date.now() - started;
-			return api('POST', 'answers', body).then(function (r) { showResult(r, fieldset); }).catch(function (e) {
+			return api('POST', 'answers', body).then(function (r) { showResult(r, fieldset); refreshLearnProgress(slug); }).catch(function (e) {
 				button.disabled = false;
 				alertMessage(feedback, e.message);
 			});
