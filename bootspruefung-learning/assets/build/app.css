@@ -1127,3 +1127,12 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-exam-page .bp-paper .bp-mini-ring-val { font-size: 0.6rem; }
 	.bp-app .bp-exam-page .bp-paper-state { font-size: 0.72rem; }
 }
+/* Smarttrainer / Gespeicherte Fragen hell statt Blau/Petrol */
+.bp-app a.bp-feature-card { color: inherit; background: var(--bp-surface); border: 1px solid var(--bp-border); border-left: 5px solid var(--bp-signal); box-shadow: var(--bp-shadow); }
+.bp-app a.bp-feature-card:hover { border-color: var(--bp-accent); border-left-color: var(--bp-signal); box-shadow: 0 12px 30px rgba(7, 27, 46, 0.12); }
+.bp-app .bp-feature-card .bp-hub-ring-track { stroke: color-mix(in srgb, currentColor 9%, transparent); }
+.bp-app .bp-feature-card .bp-hub-ring-value { stroke: var(--bp-ok); }
+.bp-app .bp-feature-count { border-color: color-mix(in srgb, var(--bp-signal) 60%, transparent); background: color-mix(in srgb, var(--bp-signal) 14%, var(--bp-surface)); color: var(--bp-navy); }
+.bp-app .bp-feature-text span { color: inherit; opacity: 0.7; }
+.bp-app .bp-feature-text .bp-feature-cta { color: var(--bp-accent); opacity: 1; }
+.bp-app .bp-feature-ico { opacity: 0.07; }
