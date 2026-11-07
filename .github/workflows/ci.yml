@@ -235,7 +235,9 @@ jobs:
           printf 'DB_PASSWORD=%s\nSTAGING_ADMIN_PASSWORD=%s\nSTAGING_DEMO_PASSWORD=Demo-Passwort-123\n' "$(openssl rand -hex 16)" "$(openssl rand -hex 16)" > .env
           docker compose config -q
           docker compose up -d
-          test "$(docker compose wait setup)" = 0 || { docker compose logs setup; exit 1; }
+          docker compose wait setup || true
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq setup)")
+          test "$code" = 0 || { docker compose logs setup; exit 1; }
           docker compose logs setup | tail -n 5
       - name: Seiten erreichbar
         run: |
