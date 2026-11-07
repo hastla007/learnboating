@@ -587,9 +587,7 @@
 			if (tr && tr.praxis.cards > 0) {
 				areas.push({ path: 'praxis/', icon: 'cards', title: t('trainer_praxis'), meta: t('trainer_praxis_meta', { known: tr.praxis.known, total: tr.praxis.cards }), locked: c.features.praxis_trainer === false, percent: pct(tr.praxis.known, tr.praxis.cards) });
 			}
-			if (tr && tr.video.lessons > 0) {
-				areas.push({ path: 'video/', icon: 'play', title: t('trainer_video'), meta: t('trainer_video_meta', { done: tr.video.completed, total: tr.video.lessons }), locked: c.features.video_course === false, percent: pct(tr.video.completed, tr.video.lessons) });
-			}
+			// Videokurs nicht als Kachel: er steht oben als große Karte(n).
 			if (tr && tr.radio.texts + tr.radio.vocabulary > 0) {
 				areas.push({ path: 'funk/', icon: 'radio', title: t('trainer_radio'), meta: t('trainer_radio_meta', { texts: tr.radio.texts, vocabulary: tr.radio.vocabulary }), locked: c.features.radio_training === false });
 			}

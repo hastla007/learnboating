@@ -24,9 +24,10 @@ await page.waitForURL(/\/bootsscheine\/$/);
 step('Kursseite zeigt Trainer');
 await page.goto(`${base}/bootsscheine/sbf-see/`);
 await page.getByRole('heading', { name: 'Lernbereiche' }).waitFor();
-for (const name of ['Navigationsaufgaben', 'Praxistrainer', 'Videokurs']) {
+for (const name of ['Navigationsaufgaben', 'Praxistrainer', 'Knoten']) {
   assert.ok(await page.locator('#bp-app').getByRole('link', { name, exact: true }).isVisible(), name);
 }
+assert.ok(await page.locator('.bp-hub-card-video').first().isVisible(), 'Videokurs als große Karte oben');
 
 step('Navigationsaufgabe lösen');
 await page.locator('#bp-app').getByRole('link', { name: 'Navigationsaufgaben', exact: true }).click();
