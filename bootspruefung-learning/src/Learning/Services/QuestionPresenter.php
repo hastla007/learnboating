@@ -65,7 +65,7 @@ final class QuestionPresenter
     /** @param list<int> $order */
     public function token(int $userId, int $revisionId, array $order, string $context): string
     {
-        $payload = rtrim(strtr(base64_encode((string) wp_json_encode(['u' => $userId, 'r' => $revisionId, 'o' => $order, 'c' => $context, 't' => time()])), '+/', '-_'), '=');
+        $payload = rtrim(strtr(base64_encode((string) wp_json_encode(['u' => $userId, 'r' => $revisionId, 'o' => $order, 'c' => $context, 't' => time(), 'n' => bin2hex(random_bytes(6))])), '+/', '-_'), '=');
 
         return $payload.'.'.hash_hmac('sha256', $payload, wp_salt('auth'));
     }
