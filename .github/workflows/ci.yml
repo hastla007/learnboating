@@ -245,7 +245,8 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$path")
             echo "$code $path"; test "$code" = 200
           done
-          curl -s http://localhost:8080/shop/ | grep -q 'SBF See'
+          curl -s -o shop.html http://localhost:8080/shop/
+          grep -q 'SBF See' shop.html
       - name: Neustart (Einrichtung wiederholbar)
         working-directory: staging
         run: |
