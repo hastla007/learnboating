@@ -24,6 +24,8 @@ final class LearningService
     private const RATE_LIMIT = 60;
 
     private \wpdb $db;
+    /** @var array<string,array<int,object>> */
+    private array $allowedMemo = [];
 
     public function __construct(
         private readonly ContentRepository $content,
@@ -65,7 +67,8 @@ final class LearningService
             unset($questions[$blocked]);
         }
         if ($topic !== null && $topic !== '') {
-            $questions = array_filter($questions, static fn ($q) => (string) ($q->topic ?? '') === $topic);
+            $topic = trim($topic);
+            $questions = array_filter($questions, static fn ($q) => trim((string) ($q->topic ?? '')) === $topic);
         }
         if ($onlyIds !== null) {
             $questions = array_intersect_key($questions, array_flip($onlyIds));
@@ -252,9 +255,11 @@ final class LearningService
         if (count($groups) < 2) {
             return [];
         }
+        // Fortschritt einmal je Modul laden, dann je Thema zählen (statt einer Abfrage pro Thema).
+        $progress = $this->progressFor($userId, array_merge(...array_values($groups)));
         $out = [];
         foreach ($groups as $topic => $ids) {
-            $out[] = ['name' => $topic] + $this->summary($userId, $ids);
+            $out[] = ['name' => $topic] + self::summaryFrom($ids, $progress);
         }
         usort($out, static fn ($a, $b) => $b['questions'] <=> $a['questions'] ?: strcmp($a['name'], $b['name']));
 
@@ -288,6 +293,18 @@ final class LearningService
      */
     public function allowedQuestions(int $userId, object $course, array $moduleIds, ?array $gates = null): array
     {
+        // Innerhalb einer Anfrage mehrfach gebraucht (Kursdaten, Favoriten, Sammlungen): einmal berechnen.
+        $gates ??= $this->moduleGates($userId, $course);
+        $limit = $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK);
+        $locked = array_keys(array_filter($gates, static fn ($g) => $g['locked']));
+        $key = $userId.'|'.$course->code.'|'.implode(',', array_map('intval', $moduleIds)).'|'.var_export($limit, true).'|'.implode(',', $locked);
+
+        return $this->allowedMemo[$key] ??= $this->computeAllowed($userId, $course, $moduleIds, $gates);
+    }
+
+    /** @param list<int> $moduleIds @return array<int,object> */
+    private function computeAllowed(int $userId, object $course, array $moduleIds, ?array $gates): array
+    {
         $gates ??= $this->moduleGates($userId, $course);
         $limit = $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK);
         if ($limit === 0) {
@@ -311,8 +328,13 @@ final class LearningService
     /** @param list<int> $questionIds @return array{questions:int,new:int,unsure:int,learning:int,mastered:int,percent:int} */
     public function summary(int $userId, array $questionIds): array
     {
+        return self::summaryFrom($questionIds, $this->progressFor($userId, $questionIds));
+    }
+
+    /** @param list<int> $questionIds @param array<int,object> $progress @return array{questions:int,new:int,unsure:int,learning:int,mastered:int,percent:int} */
+    private static function summaryFrom(array $questionIds, array $progress): array
+    {
         $out = ['questions' => count($questionIds), 'new' => 0, 'unsure' => 0, 'learning' => 0, 'mastered' => 0, 'percent' => 0];
-        $progress = $this->progressFor($userId, $questionIds);
         foreach ($questionIds as $id) {
             $out[$progress[$id]->learn_status ?? 'new']++;
         }

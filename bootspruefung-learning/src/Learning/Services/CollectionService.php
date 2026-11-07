@@ -56,7 +56,9 @@ final class CollectionService
             throw new RuntimeException(sprintf(__('Höchstens %d Sammlungen je Kurs.', 'bootspruefung-learning'), self::MAX_COLLECTIONS));
         }
         $this->assertUnique($userId, (int) $course->id, $name, null);
-        $this->db->insert($this->t('favorite_collection'), ['user_id' => $userId, 'course_id' => (int) $course->id, 'name' => $name, 'created_at' => current_time('mysql', true)]);
+        if (! $this->db->insert($this->t('favorite_collection'), ['user_id' => $userId, 'course_id' => (int) $course->id, 'name' => $name, 'created_at' => current_time('mysql', true)])) {
+            throw new RuntimeException(__('Die Sammlung konnte nicht angelegt werden.', 'bootspruefung-learning'));
+        }
 
         return ['id' => (int) $this->db->insert_id, 'name' => $name, 'count' => 0];
     }
@@ -96,16 +98,26 @@ final class CollectionService
         if (! $favorite && $collectionIds !== []) {
             throw new RuntimeException(__('Nur Favoriten lassen sich in Sammlungen einsortieren.', 'bootspruefung-learning'));
         }
-        $this->learning->setFavorite($userId, $questionId, $favorite);
-        if ($own !== []) {
-            $this->db->query($this->db->prepare(
-                "DELETE FROM {$this->t('favorite_collection_item')} WHERE question_id = %d AND collection_id IN (".implode(',', array_map('intval', $own)).')',
-                $questionId
-            ));
-        }
-        $now = current_time('mysql', true);
-        foreach ($collectionIds as $cid) {
-            $this->db->insert($this->t('favorite_collection_item'), ['collection_id' => $cid, 'question_id' => $questionId, 'created_at' => $now]);
+        // Merkliste und Zuordnungen gemeinsam ändern (alles oder nichts).
+        $this->db->query('START TRANSACTION');
+        try {
+            $this->learning->setFavorite($userId, $questionId, $favorite);
+            if ($own !== []) {
+                $this->db->query($this->db->prepare(
+                    "DELETE FROM {$this->t('favorite_collection_item')} WHERE question_id = %d AND collection_id IN (".implode(',', array_map('intval', $own)).')',
+                    $questionId
+                ));
+            }
+            $now = current_time('mysql', true);
+            foreach ($collectionIds as $cid) {
+                if (! $this->db->insert($this->t('favorite_collection_item'), ['collection_id' => $cid, 'question_id' => $questionId, 'created_at' => $now])) {
+                    throw new RuntimeException(__('Die Sammlungen konnten nicht gespeichert werden.', 'bootspruefung-learning'));
+                }
+            }
+            $this->db->query('COMMIT');
+        } catch (\Throwable $e) {
+            $this->db->query('ROLLBACK');
+            throw $e;
         }
 
         return ['question_id' => $questionId, 'favorite' => $favorite, 'collections' => $collectionIds];

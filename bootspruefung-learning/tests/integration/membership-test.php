@@ -142,7 +142,9 @@ $topicsOk = true;
 $topicLearn = null;
 foreach ($progress['modules'] as $m) {
     if ($m['topics'] !== []) {
-        $topicsOk = $topicsOk && array_sum(array_map(static fn ($tp) => $tp['questions'], $m['topics'])) === $m['questions'];
+        $sum = array_sum(array_map(static fn ($tp) => $tp['questions'], $m['topics']));
+        // Fragen ohne eigenes Thema (leer oder gleich dem Modulnamen) zählen nur zum Modul.
+        $topicsOk = $topicsOk && $sum > 0 && $sum <= $m['questions'];
         $topicLearn ??= [$m['id'], $m['topics'][0]['name']];
     }
 }

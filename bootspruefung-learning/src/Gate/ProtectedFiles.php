@@ -88,10 +88,7 @@ final class ProtectedFiles
         if (! isset($input['bp_required_access']) || ! current_user_can('upload_files') || ! current_user_can('edit_post', $id)) {
             return $post;
         }
-        if (isset($input['bp_file_slot'])) {
-            $slot = sanitize_key((string) $input['bp_file_slot']);
-            in_array($slot, SectionFiles::SLOTS, true) ? update_post_meta($id, SectionFiles::SLOT_META, $slot) : delete_post_meta($id, SectionFiles::SLOT_META);
-        }
+
         $value = sanitize_text_field((string) $input['bp_required_access']);
         if ($value === '') {
             self::unprotect($id);
@@ -103,6 +100,9 @@ final class ProtectedFiles
             return $post;
         }
         self::protect($id, $course, $feature);
+        // Anzeigeort nur für geschützte Dateien mit gültiger Zuordnung.
+        $slot = sanitize_key((string) ($input['bp_file_slot'] ?? ''));
+        in_array($slot, SectionFiles::SLOTS, true) ? update_post_meta($id, SectionFiles::SLOT_META, $slot) : delete_post_meta($id, SectionFiles::SLOT_META);
 
         return $post;
     }
@@ -136,6 +136,7 @@ final class ProtectedFiles
         $path = (string) get_post_meta($id, self::PATH_META, true);
         delete_post_meta($id, self::META);
         delete_post_meta($id, self::COURSE_META);
+        delete_post_meta($id, SectionFiles::SLOT_META);
         if ($path === '') {
             return;
         }
