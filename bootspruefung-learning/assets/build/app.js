@@ -647,7 +647,7 @@
 				var seen = knots.lessons.filter(function (l) { return l.completed; }).length;
 				areas.push({ path: 'knoten/', icon: 'rope', title: t('knots_title'), meta: t('knots_meta', { done: seen, total: knots.lessons.length }), locked: c.features.video_course === false, percent: pct(seen, knots.lessons.length) });
 			}
-			areas.push({ path: 'themen/', icon: 'layers', title: t('hub_topics'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.length }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
+			areas.push({ path: 'themen/', icon: 'layers', title: t('hub_topics'), meta: c.progress ? t('hub_topics_meta', { n: c.progress.modules.reduce(function (n, m) { return n + ((m.topics && m.topics.length) ? m.topics.length : 1); }, 0) }) : t('locked_short'), locked: !qb, percent: p ? p.percent : null });
 			areas.push({ path: 'merkliste/', icon: 'bookmark', title: t('saved_title'), meta: qb ? t('saved_meta', { n: c.favorites }) : t('locked_short'), locked: !qb });
 			areas.push({ path: 'pruefung/', icon: 'timer', title: t('section_exam'), meta: c.exam && c.exam.papers.length ? t('hub_exam_meta', { n: c.exam.papers.length }) : (c.exam ? t('hub_exam_meta_random') : t('locked_short')), locked: !c.exam });
 			if (tr && tr.navigation.tasks > 0) {
