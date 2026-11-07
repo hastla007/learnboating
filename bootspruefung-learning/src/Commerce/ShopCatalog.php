@@ -296,6 +296,7 @@ final class ShopCatalog
             $product->set_name($def['name']);
             $product->set_regular_price($def['price']);
             $product->set_virtual(true);
+            $product->set_reviews_allowed(false); // keine Produktbewertungen (leerer Reiter „Bewertungen (0)“)
             $seats = (int) ($def['seats'] ?? 0);
             // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
             $product->set_sold_individually($seats === 0);
@@ -480,7 +481,7 @@ final class ShopCatalog
             'bundle' => str_starts_with($def['sku'], 'BP-PASS')
                 ? sprintf('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', $months)
                 : 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.',
-            'addon' => sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs enthält genau die zusätzlichen Inhalte.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
+            'addon' => sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
             default => sprintf('Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone.', trim((string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0]))),
         };
         $items = [];
@@ -569,7 +570,7 @@ final class ShopCatalog
         ];
         $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 91 ? '3 Monate' : $def['days'].' Tage');
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
-            .'<p><strong>'.esc_html('Dein Vorteil: Web-App statt Download').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
+            .'<p><strong>'.esc_html('Läuft direkt im Browser').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
             .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';
         $short = sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
 

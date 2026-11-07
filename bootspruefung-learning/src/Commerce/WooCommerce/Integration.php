@@ -297,12 +297,42 @@ final class Integration
             return;
         }
         echo '<table class="woocommerce-table shop_table bp-access-table"><thead><tr><th>'.esc_html__('Kurs', 'bootspruefung-learning').'</th><th>'.esc_html__('Umfang', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th>'.esc_html__('Gültig bis', 'bootspruefung-learning').'</th></tr></thead><tbody>';
+        // Eine Zeile je Kurs/Status/Laufzeit statt je Funktion; reine Simulator-Zugänge (SRC/UBI-Hilfskurse) als eine Zeile.
+        $groups = [];
+        $sim = [];
         foreach ($rows as $row) {
-            $course = Labels::course($row['course']);
-            $cell = $row['status'] === EntitlementPlanner::ACTIVE
-                ? '<a href="'.esc_url(Router::url(ContentRepository::slug($row['course']))).'">'.esc_html($course).'</a>'
+            $key = $row['course'].'|'.$row['status'].'|'.$row['valid_until'];
+            $groups[$key] ??= ['course' => $row['course'], 'status' => $row['status'], 'valid_until' => $row['valid_until'], 'features' => []];
+            $groups[$key]['features'][] = (string) $row['feature'];
+        }
+        foreach ($groups as $key => $g) {
+            if ($g['features'] === [\Bootspruefung\Learning\Learning\Services\AccessService::DEVICE]) {
+                $simKey = $g['status'].'|'.$g['valid_until'];
+                $sim[$simKey] ??= $g;
+                unset($groups[$key]);
+            }
+        }
+        $all = \Bootspruefung\Learning\Learning\Services\AccessService::FEATURES;
+        $scope = static function (array $features) use ($all): string {
+            $features = array_values(array_unique($features));
+            if (in_array('all', $features, true) || array_diff($all, $features) === []) {
+                return __('Alle Inhalte', 'bootspruefung-learning');
+            }
+            if (array_diff(array_diff($all, [\Bootspruefung\Learning\Learning\Services\AccessService::VIDEO]), $features) === []) {
+                return __('Alle Inhalte außer Videokurs', 'bootspruefung-learning');
+            }
+
+            return implode(', ', array_map(static fn ($f) => Labels::feature($f), $features));
+        };
+        foreach ($groups as $g) {
+            $course = Labels::course($g['course']);
+            $cell = $g['status'] === EntitlementPlanner::ACTIVE
+                ? '<a href="'.esc_url(Router::url(ContentRepository::slug($g['course']))).'">'.esc_html($course).'</a>'
                 : esc_html($course);
-            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', $cell, esc_html(Labels::feature($row['feature'])), esc_html(Labels::status($row['status'])), esc_html(Labels::date($row['valid_until'])));
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', $cell, esc_html($scope($g['features'])), esc_html(Labels::status($g['status'])), esc_html(Labels::date($g['valid_until'])));
+        }
+        foreach ($sim as $g) {
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html__('Funkgerät-Simulator (SRC/UBI)', 'bootspruefung-learning'), esc_html(Labels::feature(\Bootspruefung\Learning\Learning\Services\AccessService::DEVICE)), esc_html(Labels::status($g['status'])), esc_html(Labels::date($g['valid_until'])));
         }
         echo '</tbody></table>';
         MoneyBackWoo::renderAccountSection(get_current_user_id());

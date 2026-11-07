@@ -104,7 +104,8 @@ final class VideoUpgrade
             }
             $price = wp_strip_all_tags(wc_price((float) $upgrade->get_price()));
             $url = add_query_arg('add-to-cart', $upgrade->get_id(), wc_get_checkout_url());
-            $name = \Bootspruefung\Learning\Commerce\Labels::course($course);
+            // Name wie das Produkt im Warenkorb („SRC – Theorie“ → „SRC“), nicht der Kursname („SRC Vollkurs“).
+            $name = trim((string) preg_replace('/\s+–\s+Theorie$/u', '', (string) (ShopCatalog::find($base)['name'] ?? \Bootspruefung\Learning\Commerce\Labels::course($course))));
             $cards .= '<p><strong>'.esc_html(sprintf(__('Videokurs %1$s dazu für + %2$s', 'bootspruefung-learning'), $name, $price)).'</strong><br>'
                 .esc_html__('Der gesamte Prüfungsstoff Kapitel für Kapitel im Video erklärt – passend zu deinem Theoriekurs, gleiche Laufzeit.', 'bootspruefung-learning').'</p>'
                 .'<p><a class="button bp-upgrade-add" rel="nofollow" href="'.esc_url($url).'">'.esc_html__('Videokurs hinzufügen', 'bootspruefung-learning').'</a></p>';

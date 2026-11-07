@@ -125,10 +125,10 @@ add_filter('render_block', static function (string $html): string {
 /** Kontobereich im Kopf: Anmelden bzw. Lernbereich (Shortcode für den Kopfbereich). */
 add_shortcode('kurswasser_account', static function (): string {
     if (is_user_logged_in()) {
-        return '<a class="kw-head-link" href="'.esc_url(kurswasser_url('learn')).'"><span class="kw-icon kw-icon-user" aria-hidden="true"></span>'.esc_html__('Lernbereich', 'kurswasser').'</a>';
+        return '<a class="kw-head-link" href="'.esc_url(kurswasser_url('learn')).'"><span class="kw-icon kw-icon-user" aria-hidden="true"></span><span class="kw-head-label">'.esc_html__('Lernbereich', 'kurswasser').'</span></a>';
     }
 
-    return '<a class="kw-head-link" href="'.esc_url(kurswasser_url('account')).'"><span class="kw-icon kw-icon-user" aria-hidden="true"></span>'.esc_html__('Anmelden', 'kurswasser').'</a>';
+    return '<a class="kw-head-link" href="'.esc_url(kurswasser_url('account')).'"><span class="kw-icon kw-icon-user" aria-hidden="true"></span><span class="kw-head-label">'.esc_html__('Anmelden', 'kurswasser').'</span></a>';
 });
 
 /** Markenname: Einstellung des Lern-Plugins, sonst Website-Titel. */
