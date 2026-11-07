@@ -36,9 +36,9 @@ PRODUCTS = [
     ('BP-ADD-FKN-TO-SKN', 'FKN → SKN', 'Ergänzungskurs', '6 Monate', 'plus', (255, 140, 90)),
     ('BP-KAPITAEN', 'Kapitäns-\nBundle', 'SBF See + Binnen + Funk', '12 Monate', 'wheel', (142, 168, 255)),
     ('BP-PASS-1M', '1-Monats-\nPass', 'Alle Inhalte', '30 Tage', 'clock', (64, 196, 255)),
-    ('BP-PASS-3M', '3-Monats-\nPass', 'Alle Inhalte', '90 Tage', 'clock', (247, 181, 0)),
+    ('BP-PASS-3M', '3-Monats-\nPass', 'Alle Inhalte', '90 Tage', 'clock', (142, 168, 255)),
     ('SIM-PASS-14D', 'Funkgerät-\nSimulator', '14-Tage-Sprint · SRC/UBI', '14 Tage', 'radio', (255, 120, 90)),
-    ('SIM-PASS-3M', 'Funkgerät-\nSimulator', 'Standardzugang · SRC/UBI', '3 Monate', 'radio', (247, 181, 0)),
+    ('SIM-PASS-3M', 'Funkgerät-\nSimulator', 'Standardzugang · SRC/UBI', '3 Monate', 'radio', (142, 168, 255)),
     ('SIM-PASS-12M', 'Funkgerät-\nSimulator', 'Sorglos-Zugang · SRC/UBI', '12 Monate', 'radio', (102, 220, 160)),
     ('SIM-UPGRADE-CHECKOUT', 'Simulator-\nUpgrade', 'Zum Funkkurs dazu', '12 Monate', 'radio', (64, 196, 255)),
 ]
@@ -55,7 +55,7 @@ GROUPS = [
     ('GRP-CLUB-20', 'Vereins-\nPaket 20', 'SBF See', 20), ('GRP-CLUB-21', 'Vereins-\nPaket 20', 'SBF See & Binnen', 20),
     ('GRP-CLUB-50', 'Partner-\nFlat 50', 'SBF See & Binnen', 50),
 ]
-GROUP_ACCENT = {'PAIR': (255, 150, 170), 'FAM': (247, 181, 0), 'CREW': (64, 196, 255), 'CLUB': (102, 220, 160)}
+GROUP_ACCENT = {'PAIR': (255, 150, 170), 'FAM': (142, 168, 255), 'CREW': (64, 196, 255), 'CLUB': (102, 220, 160)}
 
 NAVY_TOP = (10, 37, 64)
 NAVY_BOTTOM = (4, 18, 36)
