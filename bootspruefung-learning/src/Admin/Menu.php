@@ -27,6 +27,7 @@ final class Menu
         (new ImportPage())->register();
         (new ContentPages())->register();
         (new AccessPages())->register();
+        (new PricePage())->register();
         (new ExamGuidePages())->register();
     }
 
@@ -49,6 +50,7 @@ final class Menu
             [AccessPages::GROUP_SLUG, __('Gruppenlizenzen', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderGroups']],
             [ExamGuidePages::SLUG, __('Prüfungsanmeldung', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, [new ExamGuidePages(), 'render']],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
+            [PricePage::SLUG, __('Preise', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PricePage(), 'render']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
         ];

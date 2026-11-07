@@ -446,6 +446,20 @@ $check($bySku['BP-SBF-SEE-VIDEO']['features'] === ['video_course'] && $bySku['BP
 $check(in_array('video_course', $bySku['BP-SRC-KOMPLETT']['features'], true) && ! in_array('device_simulation', $bySku['BP-SRC-KOMPLETT']['features'], true) && ! in_array('video_course', $bySku['BP-SRC']['features'], true), 'SRC: Theorie ohne Video, Komplett mit Video, beide ohne Simulator');
 $check(! isset($bySku['BP-SBF-SEE-BIN']['features']) && $bySku['BP-SBF-SEE-BIN']['price'] === '60.80', 'Kombi bleibt komplett (60,80 €)');
 $check(\Bootspruefung\Learning\Commerce\ShopCatalog::tierBase('BP-SRC-VIDEO') === 'BP-SRC' && \Bootspruefung\Learning\Commerce\ShopCatalog::tierBase('BP-SRC-UBI') === null, 'Stufen-Zuordnung über die Artikelnummer');
+// Eigene Preise (Admin „Preise“): überschreiben den Katalogpreis, ungültige werden abgewiesen.
+$SC = \Bootspruefung\Learning\Commerce\ShopCatalog::class;
+delete_option($SC::PRICE_OPTION);
+$r = $SC::saveOwnPrices(['BP-SBF-SEE' => '31,50', 'BP-SBF-SEE-VIDEO' => '9.9', 'BP-SRC' => 'abc', 'BP-PASS-1M' => '-3', 'BP-SKN' => '', 'BP-UNBEKANNT' => '5', 'BP-SBF-BIN-MOTOR' => $bySku['BP-SBF-BIN-MOTOR']['price']]);
+$own = $SC::ownPrices();
+$check($own === ['BP-SBF-SEE' => '31.50', 'BP-SBF-SEE-VIDEO' => '9.90'] && array_keys($r['errors']) === ['BP-SRC', 'BP-PASS-1M'], 'eigene Preise: Komma/Punkt, Katalogpreis und leer werden nicht gespeichert, ungültige abgewiesen');
+$now = $SC::find('BP-SBF-SEE');
+$check($now['price'] === '31.50' && $now['catalog_price'] === '28.90' && $SC::find('BP-SBF-SEE-KOMPLETT')['price'] === '40.80', 'eigener Preis gilt im Katalog, Komplett bleibt eigenständig');
+$check(str_contains($SC::texts($now)['long'], 'Upgrade für 9,90 €'), 'Text nennt den eigenen Upgrade-Preis');
+$SC::saveOwnPrices(['BP-SBF-SEE' => '0', 'BP-SBF-SEE-VIDEO' => '9,90']);
+$check($SC::ownPrices() === ['BP-SBF-SEE' => '31.50', 'BP-SBF-SEE-VIDEO' => '9.90'], 'ungültige Änderung behält den bisherigen eigenen Preis');
+update_option($SC::PRICE_OPTION, ['BP-SKN' => '1e3', 'BP-SRC' => ['x']]);
+$check($SC::ownPrices() === [], 'manipulierte Option wird ignoriert');
+delete_option($SC::PRICE_OPTION);
 
 $mbProduct = 995001;
 $products->save($mbProduct, 0, [['course_code' => 'SKN', 'feature_code' => 'question_bank']], 182, 'extend', 'revoke_on_full_refund');

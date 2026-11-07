@@ -39,6 +39,8 @@ final class ShopCatalog
         'BP-SRC' => '7.90', 'BP-UBI' => '7.90', 'BP-SKN' => '4.90', 'BP-FKN' => '4.90',
         'BP-ADD-SEE-TO-BIN' => '4.90', 'BP-ADD-BIN-TO-SEE' => '4.90', 'BP-ADD-BIN-SEGEL' => '4.90', 'BP-ADD-UBI-TO-SRC' => '4.90', 'BP-ADD-FKN-TO-SKN' => '4.90',
     ];
+    /** Eigene Preise des Betreibers (Admin „Preise“): SKU => Preis, überschreibt den Katalogpreis. */
+    public const PRICE_OPTION = 'bp_learning_prices';
     public const KOMPLETT_SUFFIX = '-KOMPLETT';
     public const VIDEO_SUFFIX = '-VIDEO';
 
@@ -83,8 +85,78 @@ final class ShopCatalog
     ];
     public const FREE_REASON = 'Schnupper-Paket (Shop-Katalog)';
 
-    /** @return list<array{sku:string,name:string,price:string,days:int,courses:list<string>,group:string,seats?:int}> */
+    /**
+     * Katalog mit den Preisen des Betreibers (falls gesetzt); 'catalog_price' = festgelegter Katalogpreis.
+     * @return list<array{sku:string,name:string,price:string,catalog_price:string,days:int,courses:list<string>,group:string,seats?:int}>
+     */
     public static function products(): array
+    {
+        $own = self::ownPrices();
+        $list = self::catalogProducts();
+        foreach ($list as $i => $def) {
+            $list[$i]['catalog_price'] = $def['price'];
+            if (isset($own[$def['sku']])) {
+                $list[$i]['price'] = $own[$def['sku']];
+            }
+        }
+
+        return $list;
+    }
+
+    /** @return array<string,string> gültige eigene Preise (SKU => „12.90“) */
+    public static function ownPrices(): array
+    {
+        $raw = get_option(self::PRICE_OPTION, []);
+        $out = [];
+        foreach (is_array($raw) ? $raw : [] as $sku => $price) {
+            if (is_string($sku) && is_string($price) && preg_match('/^\d{1,5}\.\d{2}$/', $price) && (float) $price > 0) {
+                $out[$sku] = $price;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Eigene Preise speichern; leer = Katalogpreis. Gibt Fehlermeldungen je SKU zurück.
+     * @param array<string,string> $input SKU => Eingabe („12,90“ oder „12.90“)
+     * @return array{saved:int,errors:array<string,string>}
+     */
+    public static function saveOwnPrices(array $input): array
+    {
+        $known = array_column(self::catalogProducts(), 'price', 'sku');
+        $before = self::ownPrices();
+        $own = [];
+        $errors = [];
+        foreach ($input as $sku => $value) {
+            $sku = (string) $sku;
+            $value = trim(str_replace([' ', '€'], '', (string) $value));
+            if (! isset($known[$sku]) || $value === '') {
+                continue;
+            }
+            $value = str_replace(',', '.', $value);
+            if (! preg_match('/^\d{1,5}(\.\d{1,2})?$/', $value) || (float) $value <= 0) {
+                $errors[$sku] = __('ungültiger Preis', 'bootspruefung-learning');
+                if (isset($before[$sku])) {
+                    $own[$sku] = $before[$sku]; // bisheriger eigener Preis bleibt
+                }
+                continue;
+            }
+            $value = number_format((float) $value, 2, '.', '');
+            if ($value !== $known[$sku]) {
+                $own[$sku] = $value;
+            }
+        }
+        update_option(self::PRICE_OPTION, $own, false);
+        if ($before !== $own) {
+            AuditLog::record('shop_prices_changed', 'settings', null, null, ['before' => $before, 'after' => $own]);
+        }
+
+        return ['saved' => count($own), 'errors' => $errors];
+    }
+
+    /** @return list<array<string,mixed>> Katalog mit den festgelegten Preisen */
+    private static function catalogProducts(): array
     {
         $list = [
             ['sku' => 'BP-SBF-SEE-BIN', 'name' => 'SBF See & Binnen (Kombi)', 'price' => '60.80', 'days' => 365, 'courses' => self::SBF_ALL],
@@ -426,7 +498,7 @@ final class ShopCatalog
         if ($videos > 0 && $withVideo) {
             $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
         } elseif ($videos > 0 && ($def['tier'] ?? '') === 'theorie') {
-            $items[] = sprintf('Videokurs (%d Lektionen) nicht enthalten – als Upgrade für %s € erhältlich, erste Lektion kostenlos', $videos, number_format((float) (self::VIDEO_TIERS[$def['sku']] ?? 0), 2, ',', '.'));
+            $items[] = sprintf('Videokurs (%d Lektionen) nicht enthalten – als Upgrade für %s € erhältlich, erste Lektion kostenlos', $videos, number_format((float) (self::find(self::videoSku($def['sku']))['price'] ?? self::VIDEO_TIERS[$def['sku']] ?? 0), 2, ',', '.'));
         }
         $withSim = in_array(AccessService::DEVICE, $def['features'] ?? [AccessService::DEVICE], true);
         if ($radio && $seats > 0 && ! $withSim) {
