@@ -101,8 +101,15 @@ $questionId = (int) $wpdb->insert_id;
 $wpdb->insert($p.'progress', ['user_id' => $userId, 'question_id' => $questionId]);
 $wpdb->insert($p.'favorite', ['user_id' => $userId, 'question_id' => $questionId]);
 $email = get_userdata($userId)->user_email;
-$export = \Bootspruefung\Learning\Privacy\PersonalData::export($email);
-$check($export['data'] !== [], 'Export liefert Daten');
+// Export ist seitenweise (je Datenquelle eine Seite) – alle Seiten einsammeln.
+$exported = [];
+$pageNo = 1;
+do {
+    $export = \Bootspruefung\Learning\Privacy\PersonalData::export($email, $pageNo++);
+    $exported = array_merge($exported, $export['data']);
+} while (! $export['done'] && $pageNo < 100);
+$groups = array_unique(array_column($exported, 'group_id'));
+$check(in_array('bootspruefung-learning-progress', $groups, true) && in_array('bootspruefung-learning-favorite', $groups, true), 'Export liefert Daten');
 $erase = \Bootspruefung\Learning\Privacy\PersonalData::erase($email);
 $check($erase['items_removed'] === true, 'Löschung entfernt Lerndaten');
 $left = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}progress WHERE user_id = %d", $userId))
