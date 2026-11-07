@@ -229,24 +229,46 @@ final class LearningService
     /** Fortschritt je Modul eines Kurses. @return array<string,mixed> */
     public function courseProgress(int $userId, object $course): array
     {
-        $modules = [];
-        $all = [];
+        // Gebündelt: Freigaben, Limit, Fragen aller Module und Lernstand je einmal laden (statt je Modul).
         $gates = $this->moduleGates($userId, $course);
-        foreach ($this->content->modules((int) $course->id) as $module) {
-            $allIds = [];
-            foreach ($this->content->questionsForModules([(int) $module->id]) as $row) {
-                $allIds[(int) $row->question_id] = true;
+        $limit = $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK);
+        $moduleList = $this->content->modules((int) $course->id);
+        $byModule = [];
+        foreach ($this->content->questionsForModules(array_map(static fn ($m) => (int) $m->id, $moduleList)) as $row) {
+            $byModule[(int) $row->module_id][] = $row;
+        }
+        $allowedByModule = [];
+        $all = [];
+        foreach ($moduleList as $module) {
+            $id = (int) $module->id;
+            $rows = [];
+            // Wie allowedQuestions(): ohne gesperrte Module, bei Teilumfang die ersten n Fragen je Modul.
+            if ($limit !== 0 && ! ($gates[$id]['locked'] ?? false)) {
+                $n = 0;
+                foreach ($byModule[$id] ?? [] as $row) {
+                    if ($limit !== null && $n >= $limit) {
+                        break;
+                    }
+                    $n++;
+                    $rows[(int) $row->question_id] ??= $row;
+                }
             }
-            $gate = $gates[(int) $module->id];
-            $rows = $this->allowedQuestions($userId, $course, [(int) $module->id], $gates);
+            $allowedByModule[$id] = $rows;
+            $all += $rows;
+        }
+        $progress = $this->progressFor($userId, array_keys($all));
+        $modules = [];
+        foreach ($moduleList as $module) {
+            $id = (int) $module->id;
+            $rows = $allowedByModule[$id];
             $ids = array_keys($rows);
-            $all += array_flip($ids);
-            $modules[] = ['id' => (int) $module->id, 'code' => $module->code, 'name' => $module->name] + $this->summary($userId, $ids)
-                + ['available' => count($ids), 'catalog' => count($allIds), 'locked' => $gate['locked'], 'unlock_at' => $gate['unlock_at'],
-                    'topics' => $this->topicSummary($userId, $rows, (string) $module->name)];
+            $catalog = count(array_unique(array_map(static fn ($r) => (int) $r->question_id, $byModule[$id] ?? [])));
+            $modules[] = ['id' => $id, 'code' => $module->code, 'name' => $module->name] + self::summaryFrom($ids, $progress)
+                + ['available' => count($ids), 'catalog' => $catalog, 'locked' => $gates[$id]['locked'], 'unlock_at' => $gates[$id]['unlock_at'],
+                    'topics' => $this->topicSummary($userId, $rows, (string) $module->name, $progress)];
         }
 
-        return ['total' => $this->summary($userId, array_keys($all)), 'modules' => $modules, 'limit' => $this->access->limit($userId, $course->code, AccessService::QUESTION_BANK)];
+        return ['total' => self::summaryFrom(array_keys($all), $progress), 'modules' => $modules, 'limit' => $limit];
     }
 
     /**
@@ -254,7 +276,7 @@ final class LearningService
      * @param array<int,object> $rows question_id => Zeile
      * @return list<array<string,mixed>>
      */
-    private function topicSummary(int $userId, array $rows, string $moduleName): array
+    private function topicSummary(int $userId, array $rows, string $moduleName, ?array $progress = null): array
     {
         $groups = [];
         foreach ($rows as $id => $row) {
@@ -268,7 +290,7 @@ final class LearningService
             return [];
         }
         // Fortschritt einmal je Modul laden, dann je Thema zählen (statt einer Abfrage pro Thema).
-        $progress = $this->progressFor($userId, array_merge(...array_values($groups)));
+        $progress ??= $this->progressFor($userId, array_merge(...array_values($groups)));
         $out = [];
         foreach ($groups as $topic => $ids) {
             $out[] = ['name' => $topic] + self::summaryFrom($ids, $progress);
@@ -286,9 +308,10 @@ final class LearningService
     public function moduleGates(int $userId, object $course): array
     {
         $now = current_time('mysql', true);
+        $times = $this->access->unlockTimes($userId, $course->code, AccessService::QUESTION_BANK); // eine Abfrage für alle Module
         $out = [];
         foreach ($this->content->modules((int) $course->id) as $module) {
-            $at = $this->access->unlockAt($userId, $course->code, AccessService::QUESTION_BANK, (string) $module->code);
+            $at = $times[(string) $module->code] ?? null;
             $out[(int) $module->id] = ['code' => (string) $module->code, 'locked' => $at !== null && $at > $now, 'unlock_at' => $at];
         }
 

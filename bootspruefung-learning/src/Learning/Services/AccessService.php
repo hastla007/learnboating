@@ -80,23 +80,55 @@ final class AccessService
         return ['full' => $full, 'limit' => $limit];
     }
 
-    /** @return array<string,bool> Feature => erlaubt (voll oder Teilumfang) */
-    public function features(int $userId, string $courseCode): array
+    /**
+     * Zugriff für alle Features eines Kurses mit zwei Abfragen (statt drei je Feature) –
+     * gleiche Regeln wie scope().
+     * @return array<string,array{full:bool,limit:?int}>
+     */
+    public function scopes(int $userId, string $courseCode): array
     {
+        if ($userId <= 0) {
+            return array_fill_keys(self::FEATURES, ['full' => false, 'limit' => null]);
+        }
+        global $wpdb;
+        $now = current_time('mysql', true);
+        $free = [];
+        $limits = [];
+        foreach ($wpdb->get_results($wpdb->prepare(
+            "SELECT feature_code, access_type, MAX(limit_value) AS limit_value FROM {$wpdb->prefix}bp_access_rule
+             WHERE course_code = %s AND module_code IS NULL AND access_type IN ('free', 'free_limited')
+             AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s) GROUP BY feature_code, access_type",
+            $courseCode, $now, $now
+        )) as $r) {
+            if ($r->access_type === 'free') {
+                $free[(string) $r->feature_code] = true;
+            } elseif ($r->limit_value !== null) {
+                $limits[(string) $r->feature_code] = max(0, (int) $r->limit_value);
+            }
+        }
+        $entitled = array_flip($this->entitledFeatures($userId, $courseCode, null));
+        $default = Settings::get('default_access') === 'logged_in';
         $out = [];
         foreach (self::FEATURES as $feature) {
-            $out[$feature] = $this->can($userId, $courseCode, $feature);
+            $full = isset($free[$feature]) || isset($entitled[$feature]) || isset($entitled['all']) || $default;
+            $full = (bool) apply_filters('bootspruefung_can_access', $full, $userId, $courseCode, $feature);
+            $out[$feature] = ['full' => $full, 'limit' => $full ? null : ($limits[$feature] ?? null)];
         }
 
         return $out;
+    }
+
+    /** @return array<string,bool> Feature => erlaubt (voll oder Teilumfang) */
+    public function features(int $userId, string $courseCode): array
+    {
+        return array_map(static fn ($s) => $s['full'] || ($s['limit'] ?? 0) > 0, $this->scopes($userId, $courseCode));
     }
 
     /** @return array<string,int> Feature => Limit, nur für Features im Teilumfang */
     public function limits(int $userId, string $courseCode): array
     {
         $out = [];
-        foreach (self::FEATURES as $feature) {
-            $scope = $this->scope($userId, $courseCode, $feature);
+        foreach ($this->scopes($userId, $courseCode) as $feature => $scope) {
             if (! $scope['full'] && ($scope['limit'] ?? 0) > 0) {
                 $out[$feature] = (int) $scope['limit'];
             }
@@ -108,6 +140,30 @@ final class AccessService
     /**
      * Zeitpunkt (UTC), ab dem ein Modul/Kapitel freigegeben ist; null = sofort.
      */
+    /**
+     * Freigabezeitpunkte aller Module/Kapitel eines Kurses mit einer Abfrage (plus Zugangsbeginn, falls nötig).
+     * @return array<string,string> module_code => Zeitpunkt (UTC); fehlende = sofort frei
+     */
+    public function unlockTimes(int $userId, string $courseCode, string $feature): array
+    {
+        global $wpdb;
+        $days = [];
+        foreach ($wpdb->get_results($wpdb->prepare(
+            "SELECT module_code, MAX(limit_value) AS days FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND access_type = 'drip' AND module_code IS NOT NULL GROUP BY module_code",
+            $courseCode, $feature
+        )) as $r) {
+            if ((int) $r->days > 0) {
+                $days[(string) $r->module_code] = (int) $r->days;
+            }
+        }
+        if ($days === []) {
+            return [];
+        }
+        $start = strtotime($this->accessStart($userId, $courseCode, $feature).' UTC');
+
+        return array_map(static fn ($d) => gmdate('Y-m-d H:i:s', $start + $d * DAY_IN_SECONDS), $days);
+    }
+
     public function unlockAt(int $userId, string $courseCode, string $feature, string $moduleCode): ?string
     {
         global $wpdb;
@@ -173,26 +229,34 @@ final class AccessService
 
     private function entitled(int $userId, string $courseCode, string $feature): bool
     {
+        return $this->entitledFeatures($userId, $courseCode, $feature) !== [];
+    }
+
+    /**
+     * Aktive, gültige Features des Nutzers in einem Kurs (inkl. 'all'); mit $feature nur dieses + 'all'.
+     * Upgrades gelten nur zusammen mit dem Basiskurs: Video-Upgrade mit der Theorie desselben Kurses,
+     * Simulator-Upgrade aus dem Checkout mit einem Funkkurs. Endet/erstattet der Basiskurs, ruht das Upgrade.
+     * @return list<string>
+     */
+    private function entitledFeatures(int $userId, string $courseCode, ?string $feature): array
+    {
         global $wpdb;
         $now = current_time('mysql', true);
-
         $t = $wpdb->prefix.'bp_entitlement';
         $sim = implode(',', array_map(static fn ($c) => "'".esc_sql($c)."'", \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_COURSES));
+        $video = '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX);
+        $featureSql = $feature === null ? '' : $wpdb->prepare(" AND e.feature_code IN (%s, 'all')", $feature);
 
-        // Upgrades gelten nur zusammen mit dem Basiskurs: Video-Upgrade mit der Theorie desselben Kurses,
-        // Simulator-Upgrade aus dem Checkout mit einem Funkkurs. Endet/erstattet der Basiskurs, ruht das Upgrade.
-        return (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM {$t} e WHERE e.user_id = %d AND e.course_code = %s AND e.feature_code IN (%s, 'all') AND e.status = 'active'
+        return array_map('strval', $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT e.feature_code FROM {$t} e WHERE e.user_id = %d AND e.course_code = %s{$featureSql} AND e.status = 'active'
              AND (e.valid_from IS NULL OR e.valid_from <= %s) AND (e.valid_until IS NULL OR e.valid_until >= %s)
              AND (e.sku_snapshot IS NULL OR (e.sku_snapshot NOT LIKE %s AND e.sku_snapshot <> %s) OR EXISTS (
                 SELECT 1 FROM {$t} th WHERE th.user_id = e.user_id AND th.feature_code IN (%s, 'all') AND th.status = 'active'
                 AND (th.valid_from IS NULL OR th.valid_from <= %s) AND (th.valid_until IS NULL OR th.valid_until >= %s)
-                AND (th.course_code = e.course_code OR (e.sku_snapshot = %s AND th.course_code IN ({$sim}))) AND (th.sku_snapshot IS NULL OR th.sku_snapshot NOT LIKE %s)))
-             LIMIT 1",
-            $userId, $courseCode, $feature, $now, $now,
-            '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX), \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
-            self::QUESTION_BANK, $now, $now, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
-            '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX)
-        ));
+                AND (th.course_code = e.course_code OR (e.sku_snapshot = %s AND th.course_code IN ({$sim}))) AND (th.sku_snapshot IS NULL OR th.sku_snapshot NOT LIKE %s)))",
+            $userId, $courseCode, $now, $now,
+            $video, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
+            self::QUESTION_BANK, $now, $now, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE, $video
+        )));
     }
 }

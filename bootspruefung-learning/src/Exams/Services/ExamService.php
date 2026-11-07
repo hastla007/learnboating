@@ -98,6 +98,7 @@ final class ExamService
     /** Startet (oder setzt fort) eine Simulation bzw. einen Bogen. */
     public function start(int $userId, object $course, ?int $paperId): int
     {
+        $paperId = $paperId ?: null; // 0 = Zufallsprüfung
         if (! $this->access->can($userId, $course->code, AccessService::EXAM)) {
             throw new AccessDenied('Kein Zugriff auf die Prüfungssimulation dieses Kurses.');
         }
@@ -468,6 +469,15 @@ final class ExamService
         $items = [];
         $topics = [];
         $openText = ['total' => 0, 'correct' => 0];
+        // Fragen ohne Thema (z. B. SKN): unter dem Modulnamen zusammenfassen statt „—“.
+        $moduleOf = [];
+        $moduleNames = [];
+        foreach ($this->content->modules((int) $session->course_id) as $m) {
+            $moduleNames[(int) $m->id] = (string) $m->name;
+        }
+        foreach ($this->content->questionsForModules(array_keys($moduleNames)) as $row) {
+            $moduleOf[(int) $row->question_id] ??= $moduleNames[(int) $row->module_id] ?? '';
+        }
         foreach ($questions as $sq) {
             $presented = $this->presenter->present((int) $sq->revision_id, json_decode((string) $sq->answer_order, true) ?: []);
             $revision = $this->content->revision((int) $sq->revision_id);
@@ -478,7 +488,7 @@ final class ExamService
                     $correctIds[] = (int) $a->id;
                 }
             }
-            $topic = $presented['topic'] ?: '—';
+            $topic = trim((string) $presented['topic']) ?: (($moduleOf[(int) $sq->question_id] ?? '') ?: __('Weitere Fragen', 'bootspruefung-learning'));
             $topics[$topic]['total'] = ($topics[$topic]['total'] ?? 0) + 1;
             $topics[$topic]['correct'] = ($topics[$topic]['correct'] ?? 0) + (int) $sq->is_correct;
             if ($presented['type'] === 'open_text') {

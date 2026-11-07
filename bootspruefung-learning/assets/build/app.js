@@ -862,6 +862,15 @@
 					state.message = message || null;
 					live.textContent = message || '';
 					render();
+					// Erster Aufbau: Überschrift steht erst jetzt im Hero – wie bei mount() dorthin fokussieren.
+					if (!state.focused) {
+						state.focused = true;
+						var h1 = hero.querySelector('h1');
+						if (h1 && (!document.activeElement || document.activeElement === document.body)) {
+							h1.setAttribute('tabindex', '-1');
+							h1.focus({ preventScroll: true });
+						}
+					}
 				});
 			}
 
@@ -932,7 +941,7 @@
 					var nameInput = el('input', { type: 'text', value: current.name, maxlength: '60', 'aria-label': t('saved_rename_label'), 'data-key': 'rename' });
 					var renameForm = el('form', { class: 'bp-saved-form bp-saved-edit' }, [
 						nameInput,
-						el('button', { type: 'submit', class: 'bp-link-button', text: t('saved_rename') }),
+						el('button', { type: 'submit', class: 'bp-link-button', 'data-key': 'rename-submit', text: t('saved_rename') }),
 						el('button', { type: 'button', class: 'bp-link-button is-danger', text: t('saved_delete'), onclick: function () {
 							if (!window.confirm(t('saved_delete_confirm', { name: current.name }))) { return; }
 							api('DELETE', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id).then(function () {
@@ -945,7 +954,9 @@
 					]);
 					renameForm.addEventListener('submit', function (ev) {
 						ev.preventDefault();
-						api('PUT', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id, { name: nameInput.value }).then(function () { return load(t('saved_renamed')); }).catch(fail);
+						// Nach dem Neuzeichnen zurück auf den Sammlungs-Chip (neuer Name), nicht auf <body>.
+						state.focusKey = 'chip-' + current.id;
+						api('PUT', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id, { name: nameInput.value }).then(function () { return load(t('saved_renamed')); }).catch(function (e) { state.focusKey = 'rename'; fail(e); });
 					});
 					nodes.push(renameForm);
 				}
@@ -3452,7 +3463,8 @@
 			]),
 			s.rule.note ? el('p', { class: 'bp-note', text: s.rule.note }) : null,
 			parts,
-			el('section', { class: 'bp-section bp-panel', 'aria-labelledby': 'bp-topics-h' }, [el('h2', { id: 'bp-topics-h', text: t('topics_title') }), topics]),
+			// Nur sinnvoll ab zwei Themen (sonst identisch mit dem Gesamtergebnis).
+			Object.keys(r.topics).length > 1 ? el('section', { class: 'bp-section bp-panel', 'aria-labelledby': 'bp-topics-h' }, [el('h2', { id: 'bp-topics-h', text: t('topics_title') }), topics]) : null,
 			el('section', { class: 'bp-section' }, [
 				el('div', { class: 'bp-section-head' }, [
 					el('h2', { text: t('review_title') }),
