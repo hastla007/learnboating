@@ -34,8 +34,19 @@ log "WooCommerce $WC_VERSION"
 if [ "$(wp plugin get woocommerce --field=version 2>/dev/null || true)" != "$WC_VERSION" ]; then
     # Ohne Internet im Container: Zip vorher nach staging/woocommerce-<Version>.zip legen.
     ZIP="/repo/staging/woocommerce-${WC_VERSION}.zip"
-    [ -f "$ZIP" ] || ZIP="https://github.com/woocommerce/woocommerce/releases/download/${WC_VERSION}/woocommerce.zip"
-    wp plugin install "$ZIP" --force
+    if [ -f "$ZIP" ]; then
+        wp plugin install "$ZIP" --force
+    else
+        # GitHub-Release, bei Störung wordpress.org (gleiche Version), je Quelle bis zu 3 Versuche.
+        ok=0
+        for src in "https://github.com/woocommerce/woocommerce/releases/download/${WC_VERSION}/woocommerce.zip" "https://downloads.wordpress.org/plugin/woocommerce.${WC_VERSION}.zip"; do
+            for try in 1 2 3; do
+                if wp plugin install "$src" --force; then ok=1; break 2; fi
+                sleep $((try * 5))
+            done
+        done
+        [ "$ok" = 1 ] || { echo "WooCommerce $WC_VERSION konnte nicht geladen werden." >&2; exit 1; }
+    fi
 fi
 wp plugin activate woocommerce
 # Installation von WooCommerce gleich hier abschließen (sonst setzt sie beim ersten Seitenaufruf
