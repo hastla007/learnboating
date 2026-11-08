@@ -93,7 +93,7 @@ try {
   await page.locator('.bp-module-list a.bp-topic').first().waitFor();
   assert.equal(await page.getByText('Freischalten mit:').count(), 0, 'kein Sperrhinweis mehr für gekaufte Funktionen');
   await page.goto(env.account);
-  await page.getByText('aktiv').first().waitFor();
+  await page.getByText('aktiv', { exact: true }).first().waitFor(); // exakt: nicht „(immer aktiv)“ im Einwilligungsbanner
   await shot(page, '54-mein-lernen');
 
   step('Klassischer Checkout');
