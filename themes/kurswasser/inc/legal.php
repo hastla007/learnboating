@@ -160,6 +160,14 @@ function kurswasser_assign_legal_pages(): array
     return $set;
 }
 
+// AGB-Zustimmung in der Kasse erst, wenn die AGB-Seite veröffentlicht ist: Ein Entwurf wäre für
+// Kunden nicht abrufbar, die Pflicht-Checkbox würde auf eine leere Seite verweisen.
+add_filter('woocommerce_checkout_show_terms', static function ($show) {
+    $id = (int) get_option('woocommerce_terms_page_id');
+
+    return $show && $id > 0 && get_post_status($id) === 'publish';
+});
+
 // Nach dem Anlegen der Seiten (kurswasser_create_pages, Priorität 10) füllen und zuordnen.
 add_action('after_switch_theme', static function (): void {
     kurswasser_fill_legal_pages();
