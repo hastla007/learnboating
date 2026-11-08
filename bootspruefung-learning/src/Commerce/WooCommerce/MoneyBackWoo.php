@@ -77,6 +77,10 @@ final class MoneyBackWoo
             if (! $item instanceof \WC_Order_Item_Product) {
                 continue;
             }
+            // Bereits (teilweise) erstattete Positionen fallen nicht mehr unter die Garantie (wie snapshot()).
+            if (abs((float) $order->get_total_refunded_for_item($item->get_id())) > 0 || abs((int) $order->get_qty_refunded_for_item($item->get_id())) > 0) {
+                continue;
+            }
             if (MoneyBack::policy((int) $item->get_product_id()) !== null) {
                 $amount += (float) $item->get_total() + (float) $item->get_total_tax();
             } else {
@@ -128,7 +132,7 @@ final class MoneyBackWoo
             return;
         }
         echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
-        echo '<p>'.esc_html__('Innerhalb der Frist und solange du weniger als die angegebene Grenze gelernt hast, erstatten wir dir den Kaufpreis. Gezählt wird seit dem Kauf, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen). Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
+        echo '<p>'.esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart. Gezählt wird seit Zahlungseingang, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen); mehrere Kurse einer Bestellung zählen gemeinsam. Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt; Details stehen in den AGB.', 'bootspruefung-learning'), \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_DAYS, (int) \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_MAX_PROGRESS)).'</p>';
         echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
     }
 
@@ -176,15 +180,15 @@ final class MoneyBackWoo
         ));
         // Bestätigung an den Kunden
         \Bootspruefung\Learning\Support\Mail::send((string) $order->get_billing_email(), sprintf(__('Deine Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
-            __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDein gesetzliches Widerrufsrecht bleibt davon unberührt.", 'bootspruefung-learning'),
+            __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDein gesetzliches Widerrufsrecht bleibt davon unberührt.", 'bootspruefung-learning'),
             $orderId,
             self::money($parts['amount']),
             $parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))
         ));
         do_action('bootspruefung_money_back_requested', $orderId, $request);
         wc_add_notice($parts['excluded'] === []
-            ? __('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine Zahlungsart.', 'bootspruefung-learning')
-            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine Zahlungsart. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded'])));
+            ? __('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning')
+            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded'])));
         wp_safe_redirect($back);
         exit;
     }

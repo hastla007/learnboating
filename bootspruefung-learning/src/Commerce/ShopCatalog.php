@@ -517,16 +517,24 @@ final class ShopCatalog
             array_unshift($items, sprintf('%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein.', $seats));
         }
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
-            .'<p>'.esc_html(sprintf('Zugang %1$s ab Kauf, freigeschaltet sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months, \Bootspruefung\Learning\Settings\Settings::brand())).'</p>'
+            .'<p>'.esc_html(sprintf('Zugang %1$s ab Zahlungseingang – freigeschaltet, sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months, \Bootspruefung\Learning\Settings\Settings::brand())).'</p>'
             .($seats > 0
-                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Kauf. Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
-                : '<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>')
+                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
+                : self::guaranteeParagraph())
             .(count($all) > 1 && ! $pass ? '<p>'.esc_html('Enthält: '.implode(', ', $names)).'</p>' : '');
         $short = $seats > 0
             ? sprintf('%d Lernzugänge · %s · Zugang %s', $seats, $questions > 0 ? $questions.' Prüfungsfragen je Person' : 'Alle Inhalte', $months)
-            : sprintf('%s · %s · Zugang %s · Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months);
+            : sprintf('%s · %s · Zugang %s · %d Tage Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months, self::MONEY_BACK_DAYS);
 
         return ['short' => esc_html($short), 'long' => $long];
+    }
+
+    /** Garantie-Absatz der Produkttexte (Bedingungen wie in den AGB, Abschnitt „Geld-zurück-Garantie“). */
+    private static function guaranteeParagraph(): string
+    {
+        return '<p><strong>'.esc_html(sprintf('%d Tage Geld-zurück-Garantie (weniger als %d %% genutzt):', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '
+            .esc_html(sprintf('Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Dein gesetzliches Widerrufsrecht bleibt unberührt.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS))
+            .' <a href="'.esc_url(home_url('/agb/#geld-zurueck-garantie')).'">'.esc_html('Details in den AGB').'</a></p>';
     }
 
     /** Texte des Video-Upgrades (nur zusammen mit der Theorie-Stufe). @return array{short:string,long:string} */
@@ -534,12 +542,11 @@ final class ShopCatalog
     {
         $course = Labels::course($def['courses'][0]);
         $videos = self::courseStats([$def['courses'][0]])['videos'];
-        $months = $def['days'] >= 360 ? '12 Monate' : '6 Monate';
         $long = '<p>'.esc_html(sprintf('Erweitere deinen Theoriekurs %s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt%s.', $course, $videos > 0 ? sprintf(' – %d Lektionen', $videos) : '')).'</p>'
-            .'<p>'.esc_html(sprintf('Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Zugang %s ab Kauf.', $course, $months)).'</p>'
-            .'<p><strong>'.esc_html(sprintf('Geld-zurück-Garantie: Innerhalb von %d Tagen nach dem Kauf erstatten wir dir den Preis, solange du weniger als %d %% der Inhalte gelernt hast.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '.esc_html('Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>';
+            .'<p>'.esc_html(sprintf('Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Der Videokurs läuft so lange wie dein Theoriezugang zu diesem Kurs.', $course)).'</p>'
+            .self::guaranteeParagraph();
 
-        return ['short' => esc_html(sprintf('Videokurs zum Theoriekurs %s · Zugang %s · Geld-zurück-Garantie', $course, $months)), 'long' => $long];
+        return ['short' => esc_html(sprintf('Videokurs zum Theoriekurs %s · Laufzeit wie dein Theoriezugang · %d Tage Geld-zurück-Garantie', $course, self::MONEY_BACK_DAYS)), 'long' => $long];
     }
 
     /** Web-App-Vorteile des Simulators (ohne Vergleich mit Anbietern, Festlegung 06.11.2026). @return list<string> */
@@ -571,7 +578,7 @@ final class ShopCatalog
         $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 91 ? '3 Monate' : $def['days'].' Tage');
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
             .'<p><strong>'.esc_html('Läuft direkt im Browser').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
-            .'<p>'.esc_html(sprintf('Zugang %s ab Kauf, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';
+            .'<p>'.esc_html(sprintf('Zugang %s ab Zahlungseingang, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';
         $short = sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
 
         return ['short' => esc_html($short), 'long' => $long];
