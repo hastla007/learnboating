@@ -174,6 +174,66 @@ add_action('after_switch_theme', static function (): void {
     kurswasser_assign_legal_pages();
 }, 20);
 
+/** Prüfsumme über alle Vorlagen in legal/ (ändert sich mit jedem Theme-Update, das einen Rechtstext anpasst). */
+function kurswasser_legal_templates_hash(): string
+{
+    $sums = [];
+    foreach (array_keys(kurswasser_legal_pages()) as $slug) {
+        $content = kurswasser_legal_content($slug);
+        $sums[] = $slug.':'.($content === null ? '-' : md5($content));
+    }
+
+    return md5(implode('|', $sums));
+}
+
+/*
+ * Bestehende Installationen: Nach einem Theme-Update mit geänderten Vorlagen die Pflichtseiten nachziehen
+ * (ohne force – vom Betreiber bearbeitete Seiten bleiben unangetastet) und einmalig darauf hinweisen.
+ */
+add_action('admin_init', static function (): void {
+    if (! current_user_can('manage_options') || wp_doing_ajax()) {
+        return;
+    }
+    $hash = kurswasser_legal_templates_hash();
+    if (get_option('kurswasser_legal_templates_hash') === $hash) {
+        return;
+    }
+    update_option('kurswasser_legal_templates_hash', $hash, false);
+    $result = kurswasser_fill_legal_pages();
+    $pages = kurswasser_legal_pages();
+    $pick = static fn (array $states): array => array_values(array_map(
+        static fn (string $slug): string => $pages[$slug] ?? $slug,
+        array_keys(array_filter($result, static fn (string $s): bool => in_array($s, $states, true)))
+    ));
+    $notice = ['updated' => $pick(['updated', 'filled']), 'edited' => $pick(['edited'])];
+    if ($notice['updated'] || $notice['edited']) {
+        update_option('kurswasser_legal_update_notice', $notice, false);
+    }
+});
+
+add_action('admin_notices', static function (): void {
+    if (! current_user_can('manage_options')) {
+        return;
+    }
+    $notice = get_option('kurswasser_legal_update_notice');
+    if (! is_array($notice)) {
+        return;
+    }
+    delete_option('kurswasser_legal_update_notice');
+    echo '<div class="notice notice-info is-dismissible">';
+    if (! empty($notice['updated'])) {
+        echo '<p><strong>'.esc_html__('Rechtstext-Vorlagen aktualisiert:', 'kurswasser').'</strong> '
+            .esc_html(implode(', ', (array) $notice['updated'])).'. '
+            .esc_html__('Bitte die geänderten Seiten prüfen.', 'kurswasser').'</p>';
+    }
+    if (! empty($notice['edited'])) {
+        echo '<p><strong>'.esc_html__('Neue Rechtstext-Vorlagen nicht übernommen', 'kurswasser').'</strong> '
+            .esc_html__('(von dir bearbeitete Seiten bleiben unverändert – bitte mit den Vorlagen im Theme-Ordner legal/ abgleichen):', 'kurswasser').' '
+            .esc_html(implode(', ', (array) $notice['edited'])).'</p>';
+    }
+    echo '</div>';
+});
+
 /**
  * Offene Punkte je Pflichtseite.
  *
@@ -245,20 +305,23 @@ add_action('admin_post_kurswasser_legal_fill', static function (): void {
     exit;
 });
 
-/** Platzhalter für Redakteure im Frontend hervorheben (nur Textknoten, keine Attribute). */
+/**
+ * Platzhalter für Redakteure im Frontend hervorheben (nur Textknoten, keine Attribute). Inhalte von
+ * <script>, <style> und <textarea> bleiben samt Tags unverändert (ein <mark> dort wäre Code bzw. Rohtext).
+ */
 function kurswasser_mark_legal_placeholders(string $html): string
 {
     if (! str_contains($html, '[[Betreiber:')) {
         return $html;
     }
-    $parts = preg_split('/(<[^>]*>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
-    foreach ($parts as $i => $part) {
-        if ($part !== '' && $part[0] !== '<' && str_contains($part, '[[Betreiber:')) {
-            $parts[$i] = (string) preg_replace('/\[\[Betreiber:[^\[\]]*\]\]/u', '<mark class="kw-legal-placeholder">$0</mark>', $part);
-        }
-    }
-
-    return implode('', $parts);
+    // Gruppe 1: Tags bzw. ganze script/style/textarea-Elemente (unverändert), Gruppe 3: Text.
+    return (string) preg_replace_callback(
+        '/(<!--.*?-->|<(script|style|textarea)\b[^>]*>.*?<\/\2\s*>|<[^>]*>)|([^<]+|<)/is',
+        static fn (array $m): string => isset($m[3]) && $m[3] !== '' && str_contains($m[3], '[[Betreiber:')
+            ? (string) preg_replace('/\[\[Betreiber:[^\[\]]*\]\]/u', '<mark class="kw-legal-placeholder">$0</mark>', $m[3])
+            : $m[0],
+        $html
+    );
 }
 
 add_filter('the_content', static function ($content) {

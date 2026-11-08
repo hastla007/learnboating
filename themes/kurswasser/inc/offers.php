@@ -104,7 +104,7 @@ function kurswasser_offer_title(string $name): array
 
 function kurswasser_offer_trust(): string
 {
-    return '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
+    return '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span><a href="'.esc_url(kurswasser_url('agb').'#geld-zurueck-garantie').'">'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</a> – '.esc_html__('bei weniger als 20 % genutzt', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
 }
 
 /**

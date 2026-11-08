@@ -81,6 +81,21 @@
 }
 .kw-consent-open:hover { text-decoration-thickness: 2px; }
 
+/* Statusmeldung „Deine Auswahl ist gespeichert.“ – nur für Screenreader. */
+.kw-consent-status {
+	position: absolute !important;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+.kw-consent-open[hidden] { display: none; }
+main:focus:not(:focus-visible), #wp--skip-link--target:focus:not(:focus-visible) { outline: none; }
+
 @media (max-width: 30em) {
 	.kw-consent { inset: auto .5rem .5rem .5rem; width: auto; padding: 1rem; max-height: 70vh; }
 	.kw-consent-btn { flex-basis: 100%; }

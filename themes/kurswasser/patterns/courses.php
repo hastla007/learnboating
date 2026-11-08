@@ -17,5 +17,5 @@
 </div>
 <!-- /wp:html -->
 <!-- wp:shortcode -->[kurswasser_course_tiles]<!-- /wp:shortcode -->
-<!-- wp:html --><ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span>14 Tage Geld-zurück-Garantie</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Zugang direkt nach Zahlungseingang</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Kein Abo – einmal zahlen</li></ul><!-- /wp:html --></section>
+<!-- wp:html --><ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span><a href="#kw:agb#geld-zurueck-garantie">14 Tage Geld-zurück-Garantie</a> – bei weniger als 20&nbsp;% genutzt</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Zugang direkt nach Zahlungseingang</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>Kein Abo – einmal zahlen</li></ul><!-- /wp:html --></section>
 <!-- /wp:group -->

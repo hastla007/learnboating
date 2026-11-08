@@ -21,7 +21,7 @@ function kurswasser_courses(): array
     return [
         'sbf-see' => [
             'main' => 'BP-SBF-SEE', 'mark' => 'SEE', 'title' => 'SBF See', 'name' => 'Sportbootführerschein See', 'eyebrow' => 'Sportbootführerschein', 'code' => 'SBF-SEE', 'icon' => 'anchor', 'tone' => 'see',
-            'teaser' => 'Für Küste und Seeschifffahrtsstraßen – mit Navigationsaufgaben in der Übungsseekarte.',
+            'teaser' => 'Für Küste und Seeschifffahrtsstraßen – mit Navigationsaufgaben zur Übungskarte D49 (gedruckte Karte nötig).',
             'lead' => 'Bereite dich online auf die Theorie des SBF See vor: alle Prüfungsfragen im Smarttrainer, Navigationsaufgaben mit Musterlösungen, Praxiskarten für die Prüfungsfahrt und eine Prüfungssimulation mit Zeitlimit.',
             'offers' => ['BP-SBF-SEE', 'BP-SBF-SEE-BIN', 'BP-KAPITAEN'], 'featured' => 'BP-SBF-SEE-BIN', 'compare' => ['BP-SBF-SEE-KOMPLETT', 'BP-SBF-BIN-KOMPLETT'],
         ],
@@ -256,7 +256,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $features = [['smart', __('Smarttrainer', 'kurswasser'), sprintf(__('Alle %d Prüfungsfragen mit Erklärungen. Zuerst neue, dann falsch beantwortete und unsichere Fragen – bis alles sitzt.', 'kurswasser'), $stats['questions'])],
         ['exam', __('Prüfungssimulation', 'kurswasser'), $stats['papers'] ? sprintf(__('Prüfung mit Zeitlimit und Auswertung – als Zufallsprüfung oder mit %d festen Bögen.', 'kurswasser'), $stats['papers']) : __('Prüfung mit Zeitlimit und Auswertung, inklusive Rückblick auf jede Frage.', 'kurswasser')]];
     if ($stats['nav']) {
-        $features[] = ['compass', __('Navigationsaufgaben', 'kurswasser'), sprintf(__('%d Kartenaufgaben mit Musterlösungen und Selbsteinschätzung.', 'kurswasser'), $stats['nav'])];
+        $features[] = ['compass', __('Navigationsaufgaben', 'kurswasser'), sprintf(__('%d Kartenaufgaben zur Übungskarte D49 (gedruckte Karte nötig) mit Musterlösungen und Selbsteinschätzung.', 'kurswasser'), $stats['nav'])];
     }
     if ($stats['praxis']) {
         $features[] = ['cards', __('Praxiskarten', 'kurswasser'), sprintf(__('%d Karten zum Einprägen für den praktischen Teil.', 'kurswasser'), $stats['praxis'])];

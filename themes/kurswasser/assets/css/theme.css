@@ -100,6 +100,7 @@ html, body { overflow-x: clip; }
 .kw-hero-trust { gap: .5rem 1.5rem; margin-top: 1.75rem; color: #c9d8e6; font-size: .92rem; font-weight: 650; }
 .kw-hero-trust p { display: inline-flex; gap: .45rem; align-items: center; margin: 0; }
 .kw-hero-trust .kw-icon { color: var(--kw-mint); }
+.kw-hero-trust a, .kw-offers-trust a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------- Vorteilsleiste unter dem Hero ---------- */
 .kw-usp { position: relative; z-index: 2; margin-top: -3rem !important; }

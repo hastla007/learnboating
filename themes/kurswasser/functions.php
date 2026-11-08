@@ -207,3 +207,50 @@ add_filter('pre_get_avatar_data', static function (array $args): array {
 
     return $args;
 });
+
+/*
+ * Pflichtlink „Vertrag hier widerrufen“ (§ 356a BGB): Wurde die Fußzeile im Website-Editor angepasst
+ * (kurswasser//footer in der Datenbank), fehlt der später ergänzte Link. Dann vor dem schließenden
+ * Element einen kleinen Absatz mit dem Link anhängen.
+ */
+add_filter('render_block', static function (string $html, array $block): string {
+    if (($block['blockName'] ?? '') !== 'core/template-part' || ($block['attrs']['slug'] ?? '') !== 'footer' || $html === '') {
+        return $html;
+    }
+    $url = kurswasser_url('vertrag-widerrufen');
+    $bare = untrailingslashit((string) preg_replace('#^https?:#', '', $url));
+    if (preg_match('#href=["\'](?:https?:)?'.preg_quote($bare, '#').'/?["\'?\#]#i', $html)) {
+        return $html;
+    }
+    $link = '<p class="kw-footer-withdrawal alignwide has-small-font-size"><a href="'.esc_url($url).'">'.esc_html__('Vertrag hier widerrufen', 'kurswasser').'</a></p>';
+    // Möglichst in die äußere Gruppe der Fußzeile (Hintergrund/Abstände), sonst vor das letzte schließende Tag.
+    if (preg_match('#</div>\s*</footer>\s*$#', $html, $m, PREG_OFFSET_CAPTURE)) {
+        return substr_replace($html, $link, (int) $m[0][1], 0);
+    }
+    $pos = strrpos($html, '</');
+
+    return $pos === false ? $html.$link : substr_replace($html, $link, $pos, 0);
+}, 30, 2);
+
+/*
+ * Datenschutz („keine externen Dienste“): kein WordPress-Emoji-Skript (lädt Grafiken von s.w.org)
+ * und kein dns-prefetch auf s.w.org im Frontend.
+ */
+remove_action('wp_head', 'print_emoji_detection_script', 7);
+remove_action('wp_print_styles', 'print_emoji_styles');
+remove_action('wp_enqueue_scripts', 'wp_enqueue_emoji_styles');
+remove_filter('the_content_feed', 'wp_staticize_emoji');
+remove_filter('comment_text_rss', 'wp_staticize_emoji');
+remove_filter('wp_mail', 'wp_staticize_emoji_for_email');
+add_filter('emoji_svg_url', '__return_false');
+add_filter('wp_resource_hints', static function (array $urls, string $relation): array {
+    if ($relation !== 'dns-prefetch') {
+        return $urls;
+    }
+
+    return array_values(array_filter($urls, static function ($url): bool {
+        $href = is_array($url) ? (string) ($url['href'] ?? '') : (string) $url;
+
+        return ! str_contains($href, 's.w.org');
+    }));
+}, 10, 2);
