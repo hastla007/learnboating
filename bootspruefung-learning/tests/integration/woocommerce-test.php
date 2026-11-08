@@ -504,6 +504,29 @@ if (function_exists('wc_load_cart')) {
     wc_clear_notices();
     wp_set_current_user(0);
 }
+// Widerrufsfunktion (§ 356a BGB): Frist, Angebot, Seite, Formular.
+$wf = \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class;
+$wOrder = wc_create_order();
+$wOrder->set_billing_email('widerruf@example.org');
+$wOrder->set_status('processing');
+$wOrder->save();
+$deadline = $wf::deadline($wOrder);
+$expected = (new DateTimeImmutable('@'.$wOrder->get_date_created()->getTimestamp()))->setTimezone(wp_timezone())->setTime(23, 59, 59)->modify('+14 days')->getTimestamp();
+$check($deadline === $expected, 'Widerrufsfrist endet mit Ablauf des 14. Tages');
+$check($wf::offered($wOrder), 'Widerrufsfunktion innerhalb der Frist angeboten');
+$wOrder->set_date_created(time() - 20 * DAY_IN_SECONDS);
+$wOrder->save();
+$check(! $wf::offered($wOrder), 'nach Ablauf der Frist nicht mehr angeboten');
+$wOrder->set_date_created(time());
+$wOrder->set_status('cancelled');
+$wOrder->save();
+$check(! $wf::offered($wOrder), 'stornierte Bestellung: nicht angeboten');
+$pageId = $wf::ensurePage();
+$check($pageId > 0 && get_post_status($pageId) === 'publish' && $wf::ensurePage() === $pageId, 'Seite „Vertrag hier widerrufen“ veröffentlicht, nur einmal angelegt');
+$form = do_shortcode('['.$wf::SHORTCODE.']');
+$check(str_contains($form, 'Widerruf bestätigen') && str_contains($form, 'name="bp_order"') && str_contains($form, 'name="bp_email"') && str_contains($form, 'name="bp_name"'), 'Formular mit Name, Bestellung, E-Mail und „Widerruf bestätigen“');
+$wOrder->delete(true);
+
 foreach (array_column($rows, 'product_id') as $pid) {
     (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');
     wp_delete_post((int) $pid, true);

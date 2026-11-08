@@ -148,6 +148,7 @@ Ohne Internet im Container (z. B. hinter einem Firmen-Proxy) kann WooCommerce ni
 - [ ] Navigations-, Praxis- und Funktrainer, Muster-Funksprüche, Buchstabiertafel, Funkgerät-Simulator
 - [ ] Gruppenpaket kaufen und Mitglieder einladen
 - [ ] Geld-zurück-Anfrage und Erstattung (Zugang endet)
+- [ ] „Vertrag hier widerrufen“ (Fußzeile und „Mein Lernen“): Formular absenden, Eingangsbestätigung im Test-Postfach, Notiz in der Bestellung
 - [ ] PDFs in der Mediathek hochladen und dem Bereich zuordnen (Punkt 34)
 - [ ] Mobil (Smartphone) durchklicken
 - [ ] Rechtstexte und Firmenangaben (Impressum, AGB, Widerruf, Datenschutz) eingesetzt; Platzhalter „XXXX“ ersetzt

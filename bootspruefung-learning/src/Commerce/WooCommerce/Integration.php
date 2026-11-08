@@ -114,6 +114,7 @@ final class Integration
         (new VideoUpgrade())->register();
         (new PriceNote())->register();
         (new DigitalConsent())->register();
+        (new WithdrawalFunction())->register();
     }
 
     // ------------------------------------------------------------------ Checkout
@@ -300,6 +301,7 @@ final class Integration
         if ($rows === []) {
             echo '<p>'.esc_html__('Für dein Konto sind noch keine Lernzugänge gebucht.', 'bootspruefung-learning').'</p>';
             MoneyBackWoo::renderAccountSection(get_current_user_id());
+            WithdrawalFunction::renderAccountSection(get_current_user_id());
 
             return;
         }
@@ -343,6 +345,7 @@ final class Integration
         }
         echo '</tbody></table>';
         MoneyBackWoo::renderAccountSection(get_current_user_id());
+        WithdrawalFunction::renderAccountSection(get_current_user_id());
     }
 
     public function thankYou($orderId): void
