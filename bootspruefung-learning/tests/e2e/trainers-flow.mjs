@@ -165,6 +165,16 @@ await page.goto(`${base}/bootsscheine/src/funk/geraet/`);
 await page.locator('#bp-device-sim svg').first().waitFor();
 await page.getByRole('combobox', { name: 'Gerät' }).waitFor();
 assert.ok((await page.locator('#bp-device-sim').innerText()).includes('Icom IC-M505'));
+// Drehknöpfe mit Screenreader-Werten (assets/build/device-sim-a11y.js); Pfeiltaste ändert den Wert.
+const volKnob = page.locator('#bp-device-sim [data-knob="vol"]').first();
+await page.waitForFunction(() => document.querySelector('#bp-device-sim [data-knob="vol"]')?.getAttribute('aria-valuenow') !== null);
+assert.equal(await volKnob.getAttribute('aria-valuemax'), '10');
+const volBefore = Number(await volKnob.getAttribute('aria-valuenow'));
+await volKnob.focus();
+await page.keyboard.press('ArrowUp');
+await page.waitForFunction((v) => Number(document.querySelector('#bp-device-sim [data-knob="vol"]').getAttribute('aria-valuenow')) === v, Math.min(10, volBefore + 1));
+assert.match(await volKnob.getAttribute('aria-valuetext'), /^Lautstärke \d+ von 10/);
+assert.match(await page.locator('#bp-device-sim [data-knob="channel"]').first().getAttribute('aria-valuetext'), /^Kanal \d{2}/);
 await page.locator('#bp-device-sim').getByRole('button', { name: 'Mit Hilfe' }).first().click();
 await page.locator('#bp-device-sim').getByText('Schalte das Funkgerät ein', { exact: false }).first().waitFor();
 await shot('26-geraet');

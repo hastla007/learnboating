@@ -2896,7 +2896,14 @@
 				if (!document.getElementById('bp-device-sim-css')) {
 					document.head.appendChild(el('link', { id: 'bp-device-sim-css', rel: 'stylesheet', href: cfg.deviceSim + 'device-sim.css?ver=' + encodeURIComponent(cfg.version) }));
 				}
-				return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)).then(function (module) {
+				// Screenreader-Werte an den Drehknöpfen (Quelle setzt kein aria-valuenow): vor app.js an dieselben
+				// Module hängen – app.js lädt ./devices/index.js und ./channels.js ohne Versions-Parameter.
+				var a11y = Promise.all([
+					import(cfg.deviceSim + '../build/device-sim-a11y.js?ver=' + encodeURIComponent(cfg.version)),
+					import(cfg.deviceSim + 'funkgeraet/devices/index.js'),
+					import(cfg.deviceSim + 'funkgeraet/channels.js')
+				]).then(function (m) { m[0].install(m[1].DEVICES, m[2].CHANNEL_GROUPS); }).catch(function () { /* nur Zusatzinfo */ });
+				return a11y.then(function () { return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)); }).then(function (module) {
 					simLoaded = true;
 					module.mount(host, config);
 					if (free) {
