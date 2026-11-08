@@ -73,6 +73,13 @@ try {
   const place = page.getByRole('button', { name: /place order|bestellung aufgeben|kaufen/i });
   await place.waitFor({ timeout: 30000 });
   await shot(page, '52-block-checkout');
+  // § 356 Abs. 5 BGB: ohne Zustimmung zum sofortigen Beginn keine Bestellung.
+  const consent = page.getByRole('checkbox', { name: /ausdrücklich zu/ });
+  await consent.waitFor();
+  await place.click();
+  await page.getByText(/Bitte bestätige die Zustimmung zum sofortigen Beginn/).first().waitFor({ timeout: 30000 });
+  assert.doesNotMatch(page.url(), /order-received/, 'ohne Zustimmung keine Bestellung');
+  await consent.check();
   await place.click();
   await page.waitForURL(/order-received/, { timeout: 60000 });
   await page.getByText(/sobald die Zahlung eingegangen ist/).waitFor();
@@ -97,6 +104,7 @@ try {
   if (await page.locator('#payment_method_bacs').count()) {
     await page.locator('#payment_method_bacs').check({ force: true });
   }
+  await page.locator('#bp_digital_consent').check();
   await shot(page, '55-klassisch');
   await page.locator('#place_order').click();
   await page.waitForURL(/order-received/, { timeout: 60000 });

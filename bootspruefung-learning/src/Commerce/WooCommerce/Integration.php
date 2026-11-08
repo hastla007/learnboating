@@ -113,6 +113,7 @@ final class Integration
         (new SimUpgrade())->register();
         (new VideoUpgrade())->register();
         (new PriceNote())->register();
+        (new DigitalConsent())->register();
     }
 
     // ------------------------------------------------------------------ Checkout
