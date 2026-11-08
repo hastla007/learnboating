@@ -15,6 +15,16 @@
 const VOL_MAX = { 'ic-m505': 10, 'ic-m503': 10 };
 const SQL_MAX = 10;
 
+// Displays, in denen der Kanal- bzw. Kombiknopf nicht den Kanal/die Lautstärke stellt, sondern
+// die Markierung im Menü bewegt (siehe turn() in devices/*.js). Dort gibt es keinen Zahlenwert.
+const SELECT_SCREENS = {
+    'ic-m505': ['menu', 'nature', 'callAddress', 'callCategory', 'callChannel', 'ackAction', 'setMode', 'editor', 'receivedList'],
+    'ic-m323': ['menu', 'ackChoice', 'editor', 'callChannel'],
+    'ic-m423': ['menu', 'ackChoice', 'editor', 'callChannel'],
+    'ic-m330': ['menu', 'dscForm', 'distressMenu', 'editor', 'channelSelect'],
+};
+const SELECT_TEXT = 'Menüauswahl im Display: Pfeiltasten bewegen die Markierung';
+
 function setAttrs(node, attrs) {
     Object.entries(attrs).forEach(([name, value]) => {
         const text = String(value);
@@ -63,8 +73,16 @@ function values(deviceKey, knob, state, groups) {
 
 export function apply(svg, deviceKey, state, groups) {
     if (! svg || ! state) return;
+    const selecting = (SELECT_SCREENS[deviceKey] ?? []).includes(state.screen);
     svg.querySelectorAll('[data-knob][role="slider"]').forEach((node) => {
-        const v = values(deviceKey, node.dataset.knob, state, groups);
+        const knob = node.dataset.knob;
+        if (selecting && (knob === 'channel' || knob === 'dial')) {
+            ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].forEach((name) => node.removeAttribute(name));
+            setAttrs(node, { 'aria-valuetext': SELECT_TEXT });
+
+            return;
+        }
+        const v = values(deviceKey, knob, state, groups);
         if (! v) return;
         setAttrs(node, { 'aria-valuenow': v.now, 'aria-valuemin': v.min, 'aria-valuemax': v.max, 'aria-valuetext': v.text });
     });

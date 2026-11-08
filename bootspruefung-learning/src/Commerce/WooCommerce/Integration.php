@@ -115,6 +115,7 @@ final class Integration
         (new PriceNote())->register();
         (new DigitalConsent())->register();
         (new WithdrawalFunction())->register();
+        (new WithdrawalTexts())->register();
     }
 
     // ------------------------------------------------------------------ Checkout

@@ -91,6 +91,10 @@ fi
 
 log "Seiten, Shop-Katalog und Zugangsregeln"
 wp eval 'kurswasser_create_pages(); kurswasser_create_course_pages();'
+# Rechtstext-Vorlagen übernehmen (überschreibt nie vom Betreiber bearbeitete Seiten).
+wp kurswasser legal >/dev/null 2>&1 || echo "Hinweis: Rechtstexte nicht aktualisiert (wp kurswasser legal)."
+# Widerrufsfunktion nach § 356a BGB (WooCommerce „Order withdrawal“) einschalten.
+wp eval 'if (! \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::enabled()) { \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::enable(); } echo \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::enabled() ? "" : "Hinweis: Widerrufsfunktion nicht eingeschaltet.\n";'
 # Beim ersten Lauf: Lerninhalte nur mit Kauf (wie im Livebetrieb) und Produkte veröffentlichen.
 # Spätere Läufe lassen diese Admin-Einstellungen und den Veröffentlichungsstatus in Ruhe.
 if [ "$(wp option get bp_staging_initialized 2>/dev/null || true)" != 1 ]; then

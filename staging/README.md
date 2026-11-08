@@ -86,6 +86,7 @@ docker compose run --rm setup
 Die Einrichtung ist wiederholbar:
 
 - Unveränderte Inhalte bleiben unverändert.
+- Rechtstext-Vorlagen werden übernommen, solange die Seiten nicht von Hand bearbeitet wurden (`wp kurswasser legal`), und die Widerrufsfunktion von WooCommerce wird eingeschaltet.
 - „Zugang ohne Shop“, die Shop-Grundeinstellungen und der Veröffentlichungsstatus der Produkte werden nur beim ersten Start gesetzt.
 - Preise, Namen, Kategorien und Zuordnungen der Produkte werden bei jedem Lauf mit dem Katalog abgeglichen. Preise deshalb unter Admin → Bootsprüfung → Preise ändern, nicht direkt in WooCommerce (Angebotspreise in WooCommerce bleiben erhalten).
 
@@ -148,7 +149,7 @@ Ohne Internet im Container (z. B. hinter einem Firmen-Proxy) kann WooCommerce ni
 - [ ] Navigations-, Praxis- und Funktrainer, Muster-Funksprüche, Buchstabiertafel, Funkgerät-Simulator
 - [ ] Gruppenpaket kaufen und Mitglieder einladen
 - [ ] Geld-zurück-Anfrage und Erstattung (Zugang endet)
-- [ ] „Vertrag hier widerrufen“ (Fußzeile und „Mein Lernen“): Formular absenden, Eingangsbestätigung im Test-Postfach, Notiz in der Bestellung
+- [ ] „Vertrag hier widerrufen“ (Fußzeile und „Mein Lernen“): WooCommerce-Formular ausfüllen, prüfen, „Widerruf bestätigen“; Eingangsbestätigung im Test-Postfach, Notiz in der Bestellung
 - [ ] PDFs in der Mediathek hochladen und dem Bereich zuordnen (Punkt 34)
 - [ ] Mobil (Smartphone) durchklicken
 - [ ] Rechtstexte und Firmenangaben (Impressum, AGB, Widerruf, Datenschutz) eingesetzt; Platzhalter „XXXX“ ersetzt

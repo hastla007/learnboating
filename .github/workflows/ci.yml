@@ -243,8 +243,8 @@ jobs:
           docker compose logs setup | tail -n 5
       - name: Seiten erreichbar
         run: |
-          for path in / /kurse/ /bootsscheine/ /shop/ /wp-login.php; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$path")
+          for path in / /kurse/ /bootsscheine/ /shop/ /wp-login.php /vertrag-widerrufen/; do
+            code=$(curl -sL -o /dev/null -w '%{http_code}' "http://localhost:8080$path")
             echo "$code $path"; test "$code" = 200
           done
           curl -s -o shop.html http://localhost:8080/shop/

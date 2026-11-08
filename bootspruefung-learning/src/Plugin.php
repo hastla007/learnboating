@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.11.0';
+    public const VERSION = '0.12.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -112,6 +112,7 @@ final class Plugin
             (new \Bootspruefung\Learning\Exams\Services\ExamService($content, new \Bootspruefung\Learning\Learning\Services\QuestionPresenter($content), $access))->expireRunning();
             global $wpdb;
             (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->expireDue();
+            (new \Bootspruefung\Learning\Commerce\GroupService($wpdb))->expireInvites();
         });
         PersonalData::register();
         \Bootspruefung\Learning\Security\Hardening::register();
