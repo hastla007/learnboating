@@ -100,7 +100,7 @@ final class SimUpgrade
         }
         $html .= '</p>';
         $html .= '<p><a class="button bp-upgrade-add" rel="nofollow" href="'.esc_url($url).'">'.esc_html__('Upgrade hinzufügen', 'bootspruefung-learning').'</a></p>';
-        $html .= '<p class="bp-upgrade-note">'.esc_html__('Einmalzahlung, kein Abo. Für den Simulator gilt keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p>';
+        $html .= '<p class="bp-upgrade-note">'.esc_html__('Einmalzahlung, kein Abo. Für den Simulator gilt keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', 'bootspruefung-learning').'</p>';
 
         return $html.'</aside>';
     }

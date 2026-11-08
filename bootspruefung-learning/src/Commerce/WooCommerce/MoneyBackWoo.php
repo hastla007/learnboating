@@ -97,6 +97,16 @@ final class MoneyBackWoo
     }
 
     /** Abschnitt unter „Mein Lernen“. */
+    /** Fristende mit Datum und Uhrzeit (die Frist endet sekundengenau date_paid + Garantietage). */
+    private static function deadlineLabel(?string $mysqlGmt): string
+    {
+        if ($mysqlGmt === null || $mysqlGmt === '') {
+            return Labels::date($mysqlGmt);
+        }
+        /* translators: 1: date, 2: time */
+        return sprintf(__('%1$s, %2$s Uhr', 'bootspruefung-learning'), wp_date(get_option('date_format'), strtotime($mysqlGmt.' UTC')), wp_date('H:i', strtotime($mysqlGmt.' UTC')));
+    }
+
     public static function renderAccountSection(int $userId): void
     {
         $orders = wc_get_orders(['customer_id' => $userId, 'limit' => 20, 'status' => ['processing', 'completed', 'refunded'], 'orderby' => 'date', 'order' => 'DESC']);
@@ -122,7 +132,7 @@ final class MoneyBackWoo
                 (int) $order->get_id(),
                 // Erstattet bzw. ohne Frist: keine Lernstand-/Fristangaben (sonst „0 % / 0 %“, „dauerhaft“).
                 $s['deadline'] === null ? '–' : esc_html(wc_format_localized_decimal((string) $s['progress']).' % / '.wc_format_localized_decimal((string) $s['max_progress']).' %'),
-                $s['deadline'] === null ? '–' : esc_html(Labels::date($s['deadline'])),
+                $s['deadline'] === null ? '–' : esc_html(self::deadlineLabel($s['deadline'])),
                 esc_html(MoneyBack::reasonLabel($s['reason'])),
                 $action,
                 ''
@@ -132,7 +142,7 @@ final class MoneyBackWoo
             return;
         }
         echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
-        echo '<p>'.esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart. Gezählt wird seit Zahlungseingang, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen); mehrere Kurse einer Bestellung zählen gemeinsam. Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Dein gesetzliches Widerrufsrecht bleibt unberührt; Details stehen in den AGB.', 'bootspruefung-learning'), \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_DAYS, (int) \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_MAX_PROGRESS)).'</p>';
+        echo '<p>'.esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart. Gezählt wird seit Zahlungseingang, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen); mehrere Kurse einer Bestellung zählen gemeinsam. Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung); Details stehen in den AGB.', 'bootspruefung-learning'), \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_DAYS, (int) \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_MAX_PROGRESS)).'</p>';
         echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
     }
 
@@ -163,7 +173,7 @@ final class MoneyBackWoo
             __('Geld-zurück-Garantie angefragt. Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s. %4$s Bitte über „Erstattung“ die betreffenden Positionen erstatten – deren Zugang endet dann automatisch.', 'bootspruefung-learning'),
             wc_format_localized_decimal((string) $status['progress']),
             wc_format_localized_decimal((string) $status['max_progress']),
-            Labels::date($status['deadline']),
+            self::deadlineLabel($status['deadline']),
             $scope
         ));
         $order->save();
@@ -174,13 +184,13 @@ final class MoneyBackWoo
             $orderId,
             wc_format_localized_decimal((string) $status['progress']),
             wc_format_localized_decimal((string) $status['max_progress']),
-            Labels::date($status['deadline']),
+            self::deadlineLabel($status['deadline']),
             $order->get_edit_order_url(),
             $scope
         ));
         // Bestätigung an den Kunden
         \Bootspruefung\Learning\Support\Mail::send((string) $order->get_billing_email(), sprintf(__('Deine Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
-            __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDein gesetzliches Widerrufsrecht bleibt davon unberührt.", 'bootspruefung-learning'),
+            __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDie Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).", 'bootspruefung-learning'),
             $orderId,
             self::money($parts['amount']),
             $parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))
@@ -212,7 +222,7 @@ final class MoneyBackWoo
             __('Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s – %4$s', 'bootspruefung-learning'),
             wc_format_localized_decimal((string) $s['progress']),
             wc_format_localized_decimal((string) $s['max_progress']),
-            Labels::date($s['deadline']),
+            self::deadlineLabel($s['deadline']),
             MoneyBack::reasonLabel($s['reason'])
         ));
         if ($s['requested'] !== null) {

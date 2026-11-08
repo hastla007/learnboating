@@ -116,7 +116,7 @@ final class VideoUpgrade
 
         return '<aside class="bp-upgrade bp-video-upgrade" aria-labelledby="bp-video-upgrade-h"><p class="bp-upgrade-flag">'.esc_html__('Passend zu deinem Theoriekurs', 'bootspruefung-learning').'</p>'
             .'<h2 id="bp-video-upgrade-h">'.esc_html__('Videokurs dazubuchen', 'bootspruefung-learning').'</h2>'.$cards
-            .'<p class="bp-upgrade-note">'.esc_html__('Einmalzahlung, kein Abo. Es gilt die Geld-zurück-Garantie wie für den Kurs; dein gesetzliches Widerrufsrecht bleibt unberührt.', 'bootspruefung-learning').'</p></aside>';
+            .'<p class="bp-upgrade-note">'.esc_html__('Einmalzahlung, kein Abo. Es gilt die Geld-zurück-Garantie wie für den Kurs, zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).', 'bootspruefung-learning').'</p></aside>';
     }
 
     /**

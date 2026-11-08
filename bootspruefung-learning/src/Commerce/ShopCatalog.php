@@ -236,7 +236,7 @@ final class ShopCatalog
             ['SIM-PASS-14D', '14-Tage-Prüfungs-Sprint (SRC/UBI Web-App)', '9.90', 14],
             ['SIM-PASS-3M', '3-Monats-Standardzugang (SRC/UBI Web-App)', '23.50', 92], // 3 Kalendermonate sicher abgedeckt
             ['SIM-PASS-12M', '12-Monats-Sorglos-Zugang (SRC/UBI Web-App)', '34.50', 365],
-            [self::SIM_UPGRADE, 'Praxis-Sorglos-Upgrade: Funkgerät-Simulator 12 Monate', '13.90', 365],
+            [self::SIM_UPGRADE, 'Praxis-Sorglos-Upgrade: Funkgerät-Simulator zum Funkkurs', '13.90', 365], // ruht ohne aktiven Funkkurs (AccessService)
         ] as [$sku, $name, $price, $days]) {
             $list[] = ['sku' => $sku, 'name' => $name, 'price' => $price, 'days' => $days, 'courses' => self::SIM_COURSES, 'group' => 'simulator', 'features' => [AccessService::DEVICE], 'hidden' => $sku === self::SIM_UPGRADE, 'guarantee' => false];
         }
@@ -519,7 +519,7 @@ final class ShopCatalog
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
             .'<p>'.esc_html(sprintf('Zugang %1$s ab Zahlungseingang – freigeschaltet, sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months, \Bootspruefung\Learning\Settings\Settings::brand())).'</p>'
             .($seats > 0
-                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Dein gesetzliches Widerrufsrecht bleibt unberührt.').'</p>'
+                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.').'</p>'
                 : self::guaranteeParagraph())
             .(count($all) > 1 && ! $pass ? '<p>'.esc_html('Enthält: '.implode(', ', $names)).'</p>' : '');
         $short = $seats > 0
@@ -533,7 +533,7 @@ final class ShopCatalog
     private static function guaranteeParagraph(): string
     {
         return '<p><strong>'.esc_html(sprintf('%d Tage Geld-zurück-Garantie (weniger als %d %% genutzt):', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '
-            .esc_html(sprintf('Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Dein gesetzliches Widerrufsrecht bleibt unberührt.', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS))
+            .esc_html(sprintf('Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS))
             .' <a href="'.esc_url(home_url('/agb/#geld-zurueck-garantie')).'">'.esc_html('Details in den AGB').'</a></p>';
     }
 
@@ -566,7 +566,7 @@ final class ShopCatalog
             'SIM-PASS-14D' => 'Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus.',
             'SIM-PASS-3M' => 'Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate.',
             'SIM-PASS-12M' => 'Für alle, die sich maximal Zeit lassen wollen oder vor der Prüfung immer wieder üben möchten: alle Funkgeräte-Simulationen für zwölf Monate. Persönlicher Zugang für eine Person.',
-            default => 'Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator für zwölf Monate frei.',
+            default => 'Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator frei, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate.',
         };
         $sim = self::simStats();
         $items = [
@@ -576,10 +576,15 @@ final class ShopCatalog
             'Freies Üben: Rufe empfangen und beantworten',
         ];
         $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 91 ? '3 Monate' : $def['days'].' Tage');
+        // Upgrade: ruht, sobald kein Funkkurs (SRC/UBI) mehr aktiv ist (AccessService::entitledFeatures).
+        $upgrade = $def['sku'] === self::SIM_UPGRADE;
+        $term = $upgrade ? 'Zugang, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate ab Zahlungseingang' : sprintf('Zugang %s ab Zahlungseingang', $months);
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
             .'<p><strong>'.esc_html('Läuft direkt im Browser').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
-            .'<p>'.esc_html(sprintf('Zugang %s ab Zahlungseingang, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; dein gesetzliches Widerrufsrecht bleibt unberührt.', $months)).'</p>';
-        $short = sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
+            .'<p>'.esc_html(sprintf('%s, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', $term)).'</p>';
+        $short = $upgrade
+            ? 'Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate · kein Abo'
+            : sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
 
         return ['short' => esc_html($short), 'long' => $long];
     }

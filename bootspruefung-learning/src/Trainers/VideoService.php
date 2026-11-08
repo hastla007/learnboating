@@ -15,7 +15,10 @@ use Bootspruefung\Learning\Support\NotFound;
  * Videokurs (Kap. 4.8, 6.4): Kapitel und Lektionen je Kurs, Sehfortschritt
  * (abgeschlossen, letzte Position), Schrittgalerien und Videoquiz mit Fragen
  * der zentralen Fragenbank (ausgewertet über den Lernmodus, Kontext „video“).
- * Platzhalter-Lektionen werden angezeigt, aber als solche gekennzeichnet.
+ * Platzhalter-Lektionen (is_placeholder) bleiben als Lektionen erhalten und
+ * zählen mit, liefern aber keine Video-URL aus: das hinterlegte Platzhalter-
+ * video liegt bei Dritten, und der Browser würde dorthin die IP-Adresse der
+ * Nutzer übertragen. Quiz und Schrittgalerie bleiben nutzbar.
  */
 final class VideoService
 {
@@ -133,7 +136,7 @@ final class VideoService
             'id' => (int) $lesson->id,
             'title' => $lesson->title,
             'module' => $lesson->module_title,
-            'video_url' => $lesson->video_url,
+            'video_url' => $lesson->is_placeholder ? null : ($lesson->video_url ?: null),
             'placeholder' => (bool) $lesson->is_placeholder,
             'duration' => $lesson->duration_seconds === null ? null : (int) $lesson->duration_seconds,
             'completed' => (bool) ($progress->completed ?? false),

@@ -2359,7 +2359,8 @@
 
 	function renderLesson(slug, c, v, l) {
 		var path = 'courses/' + encodeURIComponent(slug) + '/videos/' + l.id + '/progress';
-		var video = l.video_url ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+		// Platzhalter-Lektionen: keine Video-URL vom Server, kein Player – nur ein Hinweis (Quiz/Schritte bleiben nutzbar).
+		var video = (!l.placeholder && l.video_url) ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
 		var status = el('span', { class: 'bp-vc-status', text: l.completed ? t('video_status_done') : t('video_status_open') });
 		var doneBtn = el('button', { type: 'button', class: 'bp-vc-mark', 'aria-pressed': l.completed ? 'true' : 'false', text: l.completed ? t('video_done') : t('video_mark_done') });
 		var layout;
@@ -2422,8 +2423,7 @@
 		var main = el('div', { class: 'bp-vc-main' }, [
 			el('p', { class: 'bp-vc-module', text: l.module }),
 			el('h1', { class: 'bp-vc-title', text: l.title }),
-			l.placeholder ? el('p', { class: 'bp-note', text: t('video_placeholder') }) : null,
-			video ? el('div', { class: 'bp-video-wrap' }, [video, poster]) : el('p', { class: 'bp-vc-missing', text: t('video_missing') }),
+			video ? el('div', { class: 'bp-video-wrap' }, [video, poster]) : el('p', { class: l.placeholder ? 'bp-note bp-vc-pending' : 'bp-vc-missing', text: t(l.placeholder ? 'video_placeholder' : 'video_missing') }),
 			el('div', { class: 'bp-vc-bar-row' }, [el('div', { class: 'bp-vc-state' }, [status, doneBtn]), cta]),
 			l.steps.length ? el('section', { class: 'bp-section' }, [el('h2', { text: t('video_steps') }), el('ol', { class: 'bp-steps' }, l.steps.map(function (st) { return el('li', { text: st.title }); }))]) : null,
 			quiz,

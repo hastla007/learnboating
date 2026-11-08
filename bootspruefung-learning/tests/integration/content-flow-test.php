@@ -277,6 +277,8 @@ foreach ($videos['modules'] as $m) {
 }
 [, $lesson] = $req('GET', '/courses/SBF-SEE/videos/'.$lessonId);
 $check(count($lesson['quiz']) > 0 && ! str_contains((string) wp_json_encode($lesson['quiz']), 'is_correct'), 'Videolektion mit Quiz ohne Lösungen');
+$isPlaceholder = (int) $wpdb->get_var($wpdb->prepare("SELECT is_placeholder FROM {$p}video_lesson WHERE id = %d", $lessonId)) === 1;
+$check($lesson['placeholder'] === $isPlaceholder && (! $isPlaceholder || $lesson['video_url'] === null), 'Platzhalter-Lektion liefert keine externe Video-URL');
 $vq = $lesson['quiz'][0];
 $vright = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $vq['revision_id']));
 [$s, $r] = $req('POST', '/answers', ['token' => $vq['token'], 'answer_ids' => [$vright], 'idempotency_key' => wp_generate_uuid4()]);

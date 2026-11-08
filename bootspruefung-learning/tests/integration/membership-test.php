@@ -102,6 +102,7 @@ $students = [$user('bp_student_1'), $user('bp_student_2'), $user('bp_student_3')
 $all = implode(',', array_merge([$free, $buyer], $students));
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");
+$wpdb->query("DELETE FROM {$p}learning_group_member WHERE group_id IN (SELECT id FROM {$p}learning_group WHERE order_id >= 910000)");
 $wpdb->query("DELETE FROM {$p}learning_group WHERE order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}product_access WHERE product_id >= 991000");
 foreach (['favorite_collection', 'progress', 'favorite', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress', 'exam_session'] as $table) {
@@ -389,6 +390,30 @@ $check(! $access->can($students[1], 'SBF-BIN-MOTOR', 'question_bank') && $groups
 $groupsService->join($token, $students[3]);
 $check($access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank'), 'freier Platz neu belegt');
 
+// Abgelaufene Einladungen belegen keinen Platz und werden per Cron „expired“, die Adresse später gelöscht.
+$gid = (int) $group->id;
+$last = array_values(array_filter($groupsService->membersOf($gid), static fn ($m) => $m->status === 'active' && (int) $m->user_id === $students[3]))[0];
+$groupsService->removeMember($gid, (int) $last->id, $buyer, 'Test Ablauf');
+$mailCount = count($mails);
+$groupsService->invite($gid, $buyer, ['ablauf@example.test']);
+$inviteMail = (string) ($mails[$mailCount]['message'] ?? '');
+$privacyUrl = (string) get_privacy_policy_url();
+$check(str_contains($inviteMail, (string) get_userdata($buyer)->display_name) && str_contains($inviteMail, $group->name) && str_contains($inviteMail, 'gilt bis')
+    && ($privacyUrl === '' || str_contains($inviteMail, $privacyUrl)), 'Einladungsmail nennt Einladende, Gruppe, Ablauf und Datenschutzerklärung');
+$check($groupsService->freeSeats($groupsService->find($gid)) === 0, 'offene Einladung belegt einen Platz');
+$stale = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE group_id = %d AND email = %s", $gid, 'ablauf@example.test'));
+$wpdb->update($p.'learning_group_member', ['invited_at' => gmdate('Y-m-d H:i:s', time() - (GroupService::INVITE_DAYS + 1) * DAY_IN_SECONDS)], ['id' => $stale->id]);
+$check($groupsService->freeSeats($groupsService->find($gid)) === 1, 'abgelaufene Einladung belegt keinen Platz');
+$check($groupsService->describeToken((string) $stale->invite_token) === null, 'abgelaufener persönlicher Link ungültig');
+$groupsService->expireInvites();
+$stale = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE id = %d", $stale->id));
+$check($stale->status === GroupService::INVITE_EXPIRED && $stale->invite_token === null && $stale->email === 'ablauf@example.test', 'Cron: Einladung auf „expired“, Adresse vorerst erhalten');
+$wpdb->update($p.'learning_group_member', ['invited_at' => gmdate('Y-m-d H:i:s', time() - (GroupService::INVITE_DAYS + GroupService::EXPIRED_RETENTION_DAYS + 1) * DAY_IN_SECONDS)], ['id' => $stale->id]);
+$groupsService->expireInvites();
+$check($wpdb->get_var($wpdb->prepare("SELECT email FROM {$p}learning_group_member WHERE id = %d", $stale->id)) === null, 'Cron: Adresse 30 Tage nach Ablauf gelöscht');
+$groupsService->join($token, $students[3]);
+$check($access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank') && $groupsService->freeSeats($groupsService->find($gid)) === 0, 'frei gewordener Platz wieder belegt');
+
 $orders->put(910001, $buyer, 'on-hold', '2026-09-01 10:00:00', [$item()], 'stripe');
 $sync->sync(910001);
 $check($groupsService->find((int) $group->id)->status === 'suspended' && ! $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank'), 'Dispute: Gruppe und alle Plätze ausgesetzt');
@@ -592,6 +617,7 @@ remove_filter('pre_wp_mail', $capture, 10);
 // Aufräumen.
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");
+$wpdb->query("DELETE FROM {$p}learning_group_member WHERE group_id IN (SELECT id FROM {$p}learning_group WHERE order_id >= 910000)");
 $wpdb->query("DELETE FROM {$p}learning_group WHERE order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}product_access WHERE product_id >= 991000");
 $wpdb->query("DELETE FROM {$p}exam_session WHERE user_id IN ({$all})");
