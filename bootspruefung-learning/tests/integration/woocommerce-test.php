@@ -504,28 +504,154 @@ if (function_exists('wc_load_cart')) {
     wc_clear_notices();
     wp_set_current_user(0);
 }
-// Widerrufsfunktion (§ 356a BGB): Frist, Angebot, Seite, Formular.
+// Widerrufsfunktion (§ 356a BGB): WooCommerce-Funktion „Order withdrawal“ + Anbindung.
 $wf = \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class;
+$check($wf::available(), 'WooCommerce bringt die Widerrufsfunktion mit');
+$wf::enable();
+$check($wf::enabled(), 'Widerrufsfunktion eingeschaltet');
+$check(str_contains($wf::endpointUrl(), 'order-withdrawal') || str_contains($wf::endpointUrl(), 'withdraw-order'), 'Formular-Adresse unter Mein Konto');
+$check(rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'feste Adresse /vertrag-widerrufen/');
 $wOrder = wc_create_order();
 $wOrder->set_billing_email('widerruf@example.org');
-$wOrder->set_status('processing');
+$wOrder->set_status('pending');
 $wOrder->save();
 $deadline = $wf::deadline($wOrder);
 $expected = (new DateTimeImmutable('@'.$wOrder->get_date_created()->getTimestamp()))->setTimezone(wp_timezone())->setTime(23, 59, 59)->modify('+14 days')->getTimestamp();
 $check($deadline === $expected, 'Widerrufsfrist endet mit Ablauf des 14. Tages');
-$check($wf::offered($wOrder), 'Widerrufsfunktion innerhalb der Frist angeboten');
+$check($wf::offered($wOrder), 'Widerruf innerhalb der Frist angeboten');
 $wOrder->set_date_created(time() - 20 * DAY_IN_SECONDS);
 $wOrder->save();
 $check(! $wf::offered($wOrder), 'nach Ablauf der Frist nicht mehr angeboten');
-$wOrder->set_date_created(time());
+$wOrder->set_date_paid(time() - DAY_IN_SECONDS);
+$wOrder->save();
+$check($wf::offered($wOrder), 'später bezahlt: Frist ab Zahlungseingang');
 $wOrder->set_status('cancelled');
 $wOrder->save();
 $check(! $wf::offered($wOrder), 'stornierte Bestellung: nicht angeboten');
-$pageId = $wf::ensurePage();
-$check($pageId > 0 && get_post_status($pageId) === 'publish' && $wf::ensurePage() === $pageId, 'Seite „Vertrag hier widerrufen“ veröffentlicht, nur einmal angelegt');
-$form = do_shortcode('['.$wf::SHORTCODE.']');
-$check(str_contains($form, 'Widerruf bestätigen') && str_contains($form, 'name="bp_order"') && str_contains($form, 'name="bp_email"') && str_contains($form, 'name="bp_name"'), 'Formular mit Name, Bestellung, E-Mail und „Widerruf bestätigen“');
 $wOrder->delete(true);
+
+$de = static fn () => 'de_DE';
+add_filter('determine_locale', $de);
+$check(__('Confirm withdrawal', 'woocommerce') !== 'Confirm withdrawal' && __('Withdraw from contract', 'woocommerce') !== 'Withdraw from contract', 'Widerrufsformular auf Deutsch (Pflichtbeschriftungen)');
+remove_filter('determine_locale', $de);
+echo "Zustimmung digitale Inhalte (§ 356 Abs. 5 BGB), klassisch und „Bestellung bezahlen“\n";
+$dc = \Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::class;
+$consent = new $dc();
+$errorNotices = static fn (): array => array_map(static fn ($n) => is_array($n) ? (string) $n['notice'] : (string) $n, wc_get_notices('error'));
+if (function_exists('wc_load_cart')) {
+    $consentUser = $customer('wc_consent_kunde');
+    wp_set_current_user($consentUser);
+    wc_load_cart();
+    WC()->cart->empty_cart();
+    wc_clear_notices();
+    WC()->cart->add_to_cart($lern);
+    unset($_POST[$dc::POST_FIELD]);
+    $consent->classicValidate();
+    $check(in_array($dc::errorMessage(), $errorNotices(), true), 'klassisch: ohne Haken Fehlermeldung');
+    wc_clear_notices();
+    $_POST[$dc::POST_FIELD] = '1';
+    $consent->classicValidate();
+    $check(wc_notice_count('error') === 0, 'klassisch: mit Haken keine Fehlermeldung');
+    ob_start();
+    $consent->classicField();
+    $field = (string) ob_get_clean();
+    $check(str_contains($field, 'aria-required="true"') && str_contains($field, 'öffnet in neuem Fenster') && str_contains($field, 'screen-reader-text') && str_contains($field, ' checked'), 'klassisch: Kästchen barrierearm (aria-required, neues Fenster, „erforderlich“)');
+    $cOrder = wc_create_order(['customer_id' => $consentUser]);
+    $cOrder->add_product(wc_get_product($lern), 1);
+    $cOrder->calculate_totals();
+    $consent->classicSave($cOrder, []);
+    $cOrder->save();
+    $saved = wc_get_order($cOrder->get_id())->get_meta($dc::META, true);
+    $check(is_array($saved) && ! empty($saved['time']) && ($saved['source'] ?? '') === 'classic' && ($saved['text'] ?? '') === $dc::label(), 'klassisch: Zustimmung mit Zeitpunkt in _bp_digital_consent gespeichert');
+    $cOrder->delete(true);
+
+    // „Bestellung bezahlen“: Prüfung in woocommerce_before_pay_action.
+    $pOrder = wc_create_order(['customer_id' => $consentUser]);
+    $pOrder->add_product(wc_get_product($lern), 1);
+    $pOrder->calculate_totals();
+    $pOrder->save();
+    wc_clear_notices();
+    unset($_POST[$dc::POST_FIELD]);
+    $consent->payValidate($pOrder);
+    $check(in_array($dc::errorMessage(), $errorNotices(), true) && $dc::consentFor(wc_get_order($pOrder->get_id())) === null, 'Bestellung bezahlen: ohne Haken Fehlermeldung, nichts gespeichert');
+    wc_clear_notices();
+    $_POST[$dc::POST_FIELD] = '1';
+    $consent->payValidate($pOrder);
+    $paySaved = $dc::consentFor(wc_get_order($pOrder->get_id()));
+    $check(wc_notice_count('error') === 0 && $paySaved !== null && $paySaved['source'] === 'order_pay', 'Bestellung bezahlen: Zustimmung gespeichert');
+    unset($_POST[$dc::POST_FIELD]);
+    $consent->payValidate(wc_get_order($pOrder->get_id()));
+    $check(wc_notice_count('error') === 0, 'Bestellung bezahlen: bereits zugestimmt, keine erneute Abfrage');
+    $bOrder = wc_create_order(['customer_id' => $consentUser]);
+    $bOrder->add_product(wc_get_product($book), 1);
+    $bOrder->calculate_totals();
+    $bOrder->save();
+    $consent->payValidate($bOrder);
+    $check(wc_notice_count('error') === 0, 'Bestellung bezahlen: ohne Lernprodukt keine Abfrage');
+    $pOrder->delete(true);
+    $bOrder->delete(true);
+    WC()->cart->empty_cart();
+    wc_clear_notices();
+    wp_set_current_user(1);
+}
+
+echo "Geld-zurück-Garantie: teilerstattete Position\n";
+$gOrder = wc_create_order(['customer_id' => $alice]);
+$gKeep = $gOrder->add_product(wc_get_product($byS['BP-SKN']['product_id']), 1);
+$gPart = $gOrder->add_product(wc_get_product($byS['BP-SBF-SEE-VIDEO']['product_id']), 1);
+$gOrder->set_payment_method('stripe');
+$gOrder->calculate_totals();
+$gOrder->save();
+$gOrder->payment_complete('ch_bd_'.wp_generate_password(6, false));
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::policy((int) $byS['BP-SKN']['product_id']) !== null && \Bootspruefung\Learning\Commerce\MoneyBack::policy((int) $byS['BP-SBF-SEE-VIDEO']['product_id']) !== null, 'beide Positionen mit Geld-zurück-Garantie');
+$gRefund = wc_create_refund(['order_id' => $gOrder->get_id(), 'amount' => 1, 'reason' => 'Kulanz', 'line_items' => [$gPart => ['qty' => 0, 'refund_total' => 1]], 'refund_payment' => false, 'restock_items' => false]);
+$gOrder = wc_get_order($gOrder->get_id());
+$keepItem = $gOrder->get_item($gKeep);
+$expected = round((float) $keepItem->get_total() + (float) $keepItem->get_total_tax(), 2);
+$parts = \Bootspruefung\Learning\Commerce\WooCommerce\MoneyBackWoo::breakdown($gOrder);
+$check(! is_wp_error($gRefund) && $expected > 0 && abs($parts['amount'] - $expected) < 0.001, 'breakdown(): Betrag nur aus der nicht erstatteten Garantie-Position');
+$gOrder->delete(true);
+
+echo "Bestell-Schaltfläche (§ 312j Abs. 3 BGB)\n";
+$check(apply_filters('woocommerce_order_button_text', 'Place order') === 'Zahlungspflichtig bestellen', 'klassische Kasse: „Zahlungspflichtig bestellen“');
+$check(apply_filters('woocommerce_pay_order_button_text', 'Pay for order') === 'Zahlungspflichtig bestellen', 'Bestellung bezahlen: „Zahlungspflichtig bestellen“');
+$actionsBlock = apply_filters('render_block_data', ['blockName' => 'woocommerce/checkout-actions-block', 'attrs' => ['placeOrderButtonLabel' => 'Place Order'], 'innerBlocks' => []], [], null);
+$check(($actionsBlock['attrs']['placeOrderButtonLabel'] ?? '') === 'Zahlungspflichtig bestellen', 'Kassen-Block: placeOrderButtonLabel gesetzt');
+$fakeGateway = new class() extends WC_Payment_Gateway {
+    public function __construct()
+    {
+        $this->id = 'bp_fake';
+        $this->order_button_text = 'Weiter zu Fake';
+    }
+};
+$check(apply_filters('woocommerce_available_payment_gateways', ['bp_fake' => $fakeGateway])['bp_fake']->order_button_text === null, 'Zahlungsart überschreibt die Beschriftung nicht');
+
+echo "AGB und Widerrufsbelehrung in der Bestellmail (§ 312f Abs. 2 BGB)\n";
+$lt = \Bootspruefung\Learning\Commerce\WooCommerce\LegalTextsEmail::class;
+$termsBefore = get_option('woocommerce_terms_page_id');
+$termsPage = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'AGB Test', 'post_name' => 'agb-test-'.wp_generate_password(6, false, false), 'post_content' => "<!-- wp:paragraph {\"className\":\"kw-placeholder\"} -->\n<p class=\"kw-placeholder\">Hinweis für den Betreiber</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">1. Geltungsbereich</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Diese AGB gelten für alle <a href=\"https://example.org/kurse/\">Kurse</a>.</p>\n<!-- /wp:paragraph -->"]);
+update_option('woocommerce_terms_page_id', $termsPage);
+$mailOrder = wc_create_order(['customer_id' => $alice]);
+$mailFor = static function (string $id, bool $admin, bool $plain) use ($lt, $mailOrder): string {
+    ob_start();
+    (new $lt())->email($mailOrder, $admin, $plain, (object) ['id' => $id]);
+
+    return (string) ob_get_clean();
+};
+$htmlMail = $mailFor('customer_processing_order', false, false);
+$plainMail = $mailFor('customer_completed_order', false, true);
+$check(str_contains($htmlMail, $lt::heading()) && str_contains($htmlMail, '<h2>1. Geltungsbereich</h2>') && str_contains($htmlMail, 'href="https://example.org/kurse/"') && ! str_contains($htmlMail, 'Hinweis für den Betreiber') && ! str_contains($htmlMail, '<mark'), 'HTML-Mail: vollständiger AGB-Text mit Überschriften, ohne Betreiber-Hinweis');
+$check(str_contains($plainMail, 'AGB TEST') && str_contains($plainMail, 'Kurse (https://example.org/kurse/)') && ! str_contains($plainMail, '<'), 'Text-Mail: AGB als Klartext mit ausgeschriebenen Links');
+$check($mailFor('customer_on_hold_order', false, false) !== '' && $mailFor('new_order', true, false) === '' && $mailFor('customer_invoice', false, false) === '', 'nur Kunden-Mails in Bearbeitung/Wartestellung/abgeschlossen');
+$widerrufPage = get_page_by_path('widerruf', OBJECT, 'page');
+if ($widerrufPage instanceof WP_Post && $widerrufPage->post_status === 'publish') {
+    $check(str_contains($htmlMail, 'Widerrufsbelehrung') && str_contains($htmlMail, 'Muster'), 'veröffentlichte Widerrufsbelehrung samt Muster-Formular angehängt');
+}
+wp_update_post(['ID' => $termsPage, 'post_status' => 'draft']);
+$check(! str_contains($mailFor('customer_processing_order', false, false), 'Geltungsbereich'), 'unveröffentlichte AGB-Seite wird nicht angehängt');
+update_option('woocommerce_terms_page_id', $termsBefore);
+wp_delete_post($termsPage, true);
+$mailOrder->delete(true);
 
 foreach (array_column($rows, 'product_id') as $pid) {
     (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');

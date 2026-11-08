@@ -114,6 +114,8 @@ final class Integration
         (new VideoUpgrade())->register();
         (new PriceNote())->register();
         (new DigitalConsent())->register();
+        (new OrderButton())->register();
+        (new LegalTextsEmail())->register();
         (new WithdrawalFunction())->register();
         (new WithdrawalTexts())->register();
     }

@@ -70,7 +70,8 @@ try {
 
   step('Block-Checkout mit Überweisung');
   await page.goto(env.checkout);
-  const place = page.getByRole('button', { name: /place order|bestellung aufgeben|kaufen/i });
+  // § 312j Abs. 3 BGB: Beschriftung „Zahlungspflichtig bestellen“.
+  const place = page.getByRole('button', { name: /zahlungspflichtig bestellen/i });
   await place.waitFor({ timeout: 30000 });
   await shot(page, '52-block-checkout');
   // § 356 Abs. 5 BGB: ohne Zustimmung zum sofortigen Beginn keine Bestellung.
@@ -104,8 +105,17 @@ try {
   if (await page.locator('#payment_method_bacs').count()) {
     await page.locator('#payment_method_bacs').check({ force: true });
   }
-  await page.locator('#bp_digital_consent').check();
+  // update_order_review ersetzt den Bereich mit dem Kästchen: erst nach dem Neuladen setzen …
+  const classicConsent = page.locator('#bp_digital_consent');
+  await page.waitForFunction(() => document.querySelectorAll('.blockUI').length === 0, null, { timeout: 30000 });
+  assert.equal(await classicConsent.getAttribute('aria-required'), 'true', 'Kästchen als Pflichtfeld ausgezeichnet');
+  assert.match(await page.locator('#bp_digital_consent_field a').innerText(), /öffnet in neuem Fenster/);
+  await classicConsent.check();
+  assert.match((await page.locator('#place_order').innerText()).trim(), /^Zahlungspflichtig bestellen$/);
   await shot(page, '55-klassisch');
+  // … und unmittelbar vor dem Absenden prüfen, dass der Haken noch gesetzt ist.
+  await page.waitForFunction(() => document.querySelectorAll('.blockUI').length === 0, null, { timeout: 30000 });
+  assert.equal(await classicConsent.isChecked(), true, 'Haken nach Aktualisierung der Kasse erhalten');
   await page.locator('#place_order').click();
   await page.waitForURL(/order-received/, { timeout: 60000 });
   await page.getByText(/sobald die Zahlung eingegangen ist/).waitFor();

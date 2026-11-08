@@ -8,7 +8,7 @@ use Bootspruefung\Learning\Commerce\ProductAccessRepository;
 
 /**
  * Zustimmung zum vorzeitigen Beginn bei digitalen Inhalten (§ 356 Abs. 5 BGB): Pflicht-Kästchen in der
- * Kasse (Block und klassisch), nur wenn der Warenkorb Lernprodukte enthält. Die Zustimmung wird mit
+ * Kasse (Block und klassisch) und auf „Bestellung bezahlen“, nur wenn der Warenkorb Lernprodukte enthält. Die Zustimmung wird mit
  * Zeitpunkt in der Bestellung gespeichert (_bp_digital_consent), im Bestell-Admin angezeigt und in den
  * Bestellmails an Kundinnen und Kunden bestätigt (dauerhafter Datenträger, § 312f Abs. 3 BGB).
  */
@@ -37,6 +37,10 @@ final class DigitalConsent
         add_action('woocommerce_checkout_process', [$this, 'classicValidate']);
         add_action('woocommerce_checkout_create_order', [$this, 'classicSave'], 10, 2);
         add_action('wp_enqueue_scripts', [$this, 'classicScript'], 20);
+
+        // „Bestellung bezahlen“ (order-pay, z. B. vom Shop angelegte Bestellung oder erneuter Zahlungsversuch).
+        add_action('woocommerce_pay_order_before_submit', [$this, 'payField']);
+        add_action('woocommerce_before_pay_action', [$this, 'payValidate']);
 
         // Anzeige und Bestätigung.
         add_action('woocommerce_admin_order_data_after_order_details', [$this, 'adminNotice']);
@@ -172,13 +176,21 @@ final class DigitalConsent
             return;
         }
         // phpcs:ignore WordPress.Security.NonceVerification -- nur Wiederanzeige nach Fehlermeldung
-        $checked = ! empty($_POST[self::POST_FIELD]);
-        $link = ' <a href="'.esc_url(self::withdrawalUrl()).'" target="_blank" rel="noopener">'.esc_html__('Widerrufsbelehrung', 'bootspruefung-learning').'</a>';
-        echo '<p class="form-row validate-required bp-digital-consent" id="'.esc_attr(self::POST_FIELD).'_field">'
-            .'<label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox">'
-            .'<input type="checkbox" class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="'.esc_attr(self::POST_FIELD).'" id="'.esc_attr(self::POST_FIELD).'" value="1"'.($checked ? ' checked' : '').'> '
-            .'<span>'.esc_html(self::label()).$link.'</span>&nbsp;<abbr class="required" title="'.esc_attr__('erforderlich', 'bootspruefung-learning').'">*</abbr>'
-            .'</label></p>'; // phpcs:ignore WordPress.Security.EscapeOutput -- oben escaped
+        echo self::fieldHtml(! empty($_POST[self::POST_FIELD])); // phpcs:ignore WordPress.Security.EscapeOutput -- in fieldHtml() escaped
+    }
+
+    /** Pflicht-Kästchen (klassische Kasse und „Bestellung bezahlen“), barrierearm: aria-required, Hinweis auf neues Fenster, „erforderlich“ für Screenreader. */
+    public static function fieldHtml(bool $checked): string
+    {
+        $link = ' <a href="'.esc_url(self::withdrawalUrl()).'" target="_blank" rel="noopener">'.esc_html__('Widerrufsbelehrung', 'bootspruefung-learning')
+            .' <span class="bp-new-window">'.esc_html__('(öffnet in neuem Fenster)', 'bootspruefung-learning').'</span></a>';
+
+        return '<p class="form-row validate-required bp-digital-consent" id="'.esc_attr(self::POST_FIELD).'_field">'
+            .'<label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox" for="'.esc_attr(self::POST_FIELD).'">'
+            .'<input type="checkbox" class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="'.esc_attr(self::POST_FIELD).'" id="'.esc_attr(self::POST_FIELD).'" value="1" aria-required="true"'.($checked ? ' checked' : '').'> '
+            .'<span>'.esc_html(self::label()).$link.'</span>&nbsp;<span class="required" aria-hidden="true">*</span>'
+            .'<span class="screen-reader-text">'.esc_html__('(erforderlich)', 'bootspruefung-learning').'</span>'
+            .'</label></p>';
     }
 
     public function classicValidate(): void
@@ -204,7 +216,48 @@ final class DigitalConsent
             return;
         }
         $name = self::POST_FIELD;
-        wp_add_inline_script('wc-checkout', "jQuery(function($){var c=false;$(document.body).on('update_checkout',function(){c=$('#{$name}').prop('checked');}).on('updated_checkout',function(){if(c){ $('#{$name}').prop('checked',true);}});});");
+        // Zustand bei jeder Änderung merken (nicht erst bei update_checkout): Wird das Kästchen gesetzt,
+        // während update_order_review noch läuft, ersetzt die Antwort es sonst durch ein leeres.
+        wp_add_inline_script('wc-checkout', "jQuery(function($){var c=$('#{$name}').prop('checked')===true;$(document.body).on('change','#{$name}',function(){c=this.checked;}).on('updated_checkout',function(){ $('#{$name}').prop('checked',c);});});");
+    }
+
+    // ------------------------------------------------------------------ Bestellung bezahlen (order-pay)
+
+    public function payField(): void
+    {
+        $order = self::payOrder();
+        if ($order === null || self::consentFor($order) !== null || ! $this->orderHasLearning($order)) {
+            return;
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification -- nur Wiederanzeige nach Fehlermeldung
+        echo self::fieldHtml(! empty($_POST[self::POST_FIELD])); // phpcs:ignore WordPress.Security.EscapeOutput -- in fieldHtml() escaped
+    }
+
+    /**
+     * WC_Form_Handler::pay_action(): Eine Fehlermeldung hier verhindert process_payment() (wc_notice_count('error')),
+     * die Seite „Bestellung bezahlen“ wird mit der Meldung erneut angezeigt.
+     */
+    public function payValidate($order): void
+    {
+        if (! $order instanceof \WC_Order || self::consentFor($order) !== null || ! $this->orderHasLearning($order)) {
+            return;
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification -- WooCommerce prüft die Nonce woocommerce-pay
+        if (empty($_POST[self::POST_FIELD])) {
+            wc_add_notice(self::errorMessage(), 'error', ['id' => self::POST_FIELD]);
+
+            return;
+        }
+        $this->store($order, 'order_pay');
+        $order->save();
+    }
+
+    private static function payOrder(): ?\WC_Order
+    {
+        $id = absint(get_query_var('order-pay'));
+        $order = $id > 0 ? wc_get_order($id) : false;
+
+        return $order instanceof \WC_Order ? $order : null;
     }
 
     // ------------------------------------------------------------------ Admin und E-Mail
@@ -226,7 +279,7 @@ final class DigitalConsent
                 /* translators: 1: Datum und Uhrzeit, 2: Checkout-Art */
                 __('Zustimmung zum vorzeitigen Beginn und Kenntnis vom Verlust des Widerrufsrechts bestätigt am %1$s (%2$s).', 'bootspruefung-learning'),
                 self::formatTime($consent['time']),
-                $consent['source'] === 'classic' ? __('klassische Kasse', 'bootspruefung-learning') : __('Kassen-Block', 'bootspruefung-learning')
+                self::sourceLabel($consent['source'])
             ));
         }
         echo '</p>';
@@ -263,6 +316,18 @@ final class DigitalConsent
             return; // erste Zustimmung bleibt maßgeblich (z. B. erneuter Zahlungsversuch)
         }
         $order->update_meta_data(self::META, ['time' => time(), 'text' => self::label(), 'source' => $source]);
+    }
+
+    private static function sourceLabel(string $source): string
+    {
+        switch ($source) {
+            case 'classic':
+                return __('klassische Kasse', 'bootspruefung-learning');
+            case 'order_pay':
+                return __('Bestellung bezahlen', 'bootspruefung-learning');
+            default:
+                return __('Kassen-Block', 'bootspruefung-learning');
+        }
     }
 
     private static function formatTime(int $time): string
