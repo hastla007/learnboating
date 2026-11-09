@@ -279,6 +279,21 @@ foreach ($videos['modules'] as $m) {
 $check(count($lesson['quiz']) > 0 && ! str_contains((string) wp_json_encode($lesson['quiz']), 'is_correct'), 'Videolektion mit Quiz ohne Lösungen');
 $isPlaceholder = (int) $wpdb->get_var($wpdb->prepare("SELECT is_placeholder FROM {$p}video_lesson WHERE id = %d", $lessonId)) === 1;
 $check($lesson['placeholder'] === $isPlaceholder && (! $isPlaceholder || $lesson['video_url'] === null), 'Platzhalter-Lektion liefert keine externe Video-URL');
+// Echte Lektion (vorübergehend): URL wird geliefert; Garantie-Nenner zählt nur echte, nicht archivierte Lektionen.
+$lessonBefore = $wpdb->get_row($wpdb->prepare("SELECT is_placeholder, video_url, status FROM {$p}video_lesson WHERE id = %d", $lessonId), ARRAY_A);
+$lessonTotal = static fn (): int => \Bootspruefung\Learning\Commerce\MoneyBack::progress($uid, ['SBF-SEE'], '2000-01-01 00:00:00', false, true)['total'];
+try {
+    $wpdb->update($p.'video_lesson', ['is_placeholder' => 1], ['id' => $lessonId]);
+    $withoutLesson = $lessonTotal();
+    $wpdb->update($p.'video_lesson', ['is_placeholder' => 0, 'video_url' => 'https://videos.example.test/lektion.mp4'], ['id' => $lessonId]);
+    [, $real] = $req('GET', '/courses/SBF-SEE/videos/'.$lessonId);
+    $check($real['placeholder'] === false && $real['video_url'] !== null, 'echte Lektion liefert ihre Video-URL');
+    $withLesson = $lessonTotal();
+    $wpdb->update($p.'video_lesson', ['status' => 'source_archived'], ['id' => $lessonId]);
+    $check($withLesson === $withoutLesson + 1 && $lessonTotal() === $withoutLesson, 'Garantie-Nenner ohne Platzhalter- und archivierte Lektionen');
+} finally {
+    $wpdb->update($p.'video_lesson', $lessonBefore, ['id' => $lessonId]);
+}
 $vq = $lesson['quiz'][0];
 $vright = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $vq['revision_id']));
 [$s, $r] = $req('POST', '/answers', ['token' => $vq['token'], 'answer_ids' => [$vright], 'idempotency_key' => wp_generate_uuid4()]);

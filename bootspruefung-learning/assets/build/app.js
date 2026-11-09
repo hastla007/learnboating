@@ -443,14 +443,19 @@
 				card.appendChild(el('div', { class: 'bp-actions' }, [emails, send]));
 			}
 			card.appendChild(el('h3', { text: t('group_members') }));
-			card.appendChild(g.members.length ? el('ul', { class: 'bp-members' }, g.members.map(function (m) {
+			// Anonymisierte Einladungen (abgelaufen, Adresse gelöscht) nicht mehr anzeigen.
+			var members = g.members.filter(function (m) { return m.name || m.email; });
+			card.appendChild(members.length ? el('ul', { class: 'bp-members' }, members.map(function (m) {
+				var label = el('span', { text: (m.name || m.email) + (m.name && m.email ? ' <' + m.email + '>' : '') + ' · ' + t('group_member_' + m.status) });
+				// Abgelaufene Einladungen belegen keinen Platz – nichts freizugeben.
+				if (m.status === 'expired') { return el('li', {}, [label]); }
 				var remove = el('button', { type: 'button', class: 'bp-button bp-button-small', text: t('group_remove') });
 				remove.addEventListener('click', function () {
 					var reason = window.prompt(t('group_remove_confirm', { name: m.name || m.email }));
 					if (reason === null) { return; }
 					api('DELETE', 'me/groups/' + g.id + '/members/' + m.id, { reason: reason }).then(render).catch(function (e) { alertMessage(card, e.message); });
 				});
-				return el('li', {}, [el('span', { text: (m.name || m.email || '–') + (m.name && m.email ? ' <' + m.email + '>' : '') + ' · ' + t('group_member_' + m.status) }), ' ', remove]);
+				return el('li', {}, [label, ' ', remove]);
 			})) : el('p', { class: 'bp-muted', text: t('group_no_members') }));
 		}
 		render(g);

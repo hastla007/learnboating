@@ -18,7 +18,7 @@ const SQL_MAX = 10;
 // Displays, in denen der Kanal- bzw. Kombiknopf nicht den Kanal/die Lautstärke stellt, sondern
 // die Markierung im Menü bewegt (siehe turn() in devices/*.js). Dort gibt es keinen Zahlenwert.
 const SELECT_SCREENS = {
-    'ic-m505': ['menu', 'nature', 'callAddress', 'callCategory', 'callChannel', 'ackAction', 'setMode', 'editor', 'receivedList'],
+    'ic-m505': ['menu', 'nature', 'callAddress', 'callCategory', 'callChannel', 'ackAction', 'setMode', 'editor'],
     'ic-m323': ['menu', 'ackChoice', 'editor', 'callChannel'],
     'ic-m423': ['menu', 'ackChoice', 'editor', 'callChannel'],
     'ic-m330': ['menu', 'dscForm', 'distressMenu', 'editor', 'channelSelect'],

@@ -55,12 +55,23 @@ final class PersonalData
     }
 
     /**
-     * Quellen des Exports (Art. 15/20 DSGVO): Tabelle => [Bezeichnung, WHERE-Bedingung].
+     * Quellen des Exports (Art. 15/20 DSGVO): Tabelle => [Bezeichnung, vorbereitete WHERE-Bedingung].
      * Je Seite eine Quelle, je Zeile ein Eintrag mit allen Feldern (bei großen Tabellen seitenweise).
+     * Ohne Konto bleiben nur Gruppeneinladungen an diese Adresse.
+     *
+     * @return array<string,array{0:string,1:string}>
      */
-    private static function sources(): array
+    private static function sources(int $userId, string $email): array
     {
-        return [
+        global $wpdb;
+        $email = strtolower(trim($email));
+        $members = [__('Gruppenmitgliedschaften und Einladungen', 'bootspruefung-learning'), $userId > 0
+            ? $wpdb->prepare('user_id = %d OR email = %s', $userId, $email)
+            : $wpdb->prepare('email = %s', $email)];
+        if ($userId <= 0) {
+            return ['learning_group_member' => $members];
+        }
+        $plain = [
             'attempt' => [__('Antworten (Lernmodus)', 'bootspruefung-learning'), 'user_id = %d'],
             'progress' => [__('Lernstand je Frage', 'bootspruefung-learning'), 'user_id = %d'],
             'favorite' => [__('Favoriten', 'bootspruefung-learning'), 'user_id = %d'],
@@ -72,9 +83,21 @@ final class PersonalData
             'radio_progress' => [__('Funktraining', 'bootspruefung-learning'), 'user_id = %d'],
             'entitlement' => [__('Kurszugänge', 'bootspruefung-learning'), 'user_id = %d'],
             'learning_group' => [__('Eigene Gruppen', 'bootspruefung-learning'), 'owner_user_id = %d'],
-            'learning_group_member' => [__('Gruppenmitgliedschaften', 'bootspruefung-learning'), 'user_id = %d'],
+            'learning_group_member' => null,
             'audit_log' => [__('Protokoll (eigene Vorgänge)', 'bootspruefung-learning'), 'actor_user_id = %d OR (object_type = \'user\' AND object_id = %s)'],
         ];
+        $out = [];
+        foreach ($plain as $table => $source) {
+            if ($source === null) {
+                $out[$table] = $members;
+                continue;
+            }
+            [$label, $where] = $source;
+            $args = substr_count($where, '%d') + substr_count($where, '%s') === 2 ? [$userId, (string) $userId] : [$userId];
+            $out[$table] = [$label, $wpdb->prepare($where, ...$args)];
+        }
+
+        return $out;
     }
 
     private const EXPORT_LIMIT = 2000;
@@ -83,18 +106,15 @@ final class PersonalData
     public static function export(string $email, int $page = 1): array
     {
         $user = get_user_by('email', $email);
-        if (! $user) {
-            return ['data' => [], 'done' => true];
-        }
         global $wpdb;
-        $sources = self::sources();
+        $sources = self::sources($user ? (int) $user->ID : 0, $email);
         $tables = array_keys($sources);
         // Seite n → Tabelle und Teilstück (Tabellen mit mehr als EXPORT_LIMIT Zeilen über mehrere Seiten).
         $index = 0;
         $offset = 0;
         $remaining = max(1, $page);
         foreach ($tables as $i => $table) {
-            $count = (int) $wpdb->get_var(self::sql('SELECT COUNT(*)', $table, $sources[$table][1], $user->ID));
+            $count = (int) $wpdb->get_var(self::sql('SELECT COUNT(*)', $table, $sources[$table][1]));
             $chunks = max(1, (int) ceil($count / self::EXPORT_LIMIT));
             if ($remaining <= $chunks) {
                 $index = $i;
@@ -108,7 +128,7 @@ final class PersonalData
             return ['data' => [], 'done' => true];
         }
         $table = $tables[$index];
-        $rows = $wpdb->get_results(self::sql('SELECT *', $table, $sources[$table][1], $user->ID).' ORDER BY id LIMIT '.self::EXPORT_LIMIT.' OFFSET '.(int) $offset, ARRAY_A) ?: [];
+        $rows = $wpdb->get_results(self::sql('SELECT *', $table, $sources[$table][1]).' ORDER BY id LIMIT '.self::EXPORT_LIMIT.' OFFSET '.(int) $offset, ARRAY_A) ?: [];
         $data = [];
         foreach ($rows as $row) {
             unset($row['invite_token'], $row['join_token'], $row['idempotency_key']);
@@ -124,12 +144,12 @@ final class PersonalData
         return ['data' => $data, 'done' => $last];
     }
 
-    private static function sql(string $select, string $table, string $where, int $userId): string
+    /** $where ist bereits vorbereitet (sources()). */
+    private static function sql(string $select, string $table, string $where): string
     {
         global $wpdb;
-        $args = substr_count($where, '%d') + substr_count($where, '%s') === 2 ? [$userId, (string) $userId] : [$userId];
 
-        return $wpdb->prepare($select.' FROM `'.esc_sql($wpdb->prefix.'bp_'.$table).'` WHERE '.$where, ...$args);
+        return $select.' FROM `'.esc_sql($wpdb->prefix.'bp_'.$table).'` WHERE ('.$where.')';
     }
 
     /** @return array{items_removed:bool,items_retained:bool,messages:list<string>,done:bool} */
@@ -137,10 +157,40 @@ final class PersonalData
     {
         $user = get_user_by('email', $email);
         if (! $user) {
-            return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
+            // Kein Konto: nur Gruppeneinladungen an diese Adresse (Adresse und Link löschen).
+            $affected = self::eraseGroupMembers(0, $email);
+            if ($affected === false) {
+                return ['items_removed' => false, 'items_retained' => true, 'messages' => [(string) $GLOBALS['wpdb']->last_error], 'done' => true];
+            }
+
+            return ['items_removed' => $affected > 0, 'items_retained' => false, 'messages' => [], 'done' => true];
         }
 
         return self::eraseUser((int) $user->ID, $email);
+    }
+
+    /**
+     * Gruppenplätze/Einladungen: E-Mail-Adresse und Einladungslink entfernen; offene Einladungen
+     * gelten danach als entfernt (Platz frei). Die Platzhistorie bleibt (Kontingent der Bestellung).
+     */
+    private static function eraseGroupMembers(int $userId, string $email): int|false
+    {
+        global $wpdb;
+        $email = strtolower(trim($email));
+        $match = $userId > 0 ? $wpdb->prepare('(user_id = %d OR email = %s)', $userId, $email) : $wpdb->prepare('email = %s', $email);
+        if ($email === '' && $userId <= 0) {
+            return 0;
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        // MySQL wertet SET von links nach rechts aus: removed_at vor status setzen.
+        $sql = $wpdb->prepare(
+            'UPDATE `'.esc_sql($wpdb->prefix.'bp_learning_group_member')."` SET removed_at = IF(status = 'invited', %s, removed_at), status = IF(status = 'invited', 'removed', status),
+             email = NULL, invite_token = NULL, updated_at = %s WHERE ",
+            $now, $now
+        ).$match.' AND (email IS NOT NULL OR invite_token IS NOT NULL)';
+        $affected = $wpdb->query($sql);
+
+        return $affected === false ? false : (int) $affected;
     }
 
     /** @return array{items_removed:bool,items_retained:bool,messages:list<string>,done:bool} */
@@ -160,7 +210,11 @@ final class PersonalData
                 $removed = $removed || $deleted > 0;
             }
             // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
-            $wpdb->query($wpdb->prepare('UPDATE `'.esc_sql($wpdb->prefix.'bp_learning_group_member').'` SET email = NULL, invite_token = NULL WHERE user_id = %d OR email = %s', $user->ID, strtolower($email)));
+            $members = self::eraseGroupMembers((int) $user->ID, $email);
+            if ($members === false) {
+                throw new \RuntimeException($wpdb->last_error);
+            }
+            $removed = $removed || $members > 0;
             // Eigene Gruppen: frei gewählten Namen neutralisieren (kann Personenbezug enthalten).
             $wpdb->query($wpdb->prepare('UPDATE `'.esc_sql($wpdb->prefix.'bp_learning_group').'` SET name = CONCAT(%s, id) WHERE owner_user_id = %d', __('Gruppe #', 'bootspruefung-learning'), $user->ID));
             $wpdb->insert($wpdb->prefix.'bp_audit_log', [

@@ -59,8 +59,11 @@ final class MoneyBack
         $withQuestions = $questions;
         $withLessons = $lessons;
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
-        $questions = "SELECT DISTINCT mq.question_id FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})";
-        $lessons = "SELECT DISTINCT vl.id FROM {$p}course c JOIN {$p}video_module vm ON vm.course_id = c.id JOIN {$p}video_lesson vl ON vl.module_id = vm.id WHERE c.code IN ({$in})";
+        // Nenner und Zähler nutzen dieselben Mengen: ohne archivierte Inhalte und ohne Platzhalter-Lektionen (noch kein Video).
+        $questions = "SELECT DISTINCT mq.question_id FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id
+            JOIN {$p}question q ON q.id = mq.question_id WHERE c.code IN ({$in}) AND q.status <> 'source_archived'";
+        $lessons = "SELECT DISTINCT vl.id FROM {$p}course c JOIN {$p}video_module vm ON vm.course_id = c.id JOIN {$p}video_lesson vl ON vl.module_id = vm.id
+            WHERE c.code IN ({$in}) AND vl.is_placeholder = 0 AND vl.status <> 'source_archived' AND vm.status <> 'source_archived'";
         $qTotal = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$questions}) q", ...$courses));
         $lTotal = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$lessons}) l", ...$courses));
         $qDone = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare(

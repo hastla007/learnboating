@@ -6,6 +6,7 @@ namespace Bootspruefung\Learning\Commerce;
 
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Frontend\Router;
+use Bootspruefung\Learning\Settings\Settings;
 
 /**
  * Gruppenlizenzen (z. B. ein Paar oder ein Verein kauft mehrere Plätze): Eine Bestellposition
@@ -186,8 +187,7 @@ final class GroupService
             $groupId, gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS)
         ));
         $budget = max(0, max(self::INVITE_LIMIT, 2 * (int) $group->seats) - $sentToday);
-        $actor = get_userdata($actorId);
-        $inviter = $actor ? trim((string) $actor->display_name) : '';
+        $inviter = $this->inviterName($group, $actorId);
         $invited = 0;
         $skipped = [];
         foreach (array_unique(array_map('strtolower', array_map('trim', $emails))) as $email) {
@@ -195,7 +195,7 @@ final class GroupService
                 $skipped[] = $email;
                 continue;
             }
-            $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->members} m WHERE group_id = %d AND email = %s AND ".$this->occupying('m'), $groupId, $email, self::inviteCutoff()));
+            $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->members} m WHERE group_id = %d AND email = %s AND ".self::occupying('m'), $groupId, $email, self::inviteCutoff()));
             if ($exists || $this->freeSeats($group) <= 0 || $invited >= $budget) {
                 $skipped[] = $email;
                 continue;
@@ -251,7 +251,15 @@ final class GroupService
         }
         $now = EntitlementService::now();
         if ($invite !== null) {
-            $this->db->update($this->members, ['user_id' => $userId, 'status' => 'active', 'invite_token' => null, 'joined_at' => $now, 'updated_at' => $now], ['id' => $invite->id]);
+            // Bedingt annehmen: Nur eine gleichzeitige Anfrage gewinnt, abgelaufene/vergebene Einladungen nicht.
+            $updated = $this->db->query($this->db->prepare(
+                "UPDATE {$this->members} SET user_id = %d, status = 'active', invite_token = NULL, joined_at = %s, updated_at = %s
+                 WHERE id = %d AND status = 'invited' AND (invited_at IS NULL OR invited_at >= %s)",
+                $userId, $now, $now, (int) $invite->id, self::inviteCutoff()
+            ));
+            if ((int) $updated !== 1) {
+                throw new \InvalidArgumentException(__('Diese Einladung ist abgelaufen oder wurde bereits angenommen.', 'bootspruefung-learning'));
+            }
             $memberId = (int) $invite->id;
         } else {
             if ($this->freeSeats($group) <= 0) {
@@ -260,6 +268,15 @@ final class GroupService
             $user = get_userdata($userId);
             $this->db->insert($this->members, ['group_id' => $group->id, 'user_id' => $userId, 'email' => $user ? strtolower($user->user_email) : null, 'status' => 'active', 'joined_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
             $memberId = (int) $this->db->insert_id;
+            // Gleichzeitige Beitritte: Plätze nach dem Eintragen neu zählen; belegt sind die ältesten Zeilen.
+            $before = (int) $this->db->get_var($this->db->prepare(
+                "SELECT COUNT(*) FROM {$this->members} m WHERE group_id = %d AND id < %d AND ".self::occupying('m'),
+                $group->id, $memberId, self::inviteCutoff()
+            ));
+            if ($before >= (int) $group->seats) {
+                $this->db->delete($this->members, ['id' => $memberId]);
+                throw new \InvalidArgumentException(__('Alle Plätze dieser Gruppe sind belegt.', 'bootspruefung-learning'));
+            }
         }
         $this->grantMember($group, $memberId, $userId);
         AuditLog::record('group_joined', 'group', (string) $group->id, null, ['member' => $memberId, 'user_id' => $userId]);
@@ -276,7 +293,7 @@ final class GroupService
             throw new \InvalidArgumentException(__('Mitglied nicht gefunden.', 'bootspruefung-learning'));
         }
         $now = EntitlementService::now();
-        $this->db->update($this->members, ['status' => 'removed', 'invite_token' => null, 'removed_at' => $now, 'updated_at' => $now], ['id' => $memberId]);
+        $this->db->update($this->members, self::removedFields($member, $now), ['id' => $memberId]);
         $this->db->query($this->db->prepare(
             "UPDATE {$this->entitlements} SET status = 'revoked', reason = %s, updated_at = %s WHERE reference_key = %s",
             $reason !== '' ? $reason : 'group_member_removed', $now, self::reference($groupId, $memberId)
@@ -288,19 +305,35 @@ final class GroupService
     private function trimMembers(int $groupId, int $seats, string $reason): void
     {
         $members = $this->db->get_results($this->db->prepare(
-            "SELECT * FROM {$this->members} m WHERE group_id = %d AND ".$this->occupying('m')." ORDER BY (status = 'active'), COALESCE(joined_at, invited_at) DESC, id DESC",
+            "SELECT * FROM {$this->members} m WHERE group_id = %d AND ".self::occupying('m')." ORDER BY (status = 'active'), COALESCE(joined_at, invited_at) DESC, id DESC",
             $groupId, self::inviteCutoff()
         ));
         $surplus = count($members) - max(0, $seats);
         $now = EntitlementService::now();
         foreach (array_slice($members, 0, max(0, $surplus)) as $member) {
-            $this->db->update($this->members, ['status' => 'removed', 'invite_token' => null, 'removed_at' => $now, 'updated_at' => $now], ['id' => (int) $member->id]);
+            $this->db->update($this->members, self::removedFields($member, $now), ['id' => (int) $member->id]);
             $this->db->query($this->db->prepare(
                 "UPDATE {$this->entitlements} SET status = 'revoked', reason = %s, updated_at = %s WHERE reference_key = %s",
                 'group_seats_reduced', $now, self::reference($groupId, (int) $member->id)
             ));
             AuditLog::record('group_member_removed', 'group', (string) $groupId, $reason, ['member' => (int) $member->id, 'user_id' => $member->user_id, 'cause' => 'seats_reduced']);
         }
+    }
+
+    /**
+     * Felder für „Platz freigegeben“. Nie angenommene Einladungen (ohne Konto) verlieren
+     * sofort ihre E-Mail-Adresse – sie wird für nichts mehr gebraucht.
+     *
+     * @return array<string,mixed>
+     */
+    private static function removedFields(object $member, string $now): array
+    {
+        $fields = ['status' => 'removed', 'invite_token' => null, 'removed_at' => $now, 'updated_at' => $now];
+        if ($member->user_id === null || (int) $member->user_id === 0) {
+            $fields['email'] = null;
+        }
+
+        return $fields;
     }
 
     /** Neuer Gruppenlink (alter Link wird ungültig). */
@@ -316,12 +349,46 @@ final class GroupService
     public function rename(int $groupId, int $actorId, string $name): void
     {
         $this->managed($groupId, $actorId);
-        // Name erscheint in Einladungsmails: keine Links/Adressen, kein HTML, kurz.
+        $name = self::cleanName($name);
+        if ($name !== '') {
+            $this->db->update($this->groups, ['name' => $name], ['id' => $groupId]);
+        }
+    }
+
+    /** Namen für Einladungsmails: keine Links/Adressen/Domains, kein HTML, höchstens $max Zeichen. */
+    public static function cleanName(string $name, int $max = 60): string
+    {
         $name = trim((string) preg_replace('~(https?://|www\.)\S*|\S+@\S+|\S+\.(de|com|net|org|info|io|ru|xyz)\b~iu', '', wp_strip_all_tags($name)));
         $name = trim((string) preg_replace('/\s+/u', ' ', $name));
-        if ($name !== '') {
-            $this->db->update($this->groups, ['name' => mb_substr($name, 0, 60)], ['id' => $groupId]);
+
+        return trim(mb_substr($name, 0, $max));
+    }
+
+    /**
+     * Wer in der Einladungsmail als Einladende genannt wird: Lädt Personal in eine fremde
+     * Gruppe ein, der Shop; sonst ein selbst gewählter Anzeigename (nicht Login, nicht der
+     * lokale Teil der E-Mail-Adresse), ersatzweise Vor- und Nachname, sonst niemand.
+     */
+    private function inviterName(object $group, int $actorId): string
+    {
+        if ($actorId !== (int) $group->owner_user_id) {
+            // Vom Betreiber gesetzt: Domain im Markennamen (z. B. „Bootsschein.de“) bleibt erlaubt.
+            return trim(mb_substr(wp_strip_all_tags(Settings::brand()), 0, 60));
         }
+        $actor = get_userdata($actorId);
+        if (! $actor) {
+            return '';
+        }
+        $display = trim((string) $actor->display_name);
+        $local = strtolower((string) strstr((string) $actor->user_email, '@', true));
+        if ($display !== '' && strcasecmp($display, (string) $actor->user_login) !== 0 && strtolower($display) !== $local) {
+            $name = self::cleanName($display);
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return self::cleanName(trim($actor->first_name.' '.$actor->last_name));
     }
 
     private function grantMember(object $group, int $memberId, int $userId): void
@@ -380,7 +447,7 @@ final class GroupService
             $where = "(g.name LIKE %s OR u.user_email LIKE %s OR g.order_id = %d)";
             $args = [$like, $like, (int) $search];
         }
-        $sql = "SELECT g.*, u.user_email, u.display_name, (SELECT COUNT(*) FROM {$this->members} m WHERE m.group_id = g.id AND ".$this->occupying('m').") AS used
+        $sql = "SELECT g.*, u.user_email, u.display_name, (SELECT COUNT(*) FROM {$this->members} m WHERE m.group_id = g.id AND ".self::occupying('m').") AS used
                 FROM {$this->groups} g LEFT JOIN {$this->db->users} u ON u.ID = g.owner_user_id WHERE {$where} ORDER BY g.id DESC LIMIT %d OFFSET %d";
 
         return $this->db->get_results($this->db->prepare($sql, ...array_merge([self::inviteCutoff()], $args, [$perPage, ($page - 1) * $perPage])));
@@ -399,7 +466,7 @@ final class GroupService
      * SQL-Bedingung „belegt einen Platz“: aktive Mitglieder und Einladungen, die
      * jünger als INVITE_DAYS sind. Erwartet einen Platzhalter %s für inviteCutoff().
      */
-    private function occupying(string $alias): string
+    public static function occupying(string $alias): string
     {
         return "({$alias}.status = 'active' OR ({$alias}.status = 'invited' AND ({$alias}.invited_at IS NULL OR {$alias}.invited_at >= %s)))";
     }
@@ -420,21 +487,25 @@ final class GroupService
      * Stündlicher Cron (bp_learning_hourly): abgelaufene Einladungen auf „expired“
      * setzen (Link ungültig, kein Platz belegt) und EXPIRED_RETENTION_DAYS Tage
      * nach Ablauf die E-Mail-Adresse der nicht angenommenen Einladung löschen.
+     * Entfernte Einladungen ohne Konto verlieren ihre Adresse sofort (Altfälle hier).
+     * $groupId beschränkt den Lauf auf eine Gruppe (Tests).
      *
      * @return array{expired:int,anonymized:int}
      */
-    public function expireInvites(?int $now = null): array
+    public function expireInvites(?int $now = null, ?int $groupId = null): array
     {
         $now ??= time();
         $stamp = gmdate('Y-m-d H:i:s', $now);
+        $scope = $groupId !== null ? $this->db->prepare(' AND group_id = %d', $groupId) : '';
         $expired = (int) $this->db->query($this->db->prepare(
             "UPDATE {$this->members} SET status = %s, invite_token = NULL, updated_at = %s WHERE status = 'invited' AND invited_at IS NOT NULL AND invited_at < %s",
             self::INVITE_EXPIRED, $stamp, self::inviteCutoff($now)
-        ));
+        ).$scope);
         $anonymized = (int) $this->db->query($this->db->prepare(
-            "UPDATE {$this->members} SET email = NULL, updated_at = %s WHERE status = %s AND user_id IS NULL AND email IS NOT NULL AND invited_at IS NOT NULL AND invited_at < %s",
+            "UPDATE {$this->members} SET email = NULL, invite_token = NULL, updated_at = %s WHERE user_id IS NULL AND email IS NOT NULL
+             AND (status = 'removed' OR (status = %s AND invited_at IS NOT NULL AND invited_at < %s))",
             $stamp, self::INVITE_EXPIRED, gmdate('Y-m-d H:i:s', $now - (self::INVITE_DAYS + self::EXPIRED_RETENTION_DAYS) * DAY_IN_SECONDS)
-        ));
+        ).$scope);
         if ($expired > 0 || $anonymized > 0) {
             AuditLog::record('group_invites_expired', 'group', '0', null, ['expired' => $expired, 'anonymized' => $anonymized]);
         }
@@ -468,7 +539,7 @@ final class GroupService
 
     public function freeSeats(object $group): int
     {
-        $used = (int) $this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->members} m WHERE group_id = %d AND ".$this->occupying('m'), $group->id, self::inviteCutoff()));
+        $used = (int) $this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->members} m WHERE group_id = %d AND ".self::occupying('m'), $group->id, self::inviteCutoff()));
 
         return max(0, (int) $group->seats - $used);
     }

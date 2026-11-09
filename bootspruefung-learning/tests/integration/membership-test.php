@@ -395,22 +395,39 @@ $gid = (int) $group->id;
 $last = array_values(array_filter($groupsService->membersOf($gid), static fn ($m) => $m->status === 'active' && (int) $m->user_id === $students[3]))[0];
 $groupsService->removeMember($gid, (int) $last->id, $buyer, 'Test Ablauf');
 $mailCount = count($mails);
+// Anzeigename = Login: nicht verwenden, stattdessen Vor-/Nachname (ohne Links, gekürzt).
+$buyerUser = get_userdata($buyer);
+wp_update_user(['ID' => $buyer, 'display_name' => $buyerUser->user_login, 'first_name' => 'Erika', 'last_name' => 'Muster https://evil.example '.str_repeat('x', 80)]);
 $groupsService->invite($gid, $buyer, ['ablauf@example.test']);
 $inviteMail = (string) ($mails[$mailCount]['message'] ?? '');
 $privacyUrl = (string) get_privacy_policy_url();
-$check(str_contains($inviteMail, (string) get_userdata($buyer)->display_name) && str_contains($inviteMail, $group->name) && str_contains($inviteMail, 'gilt bis')
-    && ($privacyUrl === '' || str_contains($inviteMail, $privacyUrl)), 'Einladungsmail nennt Einladende, Gruppe, Ablauf und Datenschutzerklärung');
+$check(str_contains($inviteMail, 'Erika Muster') && ! str_contains($inviteMail, 'evil.example') && ! str_contains($inviteMail, str_repeat('x', 60)) && ! str_contains($inviteMail, $buyerUser->user_login.' hat')
+    && str_contains($inviteMail, $group->name) && str_contains($inviteMail, 'gilt bis')
+    && ($privacyUrl === '' || str_contains($inviteMail, $privacyUrl)), 'Einladungsmail nennt Einladende (Vor-/Nachname statt Login, ohne Links), Gruppe, Ablauf und Datenschutzerklärung');
+wp_update_user(['ID' => $buyer, 'first_name' => '', 'last_name' => '']);
 $check($groupsService->freeSeats($groupsService->find($gid)) === 0, 'offene Einladung belegt einen Platz');
 $stale = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE group_id = %d AND email = %s", $gid, 'ablauf@example.test'));
 $wpdb->update($p.'learning_group_member', ['invited_at' => gmdate('Y-m-d H:i:s', time() - (GroupService::INVITE_DAYS + 1) * DAY_IN_SECONDS)], ['id' => $stale->id]);
 $check($groupsService->freeSeats($groupsService->find($gid)) === 1, 'abgelaufene Einladung belegt keinen Platz');
 $check($groupsService->describeToken((string) $stale->invite_token) === null, 'abgelaufener persönlicher Link ungültig');
-$groupsService->expireInvites();
+$groupsService->expireInvites(null, $gid);
 $stale = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE id = %d", $stale->id));
 $check($stale->status === GroupService::INVITE_EXPIRED && $stale->invite_token === null && $stale->email === 'ablauf@example.test', 'Cron: Einladung auf „expired“, Adresse vorerst erhalten');
 $wpdb->update($p.'learning_group_member', ['invited_at' => gmdate('Y-m-d H:i:s', time() - (GroupService::INVITE_DAYS + GroupService::EXPIRED_RETENTION_DAYS + 1) * DAY_IN_SECONDS)], ['id' => $stale->id]);
-$groupsService->expireInvites();
+$groupsService->expireInvites(null, $gid);
 $check($wpdb->get_var($wpdb->prepare("SELECT email FROM {$p}learning_group_member WHERE id = %d", $stale->id)) === null, 'Cron: Adresse 30 Tage nach Ablauf gelöscht');
+// Personal lädt in fremde Gruppe ein: Mail nennt den Shop, nicht die Person.
+$mailCount = count($mails);
+$groupsService->invite($gid, 1, ['personal@example.test']);
+$check(str_contains((string) ($mails[$mailCount]['message'] ?? ''), Settings::brand().' hat dich') && ! str_contains((string) ($mails[$mailCount]['message'] ?? ''), (string) get_userdata(1)->display_name.' hat'), 'Einladung durch Personal nennt den Shop');
+$staffInvite = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE group_id = %d AND email = %s", $gid, 'personal@example.test'));
+$groupsService->removeMember($gid, (int) $staffInvite->id, 1, 'Test');
+$row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE id = %d", $staffInvite->id));
+$check($row->status === 'removed' && $row->email === null && $row->invite_token === null, 'entfernte Einladung ohne Konto: Adresse sofort gelöscht');
+$wpdb->update($p.'learning_group_member', ['email' => 'altfall@example.test'], ['id' => $staffInvite->id]);
+$groupsService->expireInvites(null, $gid);
+$check($wpdb->get_var($wpdb->prepare("SELECT email FROM {$p}learning_group_member WHERE id = %d", $staffInvite->id)) === null, 'Cron: Altfall entfernte Einladung bereinigt');
+$check(str_contains($invalid(fn () => $groupsService->join((string) $staffInvite->invite_token, $students[3])), 'ungültig'), 'entfernte Einladung: Link ungültig');
 $groupsService->join($token, $students[3]);
 $check($access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank') && $groupsService->freeSeats($groupsService->find($gid)) === 0, 'frei gewordener Platz wieder belegt');
 
@@ -461,6 +478,17 @@ do {
     }
 } while (! $r['done'] && $pageNo < 100);
 $check(isset($exp['bootspruefung-learning-learning_group_member']) && ! str_contains((string) wp_json_encode($exp), 'invite_token'), 'Export enthält Mitgliedschaften als Datensätze, ohne Tokens');
+// DSGVO ohne Konto: Einladungen an eine Adresse ohne WP-Nutzer exportieren und löschen.
+$noAccount = 'ohne-konto-'.wp_generate_password(6, false).'@example.test';
+$now = EntitlementService::now();
+$wpdb->insert($p.'learning_group_member', ['group_id' => $gid, 'email' => $noAccount, 'status' => 'invited', 'invite_token' => 'i'.bin2hex(random_bytes(16)), 'invited_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+$noAccountId = (int) $wpdb->insert_id;
+$r = \Bootspruefung\Learning\Privacy\PersonalData::export($noAccount, 1);
+$check($r['done'] && count($r['data']) === 1 && $r['data'][0]['group_id'] === 'bootspruefung-learning-learning_group_member' && str_contains((string) wp_json_encode($r['data']), $noAccount), 'Export ohne Konto: Einladung an die Adresse');
+$r = \Bootspruefung\Learning\Privacy\PersonalData::erase($noAccount, 1);
+$row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE id = %d", $noAccountId));
+$check($r['items_removed'] && $row->email === null && $row->invite_token === null && $row->status === 'removed', 'Löschung ohne Konto: Adresse und Link entfernt, Platz frei');
+$check(\Bootspruefung\Learning\Privacy\PersonalData::export($noAccount, 1)['data'] === [], 'nach Löschung: nichts mehr zu exportieren');
 // Rückkehr nach Registrierung/Anmeldung (Gruppeneinladung, Kasse)
 $join = GroupService::joinUrl('gTEST');
 $_REQUEST[\Bootspruefung\Learning\Frontend\ReturnAfterLogin::PARAM] = $join;

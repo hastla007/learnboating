@@ -113,11 +113,18 @@ final class GroupController
     private function payload(object $group): array
     {
         $members = [];
+        $cutoff = GroupService::inviteCutoff();
         foreach ($this->groups->membersOf((int) $group->id) as $m) {
             if ($m->status === 'removed') {
                 continue;
             }
-            $members[] = ['id' => (int) $m->id, 'name' => $m->display_name ?: null, 'email' => $m->email, 'status' => $m->status, 'joined_at' => $m->joined_at, 'invited_at' => $m->invited_at];
+            // Abgelaufen, auch wenn der stündliche Cron die Zeile noch nicht umgestellt hat.
+            $status = $m->status === 'invited' && $m->invited_at !== null && $m->invited_at < $cutoff ? GroupService::INVITE_EXPIRED : $m->status;
+            $name = $m->display_name ?: null;
+            if ($status === GroupService::INVITE_EXPIRED && $name === null && ($m->email === null || $m->email === '')) {
+                continue; // anonymisierte Einladung: nichts mehr anzuzeigen
+            }
+            $members[] = ['id' => (int) $m->id, 'name' => $name, 'email' => $m->email, 'status' => $status, 'joined_at' => $m->joined_at, 'invited_at' => $m->invited_at];
         }
 
         return [

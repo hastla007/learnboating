@@ -80,10 +80,12 @@ final class MappingCheck
                  AND NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}bp_learning_group g WHERE g.order_id = a.object_id)",
                 $since
             )),
-            'overbooked_groups' => (int) $wpdb->get_var(
+            // Gleiche Belegungsregel wie GroupService (abgelaufene Einladungen belegen keinen Platz).
+            'overbooked_groups' => (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->prefix}bp_learning_group g WHERE g.status = 'active'
-                 AND (SELECT COUNT(*) FROM {$wpdb->prefix}bp_learning_group_member m WHERE m.group_id = g.id AND m.status IN ('active','invited')) > g.seats"
-            ),
+                 AND (SELECT COUNT(*) FROM {$wpdb->prefix}bp_learning_group_member m WHERE m.group_id = g.id AND ".GroupService::occupying('m').') > g.seats',
+                GroupService::inviteCutoff()
+            )),
         ];
     }
 

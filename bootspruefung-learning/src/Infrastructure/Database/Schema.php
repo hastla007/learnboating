@@ -751,6 +751,8 @@ final class Schema
   PRIMARY KEY  (id),
   UNIQUE KEY invite_token (invite_token),
   KEY group_status (group_id,status),
+  KEY status_invited (status,invited_at),
+  KEY email (email),
   KEY user_id (user_id)",
         ];
 
