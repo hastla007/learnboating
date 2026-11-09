@@ -214,6 +214,9 @@ foreach ($q('SELECT r.*, c.code FROM exam_rule_set r JOIN course_definition c ON
         $bp = array_column($combo, 'of', 'module');
         $r['time_limit_seconds'] = array_sum(array_column($combo, 'seconds'));
         $rule = ['min_correct_ratio' => array_sum(array_column($combo, 'min_correct')) / array_sum(array_column($combo, 'of')), 'parts' => $combo] + $rule;
+        if (in_array('SBF_SEE', array_column($combo, 'module'), true)) {
+            $rule['note'] = PackageBuilder::NAV_NOTE;
+        }
     }
     ksort($bp);
     $lv[$r['code'].'@'.$r['version']] = [

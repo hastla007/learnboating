@@ -592,6 +592,9 @@ final class PackageBuilder
      * ein Bogen prüft nur die Teile, deren Fragen er enthält (See-Bogen 60 Min., Binnen-Bogen 35 Min.).
      * Zufallsprüfung = alle Teile.
      */
+    /** Hinweis zur Navigationsaufgabe (SBF See und Kombis mit See-Teil). */
+    public const NAV_NOTE = 'Zur amtlichen Prüfung gehört zusätzlich die Navigationsaufgabe (mindestens 7 von 9 Punkten); sie wird hier nicht automatisch bewertet.';
+
     public const COMBO_RULES = [
         'SBF-SEE-BIN' => ['parts' => [
             ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7, 'seconds' => 840],
@@ -621,7 +624,7 @@ final class PackageBuilder
             'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
             'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'SBF-BIN-SEGEL' => 3600, 'SKN' => 3600, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
         ];
-        $navNote = 'Zur amtlichen Prüfung gehört zusätzlich die Navigationsaufgabe (mindestens 7 von 9 Punkten); sie wird hier nicht automatisch bewertet.';
+        $navNote = self::NAV_NOTE;
         $passing = [
             'ADD-BIN-SEGEL' => ['min_correct' => 5, 'of' => 7],
             'SRC' => ['min_correct' => 19, 'of' => 24],
@@ -652,6 +655,10 @@ final class PackageBuilder
             if (isset(self::COMBO_RULES[$code])) {
                 $combo = self::COMBO_RULES[$code]['parts'];
                 $passing[$code] = ['min_correct' => array_sum(array_column($combo, 'min_correct')), 'of' => array_sum(array_column($combo, 'of')), 'parts' => $combo];
+                // Kombi mit See-Teil: gleicher Hinweis zur Navigationsaufgabe wie bei SBF See.
+                if (in_array('SBF_SEE', array_column($combo, 'module'), true)) {
+                    $passing[$code]['note'] = $navNote;
+                }
                 $counts[$code] = array_column($combo, 'of', 'module');
                 $timeLimits[$code] = array_sum(array_column($combo, 'seconds'));
             }
