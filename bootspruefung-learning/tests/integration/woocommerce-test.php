@@ -541,7 +541,10 @@ $legacyBefore = get_page_by_path($wf::SLUG, OBJECT, 'page');
 if (! $legacyBefore instanceof WP_Post) {
     $dcUrl = \Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::withdrawalUrl();
     $check($wfRedirect() === $dcUrl, 'ausgeschaltet: /vertrag-widerrufen/ leitet zur Widerrufsbelehrung');
+    $prettyPermalinks = static fn () => '/%postname%/';
+    add_filter('pre_option_permalink_structure', $prettyPermalinks);
     $check($wf::endpointUrl() === $dcUrl && rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'ausgeschaltet: Knöpfe führen zur Widerrufsbelehrung, feste Adresse bleibt');
+    remove_filter('pre_option_permalink_structure', $prettyPermalinks);
     $check(str_contains($wf::shortcode(), 'Widerrufsbelehrung') && ! str_contains($wf::shortcode(), 'order-withdrawal'), 'ausgeschaltet: Shortcode verweist auf die Widerrufsbelehrung');
     // Seite der früheren Funktion bleibt erhalten und wird von WordPress ausgeliefert.
     $legacyId = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Vertrag widerrufen', 'post_name' => $wf::SLUG, 'post_content' => '[bootspruefung_vertrag_widerrufen]']);
@@ -563,7 +566,10 @@ $check($wf::url() === $wf::endpointUrl() && ! str_contains($wf::url(), 'vertrag-
 remove_filter('pre_option_permalink_structure', $plainPermalinks);
 $wfAutoBefore === null ? delete_option($wf::AUTOENABLED_OPTION) : update_option($wf::AUTOENABLED_OPTION, $wfAutoBefore, false);
 $check(str_contains($wf::endpointUrl(), 'order-withdrawal') || str_contains($wf::endpointUrl(), 'withdraw-order'), 'Formular-Adresse unter Mein Konto');
-$check(rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'feste Adresse /vertrag-widerrufen/');
+$prettyPermalinks = static fn () => '/%postname%/';
+add_filter('pre_option_permalink_structure', $prettyPermalinks);
+$check(rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'feste Adresse /vertrag-widerrufen/ (sprechende Permalinks)');
+remove_filter('pre_option_permalink_structure', $prettyPermalinks);
 $wOrder = wc_create_order();
 $wOrder->set_billing_email('widerruf@example.org');
 $wOrder->set_status('pending');
