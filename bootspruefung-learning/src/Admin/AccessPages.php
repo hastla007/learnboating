@@ -363,11 +363,14 @@ final class AccessPages
         $this->guard('bp_shop_catalog');
         $op = sanitize_key(wp_unslash($_POST['op'] ?? ''));
         try {
-            if ($op === 'products') {
+            if ($op === 'products' && ($conflicts = \Bootspruefung\Learning\Commerce\ShopCatalog::saleConflicts()) !== []) {
+                // WooCommerce würde diese Angebotspreise beim Abgleich entfernen.
+                Ui::flash(sprintf(__('Katalog nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter „Preise“ abgleichen (dort lässt sich das Entfernen bestätigen) oder den Angebotspreis anpassen.', 'bootspruefung-learning'), implode(', ', array_keys($conflicts))), 'warning');
+            } elseif ($op === 'products') {
                 $publish = ! empty($_POST['publish']);
                 $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, $publish);
                 $new = count(array_filter($rows, static fn ($r) => $r['action'] === 'neu'));
-                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu – %3$s.', 'bootspruefung-learning'), count($rows), $new, $publish ? __('veröffentlicht', 'bootspruefung-learning') : __('neue als Entwurf', 'bootspruefung-learning')));
+                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu – %3$s.', 'bootspruefung-learning'), count($rows), $new, $publish ? __('veröffentlicht', 'bootspruefung-learning') : __('neue als Entwurf', 'bootspruefung-learning')).PricePage::skippedMessage($rows));
             } else {
                 $r = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
                 Ui::flash(sprintf(__('Schnupper-Paket: %d Regel(n) angelegt.', 'bootspruefung-learning'), $r['added']));

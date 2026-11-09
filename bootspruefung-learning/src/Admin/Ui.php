@@ -26,7 +26,7 @@ final class Ui
         $flash = get_transient($key);
         if (is_array($flash)) {
             delete_transient($key);
-            printf('<div class="notice notice-%s is-dismissible"><p>%s</p></div>', $flash['type'] === 'error' ? 'error' : 'success', esc_html($flash['message']));
+            printf('<div class="notice notice-%s is-dismissible"><p>%s</p></div>', in_array($flash['type'], ['error', 'warning', 'info'], true) ? $flash['type'] : 'success', esc_html($flash['message']));
         }
     }
 
@@ -74,7 +74,46 @@ final class Ui
         ];
         $color = $colors[$status] ?? '#50575e';
 
-        return sprintf('<span class="bp-badge" style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:%s">%s</span>', esc_attr($color), esc_html($status));
+        return sprintf('<span class="bp-badge" title="%s" style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:%s">%s</span>', esc_attr($status), esc_attr($color), esc_html(self::label($status)));
+    }
+
+    /** Deutsche Bezeichnung für interne Status- und Typwerte (Admin-Anzeige; der Rohwert bleibt im title). */
+    public static function label(?string $value): string
+    {
+        $value = (string) $value;
+        $labels = [
+            // Inhalte und Regelwerke
+            'published' => __('veröffentlicht', 'bootspruefung-learning'),
+            'draft' => __('Entwurf', 'bootspruefung-learning'),
+            'source_archived' => __('archiviert', 'bootspruefung-learning'),
+            'deprecated' => __('veraltet', 'bootspruefung-learning'),
+            'live' => __('live geschaltet', 'bootspruefung-learning'),
+            // Rechte
+            'unknown' => __('ungeklärt', 'bootspruefung-learning'),
+            'review' => __('in Prüfung', 'bootspruefung-learning'),
+            'licensed' => __('lizenziert', 'bootspruefung-learning'),
+            'public' => __('frei (gemeinfrei)', 'bootspruefung-learning'),
+            'restricted' => __('gesperrt', 'bootspruefung-learning'),
+            // Importe
+            'uploaded' => __('hochgeladen', 'bootspruefung-learning'),
+            'validated' => __('geprüft', 'bootspruefung-learning'),
+            'failed' => __('fehlerhaft', 'bootspruefung-learning'),
+            'previewed' => __('Vorschau erstellt', 'bootspruefung-learning'),
+            'approved' => __('freigegeben', 'bootspruefung-learning'),
+            'importing' => __('wird importiert', 'bootspruefung-learning'),
+            'discarded' => __('verworfen', 'bootspruefung-learning'),
+            // Kurstypen
+            'full' => __('Vollkurs', 'bootspruefung-learning'),
+            'combo' => __('Kombikurs', 'bootspruefung-learning'),
+            'addon' => __('Ergänzungskurs', 'bootspruefung-learning'),
+            // Fragetypen
+            'single_choice' => __('Einfachauswahl', 'bootspruefung-learning'),
+            'multi_choice' => __('Mehrfachauswahl', 'bootspruefung-learning'),
+            'open_text' => __('Freitext', 'bootspruefung-learning'),
+            'chart_task' => __('Kartenaufgabe', 'bootspruefung-learning'),
+        ];
+
+        return $labels[$value] ?? $value;
     }
 
     public static function date(?string $mysqlGmt): string

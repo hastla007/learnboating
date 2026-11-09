@@ -36,6 +36,24 @@ final class ContentPages
         add_action('admin_post_bp_rights_release', [$this, 'handleRelease']);
         add_action('admin_post_bp_chart', [$this, 'handleChart']);
         add_action('admin_post_bp_rules_release', [$this, 'handleRulesRelease']);
+        add_action('admin_post_bp_mapping_remove', [$this, 'handleMappingRemove']);
+    }
+
+    /** Verwaiste Zugangszuordnung eines gelöschten Produkts entfernen (Übersicht „Produktzuordnungen prüfen“). */
+    public function handleMappingRemove(): void
+    {
+        if (! current_user_can(Capabilities::MANAGE_ENTITLEMENTS)) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), '', ['response' => 403]);
+        }
+        check_admin_referer('bp_mapping_remove');
+        try {
+            $n = \Bootspruefung\Learning\Commerce\MappingCheck::removeOrphan(absint($_POST['product'] ?? 0), absint($_POST['variation'] ?? 0));
+            Ui::flash(sprintf(_n('%d Zuordnung entfernt. Bereits erteilte Zugänge bleiben bestehen.', '%d Zuordnungen entfernt. Bereits erteilte Zugänge bleiben bestehen.', $n, 'bootspruefung-learning'), $n));
+        } catch (\RuntimeException $e) {
+            Ui::flash($e->getMessage(), 'error');
+        }
+        wp_safe_redirect(Ui::url(Menu::SLUG).'#bp-mapping-issues');
+        exit;
     }
 
     // ------------------------------------------------------------------
@@ -67,14 +85,22 @@ final class ContentPages
             'radio_texts' => ['radio_text', 'r', 'COALESCE(o.value, x.rights_status)', ''],
             'radio_vocabulary' => ['radio_vocabulary', 'r', 'COALESCE(o.value, x.rights_status)', ''],
         ] as $entity => [$table, , $rightsExpr, $join]) {
+            // Spalten schließen sich aus und ergeben zusammen „gesamt“.
             $r = $this->db->get_row(
-                "SELECT COUNT(*) AS total, SUM(x.status = 'source_archived') AS archived, SUM({$rightsExpr} IN (".Overrides::blockingList().") AND x.status <> 'source_archived') AS blocked
+                "SELECT COUNT(*) AS total, COALESCE(SUM(x.status = 'source_archived'), 0) AS archived,
+                        COALESCE(SUM(x.status NOT IN ('published','source_archived')), 0) AS draft,
+                        COALESCE(SUM(x.status = 'published' AND {$rightsExpr} IN (".Overrides::blockingList().")), 0) AS blocked
                  FROM {$this->t($table)} x {$join} ".Overrides::rightsJoin($table, 'x', 'o')
             );
-            $rows[] = [esc_html(Ui::entityLabel($entity)), (int) $r->total, $entity === 'questions' ? $deliverable : '–', (int) $r->blocked, (int) $r->archived];
+            $total = (int) $r->total;
+            $open = $total - (int) $r->archived - (int) $r->draft - (int) $r->blocked;
+            // Fragen: zusätzlich Typ, Gültigkeit, Pflichtbild usw. (wie im Lernbereich); Rest = sonstige.
+            $ok = $entity === 'questions' ? min($deliverable, $open) : $open;
+            $rows[] = [esc_html(Ui::entityLabel($entity)), $total, $ok, (int) $r->draft, (int) $r->blocked, (int) $r->archived, $open - $ok];
         }
         echo '<h2>'.esc_html__('Bestand', 'bootspruefung-learning').'</h2>';
-        Ui::table([__('Bereich', 'bootspruefung-learning'), __('gesamt', 'bootspruefung-learning'), __('auslieferbar', 'bootspruefung-learning'), __('durch Rechte gesperrt', 'bootspruefung-learning'), __('archiviert', 'bootspruefung-learning')], $rows);
+        Ui::table([__('Bereich', 'bootspruefung-learning'), __('gesamt', 'bootspruefung-learning'), __('auslieferbar', 'bootspruefung-learning'), __('Entwurf', 'bootspruefung-learning'), __('durch Rechte gesperrt', 'bootspruefung-learning'), __('archiviert', 'bootspruefung-learning'), __('sonst nicht auslieferbar', 'bootspruefung-learning')], $rows);
+        echo '<p class="description">'.esc_html__('„sonst nicht auslieferbar“: z. B. Kartenaufgaben, deaktivierte oder abgelaufene Fragen, Pflichtbild fehlt oder ist gesperrt.', 'bootspruefung-learning').'</p>';
 
         echo '<h2>'.esc_html__('Offene Punkte', 'bootspruefung-learning').'</h2><ul class="ul-disc">';
         $failed = (int) $this->db->get_var("SELECT COUNT(*) FROM {$this->t('import_batch')} WHERE status = 'failed'");
@@ -105,9 +131,22 @@ final class ContentPages
             echo '<h2 id="bp-mapping-issues">'.esc_html__('Produktzuordnungen prüfen', 'bootspruefung-learning').'</h2>';
             $rows = [];
             foreach ($issues as $i) {
-                $name = function_exists('wc_get_product') && ($p = wc_get_product($i['variation_id'] ?: $i['product_id'])) ? $p->get_name() : '#'.$i['product_id'];
-                $rows[] = ['<a href="'.esc_url(\Bootspruefung\Learning\Commerce\MappingCheck::editUrl($i['product_id'])).'">'.esc_html($name).'</a>'.($i['variation_id'] ? ' <small>('.esc_html__('Variation', 'bootspruefung-learning').' #'.(int) $i['variation_id'].')</small>' : ''),
-                    $i['severity'] === 'error' ? '<strong style="color:#d63638">'.esc_html__('Fehler', 'bootspruefung-learning').'</strong>' : esc_html__('Hinweis', 'bootspruefung-learning'), esc_html($i['problem'])];
+                $variation = $i['variation_id'] ? ' <small>('.esc_html__('Variation', 'bootspruefung-learning').' #'.(int) $i['variation_id'].')</small>' : '';
+                if (! empty($i['deleted'])) {
+                    // Gelöschtes Produkt: kein Bearbeiten-Link (404), sondern verwaiste Zuordnung entfernen.
+                    $product = '<span>'.esc_html(sprintf(__('Produkt #%d (gelöscht)', 'bootspruefung-learning'), $i['product_id'])).'</span>'.$variation;
+                    $problem = esc_html($i['problem']);
+                    if (current_user_can(Capabilities::MANAGE_ENTITLEMENTS)) {
+                        $problem .= '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin-top:4px">'.wp_nonce_field('bp_mapping_remove', '_wpnonce', true, false)
+                            .'<input type="hidden" name="action" value="bp_mapping_remove"><input type="hidden" name="product" value="'.(int) $i['product_id'].'"><input type="hidden" name="variation" value="'.(int) $i['variation_id'].'">'
+                            .'<button type="submit" class="button button-small" data-bp-confirm="'.esc_attr__('Zuordnung des gelöschten Produkts entfernen? Bereits erteilte Zugänge bleiben bestehen.', 'bootspruefung-learning').'">'.esc_html__('Zuordnung entfernen', 'bootspruefung-learning').'</button></form>';
+                    }
+                } else {
+                    $name = function_exists('wc_get_product') && ($p = wc_get_product($i['variation_id'] ?: $i['product_id'])) ? $p->get_name() : '#'.$i['product_id'];
+                    $product = '<a href="'.esc_url(\Bootspruefung\Learning\Commerce\MappingCheck::editUrl($i['product_id'])).'">'.esc_html($name).'</a>'.$variation;
+                    $problem = esc_html($i['problem']);
+                }
+                $rows[] = [$product, $i['severity'] === 'error' ? '<strong style="color:#d63638">'.esc_html__('Fehler', 'bootspruefung-learning').'</strong>' : esc_html__('Hinweis', 'bootspruefung-learning'), $problem];
             }
             Ui::table([__('Produkt', 'bootspruefung-learning'), __('Art', 'bootspruefung-learning'), __('Problem', 'bootspruefung-learning')], $rows);
         }
@@ -136,10 +175,10 @@ final class ContentPages
             $nav = (int) $this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t('navigation_task_course')} WHERE course_id = %d", $course->id));
             $praxis = (int) $this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t('praxis_task')} WHERE course_id = %d AND status <> 'source_archived'", $course->id));
             $rows[] = [
-                '<strong>'.esc_html($course->name).'</strong><br><code>'.esc_html($course->code).'</code> · '.esc_html($course->course_type),
+                '<strong>'.esc_html($course->name).'</strong><br><code>'.esc_html($course->code).'</code> · '.esc_html(Ui::label($course->course_type)),
                 Ui::status($course->status),
                 implode('<br>', $modules),
-                $rule['rule'] ? ($rule['live'] ? Ui::status('published').' '.esc_html__('live', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')) : '–',
+                $rule['rule'] ? ($rule['live'] ? Ui::status('published').' '.esc_html__('live geschaltet', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')) : '–',
                 $papers,
                 $nav,
                 $praxis,
@@ -209,9 +248,9 @@ final class ContentPages
             printf('<option value="%d" %s>%s</option>', (int) $m->id, selected($f['module'], (int) $m->id, false), esc_html($m->code));
         }
         echo '</select> ';
-        $this->select('type', $f['type'], ['' => __('Alle Typen', 'bootspruefung-learning'), 'single_choice' => 'single_choice', 'multi_choice' => 'multi_choice', 'open_text' => 'open_text', 'chart_task' => 'chart_task']);
-        $this->select('status', $f['status'], ['' => __('Alle Status', 'bootspruefung-learning'), 'published' => 'published', 'draft' => 'draft', 'source_archived' => 'source_archived']);
-        $this->select('rights', $f['rights'], ['' => __('Alle Rechte', 'bootspruefung-learning')] + array_combine(Overrides::RIGHTS, Overrides::RIGHTS));
+        $this->select('type', $f['type'], ['' => __('Alle Typen', 'bootspruefung-learning'), 'single_choice' => Ui::label('single_choice'), 'multi_choice' => Ui::label('multi_choice'), 'open_text' => Ui::label('open_text'), 'chart_task' => Ui::label('chart_task')]);
+        $this->select('status', $f['status'], ['' => __('Alle Status', 'bootspruefung-learning'), 'published' => Ui::label('published'), 'draft' => Ui::label('draft'), 'source_archived' => Ui::label('source_archived')]);
+        $this->select('rights', $f['rights'], ['' => __('Alle Rechte', 'bootspruefung-learning')] + array_combine(Overrides::RIGHTS, array_map([Ui::class, 'label'], Overrides::RIGHTS)));
         printf('<input type="search" name="s" value="%s" placeholder="%s"> ', esc_attr($f['s']), esc_attr__('ID, Nr. oder Text', 'bootspruefung-learning'));
         submit_button(__('Filtern', 'bootspruefung-learning'), 'secondary', '', false);
         echo '</form><br>';
@@ -222,7 +261,7 @@ final class ContentPages
                 '<a href="'.esc_url(Ui::url('bootspruefung-questions', ['question' => $q->id])).'"><code>'.esc_html($q->source_id).'</code></a>',
                 esc_html((string) $q->official_number),
                 esc_html((string) $q->source_module),
-                esc_html($q->question_type),
+                esc_html(Ui::label($q->question_type)),
                 esc_html(wp_trim_words(wp_strip_all_tags($q->question_text), 18)).($q->image_required ? ' 🖼' : ''),
                 (int) $q->revision_no,
                 Ui::status($q->status),
@@ -250,7 +289,7 @@ final class ContentPages
         $papers = $this->db->get_col($this->db->prepare("SELECT p.source_id FROM {$this->t('exam_paper_question')} pq JOIN {$this->t('exam_paper')} p ON p.id = pq.paper_id WHERE pq.question_id = %d ORDER BY p.id", $id));
         Ui::keyValue([
             __('Amtliche Nr. / Familie', 'bootspruefung-learning') => esc_html(($q->official_number ?? '–').' / '.($q->content_role ?? '–')),
-            __('Typ', 'bootspruefung-learning') => esc_html($rev->question_type),
+            __('Typ', 'bootspruefung-learning') => esc_html(Ui::label($rev->question_type)),
             __('Thema', 'bootspruefung-learning') => esc_html(implode(' › ', array_filter([$rev->topic, $rev->subtopic, $rev->competency]))),
             __('Smarttrainer-Kategorie', 'bootspruefung-learning') => esc_html((string) $rev->smart_category),
             __('Quelle', 'bootspruefung-learning') => esc_html(trim($rev->source_catalog.' · '.$rev->source_version.' '.($rev->source_question_id ? '· '.$rev->source_question_id : ''))),
@@ -348,7 +387,7 @@ final class ContentPages
             $o = $overrides[(int) $rule->id] ?? [];
             $effective = $repo->examRule((int) $rule->course_id);
             $isLive = $effective['live'] && (int) $effective['rule']->id === (int) $rule->id;
-            echo '<div class="card" style="max-width:900px"><h2>'.esc_html($rule->name).' <code>'.esc_html($rule->version).'</code> '.Ui::status($rule->status).' '.($isLive ? Ui::status('published').' live' : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')).'</h2>';
+            echo '<div class="card" style="max-width:900px"><h2>'.esc_html($rule->name).' <code>'.esc_html($rule->version).'</code> '.Ui::status($rule->status).' '.($isLive ? Ui::status('published').' '.esc_html__('live geschaltet', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')).'</h2>';
             $bp = array_map(static fn ($b) => $b->code.': '.$b->question_count, $repo->blueprints((int) $rule->id));
             $parts = array_map(static fn ($p) => $p['label'].' '.$p['min_correct'].'/'.$p['of'], $passing['parts'] ?? []);
             Ui::keyValue([
@@ -394,15 +433,15 @@ final class ContentPages
         $this->can();
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Rechte und Freigabe', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p class="description">'.esc_html__('Rechte-Status unknown und restricted sperren die Auslieferung (Kap. 4.10). Eine Freigabe wird als lokaler Override mit Begründung gespeichert, überlebt Reimporte und steht im Audit-Log.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Rechte-Status „ungeklärt“ (unknown) und „gesperrt“ (restricted) sperren die Auslieferung (Kap. 4.10). Eine Freigabe wird als lokaler Override mit Begründung gespeichert, überlebt Reimporte und steht im Audit-Log.', 'bootspruefung-learning').'</p>';
         $this->renderCharts();
         $pending = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON, true));
         echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'
-            .esc_html(sprintf(__('%d Inhalte sind noch nicht als licensed/public freigegeben (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Seekarten sind ausgenommen und werden oben verwaltet.', 'bootspruefung-learning'), $pending)).'</p>';
+            .esc_html(sprintf(__('%d Inhalte haben den Rechte-Status „ungeklärt“ (unknown) und noch keine lokale Entscheidung (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Nur diese werden freigegeben; bewusst gesetzte Werte (z. B. „gesperrt“ oder „in Prüfung“), archivierte Inhalte und Seekarten bleiben unverändert.', 'bootspruefung-learning'), $pending)).'</p>';
         if ($pending > 0) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rights_release', '_wpnonce', true, false)
                 .'<input type="hidden" name="action" value="bp_rights_release"><input type="text" class="regular-text" name="reason" value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON).'" required> ';
-            submit_button(__('Alles freigeben (außer Seekarten)', 'bootspruefung-learning'), 'primary', '', false);
+            echo '<button type="submit" class="button button-primary" data-bp-confirm="'.esc_attr(sprintf(__('%d Inhalte mit Rechte-Status „ungeklärt“ als „lizenziert“ freigeben? Sie werden danach an Lernende ausgeliefert.', 'bootspruefung-learning'), $pending)).'">'.esc_html__('Ungeklärte Inhalte freigeben (außer Seekarten)', 'bootspruefung-learning').'</button>';
             echo '</form>';
         }
         echo '</div>';
@@ -428,7 +467,7 @@ final class ContentPages
                 );
                 echo '<select name="value">';
                 foreach (Overrides::RIGHTS as $r) {
-                    printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($r, 'licensed', false), esc_html($r));
+                    printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($r, 'licensed', false), esc_html(Ui::label($r)));
                 }
                 echo '<option value="">'.esc_html__('Override entfernen', 'bootspruefung-learning').'</option></select> ';
                 echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'"> ';
@@ -595,7 +634,7 @@ final class ContentPages
         printf('<input type="hidden" name="action" value="bp_override"><input type="hidden" name="type" value="%s"><input type="hidden" name="ids" value="%s"><input type="hidden" name="field" value="%s"><input type="hidden" name="back" value="%s">', esc_attr($type), esc_attr(implode(',', $ids)), esc_attr($field), esc_attr($back));
         echo '<select name="value">';
         foreach (Overrides::RIGHTS as $r) {
-            printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($current, $r, false), esc_html($r));
+            printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($current, $r, false), esc_html(Ui::label($r)));
         }
         echo '<option value="">'.esc_html__('Override entfernen (Quelle gilt)', 'bootspruefung-learning').'</option></select> ';
         echo '<input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';

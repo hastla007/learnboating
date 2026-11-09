@@ -220,6 +220,9 @@ final class Menu
         if (! empty($woo['guest_checkout'])) {
             $warnings[] = __('Gastbestellungen sind erlaubt. Für Warenkörbe mit Lernprodukten verlangt das Plugin trotzdem ein Kundenkonto.', 'bootspruefung-learning');
         }
+        if (($taxWarning = SystemStatus::taxWarning($woo)) !== null) {
+            $warnings[] = $taxWarning;
+        }
         if (Settings::get('default_access') === 'logged_in') {
             $warnings[] = __('„Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“ – Käufe schalten zwar frei, gesperrt wird aber noch nichts.', 'bootspruefung-learning');
         }

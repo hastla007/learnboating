@@ -85,7 +85,7 @@ final class EntityImporter
             'device_simulation' => $this->deviceSimulation($record),
             'exam_committees' => $this->examCommittee($record),
             'exam_guides' => $this->examGuide($record),
-            default => throw new RuntimeException("Unbekannte Entität {$entity}"),
+            default => throw new RuntimeException(sprintf(__('Unbekannte Entität %s', 'bootspruefung-learning'), $entity)),
         };
     }
 
@@ -645,7 +645,7 @@ final class EntityImporter
             $this->ids[$table][$record['source_id']] = (int) $this->db->insert_id;
         } else {
             if ($this->db->update($this->t($table), $data, ['id' => (int) $existing->id]) === false) {
-                throw new RuntimeException("Aktualisierung {$table} {$record['source_id']} fehlgeschlagen: {$this->db->last_error}");
+                throw new RuntimeException(sprintf(__('Aktualisierung %1$s %2$s fehlgeschlagen: %3$s', 'bootspruefung-learning'), $table, $record['source_id'], $this->db->last_error));
             }
         }
 
@@ -686,7 +686,7 @@ final class EntityImporter
                 ...($column === 'source_id' ? [$key, self::SOURCE_SYSTEM] : [$key])
             ));
             if ($id === null) {
-                throw new RuntimeException("Verweis nicht auflösbar: {$table} {$key}");
+                throw new RuntimeException(sprintf(__('Verweis nicht auflösbar: %1$s %2$s', 'bootspruefung-learning'), $table, $key));
             }
             $this->ids[$table][$key] = (int) $id;
         }
@@ -744,7 +744,7 @@ final class EntityImporter
     private function insert(string $table, array $data): void
     {
         if ($this->db->insert($this->t($table), $data) === false) {
-            throw new RuntimeException("Einfügen in {$table} fehlgeschlagen: {$this->db->last_error}");
+            throw new RuntimeException(sprintf(__('Einfügen in %1$s fehlgeschlagen: %2$s', 'bootspruefung-learning'), $table, $this->db->last_error));
         }
     }
 }

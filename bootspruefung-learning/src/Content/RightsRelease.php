@@ -7,8 +7,11 @@ namespace Bootspruefung\Learning\Content;
 use Bootspruefung\Learning\Content\Repositories\Overrides;
 
 /**
- * Sammelfreigabe aller Inhalte, die noch nicht als licensed/public gelten (Betreiber-
- * Entscheidung vom 06.11.2026: vorläufig freigeben; Seekarten getrennt über Charts).
+ * Sammelfreigabe aller Inhalte mit ungeklärtem Rechte-Status (Betreiber-Entscheidung
+ * vom 06.11.2026: vorläufig freigeben; Seekarten getrennt über Charts).
+ * Freigegeben wird nur, was importiert „unknown“ ist und noch keinen lokalen
+ * Override hat: bewusst gesetzte Entscheidungen (z. B. restricted, review) bleiben
+ * unangetastet, ebenso archivierte Inhalte (source_archived).
  * Jede Freigabe ist ein Override mit Begründung (Audit-Log), umkehrbar über die
  * Rechte-Seite, und gilt auch für später importierte Revisionen derselben Inhalte.
  */
@@ -39,7 +42,7 @@ final class RightsRelease
         foreach (self::TYPES as $type => [$table, $join, $imported]) {
             $join = $join !== '' ? sprintf($join, $p) : '';
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- feste Tabellen/Ausdrücke
-            $ids = array_map('intval', $wpdb->get_col("SELECT x.id FROM {$p}{$table} x {$join} ".Overrides::rightsJoin($type, 'x', 'o')." WHERE COALESCE(o.value, {$imported}) NOT IN ('licensed','public')"));
+            $ids = array_map('intval', $wpdb->get_col("SELECT x.id FROM {$p}{$table} x {$join} ".Overrides::rightsJoin($type, 'x', 'o')." WHERE o.object_id IS NULL AND {$imported} = 'unknown' AND x.status <> 'source_archived'"));
             $out[$type] = count($ids);
             if (! $dryRun && $ids !== []) {
                 Overrides::set($type, $ids, 'rights_status', 'licensed', $reason);

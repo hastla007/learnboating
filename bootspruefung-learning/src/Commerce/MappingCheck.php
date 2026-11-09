@@ -13,7 +13,7 @@ namespace Bootspruefung\Learning\Commerce;
 final class MappingCheck
 {
     /**
-     * @return list<array{product_id:int,variation_id:int,problem:string,severity:string}>
+     * @return list<array{product_id:int,variation_id:int,problem:string,severity:string,deleted:bool}>
      */
     public static function issues(): array
     {
@@ -28,8 +28,8 @@ final class MappingCheck
         }
         foreach ($byProduct as $key => $group) {
             [$productId, $variationId] = array_map('intval', explode('|', $key));
-            $add = static function (string $problem, string $severity = 'error') use (&$out, $productId, $variationId): void {
-                $out[] = ['product_id' => $productId, 'variation_id' => $variationId, 'problem' => $problem, 'severity' => $severity];
+            $add = static function (string $problem, string $severity = 'error', bool $deleted = false) use (&$out, $productId, $variationId): void {
+                $out[] = ['product_id' => $productId, 'variation_id' => $variationId, 'problem' => $problem, 'severity' => $severity, 'deleted' => $deleted];
             };
             foreach ($group as $row) {
                 if (! isset($courses[$row->course_code])) {
@@ -45,8 +45,8 @@ final class MappingCheck
             }
             $product = wc_get_product($variationId ?: $productId);
             $parent = $variationId ? wc_get_product($productId) : $product;
-            if (! $product || ! $parent || $parent->get_status() === 'trash') {
-                $add(__('Produkt gelöscht – bestehende Zugänge bleiben, die Zuordnung kann entfernt werden.', 'bootspruefung-learning'), 'warning');
+            if (self::isOrphan($productId, $variationId)) {
+                $add(__('Produkt gelöscht – bestehende Zugänge bleiben, die Zuordnung kann entfernt werden.', 'bootspruefung-learning'), 'warning', true);
                 continue;
             }
             if ($parent->get_status() !== 'publish') {
@@ -61,6 +61,34 @@ final class MappingCheck
         }
 
         return $out;
+    }
+
+    /** Zuordnung gehört zu einem gelöschten (oder im Papierkorb liegenden) Produkt bzw. einer gelöschten Variation. */
+    public static function isOrphan(int $productId, int $variationId): bool
+    {
+        if (! function_exists('wc_get_product')) {
+            return false;
+        }
+        $product = wc_get_product($variationId ?: $productId);
+        $parent = $variationId ? wc_get_product($productId) : $product;
+
+        return ! $product || ! $parent || $parent->get_status() === 'trash';
+    }
+
+    /**
+     * Entfernt die Zugangszuordnung eines gelöschten Produkts (bestehende Zugänge bleiben).
+     * @return int entfernte Zeilen
+     */
+    public static function removeOrphan(int $productId, int $variationId): int
+    {
+        if (! self::isOrphan($productId, $variationId)) {
+            throw new \RuntimeException(__('Das Produkt existiert noch – die Zuordnung bitte im Produkt bearbeiten.', 'bootspruefung-learning'));
+        }
+        global $wpdb;
+        $n = (int) $wpdb->delete($wpdb->prefix.'bp_product_access', ['product_id' => $productId, 'variation_id' => $variationId]);
+        \Bootspruefung\Learning\Audit\AuditLog::record('product_access_orphan_removed', 'product', (string) ($variationId ?: $productId), null, ['product_id' => $productId, 'variation_id' => $variationId, 'rows' => $n]);
+
+        return $n;
     }
 
     /** @return array{orders_without_account:int,overbooked_groups:int,mapping_errors:int,mapping_warnings:int} */

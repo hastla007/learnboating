@@ -157,6 +157,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" commerce.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Admin, Import-Abbruch, Rechte, Preise (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/admin-test.php | tee admin.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" admin.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Teilumfänge, Freigaben, Schutz, Gruppen (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/membership-test.php | tee membership.log
@@ -175,6 +179,10 @@ jobs:
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-test.php | tee woo.log
           if grep -E "PHP Fatal" woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          # Katalog-Abgleich respektiert Handänderungen (Admin-Test, Shop-Teil)
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/admin-test.php | tee admin-woo.log
+          if grep -E "PHP Fatal" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Browser-Tests (Playwright)

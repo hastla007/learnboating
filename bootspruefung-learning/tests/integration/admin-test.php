@@ -1,0 +1,255 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Integrationstest Admin/Import: veraltete Freigaben, abgebrochene Importe (Mischstand,
+ * Wiederherstellung), hängengebliebene Importe, Vorschau in Teilschritten, Sammelfreigabe
+ * der Rechte, Preiseingabe. Mit aktivem WooCommerce zusätzlich: Katalog-Abgleich respektiert
+ * Handänderungen je Feld.
+ *
+ *   WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php tests/integration/admin-test.php
+ *
+ * Voraussetzung: Plugin aktiv und Paket bereits einmal importiert (z. B. nach content-flow-test.php).
+ * Ohne PACKAGE_DIR laufen nur die Teile ohne Paket.
+ */
+
+$wpDir = rtrim((string) getenv('WP_DIR'), '/');
+$packageDir = rtrim((string) getenv('PACKAGE_DIR'), '/');
+if (! is_file($wpDir.'/wp-load.php')) {
+    fwrite(STDERR, "WP_DIR angeben.\n");
+    exit(2);
+}
+$_SERVER['HTTP_HOST'] = 'localhost';
+$_SERVER['REQUEST_URI'] = '/';
+require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
+
+use Bootspruefung\Learning\Admin\SystemStatus;
+use Bootspruefung\Learning\Commerce\ShopCatalog;
+use Bootspruefung\Learning\Content\Import\ImportService;
+use Bootspruefung\Learning\Content\Repositories\Overrides;
+use Bootspruefung\Learning\Content\RightsRelease;
+use Bootspruefung\Learning\Plugin;
+
+$failures = 0;
+$check = static function (bool $ok, string $label) use (&$failures): void {
+    echo ($ok ? '  ok   ' : '  FAIL ').$label."\n";
+    if (! $ok) {
+        $failures++;
+    }
+};
+$throws = static function (callable $fn, string $needle = ''): bool {
+    try {
+        $fn();
+    } catch (RuntimeException $e) {
+        return $needle === '' || str_contains($e->getMessage(), $needle);
+    }
+
+    return false;
+};
+global $wpdb;
+$p = $wpdb->prefix.'bp_';
+$service = Plugin::instance()->importService();
+wp_set_current_user(1);
+$setStats = static function (int $id, array $changes) use ($service, $wpdb, $p): void {
+    $stats = array_merge($service->stats($service->batch($id)), $changes);
+    $wpdb->update($p.'import_batch', ['stats' => wp_json_encode($stats)], ['id' => $id]);
+};
+
+if ($packageDir !== '' && is_file($packageDir.'/manifest.json')) {
+    // Ausgangslage: Paket veröffentlicht (sonst einmal importieren).
+    if ($service->activeBatchId() === null) {
+        $first = $service->createFromDirectory($packageDir);
+        $service->preview($first);
+        $service->approve($first, 'Admin-Test: Ausgangsstand');
+        $service->runAll($first);
+    }
+    $activeBefore = $service->activeBatchId();
+    $check($activeBefore !== null, 'Ausgangsstand: veröffentlichtes Paket');
+
+    echo "Veraltete Vorschau und Freigabe\n";
+    $old = $service->createFromDirectory($packageDir);
+    $service->preview($old);
+    $oldApproved = $service->createFromDirectory($packageDir);
+    $service->preview($oldApproved);
+    $service->approve($oldApproved, 'Admin-Test');
+    $newer = $service->createFromDirectory($packageDir);
+    $service->preview($newer);
+    $service->approve($newer, 'Admin-Test');
+    $service->runAll($newer);
+    $check($service->batch($newer)->status === 'published', 'neuerer Import veröffentlicht');
+    $check($service->supersededBy($service->batch($old)) === $newer, 'ältere Vorschau als veraltet erkannt');
+    $check($throws(fn () => $service->approve($old), '#'.$newer), 'Freigabe einer älteren Vorschau abgewiesen');
+    $check($throws(fn () => $service->runStep($oldApproved), '#'.$newer), 'älterer freigegebener Import startet nicht (würde Neueres überschreiben)');
+    $check($service->batch($oldApproved)->status === 'approved', 'älterer Import blieb unverändert freigegeben');
+    $service->discard($old);
+    $service->discard($oldApproved);
+    $check($service->batch($oldApproved)->status === 'discarded', 'veralteter Import verwerfbar');
+
+    echo "Vorschau in Teilschritten\n";
+    $chunked = $service->createFromDirectory($packageDir);
+    $rounds = 0;
+    do {
+        $summary = $service->preview($chunked, 0.0);
+        $rounds++;
+    } while ($summary === null && $rounds < 1000);
+    $full = $service->preview($chunked);
+    $check($rounds > 1 && $summary === $full, "Teilschritte ({$rounds}) ergeben dieselbe Vorschau wie am Stück");
+    $check($service->batch($chunked)->status === 'previewed' && $service->previewProgress($service->batch($chunked)) === null, 'nach letztem Teilschritt: Status previewed');
+    $service->discard($chunked);
+
+    echo "Abgebrochener und hängengebliebener Import\n";
+    $aborted = $service->createFromDirectory($packageDir);
+    $service->preview($aborted);
+    $service->approve($aborted, 'Admin-Test');
+    $step = $service->runStep($aborted, 1);
+    $check(! $step['done'] && $service->batch($aborted)->status === 'importing', 'Import läuft (erster Teilschritt)');
+    $check(! $service->isAborted($service->batch($aborted)) && $throws(fn () => $service->discard($aborted)), 'laufender Import nicht verwerfbar');
+    $blocker = $service->createFromDirectory($packageDir);
+    $service->preview($blocker);
+    $service->approve($blocker, 'Admin-Test');
+    $check($throws(fn () => $service->runStep($blocker), '#'.$aborted), 'zweiter Import wartet auf den laufenden');
+    // Fatal/Timeout simulieren: seit über 10 Minuten kein Schritt.
+    $setStats($aborted, ['heartbeat' => time() - ImportService::STALE_AFTER - 5]);
+    $batch = $service->batch($aborted);
+    $check($service->isStale($batch) && $service->isAborted($batch), 'ohne Schritt seit > 10 min: hängengeblieben');
+    $check($service->abortedImport() === $aborted, 'Mischstand erkannt');
+    $service->discard($blocker);
+    $service->discard($aborted);
+    $check($service->batch($aborted)->status === 'discarded' && $service->abortedImport() === $aborted, 'hängengebliebener Import verworfen, Mischstand bleibt vermerkt');
+    $restore = $service->restoreActive('Admin-Test: Wiederherstellung');
+    $check(is_int($restore) && (int) $service->stats($service->batch($restore))['rollback_of'] === $service->activeBatchId(), 'Rollback auf das aktive Paket angelegt (trotz „bereits aktiv“)');
+    $service->preview($restore);
+    $service->approve($restore, 'Admin-Test');
+    $service->runAll($restore);
+    $check($service->batch($restore)->status === 'published' && $service->abortedImport() === null, 'nach Wiederherstellung kein Mischstand mehr');
+    $check($throws(fn () => $service->rollback((int) $service->activeBatchId(), 'Admin-Test'), 'bereits aktiv'), 'ohne Abbruch: aktives Paket nicht erneut zurücksetzbar');
+
+    echo "Fehler außerhalb der Datensatz-Transaktion\n";
+    $broken = $service->createFromDirectory($packageDir);
+    $service->preview($broken);
+    $service->approve($broken, 'Admin-Test');
+    $dir = \Bootspruefung\Learning\Content\Media\MediaStorage::packagesDir().'/batch-'.$broken;
+    rename($dir, $dir.'-weg');
+    $check($throws(fn () => $service->runStep($broken), (string) $broken), 'fehlende Paketdateien: Schritt bricht ab');
+    $batch = $service->batch($broken);
+    $check($batch->status === 'importing' && (string) $batch->error !== '' && $service->isAborted($batch), 'Fehler festgehalten: sofort als abgebrochen verwerfbar');
+    rename($dir.'-weg', $dir);
+    $service->discard($broken);
+    $restore = $service->restoreActive('Admin-Test: Wiederherstellung');
+    $service->preview($restore);
+    $service->approve($restore, 'Admin-Test');
+    $service->runAll($restore);
+    $check($service->abortedImport() === null, 'wiederhergestellt');
+
+    echo "Medien-Teilschritte nach Bytes\n";
+    $records = [['size' => 40], ['size' => 40], ['size' => 40]];
+    $check(count(ImportService::limitBytes($records, 100)) === 2 && count(ImportService::limitBytes([['size' => 500]], 100)) === 1, 'Teilschritt begrenzt (mindestens eine Datei)');
+}
+
+echo "Sammelfreigabe Rechte\n";
+$type = null;
+$unknown = [];
+foreach (['media' => 'media', 'praxis_task' => 'praxis_task', 'video_module' => 'video_module', 'navigation_task' => 'navigation_task'] as $t => $table) {
+    $unknown = array_map('intval', $wpdb->get_col("SELECT x.id FROM {$p}{$table} x ".Overrides::rightsJoin($t, 'x', 'o')." WHERE o.object_id IS NULL AND x.rights_status = 'unknown' AND x.status <> 'source_archived' ORDER BY x.id LIMIT 3"));
+    if (count($unknown) === 3) {
+        $type = $t;
+        break;
+    }
+}
+if ($type === null) {
+    echo "  (übersprungen: keine Inhalte mit Rechte-Status unknown ohne Override)\n";
+} else {
+    [$restricted, $archived, $free] = $unknown;
+    $archivedStatus = (string) $wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}{$type} WHERE id = %d", $archived));
+    Overrides::set($type, [$restricted], 'rights_status', 'restricted', 'Admin-Test');
+    $wpdb->update($p.$type, ['status' => 'source_archived'], ['id' => $archived]);
+    $before = RightsRelease::releaseAll('Admin-Test', true)[$type];
+    RightsRelease::releaseAll('Admin-Test');
+    $check(Overrides::get($type, $restricted, 'rights_status') === 'restricted', "{$type}: bewusstes restricted bleibt");
+    $check(Overrides::get($type, $archived, 'rights_status') === null, "{$type}: archivierte Inhalte ausgenommen");
+    $check(Overrides::get($type, $free, 'rights_status') === 'licensed' && $before >= 1, "{$type}: unknown ohne Override freigegeben");
+    $check(array_sum(RightsRelease::releaseAll('x', true)) === 0, 'danach nichts mehr offen');
+    $wpdb->update($p.$type, ['status' => $archivedStatus], ['id' => $archived]);
+    $wpdb->delete($p.'override', ['reason' => 'Admin-Test']);
+    wp_cache_flush_group('bootspruefung');
+}
+
+echo "Preise\n";
+$pricesBefore = get_option(ShopCatalog::PRICE_OPTION, null);
+$r = ShopCatalog::saveOwnPrices(['BP-SKN' => '1.299,00', 'BP-FKN' => '1.234', 'BP-SRC' => '12,3,4']);
+$own = ShopCatalog::ownPrices();
+$check(($own['BP-SKN'] ?? '') === '1299.00' && ($own['BP-FKN'] ?? '') === '1234.00' && isset($r['errors']['BP-SRC']), 'Tausenderpunkt toleriert, Unsinn abgewiesen');
+$pricesBefore === null ? delete_option(ShopCatalog::PRICE_OPTION) : update_option(ShopCatalog::PRICE_OPTION, $pricesBefore, false);
+$check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true]) !== null && SystemStatus::taxWarning(['prices_include_tax' => true, 'tax_enabled' => true]) === null && SystemStatus::taxWarning(['prices_include_tax' => null]) === null, 'Warnung bei Nettopreisen in WooCommerce');
+
+echo "Admin-Anzeige\n";
+$check(\Bootspruefung\Learning\Admin\Ui::label('draft') === 'Entwurf' && \Bootspruefung\Learning\Admin\Ui::label('single_choice') === 'Einfachauswahl' && str_contains(\Bootspruefung\Learning\Admin\Ui::status('source_archived'), 'archiviert'), 'Status und Typen auf Deutsch');
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview();
+$html = (string) ob_get_clean();
+$sumOk = preg_match_all('#<tr><td>[^<]+</td>((?:<td>\d+</td>){6})</tr>#', $html, $m) > 0;
+foreach ($m[1] ?? [] as $cells) {
+    preg_match_all('#<td>(\d+)</td>#', $cells, $n);
+    $v = array_map('intval', $n[1]);
+    $sumOk = $sumOk && $v[0] === array_sum(array_slice($v, 1));
+}
+$check($sumOk, 'Bestand: Spalten ergeben die Gesamtzahl');
+
+if (function_exists('wc_get_product_id_by_sku')) {
+    echo "Verwaiste Produktzuordnung\n";
+    $orphan = new WC_Product_Simple();
+    $orphan->set_name('Admin-Test verwaist');
+    $orphanId = (int) $orphan->save();
+    $repoO = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $repoO->save($orphanId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund');
+    $check($throws(fn () => \Bootspruefung\Learning\Commerce\MappingCheck::removeOrphan($orphanId, 0)), 'bestehendes Produkt: Zuordnung nicht über die Übersicht entfernbar');
+    wp_delete_post($orphanId, true);
+    $issue = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $orphanId));
+    $check(($issue[0]['deleted'] ?? false) === true, 'gelöschtes Produkt erkannt (kein Bearbeiten-Link)');
+    $check(\Bootspruefung\Learning\Commerce\MappingCheck::removeOrphan($orphanId, 0) === 1 && $repoO->rows($orphanId, 0) === [], 'verwaiste Zuordnung entfernt');
+
+    echo "Katalog-Abgleich respektiert Handänderungen\n";
+    $rows = ShopCatalog::applyProducts();
+    $bySku = array_column($rows, null, 'sku');
+    $id = (int) $bySku['BP-SKN']['product_id'];
+    $product = wc_get_product($id);
+    $check(is_array(get_post_meta($id, ShopCatalog::FIELDS_META, true)) && count(get_post_meta($id, ShopCatalog::FIELDS_META, true)) >= 6, 'Fingerprints je Feld gespeichert');
+    $extra = wp_insert_term('Admin-Test-Kategorie', 'product_cat');
+    $extraId = is_wp_error($extra) ? (int) get_term_by('name', 'Admin-Test-Kategorie', 'product_cat')->term_id : (int) $extra['term_id'];
+    $catalogCats = $product->get_category_ids();
+    $product->set_name('Eigener Name');
+    $product->set_catalog_visibility('search');
+    $product->set_category_ids([$extraId]);
+    $product->save();
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($id, 30, 10.0);
+    $repo = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $rowsBefore = $repo->rows($id, 0);
+    $repo->save($id, 0, array_map(static fn ($r) => ['course_code' => $r->course_code, 'feature_code' => $r->feature_code], $rowsBefore), 180, 'parallel', 'keep');
+    $preview = array_column(ShopCatalog::applyProducts(true), null, 'sku');
+    $check(in_array('name', $preview['BP-SKN']['skipped'], true) && in_array('access', $preview['BP-SKN']['skipped'], true), 'Vorschau nennt übersprungene Felder');
+    $second = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $product = wc_get_product($id);
+    $skipped = $second['BP-SKN']['skipped'];
+    $check($product->get_name() === 'Eigener Name' && $product->get_catalog_visibility() === 'search', 'Name und Sichtbarkeit bleiben');
+    $check(in_array($extraId, $product->get_category_ids(), true) && array_diff($catalogCats, $product->get_category_ids()) === [], 'eigene Kategorie bleibt, Katalog-Kategorie ergänzt');
+    $mb = \Bootspruefung\Learning\Commerce\MoneyBack::policy($id);
+    $accessRows = $repo->rows($id, 0);
+    $check($mb !== null && $mb['days'] === 30 && (int) $accessRows[0]->duration_days === 180 && $accessRows[0]->renewal_mode === 'parallel', 'Garantie und Lernzugang (Laufzeit, Verlängerung) bleiben');
+    $check(array_values(array_intersect(['name', 'visibility', 'categories', 'access', 'money_back'], $skipped)) === ['name', 'visibility', 'categories', 'access', 'money_back'], 'Bericht: übersprungene Felder');
+    $check(($second['BP-FKN']['skipped'] ?? null) === [] && $product->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'andere Produkte unberührt, Preis weiter vom Katalog');
+    // Zurück auf Katalogwerte: danach gleicht der Katalog wieder ab.
+    $product->set_name(ShopCatalog::find('BP-SKN')['name']);
+    $product->set_catalog_visibility('visible');
+    $product->set_category_ids($catalogCats);
+    $product->save();
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($id, ShopCatalog::MONEY_BACK_DAYS, ShopCatalog::MONEY_BACK_MAX_PROGRESS);
+    $repo->save($id, 0, array_map(static fn ($r) => ['course_code' => $r->course_code, 'feature_code' => $r->feature_code], $rowsBefore), (int) $rowsBefore[0]->duration_days, 'extend', 'revoke_on_full_refund');
+    $third = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $check($third['BP-SKN']['skipped'] === [], 'auf Katalogwert zurückgesetzt: wieder vom Katalog verwaltet');
+    wp_delete_term($extraId, 'product_cat');
+}
+
+echo $failures === 0 ? "Alle Prüfungen bestanden.\n" : "{$failures} Prüfung(en) fehlgeschlagen.\n";
+exit($failures === 0 ? 0 : 1);

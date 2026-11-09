@@ -86,7 +86,7 @@ wp bootspruefung import "$PKG" --yes --note="Staging $(date +%F)"
 
 if [ "${STAGING_RELEASE_RIGHTS:-1}" = 1 ]; then
     log "Inhalte für die Abnahme freigeben"
-    wp bootspruefung rights release --exam-rules --reason="Staging-Abnahme"
+    wp bootspruefung rights release --exam-rules --yes --reason="Staging-Abnahme"
 fi
 
 log "Seiten, Shop-Katalog und Zugangsregeln"
@@ -99,11 +99,11 @@ wp eval 'if (! \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::
 # Spätere Läufe lassen diese Admin-Einstellungen und den Veröffentlichungsstatus in Ruhe.
 if [ "$(wp option get bp_staging_initialized 2>/dev/null || true)" != 1 ]; then
     wp eval '$o = \Bootspruefung\Learning\Settings\Settings::OPTION; update_option($o, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ["default_access" => "entitled_only"]));'
-    wp bootspruefung shop setup --publish
+    wp bootspruefung shop setup --publish --yes
     wp option update bp_staging_initialized 1 >/dev/null
 else
     # Preise/Texte/Zuordnungen abgleichen (Preise aus Admin → Bootsprüfung → Preise)
-    wp bootspruefung shop setup
+    wp bootspruefung shop setup --yes
 fi
 wp rewrite flush >/dev/null
 wp option update woocommerce_coming_soon no >/dev/null

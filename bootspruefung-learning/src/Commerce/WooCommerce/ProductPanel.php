@@ -48,6 +48,9 @@ final class ProductPanel
             esc_attr($mb ? (string) $mb['max_progress'] : ''),
             esc_html__('leer = keine Garantie. Kunden fordern die Erstattung unter „Mein Lernen“ an; du erstattest in der Bestellung.', 'bootspruefung-learning')
         );
+        if ($productId > 0 && metadata_exists('post', $productId, \Bootspruefung\Learning\Commerce\ShopCatalog::FIELDS_META)) {
+            echo '<p class="description"><strong>'.esc_html__('Produkt aus dem Shop-Katalog:', 'bootspruefung-learning').'</strong> '.esc_html__('Von Hand geänderte Felder (Name, Texte, Kategorien, Sichtbarkeit, Einzelverkauf, Lernzugang, Geld-zurück-Garantie) überschreibt der Katalog-Abgleich nicht mehr. Der reguläre Preis kommt immer von der Seite „Preise“.', 'bootspruefung-learning').'</p>';
+        }
         echo '<p class="description">'.esc_html__('Lernprodukte sollten virtuell sein. Sie werden automatisch einzeln verkauft, und der Checkout verlangt ein Kundenkonto.', 'bootspruefung-learning').'</p>';
         echo '</div></div>';
     }

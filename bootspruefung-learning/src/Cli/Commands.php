@@ -52,21 +52,37 @@ final class Commands
     }
 
     /**
-     * Importiert ein Content-Paket (ZIP oder entpackter Ordner).
+     * Importiert ein Content-Paket, setzt einen Import fort oder verwirft ihn.
      *
-     * Ablauf wie im Admin: prüfen, Vorschau (Dry-Run), Freigabe, Import.
+     * Ablauf wie im Admin: prüfen, Vorschau (Dry-Run), Freigabe, Import. Pakete
+     * sind ZIP-Dateien oder entpackte Ordner; „resume <ID>“ setzt einen
+     * freigegebenen oder abgebrochenen Import fort, „discard <ID>“ verwirft ihn.
+     *
+     * ## OPTIONS
      *
      * <paket>
-     * : Pfad zur ZIP-Datei oder zum Paketordner.
+     * : Pfad zur ZIP-Datei oder zum Paketordner – oder „resume“ bzw. „discard“.
+     *
+     * [<import-id>]
+     * : Nur mit resume/discard: ID des Imports (siehe Admin → Content-Pakete).
      *
      * [--dry-run]
      * : Nur prüfen und Vorschau anzeigen, nichts importieren.
      *
      * [--yes]
-     * : Ohne Rückfrage freigeben und importieren.
+     * : Ohne Rückfrage freigeben und importieren (bzw. verwerfen/wiederherstellen).
      *
      * [--note=<text>]
      * : Begründung/Notiz für die Freigabe (Audit-Log).
+     *
+     * [--restore]
+     * : Nur mit discard: danach den aktiven Stand per Rollback-Import wiederherstellen.
+     *
+     * ## EXAMPLES
+     *
+     *     wp bootspruefung import build/boatingschool-1.2.3.zip
+     *     wp bootspruefung import resume 12
+     *     wp bootspruefung import discard 12 --restore
      *
      * @param list<string> $args
      * @param array<string,string> $assoc
@@ -75,6 +91,11 @@ final class Commands
     {
         $service = Plugin::instance()->importService();
         $path = $args[0];
+        if (in_array($path, ['resume', 'discard'], true) && isset($args[1]) && ! file_exists($path)) {
+            $path === 'resume' ? self::resume((int) $args[1], $assoc) : self::discard((int) $args[1], $assoc);
+
+            return;
+        }
         try {
             $batchId = is_dir($path) ? $service->createFromDirectory($path) : $service->createFromZip($path);
         } catch (\RuntimeException $e) {
@@ -82,28 +103,86 @@ final class Commands
         }
         $batch = $service->batch($batchId);
         if ($batch->status === 'failed') {
-            WP_CLI::error("Paket {$batch->package_id} ungültig:\n".$batch->error);
+            WP_CLI::error("Paket {$batch->package_id} ungültig (Import #{$batchId}):\n".$batch->error);
         }
         WP_CLI::log("Import #{$batchId}: Paket {$batch->package_id} geprüft.");
-        $preview = $service->preview($batchId);
-        $rows = [];
-        foreach ($preview as $entity => $counts) {
-            if ($entity !== '_rights') {
-                $rows[] = ['entity' => $entity] + $counts;
-            }
+        try {
+            $preview = (array) $service->preview($batchId);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error(sprintf("Vorschau für Import #%d fehlgeschlagen: %s\nVerwerfen: wp bootspruefung import discard %d", $batchId, $e->getMessage(), $batchId));
         }
-        WP_CLI\Utils\format_items('table', $rows, ['entity', 'create', 'update', 'unchanged', 'archive']);
+        self::previewTable($preview);
         if (isset($assoc['dry-run'])) {
-            WP_CLI::success('Dry-Run abgeschlossen, nichts geändert.');
+            WP_CLI::success("Dry-Run abgeschlossen, nichts geändert (Import #{$batchId} bleibt zur Freigabe im Admin).");
 
             return;
         }
-        WP_CLI::confirm('Paket freigeben und importieren?', $assoc);
-        $service->approve($batchId, $assoc['note'] ?? 'WP-CLI');
-        $service->runAll($batchId, static function (array $step): void {
-            WP_CLI::log(sprintf('  %-18s %d/%d', $step['phase'], $step['processed'], $step['total']));
-        });
-        WP_CLI::success("Paket {$batch->package_id} veröffentlicht.");
+        self::confirmOrDiscard($batchId, 'Paket freigeben und importieren?', $assoc);
+        self::approveAndRun($batchId, $assoc['note'] ?? 'WP-CLI');
+        WP_CLI::success("Paket {$batch->package_id} veröffentlicht (Import #{$batchId}).");
+    }
+
+    /** @param array<string,string> $assoc */
+    private static function resume(int $batchId, array $assoc): void
+    {
+        $service = Plugin::instance()->importService();
+        try {
+            $batch = $service->batch($batchId);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error($e->getMessage());
+        }
+        if ($batch->status === 'importing' && ! $service->isAborted($batch)) {
+            WP_CLI::warning(sprintf('Import #%d hatte vor %d Sekunden noch einen Schritt – läuft er evtl. noch woanders? Die Sperre verhindert parallele Schritte.', $batchId, time() - $service->lastActivity($batch)));
+        }
+        if (! in_array($batch->status, ['approved', 'importing'], true)) {
+            WP_CLI::error(sprintf('Import #%d hat Status %s – fortsetzen geht nur bei freigegebenen oder abgebrochenen Importen.', $batchId, $batch->status));
+        }
+        if ((string) ($batch->error ?? '') !== '') {
+            WP_CLI::log("Letzter Fehler:\n".$batch->error);
+        }
+        WP_CLI::confirm(sprintf('Import #%d (Paket %s) fortsetzen?', $batchId, $batch->package_id), $assoc);
+        self::run($batchId);
+        WP_CLI::success("Paket {$batch->package_id} veröffentlicht (Import #{$batchId}).");
+    }
+
+    /** @param array<string,string> $assoc */
+    private static function discard(int $batchId, array $assoc): void
+    {
+        $service = Plugin::instance()->importService();
+        try {
+            $batch = $service->batch($batchId);
+            WP_CLI::confirm(sprintf('Import #%d (Paket %s, Status %s) verwerfen?', $batchId, $batch->package_id, $batch->status), $assoc);
+            $aborted = $batch->status === 'importing';
+            $service->discard($batchId);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error($e->getMessage());
+        }
+        WP_CLI::log("Import #{$batchId} verworfen.");
+        if (! $aborted) {
+            WP_CLI::success('Erledigt.');
+
+            return;
+        }
+        if (! isset($assoc['restore'])) {
+            $active = $service->activeBatchId();
+            WP_CLI::warning($active === null
+                ? 'Die Inhalte sind ein Mischstand; es gibt keinen veröffentlichten Stand zum Wiederherstellen – bitte ein vollständiges Paket importieren.'
+                : sprintf('Die Inhalte sind ein Mischstand aus altem und neuem Paket. Wiederherstellen: wp bootspruefung rollback %d --reason="Wiederherstellung nach abgebrochenem Import"', $active));
+
+            return;
+        }
+        try {
+            $restore = $service->restoreActive((string) ($assoc['note'] ?? 'Wiederherstellung nach abgebrochenem Import (WP-CLI)'));
+            if ($restore === null) {
+                WP_CLI::error('Kein veröffentlichter Stand zum Wiederherstellen – bitte ein vollständiges Paket importieren.');
+            }
+            self::previewTable((array) $service->preview($restore));
+        } catch (\RuntimeException $e) {
+            WP_CLI::error('Wiederherstellen fehlgeschlagen: '.$e->getMessage());
+        }
+        self::confirmOrDiscard($restore, 'Aktiven Stand wiederherstellen?', $assoc);
+        self::approveAndRun($restore, 'Wiederherstellung nach abgebrochenem Import');
+        WP_CLI::success("Aktiver Stand als Import #{$restore} wiederhergestellt.");
     }
 
     /**
@@ -126,10 +205,25 @@ final class Commands
         $service = Plugin::instance()->importService();
         try {
             $batchId = $service->rollback((int) $args[0], (string) ($assoc['reason'] ?? ''));
-            $preview = $service->preview($batchId);
         } catch (\RuntimeException $e) {
             WP_CLI::error($e->getMessage());
         }
+        try {
+            $preview = (array) $service->preview($batchId);
+        } catch (\RuntimeException $e) {
+            self::discardQuietly($batchId);
+            WP_CLI::error(sprintf('Vorschau für den Rollback-Import #%d fehlgeschlagen (verworfen): %s', $batchId, $e->getMessage()));
+        }
+        self::previewTable($preview);
+        // Abgelehnt: Rollback-Import verwerfen, damit kein verwaister Batch zurückbleibt.
+        self::confirmOrDiscard($batchId, 'Auf diesen Stand zurücksetzen?', $assoc);
+        self::approveAndRun($batchId, 'Rollback: '.$assoc['reason']);
+        WP_CLI::success("Rollback als Import #{$batchId} veröffentlicht.");
+    }
+
+    /** @param array<string,array<string,int>> $preview */
+    private static function previewTable(array $preview): void
+    {
         $rows = [];
         foreach ($preview as $entity => $counts) {
             if ($entity !== '_rights') {
@@ -137,10 +231,64 @@ final class Commands
             }
         }
         WP_CLI\Utils\format_items('table', $rows, ['entity', 'create', 'update', 'unchanged', 'archive']);
-        WP_CLI::confirm('Auf diesen Stand zurücksetzen?', $assoc);
-        $service->approve($batchId, 'Rollback: '.$assoc['reason']);
-        $service->runAll($batchId);
-        WP_CLI::success("Rollback als Import #{$batchId} veröffentlicht.");
+    }
+
+    /**
+     * Rückfrage wie WP_CLI::confirm, verwirft bei „nein“ aber den angelegten Import.
+     * @param array<string,string> $assoc
+     */
+    private static function confirmOrDiscard(int $batchId, string $question, array $assoc): void
+    {
+        if (isset($assoc['yes'])) {
+            return;
+        }
+        fwrite(STDOUT, $question.' [y/n] ');
+        $answer = strtolower(trim((string) fgets(STDIN)));
+        if ($answer !== 'y' && $answer !== 'yes' && $answer !== 'j' && $answer !== 'ja') {
+            self::discardQuietly($batchId);
+            WP_CLI::log("Abgebrochen – Import #{$batchId} verworfen.");
+            WP_CLI::halt(0);
+        }
+    }
+
+    private static function discardQuietly(int $batchId): void
+    {
+        try {
+            Plugin::instance()->importService()->discard($batchId);
+        } catch (\RuntimeException) {
+            // Schon verworfen oder nicht mehr verwerfbar: nichts zu tun.
+        }
+    }
+
+    private static function approveAndRun(int $batchId, string $note): void
+    {
+        try {
+            Plugin::instance()->importService()->approve($batchId, $note);
+        } catch (\RuntimeException $e) {
+            WP_CLI::error(sprintf("Freigabe von Import #%d fehlgeschlagen: %s\nVerwerfen: wp bootspruefung import discard %d", $batchId, $e->getMessage(), $batchId));
+        }
+        self::run($batchId);
+    }
+
+    private static function run(int $batchId): void
+    {
+        try {
+            Plugin::instance()->importService()->runAll($batchId, static function (array $step): void {
+                WP_CLI::log(sprintf('  %-18s %d/%d', $step['phase'], $step['processed'], $step['total']));
+            });
+        } catch (\RuntimeException $e) {
+            $started = Plugin::instance()->importService()->batch($batchId)->status === 'importing';
+            WP_CLI::error(sprintf(
+                "Import #%d %s: %s\nFortsetzen (nach Behebung der Ursache): wp bootspruefung import resume %d\n%s: wp bootspruefung import discard %d%s",
+                $batchId,
+                $started ? 'abgebrochen' : 'nicht gestartet',
+                $e->getMessage(),
+                $batchId,
+                $started ? 'Verwerfen und aktiven Stand wiederherstellen' : 'Verwerfen',
+                $batchId,
+                $started ? ' --restore' : ''
+            ));
+        }
     }
 
     /**
@@ -226,6 +374,9 @@ final class Commands
      * [--only=<teil>]
      * : products oder free.
      *
+     * [--yes]
+     * : Ohne Rückfrage abgleichen, auch wenn bestehende Produkte betroffen sind.
+     *
      * @param list<string> $args
      * @param array<string,string> $assoc
      */
@@ -235,11 +386,29 @@ final class Commands
         $only = $assoc['only'] ?? '';
         if ($only !== 'free') {
             try {
+                $conflicts = \Bootspruefung\Learning\Commerce\ShopCatalog::saleConflicts();
+                if ($conflicts !== []) {
+                    WP_CLI::warning(sprintf('Regulärer Preis nicht höher als der Angebotspreis – WooCommerce entfernt beim Abgleich den Angebotspreis: %s', implode(', ', array_map(static fn ($sku, $sale) => "{$sku} (Angebot {$sale})", array_keys($conflicts), $conflicts))));
+                }
+                if (! $dry) {
+                    $existing = \Bootspruefung\Learning\Commerce\ShopCatalog::existingCount(\Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(true));
+                    if ($existing > 0) {
+                        WP_CLI::confirm(sprintf('%d bestehende Produkte werden mit dem Katalog abgeglichen (Preise aus der Preis-Seite; von Hand geänderte Felder bleiben). Fortfahren?', $existing), $assoc);
+                    }
+                }
                 $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts($dry, isset($assoc['publish']));
             } catch (\RuntimeException $e) {
                 WP_CLI::error($e->getMessage());
             }
-            WP_CLI\Utils\format_items('table', $rows, ['sku', 'product_id', 'action']);
+            $skippedAny = false;
+            foreach ($rows as $i => $row) {
+                $skippedAny = $skippedAny || $row['skipped'] !== [];
+                $rows[$i]['skipped'] = implode(', ', $row['skipped']);
+            }
+            WP_CLI\Utils\format_items('table', $rows, ['sku', 'product_id', 'action', 'skipped']);
+            if ($skippedAny) {
+                WP_CLI::warning('Spalte „skipped“: im Shop von Hand geänderte Felder, die der Abgleich nicht überschrieben hat.');
+            }
         }
         if ($only !== 'products') {
             $free = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier($dry);
@@ -249,7 +418,9 @@ final class Commands
     }
 
     /**
-     * Gibt alle noch nicht freigegebenen Inhalte frei (außer Seekarten).
+     * Gibt alle Inhalte mit Rechte-Status unknown ohne lokalen Override frei
+     * (außer Seekarten). Bewusst gesetzte Overrides (z. B. restricted) und
+     * archivierte Inhalte bleiben unverändert.
      *
      * [--reason=<text>]
      * : Begründung (Audit-Log).
@@ -260,20 +431,31 @@ final class Commands
      * [--exam-rules]
      * : Zusätzlich alle Prüfungsregelwerke verifizieren/veröffentlichen.
      *
+     * [--yes]
+     * : Ohne Rückfrage freigeben.
+     *
      * @param list<string> $args
      * @param array<string,string> $assoc
      */
     public static function rightsRelease(array $args, array $assoc): void
     {
         $reason = (string) ($assoc['reason'] ?? \Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON);
-        $counts = \Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, isset($assoc['dry-run']));
+        $dry = isset($assoc['dry-run']);
+        if (! $dry) {
+            $pending = \Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, true);
+            $rules = isset($assoc['exam-rules']) ? count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, true)) : 0;
+            if (array_sum($pending) + $rules > 0) {
+                WP_CLI::confirm(sprintf('%d Inhalte mit Rechte-Status unknown%s freigeben? Sie werden danach an Lernende ausgeliefert.', array_sum($pending), $rules > 0 ? " und {$rules} Prüfungsregelwerk(e)" : ''), $assoc);
+            }
+        }
+        $counts = \Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, $dry);
         if (isset($assoc['exam-rules'])) {
-            foreach (\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, isset($assoc['dry-run'])) as $r) {
+            foreach (\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, $dry) as $r) {
                 WP_CLI::log(sprintf('Regelwerk %s (#%d): %s', $r['course'], $r['id'], implode(', ', $r['changes'])));
             }
         }
         WP_CLI\Utils\format_items('table', array_map(static fn ($t, $n) => ['type' => $t, 'count' => $n], array_keys($counts), $counts), ['type', 'count']);
-        WP_CLI::success(isset($assoc['dry-run']) ? 'Vorschau.' : array_sum($counts).' Inhalte freigegeben.');
+        WP_CLI::success($dry ? 'Vorschau.' : array_sum($counts).' Inhalte freigegeben.');
     }
 
     /**

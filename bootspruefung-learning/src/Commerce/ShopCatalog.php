@@ -134,6 +134,10 @@ final class ShopCatalog
             if (! isset($known[$sku]) || $value === '') {
                 continue;
             }
+            // Tausenderpunkte vor dem Komma tolerieren („1.299,00“, „1.299“).
+            if (preg_match('/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/', $value)) {
+                $value = str_replace('.', '', $value);
+            }
             $value = str_replace(',', '.', $value);
             if (! preg_match('/^\d{1,5}(\.\d{1,2})?$/', $value) || (float) $value <= 0) {
                 $errors[$sku] = __('ungültiger Preis', 'bootspruefung-learning');
@@ -264,10 +268,36 @@ final class ShopCatalog
         return null;
     }
 
+    /** Meta mit den Fingerprints der zuletzt vom Katalog geschriebenen Werte (Feld => md5). */
+    public const FIELDS_META = '_bp_catalog_fields';
+
+    /** Vom Katalog verwaltete Felder, die nach einer Handänderung im Shop nicht mehr überschrieben werden. */
+    public const MANAGED_FIELDS = ['name', 'texts', 'categories', 'visibility', 'sold_individually', 'access', 'money_back'];
+
+    public static function fieldLabel(string $field): string
+    {
+        return match ($field) {
+            'name' => __('Name', 'bootspruefung-learning'),
+            'texts' => __('Texte', 'bootspruefung-learning'),
+            'categories' => __('Kategorien', 'bootspruefung-learning'),
+            'visibility' => __('Sichtbarkeit', 'bootspruefung-learning'),
+            'sold_individually' => __('Einzelverkauf', 'bootspruefung-learning'),
+            'access' => __('Lernzugang (Zuordnung, Laufzeit, Verlängerung, Erstattung, Plätze)', 'bootspruefung-learning'),
+            'money_back' => __('Geld-zurück-Garantie', 'bootspruefung-learning'),
+            default => $field,
+        };
+    }
+
     /**
      * Legt die Produkte an bzw. gleicht sie ab (Preis, Name, Zuordnung, Garantie).
      *
-     * @return list<array{sku:string,product_id:int,action:string}>
+     * Preise kommen immer aus dem Katalog bzw. der Preis-Seite. Alle anderen verwalteten
+     * Felder werden beim ersten Anlegen gesetzt und danach nur überschrieben, solange ihr
+     * aktueller Wert noch dem zuletzt vom Katalog geschriebenen entspricht (Fingerprint
+     * je Feld). Von Hand im Shop geänderte Felder bleiben erhalten und stehen in
+     * 'skipped'. Kategorien werden ergänzt, nie entfernt.
+     *
+     * @return list<array{sku:string,product_id:int,action:string,skipped:list<string>}>
      */
     public static function applyProducts(bool $dryRun = false, bool $publish = false): array
     {
@@ -280,9 +310,56 @@ final class ShopCatalog
         foreach (self::products() as $position => $def) {
             $id = (int) wc_get_product_id_by_sku($def['sku']);
             $product = $id ? wc_get_product($id) : null;
+            $isNew = ! $product;
             $action = $product ? 'aktualisiert' : 'neu';
+            $seats = (int) ($def['seats'] ?? 0);
+            $scopes = [];
+            foreach (array_unique($def['courses']) as $course) {
+                foreach ($def['features'] ?? ProductAccessRepository::features() as $feature) {
+                    $scopes[] = ['course_code' => $course, 'feature_code' => $feature];
+                }
+            }
+            // Garantie nur für Einzelzugänge: bei Gruppen lernen die Eingeladenen, nicht der Käufer;
+            // Simulator-Zugänge ohne Garantie (Festlegung 06.11.2026).
+            $guarantee = $seats === 0 && ($def['guarantee'] ?? true);
+            $wantedAccess = self::accessKey(array_map(static fn ($s) => (object) ($s + ['duration_days' => $def['days'], 'renewal_mode' => 'extend', 'refund_rule' => 'revoke_on_full_refund', 'seats' => $seats > 0 ? $seats : null, 'active' => 1]), $scopes));
+            $wantedPolicy = self::policyKey($guarantee ? ['days' => self::MONEY_BACK_DAYS, 'max_progress' => self::MONEY_BACK_MAX_PROGRESS] : null);
+            $text = self::texts($def);
+            $categoryId = $dryRun ? 0 : self::category($def['category'] ?? $def['group']);
+
+            $stored = $product ? $product->get_meta(self::FIELDS_META) : [];
+            $hashes = is_array($stored) ? $stored : [];
+            // Ältere Abgleiche speicherten nur den Text-Fingerprint (md5 der Texte).
+            $legacyText = $product ? (string) $product->get_meta('_bp_catalog_text') : '';
+            if ($legacyText !== '' && ! isset($hashes['texts'])) {
+                $hashes['texts'] = md5($legacyText);
+            }
+            $skipped = [];
+            // Feld übernehmen? Neu, schon gleich, oder seit dem letzten Abgleich nicht von Hand geändert.
+            $may = static function (string $field, string $current, string $wanted) use ($isNew, &$hashes, &$skipped): bool {
+                if ($isNew || $current === $wanted) {
+                    return true;
+                }
+                if (isset($hashes[$field]) && hash_equals((string) $hashes[$field], md5($current))) {
+                    return true;
+                }
+                $skipped[] = $field;
+
+                return false;
+            };
+
+            $currentAccess = $product ? self::accessKey($repo->rows($id, 0)) : '';
+            $currentPolicy = $product ? self::policyKey(MoneyBack::policy($id)) : '';
             if ($dryRun) {
-                $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action.' (Vorschau)'];
+                if ($product) {
+                    $may('name', wp_specialchars_decode($product->get_name()), $def['name']);
+                    $may('texts', md5($product->get_short_description().'|'.$product->get_description()), md5($text['short'].'|'.$text['long']));
+                    $may('visibility', $product->get_catalog_visibility(), ! empty($def['hidden']) ? 'hidden' : 'visible');
+                    $may('sold_individually', (string) (int) $product->get_sold_individually(), (string) (int) ($seats === 0));
+                    $may('access', $currentAccess, $wantedAccess);
+                    $may('money_back', $currentPolicy, $wantedPolicy);
+                }
+                $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action.' (Vorschau)', 'skipped' => $skipped];
                 continue;
             }
             $before = $product ? self::fingerprint($product) : '';
@@ -293,26 +370,47 @@ final class ShopCatalog
             } elseif ($publish) {
                 $product->set_status('publish');
             }
-            $product->set_name($def['name']);
+            // Preis: immer aus Katalog/Preis-Seite (dort ist die Quelle).
             $product->set_regular_price($def['price']);
             $product->set_virtual(true);
             $product->set_reviews_allowed(false); // keine Produktbewertungen (leerer Reiter „Bewertungen (0)“)
-            $seats = (int) ($def['seats'] ?? 0);
-            // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
-            $product->set_sold_individually($seats === 0);
-            // Upgrade nur im Checkout anbieten, nicht im Shop listen.
-            $product->set_catalog_visibility(! empty($def['hidden']) ? 'hidden' : 'visible');
             $product->set_menu_order((int) $position); // Shop-Reihenfolge wie im Katalog
-            $text = self::texts($def);
-            // Texte nur setzen, solange sie nicht im Shop von Hand geändert wurden.
-            $ownHash = (string) $product->get_meta('_bp_catalog_text');
-            $currentHash = md5($product->get_short_description().'|'.$product->get_description());
-            if ($product->get_description() === '' || $ownHash === $currentHash) {
+
+            $apply = [];
+            if ($may('name', wp_specialchars_decode($product->get_name()), $def['name'])) {
+                $product->set_name($def['name']);
+                $apply[] = 'name';
+            }
+            // Texte: leere Beschreibung gilt als nicht gepflegt.
+            $currentText = md5($product->get_short_description().'|'.$product->get_description());
+            if ($product->get_description() === '' || $may('texts', $currentText, md5($text['short'].'|'.$text['long']))) {
                 $product->set_short_description($text['short']);
                 $product->set_description($text['long']);
-                $product->update_meta_data('_bp_catalog_text', md5($text['short'].'|'.$text['long']));
+                $apply[] = 'texts';
+                $skipped = array_values(array_diff($skipped, ['texts']));
             }
-            $product->set_category_ids([self::category($def['category'] ?? $def['group'])]);
+            // Gruppenpakete: mehrere Pakete in einer Bestellung möglich (Plätze = Menge × Plätze je Paket).
+            if ($may('sold_individually', (string) (int) $product->get_sold_individually(), (string) (int) ($seats === 0))) {
+                $product->set_sold_individually($seats === 0);
+                $apply[] = 'sold_individually';
+            }
+            // Upgrade nur im Checkout anbieten, nicht im Shop listen.
+            $visibility = ! empty($def['hidden']) ? 'hidden' : 'visible';
+            if ($may('visibility', $product->get_catalog_visibility(), $visibility)) {
+                $product->set_catalog_visibility($visibility);
+                $apply[] = 'visibility';
+            }
+            // Kategorien: Katalog-Kategorie ergänzen; eigene Kategorien des Betreibers bleiben.
+            $currentCats = array_map('intval', $product->get_category_ids());
+            sort($currentCats);
+            $wantedCats = $categoryId > 0 ? [$categoryId] : [];
+            if ($may('categories', implode(',', $currentCats), implode(',', $wantedCats))) {
+                // Unverändert seit dem letzten Abgleich: Katalogstand setzen (WooCommerce-Standardkategorie fällt weg).
+                $product->set_category_ids($wantedCats ?: $currentCats);
+                $apply[] = 'categories';
+            } elseif ($categoryId > 0 && ! in_array($categoryId, $currentCats, true)) {
+                $product->set_category_ids(array_merge($currentCats, [$categoryId]));
+            }
             $image = self::image($def['sku'], (int) $product->get_image_id());
             if ($image > 0) {
                 $product->set_image_id($image);
@@ -321,24 +419,108 @@ final class ShopCatalog
                 $action = self::fingerprint($product) === $before ? 'unverändert' : 'aktualisiert';
             }
             $id = (int) $product->save();
-            $scopes = [];
-            foreach (array_unique($def['courses']) as $course) {
-                foreach ($def['features'] ?? ProductAccessRepository::features() as $feature) {
-                    $scopes[] = ['course_code' => $course, 'feature_code' => $feature];
+
+            if ($may('access', $currentAccess, $wantedAccess)) {
+                $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund', $seats > 0 ? $seats : null);
+                $apply[] = 'access';
+                if ($action === 'unverändert' && $currentAccess !== $wantedAccess) {
+                    $action = 'aktualisiert';
                 }
             }
-            $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund', $seats > 0 ? $seats : null);
-            // Garantie nur für Einzelzugänge: bei Gruppen lernen die Eingeladenen, nicht der Käufer;
-            // Simulator-Zugänge ohne Garantie (Festlegung 06.11.2026).
-            $guarantee = $seats === 0 && ($def['guarantee'] ?? true);
-            MoneyBack::setPolicy($id, $guarantee ? self::MONEY_BACK_DAYS : null, $guarantee ? self::MONEY_BACK_MAX_PROGRESS : null);
-            $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action];
+            if ($may('money_back', $currentPolicy, $wantedPolicy)) {
+                MoneyBack::setPolicy($id, $guarantee ? self::MONEY_BACK_DAYS : null, $guarantee ? self::MONEY_BACK_MAX_PROGRESS : null);
+                $apply[] = 'money_back';
+                if ($action === 'unverändert' && $currentPolicy !== $wantedPolicy) {
+                    $action = 'aktualisiert';
+                }
+            }
+
+            // Fingerprints der tatsächlich geschriebenen Werte (nach dem Speichern gelesen).
+            $saved = wc_get_product($id);
+            $savedCats = array_map('intval', $saved ? $saved->get_category_ids() : []);
+            sort($savedCats);
+            $now = [
+                'name' => $saved ? wp_specialchars_decode($saved->get_name()) : '',
+                'texts' => $saved ? md5($saved->get_short_description().'|'.$saved->get_description()) : '',
+                'categories' => implode(',', $savedCats),
+                'visibility' => $saved ? $saved->get_catalog_visibility() : '',
+                'sold_individually' => $saved ? (string) (int) $saved->get_sold_individually() : '',
+                'access' => self::accessKey($repo->rows($id, 0)),
+                'money_back' => self::policyKey(MoneyBack::policy($id)),
+            ];
+            foreach ($apply as $field) {
+                $hashes[$field] = md5($now[$field]);
+            }
+            update_post_meta($id, self::FIELDS_META, array_intersect_key($hashes, array_flip(self::MANAGED_FIELDS)));
+            if (in_array('texts', $apply, true)) {
+                update_post_meta($id, '_bp_catalog_text', md5($text['short'].'|'.$text['long']));
+            }
+            $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action, 'skipped' => $skipped];
         }
         if (! $dryRun) {
-            AuditLog::record('shop_catalog_applied', 'settings', null, null, ['products' => count($report), 'publish' => $publish]);
+            $skippedTotal = array_filter(array_column($report, 'skipped', 'sku'));
+            AuditLog::record('shop_catalog_applied', 'settings', null, null, ['products' => count($report), 'publish' => $publish, 'skipped' => $skippedTotal]);
         }
 
         return $report;
+    }
+
+    /**
+     * Produkte, deren (neuer) regulärer Preis nicht über dem Angebotspreis im Shop liegt.
+     * WooCommerce entfernt den Angebotspreis beim Speichern in diesem Fall.
+     * @return array<string,string> SKU => Angebotspreis
+     */
+    public static function saleConflicts(): array
+    {
+        if (! function_exists('wc_get_product_id_by_sku')) {
+            return [];
+        }
+        $out = [];
+        foreach (self::products() as $def) {
+            $id = (int) wc_get_product_id_by_sku($def['sku']);
+            $product = $id ? wc_get_product($id) : null;
+            $sale = $product ? (string) $product->get_sale_price('edit') : '';
+            if ($sale !== '' && (float) $def['price'] <= (float) $sale) {
+                $out[$def['sku']] = $sale;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Bestehende Produkte, die ein Abgleich verändern würde (für Rückfragen).
+     * @param list<array{sku:string,product_id:int,action:string,skipped:list<string>}> $preview Ergebnis von applyProducts(true)
+     */
+    public static function existingCount(array $preview): int
+    {
+        return count(array_filter($preview, static fn ($r) => (int) $r['product_id'] > 0));
+    }
+
+    /** Vergleichbarer Schlüssel einer Zugangszuordnung. @param list<object> $rows */
+    private static function accessKey(array $rows): string
+    {
+        $parts = [];
+        foreach ($rows as $r) {
+            $parts[] = implode('|', [
+                (string) $r->course_code,
+                (string) $r->feature_code,
+                (int) ($r->duration_days ?? 0) > 0 ? (string) (int) $r->duration_days : '',
+                (string) ($r->renewal_mode ?? 'extend'),
+                (string) ($r->refund_rule ?? 'revoke_on_full_refund'),
+                (int) ($r->seats ?? 0) > 0 ? (string) (int) $r->seats : '',
+                (string) (int) ($r->active ?? 1),
+            ]);
+        }
+        sort($parts);
+
+        return implode(';', $parts);
+    }
+
+    /** @param array{days:int,max_progress:float}|null $policy */
+    private static function policyKey(?array $policy): string
+    {
+        return $policy === null ? '' : (int) $policy['days'].'|'.number_format((float) $policy['max_progress'], 2, '.', '');
     }
 
     private static function fingerprint(\WC_Product $product): string
