@@ -109,6 +109,7 @@ final class MoneyBackWoo
 
     public static function renderAccountSection(int $userId): void
     {
+        self::renderFlash($userId);
         $orders = wc_get_orders(['customer_id' => $userId, 'limit' => 20, 'status' => ['processing', 'completed', 'refunded'], 'orderby' => 'date', 'order' => 'DESC']);
         $rows = [];
         foreach ($orders as $order) {
@@ -143,7 +144,7 @@ final class MoneyBackWoo
         }
         echo '<h3>'.esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning').'</h3>';
         echo '<p>'.esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart. Gezählt wird seit Zahlungseingang, was du gekauft hast: beantwortete Fragen bzw. abgeschlossene Video-Lektionen (beim Video-Upgrade nur die Lektionen); mehrere Kurse einer Bestellung zählen gemeinsam. Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung); Details stehen in den AGB.', 'bootspruefung-learning'), \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_DAYS, (int) \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_MAX_PROGRESS)).'</p>';
-        echo '<table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
     }
 
     public function handleRequest(): void
@@ -158,7 +159,7 @@ final class MoneyBackWoo
         }
         $status = self::status($order);
         if (! $status['eligible']) {
-            wc_add_notice(MoneyBack::reasonLabel($status['reason']), 'error');
+            self::flash($userId, MoneyBack::reasonLabel($status['reason']), 'error');
             wp_safe_redirect($back);
             exit;
         }
@@ -196,11 +197,31 @@ final class MoneyBackWoo
             $parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))
         ));
         do_action('bootspruefung_money_back_requested', $orderId, $request);
-        wc_add_notice($parts['excluded'] === []
+        self::flash($userId, $parts['excluded'] === []
             ? __('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning')
-            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded'])));
+            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded'])), 'success');
         wp_safe_redirect($back);
         exit;
+    }
+
+    /**
+     * Hinweis für die nächste Anzeige von „Mein Lernen“. admin-post.php lädt die WooCommerce-
+     * Hinweisfunktionen (wc_add_notice, Sitzung) nicht – daher eigener, kurzlebiger Speicher je Nutzer.
+     */
+    private static function flash(int $userId, string $message, string $type): void
+    {
+        set_transient('bp_money_back_notice_'.$userId, ['message' => $message, 'type' => $type], 10 * MINUTE_IN_SECONDS);
+    }
+
+    private static function renderFlash(int $userId): void
+    {
+        $notice = get_transient('bp_money_back_notice_'.$userId);
+        if (! is_array($notice) || empty($notice['message'])) {
+            return;
+        }
+        delete_transient('bp_money_back_notice_'.$userId);
+        $error = ($notice['type'] ?? '') === 'error';
+        printf('<div class="%s" role="%s">%s</div>', $error ? 'woocommerce-error' : 'woocommerce-message', $error ? 'alert' : 'status', esc_html((string) $notice['message']));
     }
 
     public function adminOrder($order): void

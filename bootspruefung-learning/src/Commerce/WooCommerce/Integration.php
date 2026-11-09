@@ -22,6 +22,9 @@ use Bootspruefung\Learning\Security\Capabilities;
  */
 final class Integration
 {
+    /** Höchstzahl der Kaufangebote je gesperrter Funktion im Lernbereich. */
+    public const MAX_OFFERS = 6;
+
     public const ACCOUNT_ENDPOINT = 'mein-lernen';
 
     private static ?OrderSync $sync = null;
@@ -265,8 +268,17 @@ final class Integration
                     continue;
                 }
                 $seen[$parent->get_id()] = true;
-                $out[$feature][] = ['name' => $parent->get_name(), 'url' => (string) $parent->get_permalink(), 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8')];
+                $out[$feature][] = ['name' => $parent->get_name(), 'url' => (string) $parent->get_permalink(), 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8'), 'amount' => (float) $product->get_price()];
             }
+        }
+        // Passendstes zuerst: günstigstes Angebot (meist der Einzelkurs vor Kombi, Bundle und Pässen), höchstens sechs.
+        foreach ($out as $feature => $list) {
+            usort($list, static fn (array $a, array $b): int => $a['amount'] <=> $b['amount']);
+            $out[$feature] = array_map(static function (array $o): array {
+                unset($o['amount']);
+
+                return $o;
+            }, array_slice($list, 0, self::MAX_OFFERS));
         }
 
         return $out;
@@ -308,7 +320,7 @@ final class Integration
 
             return;
         }
-        echo '<table class="woocommerce-table shop_table bp-access-table"><thead><tr><th>'.esc_html__('Kurs', 'bootspruefung-learning').'</th><th>'.esc_html__('Umfang', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th>'.esc_html__('Gültig bis', 'bootspruefung-learning').'</th></tr></thead><tbody>';
+        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table bp-access-table"><thead><tr><th>'.esc_html__('Kurs', 'bootspruefung-learning').'</th><th>'.esc_html__('Umfang', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th>'.esc_html__('Gültig bis', 'bootspruefung-learning').'</th></tr></thead><tbody>';
         // Eine Zeile je Kurs/Status/Laufzeit statt je Funktion; reine Simulator-Zugänge (SRC/UBI-Hilfskurse) als eine Zeile.
         $groups = [];
         $sim = [];
@@ -346,7 +358,7 @@ final class Integration
         foreach ($sim as $g) {
             printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html__('Funkgerät-Simulator (SRC/UBI)', 'bootspruefung-learning'), esc_html(Labels::feature(\Bootspruefung\Learning\Learning\Services\AccessService::DEVICE)), esc_html(Labels::status($g['status'])), esc_html(Labels::date($g['valid_until'])));
         }
-        echo '</tbody></table>';
+        echo '</tbody></table></div>';
         MoneyBackWoo::renderAccountSection(get_current_user_id());
         WithdrawalFunction::renderAccountSection(get_current_user_id());
     }

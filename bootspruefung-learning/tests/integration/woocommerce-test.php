@@ -18,6 +18,7 @@ $wpDir = rtrim((string) getenv('WP_DIR'), '/');
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 
 use Bootspruefung\Learning\Commerce\EntitlementService;
 use Bootspruefung\Learning\Commerce\WooCommerce\Gateways;

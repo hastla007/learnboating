@@ -86,6 +86,7 @@ final class Strings
             'locked_more' => __('{n} weitere Einträge sind im kostenlosen Umfang nicht enthalten.', $d),
             'free_limit_questions' => __('Kostenloser Umfang: die ersten {n} Fragen je Modul.', $d),
             'free_limit_papers' => __('Kostenloser Umfang: die ersten {n} Prüfungsbögen. Die Prüfungssimulation mit Zufallsfragen gehört zum Vollzugang.', $d),
+            'free_limit_paper_one' => __('Kostenloser Umfang: der erste Prüfungsbogen. Die Prüfungssimulation mit Zufallsfragen gehört zum Vollzugang.', $d),
             'my_access' => __('Meine Lernzugänge ansehen', $d),
             'back_overview' => __('Zur Übersicht', $d),
             'back_course' => __('Zurück zum Kurs', $d),

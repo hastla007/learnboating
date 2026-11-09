@@ -15,6 +15,7 @@ $packageDir = rtrim((string) getenv('PACKAGE_DIR'), '/');
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 
 use Bootspruefung\Learning\Content\Import\EntityImporter;
 use Bootspruefung\Learning\Content\Package\Package;

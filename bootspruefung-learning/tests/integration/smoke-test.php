@@ -25,6 +25,7 @@ $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['SERVER_NAME'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 require_once ABSPATH.'wp-admin/includes/upgrade.php';
 require_once ABSPATH.'wp-admin/includes/plugin.php';
 

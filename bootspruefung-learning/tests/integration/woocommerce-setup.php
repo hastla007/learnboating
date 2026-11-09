@@ -12,6 +12,7 @@ $wpDir = rtrim((string) getenv('WP_DIR'), '/');
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 require_once ABSPATH.'wp-admin/includes/plugin.php';
 
 wp_set_current_user(1);

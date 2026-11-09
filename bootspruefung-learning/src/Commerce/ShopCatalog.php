@@ -439,7 +439,8 @@ final class ShopCatalog
         $count = static fn (string $sql): int => (int) $wpdb->get_var($wpdb->prepare($sql, ...$courses));
 
         return $cache[$key] = [
-            'questions' => $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id WHERE c.code IN ({$in})"),
+            // Nur veröffentlichte Fragen (wie im Lernbereich), keine Entwürfe/Archivierten.
+            'questions' => $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id JOIN {$p}question q ON q.id = mq.question_id AND q.status = 'published' WHERE c.code IN ({$in})"),
             'nav' => $count("SELECT COUNT(DISTINCT x.task_id) FROM {$p}navigation_task_course x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),
             'praxis' => $count("SELECT COUNT(*) FROM {$p}praxis_task x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),
             'videos' => $count("SELECT COUNT(*) FROM {$p}video_lesson vl JOIN {$p}video_module vm ON vm.id = vl.module_id JOIN {$p}course c ON c.id = vm.course_id WHERE c.code IN ({$in})"),

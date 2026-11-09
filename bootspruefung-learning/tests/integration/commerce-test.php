@@ -19,6 +19,7 @@ if (! is_file($wpDir.'/wp-load.php')) {
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 require_once __DIR__.'/support/FakeOrders.php';
 
 use Bootspruefung\Learning\Commerce\EntitlementService;

@@ -36,7 +36,7 @@ final class Labels
         $d = 'bootspruefung-learning';
         $labels = [
             'active' => __('aktiv', $d), 'pending' => __('wartet auf Zahlung', $d), 'suspended' => __('ausgesetzt', $d),
-            'revoked' => __('widerrufen', $d), 'expired' => __('abgelaufen', $d),
+            'revoked' => __('beendet', $d), 'expired' => __('abgelaufen', $d),
         ];
 
         return $labels[$status] ?? $status;

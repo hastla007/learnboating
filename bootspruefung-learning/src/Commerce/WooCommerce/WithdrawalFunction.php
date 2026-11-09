@@ -325,7 +325,7 @@ final class WithdrawalFunction
         }
         echo '<h3>'.esc_html__('Widerruf', 'bootspruefung-learning').'</h3>';
         echo '<p>'.esc_html__('Im Formular gibst du deinen Namen, deine E-Mail-Adresse und die Bestellnummer an; die Eingangsbestätigung kommt per E-Mail.', 'bootspruefung-learning').'</p>';
-        echo '<table class="woocommerce-table shop_table bp-withdrawal-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Widerrufsfrist bis', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table>';
+        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table bp-withdrawal-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Widerrufsfrist bis', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
     }
 
     public function orderDetails($order): void

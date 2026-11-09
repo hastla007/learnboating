@@ -405,13 +405,29 @@
 			}
 			groups.forEach(function (g) { nodes.push(groupCard(g)); });
 			mount(nodes, t('groups_title'));
+			// Kachel „Plätze belegt“ nach Einladen/Freigeben aktualisieren (die Karten melden ihren neuen Stand).
+			var byId = {};
+			groups.forEach(function (g) { byId[g.id] = g; });
+			if (viewGroups.onUpdate) { document.removeEventListener('bp-group-updated', viewGroups.onUpdate); }
+			document.addEventListener('bp-group-updated', viewGroups.onUpdate = function (ev) {
+				if (!ev.detail || !byId[ev.detail.id]) { return; }
+				byId[ev.detail.id] = ev.detail;
+				var all = Object.keys(byId).map(function (k) { return byId[k]; });
+				var total = all.reduce(function (a, g) { return a + (g.seats || 0); }, 0);
+				var taken = all.reduce(function (a, g) { return a + ((g.seats || 0) - (g.free_seats || 0)); }, 0);
+				var stat = document.querySelector('.bp-page-stats li:nth-child(2) strong');
+				if (stat) { stat.textContent = taken + '/' + total; }
+			});
 		});
 	}
 
 	function groupCard(g) {
 		var card = el('section', { class: 'bp-card bp-group', 'aria-label': g.name });
+		var first = true;
 		function render(data) {
 			g = data;
+			if (!first) { document.dispatchEvent(new CustomEvent('bp-group-updated', { detail: g })); }
+			first = false;
 			card.textContent = '';
 			var name = el('input', { type: 'text', value: g.name, 'aria-label': t('group_name'), class: 'bp-input' });
 			var save = el('button', { type: 'button', class: 'bp-button', text: t('save') });
@@ -1094,7 +1110,7 @@
 			startCard.appendChild(el('p', { class: 'bp-note', text: exam.rule.note }));
 		}
 		if (exam.simulation_locked) {
-			section.appendChild(el('div', { class: 'bp-card bp-locked' }, [el('p', { text: t('free_limit_papers', { n: exam.limit }) })].concat(offerNodes(shop.exam_simulation))));
+			section.appendChild(el('div', { class: 'bp-card bp-locked' }, [el('p', { text: (Number(exam.limit) === 1 ? t('free_limit_paper_one') : t('free_limit_papers', { n: exam.limit })) })].concat(offerNodes(shop.exam_simulation))));
 		} else {
 			var start = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: exam.running_simulation ? t('exam_resume') : t('exam_start') });
 			start.addEventListener('click', function () {

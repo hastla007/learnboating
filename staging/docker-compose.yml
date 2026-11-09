@@ -79,6 +79,8 @@ services:
       - ../bootspruefung-learning:/var/www/html/wp-content/plugins/bootspruefung-learning:ro
       - ../themes/kurswasser:/var/www/html/wp-content/themes/kurswasser:ro
       - ..:/repo:ro
+      # Mails aus WP-CLI (z. B. payment_complete) ebenfalls ins Test-Postfach.
+      - ./mu-plugins/staging-mail.php:/var/www/html/wp-content/mu-plugins/staging-mail.php:ro
     entrypoint: ["sh", "/repo/staging/setup.sh"]
     restart: "no"
 

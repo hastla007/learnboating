@@ -20,6 +20,7 @@ if (! is_file($wpDir.'/wp-load.php') || ! is_file($packageDir.'/manifest.json'))
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
 
 use Bootspruefung\Learning\Content\Import\ImportService;
 use Bootspruefung\Learning\Content\Repositories\Overrides;
