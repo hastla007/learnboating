@@ -22,7 +22,7 @@ Eigene LMS-Systeme können `boatingschool_mobile_course_post_types` und `boating
 
 ## API und Authentifizierung
 
-Basis: `https://<wordpress-host>/wp-json/boatingschool/v1`. Login erwartet E-Mail, Passwort und Gerätename. Das Plugin stellt kurzlebige Bearer-Tokens (15 Minuten) und rotierende Refresh-Tokens (90 Tage) aus; nur Token-Hashes werden in der WP-Datenbank gespeichert. Geschützte Routen verlangen `Authorization: Bearer …` sowie `X-Tenant-Slug` (Standard-Tenant, wenn ausgelassen). WordPress-Passwort-Reset-Mails werden verwendet; E-Mail-Verifikationsmails werden durch das Plugin signiert und bestätigt.
+Basis: `https://<wordpress-host>/wp-json/boatingschool/v1`. Login erwartet E-Mail, Passwort und Gerätename. Das Plugin stellt kurzlebige Bearer-Tokens (15 Minuten) und rotierende Refresh-Tokens (30 Tage Inaktivität, maximal 90 Tage) aus; nur Token-Hashes werden in der WP-Datenbank gespeichert. Geschützte Routen verlangen `Authorization: Bearer …` sowie `X-Tenant-Slug` (Standard-Tenant, wenn ausgelassen). WordPress-Passwort-Reset-Mails werden verwendet; E-Mail-Verifikationsmails werden durch das Plugin mit einmaligem Zufallstoken bestätigt.
 
 Die API umfasst Login/Refresh/Logout, Sitzungsverwaltung, Profil, Kurse/Module, Smarttrainer/Versuche, Favoriten/Sammlungen/Fortschritt, Prüfungen, Video/Fortschritt, Navigation, Code-Einlösung und Datenschutzexport. Die genaue Request-/Response-Spezifikation ist `openapi-wordpress-mobile-v1.yaml`.
 
