@@ -1406,3 +1406,31 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-cc-trial-note { margin: 0 0 0.4rem; font-size: 0.85rem; color: #6b5200; }
 .bp-cc-unlock { margin: 0.4rem 0 0; font-size: 0.9rem; }
 .bp-vc-next-locked { align-self: center; }
+
+/* 0.12.3: Gesperrte Knöpfe per aria-disabled (bleiben fokussierbar, Sperre im Handler) */
+.bp-app [aria-disabled="true"] { cursor: not-allowed; }
+.bp-app .bp-button[aria-disabled="true"], .bp-app .bp-fav[aria-disabled="true"], .bp-app .bp-paper[aria-disabled="true"], .bp-app .bp-icon-button[aria-disabled="true"], .bp-app .bp-vc-mark[aria-disabled="true"] { opacity: 0.55; }
+.bp-app .bp-button.bp-button-primary[aria-disabled="true"] { background: color-mix(in srgb, currentColor 10%, transparent); border-color: transparent; color: color-mix(in srgb, currentColor 45%, transparent); opacity: 1; }
+.bp-app .bp-paper[aria-disabled="true"]:hover { transform: none; }
+
+/* Fokus-/Scrollziele nicht unter fixem Timer, Kopf oder sticky Antwortleiste verstecken */
+.bp-app * { scroll-margin-top: 1rem; scroll-margin-bottom: 1rem; }
+body.admin-bar .bp-app * { scroll-margin-top: calc(32px + 1rem); }
+@media (max-width: 900px) {
+	/* fixierter Prüfungs-Timer oben rechts */
+	.bp-app .bp-exam-stage *, .bp-app .bp-exam-stage { scroll-margin-top: 4.5rem; }
+	body.admin-bar .bp-app .bp-exam-stage *, body.admin-bar .bp-app .bp-exam-stage { scroll-margin-top: calc(46px + 4.5rem); }
+}
+@media (max-width: 782px) {
+	body.admin-bar .bp-app * { scroll-margin-top: calc(46px + 1rem); }
+}
+@media (max-width: 600px) {
+	/* sticky Antwortleiste unten in der Fragekarte */
+	.bp-app .bp-question * { scroll-margin-bottom: 6.5rem; }
+}
+
+.bp-app .bp-feedback:focus, .bp-app .bp-model:focus { outline-offset: 4px; }
+.bp-streak-note { margin: 0.4rem 0 0; font-size: 0.88rem; }
+.bp-exam-reduced { margin-top: 0.6rem; }
+.bp-app .bp-part.is-empty { opacity: 0.85; }
+.bp-nav-locked-note { margin: 0.4rem 0 0; font-size: 0.9rem; }

@@ -59,6 +59,8 @@ final class Router
         add_filter('wp_robots', static fn (array $robots) => get_query_var('bp_app') ? ['noindex' => true, 'nofollow' => true] + $robots : $robots);
         add_filter('body_class', static fn (array $classes) => get_query_var('bp_app') ? array_merge($classes, ['bp-learning-app']) : $classes);
         add_shortcode('bootspruefung', [$this, 'shortcode']);
+        // Nonce-Erneuerung für die App (abgelaufene Sitzung/Nonce ohne Neuladen der Seite).
+        (new \Bootspruefung\Learning\Rest\NonceRefresh())->register();
     }
 
     public function init(): void
@@ -96,6 +98,8 @@ final class Router
         wp_localize_script('bp-learning-app', 'bpLearning', [
             'root' => esc_url_raw(rest_url('bootspruefung/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'loginUrl' => wp_login_url(),
             'base' => wp_make_link_relative(self::url()),
             'user' => wp_get_current_user()->display_name,
             'logoutUrl' => wp_logout_url(self::url()),

@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.12.2';
+    public const VERSION = '0.12.3';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;

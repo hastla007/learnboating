@@ -63,8 +63,9 @@ const verdict = await page.locator('.bp-feedback-title').innerText();
 assert.ok(['Richtig!', 'Leider falsch.'].includes(verdict));
 assert.equal(await page.locator('.bp-answer-correct').count(), 1, 'richtige Antwort markiert');
 await shot('03-lernmodus-feedback');
-await page.getByRole('button', { name: 'Zu Favoriten' }).click();
-await page.getByRole('button', { name: 'Aus Favoriten entfernen' }).waitFor();
+// Umschalter mit fester Beschriftung, Zustand über aria-pressed.
+await page.getByRole('button', { name: 'Merken', pressed: false }).click();
+await page.getByRole('button', { name: 'Merken', pressed: true }).waitFor();
 await page.getByRole('button', { name: 'Nächste Frage' }).click();
 await page.waitForFunction((t) => document.querySelector('.bp-question-text')?.innerText !== t, firstText);
 
@@ -91,7 +92,7 @@ assert.equal(await page.locator('.bp-exam-nav-item').count(), 30);
 assert.equal(await page.locator('.bp-feedback, .bp-answer-correct').count(), 0, 'keine Lösung während der Prüfung');
 for (let i = 0; i < 3; i++) {
   await page.locator('.bp-answer label').first().click();
-  await page.locator('.bp-save-status', { hasText: 'Gespeichert' }).waitFor();
+  await page.locator('.bp-save-status', { hasText: /^Gespeichert$/ }).waitFor();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
 }
 assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 3);

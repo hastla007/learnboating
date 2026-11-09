@@ -11,6 +11,9 @@
 	if (!cfg || !root) {
 		return;
 	}
+	// Die Hülle (templates/app.php) ist eine polite-Live-Region. Dann würde jeder Seitenaufbau komplett und jede
+	// Fehlermeldung (role=alert) doppelt angesagt; Seitenwechsel meldet die App über den Fokus auf die Überschrift.
+	root.removeAttribute('aria-live');
 	var T = cfg.i18n;
 	var base = cfg.base.replace(/\/?$/, '/');
 	var timers = [];
@@ -86,27 +89,139 @@
 		return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
 	}
 
-	function api(method, path, body) {
+	// Navigations-Zähler: Antworten einer verlassenen Ansicht bleiben liegen (kein mount/showError mehr).
+	var routeSeq = 0;
+	var noop = new Promise(function () { /* bleibt offen */ });
+	var nonceRefresh = null;
+
+	// Frischen wp_rest-Nonce holen (admin-ajax mit Cookie-Anmeldung; braucht selbst keinen Nonce).
+	function refreshNonce() {
+		if (!nonceRefresh) {
+			nonceRefresh = fetch(cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: 'action=bp_rest_nonce' })
+				.then(function (r) { return r.json().catch(function () { return null; }); })
+				.then(function (d) {
+					if (d && d.success && d.data && d.data.nonce) {
+						cfg.nonce = d.data.nonce;
+						return true;
+					}
+					return false;
+				})
+				.catch(function () { return 'offline'; })
+				.then(function (ok) { nonceRefresh = null; return ok; });
+		}
+		return nonceRefresh;
+	}
+
+	function offlineError(cause) {
+		var error = new Error(t('error_offline'));
+		error.status = 0;
+		error.code = 'offline';
+		error.cause = cause;
+		return error;
+	}
+
+	function sessionError() {
+		var error = new Error(t('session_expired'));
+		error.status = 401;
+		error.code = 'session_expired';
+		return error;
+	}
+
+	function api(method, path, body, retried) {
+		var seq = routeSeq;
 		var options = { method: method, credentials: 'same-origin', headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' } };
 		if (body !== undefined) {
 			options.headers['Content-Type'] = 'application/json';
 			options.body = JSON.stringify(body);
 		}
-		return fetch(cfg.root + path, options).then(function (response) {
+		var request = fetch(cfg.root + path, options).catch(function (e) {
+			// Netzwerkfehler (TypeError „Failed to fetch“): verständlich auf Deutsch.
+			throw offlineError(e);
+		}).then(function (response) {
 			return response.json().catch(function () { return {}; }).then(function (data) {
 				if (!response.ok) {
+					var code = data && data.code ? String(data.code) : null;
+					// Abgelaufene Anmeldung/Nonce: Nonce erneuern und die Anfrage einmal wiederholen.
+					if (!retried && (response.status === 401 || code === 'rest_cookie_invalid_nonce')) {
+						return refreshNonce().then(function (ok) {
+							if (ok === 'offline') {
+								throw offlineError(null);
+							}
+							if (!ok) {
+								throw sessionError();
+							}
+							return api(method, path, body, true);
+						});
+					}
+					if (response.status === 401 || code === 'rest_cookie_invalid_nonce') {
+						throw sessionError();
+					}
 					var error = new Error((data && data.message) || t('error_generic'));
 					error.status = response.status;
+					error.code = code;
 					throw error;
 				}
 				return data;
 			});
 		});
+		if (retried) {
+			return request;
+		}
+		// Nach einem Seitenwechsel nicht mehr auflösen: keine veralteten Ansichten oder Fehlermeldungen.
+		return request.then(function (data) {
+			return seq === routeSeq ? data : noop;
+		}, function (error) {
+			if (seq !== routeSeq) {
+				return noop;
+			}
+			throw error;
+		});
 	}
+
+	var cleanups = [];
 
 	function clearTimers() {
 		timers.forEach(function (id) { clearInterval(id); });
 		timers = [];
+		var run = cleanups;
+		cleanups = [];
+		run.forEach(function (fn) { try { fn(); } catch (e) { /* weiter */ } });
+	}
+
+	function reducedMotion() {
+		return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+	}
+
+	function scrollBehavior() {
+		return reducedMotion() ? 'auto' : 'smooth';
+	}
+
+	// Knopf sperren, ohne den Fokus zu verlieren (statt disabled): aria-disabled + Sperre im Handler.
+	function setBusy(btn, busy) {
+		if (!btn) {
+			return;
+		}
+		if (busy) {
+			btn.setAttribute('aria-disabled', 'true');
+		} else {
+			btn.removeAttribute('aria-disabled');
+		}
+	}
+
+	function isBusy(btn) {
+		return btn.getAttribute('aria-disabled') === 'true';
+	}
+
+	// Element mit Abstand (scroll-margin) einscrollen, falls es nicht gut sichtbar ist.
+	function bringIntoView(node) {
+		if (!node || !node.getBoundingClientRect) {
+			return;
+		}
+		var r = node.getBoundingClientRect();
+		var vh = window.innerHeight || document.documentElement.clientHeight;
+		if (r.top < 80 || r.top > vh * 0.6) {
+			node.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+		}
 	}
 
 	function mount(nodes, title) {
@@ -124,17 +239,36 @@
 		window.scrollTo(0, Math.min(window.scrollY, root.getBoundingClientRect().top + window.scrollY - 16));
 	}
 
+	function loginUrl() {
+		var u = cfg.loginUrl || '/wp-login.php';
+		return u + (u.indexOf('?') === -1 ? '?' : '&') + 'redirect_to=' + encodeURIComponent(window.location.href);
+	}
+
 	function showError(error) {
+		var title = t('error_title');
+		var actions = [link('', t('back_overview'), 'bp-button')];
+		if (error.code === 'session_expired') {
+			title = t('session_title');
+			actions = [el('a', { href: loginUrl(), class: 'bp-button bp-button-primary', text: t('session_login') })];
+		} else if (error.code === 'bp_forbidden') {
+			title = t('locked_title');
+		} else if (error.code === 'offline') {
+			title = t('offline_title');
+			var again = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('retry') });
+			again.addEventListener('click', function () { route(); });
+			actions.unshift(again);
+		}
 		mount([el('div', { class: 'bp-card bp-error', role: 'alert' }, [
-			el('h1', { text: error.status === 403 ? t('locked_title') : t('error_title') }),
+			el('h1', { text: title }),
 			el('p', { text: error.message }),
-			el('p', {}, [link('', t('back_overview'), 'bp-button')])
-		])]);
+			el('p', { class: 'bp-actions' }, actions)
+		])], title);
 	}
 
 	function loading() {
+		clearTimers();
 		root.textContent = '';
-		root.appendChild(el('p', { class: 'bp-loading', text: t('loading') }));
+		root.appendChild(el('p', { class: 'bp-loading', role: 'status', text: t('loading') }));
 	}
 
 	function progressBar(p, label) {
@@ -184,6 +318,9 @@
 			window.location.reload();
 			return;
 		}
+		routeSeq++;
+		var seq = routeSeq;
+		clearTimers(); // u. a. Prüfungs-Timer: nach dem Verlassen keine automatische Abgabe
 		var parts = rel.split('/').filter(Boolean);
 		var query = new URLSearchParams(window.location.search);
 		loading();
@@ -242,7 +379,11 @@
 		} else {
 			view = Promise.reject(Object.assign(new Error(t('not_found')), { status: 404 }));
 		}
-		view.catch(showError);
+		view.catch(function (error) {
+			if (seq === routeSeq) {
+				showError(error);
+			}
+		});
 	}
 
 	function navigate(path) {
@@ -308,7 +449,7 @@
 					el('h1', { text: cfg.user ? t('dash_hello', { name: cfg.user }) : t('overview_title') }),
 					el('p', { class: 'bp-hero-lead', text: t('dash_intro') }),
 					el('ul', { class: 'bp-hero-facts' }, [
-						mine.length - trials > 0 || !trials ? el('li', {}, [el('strong', { text: String(mine.length - trials) }), ' ' + t('dash_stat_courses')]) : null,
+						mine.length - trials > 0 || !trials ? el('li', {}, [el('strong', { text: String(mine.length - trials) }), ' ' + t('dash_stat_courses', { n: mine.length - trials })]) : null,
 						trials ? el('li', {}, [el('strong', { text: String(trials) }), ' ' + t('dash_stat_trial')]) : null
 					])
 				]),
@@ -387,7 +528,7 @@
 				var join = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_join') });
 				join.addEventListener('click', function () {
 					join.disabled = true;
-					api('POST', 'groups/join', { token: token }).then(function () { navigate(''); }).catch(function (e) { join.disabled = false; alertMessage(box, e.message); });
+					api('POST', 'groups/join', { token: token }).then(function () { navigate(''); }).catch(function (e) { join.disabled = false; alertMessage(box, e); });
 				});
 				box.appendChild(el('div', { class: 'bp-actions' }, [join]));
 			}
@@ -438,7 +579,7 @@
 			card.textContent = '';
 			var name = el('input', { type: 'text', value: g.name, 'aria-label': t('group_name'), class: 'bp-input' });
 			var save = el('button', { type: 'button', class: 'bp-button', text: t('save') });
-			save.addEventListener('click', function () { api('PUT', 'me/groups/' + g.id, { name: name.value }).then(render).catch(function (e) { alertMessage(card, e.message); }); });
+			save.addEventListener('click', function () { api('PUT', 'me/groups/' + g.id, { name: name.value }).then(render).catch(function (e) { alertMessage(card, e); }); });
 			card.appendChild(el('div', { class: 'bp-actions' }, [name, save]));
 			card.appendChild(el('p', {}, [badge(t('group_status_' + g.status), g.status === 'active' ? 'ok' : 'warn'), ' ', el('span', { text: t('group_seats', { used: g.seats - g.free_seats, total: g.seats }) }), g.valid_until ? el('span', { class: 'bp-muted', text: ' · ' + t('group_valid_until', { date: fmtDate(g.valid_until) }) }) : null]));
 			card.appendChild(scopeList(g.scopes));
@@ -460,7 +601,7 @@
 					api('POST', 'me/groups/' + g.id + '/invite', { emails: list }).then(function (r) {
 						render(r.group);
 						if (r.skipped.length) { alertMessage(card, t('group_skipped', { list: r.skipped.join(', ') })); }
-					}).catch(function (e) { send.disabled = false; alertMessage(card, e.message); });
+					}).catch(function (e) { send.disabled = false; alertMessage(card, e); });
 				});
 				card.appendChild(el('h3', { text: t('group_invite_emails') }));
 				card.appendChild(el('div', { class: 'bp-actions' }, [emails, send]));
@@ -476,7 +617,7 @@
 				remove.addEventListener('click', function () {
 					var reason = window.prompt(t('group_remove_confirm', { name: m.name || m.email }));
 					if (reason === null) { return; }
-					api('DELETE', 'me/groups/' + g.id + '/members/' + m.id, { reason: reason }).then(render).catch(function (e) { alertMessage(card, e.message); });
+					api('DELETE', 'me/groups/' + g.id + '/members/' + m.id, { reason: reason }).then(render).catch(function (e) { alertMessage(card, e); });
 				});
 				return el('li', {}, [label, ' ', remove]);
 			})) : el('p', { class: 'bp-muted', text: t('group_no_members') }));
@@ -540,6 +681,24 @@
 		]);
 	}
 
+	// Kennzahlen und Fortschritt eines pageHero ohne Neuaufbau aktualisieren (Fokus bleibt erhalten).
+	function updateHero(hero, stats, percent, percentLabel) {
+		if (!hero) {
+			return;
+		}
+		var items = hero.querySelectorAll('.bp-page-stats li');
+		(stats || []).filter(Boolean).forEach(function (x, i) {
+			var strong = items[i] ? items[i].querySelector('strong') : null;
+			if (strong) { strong.textContent = String(x[0]); }
+		});
+		if (percent !== undefined && percent !== null) {
+			var bar = hero.querySelector('.bp-page-bar > span');
+			var pct = hero.querySelector('.bp-page-pct');
+			if (bar) { bar.style.width = percent + '%'; }
+			if (pct) { pct.textContent = t('page_pct', { percent: percent }) + (percentLabel ? ' ' + percentLabel : ''); }
+		}
+	}
+
 	function courseHero(slug, c) {
 		var p = c.progress ? c.progress.total : null;
 		var style = HERO_STYLE[c.code] || ['anchor', '#40C4FF'];
@@ -595,12 +754,13 @@
 	// Teilkurse der Kombis: oben je ein Videokurs-Kärtchen (Kombi selbst hat keine eigene Video-Reihenfolge).
 	var COURSE_PARTS = { 'SBF-SEE-BIN': ['SBF-SEE', 'SBF-BIN-MOTOR'], 'SRC-UBI': ['SRC', 'UBI'] };
 
-	function videoParts(c) {
+	function videoParts(c, ownVideos) {
 		var codes = COURSE_PARTS[c.code] || [c.code];
 		return Promise.all(codes.map(function (code) {
 			var partSlug = code.toLowerCase();
 			var info = code === c.code ? Promise.resolve(c) : api('GET', 'courses/' + encodeURIComponent(partSlug)).catch(function () { return null; });
-			var videos = api('GET', 'courses/' + encodeURIComponent(partSlug) + '/videos').catch(function () { return null; });
+			// Eigene Videos des Kurses nur einmal laden (wird auch für die Knoten-Kachel gebraucht).
+			var videos = code === c.code ? ownVideos : api('GET', 'courses/' + encodeURIComponent(partSlug) + '/videos').catch(function () { return null; });
 			return Promise.all([info, videos]).then(function (r) { return { slug: partSlug, course: r[0], videos: r[1] }; });
 		})).then(function (parts) {
 			return parts.filter(function (x) { return x.course && x.videos && x.videos.lessons > 0; });
@@ -632,7 +792,7 @@
 	function viewCourse(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
 			var own = api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').catch(function () { return null; });
-			return Promise.all([videoParts(c), own]).then(function (r) { renderCourseHub(slug, c, r[0], r[1]); });
+			return Promise.all([videoParts(c, own), own]).then(function (r) { renderCourseHub(slug, c, r[0], r[1]); });
 		});
 	}
 
@@ -907,7 +1067,21 @@
 			function fail(e) {
 				state.message = null;
 				render();
-				alertMessage(body, e.message);
+				alertMessage(body, e);
+			}
+
+			// Formularfehler: Eingabe behalten, Fehler am Feld (aria-describedby), Fokus zurück ins Feld.
+			function formFail(key, e) {
+				state.message = null;
+				state.formError = { key: key, error: e };
+				state.focusKey = key === 'new' ? 'new-input' : 'rename';
+				render();
+			}
+
+			function formErrorNode(id, e) {
+				var n = alertMessage(el('div'), e);
+				n.id = id;
+				return n;
 			}
 
 			function syncUrl() {
@@ -925,7 +1099,7 @@
 			function chip(label, value, count, icon) {
 				var on = state.filter === value;
 				var b = el('button', { type: 'button', class: 'bp-chip' + (on ? ' is-active' : ''), 'aria-pressed': on ? 'true' : 'false', 'data-key': 'chip-' + value }, [icon ? el('span', { class: 'bp-ico bp-ico-' + icon, 'aria-hidden': 'true' }) : null, label, count !== null ? ' ' : null, count !== null ? el('span', { class: 'bp-chip-count', text: String(count) }) : null]);
-				b.addEventListener('click', function () { state.filter = value; state.creating = false; state.message = null; syncUrl(); render(); });
+				b.addEventListener('click', function () { state.filter = value; state.creating = false; state.formError = null; state.message = null; syncUrl(); render(); });
 				return b;
 			}
 
@@ -944,31 +1118,41 @@
 				var chips = [chip(t('saved_all_fav'), 'all', favCount, 'star')];
 				d.collections.forEach(function (col) { chips.push(chip(col.name, col.id, col.count)); });
 				var add = el('button', { type: 'button', class: 'bp-chip bp-chip-add', 'aria-expanded': state.creating ? 'true' : 'false', 'data-key': 'chip-add', text: '+ ' + t('saved_new') });
-				add.addEventListener('click', function () { state.creating = !state.creating; render(); if (state.creating) { body.querySelector('#bp-saved-new').focus(); } });
+				add.addEventListener('click', function () { state.creating = !state.creating; state.formError = null; render(); if (state.creating) { body.querySelector('#bp-saved-new').focus(); } });
 				chips.push(add);
 				nodes.push(el('div', { class: 'bp-chips', role: 'group', 'aria-label': t('saved_collections') }, chips));
 
 				if (state.creating) {
-					var input = el('input', { type: 'text', id: 'bp-saved-new', maxlength: '60', placeholder: t('saved_new_placeholder'), 'aria-label': t('saved_new_label') });
+					var newErr = state.formError && state.formError.key === 'new' ? state.formError : null;
+					var input = el('input', { type: 'text', id: 'bp-saved-new', maxlength: '60', placeholder: t('saved_new_placeholder'), 'aria-label': t('saved_new_label'), 'data-key': 'new-input', 'aria-invalid': newErr ? 'true' : null, 'aria-describedby': newErr ? 'bp-saved-new-err' : null });
+					input.value = state.draftNew || '';
 					var form = el('form', { class: 'bp-saved-form' }, [input, el('button', { type: 'submit', class: 'bp-button bp-button-primary', text: t('saved_create') })]);
 					form.addEventListener('submit', function (ev) {
 						ev.preventDefault();
 						var submit = form.querySelector('button[type=submit]');
-						if (submit.disabled) { return; }
-						submit.disabled = true;
+						if (isBusy(submit)) { return; }
+						setBusy(submit, true);
+						state.draftNew = input.value;
 						api('POST', 'courses/' + encodeURIComponent(slug) + '/collections', { name: input.value }).then(function (col) {
 							state.creating = false;
+							state.draftNew = '';
+							state.formError = null;
 							state.filter = col.id;
 							state.focusKey = 'chip-' + col.id;
 							syncUrl();
 							return load(t('saved_created'));
-						}).catch(function (e) { submit.disabled = false; fail(e); });
+						}).catch(function (e) { formFail('new', e); });
 					});
 					nodes.push(form);
+					if (newErr) {
+						nodes.push(formErrorNode('bp-saved-new-err', newErr.error));
+					}
 				}
 				var current = typeof state.filter === 'number' ? d.collections.filter(function (x) { return x.id === state.filter; })[0] : null;
 				if (current) {
-					var nameInput = el('input', { type: 'text', value: current.name, maxlength: '60', 'aria-label': t('saved_rename_label'), 'data-key': 'rename' });
+					var renameErr = state.formError && state.formError.key === 'rename' ? state.formError : null;
+					var nameInput = el('input', { type: 'text', maxlength: '60', 'aria-label': t('saved_rename_label'), 'data-key': 'rename', 'aria-invalid': renameErr ? 'true' : null, 'aria-describedby': renameErr ? 'bp-saved-rename-err' : null });
+					nameInput.value = renameErr && state.draftRename !== undefined ? state.draftRename : current.name;
 					var renameForm = el('form', { class: 'bp-saved-form bp-saved-edit' }, [
 						nameInput,
 						el('button', { type: 'submit', class: 'bp-link-button', 'data-key': 'rename-submit', text: t('saved_rename') }),
@@ -986,9 +1170,13 @@
 						ev.preventDefault();
 						// Nach dem Neuzeichnen zurück auf den Sammlungs-Chip (neuer Name), nicht auf <body>.
 						state.focusKey = 'chip-' + current.id;
-						api('PUT', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id, { name: nameInput.value }).then(function () { return load(t('saved_renamed')); }).catch(function (e) { state.focusKey = 'rename'; fail(e); });
+						state.draftRename = nameInput.value;
+						api('PUT', 'courses/' + encodeURIComponent(slug) + '/collections/' + current.id, { name: nameInput.value }).then(function () { state.formError = null; return load(t('saved_renamed')); }).catch(function (e) { formFail('rename', e); });
 					});
 					nodes.push(renameForm);
+					if (renameErr) {
+						nodes.push(formErrorNode('bp-saved-rename-err', renameErr.error));
+					}
 				}
 
 				var visible = items.filter(inFilter);
@@ -996,7 +1184,7 @@
 				var wrongList = visible.filter(function (i) { return i.wrong; });
 				var tabs = el('div', { class: 'bp-tabs', role: 'tablist', 'aria-label': title }, [['fav', t('saved_tab_fav'), favList.length], ['wrong', t('saved_tab_wrong'), wrongList.length]].map(function (tb) {
 					var on = state.tab === tb[0];
-					var b = el('button', { type: 'button', role: 'tab', id: 'bp-saved-tab-' + tb[0], 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'bp-saved-panel', tabindex: on ? '0' : '-1', class: 'bp-tab' + (on ? ' is-active' : '') }, [tb[1], ' ', el('span', { class: 'bp-chip-count', text: String(tb[2]) })]);
+					var b = el('button', { type: 'button', role: 'tab', id: 'bp-saved-tab-' + tb[0], 'data-key': 'tab-' + tb[0], 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'bp-saved-panel', tabindex: on ? '0' : '-1', class: 'bp-tab' + (on ? ' is-active' : '') }, [tb[1], ' ', el('span', { class: 'bp-chip-count', text: String(tb[2]) })]);
 					b.addEventListener('click', function () { state.tab = tb[0]; syncUrl(); render(); body.querySelector('#bp-saved-tab-' + tb[0]).focus(); });
 					b.addEventListener('keydown', function (ev) {
 						var to = ev.key === 'ArrowRight' || ev.key === 'ArrowLeft' ? (state.tab === 'fav' ? 'wrong' : 'fav') : (ev.key === 'Home' ? 'fav' : (ev.key === 'End' ? 'wrong' : null));
@@ -1025,18 +1213,29 @@
 				nodes.push(panel);
 				setChildren(body, nodes);
 				var focusKey = state.focusKey || activeKey;
+				var fallback = state.focusFallback || [];
 				state.focusKey = null;
+				state.focusFallback = null;
 				if (focusKey) {
-					var target = body.querySelector('[data-key="' + focusKey + '"]');
-					if (target) { target.focus(); }
+					// Ersatzfokus, falls das Element verschwunden ist (z. B. Favorit entfernt): Nachbar, sonst Reiter.
+					var keys = [focusKey].concat(fallback, ['tab-' + state.tab]);
+					for (var ki = 0; ki < keys.length; ki++) {
+						var target = keys[ki] ? body.querySelector('[data-key="' + keys[ki] + '"]') : null;
+						if (target) { target.focus(); break; }
+					}
 				}
 			}
 
 			function savedItem(item) {
 				var star = el('button', { type: 'button', class: 'bp-icon-button bp-star' + (item.favorite ? ' is-on' : ''), 'data-key': 'star-' + item.question_id, 'aria-pressed': item.favorite ? 'true' : 'false', 'aria-label': (item.favorite ? t('fav_remove') : t('fav_add')) + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-star', 'aria-hidden': 'true' })]);
 				star.addEventListener('click', function () {
-					star.disabled = true;
+					if (isBusy(star)) { return; }
+					setBusy(star, true);
 					state.focusKey = 'star-' + item.question_id;
+					// Nachbarn merken: verschwindet der Eintrag aus der Liste, landet der Fokus dort.
+					var row = star.closest('li');
+					var sib = function (n) { var b = n ? n.querySelector('.bp-star') : null; return b ? b.getAttribute('data-key') : null; };
+					state.focusFallback = [sib(row && row.nextElementSibling), sib(row && row.previousElementSibling)];
 					assign(item, !item.favorite, item.favorite ? [] : item.collections, item.favorite ? t('saved_fav_removed') : t('saved_fav_added'));
 				});
 				var sortBtn = el('button', { type: 'button', class: 'bp-icon-button', 'data-key': 'sort-' + item.question_id, 'aria-expanded': 'false', 'aria-label': t('saved_sort_label') + ': ' + shorten(item.text) }, [el('span', { class: 'bp-ico bp-ico-folder', 'aria-hidden': 'true' })]);
@@ -1058,7 +1257,7 @@
 			}
 
 			function assign(item, favorite, collections, message) {
-				return api('PUT', 'courses/' + encodeURIComponent(slug) + '/saved/' + item.question_id, { favorite: favorite, collections: collections }).then(function () { return load(message); }).catch(fail);
+				return api('PUT', 'courses/' + encodeURIComponent(slug) + '/saved/' + item.question_id, { favorite: favorite, collections: collections }).then(function () { return load(message); }).catch(function (e) { state.focusFallback = null; fail(e); });
 			}
 
 			return load();
@@ -1121,8 +1320,9 @@
 		} else {
 			var start = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: exam.running_simulation ? t('exam_resume') : t('exam_start') });
 			start.addEventListener('click', function () {
-				start.disabled = true;
-				startExam(slug, null).catch(function (e) { start.disabled = false; alertMessage(section, e.message); });
+				if (isBusy(start)) { return; }
+				setBusy(start, true);
+				startExam(slug, null).catch(function (e) { setBusy(start, false); alertMessage(section, e); });
 			});
 			startCard.appendChild(el('div', { class: 'bp-actions' }, [start]));
 		}
@@ -1133,9 +1333,11 @@
 			exam.papers.forEach(function (p) {
 				var state = p.last ? (p.last.status === 'running' ? 'running' : (p.last.passed ? 'passed' : 'failed')) : 'open';
 				if (p.locked) {
-					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked' }, [
+					// drip: Module noch nicht freigegeben → Datum statt Shop-Hinweis; trial: kostenloser Teilumfang.
+					var drip = p.lock_reason === 'drip';
+					grid.appendChild(el('li', {}, [el('span', { class: 'bp-paper bp-paper-locked' + (drip ? ' is-drip' : '') }, [
 						el('span', { class: 'bp-paper-lock', 'aria-hidden': 'true' }),
-						el('span', { class: 'bp-paper-text' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: t('locked_badge') })])
+						el('span', { class: 'bp-paper-text' }, [el('strong', { class: 'bp-paper-number', text: t('paper_short', { number: p.number }) }), el('span', { class: 'bp-paper-state', text: drip && p.unlock_at ? t('paper_unlocks', { date: fmtDate(p.unlock_at) }) : t('locked_badge') })])
 					])]));
 					return;
 				}
@@ -1150,8 +1352,9 @@
 					])
 				]);
 				btn.addEventListener('click', function () {
-					btn.disabled = true;
-					startExam(slug, p.id).catch(function (e) { btn.disabled = false; alertMessage(section, e.message); });
+					if (isBusy(btn)) { return; }
+					setBusy(btn, true);
+					startExam(slug, p.id).catch(function (e) { setBusy(btn, false); alertMessage(section, e); });
 				});
 				grid.appendChild(el('li', {}, [btn]));
 			});
@@ -1309,7 +1512,7 @@
 		var avg = Math.floor(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length);
 		var best = Math.max.apply(null, pcts);
 		var last = pcts[pcts.length - 1];
-		var locale = document.documentElement.lang || 'de-DE';
+		var locale = 'de-DE'; // Lernbereich ist deutsch, unabhängig von der Seitensprache
 		var DAY = 86400000;
 		var xOf = function (ms) { return span > 0 ? 4 + (ms - t0) * 92 / span : 50; };
 
@@ -1372,12 +1575,39 @@
 		]);
 	}
 
+	// Inline-Fehler (role=alert). Nicht in eine polite-Live-Region hängen (sonst doppelte Ansage): dann dahinter.
+	// message: Text oder Fehlerobjekt (abgelaufene Sitzung → mit Anmelde-Link).
 	function alertMessage(container, message) {
-		var old = container.querySelector('.bp-inline-error');
+		var error = message && typeof message === 'object' ? message : null;
+		var live = container.closest ? container.closest('[aria-live]') : null;
+		var host = live && live.parentNode ? live.parentNode : container;
+		if (host.bpInlineError && host.bpInlineError.parentNode) {
+			host.bpInlineError.remove();
+		}
+		var old = container.querySelector(':scope > .bp-inline-error');
 		if (old) {
 			old.remove();
 		}
-		container.appendChild(el('p', { class: 'bp-inline-error', role: 'alert', text: message }));
+		var node = el('p', { class: 'bp-inline-error', role: 'alert' }, [
+			error ? error.message : String(message),
+			error && error.code === 'session_expired' ? ' ' : null,
+			error && error.code === 'session_expired' ? el('a', { href: loginUrl(), text: t('session_login') }) : null
+		]);
+		if (live && live.parentNode) {
+			host.insertBefore(node, live.nextSibling);
+		} else {
+			host.appendChild(node);
+		}
+		host.bpInlineError = node;
+		return node;
+	}
+
+	function clearAlert(container) {
+		var live = container.closest ? container.closest('[aria-live]') : null;
+		var host = live && live.parentNode ? live.parentNode : container;
+		if (host.bpInlineError && host.bpInlineError.parentNode) {
+			host.bpInlineError.remove();
+		}
 	}
 
 	function startExam(slug, paperId) {
@@ -1497,7 +1727,11 @@
 			var h = container.querySelector('.bp-question-text, .bp-done h2');
 			if (refocus && h) {
 				h.setAttribute('tabindex', '-1');
-				h.focus();
+				h.focus({ preventScroll: true });
+			}
+			// Mobil: neue Frage mit Abstand zum Kopf einscrollen (scroll-margin in app.css).
+			if (refocus) {
+				bringIntoView(container.querySelector('.bp-question, .bp-done'));
 			}
 		};
 		container.textContent = '';
@@ -1636,7 +1870,7 @@
 		pop.addEventListener('submit', function (ev) {
 			ev.preventDefault();
 			var ids = boxes.filter(function (b) { return favBox.checked && b[0].checked; }).map(function (b) { return parseInt(b[0].value, 10); });
-			Promise.resolve(opts.onSave(favBox.checked, ids)).then(function () { if (pop.isConnected) { close(true); } }).catch(function (e) { alertMessage(pop, e.message); });
+			Promise.resolve(opts.onSave(favBox.checked, ids)).then(function () { if (pop.isConnected) { close(true); } }).catch(function (e) { alertMessage(pop, e); });
 		});
 		syncBoxes();
 		host.appendChild(pop);
@@ -1646,20 +1880,21 @@
 		favBox.focus();
 	}
 
+	// Umschalter mit fester Beschriftung; der Zustand steht in aria-pressed (nicht im Text).
 	function favoriteButton(q) {
 		var on = !!q.favorite;
-		var label = el('span', { text: on ? t('fav_remove') : t('fav_add') });
-		var btn = el('button', { type: 'button', class: 'bp-fav', 'aria-pressed': on ? 'true' : 'false' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), label]);
+		var btn = el('button', { type: 'button', class: 'bp-fav', 'aria-pressed': on ? 'true' : 'false' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('span', { text: t('fav_label') })]);
 		btn.addEventListener('click', function () {
-			btn.disabled = true;
+			if (isBusy(btn)) { return; }
+			setBusy(btn, true);
 			api(on ? 'DELETE' : 'PUT', 'favorites/' + q.question_id).then(function () {
 				on = !on;
 				q.favorite = on;
 				btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-				label.textContent = on ? t('fav_remove') : t('fav_add');
+				clearAlert(btn.parentNode || btn);
 			}).catch(function (e) {
-				alertMessage(btn.parentNode || btn, e.message);
-			}).finally(function () { btn.disabled = false; });
+				alertMessage(btn.parentNode || btn, e);
+			}).then(function () { setBusy(btn, false); });
 		});
 		return btn;
 	}
@@ -1697,6 +1932,10 @@
 			} else if (r.explanation_locked) {
 				feedback.appendChild(el('p', { class: 'bp-muted', text: t('explanation_locked') }));
 			}
+			if (r.correct && r.streak_counted === false) {
+				// Richtig, aber zu kurz nach der letzten Antwort: zählt nicht für die Serie.
+				feedback.appendChild(el('p', { class: 'bp-muted bp-streak-note', text: t('streak_not_counted') }));
+			}
 			if (r.progress) {
 				var dots = el('span', { class: 'bp-streak-dots', 'aria-hidden': 'true' });
 				for (var i = 0; i < 3; i++) {
@@ -1710,14 +1949,17 @@
 			next.focus();
 		}
 
-		function send(body, fieldset, button) {
-			button.disabled = true;
+		function send(body, fieldset, button, other) {
+			if (isBusy(button)) { return null; }
+			setBusy(button, true);
+			setBusy(other, true);
 			body.token = q.token;
 			body.idempotency_key = key;
 			body.response_ms = Date.now() - started;
 			return api('POST', 'answers', body).then(function (r) { showResult(r, fieldset); refreshLearnProgress(slug); }).catch(function (e) {
-				button.disabled = false;
-				alertMessage(feedback, e.message);
+				setBusy(button, false);
+				setBusy(other, false);
+				alertMessage(feedback, e);
 			});
 		}
 
@@ -1727,25 +1969,35 @@
 			card.appendChild(el('p', { class: 'bp-muted', text: t('open_explain') }));
 			card.appendChild(notes);
 			reveal.addEventListener('click', function () {
-				reveal.disabled = true;
+				if (isBusy(reveal)) { return; }
+				setBusy(reveal, true);
 				api('POST', 'answers/reveal', { token: q.token }).then(function (r) {
-					card.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]));
+					card.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]), feedback);
 					actions.textContent = '';
 					var yes = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('known_yes') });
 					var no = el('button', { type: 'button', class: 'bp-button', text: t('known_no') });
-					yes.addEventListener('click', function () { no.disabled = true; send({ known: true }, null, yes); });
-					no.addEventListener('click', function () { yes.disabled = true; send({ known: false }, null, no); });
+					yes.addEventListener('click', function () { if (!isBusy(no)) { send({ known: true }, null, yes, no); } });
+					no.addEventListener('click', function () { if (!isBusy(yes)) { send({ known: false }, null, no, yes); } });
 					actions.appendChild(yes);
 					actions.appendChild(no);
 					yes.focus();
-				}).catch(function (e) { reveal.disabled = false; alertMessage(feedback, e.message); });
+				}).catch(function (e) { setBusy(reveal, false); alertMessage(feedback, e); });
 			});
 			actions.appendChild(reveal);
 		} else {
 			var fieldset = answerList(q, name, null, false);
-			var check = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('check_answer'), disabled: true });
-			fieldset.addEventListener('change', function () { check.disabled = selectedIds(fieldset).length === 0; });
-			check.addEventListener('click', function () { send({ answer_ids: selectedIds(fieldset) }, fieldset, check); });
+			// aria-disabled statt disabled: der Knopf bleibt fokussierbar, die Sperre liegt im Handler.
+			var check = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('check_answer'), 'aria-disabled': 'true' });
+			var answeredOnce = false;
+			fieldset.addEventListener('change', function () { if (!answeredOnce) { setBusy(check, selectedIds(fieldset).length === 0); } });
+			check.addEventListener('click', function () {
+				if (isBusy(check) || answeredOnce) { return; }
+				var p = send({ answer_ids: selectedIds(fieldset) }, fieldset, check);
+				if (p) {
+					answeredOnce = true;
+					p.then(function () { if (!feedback.className.match(/bp-feedback-(ok|bad)/)) { answeredOnce = false; setBusy(check, selectedIds(fieldset).length === 0); } });
+				}
+			});
 			card.appendChild(fieldset);
 			actions.appendChild(check);
 		}
@@ -2000,7 +2252,7 @@
 			return '';
 		}
 		var d = new Date(String(utc).replace(' ', 'T') + 'Z');
-		return isNaN(d.getTime()) ? String(utc) : d.toLocaleDateString(document.documentElement.lang || 'de-DE');
+		return isNaN(d.getTime()) ? String(utc) : d.toLocaleDateString('de-DE');
 	}
 
 	var TRAINER_FEATURES = { 'navigation/': 'navigation_trainer', 'praxis/': 'praxis_trainer', 'video/': 'video_course', 'funk/': 'radio_training' };
@@ -2132,11 +2384,23 @@
 		return withCourse(slug, function (c) {
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/navigation/' + taskId).then(function (task) {
 				var items = el('ol', { class: 'bp-review' });
-				task.questions.forEach(function (q) { items.appendChild(navigationQuestion(slug, q)); });
+				var hero = null;
+				var heroStats = function () {
+					var n = task.questions.filter(function (q) { return q.done; }).length;
+					return { stats: [[task.questions.length, t('nav_stat_parts')], [n, t('nav_stat_done')]], percent: Math.floor(n * 100 / Math.max(task.questions.length, 1)) };
+				};
+				// Zähler im Kopf sofort nachziehen, wenn eine Teilaufgabe erledigt ist.
+				var onDone = function () { var h = heroStats(); updateHero(hero, h.stats, h.percent, t('nav_stat_done')); };
+				task.questions.forEach(function (q) { items.appendChild(navigationQuestion(slug, q, onDone)); });
 				var title = t('nav_task_title', { number: task.number });
-				var done = task.questions.filter(function (q) { return q.done; }).length;
+				var hs = heroStats();
+				hero = pageHero({ code: c.code, icon: 'compass', crumbs: crumbs(slug, c.name, [[t('trainer_navigation'), slug + '/navigation/'], [title]]), eyebrow: t('trainer_navigation'), title: title, stats: hs.stats, percent: hs.percent, percentLabel: t('nav_stat_done') });
+				// Nachbaraufgaben aus dem Vollzugang: kein Link ins Leere, sondern Hinweis.
+				var prevNode = task.previous && !task.previous_locked ? link(slug + '/navigation/' + task.previous + '/', '← ' + t('nav_previous'), 'bp-button') : el('span');
+				var nextNode = task.next && !task.next_locked ? link(slug + '/navigation/' + task.next + '/', t('nav_next') + ' →', 'bp-button bp-button-primary') : link(slug + '/navigation/', t('nav_all'), 'bp-button');
+				var lockedNav = (task.next && task.next_locked) || (task.previous && task.previous_locked) ? el('p', { class: 'bp-muted bp-nav-locked-note', text: task.next && task.next_locked ? t('nav_next_locked') : t('nav_prev_locked') }) : null;
 				mount([
-					pageHero({ code: c.code, icon: 'compass', crumbs: crumbs(slug, c.name, [[t('trainer_navigation'), slug + '/navigation/'], [title]]), eyebrow: t('trainer_navigation'), title: title, stats: [[task.questions.length, t('nav_stat_parts')], [done, t('nav_stat_done')]], percent: Math.floor(done * 100 / Math.max(task.questions.length, 1)), percentLabel: t('nav_stat_done') }),
+					hero,
 					el('div', { class: 'bp-nav-layout' }, [
 						el('aside', { class: 'bp-nav-scenario' }, [
 							el('div', { class: 'bp-card bp-nav-scenario-card' }, [el('h2', { class: 'bp-learn-course bp-nav-scenario-h', text: t('nav_scenario') }), multiline('p', task.scenario, 'bp-nav-scenario-text')]),
@@ -2145,10 +2409,8 @@
 						]),
 						el('div', { class: 'bp-nav-questions' }, [
 							items,
-							el('div', { class: 'bp-actions bp-nav-pager' }, [
-								task.previous ? link(slug + '/navigation/' + task.previous + '/', '← ' + t('nav_previous'), 'bp-button') : el('span'),
-								task.next ? link(slug + '/navigation/' + task.next + '/', t('nav_next') + ' →', 'bp-button bp-button-primary') : link(slug + '/navigation/', t('nav_all'), 'bp-button')
-							]),
+							el('div', { class: 'bp-actions bp-nav-pager' }, [prevNode, nextNode]),
+							lockedNav,
 							task.source ? el('p', { class: 'bp-muted bp-source', text: t('source', { source: task.source }) }) : null
 						])
 					])
@@ -2157,9 +2419,9 @@
 		});
 	}
 
-	function navigationQuestion(slug, q) {
+	function navigationQuestion(slug, q, onDone) {
 		var item = el('li', { class: 'bp-card bp-nav-question' + (q.done ? ' is-correct' : '') });
-		function render() {
+		function render(focusKey) {
 			item.textContent = '';
 			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
 			item.appendChild(multiline('h3', q.text, 'bp-question-text'));
@@ -2169,32 +2431,46 @@
 			if (q.answer === null) {
 				var reveal = el('button', { type: 'button', class: 'bp-button', text: t('nav_show_solution') });
 				reveal.addEventListener('click', function () {
-					reveal.disabled = true;
+					if (isBusy(reveal)) { return; }
+					setBusy(reveal, true);
 					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null }).then(function (r) {
 						q.answer = r.answer;
-						q.my_answer = area.value;
-						render();
-					}).catch(function (e) { reveal.disabled = false; alertMessage(item, e.message); });
+						q.my_answer = r.my_answer !== undefined ? r.my_answer : area.value;
+						render('official');
+					}).catch(function (e) { setBusy(reveal, false); alertMessage(item, e); });
 				});
 				item.appendChild(el('div', { class: 'bp-actions' }, [reveal]));
 				return;
 			}
-			item.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer)]));
+			var official = el('div', { class: 'bp-model', tabindex: '-1' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer)]);
+			item.appendChild(official);
 			var group = el('div', { class: 'bp-actions', role: 'group', 'aria-label': t('self_assessment') });
+			var buttons = [];
 			['correct', 'partly', 'wrong'].forEach(function (a) {
-				var b = el('button', { type: 'button', class: 'bp-button' + (q.self_assessment === a ? ' bp-button-primary' : ''), 'aria-pressed': q.self_assessment === a ? 'true' : 'false', text: t('assess_' + a) });
+				var b = el('button', { type: 'button', class: 'bp-button' + (q.self_assessment === a ? ' bp-button-primary' : ''), 'aria-pressed': q.self_assessment === a ? 'true' : 'false', 'data-assess': a, text: t('assess_' + a) });
 				b.addEventListener('click', function () {
-					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null, self_assessment: a }).then(function () {
+					if (isBusy(b)) { return; }
+					buttons.forEach(function (x) { setBusy(x, true); });
+					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null, self_assessment: a }).then(function (r) {
 						q.self_assessment = a;
 						q.done = true;
-						q.my_answer = area.value;
+						q.my_answer = r && r.my_answer !== undefined ? r.my_answer : area.value;
 						item.classList.add('is-correct');
-						render();
-					}).catch(function (e) { alertMessage(item, e.message); });
+						render('assess-' + a);
+						if (onDone) { onDone(); }
+					}).catch(function (e) { buttons.forEach(function (x) { setBusy(x, false); }); alertMessage(item, e); });
 				});
+				buttons.push(b);
 				group.appendChild(b);
 			});
 			item.appendChild(group);
+			// Nach dem Neuaufbau den Fokus an die passende Stelle (nicht auf <body>).
+			if (focusKey === 'official') {
+				official.focus();
+			} else if (focusKey && focusKey.indexOf('assess-') === 0) {
+				var target = group.querySelector('[data-assess="' + focusKey.slice(7) + '"]');
+				if (target) { target.focus(); }
+			}
 		}
 		render();
 		return item;
@@ -2206,9 +2482,23 @@
 			return api('GET', 'courses/' + encodeURIComponent(slug) + '/praxis').then(function (data) {
 				var cats = data.categories;
 				var active = cats.filter(function (x) { return x.name === category; })[0] || null;
+				var chipLinks = [];
 				var nav = el('ul', { class: 'bp-chips', 'aria-label': t('praxis_categories') }, [el('li', {}, [link(slug + '/praxis/', t('praxis_all'), 'bp-chip' + (active ? '' : ' is-active'))])].concat(cats.map(function (x) {
-					return el('li', {}, [link(slug + '/praxis/?kategorie=' + encodeURIComponent(x.name), x.name + ' (' + x.known + '/' + x.cards.length + ')', 'bp-chip' + (active === x ? ' is-active' : ''))]);
+					var a = link(slug + '/praxis/?kategorie=' + encodeURIComponent(x.name), x.name + ' (' + x.known + '/' + x.cards.length + ')', 'bp-chip' + (active === x ? ' is-active' : ''));
+					chipLinks.push([a, x]);
+					return el('li', {}, [a]);
 				})));
+				var hero = null;
+				// Nach einer Selbsteinschätzung Zähler (Kopf, Kategorien) sofort aktualisieren.
+				function refreshCounts() {
+					var total = 0;
+					cats.forEach(function (x) { x.known = x.cards.filter(function (k) { return k.status === 'known'; }).length; total += x.known; });
+					data.known = total;
+					chipLinks.forEach(function (pair) { pair[0].textContent = pair[1].name + ' (' + pair[1].known + '/' + pair[1].cards.length + ')'; });
+					var k = active ? active.known : data.known;
+					var n = active ? active.cards.length : data.total;
+					updateHero(hero, [[n, t('praxis_stat_cards')], [k, t('praxis_stat_known')], [cats.length, t('praxis_stat_categories')]], Math.floor(k * 100 / Math.max(n, 1)), t('praxis_stat_known'));
+				}
 				var allCards = active ? active.cards : [].concat.apply([], cats.map(function (x) { return x.cards; }));
 				var cards = allCards.filter(function (x) { return !x.locked; });
 				var lockedCount = allCards.length - cards.length;
@@ -2218,11 +2508,12 @@
 				function pool() {
 					return onlyOpen.checked ? cards.filter(function (x) { return x.status !== 'known'; }) : cards;
 				}
-				function show() {
+				function show(focus) {
 					var list = pool();
 					stage.textContent = '';
 					if (!list.length) {
-						stage.appendChild(el('div', { class: 'bp-card bp-done' }, [el('h2', { text: t('done_title') }), el('p', { text: t('praxis_all_known') })]));
+						stage.appendChild(el('div', { class: 'bp-card bp-done' }, [el('h2', { text: t('done_title'), tabindex: '-1' }), el('p', { text: t('praxis_all_known') })]));
+						if (focus) { stage.querySelector('h2').focus(); }
 						return;
 					}
 					index = index % list.length;
@@ -2238,19 +2529,29 @@
 					reveal.addEventListener('click', function () {
 						reveal.remove();
 						box.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', card.answer), card.explanation ? multiline('p', card.explanation, 'bp-explanation') : null]), actions);
+						var choice = [];
 						[['known', t('praxis_known')], ['practice', t('praxis_practice')]].forEach(function (opt) {
 							var b = el('button', { type: 'button', class: 'bp-button' + (opt[0] === 'known' ? ' bp-button-primary' : ''), text: opt[1] });
 							b.addEventListener('click', function () {
+								if (isBusy(b)) { return; }
+								// Bis zur Antwort sperren (kein Doppelklick, keine doppelte Anfrage).
+								choice.forEach(function (x) { setBusy(x, true); });
 								api('PUT', 'courses/' + encodeURIComponent(slug) + '/praxis/' + card.id, { status: opt[0] }).then(function () {
 									card.status = opt[0];
+									refreshCounts();
 									if (!(onlyOpen.checked && opt[0] === 'known')) {
 										index++;
 									}
-									show();
+									show(true);
+								}).catch(function (e) {
+									choice.forEach(function (x) { setBusy(x, false); });
+									alertMessage(actions, e);
 								});
 							});
+							choice.push(b);
 							actions.appendChild(b);
 						});
+						choice[0].focus();
 					});
 					actions.appendChild(reveal);
 					box.appendChild(actions);
@@ -2258,12 +2559,17 @@
 						box.appendChild(el('p', { class: 'bp-muted bp-source', text: t('source', { source: card.source }) }));
 					}
 					stage.appendChild(box);
+					if (focus) {
+						reveal.focus({ preventScroll: true });
+						bringIntoView(box);
+					}
 				}
 				onlyOpen.addEventListener('change', function () { index = 0; show(); });
 				var scopeKnown = active ? active.known : data.known;
 				var scopeTotal = active ? active.cards.length : data.total;
+				hero = pageHero({ code: c.code, icon: 'cards', crumbs: crumbs(slug, c.name, active ? [[t('trainer_praxis'), slug + '/praxis/'], [active.name]] : [[t('trainer_praxis')]]), eyebrow: active ? t('trainer_praxis') : c.name, title: active ? active.name : t('trainer_praxis'), intro: t('praxis_intro'), stats: [[scopeTotal, t('praxis_stat_cards')], [scopeKnown, t('praxis_stat_known')], [cats.length, t('praxis_stat_categories')]], percent: Math.floor(scopeKnown * 100 / Math.max(scopeTotal, 1)), percentLabel: t('praxis_stat_known') });
 				mount([
-					pageHero({ code: c.code, icon: 'cards', crumbs: crumbs(slug, c.name, active ? [[t('trainer_praxis'), slug + '/praxis/'], [active.name]] : [[t('trainer_praxis')]]), eyebrow: active ? t('trainer_praxis') : c.name, title: active ? active.name : t('trainer_praxis'), intro: t('praxis_intro'), stats: [[scopeTotal, t('praxis_stat_cards')], [scopeKnown, t('praxis_stat_known')], [cats.length, t('praxis_stat_categories')]], percent: Math.floor(scopeKnown * 100 / Math.max(scopeTotal, 1)), percentLabel: t('praxis_stat_known') }),
+					hero,
 					active ? null : sectionFiles(c, 'praxis_trainer'),
 					lockedCount ? lockedNote((c.shop || {}).praxis_trainer, t('locked_more', { n: lockedCount })) : null,
 					el('div', { class: 'bp-praxis-toolbar' }, [nav, el('p', { class: 'bp-switch' }, [onlyOpen, el('label', { for: 'bp-only-open', text: t('praxis_only_open') })])]),
@@ -2405,7 +2711,12 @@
 			return api('PUT', path, { position: video ? Math.floor(video.currentTime || 0) : 0, completed: completed });
 		}
 		doneBtn.addEventListener('click', function () {
-			saveProgress(!l.completed).then(function (r) { setDone(!!r.completed); });
+			if (isBusy(doneBtn)) { return; }
+			setBusy(doneBtn, true);
+			saveProgress(!l.completed).then(function (r) {
+				setDone(!!r.completed);
+				clearAlert(doneBtn.parentNode);
+			}).catch(function (e) { alertMessage(doneBtn.parentNode, e); }).then(function () { setBusy(doneBtn, false); });
 		});
 		if (video) {
 			video.addEventListener('loadedmetadata', function () {
@@ -2413,11 +2724,10 @@
 					video.currentTime = l.position;
 				}
 			});
-			video.addEventListener('pause', function () { saveProgress(null); });
+			video.addEventListener('pause', function () { saveProgress(null).catch(function () { /* nächster Versuch beim Takt */ }); });
 			video.addEventListener('ended', function () {
-				saveProgress(true).then(function () { setDone(true); });
+				saveProgress(true).then(function () { setDone(true); }).catch(function (e) { alertMessage(doneBtn.parentNode, e); });
 			});
-			timers.push(setInterval(function () { if (!video.paused) { saveProgress(null); } }, 15000));
 		}
 		// Titelkarte über dem Video (Kapitel, Lektion, Kurs) bis zum Start
 		var poster = null;
@@ -2442,7 +2752,7 @@
 			quiz = el('section', { class: 'bp-section bp-vc-quiz', id: 'bp-vc-quiz', tabindex: '-1' }, [el('h2', { text: t('video_quiz') })].concat(l.quiz.map(function (q) { return quizQuestion(q); })));
 			cta = el('button', { type: 'button', class: 'bp-button bp-button-primary bp-vc-cta' }, [t('video_to_quiz', { n: l.quiz.length }), el('span', { class: 'bp-vc-arrow', 'aria-hidden': 'true', text: '→' })]);
 			cta.addEventListener('click', function () {
-				quiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				quiz.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
 				quiz.focus({ preventScroll: true });
 			});
 		} else if (l.next && !l.next_locked) {
@@ -2465,6 +2775,30 @@
 		]);
 		layout = videoLayout(slug, c, v, l.id, main);
 		mount([crumbs(slug, c.name, [[t('trainer_video'), slug + '/video/'], [l.title]]), layout], l.title + ' – ' + c.name);
+		if (video) {
+			// Erst nach mount() anlegen: mount() räumt Timer und Aufräumfunktionen der Vorseite ab.
+			timers.push(setInterval(function () { if (!video.paused) { saveProgress(null).catch(function () { /* nächster Takt */ }); } }, 15000));
+			// Beim Verlassen/Verstecken der Seite Position sichern (keepalive überlebt das Entladen).
+			var lastSent = -1;
+			var keepPosition = function () {
+				var pos = Math.floor(video.currentTime || 0);
+				if (pos <= 0 || pos === lastSent) {
+					return;
+				}
+				lastSent = pos;
+				try {
+					fetch(cfg.root + path, { method: 'PUT', keepalive: true, credentials: 'same-origin', headers: { 'X-WP-Nonce': cfg.nonce, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ position: pos, completed: null }) }).catch(function () { /* beim Entladen egal */ });
+				} catch (e) { /* ohne fetch/keepalive */ }
+			};
+			var onVisibility = function () { if (document.visibilityState === 'hidden') { keepPosition(); } };
+			document.addEventListener('visibilitychange', onVisibility);
+			window.addEventListener('pagehide', keepPosition);
+			cleanups.push(function () {
+				document.removeEventListener('visibilitychange', onVisibility);
+				window.removeEventListener('pagehide', keepPosition);
+				// Wechsel innerhalb der App: Entfernen aus dem DOM pausiert das Video, der pause-Handler speichert.
+			});
+		}
 		var active = layout.querySelector('.bp-vc-lesson.is-active');
 		var list = layout.querySelector('.bp-vc-chapters');
 		if (active && list && list.scrollHeight > list.clientHeight) {
@@ -2490,35 +2824,50 @@
 				feedback.appendChild(multiline('p', r.explanation, 'bp-explanation'));
 			}
 			actions.textContent = '';
+			// Der geklickte Knopf ist weg: Fokus auf die Rückmeldung (nicht auf <body>).
+			feedback.setAttribute('tabindex', '-1');
+			feedback.focus({ preventScroll: true });
+			bringIntoView(feedback);
 		}
-		function send(body, fieldset, button) {
-			button.disabled = true;
+		function send(body, fieldset, button, other) {
+			if (isBusy(button)) { return; }
+			setBusy(button, true);
+			setBusy(other, true);
 			body.token = q.token;
 			body.idempotency_key = key;
 			body.response_ms = Date.now() - started;
-			api('POST', 'answers', body).then(function (r) { result(r, fieldset); }).catch(function (e) { button.disabled = false; alertMessage(feedback, e.message); });
+			api('POST', 'answers', body).then(function (r) { result(r, fieldset); }).catch(function (e) { setBusy(button, false); setBusy(other, false); alertMessage(feedback, e); });
 		}
 		if (q.type === 'open_text') {
 			var reveal = el('button', { type: 'button', class: 'bp-button', text: t('reveal_answer') });
 			reveal.addEventListener('click', function () {
-				reveal.disabled = true;
+				if (isBusy(reveal)) { return; }
+				setBusy(reveal, true);
 				api('POST', 'answers/reveal', { token: q.token }).then(function (r) {
 					card.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]), actions);
 					actions.textContent = '';
 					var yes = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('known_yes') });
 					var no = el('button', { type: 'button', class: 'bp-button', text: t('known_no') });
-					yes.addEventListener('click', function () { send({ known: true }, null, yes); });
-					no.addEventListener('click', function () { send({ known: false }, null, no); });
+					yes.addEventListener('click', function () { if (!isBusy(no)) { send({ known: true }, null, yes, no); } });
+					no.addEventListener('click', function () { if (!isBusy(yes)) { send({ known: false }, null, no, yes); } });
 					actions.appendChild(yes);
 					actions.appendChild(no);
-				});
+					yes.focus(); // „Gewusst“
+				}).catch(function (e) { setBusy(reveal, false); alertMessage(feedback, e); });
 			});
 			actions.appendChild(reveal);
 		} else {
 			var fieldset = answerList(q, name, null, false);
-			var check = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('check_answer'), disabled: true });
-			fieldset.addEventListener('change', function () { check.disabled = selectedIds(fieldset).length === 0; });
-			check.addEventListener('click', function () { send({ answer_ids: selectedIds(fieldset) }, fieldset, check); });
+			var check = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('check_answer'), 'aria-disabled': 'true' });
+			var pending = false;
+			fieldset.addEventListener('change', function () { if (!pending) { setBusy(check, selectedIds(fieldset).length === 0); } });
+			check.addEventListener('click', function () {
+				if (isBusy(check) || pending) { return; }
+				pending = true;
+				setBusy(check, true);
+				var body = { answer_ids: selectedIds(fieldset), token: q.token, idempotency_key: key, response_ms: Date.now() - started };
+				api('POST', 'answers', body).then(function (r) { result(r, fieldset); }).catch(function (e) { pending = false; setBusy(check, selectedIds(fieldset).length === 0); alertMessage(feedback, e); });
+			});
 			card.appendChild(fieldset);
 			actions.appendChild(check);
 		}
@@ -2653,7 +3002,8 @@
 				var out = el('p', { class: 'bp-spell-out', 'aria-live': 'polite' });
 				var map = {};
 				d.letters.forEach(function (l) { map[l.letter] = l.word; });
-				var digitWords = (d.digits[0] || { items: [] }).items.map(function (x) { return x.word; });
+				// Wie in der Tabelle: gesprochene Form (z. B. FIFE, FOWER, NINER), sonst das Wort.
+				var digitWords = (d.digits[0] || { items: [] }).items.map(function (x) { return x.spoken || x.word; });
 				search.addEventListener('input', function () {
 					var v = search.value.toUpperCase().replace(/Ä/g, 'AE').replace(/Ö/g, 'OE').replace(/Ü/g, 'UE').replace(/ß/g, 'SS');
 					out.textContent = v.split('').map(function (ch) { return map[ch] || (/[0-9]/.test(ch) ? digitWords[+ch] : (ch === ' ' ? '·' : null)); }).filter(Boolean).join(' ').toUpperCase();
@@ -2741,7 +3091,7 @@
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
 					}).catch(function (e) {
-						alertMessage(doneBtn.parentNode || doneBtn, e.message);
+						alertMessage(doneBtn.parentNode || doneBtn, e);
 					});
 				});
 				if (x.type === 'spelling') {
@@ -2806,7 +3156,7 @@
 								result.appendChild(tr);
 							}
 							result.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', r.solution.from), r.solution.to ? multiline('p', r.solution.to) : null]));
-						}).catch(function (e) { alertMessage(result, e.message); }).finally(function () { evalBtn.disabled = false; });
+						}).catch(function (e) { alertMessage(result, e); }).finally(function () { evalBtn.disabled = false; });
 					});
 					body.appendChild(el('div', { class: 'bp-actions' }, [evalBtn]));
 				}
@@ -2882,8 +3232,8 @@
 								el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', f.solution)])
 							]));
 						});
-						result.scrollIntoView({ behavior: 'smooth', block: 'start' });
-					}).catch(function (err) { alertMessage(result, err.message); }).finally(function () { submit.disabled = false; });
+						result.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+					}).catch(function (err) { alertMessage(result, err); }).finally(function () { submit.disabled = false; });
 				});
 				var doneBtn = el('button', { type: 'button', class: 'bp-button', 'aria-pressed': x.done ? 'true' : 'false', text: x.done ? t('radio_done') : t('radio_mark_done') });
 				doneBtn.addEventListener('click', function () {
@@ -2892,7 +3242,7 @@
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
 					}).catch(function (e) {
-						alertMessage(doneBtn.parentNode || doneBtn, e.message);
+						alertMessage(doneBtn.parentNode || doneBtn, e);
 					});
 				});
 				mount([
@@ -2934,7 +3284,11 @@
 					import(cfg.deviceSim + 'funkgeraet/devices/index.js'),
 					import(cfg.deviceSim + 'funkgeraet/channels.js')
 				]).then(function (m) { m[0].install(m[1].DEVICES, m[2].CHANNEL_GROUPS); }).catch(function () { /* nur Zusatzinfo */ });
+				var seq = routeSeq;
 				return a11y.then(function () { return import(cfg.deviceSim + 'funkgeraet/app.js?ver=' + encodeURIComponent(cfg.version)); }).then(function (module) {
+					if (seq !== routeSeq) {
+						return null; // inzwischen weiternavigiert: Gerät nicht mehr einhängen
+					}
 					simLoaded = true;
 					module.mount(host, config);
 					if (free) {
@@ -3184,7 +3538,7 @@
 				function updateCounter() {
 					counter.textContent = t('radio_learned', { learned: learned, total: cards.length });
 				}
-				function show() {
+				function show(focus) {
 					stage.textContent = '';
 					if (!cards.length) {
 						return;
@@ -3200,10 +3554,15 @@
 						reveal.remove();
 						box.insertBefore(el('p', { class: 'bp-vocab-solution', lang: 'en', text: card.en + (card.hint ? ' (' + card.hint + ')' : '') }), actions);
 						var sp = speakTextButton(card.en, 'en-GB');
+						var choice = [];
 						[[true, t('known_yes')], [false, t('known_no')]].forEach(function (opt) {
 							var b = el('button', { type: 'button', class: 'bp-button' + (opt[0] ? ' bp-button-primary' : ''), text: opt[1] });
 							b.addEventListener('click', function () {
-								api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/vocabulary/' + card.id, { known: opt[0] }).then(function (r) {
+								if (isBusy(b)) { return; }
+								choice.forEach(function (x) { setBusy(x, true); });
+								// streak = angezeigte Serie (Vergleich auf dem Server, keine Doppelzählung).
+								api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/vocabulary/' + card.id, { known: opt[0], streak: card.streak || 0 }).then(function (r) {
+									// repeated: Antwort wurde schon gezählt (anderer Tab/Doppelklick) – nur Stand übernehmen.
 									if (r.learned && !card.learned) {
 										learned++;
 									}
@@ -3211,11 +3570,16 @@
 									card.learned = r.learned;
 									updateCounter();
 									index++;
-									show();
+									show(true);
+								}).catch(function (e) {
+									choice.forEach(function (x) { setBusy(x, false); });
+									alertMessage(actions, e);
 								});
 							});
+							choice.push(b);
 							actions.appendChild(b);
 						});
+						choice[0].focus();
 						if (sp) {
 							actions.appendChild(sp);
 						}
@@ -3223,6 +3587,10 @@
 					actions.appendChild(reveal);
 					box.appendChild(actions);
 					stage.appendChild(box);
+					if (focus) {
+						reveal.focus({ preventScroll: true });
+						bringIntoView(box);
+					}
 				}
 				mount([
 					pageHero({ code: c.code, icon: 'radio', crumbs: crumbs(slug, c.name, [[t('trainer_radio'), slug + '/funk/'], [category || t('radio_vocabulary')]]), eyebrow: t('radio_vocabulary') + ' · ' + catalog, title: category || t('radio_vocabulary'), intro: t('radio_vocab_explain', { n: v.streak_to_learn }), extra: counter }),
@@ -3280,17 +3648,70 @@
 			});
 		}
 
+		// Speichern je Frage strikt nacheinander: höchstens eine Anfrage gleichzeitig, der zuletzt gewählte
+		// Stand gewinnt (Zwischenstände werden zusammengefasst). „Gespeichert“ erst, wenn nichts mehr offen ist.
+		var queues = {};
+		var idleWaiters = [];
+		var saveFailed = false;
+
+		function queuesIdle() {
+			return Object.keys(queues).every(function (k) { return !queues[k].busy && !queues[k].next; });
+		}
+
+		function whenIdle() {
+			return queuesIdle() ? Promise.resolve() : new Promise(function (resolve) { idleWaiters.push(resolve); });
+		}
+
 		function save(q, body) {
+			var qu = queues[q.position] || (queues[q.position] = { busy: false, next: null, waiters: [] });
+			qu.next = body;
+			saveFailed = false;
 			status.textContent = t('saving');
-			return api('PUT', 'exam-sessions/' + s.id + '/answers/' + q.position, body).then(function () {
-				status.textContent = t('saved');
-				renderNav();
-			}).catch(function (e) {
-				status.textContent = e.message;
-				if (e.status === 422 && /abgelaufen|abgeschlossen/i.test(e.message)) {
+			var done = new Promise(function (resolve) { qu.waiters.push(resolve); });
+			pump(q.position);
+			return done;
+		}
+
+		function pump(position) {
+			var qu = queues[position];
+			if (qu.busy || !qu.next) {
+				return;
+			}
+			var body = qu.next;
+			qu.next = null;
+			qu.busy = true;
+			api('PUT', 'exam-sessions/' + s.id + '/answers/' + position, body).then(function () {
+				finish(position, null);
+			}, function (e) {
+				finish(position, e);
+			});
+		}
+
+		function finish(position, error) {
+			var qu = queues[position];
+			qu.busy = false;
+			if (qu.next) {
+				pump(position); // neuerer Stand wartet: der gilt, Zwischenergebnis nicht melden
+				return;
+			}
+			var waiters = qu.waiters;
+			qu.waiters = [];
+			if (error) {
+				saveFailed = true;
+				status.textContent = error.message;
+				if (error.status === 422 && /abgelaufen|abgeschlossen/i.test(error.message)) {
 					viewExam(slug, s.id).catch(showError);
 				}
-			});
+			} else if (queuesIdle() && !saveFailed) {
+				status.textContent = t('saved');
+			}
+			renderNav();
+			waiters.forEach(function (w) { w(!error); });
+			if (queuesIdle()) {
+				var idle = idleWaiters;
+				idleWaiters = [];
+				idle.forEach(function (w) { w(); });
+			}
 		}
 
 		function renderQuestion(focus) {
@@ -3315,7 +3736,13 @@
 						var b = el('button', { type: 'button', class: 'bp-button' + (q.known === opt[0] ? ' bp-button-primary' : ''), 'aria-pressed': q.known === opt[0] ? 'true' : 'false', text: opt[1] });
 						b.addEventListener('click', function () {
 							q.known = opt[0];
-							save(q, { known: opt[0] }).then(function () { renderQuestion(true); });
+							group.querySelectorAll('button').forEach(function (x) {
+								var on = x === b;
+								x.setAttribute('aria-pressed', on ? 'true' : 'false');
+								x.classList.toggle('bp-button-primary', on);
+							});
+							renderNav();
+							save(q, { known: opt[0] });
 						});
 						group.appendChild(b);
 					});
@@ -3324,11 +3751,12 @@
 					area.appendChild(el('p', { class: 'bp-muted', text: t('open_exam_explain') }));
 					var reveal = el('button', { type: 'button', class: 'bp-button', text: t('reveal_answer') });
 					reveal.addEventListener('click', function () {
-						reveal.disabled = true;
+						if (isBusy(reveal)) { return; }
+						setBusy(reveal, true);
 						api('POST', 'exam-sessions/' + s.id + '/answers/' + q.position + '/reveal').then(function (r) {
 							q.model_answer = r.model_answer;
-							renderQuestion(true);
-						}).catch(function (e) { reveal.disabled = false; status.textContent = e.message; });
+							if (questions[current] === q) { renderQuestion(true); }
+						}).catch(function (e) { setBusy(reveal, false); status.textContent = e.message; });
 					});
 					area.appendChild(reveal);
 				}
@@ -3351,9 +3779,11 @@
 			card.appendChild(el('div', { class: 'bp-actions bp-exam-pager' }, [prev, nextB]));
 			stage.appendChild(card);
 			renderNav();
-			// Tastatur/Screenreader: nach dem Fragenwechsel auf die neue Frage, nicht auf <body>.
+			// Tastatur/Screenreader: nach dem Fragenwechsel auf die neue Frage, nicht auf <body>;
+			// mobil mit Abstand zum fixierten Timer einscrollen (scroll-margin-top in app.css).
 			if (focus && heading) {
-				heading.focus();
+				heading.focus({ preventScroll: true });
+				bringIntoView(card);
 			}
 		}
 
@@ -3366,7 +3796,10 @@
 				return;
 			}
 			submitting = true;
-			api('POST', 'exam-sessions/' + s.id + '/submit').then(function (r) { examResult(slug, r); }).catch(function (e) {
+			// Erst abgeben, wenn alle Antworten gespeichert sind (sonst fehlt evtl. die letzte Auswahl).
+			whenIdle().then(function () {
+				return api('POST', 'exam-sessions/' + s.id + '/submit');
+			}).then(function (r) { examResult(slug, r); }).catch(function (e) {
 				submitting = false;
 				status.textContent = e.message;
 				if (auto) {
@@ -3383,7 +3816,8 @@
 				el('div', { class: 'bp-hero-text' }, [
 					el('nav', { class: 'bp-breadcrumb', 'aria-label': t('breadcrumb') }, [link('', t('overview_title')), ' › ', link(slug + '/', s.course.name), ' › ', el('span', { text: examTitle(s) })]),
 					el('h1', { text: examTitle(s) }),
-					el('p', { class: 'bp-exam-rule' }, [s.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'), el('span', { text: s.rule.passing })])
+					el('p', { class: 'bp-exam-rule' }, [s.live ? badge(t('exam_live'), 'ok') : badge(t('exam_practice'), 'warn'), el('span', { text: s.rule.passing })]),
+					s.reduced ? el('p', { class: 'bp-note bp-exam-reduced', text: t('exam_reduced') }) : null
 				]),
 				deadline ? timer : null
 			]),
@@ -3400,6 +3834,8 @@
 		renderQuestion();
 
 		if (deadline) {
+			var warned5 = false;
+			var warned1 = false;
 			var tick = function () {
 				var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
 				var m = Math.floor(left / 60);
@@ -3407,11 +3843,17 @@
 				timeText.textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
 				timer.setAttribute('aria-label', t('time_left', { time: timeText.textContent }));
 				timer.classList.toggle('is-low', left <= 300);
-				if (left === 300) {
+				// Einmalige Ansagen (auch wenn ein Takt übersprungen wird, z. B. im Hintergrund-Tab).
+				if (left <= 60 && left > 0 && !warned1) {
+					warned1 = warned5 = true;
+					status.textContent = t('one_minute');
+				} else if (left <= 300 && left > 60 && !warned5) {
+					warned5 = true;
 					status.textContent = t('five_minutes');
 				}
 				if (left <= 0) {
 					clearTimers();
+					status.textContent = t('time_up');
 					submit(true);
 				}
 			};
@@ -3482,6 +3924,13 @@
 			parts = el('section', { class: 'bp-section', 'aria-labelledby': 'bp-parts-h' }, [
 				el('h2', { id: 'bp-parts-h', text: t('exam_parts_title') }),
 				el('ul', { class: 'bp-part-cards' }, r.parts.map(function (p) {
+					if (p.empty) {
+						// Teil kam in dieser Prüfung nicht vor: nicht gewertet (weder bestanden noch durchgefallen).
+						return el('li', { class: 'bp-card bp-part is-empty' }, [
+							el('p', { class: 'bp-part-head' }, [el('strong', { text: p.label }), badge(t('part_not_scored'), 'neutral')]),
+							el('p', { class: 'bp-muted bp-part-need', text: t('part_not_scored_text') })
+						]);
+					}
 					return el('li', { class: 'bp-card bp-part' + (p.passed ? ' is-passed' : ' is-failed') }, [
 						el('p', { class: 'bp-part-head' }, [el('strong', { text: p.label }), badge(p.passed ? t('passed') : t('failed'), p.passed ? 'ok' : 'bad')]),
 						el('p', { class: 'bp-part-score' }, [el('strong', { text: p.correct + '/' + p.total }), ' ' + t('correct')]),
@@ -3511,7 +3960,7 @@
 						el('p', { class: 'bp-verdict-title' }, [el('span', { class: 'bp-verdict-icon', 'aria-hidden': 'true' }), r.passed ? t('verdict_passed') : t('verdict_failed')]),
 						el('p', { class: 'bp-verdict-score', text: t('score_line', { score: r.score, max: r.max, percent: percent }) }),
 						r.expired ? el('p', { class: 'bp-verdict-note', text: t('expired_note') }) : null,
-						!s.live ? el('p', { class: 'bp-verdict-note', text: t('practice_result_note') }) : null,
+						s.reduced || r.reduced ? el('p', { class: 'bp-verdict-note', text: t('exam_reduced') }) : (!s.live ? el('p', { class: 'bp-verdict-note', text: t('practice_result_note') }) : null),
 						r.open_text.total > 0 ? el('p', { class: 'bp-verdict-note', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null
 					]),
 					el('div', { class: 'bp-hero-actions' }, [
