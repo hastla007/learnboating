@@ -185,6 +185,17 @@ jobs:
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
+      - name: App-Schnittstelle boatingschool/v1 (Integration, ohne und mit Shop)
+        run: |
+          # Ohne WooCommerce: Zugang über manuelle Freischaltung.
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/mobile-api-test.php | tee mobile.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" mobile.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          # Mit WooCommerce: Zugang über bezahlte Bestellung, Gutschein-Abgrenzung, Export mit Shop-Daten.
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/mobile-api-test.php | tee mobile-woo.log
+          if grep -E "PHP Fatal" mobile-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" mobile-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Browser-Tests (Playwright)
         if: matrix.e2e
         run: |

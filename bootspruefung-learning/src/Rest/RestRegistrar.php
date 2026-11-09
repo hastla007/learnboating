@@ -16,6 +16,7 @@ final class RestRegistrar
 
     public function register(): void
     {
+        \Bootspruefung\Learning\Mobile\MobileApi::register(); // App-Schnittstelle boatingschool/v1 (Bearer-Token)
         add_action('rest_api_init', static function (): void {
             (new StatusController())->registerRoutes();
             (new ImportController())->registerRoutes();

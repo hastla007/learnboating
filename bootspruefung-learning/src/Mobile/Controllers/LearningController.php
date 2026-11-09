@@ -1,0 +1,371 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Mobile\Controllers;
+
+use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Mobile\ApiException;
+use Bootspruefung\Learning\Mobile\Idempotency;
+use Bootspruefung\Learning\Mobile\Mapper\QuestionMapper;
+use WP_REST_Request;
+use WP_REST_Response;
+
+/**
+ * Smarttrainer und Lernmodi, Antworten, Favoriten und Sammlungen – über LearningService und
+ * CollectionService, also mit denselben Tabellen, Regeln (Priorität, Serie, Abstand, Teilumfang,
+ * zeitgesteuerte Freigabe, Sperre laufender Prüfungsfragen) und demselben Lernstand wie das Web.
+ */
+final class LearningController extends BaseController
+{
+    /** App-Modus → Web-Modus (LearningService::MODES). */
+    /** @var array<int,string>|null */
+    private ?array $collectionDates = null;
+
+    private const MODES = [
+        'smarttrainer' => 'smart', 'new' => 'new', 'wrong' => 'wrong', 'favorites' => 'favorites',
+        'topic' => 'smart', 'module' => 'smart', 'collection' => 'smart', 'exam_mistakes' => 'smart',
+    ];
+
+    public function next(WP_REST_Request $request): WP_REST_Response
+    {
+        $user = $this->user();
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $mode = (string) ($request['mode'] ?: 'smarttrainer');
+        $moduleId = $request['module_id'] !== null && $request['module_id'] !== '' ? (int) $request['module_id'] : null;
+        $topic = $request['topic'] !== null && trim((string) $request['topic']) !== '' ? trim((string) $request['topic']) : null;
+        if ($mode === 'topic' && $topic === null) {
+            throw ApiException::validation(['topic' => [__('Bitte wähle ein Thema.', 'bootspruefung-learning')]]);
+        }
+        if ($mode === 'module' && $moduleId === null) {
+            throw ApiException::validation(['module_id' => [__('Bitte wähle ein Modul.', 'bootspruefung-learning')]]);
+        }
+        if ($moduleId !== null && ! in_array($moduleId, array_map(static fn ($m) => (int) $m->id, $this->content->modules((int) $course->id)), true)) {
+            throw ApiException::notFound(__('Modul nicht gefunden.', 'bootspruefung-learning'));
+        }
+        $only = null;
+        if ($mode === 'collection') {
+            $collectionId = (int) $request['collection_id'];
+            $this->ownCollection($course, $collectionId);
+            $only = $this->collections->questionIds($user, $course, $collectionId);
+        } elseif ($mode === 'exam_mistakes') {
+            $examId = (int) $request['exam_id'];
+            if ($examId <= 0) {
+                throw ApiException::validation(['exam_id' => [__('Bitte gib die Prüfung an.', 'bootspruefung-learning')]]);
+            }
+            $only = $this->exams->wrongQuestionIds($user, $examId);
+        }
+        $q = $this->learning->next($user, $course, $moduleId, self::MODES[$mode] ?? 'smart', $topic, $only);
+        if ($q === null) {
+            return $this->noContent();
+        }
+
+        return $this->ok([
+            'question' => QuestionMapper::question($q),
+            'answer_token' => (string) $q['token'],
+            'answer_token_expires_in' => \Bootspruefung\Learning\Learning\Services\QuestionPresenter::TTL,
+            'mode' => $mode,
+            'selection_reason' => $q['reason'] ?? null,
+            'favorite' => (bool) $q['favorite'],
+            'progress' => QuestionMapper::progress($q['progress'] ?? null),
+            'remaining' => $q['remaining'] ?? null,
+        ]);
+    }
+
+    /** Musterantwort einer offenen Frage (vor der Selbsteinschätzung „gewusst/nicht gewusst“). */
+    public function reveal(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $token = (string) $request['answer_token'];
+        $this->tokenCourse($course, $token);
+
+        return $this->ok($this->learning->reveal($this->user(), $token));
+    }
+
+    public function attempt(WP_REST_Request $request): WP_REST_Response
+    {
+        $user = $this->user();
+        $course = $this->course($request);
+        $token = (string) $request['answer_token'];
+        $data = $this->tokenCourse($course, $token);
+        if ($request['revision_id'] !== null && (string) $request['revision_id'] !== '' && (int) $request['revision_id'] !== (int) $data['r']) {
+            throw ApiException::validation(['revision_id' => [__('Die Antwort passt nicht zur ausgelieferten Frage. Bitte lade die Frage neu.', 'bootspruefung-learning')]]);
+        }
+        $revision = $this->content->revision((int) $data['r']);
+        if ($revision === null) {
+            throw ApiException::notFound(__('Diese Frage ist derzeit nicht verfügbar.', 'bootspruefung-learning'));
+        }
+        if ($request['question_id'] !== null && (string) $request['question_id'] !== '' && (int) $request['question_id'] !== (int) $revision->question_id) {
+            throw ApiException::validation(['question_id' => [__('Die Antwort passt nicht zur ausgelieferten Frage. Bitte lade die Frage neu.', 'bootspruefung-learning')]]);
+        }
+        $key = (string) $this->idempotencyKey($request, true);
+        $selected = QuestionMapper::ids($request['selected_answer_ids']);
+        $known = $request['known'] === null ? null : (bool) $request['known'];
+        $responseMs = $request['response_ms'] === null ? null : (int) $request['response_ms'];
+        $payload = ['token' => hash('sha256', $token), 'selected' => $selected, 'known' => $known];
+
+        [$status, $body] = Idempotency::run($user, 'attempt:'.$course->id, $key, $payload, function () use ($user, $token, $selected, $known, $key, $responseMs, $revision): array {
+            $result = $this->learning->answer($user, $token, $selected, $known, $key, $responseMs);
+            global $wpdb;
+            $attemptId = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}bp_attempt WHERE user_id = %d AND revision_id = %d ORDER BY id DESC LIMIT 1",
+                $user, (int) $revision->id
+            ));
+
+            return [$result['repeated'] ? 200 : 201, ['data' => QuestionMapper::answerResult($result, $attemptId, (int) $revision->question_id, (int) $revision->id)], 'attempt:'.$attemptId];
+        });
+
+        return new WP_REST_Response($body, $status);
+    }
+
+    public function attemptShow(WP_REST_Request $request): WP_REST_Response
+    {
+        $user = $this->user();
+        $course = $this->course($request);
+        $id = (int) $request['attemptId'];
+        global $wpdb;
+        $row = $id > 0 ? $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}bp_attempt WHERE id = %d AND user_id = %d AND context_ref = %s", $id, $user, $course->code)) : null;
+        if (! $row) {
+            throw ApiException::notFound(__('Antwort nicht gefunden.', 'bootspruefung-learning'));
+        }
+        $stored = Idempotency::byResource($user, 'attempt:'.$id);
+        if (is_array($stored) && isset($stored['data'])) {
+            return $this->ok($stored['data']);
+        }
+        // Nach Ablauf der gespeicherten Rückmeldung: Kerndaten des Versuchs.
+        return $this->ok([
+            'attempt_id' => (string) $row->id,
+            'question_id' => (string) $row->question_id,
+            'revision_id' => (string) $row->revision_id,
+            'correct' => (bool) $row->is_correct,
+            'selected_answer_ids' => array_map('strval', $wpdb->get_col($wpdb->prepare("SELECT answer_id FROM {$wpdb->prefix}bp_attempt_answer WHERE attempt_id = %d ORDER BY position", $id))),
+            'created_at' => \Bootspruefung\Learning\Mobile\TokenAuth::iso($row->created_at),
+        ]);
+    }
+
+    // ------------------------------------------------------------------ Favoriten & Sammlungen
+
+    public function favorites(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $filter = $request['collection_id'] !== null && $request['collection_id'] !== '' ? (int) $request['collection_id'] : null;
+        if ($filter !== null) {
+            $this->ownCollection($course, $filter);
+        }
+        $overview = $this->collections->overview($this->user(), $course);
+        $created = $this->favoriteDates();
+        $items = [];
+        foreach ($overview['items'] as $item) {
+            if (! $item['favorite'] || ($filter !== null && ! in_array($filter, $item['collections'], true))) {
+                continue;
+            }
+            $items[] = $this->favoritePayload($item, $created);
+        }
+
+        return $this->ok($items, 200, ['collections' => array_map([$this, 'collectionPayload'], $overview['collections'])]);
+    }
+
+    /** Zuletzt falsch beantwortete Fragen („Favoriten & Fehler“ im Web). */
+    public function mistakes(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $created = $this->favoriteDates();
+        $items = [];
+        foreach ($this->collections->overview($this->user(), $course)['items'] as $item) {
+            if ($item['wrong']) {
+                $items[] = $this->favoritePayload($item, $created);
+            }
+        }
+
+        return $this->ok($items);
+    }
+
+    public function favoriteAdd(WP_REST_Request $request): WP_REST_Response
+    {
+        $user = $this->user();
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $questionId = (int) $request['questionId'];
+        $current = $this->questionCollections($course, $questionId);
+        if (is_array($request['collection_ids'])) {
+            $target = QuestionMapper::ids($request['collection_ids']);
+        } elseif ($request['collection_id'] !== null && $request['collection_id'] !== '') {
+            $target = array_values(array_unique(array_merge($current, [(int) $request['collection_id']])));
+        } else {
+            $target = $current;
+        }
+        $own = array_map(static fn ($c) => $c['id'], $this->collections->collections($user, $course));
+        if (array_diff($target, $own) !== []) {
+            throw ApiException::notFound(__('Sammlung nicht gefunden.', 'bootspruefung-learning'));
+        }
+        if (! isset($this->learning->allowedQuestions($user, $course, array_map(static fn ($m) => (int) $m->id, $this->content->modules((int) $course->id)))[$questionId])) {
+            throw ApiException::notFound(__('Diese Frage gehört nicht zum freigeschalteten Umfang des Kurses.', 'bootspruefung-learning'));
+        }
+        $result = $this->collections->assign($user, $course, $questionId, true, $target);
+
+        return $this->ok([
+            'question_id' => (string) $questionId,
+            'context' => 'smart_learning',
+            'collection_id' => isset($result['collections'][0]) ? (string) $result['collections'][0] : null,
+            'collection_ids' => array_map('strval', $result['collections']),
+            'created_at' => $this->favoriteDates()[$questionId] ?? null,
+        ]);
+    }
+
+    public function favoriteRemove(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        // Wie im Web: Favorit gilt kontoweit; entfernt die Frage auch aus allen Sammlungen.
+        $this->learning->setFavorite($this->user(), (int) $request['questionId'], false);
+
+        return $this->noContent();
+    }
+
+    public function collectionsList(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+
+        return $this->ok(array_map([$this, 'collectionPayload'], $this->collections->collections($this->user(), $course)));
+    }
+
+    public function collectionCreate(WP_REST_Request $request): WP_REST_Response
+    {
+        $user = $this->user();
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $name = (string) $request['name'];
+        [$status, $body] = Idempotency::run($user, 'collection:'.$course->id, $this->idempotencyKey($request, false), ['name' => $name], function () use ($user, $course, $name): array {
+            $created = $this->collections->create($user, $course, $name);
+
+            return [201, ['data' => $this->collectionPayload($created)], 'collection:'.$created['id']];
+        });
+
+        return new WP_REST_Response($body, $status);
+    }
+
+    public function collectionRename(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $id = (int) $request['collectionId'];
+        $this->ownCollection($course, $id);
+        $this->collections->rename($this->user(), $course, $id, (string) $request['name']);
+        foreach ($this->collections->collections($this->user(), $course) as $c) {
+            if ($c['id'] === $id) {
+                return $this->ok($this->collectionPayload($c));
+            }
+        }
+        throw ApiException::notFound(__('Sammlung nicht gefunden.', 'bootspruefung-learning'));
+    }
+
+    public function collectionDelete(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        $this->requireFeature($course, AccessService::QUESTION_BANK);
+        $id = (int) $request['collectionId'];
+        $this->ownCollection($course, $id);
+        $this->collections->delete($this->user(), $course, $id);
+
+        return $this->noContent();
+    }
+
+    // ------------------------------------------------------------------
+
+    /**
+     * Frage-Token gehört zu diesem Kurs (Lernmodus „learn:CODE“ oder Videoquiz „video:CODE“)
+     * und der Bereich ist (noch) freigeschaltet. Signatur, Konto und Alter prüft der Presenter.
+     * @return array<string,mixed>
+     */
+    private function tokenCourse(object $course, string $token): array
+    {
+        if ($token === '') {
+            throw ApiException::validation(['answer_token' => [__('Bitte sende das answer_token der Frage mit.', 'bootspruefung-learning')]]);
+        }
+        $data = $this->presenter->verify($token, $this->user());
+        [$context, $code] = array_pad(explode(':', (string) $data['c'], 2), 2, '');
+        if ($code !== (string) $course->code || ! in_array($context, ['learn', 'video'], true)) {
+            throw ApiException::validation(['answer_token' => [__('Diese Frage gehört zu einem anderen Kurs.', 'bootspruefung-learning')]]);
+        }
+        $this->requireFeature($course, $context === 'video' ? AccessService::VIDEO : AccessService::QUESTION_BANK);
+
+        return $data;
+    }
+
+    private function ownCollection(object $course, int $id): void
+    {
+        foreach ($this->collections->collections($this->user(), $course) as $c) {
+            if ($c['id'] === $id) {
+                return;
+            }
+        }
+        throw ApiException::notFound(__('Sammlung nicht gefunden.', 'bootspruefung-learning'));
+    }
+
+    /** @return list<int> eigene Sammlungen dieses Kurses, in denen die Frage liegt */
+    private function questionCollections(object $course, int $questionId): array
+    {
+        global $wpdb;
+
+        return array_map('intval', $wpdb->get_col($wpdb->prepare(
+            "SELECT i.collection_id FROM {$wpdb->prefix}bp_favorite_collection_item i JOIN {$wpdb->prefix}bp_favorite_collection c ON c.id = i.collection_id
+             WHERE c.user_id = %d AND c.course_id = %d AND i.question_id = %d",
+            $this->user(), (int) $course->id, $questionId
+        )));
+    }
+
+    /** @return array<int,string> question_id => Zeitpunkt (ISO) */
+    private function favoriteDates(): array
+    {
+        global $wpdb;
+        $out = [];
+        foreach ($wpdb->get_results($wpdb->prepare("SELECT question_id, created_at FROM {$wpdb->prefix}bp_favorite WHERE user_id = %d AND context = 'question'", $this->user())) as $row) {
+            $out[(int) $row->question_id] = (string) \Bootspruefung\Learning\Mobile\TokenAuth::iso($row->created_at);
+        }
+
+        return $out;
+    }
+
+    /** @param array<string,mixed> $item @param array<int,string> $created @return array<string,mixed> */
+    private function favoritePayload(array $item, array $created): array
+    {
+        return [
+            'question_id' => (string) $item['question_id'],
+            'context' => 'smart_learning',
+            'favorite' => (bool) $item['favorite'],
+            'wrong' => (bool) $item['wrong'],
+            'collection_id' => isset($item['collections'][0]) ? (string) $item['collections'][0] : null,
+            'collection_ids' => array_map('strval', $item['collections']),
+            'official_number' => $item['number'],
+            'text' => (string) $item['text'],
+            'module' => (string) $item['module'],
+            'topic' => $item['topic'] !== '' ? (string) $item['topic'] : null,
+            'created_at' => $created[(int) $item['question_id']] ?? null,
+        ];
+    }
+
+    /** @param array<string,mixed> $c @return array<string,mixed> */
+    public function collectionPayload(array $c): array
+    {
+        $id = (int) $c['id'];
+        if ($this->collectionDates === null || ! array_key_exists($id, $this->collectionDates)) {
+            global $wpdb;
+            $this->collectionDates = [];
+            foreach ($wpdb->get_results($wpdb->prepare("SELECT id, created_at FROM {$wpdb->prefix}bp_favorite_collection WHERE user_id = %d", $this->user())) as $row) {
+                $this->collectionDates[(int) $row->id] = (string) $row->created_at;
+            }
+        }
+
+        return [
+            'id' => (string) $id,
+            'name' => (string) $c['name'],
+            'favorite_count' => (int) ($c['count'] ?? 0),
+            'created_at' => \Bootspruefung\Learning\Mobile\TokenAuth::iso($this->collectionDates[$id] ?? null),
+            'updated_at' => null,
+        ];
+    }
+}

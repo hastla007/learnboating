@@ -29,6 +29,8 @@ final class Schema
         'entitlement', 'access_rule', 'product_access', 'learning_group', 'learning_group_member',
         // Prüfungsanmeldung (Anleitung, Prüfungsausschüsse)
         'exam_committee', 'exam_guide',
+        // Mobile App (REST boatingschool/v1): Gerätesitzungen, Idempotenz, Datenexporte
+        'mobile_session', 'mobile_idempotency', 'mobile_export',
     ];
 
     public function __construct(private readonly string $prefix, private readonly string $charsetCollate)
@@ -755,6 +757,61 @@ final class Schema
   KEY status_invited (status,invited_at),
   KEY email (email),
   KEY user_id (user_id)",
+            // App-Gerätesitzungen: nur SHA-256-Hashes der Tokens; rotierende Refresh-Tokens (vorheriger Hash
+            // für die Erkennung wiederverwendeter Tokens).
+            'mobile_session' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  access_hash char(64) NOT NULL,
+  refresh_hash char(64) NOT NULL,
+  prev_refresh_hash char(64) NULL,
+  device_name varchar(100) NOT NULL DEFAULT '',
+  device_platform varchar(16) NULL,
+  app_version varchar(40) NULL,
+  created_at datetime NOT NULL,
+  last_used_at datetime NOT NULL,
+  rotated_at datetime NULL,
+  access_expires_at datetime NOT NULL,
+  refresh_expires_at datetime NOT NULL,
+  absolute_expires_at datetime NOT NULL,
+  revoked_at datetime NULL,
+  revoke_reason varchar(32) NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY access_hash (access_hash),
+  UNIQUE KEY refresh_hash (refresh_hash),
+  KEY prev_refresh_hash (prev_refresh_hash),
+  KEY user_revoked (user_id,revoked_at),
+  KEY absolute_expires_at (absolute_expires_at)",
+            // Idempotency-Key je Nutzer und Vorgang (App-Wiederholungen nach Netzabbruch).
+            'mobile_idempotency' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  scope varchar(64) NOT NULL,
+  idem_key char(36) NOT NULL,
+  request_hash char(64) NOT NULL,
+  status_code smallint(5) unsigned NOT NULL DEFAULT 0,
+  response longtext NULL,
+  resource varchar(64) NULL,
+  created_at datetime NOT NULL,
+  expires_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY user_scope_key (user_id,scope,idem_key),
+  KEY user_resource (user_id,resource),
+  KEY expires_at (expires_at)",
+            // Datenexport (Art. 15/20 DSGVO) für die App: nur mit Anmeldung abrufbar, wird automatisch gelöscht.
+            'mobile_export' => "
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  public_id char(32) NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'ready',
+  payload longtext NULL,
+  size_bytes int(10) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  expires_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY public_id (public_id),
+  KEY user_id (user_id),
+  KEY expires_at (expires_at)",
         ];
 
         $sql = [];
@@ -822,6 +879,7 @@ final class Schema
     /** Tabellen mit personenbezogenen Lerndaten (Export/Löschung, Kap. 10). */
     public const USER_DATA_TABLES = [
         'attempt', 'progress', 'favorite', 'favorite_collection', 'exam_session', 'navigation_progress', 'praxis_progress', 'video_progress', 'radio_progress',
+        'mobile_session', 'mobile_idempotency', 'mobile_export',
     ];
 
     private static function sourceColumns(): string

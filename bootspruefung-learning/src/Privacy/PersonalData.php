@@ -84,6 +84,7 @@ final class PersonalData
             'entitlement' => [__('Kurszugänge', 'bootspruefung-learning'), 'user_id = %d'],
             'learning_group' => [__('Eigene Gruppen', 'bootspruefung-learning'), 'owner_user_id = %d'],
             'learning_group_member' => null,
+            'mobile_session' => [__('App-Gerätesitzungen', 'bootspruefung-learning'), 'user_id = %d'],
             'audit_log' => [__('Protokoll (eigene Vorgänge)', 'bootspruefung-learning'), 'actor_user_id = %d OR (object_type = \'user\' AND object_id = %s)'],
         ];
         $out = [];
@@ -131,7 +132,7 @@ final class PersonalData
         $rows = $wpdb->get_results(self::sql('SELECT *', $table, $sources[$table][1]).' ORDER BY id LIMIT '.self::EXPORT_LIMIT.' OFFSET '.(int) $offset, ARRAY_A) ?: [];
         $data = [];
         foreach ($rows as $row) {
-            unset($row['invite_token'], $row['join_token'], $row['idempotency_key']);
+            unset($row['invite_token'], $row['join_token'], $row['idempotency_key'], $row['access_hash'], $row['refresh_hash'], $row['prev_refresh_hash']);
             $data[] = [
                 'group_id' => self::GROUP.'-'.$table,
                 'group_label' => __('Bootsprüfung', 'bootspruefung-learning').' – '.$sources[$table][0],
