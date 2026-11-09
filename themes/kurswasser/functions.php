@@ -299,3 +299,17 @@ add_filter('wp_resource_hints', static function (array $urls, string $relation):
         return ! str_contains($href, 's.w.org');
     }));
 }, 10, 2);
+
+/**
+ * Mini-Warenkorb auf Warenkorb/Kasse/Bestellbestätigung: WooCommerce gibt dort nur eine ausgeblendete
+ * Attrappe ohne Einstellungen aus, WordPress reiht das Block-Skript (viewScriptModule) trotzdem ein.
+ * Ohne Einstellungen fragt es „…/undefinedwc/store/v1/cart“ ab (404). Dort also nicht laden.
+ * (Zusammenspiel WooCommerce 11.2 / WordPress 7.1; entfernen, sobald WooCommerce das selbst behebt.)
+ */
+add_filter('render_block_woocommerce/mini-cart', static function ($html) {
+    if (function_exists('is_checkout') && (is_checkout() || is_cart())) {
+        wp_dequeue_script_module('woocommerce/mini-cart');
+    }
+
+    return $html;
+});

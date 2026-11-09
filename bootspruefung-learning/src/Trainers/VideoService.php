@@ -124,9 +124,11 @@ final class VideoService
         $progress = $this->db->get_row($this->db->prepare("SELECT completed, position_seconds FROM {$this->t('video_progress')} WHERE user_id = %d AND lesson_id = %d", $userId, $lessonId));
         $siblings = $this->course($userId, $course);
         $flat = [];
+        $lockedIds = [];
         foreach ($siblings['modules'] as $m) {
             foreach ($m['lessons'] as $l) {
                 $flat[] = $l['id'];
+                $lockedIds[$l['id']] = ! empty($l['locked']);
             }
         }
         $pos = array_search($lessonId, $flat, true);
@@ -145,6 +147,8 @@ final class VideoService
             'quiz' => $quiz,
             'previous' => $pos > 0 ? $flat[$pos - 1] : null,
             'next' => $pos !== false && isset($flat[$pos + 1]) ? $flat[$pos + 1] : null,
+            // Nächste Lektion gesperrt (kostenloser Teilumfang/zeitgesteuert): kein „Nächste Lektion“-Link ins Leere.
+            'next_locked' => $pos !== false && isset($flat[$pos + 1]) && ($lockedIds[$flat[$pos + 1]] ?? false),
         ];
     }
 

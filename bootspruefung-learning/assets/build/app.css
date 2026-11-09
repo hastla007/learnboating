@@ -1400,3 +1400,9 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 	.bp-app .bp-answer:has(input:checked) { border: 3px solid Highlight; }
 	.bp-app .bp-answer:has(input:checked) .bp-answer-key { background: Highlight; color: HighlightText; forced-color-adjust: none; }
 }
+
+/* Kostenloser Teilumfang (Schnupper-Paket) in der Kursübersicht */
+.bp-cc-media .bp-cc-trial { position: absolute; right: 0.8rem; top: 0.8rem; display: inline-block; padding: 0.25em 0.8em; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: #ffe08a; color: #3d2e00; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.bp-cc-trial-note { margin: 0 0 0.4rem; font-size: 0.85rem; color: #6b5200; }
+.bp-cc-unlock { margin: 0.4rem 0 0; font-size: 0.9rem; }
+.bp-vc-next-locked { align-self: center; }

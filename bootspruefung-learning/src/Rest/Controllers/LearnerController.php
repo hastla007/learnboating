@@ -129,14 +129,17 @@ final class LearnerController
         $out = [];
         foreach ($this->content->courses() as $course) {
             $features = $this->access->features($user, $course->code);
+            // Kostenloser Teilumfang (Schnupper-Paket): Fragen nur begrenzt, kein Vollzugang.
+            $trial = $features[AccessService::QUESTION_BANK] && isset($this->access->limits($user, $course->code)[AccessService::QUESTION_BANK]);
             $out[] = [
                 'code' => $course->code,
+                'trial' => $trial,
                 'slug' => ContentRepository::slug($course->code),
                 'name' => $course->name,
                 'type' => $course->course_type,
                 'features' => $features,
                 'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course)['total'] : null,
-                'shop' => in_array(true, $features, true) ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
+                'shop' => in_array(true, $features, true) && ! $trial ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
             ];
         }
 

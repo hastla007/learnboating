@@ -34,6 +34,9 @@ final class WithdrawalFunction
     /** Feste, sprechende Adresse (Weiterleitung auf den WooCommerce-Endpunkt). */
     public const SLUG = 'vertrag-widerrufen';
 
+    /** Query-Parameter: Bestellung, mit der das Formular vorbefüllt wird (nur eigene Bestellungen). */
+    public const PREFILL_ARG = 'bestellung';
+
     /** Von WooCommerce gesetzt, sobald zu einer Bestellung ein Widerruf eingegangen ist. */
     public const REQUESTED_META = '_order_withdrawal_requested';
 
@@ -54,6 +57,7 @@ final class WithdrawalFunction
     public function register(): void
     {
         add_action('template_redirect', [$this, 'redirect'], 1);
+        add_action('wp_footer', [$this, 'prefillScript'], 20);
         add_action('woocommerce_order_details_after_order_table', [$this, 'orderDetails'], 20);
         add_action('admin_notices', [$this, 'adminNotice']);
         add_action('admin_post_bp_enable_withdrawal', [$this, 'handleEnable']);
@@ -317,7 +321,7 @@ final class WithdrawalFunction
             }
             $action = self::requested($order)
                 ? esc_html__('Widerruf eingegangen', 'bootspruefung-learning')
-                : self::button();
+                : self::button($order);
             $rows[] = sprintf('<tr><td>#%s</td><td>%s</td><td>%s</td></tr>', esc_html($order->get_order_number()), esc_html(Labels::date(gmdate('Y-m-d H:i:s', (int) self::deadline($order)))), $action);
         }
         if ($rows === []) {
@@ -338,12 +342,61 @@ final class WithdrawalFunction
 
             return;
         }
-        echo '<p>'.self::button().'</p>'; // phpcs:ignore
+        echo '<p>'.self::button($order).'</p>'; // phpcs:ignore
     }
 
-    private static function button(): string
+    private static function button(?\WC_Order $order = null): string
     {
-        return '<a class="button bp-withdrawal-button" href="'.esc_url(self::endpointUrl()).'">'.esc_html(self::buttonLabel()).'</a>';
+        $url = self::endpointUrl();
+        if ($order && self::enabled()) {
+            $url = add_query_arg(self::PREFILL_ARG, (int) $order->get_id(), $url);
+        }
+
+        return '<a class="button bp-withdrawal-button" href="'.esc_url($url).'">'.esc_html(self::buttonLabel()).'</a>';
+    }
+
+    /**
+     * WooCommerce-Formular für angemeldete Kunden vorbefüllen (WooCommerce selbst bietet das nicht):
+     * Vor-/Nachname und E-Mail aus der Bestellung bzw. dem Konto, die Bestellnummer, wenn der Kunde
+     * über „Vertrag hier widerrufen“ einer eigenen Bestellung kommt. Nur leere Felder, nur im ersten
+     * Schritt (GET); alles bleibt änderbar.
+     */
+    public function prefillScript(): void
+    {
+        if (! self::enabled() || ! is_user_logged_in() || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET'
+            || ! function_exists('is_account_page') || ! is_account_page() || ! function_exists('WC') || ! WC()->query
+            || WC()->query->get_current_endpoint() !== self::ENDPOINT) {
+            return;
+        }
+        $user = wp_get_current_user();
+        $values = [
+            'first_name' => (string) get_user_meta($user->ID, 'billing_first_name', true) ?: (string) $user->first_name,
+            'last_name' => (string) get_user_meta($user->ID, 'billing_last_name', true) ?: (string) $user->last_name,
+            'email' => (string) get_user_meta($user->ID, 'billing_email', true) ?: (string) $user->user_email,
+            'order_number' => '',
+        ];
+        $order = isset($_GET[self::PREFILL_ARG]) ? wc_get_order(absint($_GET[self::PREFILL_ARG])) : null;
+        if ($order instanceof \WC_Order && ! $order instanceof \WC_Order_Refund && (int) $order->get_customer_id() === (int) $user->ID) {
+            // Für die Zuordnung zählt die Rechnungs-E-Mail der Bestellung.
+            $values['first_name'] = $order->get_billing_first_name() ?: $values['first_name'];
+            $values['last_name'] = $order->get_billing_last_name() ?: $values['last_name'];
+            $values['email'] = $order->get_billing_email() ?: $values['email'];
+            $values['order_number'] = (string) $order->get_order_number();
+        }
+        $values['email_confirmation'] = $values['email'];
+        $fields = [];
+        foreach ($values as $key => $value) {
+            if ($value !== '') {
+                $fields['order_withdrawal_'.$key] = $value;
+            }
+        }
+        if ($fields === []) {
+            return;
+        }
+        printf(
+            '<script>(function(v){Object.keys(v).forEach(function(id){var el=document.getElementById(id);if(el&&!el.value){el.value=v[id];}});})(%s);</script>',
+            wp_json_encode($fields, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+        );
     }
 
     public function adminNotice(): void

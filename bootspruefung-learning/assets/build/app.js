@@ -273,13 +273,18 @@
 		var img = courseImage(c.slug, 'card');
 		var media = el('a', { class: 'bp-cc-media' + (img ? '' : ' is-plain'), href: base + c.slug + '/', 'data-bp-link': '1', tabindex: '-1', 'aria-hidden': 'true' }, [
 			img ? el('img', { src: img, alt: '', loading: 'lazy' }) : null,
-			el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) })
+			el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) }),
+			c.trial ? el('span', { class: 'bp-cc-trial', text: t('course_trial') }) : null
 		]);
 		var body = [el('h3', { class: 'bp-cc-title' }, [link(c.slug + '/', c.name)])];
 		if (c.progress) {
+			var started = c.progress.mastered + c.progress.learning + c.progress.unsure > 0;
+			if (c.trial) { body.push(el('p', { class: 'bp-cc-trial-note', text: t('course_trial_note') })); }
 			body.push(el('p', { class: 'bp-cc-pct' }, [el('strong', { text: c.progress.percent + ' %' }), ' ' + t('course_hero_mastered')]));
 			body.push(progressBar(c.progress, t('progress_short', { mastered: c.progress.mastered, total: c.progress.questions })));
-			body.push(el('p', { class: 'bp-cc-actions' }, [link(c.slug + '/', c.progress.mastered + c.progress.learning + c.progress.unsure > 0 ? t('dash_continue') : t('course_cta_learn'), 'bp-button bp-button-primary bp-cc-go')]));
+			body.push(el('p', { class: 'bp-cc-actions' }, [link(c.slug + '/', c.trial ? t('course_trial_cta') : (started ? t('dash_continue') : t('course_cta_learn')), 'bp-button bp-button-primary bp-cc-go')]));
+			var offer = c.trial && c.shop && c.shop.question_bank ? c.shop.question_bank[0] : null;
+			if (offer) { body.push(el('p', { class: 'bp-cc-unlock' }, [el('a', { href: offer.url, text: t('course_trial_unlock', { price: offer.price }) })])); }
 		} else {
 			body.push(el('p', { class: 'bp-muted bp-cc-locked', text: t('locked_short') }));
 			body = body.concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : []);
@@ -290,6 +295,7 @@
 	function viewOverview() {
 		return api('GET', 'me/courses').then(function (courses) {
 			var mine = courses.filter(function (c) { return !!c.progress; });
+			var trials = mine.filter(function (c) { return c.trial; }).length;
 			var others = courses.filter(function (c) { return !c.progress; });
 			var focus = null;
 			mine.forEach(function (c) {
@@ -302,7 +308,8 @@
 					el('h1', { text: cfg.user ? t('dash_hello', { name: cfg.user }) : t('overview_title') }),
 					el('p', { class: 'bp-hero-lead', text: t('dash_intro') }),
 					el('ul', { class: 'bp-hero-facts' }, [
-						el('li', {}, [el('strong', { text: String(mine.length) }), ' ' + t('dash_stat_courses')])
+						mine.length - trials > 0 || !trials ? el('li', {}, [el('strong', { text: String(mine.length - trials) }), ' ' + t('dash_stat_courses')]) : null,
+						trials ? el('li', {}, [el('strong', { text: String(trials) }), ' ' + t('dash_stat_trial')]) : null
 					])
 				]),
 				focus ? el('div', { class: 'bp-hero-focus' }, [
@@ -2438,9 +2445,11 @@
 				quiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
 				quiz.focus({ preventScroll: true });
 			});
-		} else if (l.next) {
+		} else if (l.next && !l.next_locked) {
+			// Hauptknopf „Nächste Lektion“; der Pager unten verlinkt dann nur „zurück“ (kein doppelter Knopf).
 			cta = el('a', { href: base + slug + '/video/' + l.next + '/', class: 'bp-button bp-button-primary bp-vc-cta', 'data-bp-link': '1' }, [t('video_next'), el('span', { class: 'bp-vc-arrow', 'aria-hidden': 'true', text: '→' })]);
 		}
+		var ctaIsNext = !!cta && !l.quiz.length;
 		var main = el('div', { class: 'bp-vc-main' }, [
 			el('p', { class: 'bp-vc-module', text: l.module }),
 			el('h1', { class: 'bp-vc-title', text: l.title }),
@@ -2450,7 +2459,8 @@
 			quiz,
 			(l.previous || l.next) ? el('nav', { class: 'bp-vc-pager', 'aria-label': t('video_chapters') }, [
 				l.previous ? link(slug + '/video/' + l.previous + '/', '← ' + t('prev'), 'bp-button') : el('span'),
-				l.next ? link(slug + '/video/' + l.next + '/', t('video_next') + ' →', 'bp-button') : null
+				l.next && l.next_locked ? el('span', { class: 'bp-muted bp-vc-next-locked', text: t('video_next_locked') })
+					: (l.next && !ctaIsNext ? link(slug + '/video/' + l.next + '/', t('video_next') + ' →', 'bp-button') : null)
 			]) : null
 		]);
 		layout = videoLayout(slug, c, v, l.id, main);
