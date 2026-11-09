@@ -16,7 +16,8 @@ final class BoatingSchool_Mobile_API {
     const SESSION_TABLE = 'bsm_sessions';
     const RECORDS_META = '_bsm_mobile_records';
     const ACCESS_TTL = 900;
-    const REFRESH_TTL = 7776000;
+    const REFRESH_TTL = 2592000;
+    const SESSION_MAX_TTL = 7776000;
     private static $session = null;
 
     public static function init() {
@@ -43,9 +44,10 @@ final class BoatingSchool_Mobile_API {
             device_name varchar(190) NOT NULL DEFAULT '',
             device_platform varchar(20) NULL,
             created_at datetime NOT NULL,
-            last_used_at datetime NOT NULL,
+            last_used_at datetime NOT NULL DEFAULT '1970-01-01 00:00:00',
             access_expires datetime NOT NULL,
             refresh_expires datetime NOT NULL,
+            absolute_expires datetime NOT NULL DEFAULT '1970-01-01 00:00:00',
             revoked_at datetime NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY access_hash (access_hash),
@@ -237,15 +239,16 @@ final class BoatingSchool_Mobile_API {
         delete_transient($limit_key);
         if ( ! apply_filters('boatingschool_mobile_user_allowed',$user) ) return self::problem('FORBIDDEN','Dieses Konto ist für die Lernenden-App nicht freigeschaltet.',403);
         $a = self::token(); $b = self::token(); $now = time(); global $wpdb;
-        $wpdb->insert( self::table(), array( 'user_id' => $user->ID, 'access_hash' => self::hash_token( $a ), 'refresh_hash' => self::hash_token( $b ), 'device_name' => sanitize_text_field( $r->get_param( 'device_name' ) ?: 'Mobile App' ), 'device_platform' => in_array($r->get_param('device_platform'),array('ios','android'),true)?$r->get_param('device_platform'):null, 'created_at' => gmdate( 'Y-m-d H:i:s', $now ), 'last_used_at' => gmdate( 'Y-m-d H:i:s', $now ), 'access_expires' => gmdate( 'Y-m-d H:i:s', $now + self::ACCESS_TTL ), 'refresh_expires' => gmdate( 'Y-m-d H:i:s', $now + self::REFRESH_TTL ) ) );
+        $wpdb->insert( self::table(), array( 'user_id' => $user->ID, 'access_hash' => self::hash_token( $a ), 'refresh_hash' => self::hash_token( $b ), 'device_name' => sanitize_text_field( $r->get_param( 'device_name' ) ?: 'Mobile App' ), 'device_platform' => in_array($r->get_param('device_platform'),array('ios','android'),true)?$r->get_param('device_platform'):null, 'created_at' => gmdate( 'Y-m-d H:i:s', $now ), 'last_used_at' => gmdate( 'Y-m-d H:i:s', $now ), 'access_expires' => gmdate( 'Y-m-d H:i:s', $now + self::ACCESS_TTL ), 'refresh_expires' => gmdate( 'Y-m-d H:i:s', $now + self::REFRESH_TTL ), 'absolute_expires' => gmdate( 'Y-m-d H:i:s', $now + self::SESSION_MAX_TTL ) ) );
         $user_id = $user->ID; if ( ! get_user_meta( $user_id, '_bsm_memberships', true ) ) update_user_meta( $user_id, '_bsm_memberships', array( self::tenant_slug() ) );
         return new WP_REST_Response( array( 'access_token' => $a, 'token_type' => 'Bearer', 'access_expires_at' => gmdate(DATE_RFC3339,$now+self::ACCESS_TTL), 'refresh_token' => $b, 'refresh_expires_at' => gmdate(DATE_RFC3339,$now+self::REFRESH_TTL), 'session_id' => (string)$wpdb->insert_id, 'data' => array( 'user' => self::user_payload($user->ID), 'memberships' => self::membership_payload($user->ID) ) ), 200 );
     }
     public static function refresh( $r ) {
         global $wpdb; $old = (string) $r->get_param( 'refresh_token' ); if ( strlen( $old ) < 50 ) return self::problem( 'UNAUTHENTICATED', 'Refresh-Token ungültig.', 401 );
-        $row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE refresh_hash=%s AND revoked_at IS NULL AND refresh_expires>%s', self::hash_token( $old ), current_time( 'mysql', true ) ) ); if ( ! $row ) return self::problem( 'UNAUTHENTICATED', 'Refresh-Token ungültig oder abgelaufen.', 401 );
-        $a = self::token(); $b = self::token(); $now = time(); $wpdb->update( self::table(), array( 'access_hash' => self::hash_token( $a ), 'refresh_hash' => self::hash_token( $b ), 'access_expires' => gmdate( 'Y-m-d H:i:s', $now + self::ACCESS_TTL ), 'refresh_expires' => gmdate( 'Y-m-d H:i:s', $now + self::REFRESH_TTL ) ), array( 'id' => $row->id ) );
-        return rest_ensure_response( array( 'access_token' => $a, 'token_type' => 'Bearer', 'access_expires_at' => gmdate(DATE_RFC3339,$now+self::ACCESS_TTL), 'refresh_token' => $b, 'refresh_expires_at' => gmdate(DATE_RFC3339,$now+self::REFRESH_TTL), 'session_id' => (string)$row->id ) );
+        $now_sql = current_time( 'mysql', true );
+        $row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE refresh_hash=%s AND revoked_at IS NULL AND refresh_expires>%s AND absolute_expires>%s', self::hash_token( $old ), $now_sql, $now_sql ) ); if ( ! $row ) return self::problem( 'UNAUTHENTICATED', 'Refresh-Token ungültig oder abgelaufen.', 401 );
+        $a = self::token(); $b = self::token(); $now = time(); $refresh_end = min( $now + self::REFRESH_TTL, strtotime( $row->absolute_expires . ' UTC' ) ); $wpdb->update( self::table(), array( 'access_hash' => self::hash_token( $a ), 'refresh_hash' => self::hash_token( $b ), 'access_expires' => gmdate( 'Y-m-d H:i:s', $now + self::ACCESS_TTL ), 'refresh_expires' => gmdate( 'Y-m-d H:i:s', $refresh_end ) ), array( 'id' => $row->id ) );
+        return rest_ensure_response( array( 'access_token' => $a, 'token_type' => 'Bearer', 'access_expires_at' => gmdate(DATE_RFC3339,$now+self::ACCESS_TTL), 'refresh_token' => $b, 'refresh_expires_at' => gmdate(DATE_RFC3339,$refresh_end), 'session_id' => (string)$row->id ) );
     }
     public static function logout() { if ( self::$session ) { global $wpdb; $wpdb->update( self::table(), array( 'revoked_at' => current_time( 'mysql', true ) ), array( 'id' => self::$session->id ) ); } return new WP_REST_Response( null, 204 ); }
     public static function forgot_password( $r ) { $email = sanitize_email( $r->get_param( 'email' ) ); if ( ! is_email( $email ) ) return self::problem( 'VALIDATION_FAILED', 'E-Mail-Adresse ungültig.', 422 ); $user = get_user_by( 'email', $email ); if ( $user ) retrieve_password( $user->user_login ); return new WP_REST_Response( null, 202 ); }
