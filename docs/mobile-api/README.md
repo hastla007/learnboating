@@ -293,9 +293,11 @@ beibehalten, wo es passt. Abweichungen:
 3. **Kontolöschung:** Nach der Bestätigung bearbeitet der Shop den Antrag in WordPress (Werkzeuge →
    Personenbezogene Daten löschen, danach Konto löschen). Soll das automatisch passieren? (Achtung
    Aufbewahrungsfristen für Bestellungen.)
-4. **Funkgerät-Simulator:** bewusst ohne App-API, nur Link in den Web-Lernbereich. Im Browser
-   ist eine erneute Anmeldung nötig (keine Sitzungsübergabe App → Web). Gewünscht wäre ggf. ein
-   einmaliger Anmeldelink (Magic Link) – nicht Teil dieser Lieferung.
+4. **Funkgerät-Simulator (entschieden):** In der Handy-App gibt es vorerst keinen Simulator, nur den
+   Hinweis „am Tablet oder im Browser öffnen“ mit `web_url`. Ein Anmeldelink für den Browser ist
+   deshalb nicht nötig. Später soll die Tablet-App den ganzen Simulator enthalten und wie am PC
+   bedienbar sein; dafür wird dann eine eigene Lösung geplant (Simulator in der App oder
+   eingebettete Web-Ansicht mit Sitzungsübergabe).
 5. **Passwort-Reset-Link** führt auf die Web-Seite des Shops. Soll er die App öffnen, braucht es
    Universal Links/App Links (apple-app-site-association, assetlinks.json) – nicht Teil dieser Lieferung.
 6. **Sprache der WordPress-Mails** (Reset, Löschbestätigung) folgt der Website-Sprache; auf Staging
@@ -305,9 +307,9 @@ beibehalten, wo es passt. Abweichungen:
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“** in Prüfungen gibt es auf der Plattform nicht – gewünscht?
 9. Laufzeiten (15 Min./30/90 Tage) und Limits sind derzeit feste Werte im Code; bei Bedarf einstellbar machen.
-10. **Sprachausgabe im Funktraining:** Das Web liest Diktate mit der Browserstimme vor
-    (Einstellung `radio_voice_output`). Die App nutzt die Sprachausgabe des Geräts; eigene
-    Audiodateien gibt es nicht.
+10. **Sprachausgabe im Funktraining (entschieden):** Vorerst liest die App Diktate mit der
+    Sprachausgabe des Geräts vor (das Web mit der Browserstimme, Einstellung `radio_voice_output`).
+    Eigene Tonaufnahmen werden später ergänzt; dann kommt ein Audio-Feld in die Antworten.
 
 ---
 
