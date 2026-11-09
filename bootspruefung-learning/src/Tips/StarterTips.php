@@ -23,8 +23,8 @@ final class StarterTips
                     'Der Smarttrainer stellt dir zuerst neue Fragen, danach falsch beantwortete und Fragen aus Themen, in denen du noch unsicher bist. Eine Frage gilt als gefestigt, wenn du sie dreimal hintereinander richtig beantwortet hast. So musst du nicht selbst planen, was als Nächstes dran ist.'],
                 ['Falsch beantwortete Fragen gezielt wiederholen',
                     'Über „Falsch beantwortete“ übst du nur die Fragen, bei denen du zuletzt danebenlagst. Nimm dir diese Liste regelmäßig vor, bis sie leer ist – dort steckt der größte Lerngewinn.'],
-                ['Merkliste für knifflige Fragen',
-                    'Fragen, die du dir noch einmal in Ruhe ansehen willst, markierst du mit „Merken“. Unter „Merkliste“ findest du sie gesammelt wieder.'],
+                ['Favoriten für knifflige Fragen',
+                    'Fragen, die du dir noch einmal in Ruhe ansehen willst, markierst du mit „Zu Favoriten“. Unter „Favoriten & Fehler“ findest du sie gesammelt wieder – auch in eigenen Sammlungen.'],
                 ['Fortschritt im Blick behalten',
                     'Auf der Kursseite siehst du, wie viele Fragen du schon gefestigt hast. Dein Fortschritt wird in deinem Konto gespeichert, du kannst also am Rechner anfangen und am Smartphone weiterlernen.'],
             ],
@@ -48,7 +48,7 @@ final class StarterTips
                 ['Unterlagen vollständig vorbereiten',
                     'Stelle alle Unterlagen zusammen, die dein Prüfungsausschuss verlangt, und prüfe sie vor dem Absenden noch einmal. Unvollständige Anträge kosten oft Zeit.'],
                 ['Ausgeruht in die Prüfung',
-                    'Am Tag vor der Prüfung lieber nur noch eine kurze Wiederholung mit der Merkliste und den falsch beantworteten Fragen machen und dann ausschlafen. Plane für den Prüfungstag genug Zeit für die Anreise ein.'],
+                    'Am Tag vor der Prüfung lieber nur noch eine kurze Wiederholung mit deinen Favoriten und den falsch beantworteten Fragen machen und dann ausschlafen. Plane für den Prüfungstag genug Zeit für die Anreise ein.'],
             ],
         ];
     }

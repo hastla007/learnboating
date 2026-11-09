@@ -414,13 +414,21 @@ final class Integration
         }
         // Nur Zugänge nennen, die wirklich nutzbar sind (z. B. kein Video-Upgrade ohne Theorie).
         $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
+        // Kurse nur nennen, wenn der Fragenkatalog freigeschaltet ist; reine Simulator-Zugänge (Funkgerät-Pass)
+        // gesondert nennen statt als „Kurs freigeschaltet“ (sonst wirkt UBI freigeschaltet, ist aber nur Testumfang).
+        $qb = \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK;
+        $sim = \Bootspruefung\Learning\Learning\Services\AccessService::DEVICE;
         $active = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::ACTIVE
-            && ($r->feature_code === 'all' ? $access->full((int) $r->user_id, (string) $r->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK) : $access->full((int) $r->user_id, (string) $r->course_code, (string) $r->feature_code)));
+            && in_array((string) $r->feature_code, ['all', $qb], true)
+            && $access->full((int) $r->user_id, (string) $r->course_code, $qb));
+        $simOnly = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::ACTIVE && (string) $r->feature_code === $sim);
         $pending = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::PENDING);
         if ($active !== []) {
             $courses = array_unique(array_map(static fn ($r) => $r->course_code, $active));
             $links = array_map(static fn ($c) => $plain ? Labels::course($c).': '.Router::url(ContentRepository::slug($c)) : '<a href="'.esc_url(Router::url(ContentRepository::slug($c))).'">'.esc_html(Labels::course($c)).'</a>', $courses);
             $text = esc_html__('Dein Lernzugang ist freigeschaltet:', 'bootspruefung-learning').' '.implode($plain ? ', ' : ' · ', $links);
+        } elseif ($simOnly !== []) {
+            $text = esc_html__('Dein Zugang zum Funkgerät-Simulator ist freigeschaltet.', 'bootspruefung-learning');
         } elseif ($pending !== []) {
             $text = esc_html__('Dein Lernzugang wird freigeschaltet, sobald die Zahlung eingegangen ist.', 'bootspruefung-learning');
         } else {

@@ -615,7 +615,10 @@ final class LearningService
             return [$base + 150, sprintf(__('Schwaches Thema: %s', 'bootspruefung-learning'), $topic)];
         }
 
-        return [$base, __('Gefestigt, niedrige Priorität', 'bootspruefung-learning')];
+        // „Gefestigt“ nur bei echter Festigung (3 richtige in Folge, wie im Fortschritt), sonst Wiederholung.
+        return [$base, (int) ($p->streak ?? 0) >= 3
+            ? __('Gefestigt, niedrige Priorität', 'bootspruefung-learning')
+            : __('Wiederholung zur Festigung', 'bootspruefung-learning')];
     }
 
     /** Gemerkte Fragen im freigeschalteten Umfang des Kurses. */
