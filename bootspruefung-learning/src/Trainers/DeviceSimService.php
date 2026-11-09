@@ -17,6 +17,12 @@ use RuntimeException;
  * übernommenen JavaScript der Quelle; der Server liefert die Konfiguration,
  * bewertet Funksprüche gegen die Prüfpunkte und speichert Stufen (1 = mit
  * Hilfe, 2 = nur Hinweis, 3 = allein) und Prüfungsergebnisse.
+ *
+ * Belege: Bestandene Funksprüche (evaluate) werden je Lektion und Schritt vermerkt
+ * (item_type „geraet-check“). Eine höhere Stufe bzw. eine Prüfungsaufgabe wird nur
+ * angenommen, wenn alle Funkspruch-Schritte der Lektion in den letzten PROOF_SECONDS
+ * bestanden wurden; danach ist der Beleg verbraucht. Lektionen ohne Funkspruch
+ * (reine Gerätebedienung) lassen sich serverseitig nicht belegen und werden wie bisher angenommen.
  */
 final class DeviceSimService
 {
@@ -28,6 +34,10 @@ final class DeviceSimService
      * Gesperrt: Not-, Dringlichkeits- und Sicherheitsverkehr, weitere Szenarien, Prüfungsmodus, Freies Üben.
      */
     public const FREE_LESSONS = ['geraet-bedienen', 'hoeren-senden', 'kanaele-anrufkanal', 'sendeleistung', 'mmsi-position-zeit', 'einzelanruf', 'binnen-atis', 'binnen-verkehrskreise', 'binnen-begegnung'];
+
+    /** Gültigkeit eines Funkspruch-Belegs (Sekunden). */
+    public const PROOF_SECONDS = 6 * HOUR_IN_SECONDS;
+    private const PROOF_TYPE = 'geraet-check';
 
     private \wpdb $db;
 
@@ -182,8 +192,14 @@ final class DeviceSimService
         if (! $speech) {
             throw new RuntimeException(__('Dieser Schritt erwartet keinen Funkspruch.', 'bootspruefung-learning'));
         }
+        $result = RadioChecks::checkText($speech['checks'], mb_substr($text, 0, 2000));
+        if (! empty($result['passed'])) {
+            $proof = $this->proof($userId, $lessonKey);
+            $proof[(string) $step] = time();
+            $this->saveProof($userId, $lessonKey, $proof);
+        }
 
-        return RadioChecks::checkText($speech['checks'], mb_substr($text, 0, 2000));
+        return $result;
     }
 
     /** @return array{level:int} */
@@ -200,8 +216,16 @@ final class DeviceSimService
         }
         $key = $device.':'.$lessonKey;
         $current = $this->stored($userId, $key);
-        $level = max((int) ($current['level'] ?? 0), $level);
+        $stored = (int) ($current['level'] ?? 0);
+        if ($level <= $stored) {
+            return ['level' => $stored]; // nichts Neues: kein Beleg nötig
+        }
+        // Höhere Stufe nur mit frisch bestandenen Funksprüchen dieser Lektion.
+        if (! $this->proven($userId, $lesson)) {
+            throw new RuntimeException(__('Bitte schließe die Funksprüche dieser Lektion zuerst im Simulator ab.', 'bootspruefung-learning'));
+        }
         $this->store($userId, $key, ['level' => $level], $level >= 3);
+        $this->consumeProof($userId, $lesson);
 
         return ['level' => $level];
     }
@@ -222,6 +246,12 @@ final class DeviceSimService
         }
         $lessons = $this->examLessons($series, $device);
         $ok = array_values(array_intersect($lessons, array_unique(array_map('strval', $passed))));
+        // Nur Aufgaben mit frisch bestandenen Funksprüchen zählen (Belege werden verbraucht).
+        $byKey = array_column($this->data()['lessons'] ?? [], null, 'key');
+        $ok = array_values(array_filter($ok, fn ($k) => isset($byKey[$k]) && $this->proven($userId, $byKey[$k])));
+        foreach ($ok as $k) {
+            $this->consumeProof($userId, $byKey[$k]);
+        }
         $key = $device.':pruefung-'.$series;
         $current = $this->stored($userId, $key);
         $best = max((int) ($current['best'] ?? 0), count($ok));
@@ -246,13 +276,21 @@ final class DeviceSimService
             $lessons = array_filter($lessons, static fn ($l) => in_array($l['key'], self::FREE_LESSONS, true));
         }
         $levels = $this->db->get_results($this->db->prepare(
-            "SELECT item_source_id, data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = 'geraet' AND item_source_id LIKE %s",
-            $userId,
-            $this->db->esc_like(self::DEFAULT_DEVICE.':').'%'
+            "SELECT item_source_id, data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = 'geraet'",
+            $userId
         ));
         // Nur Lektionen zählen, die gerade sichtbar sind (Testversion: nur die freien; je Kurs nur passende Funkscheine).
+        // Gemeistert = Stufe 3 auf irgendeinem Gerät des Kurses (Maximum über die Geräte, nicht nur das Standardgerät).
         $keys = array_flip(array_column($lessons, 'key'));
-        $mastered = count(array_filter($levels, static fn ($r) => isset($keys[substr((string) $r->item_source_id, strlen(self::DEFAULT_DEVICE) + 1)]) && ((json_decode((string) $r->data, true) ?: [])['level'] ?? 0) >= 3));
+        $devices = array_flip(array_column($this->devicesFor($this->catalogs($course), true), 'key'));
+        $done = [];
+        foreach ($levels as $r) {
+            [$device, $item] = array_pad(explode(':', (string) $r->item_source_id, 2), 2, '');
+            if (isset($devices[$device], $keys[$item]) && (int) ((json_decode((string) $r->data, true) ?: [])['level'] ?? 0) >= 3) {
+                $done[$item] = true;
+            }
+        }
+        $mastered = count($done);
 
         return ['lessons' => count($lessons), 'mastered' => $mastered, 'premium' => $premium];
     }
@@ -390,6 +428,50 @@ final class DeviceSimService
         } else {
             $this->db->insert($this->t('radio_progress'), array_merge(['user_id' => $userId, 'item_type' => 'geraet', 'item_source_id' => $key], $fields));
         }
+    }
+
+    /** Bestandene Funkspruch-Schritte einer Lektion: Schritt => Zeitpunkt. @return array<string,int> */
+    private function proof(int $userId, string $lessonKey): array
+    {
+        $json = $this->db->get_var($this->db->prepare("SELECT data FROM {$this->t('radio_progress')} WHERE user_id = %d AND item_type = %s AND item_source_id = %s", $userId, self::PROOF_TYPE, $lessonKey));
+        $data = $json ? (json_decode((string) $json, true) ?: []) : [];
+
+        return array_map('intval', (array) ($data['steps'] ?? []));
+    }
+
+    /** @param array<string,int> $steps */
+    private function saveProof(int $userId, string $lessonKey, array $steps): void
+    {
+        $this->db->query($this->db->prepare(
+            "INSERT INTO {$this->t('radio_progress')} (user_id, item_type, item_source_id, data, done) VALUES (%d, %s, %s, %s, 0) ON DUPLICATE KEY UPDATE data = VALUES(data)",
+            $userId,
+            self::PROOF_TYPE,
+            $lessonKey,
+            (string) wp_json_encode(['steps' => (object) $steps])
+        ));
+    }
+
+    /** Alle Funkspruch-Schritte der Lektion frisch bestanden? Lektionen ohne Funkspruch: ja. @param array<string,mixed> $lesson */
+    private function proven(int $userId, array $lesson): bool
+    {
+        $speech = array_keys(array_filter((array) ($lesson['steps'] ?? []), static fn ($s) => isset($s['speech'])));
+        if ($speech === []) {
+            return true;
+        }
+        $proof = $this->proof($userId, (string) $lesson['key']);
+        foreach ($speech as $i) {
+            if (($proof[(string) $i] ?? 0) < time() - self::PROOF_SECONDS) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $lesson */
+    private function consumeProof(int $userId, array $lesson): void
+    {
+        $this->db->delete($this->t('radio_progress'), ['user_id' => $userId, 'item_type' => self::PROOF_TYPE, 'item_source_id' => (string) $lesson['key']]);
     }
 
     private function requireLesson(int $userId, object $course, string $lessonKey): void

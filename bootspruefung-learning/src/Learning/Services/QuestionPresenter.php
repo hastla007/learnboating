@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Learning\Services;
 
+use Bootspruefung\Learning\Content\Import\EntityImporter;
+use Bootspruefung\Learning\Content\Media\MediaStorage;
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
+use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\Support\AccessDenied;
 use Bootspruefung\Learning\Support\NotFound;
 use RuntimeException;
@@ -17,10 +20,86 @@ use RuntimeException;
  */
 final class QuestionPresenter
 {
-    private const TTL = DAY_IN_SECONDS;
+    /**
+     * Gültigkeit eines Frage-Tokens. Jede neue Frage (Lernmodus) bzw. jeder Aufruf einer
+     * Videolektion holt ein frisches Token; 2 Stunden reichen für Bedenkzeit und Videos,
+     * begrenzen aber, wie lange ein einmal ausgeliefertes Token nach Zugangsende nutzbar wäre.
+     */
+    public const TTL = 2 * HOUR_IN_SECONDS;
+
+    /** @var array<int,?object> */
+    private array $revisions = [];
+    /** @var array<int,list<object>> */
+    private array $answerRows = [];
+    /** @var array<int,list<array{url:string,alt:string,caption:?string}>> */
+    private array $mediaRows = [];
 
     public function __construct(private readonly ContentRepository $content)
     {
+    }
+
+    /**
+     * Lädt Revisionen, Antworten und Bilder mehrerer Fragen mit je einer Abfrage vor
+     * (Prüfungsauswertung, Videoquiz) – statt drei Abfragen je Frage. Gleiche Regeln wie
+     * ContentRepository::revision()/answers()/media(). Jeder Aufruf ersetzt den Vorrat
+     * (gilt nur für den laufenden Vorgang, keine veralteten Rechte in langen Prozessen).
+     * @param list<int> $revisionIds
+     */
+    public function preload(array $revisionIds): void
+    {
+        $this->revisions = [];
+        $this->answerRows = [];
+        $this->mediaRows = [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', $revisionIds))));
+        if ($ids === []) {
+            return;
+        }
+        global $wpdb;
+        $t = static fn (string $name): string => $wpdb->prefix.'bp_'.$name;
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $in = implode(',', $chunk);
+            foreach ($chunk as $id) {
+                $this->revisions[$id] = null;
+                $this->answerRows[$id] = [];
+                $this->mediaRows[$id] = [];
+            }
+            foreach ($wpdb->get_results("SELECT r.*, q.source_id, q.official_number, q.content_role FROM {$t('question_revision')} r JOIN {$t('question')} q ON q.id = r.question_id WHERE r.id IN ({$in})") as $row) {
+                $this->revisions[(int) $row->id] = $row;
+            }
+            foreach ($wpdb->get_results("SELECT revision_id, id, answer_key, answer_text, is_correct, sort_order FROM {$t('answer')} WHERE revision_id IN ({$in}) ORDER BY revision_id, sort_order, id") as $row) {
+                $this->answerRows[(int) $row->revision_id][] = $row;
+            }
+            $media = $wpdb->get_results($wpdb->prepare(
+                "SELECT cm.object_id AS revision_id, m.storage_key, COALESCE(cm.caption_override, m.caption) AS caption, COALESCE(cm.alt_override, m.alt_text) AS alt, COALESCE(o.value, m.rights_status) AS rights
+                 FROM {$t('content_media')} cm JOIN {$t('media')} m ON m.id = cm.media_id ".Overrides::rightsJoin('media', 'm', 'o')."
+                 WHERE cm.object_type = 'question_revision' AND cm.object_id IN ({$in}) AND m.status <> %s ORDER BY cm.object_id, cm.sort_order",
+                EntityImporter::ARCHIVED
+            ));
+            foreach ($media as $row) {
+                if (in_array($row->rights, Overrides::BLOCKING_RIGHTS, true) || ! $row->storage_key) {
+                    continue;
+                }
+                $this->mediaRows[(int) $row->revision_id][] = ['url' => MediaStorage::url($row->storage_key), 'alt' => (string) ($row->alt ?: __('Abbildung zur Frage', 'bootspruefung-learning')), 'caption' => $row->caption];
+            }
+        }
+    }
+
+    /** Revision (vorgeladen oder einzeln). */
+    public function revision(int $revisionId): ?object
+    {
+        return array_key_exists($revisionId, $this->revisions) ? $this->revisions[$revisionId] : $this->content->revision($revisionId);
+    }
+
+    /** @return list<object> Antworten einer Revision (vorgeladen oder einzeln) */
+    public function answers(int $revisionId): array
+    {
+        return $this->answerRows[$revisionId] ?? $this->content->answers($revisionId);
+    }
+
+    /** @return list<array{url:string,alt:string,caption:?string}> */
+    private function media(int $revisionId): array
+    {
+        return $this->mediaRows[$revisionId] ?? $this->content->media($revisionId);
     }
 
     /**
@@ -29,11 +108,11 @@ final class QuestionPresenter
      */
     public function present(int $revisionId, ?array $answerOrder = null): array
     {
-        $revision = $this->content->revision($revisionId);
+        $revision = $this->revision($revisionId);
         if ($revision === null) {
             throw new NotFound('Frage nicht gefunden.');
         }
-        $answers = $this->content->answers($revisionId);
+        $answers = $this->answers($revisionId);
         $byId = [];
         foreach ($answers as $answer) {
             $byId[(int) $answer->id] = $answer;
@@ -56,7 +135,7 @@ final class QuestionPresenter
             'type' => $revision->question_type,
             'text' => $revision->question_text,
             'topic' => $revision->smart_category ?: $revision->topic,
-            'media' => $this->content->media($revisionId),
+            'media' => $this->media($revisionId),
             'answers' => array_map(static fn (int $id, int $i) => ['id' => $id, 'label' => $letters[$i] ?? (string) ($i + 1), 'text' => $byId[$id]->answer_text], $order, array_keys($order)),
             'answer_order' => $order,
         ];
@@ -96,7 +175,7 @@ final class QuestionPresenter
     public function evaluate(int $revisionId, string $type, array $selectedIds, ?bool $known): array
     {
         $correctIds = [];
-        foreach ($this->content->answers($revisionId) as $answer) {
+        foreach ($this->answers($revisionId) as $answer) {
             if ((int) $answer->is_correct === 1) {
                 $correctIds[] = (int) $answer->id;
             }
@@ -115,7 +194,7 @@ final class QuestionPresenter
 
     public function modelAnswer(int $revisionId): ?string
     {
-        foreach ($this->content->answers($revisionId) as $answer) {
+        foreach ($this->answers($revisionId) as $answer) {
             if ((int) $answer->is_correct === 1) {
                 return $answer->answer_text;
             }

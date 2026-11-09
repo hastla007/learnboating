@@ -61,11 +61,16 @@ final class Charts
             throw new \InvalidArgumentException('Unbekannte Karte oder Datei.');
         }
         $old = self::state($code);
+        // Erst die neue Datei sicher ablegen; schlägt das fehl, liegt sie öffentlich im Upload-Ordner
+        // → wieder löschen (lizenzpflichtig) und die bisherige Karte behalten.
+        if (! ProtectedFiles::protect($attachmentId, $catalog[$code]['courses'][0], AccessService::NAVIGATION)) {
+            wp_delete_attachment($attachmentId, true);
+            throw new \InvalidArgumentException(__('Die Seekarte konnte nicht geschützt abgelegt werden und wurde wieder gelöscht. Bitte die Schreibrechte des geschützten Upload-Ordners prüfen.', 'bootspruefung-learning'));
+        }
+        update_post_meta($attachmentId, '_bp_chart', $code);
         if ($old && $old['attachment_id'] > 0 && $old['attachment_id'] !== $attachmentId) {
             wp_delete_attachment($old['attachment_id'], true);
         }
-        ProtectedFiles::protect($attachmentId, $catalog[$code]['courses'][0], AccessService::NAVIGATION);
-        update_post_meta($attachmentId, '_bp_chart', $code);
         self::save($code, ['attachment_id' => $attachmentId, 'licensed' => $old['licensed'] ?? false, 'note' => $old['note'] ?? '']);
         AuditLog::record('chart_uploaded', 'attachment', (string) $attachmentId, null, ['chart' => $code]);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Exams\Services;
 
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
+use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Support\AccessDenied;
@@ -20,7 +21,12 @@ use RuntimeException;
  * - keine Lösungen während der Prüfung; offene Fragen erst nach „Musterantwort
  *   anzeigen“ selbst einschätzbar;
  * - Zeit und Bewertung serverseitig; Antworten nach Fristende zählen nicht;
- * - Bestehen = Gesamtquote und alle Teilgrenzen (z. B. Basis 5/7, See 18/23).
+ * - Bestehen = Gesamtquote und alle Teilgrenzen (z. B. Basis 5/7, See 18/23); die Zuordnung
+ *   Frage → Teil wird beim Start im Snapshot festgehalten (spätere Modul-Änderungen ändern
+ *   keine Ergebnisse); ein Teil ohne Fragen wird nicht gewertet;
+ * - feste Bögen und Zufallsprüfung respektieren die zeitgesteuerte Freigabe (Drip) der Module;
+ * - reicht der Fragenpool nicht für den Blueprint, läuft die Zufallsprüfung verkürzt als
+ *   Übungsmodus (reduced) statt still als „offizielle“ Simulation.
  * Ohne verifiziertes, gültiges Regelwerk läuft die Simulation als Übungsmodus.
  */
 final class ExamService
@@ -28,6 +34,9 @@ final class ExamService
     private const GRACE_SECONDS = 5;
 
     private \wpdb $db;
+
+    /** @var array<string,array{0:array<string,int>,1:array<int,list<int>>}> Modul-IDs und Fragen je Teil-Modulcodes (je Anfrage) */
+    private array $partModules = [];
 
     public function __construct(
         private readonly ContentRepository $content,
@@ -47,29 +56,43 @@ final class ExamService
     /** @param bool $withResults alle ausgewerteten Versuche mitliefern (nur Prüfungsseite) */
     public function overview(int $userId, object $course, bool $withResults = false): array
     {
+        $this->partModules = []; // Zwischenspeicher gilt je Vorgang
         $this->expireRunning($userId);
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
         $papers = [];
         $limit = $this->access->limit($userId, $course->code, AccessService::EXAM);
         // Kombis: je Bogen die geltenden Teile und Zeit (See-Bogen 60 Min., Binnen-Bogen 35 Min.) direkt auf der Kachel.
         $perPaper = $rule !== null && array_filter((array) ($rule->passing['parts'] ?? []), static fn ($p) => isset($p['seconds'])) !== [];
-        foreach ($this->content->papers((int) $course->id) as $index => $paper) {
+        $paperList = $this->content->papers((int) $course->id);
+        // Gebündelt statt je Bogen: Fragen aller Bögen, Drip-Sperren und letzte Versuche mit je einer Abfrage.
+        $paperQuestions = $this->paperQuestionIds(array_map(static fn ($p) => (int) $p->id, $paperList));
+        $unlockAt = $this->paperUnlockTimes($userId, $course, $paperQuestions);
+        $lastByPaper = [];
+        foreach ($this->db->get_results($this->db->prepare(
+            "SELECT id, paper_id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND course_id = %d AND paper_id IS NOT NULL ORDER BY (status = 'running') DESC, id DESC",
+            $userId,
+            $course->id
+        )) as $row) {
+            $lastByPaper[(int) $row->paper_id] ??= $row;
+        }
+        foreach ($paperList as $index => $paper) {
             $paperRule = null;
             if ($perPaper) {
-                [$pp, $pt] = $this->applicableParts((array) $rule->passing, array_map(static fn ($r) => (int) $r->question_id, $this->content->paperQuestions((int) $paper->id)), (int) $rule->time_limit_seconds);
+                [$pp, $pt] = $this->applicableParts((array) $rule->passing, $paperQuestions[(int) $paper->id] ?? [], (int) $rule->time_limit_seconds);
                 $paperRule = $this->passingText($pp, (int) $paper->question_count, $pt);
             }
-            $last = $this->db->get_row($this->db->prepare(
-                "SELECT id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND paper_id = %d ORDER BY (status = 'running') DESC, id DESC LIMIT 1",
-                $userId,
-                $paper->id
-            ));
+            $last = $lastByPaper[(int) $paper->id] ?? null;
+            $trialLocked = $limit !== null && $index >= $limit;
+            $dripAt = $unlockAt[(int) $paper->id] ?? null;
             $papers[] = [
                 'id' => (int) $paper->id,
                 'number' => (int) $paper->paper_number,
                 'questions' => (int) $paper->question_count,
                 'rule' => $paperRule,
-                'locked' => $limit !== null && $index >= $limit,
+                // gesperrt: kostenloser Teilumfang (lock_reason „trial“) oder Module noch nicht freigegeben („drip“, ab unlock_at).
+                'locked' => $trialLocked || $dripAt !== null,
+                'lock_reason' => $trialLocked ? 'trial' : ($dripAt !== null ? 'drip' : null),
+                'unlock_at' => $dripAt,
                 'last' => $last ? ['session_id' => (int) $last->id, 'status' => $last->status, 'score' => $last->score === null ? null : (int) $last->score, 'max' => $last->max_score === null ? null : (int) $last->max_score, 'passed' => $last->passed === null ? null : (bool) $last->passed] : null,
             ];
         }
@@ -118,6 +141,7 @@ final class ExamService
             }
         }
         $this->expireRunning($userId);
+        $this->partModules = [];
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
         if ($rule === null) {
             throw new RuntimeException('Für diesen Kurs ist kein Prüfungsregelwerk vorhanden.');
@@ -125,7 +149,10 @@ final class ExamService
 
         // Doppelklick/paralleler Start: Prüfen und Anlegen unter einer Sperre je Nutzer (sonst zwei laufende Sitzungen).
         $lock = 'bp_exam_start_'.$userId;
-        $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lock));
+        // GET_LOCK liefert 1 (erhalten), 0 (Zeitüberschreitung) oder NULL (Fehler) – nur mit Sperre weiter.
+        if ((string) $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lock)) !== '1') {
+            throw new RuntimeException(__('Die Prüfung wird gerade gestartet. Bitte versuche es in einem Moment erneut.', 'bootspruefung-learning'));
+        }
         try {
         $running = $this->db->get_var($this->db->prepare(
             "SELECT id FROM {$this->t('exam_session')} WHERE user_id = %d AND course_id = %d AND status = 'running' AND ".($paperId ? 'paper_id = %d' : 'paper_id IS NULL').' ORDER BY id DESC LIMIT 1',
@@ -136,6 +163,7 @@ final class ExamService
         }
 
         $modules = [];
+        $reduced = false;
         if ($paperId) {
             $paper = null;
             foreach ($this->content->papers((int) $course->id) as $p) {
@@ -151,18 +179,25 @@ final class ExamService
                 throw new RuntimeException('Dieser Bogen enthält derzeit nicht freigegebene Fragen und kann nicht gestartet werden.');
             }
             $picked = array_map(static fn ($r) => ['question_id' => (int) $r->question_id, 'revision_id' => (int) $r->revision_id], $rows);
+            // Zeitgesteuerte Freigabe (Drip) gilt auch für feste Bögen: sonst wären gesperrte Module über den Bogen vorab sichtbar.
+            $at = $this->paperUnlockTimes($userId, $course, [$paperId => array_column($picked, 'question_id')])[$paperId] ?? null;
+            if ($at !== null) {
+                throw new AccessDenied(sprintf(__('Dieser Prüfungsbogen wird am %s freigeschaltet, wenn alle seine Module freigegeben sind.', 'bootspruefung-learning'), wp_date(get_option('date_format'), strtotime($at.' UTC'))));
+            }
         } else {
             $picked = [];
             $taken = [];
+            $blueprints = $this->content->blueprints((int) $rule->id);
             // Zeitgesteuert gesperrte Module (Drip) nicht über die Zufallsprüfung vorab zeigen.
             $nowUtc = current_time('mysql', true);
-            foreach ($this->content->blueprints((int) $rule->id) as $bp) {
-                $at = $this->access->unlockAt($userId, $course->code, AccessService::QUESTION_BANK, (string) $bp->code);
+            $times = $this->access->unlockTimes($userId, $course->code, AccessService::QUESTION_BANK);
+            foreach ($blueprints as $bp) {
+                $at = $times[(string) $bp->code] ?? null;
                 if ($at !== null && $at > $nowUtc) {
                     throw new AccessDenied(__('Die Zufallsprüfung ist verfügbar, sobald alle Module freigegeben sind.', 'bootspruefung-learning'));
                 }
             }
-            foreach ($this->content->blueprints((int) $rule->id) as $bp) {
+            foreach ($blueprints as $bp) {
                 $pool = [];
                 foreach ($this->content->questionsForModules([(int) $bp->module_id]) as $row) {
                     if (! isset($taken[(int) $row->question_id])) {
@@ -170,6 +205,10 @@ final class ExamService
                     }
                 }
                 $keys = array_keys($pool);
+                // Zu kleiner Pool: Prüfung läuft verkürzt und nur als Übung (nicht „offiziell“).
+                if (count($keys) < (int) $bp->question_count) {
+                    $reduced = true;
+                }
                 QuestionPresenter::shuffle($keys);
                 foreach (array_slice($keys, 0, (int) $bp->question_count) as $id) {
                     $picked[] = $pool[$id];
@@ -190,9 +229,12 @@ final class ExamService
             'rule_id' => (int) $rule->id,
             'rule_source_id' => $rule->source_id,
             'version' => $rule->version,
-            'live' => $live,
+            'live' => $live && ! $reduced,
+            'reduced' => $reduced,
             'time_limit_seconds' => $timeLimit,
             'passing' => $passing,
+            // Frage → Teil (Modulcode) zum Startzeitpunkt; die Auswertung nutzt nur diese Zuordnung.
+            'question_parts' => (object) $this->assignParts($passing, array_column($picked, 'question_id')),
             'course_code' => $course->code,
             'blueprints' => $modules,
             'paper_number' => $paperId ? (int) $paper->paper_number : null,
@@ -215,6 +257,7 @@ final class ExamService
             if ($sessionId === 0) {
                 throw new RuntimeException('Prüfung konnte nicht gestartet werden.');
             }
+            $this->presenter->preload(array_column($picked, 'revision_id'));
             foreach ($picked as $i => $q) {
                 $presented = $this->presenter->present($q['revision_id']);
                 $this->db->insert($this->t('exam_session_question'), [
@@ -237,6 +280,17 @@ final class ExamService
         }
     }
 
+    /**
+     * Kennzeichen einer (eben gestarteten) Sitzung für die Start-Antwort.
+     * @return array{live:bool,reduced:bool}
+     */
+    public function flags(int $userId, int $sessionId): array
+    {
+        $snapshot = json_decode((string) $this->session($userId, $sessionId)->rule_snapshot, true) ?: [];
+
+        return ['live' => (bool) ($snapshot['live'] ?? false), 'reduced' => (bool) ($snapshot['reduced'] ?? false)];
+    }
+
     /** Zustand einer Sitzung; abgelaufene werden dabei bewertet. @return array<string,mixed> */
     public function show(int $userId, int $sessionId): array
     {
@@ -253,6 +307,8 @@ final class ExamService
             'status' => $session->status,
             'mode' => $session->mode,
             'live' => (bool) $snapshot['live'],
+            // Verkürzte Zufallsprüfung (Fragenpool kleiner als der Blueprint): nur Übung.
+            'reduced' => (bool) ($snapshot['reduced'] ?? false),
             'course' => ['code' => $course->code, 'name' => $course->name],
             'paper_number' => $snapshot['paper_number'],
             'rule' => [
@@ -263,6 +319,7 @@ final class ExamService
         ];
 
         if ($session->status === 'running') {
+            $this->presenter->preload(array_map(static fn ($q) => (int) $q->revision_id, $questions));
             $items = [];
             foreach ($questions as $sq) {
                 $presented = $this->presenter->present((int) $sq->revision_id, json_decode((string) $sq->answer_order, true) ?: []);
@@ -295,7 +352,7 @@ final class ExamService
     {
         $session = $this->runningSession($userId, $sessionId);
         $sq = $this->sessionQuestion($sessionId, $position);
-        $revision = $this->content->revision((int) $sq->revision_id);
+        $revision = $this->presenter->revision((int) $sq->revision_id);
         $data = ['answered_at' => current_time('mysql', true)];
         if ($revision->question_type === 'open_text') {
             if ($known === null) {
@@ -338,7 +395,7 @@ final class ExamService
     {
         $this->runningSession($userId, $sessionId);
         $sq = $this->sessionQuestion($sessionId, $position);
-        $revision = $this->content->revision((int) $sq->revision_id);
+        $revision = $this->presenter->revision((int) $sq->revision_id);
         if ($revision->question_type !== 'open_text') {
             throw new RuntimeException('Nur für offene Fragen.');
         }
@@ -403,12 +460,14 @@ final class ExamService
                 return;
             }
             $snapshot = json_decode((string) $session->rule_snapshot, true);
+            $this->partModules = [];
             $deadline = $session->deadline_at ? strtotime($session->deadline_at.' UTC') + self::GRACE_SECONDS : null;
             $questions = $this->questions($sessionId);
+            $this->presenter->preload(array_map(static fn ($q) => (int) $q->revision_id, $questions));
             $correctCount = 0;
             foreach ($questions as $sq) {
                 $withinTime = $deadline === null || $sq->answered_at === null || strtotime($sq->answered_at.' UTC') <= $deadline;
-                $revision = $this->content->revision((int) $sq->revision_id);
+                $revision = $this->presenter->revision((int) $sq->revision_id);
                 $given = json_decode((string) $sq->given_answer, true) ?: [];
                 $result = $this->presenter->evaluate(
                     (int) $sq->revision_id,
@@ -422,7 +481,7 @@ final class ExamService
                 $correctCount += $isCorrect ? 1 : 0;
             }
             $total = max(count($questions), 1);
-            $parts = $this->partResults($snapshot['passing'], $questions);
+            $parts = $this->partResults($snapshot['passing'], $questions, isset($snapshot['question_parts']) ? (array) $snapshot['question_parts'] : null);
             $minRatio = (float) ($snapshot['passing']['min_correct_ratio'] ?? 0.75);
             $passed = $correctCount / $total >= $minRatio - 1e-9 && array_reduce($parts, static fn ($ok, $p) => $ok && $p['passed'], true);
             $this->db->update($this->t('exam_session'), [
@@ -442,34 +501,31 @@ final class ExamService
 
     /**
      * Teilergebnisse je Regelwerksteil wie ExamRuleSet::partResults der Quelle:
-     * Fragen werden in Teil-Reihenfolge ihrem ersten passenden Modul zugeordnet.
+     * Fragen werden in Teil-Reihenfolge ihrem ersten passenden Modul zugeordnet. Seit dem
+     * Snapshot-Feld question_parts gilt die Zuordnung vom Prüfungsstart; ältere Sitzungen
+     * ohne dieses Feld werden wie bisher mit der aktuellen Modulzuordnung ausgewertet.
+     * Ein Teil ohne Fragen wird nicht gewertet (bestanden, empty = true) statt die Prüfung
+     * automatisch scheitern zu lassen; die Gesamtquote gilt weiterhin.
      * @param array<string,mixed> $passing
      * @param list<object> $questions
+     * @param array<int|string,?string>|null $assignment question_id => Modulcode aus dem Snapshot
      * @return list<array<string,mixed>>
      */
-    private function partResults(array $passing, array $questions): array
+    private function partResults(array $passing, array $questions, ?array $assignment = null): array
     {
         $parts = $passing['parts'] ?? [];
         if ($parts === []) {
             return [];
         }
-        $codes = array_column($parts, 'module');
-        $moduleIds = [];
-        foreach ($this->db->get_results("SELECT id, code FROM {$this->t('module')} WHERE code IN ('".implode("','", array_map('esc_sql', $codes))."')") as $m) {
-            $moduleIds[$m->code] = (int) $m->id;
-        }
-        $byModule = $this->content->moduleQuestionIds(array_values($moduleIds));
-        $assigned = [];
+        $assignment ??= $this->assignParts($passing, array_map(static fn ($q) => (int) $q->question_id, $questions));
         $results = [];
         foreach ($parts as $part) {
-            $inModule = array_flip($byModule[$moduleIds[$part['module']] ?? 0] ?? []);
             $total = 0;
             $correct = 0;
             foreach ($questions as $sq) {
-                if (isset($assigned[(int) $sq->question_id]) || ! isset($inModule[(int) $sq->question_id])) {
+                if (($assignment[(int) $sq->question_id] ?? null) !== $part['module']) {
                     continue;
                 }
-                $assigned[(int) $sq->question_id] = true;
                 $total++;
                 $correct += (int) $sq->is_correct;
             }
@@ -479,11 +535,134 @@ final class ExamService
                 'total' => $total,
                 'min_correct' => $part['min_correct'],
                 'of' => $part['of'],
-                'passed' => $total > 0 && $correct / $total >= $part['min_correct'] / $part['of'] - 1e-9,
+                'empty' => $total === 0,
+                'passed' => $total === 0 || $correct / $total >= $part['min_correct'] / $part['of'] - 1e-9,
             ];
         }
 
         return $results;
+    }
+
+    /**
+     * Ordnet jede Frage dem ersten Teil (in Teil-Reihenfolge) zu, dessen Modul sie enthält.
+     * @param array<string,mixed> $passing
+     * @param list<int> $questionIds
+     * @return array<int,string> question_id => Modulcode (Fragen ohne Teil fehlen)
+     */
+    private function assignParts(array $passing, array $questionIds): array
+    {
+        $parts = $passing['parts'] ?? [];
+        if ($parts === []) {
+            return [];
+        }
+        [$moduleIds, $byModule] = $this->partModuleIndex(array_column($parts, 'module'));
+        $picked = array_flip(array_map('intval', $questionIds));
+        $out = [];
+        foreach ($parts as $part) {
+            foreach ($byModule[$moduleIds[$part['module']] ?? 0] ?? [] as $q) {
+                if (isset($picked[$q]) && ! isset($out[$q])) {
+                    $out[$q] = (string) $part['module'];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Modul-IDs und Fragen der Teil-Module (je Anfrage einmal geladen).
+     * @param list<string> $codes
+     * @return array{0:array<string,int>,1:array<int,list<int>>}
+     */
+    private function partModuleIndex(array $codes): array
+    {
+        $key = implode('|', $codes);
+        if (! isset($this->partModules[$key])) {
+            $moduleIds = [];
+            if ($codes !== []) {
+                foreach ($this->db->get_results("SELECT id, code FROM {$this->t('module')} WHERE code IN ('".implode("','", array_map('esc_sql', $codes))."')") as $m) {
+                    $moduleIds[$m->code] = (int) $m->id;
+                }
+            }
+            $this->partModules[$key] = [$moduleIds, $this->content->moduleQuestionIds(array_values($moduleIds))];
+        }
+
+        return $this->partModules[$key];
+    }
+
+    /**
+     * Auslieferbare Fragen je Bogen mit einer Abfrage (wie ContentRepository::paperQuestions).
+     * @param list<int> $paperIds
+     * @return array<int,list<int>> paper_id => question_ids in Bogenreihenfolge
+     */
+    private function paperQuestionIds(array $paperIds): array
+    {
+        if ($paperIds === []) {
+            return [];
+        }
+        $rows = $this->db->get_results(
+            "SELECT pq.paper_id, q.id AS question_id FROM {$this->t('exam_paper_question')} pq
+             JOIN {$this->t('question')} q ON q.id = pq.question_id JOIN {$this->t('question_revision')} r ON r.id = q.current_revision_id ".Overrides::rightsJoin('question', 'q', 'o').'
+             WHERE pq.paper_id IN ('.implode(',', array_map('intval', $paperIds)).') AND '.$this->content->deliverableQuestionSql().' ORDER BY pq.paper_id, pq.position'
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row->paper_id][] = (int) $row->question_id;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Zeitgesteuerte Freigabe (Drip) je Bogen: Ein Bogen ist gesperrt, solange eine seiner Fragen
+     * nur in noch gesperrten Modulen des Kurses liegt (wie im Lernmodus: eine Frage ist frei,
+     * sobald eines ihrer Module frei ist). Freigabe = spätester dieser Zeitpunkte.
+     * @param array<int,list<int>> $paperQuestions paper_id => question_ids
+     * @return array<int,string> paper_id => Freigabezeitpunkt (UTC), nur gesperrte Bögen
+     */
+    private function paperUnlockTimes(int $userId, object $course, array $paperQuestions): array
+    {
+        $times = $this->access->unlockTimes($userId, (string) $course->code, AccessService::QUESTION_BANK);
+        $now = current_time('mysql', true);
+        if (array_filter($times, static fn ($at) => $at > $now) === [] || $paperQuestions === []) {
+            return [];
+        }
+        $codes = [];
+        foreach ($this->content->modules((int) $course->id) as $m) {
+            $codes[(int) $m->id] = (string) $m->code;
+        }
+        $allIds = array_values(array_unique(array_merge(...array_values($paperQuestions))));
+        if ($codes === [] || $allIds === []) {
+            return [];
+        }
+        $questionModules = [];
+        foreach ($this->db->get_results(
+            "SELECT question_id, module_id FROM {$this->t('module_question')} WHERE module_id IN (".implode(',', array_keys($codes)).') AND question_id IN ('.implode(',', array_map('intval', $allIds)).')'
+        ) as $row) {
+            $questionModules[(int) $row->question_id][] = $codes[(int) $row->module_id];
+        }
+        $out = [];
+        foreach ($paperQuestions as $paperId => $ids) {
+            $paperAt = null;
+            foreach ($ids as $id) {
+                $earliest = null;
+                foreach ($questionModules[$id] ?? [] as $code) {
+                    $at = $times[$code] ?? null;
+                    if ($at === null || $at <= $now) {
+                        continue 2; // mindestens ein Modul frei → Frage frei
+                    }
+                    $earliest = $earliest === null ? $at : min($earliest, $at);
+                }
+                if ($earliest !== null) {
+                    $paperAt = $paperAt === null ? $earliest : max($paperAt, $earliest);
+                }
+            }
+            if ($paperAt !== null) {
+                $out[(int) $paperId] = $paperAt;
+            }
+        }
+
+        return $out;
     }
 
     /** @param list<object> $questions @return array<string,mixed> */
@@ -501,15 +680,24 @@ final class ExamService
         foreach ($this->content->modules((int) $session->course_id) as $m) {
             $moduleNames[(int) $m->id] = (string) $m->name;
         }
-        foreach ($this->content->questionsForModules(array_keys($moduleNames)) as $row) {
-            $moduleOf[(int) $row->question_id] ??= $moduleNames[(int) $row->module_id] ?? '';
+        // Nur die Module der Prüfungsfragen laden (erstes Kursmodul in Kursreihenfolge), nicht den ganzen Katalog.
+        $questionIds = array_map(static fn ($q) => (int) $q->question_id, $questions);
+        if ($questionIds !== [] && $moduleNames !== []) {
+            foreach ($this->db->get_results($this->db->prepare(
+                "SELECT mq.question_id, mq.module_id FROM {$this->t('module_question')} mq JOIN {$this->t('course_module')} cm ON cm.module_id = mq.module_id AND cm.course_id = %d
+                 WHERE mq.question_id IN (".implode(',', $questionIds).') AND mq.module_id IN ('.implode(',', array_keys($moduleNames)).') ORDER BY cm.sort_order, mq.module_id',
+                $session->course_id
+            )) as $row) {
+                $moduleOf[(int) $row->question_id] ??= $moduleNames[(int) $row->module_id] ?? '';
+            }
         }
+        $this->presenter->preload(array_map(static fn ($q) => (int) $q->revision_id, $questions));
         foreach ($questions as $sq) {
             $presented = $this->presenter->present((int) $sq->revision_id, json_decode((string) $sq->answer_order, true) ?: []);
-            $revision = $this->content->revision((int) $sq->revision_id);
+            $revision = $this->presenter->revision((int) $sq->revision_id);
             $given = json_decode((string) $sq->given_answer, true) ?: [];
             $correctIds = [];
-            foreach ($this->content->answers((int) $sq->revision_id) as $a) {
+            foreach ($this->presenter->answers((int) $sq->revision_id) as $a) {
                 if ((int) $a->is_correct === 1) {
                     $correctIds[] = (int) $a->id;
                 }
@@ -545,6 +733,7 @@ final class ExamService
             'ratio' => $result['ratio'] ?? null,
             'passed' => (bool) $session->passed,
             'expired' => (bool) ($result['expired'] ?? false),
+            'reduced' => (bool) ((json_decode((string) $session->rule_snapshot, true) ?: [])['reduced'] ?? false),
             'parts' => $result['parts'] ?? [],
             'topics' => $topics,
             'open_text' => $openText,
@@ -581,11 +770,7 @@ final class ExamService
         if ($parts === []) {
             return [$passing, $timeLimit];
         }
-        $moduleIds = [];
-        foreach ($this->db->get_results("SELECT id, code FROM {$this->t('module')} WHERE code IN ('".implode("','", array_map('esc_sql', array_column($parts, 'module')))."')") as $m) {
-            $moduleIds[$m->code] = (int) $m->id;
-        }
-        $byModule = $this->content->moduleQuestionIds(array_values($moduleIds));
+        [$moduleIds, $byModule] = $this->partModuleIndex(array_column($parts, 'module'));
         $picked = array_flip(array_map('intval', $questionIds));
         $applicable = array_values(array_filter($parts, static function ($p) use ($moduleIds, $byModule, $picked): bool {
             foreach ($byModule[$moduleIds[$p['module']] ?? 0] ?? [] as $q) {

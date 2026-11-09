@@ -186,6 +186,8 @@ $key = wp_generate_uuid4();
 $check($s === 200 && $r['correct'] === false && $r['correct_ids'] === [$right], 'falsche Antwort ausgewertet, Lösung danach sichtbar');
 [$s, $r] = $req('POST', '/answers', ['token' => $q['token'], 'answer_ids' => [$wrong], 'idempotency_key' => $key]);
 $check($r['repeated'] === true && $r['progress']['attempts'] === 1, 'Doppel-Submit zählt nicht doppelt');
+// Serie zählt nur mit Abstand (Kurzzeitgedächtnis): letzte Antwort 10 Minuten zurückdatieren.
+$wpdb->query($wpdb->prepare("UPDATE {$p}progress SET last_answered_at = %s WHERE user_id = %d", gmdate('Y-m-d H:i:s', time() - 600), $uid));
 [$s, $d] = $req('GET', '/courses/SBF-SEE/next-question', ['mode' => 'wrong']);
 $check($d['question']['question_id'] === $q['question_id'], 'Modus „falsch beantwortet“ zeigt die Frage');
 [, $r] = $req('POST', '/answers', ['token' => $d['question']['token'], 'answer_ids' => [$right], 'idempotency_key' => wp_generate_uuid4()]);
@@ -307,8 +309,9 @@ $check(count($radio['texts'][0]['items']) === 27 && count($radio['vocabulary']) 
 [, $text] = $req('GET', '/courses/SRC/radio/texts/TXT-SRC-01');
 [$s, $ev] = $req('POST', '/courses/SRC/radio/texts/TXT-SRC-01/evaluate', ['direction' => 'de-en', 'transcript' => $text['text_de'], 'translation' => $text['text_en']]);
 $check($s === 200 && $ev['transcript']['percent'] === 100 && $ev['translation']['percent'] === 100, 'Funktext: vollständige Mitschrift und Übersetzung = 100 %');
-foreach ([true, true, true] as $known) {
-    [, $va] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-B', ['known' => $known]);
+foreach ([true, true, true] as $i => $known) {
+    // angezeigte Serie mitschicken (sonst gilt eine zweite Antwort binnen Sekunden als Doppelklick)
+    [, $va] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-B', ['known' => $known, 'streak' => $i]);
 }
 $check($va['learned'] === true && $va['streak'] === 3, 'Buchstabiertafel: nach 3 × gewusst gelernt');
 [$s] = $req('GET', '/courses/SBF-SEE/radio/texts/TXT-SRC-01');
@@ -348,6 +351,19 @@ $check($s === 200 && $ev['passed'] === true, 'Gerät: Musterfunkspruch besteht')
 [, $pr2] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => $speechLesson[0], 'level' => 1, 'device' => 'ic-m505']);
 $check($s === 200 && $pr['level'] === 3 && $pr2['level'] === 3, 'Gerät: Stufe gespeichert, höchste bleibt');
 $series = array_key_first(array_filter($sim['exam_meta'], static fn ($m) => $m['catalog'] === 'SRC'));
+// Prüfungsaufgaben zählen nur mit bestandenen Funksprüchen (serverseitiger Beleg).
+$simSpeak = static function (string $lessonKey) use ($sim, $jsonReq): void {
+    foreach ($sim['lessons'] as $l) {
+        if ($l['key'] === $lessonKey) {
+            foreach ($l['steps'] as $i => $st) {
+                if (isset($st['speech'])) {
+                    $jsonReq('POST', '/courses/SRC/device-sim/evaluate', ['lesson' => $lessonKey, 'step' => $i, 'text' => $st['speech']['solution']]);
+                }
+            }
+        }
+    }
+};
+array_map($simSpeak, $sim['exams'][$series]);
 [$s, $ex] = $jsonReq('POST', '/courses/SRC/device-sim/exam', ['series' => $series, 'device' => 'ic-m505', 'passed' => $sim['exams'][$series]]);
 $check($s === 200 && $ex['passed'] === $ex['total'] && $ex['best'] === $ex['total'] && count((array) $ex['solutions']) === $ex['total'], 'Gerät: Prüfungsreihe vollständig bestanden, Musterlösungen geliefert');
 [$s] = $req('GET', '/courses/SBF-SEE/device-sim');
@@ -374,6 +390,7 @@ $check($s === 200 && ($free['tier'] ?? '') === 'free' && in_array('einzelanruf',
 $check($free['locked']['tasks'] > 0 && $free['locked']['lessons'] > 0 && count($freeKeys) === count(array_intersect($freeKeys, \Bootspruefung\Learning\Trainers\DeviceSimService::FREE_LESSONS)), 'gesperrte Inhalte nur als Übersicht');
 [$s] = $jsonReq('POST', '/courses/SRC/device-sim/exam', ['series' => $series, 'device' => 'ic-m505', 'passed' => []]);
 [$s2] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'notalarm-senden', 'level' => 1, 'device' => 'ic-m505']);
+$simSpeak('einzelanruf');
 [$s3] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'einzelanruf', 'level' => 1, 'device' => 'ic-m505']);
 $check($s === 403 && $s2 === 403 && $s3 === 200, 'Testversion: Prüfung und gesperrte Lektion 403, freie Lektion speicherbar');
 (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->grantManual($other, 'SRC', ['device_simulation'], null, 'Test Simulator-Pass');
@@ -383,6 +400,151 @@ delete_option('bp_learning_settings');
 wp_set_current_user(0);
 [$s] = $req('GET', '/me/courses');
 $check($s === 401, 'ohne Anmeldung 401');
+
+echo "Review-Funde (Prüfung, Lernen, Trainer, Dateien)\n";
+$rv = wp_insert_user(['user_login' => $login.'rv', 'user_email' => $login.'rv@example.invalid', 'user_pass' => wp_generate_password()]);
+wp_set_current_user($rv);
+$see = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'SBF-SEE'");
+// Drip gilt auch für feste Bögen (Übersicht markiert, Start 403).
+$wpdb->insert($p.'access_rule', ['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank', 'module_code' => 'SBF_SEE', 'access_type' => 'drip', 'limit_value' => 30]);
+$dripRule = (int) $wpdb->insert_id;
+[, $o] = $req('GET', '/courses/SBF-SEE/exam');
+$paper0 = $o['papers'][0];
+[$s] = $req('POST', '/courses/SBF-SEE/exam-sessions', ['paper_id' => $paper0['id']]);
+$check($paper0['locked'] === true && $paper0['lock_reason'] === 'drip' && $paper0['unlock_at'] > current_time('mysql', true) && $s === 403, 'Drip: fester Bogen gesperrt (locked/unlock_at), Start 403');
+$wpdb->delete($p.'access_rule', ['id' => $dripRule]);
+[, $o] = $req('GET', '/courses/SBF-SEE/exam');
+$check($o['papers'][0]['locked'] === false && $o['papers'][0]['unlock_at'] === null, 'ohne Drip: Bogen frei');
+// Teilzuordnung aus dem Snapshot; Teil ohne Fragen erzwingt kein „nicht bestanden“.
+[$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');
+$rvSid = (int) $d['session_id'];
+$snap = json_decode((string) $wpdb->get_var($wpdb->prepare("SELECT rule_snapshot FROM {$p}exam_session WHERE id = %d", $rvSid)), true);
+$partCount = array_count_values(array_values((array) ($snap['question_parts'] ?? [])));
+ksort($partCount);
+$check($s === 201 && $d['live'] === true && $d['reduced'] === false && $partCount === ['SBF_BASIS' => 7, 'SBF_SEE' => 23], 'Start: Teilzuordnung 7/23 im Snapshot, live, nicht verkürzt');
+$snap['question_parts'] = array_map(static fn () => 'SBF_SEE', (array) $snap['question_parts']);
+$wpdb->update($p.'exam_session', ['rule_snapshot' => wp_json_encode($snap)], ['id' => $rvSid]);
+foreach ($wpdb->get_results($wpdb->prepare("SELECT position, revision_id FROM {$p}exam_session_question WHERE session_id = %d", $rvSid)) as $sq) {
+    $req('PUT', "/exam-sessions/{$rvSid}/answers/{$sq->position}", ['answer_ids' => array_map('intval', $wpdb->get_col($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $sq->revision_id)))]);
+}
+[, $e] = $req('POST', "/exam-sessions/{$rvSid}/submit");
+$parts = $e['result']['parts'];
+$check($parts[0]['total'] === 0 && $parts[0]['empty'] === true && $parts[0]['passed'] === true && $parts[1]['total'] === 30 && $e['result']['passed'] === true, 'Auswertung nach Snapshot-Zuordnung, leerer Teil nicht automatisch durchgefallen');
+// Zu kleiner Pool: verkürzt und nur Übung.
+$ruleId = (int) $wpdb->get_var($wpdb->prepare("SELECT rule_id FROM {$p}exam_session WHERE id = %d", $rvSid));
+$bpRow = $wpdb->get_row($wpdb->prepare("SELECT b.id, b.question_count FROM {$p}exam_blueprint b JOIN {$p}module m ON m.id = b.module_id WHERE b.rule_id = %d AND m.code = 'SBF_BASIS'", $ruleId));
+$wpdb->update($p.'exam_blueprint', ['question_count' => 100000], ['id' => $bpRow->id]);
+[$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');
+$wpdb->update($p.'exam_blueprint', ['question_count' => $bpRow->question_count], ['id' => $bpRow->id]);
+[, $e] = $req('GET', '/exam-sessions/'.$d['session_id']);
+$check($s === 201 && $d['reduced'] === true && $d['live'] === false && $e['reduced'] === true && $e['live'] === false, 'zu kleiner Fragenpool: reduced, kein offizieller Modus');
+// Laufende Prüfung ohne Zeitlimit sperrt ihre Fragen nur 24 Stunden.
+$wpdb->update($p.'exam_session', ['deadline_at' => null, 'started_at' => gmdate('Y-m-d H:i:s', time() - 3600)], ['id' => $d['session_id']]);
+$blockedNow = \Bootspruefung\Learning\Learning\Services\LearningService::blockedByRunningExam($rv);
+$wpdb->update($p.'exam_session', ['started_at' => gmdate('Y-m-d H:i:s', time() - 2 * DAY_IN_SECONDS)], ['id' => $d['session_id']]);
+$check($blockedNow !== [] && \Bootspruefung\Learning\Learning\Services\LearningService::blockedByRunningExam($rv) === [], 'Prüfung ohne Zeitlimit: Fragen gesperrt, nach 24 h nicht mehr');
+$req('POST', '/exam-sessions/'.$d['session_id'].'/submit');
+// Startsperre belegt (zweite Verbindung): freundliche Meldung statt Doppelstart.
+[$lockHost, $lockPort] = array_pad(explode(':', DB_HOST, 2), 2, null);
+$lockDb = new mysqli($lockHost, DB_USER, DB_PASSWORD, DB_NAME, $lockPort ? (int) $lockPort : 3306);
+$lockDb->query("SELECT GET_LOCK('bp_exam_start_{$rv}', 30)");
+[$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');
+$lockDb->query("SELECT RELEASE_LOCK('bp_exam_start_{$rv}')");
+$lockDb->close();
+$check($s === 422 && str_contains((string) ($d['message'] ?? ''), 'erneut'), 'Startsperre belegt: 422 „Bitte erneut versuchen“');
+// Lern-Token: TTL 2 h, Zugriff und Auslieferbarkeit bei Antwort/Aufdecken.
+$check(\Bootspruefung\Learning\Learning\Services\QuestionPresenter::TTL === 2 * HOUR_IN_SECONDS, 'Frage-Token gilt 2 Stunden');
+[, $d] = $req('GET', '/courses/SBF-SEE/next-question');
+$tq = $d['question'];
+$tqRight = array_map('intval', $wpdb->get_col($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $tq['revision_id'])));
+update_option('bp_learning_settings', ['default_access' => 'entitled_only']);
+[$s] = $req('POST', '/answers', ['token' => $tq['token'], 'answer_ids' => $tqRight, 'idempotency_key' => wp_generate_uuid4()]);
+[$s2] = $req('POST', '/answers/reveal', ['token' => $tq['token']]);
+delete_option('bp_learning_settings');
+$check($s === 403 && $s2 === 403, 'Token nach Zugangsende: Antwort und Aufdecken 403');
+wp_set_current_user(1);
+Overrides::set('question', [$tq['question_id']], 'rights_status', 'restricted', 'Integrationstest Token');
+wp_set_current_user($rv);
+[$s] = $req('POST', '/answers', ['token' => $tq['token'], 'answer_ids' => $tqRight, 'idempotency_key' => wp_generate_uuid4()]);
+wp_set_current_user(1);
+Overrides::set('question', [$tq['question_id']], 'rights_status', null, 'Integrationstest Token zurück');
+wp_set_current_user($rv);
+$check($s === 404, 'Token einer nicht mehr auslieferbaren Frage: 404');
+// Smarttrainer: zwei Tabs mit derselben Frage zählen die Serie nur einmal; Frage kommt nicht sofort wieder.
+$module = (int) $tq['module_id'];
+[, $t1] = $req('GET', '/courses/SBF-SEE/next-question', ['module' => $module]);
+[, $t2] = $req('GET', '/courses/SBF-SEE/next-question', ['module' => $module]);
+$sq1 = $t1['question'];
+$sqRight = array_map('intval', $wpdb->get_col($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $sq1['revision_id'])));
+[, $a1] = $req('POST', '/answers', ['token' => $sq1['token'], 'answer_ids' => $sqRight, 'idempotency_key' => wp_generate_uuid4()]);
+[, $a2] = $req('POST', '/answers', ['token' => $t2['question']['token'], 'answer_ids' => $sqRight, 'idempotency_key' => wp_generate_uuid4()]);
+[, $n] = $req('GET', '/courses/SBF-SEE/next-question', ['module' => $module]);
+$check($t2['question']['question_id'] === $sq1['question_id'] && $a1['progress']['streak'] === 1 && $a1['streak_counted'] === true && $a2['progress']['streak'] === 1 && $a2['streak_counted'] === false, 'zweiter Tab: richtige Antwort ohne Abstand erhöht die Serie nicht');
+$check($n['done'] === false && $n['question']['question_id'] !== $sq1['question_id'], 'eben beantwortete Frage kommt nicht sofort wieder');
+// Kursliste: schlanke Gesamtsumme wie in den Kursdaten.
+[, $list] = $req('GET', '/me/courses');
+[, $cd] = $req('GET', '/courses/SBF-SEE');
+$check(current(array_filter($list, static fn ($c) => $c['code'] === 'SBF-SEE'))['progress'] === $cd['progress']['total'], 'Kursliste: Fortschritt wie Kursdaten');
+// Vokabeln: Doppelklick (ohne Serie) zählt einmal.
+[, $v1] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-C', ['known' => true]);
+[, $v2] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-C', ['known' => true]);
+[, $v3] = $req('POST', '/courses/UBI/radio/vocabulary/VOC-UBI-C', ['known' => true, 'streak' => 0]);
+$check($v1['streak'] === 1 && $v2['repeated'] === true && $v2['streak'] === 1 && $v3['repeated'] === true, 'Vokabel: doppelte Antwort binnen Sekunden bzw. mit veralteter Serie ignoriert');
+// Navigation: Nachbarn aus der sichtbaren Liste, gesperrte markiert, unbekannte Aufgabe 404.
+update_option('bp_learning_settings', ['default_access' => 'entitled_only']);
+$wpdb->insert($p.'access_rule', ['course_code' => 'SBF-SEE', 'feature_code' => 'navigation_trainer', 'access_type' => 'free_limited', 'limit_value' => 1]);
+$navRule = (int) $wpdb->insert_id;
+[, $tasks] = $req('GET', '/courses/SBF-SEE/navigation');
+[, $t0] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+[$sLocked] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[1]['id']);
+[$sUnknown] = $req('GET', '/courses/SBF-SEE/navigation/999999999');
+$check($t0['next'] === $tasks[1]['id'] && $t0['next_locked'] === true && $t0['previous'] === null && $sLocked === 403 && $sUnknown === 404, 'Navigation: next_locked, gesperrte Aufgabe 403, unbekannte 404');
+$navQ = $t0['questions'][0]['id'];
+$req('POST', "/courses/SBF-SEE/navigation-questions/{$navQ}", ['answer' => 'Kurs 090°']);
+[, $na] = $req('POST', "/courses/SBF-SEE/navigation-questions/{$navQ}", ['answer' => '']);
+[, $nb] = $req('POST', "/courses/SBF-SEE/navigation-questions/{$navQ}", ['self_assessment' => 'partly']);
+$check($na['my_answer'] === '' && $nb['my_answer'] === '', 'Navigation: leere Antwort leert, fehlendes Feld lässt sie stehen');
+$wpdb->delete($p.'access_rule', ['id' => $navRule]);
+delete_option('bp_learning_settings');
+// Simulator: höhere Stufe nur mit Beleg, Beleg wird verbraucht; „gemeistert“ über alle Geräte.
+[$s1] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'einzelanruf', 'level' => 2, 'device' => 'ic-m505']);
+$simSpeak('einzelanruf');
+[$s2, $pl] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'einzelanruf', 'level' => 2, 'device' => 'ic-m505']);
+[$s3] = $jsonReq('POST', '/courses/SRC/device-sim/progress', ['lesson' => 'einzelanruf', 'level' => 3, 'device' => 'ic-m505']);
+$check($s1 === 422 && $s2 === 200 && $pl['level'] === 2 && $s3 === 422, 'Simulator: Stufe nur mit bestandenem Funkspruch, Beleg verbraucht');
+[, $radioBefore] = $req('GET', '/courses/SRC/radio');
+$otherDevice = 'hx891bte'; // Handfunkgerät (SRC), nicht das Standardgerät
+$wpdb->insert($p.'radio_progress', ['user_id' => $rv, 'item_type' => 'geraet', 'item_source_id' => $otherDevice.':einzelanruf', 'data' => wp_json_encode(['level' => 3]), 'done' => 1]);
+[, $radioAfter] = $req('GET', '/courses/SRC/radio');
+$check($radioAfter['device']['mastered'] === $radioBefore['device']['mastered'] + 1, 'Simulator-Übersicht: gemeistert auf anderem Gerät zählt');
+// Geschützte Dateien: Verschieben schlägt fehl → kein Schutzfeld; Seekarte nicht freigebbar.
+wp_set_current_user(1);
+$up = wp_upload_dir();
+$pf = $up['path'].'/bp-rv-'.wp_generate_password(6, false).'.pdf';
+file_put_contents($pf, "%PDF-1.4\n% Review\n");
+$att = wp_insert_attachment(['post_title' => 'Review-PDF', 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit'], $pf);
+update_post_meta($att, '_wp_attached_file', _wp_relative_upload_path($pf));
+$blocker = \Bootspruefung\Learning\Content\Media\MediaStorage::protectedDir().'/'.$att;
+file_put_contents($blocker, 'blockiert'); // Datei statt Ordner → Verschieben scheitert
+$okProtect = \Bootspruefung\Learning\Gate\ProtectedFiles::protect((int) $att, 'SBF-SEE', 'downloads');
+$check($okProtect === false && \Bootspruefung\Learning\Gate\ProtectedFiles::requirement((int) $att) === null && is_file($pf) && get_post_meta($att, \Bootspruefung\Learning\Gate\ProtectedFiles::ERROR_META, true) !== '', 'Verschieben fehlgeschlagen: kein Schutzfeld, Hinweis gespeichert');
+@unlink($blocker);
+$check(\Bootspruefung\Learning\Gate\ProtectedFiles::protect((int) $att, 'SBF-SEE', 'downloads') && get_post_meta($att, \Bootspruefung\Learning\Gate\ProtectedFiles::ERROR_META, true) === '', 'erneuter Versuch: geschützt, Hinweis entfernt');
+update_post_meta($att, '_bp_chart', 'D49');
+(new \Bootspruefung\Learning\Gate\ProtectedFiles())->saveFields(['ID' => $att], ['bp_required_access' => '']);
+$check(\Bootspruefung\Learning\Gate\ProtectedFiles::requirement((int) $att) !== null && ! \Bootspruefung\Learning\Gate\ProtectedFiles::unprotect((int) $att), 'Seekarte lässt sich nicht frei zugänglich machen');
+delete_post_meta($att, '_bp_chart');
+wp_delete_attachment((int) $att, true);
+$gone = wp_insert_attachment(['post_title' => 'D49 ohne Datei', 'post_mime_type' => 'image/png', 'post_status' => 'inherit'], $up['path'].'/fehlt-'.wp_generate_password(6, false).'.png');
+$threw = false;
+try {
+    \Bootspruefung\Learning\Gate\Charts::attach('D49', (int) $gone);
+} catch (\InvalidArgumentException $e) {
+    $threw = true;
+}
+$check($threw && get_post((int) $gone) === null && \Bootspruefung\Learning\Gate\Charts::state('D49') === null, 'Seekarte nicht schützbar: Upload verworfen, keine Karte hinterlegt');
+delete_option(\Bootspruefung\Learning\Gate\Charts::OPTION);
+wp_set_current_user(0);
 
 echo $failures === 0 ? "Alle Prüfungen bestanden.\n" : "{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

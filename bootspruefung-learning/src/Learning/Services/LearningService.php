@@ -15,13 +15,24 @@ use RuntimeException;
  * - Priorität: nie gesehen (1000) → zuletzt falsch (800 + 10 je Fehler, max. 10)
  *   → schwaches Thema (< 60 % richtig, +150) → gefestigt; Gleichstand nach
  *   Modul- und Fragenreihenfolge, also deterministisch;
- * - gefestigt = 3 richtige Antworten in Folge;
+ * - gefestigt = 3 richtige Antworten in Folge; eine richtige Antwort zählt für die Serie nur,
+ *   wenn seit der letzten Antwort auf diese Frage mindestens STREAK_GAP_SECONDS vergangen sind
+ *   oder inzwischen andere Fragen beantwortet wurden (kein Kurzzeitgedächtnis, keine doppelte
+ *   Zählung aus zwei Tabs);
+ * - die zuletzt beantworteten Fragen (RECENT_EXCLUDE) kommen nicht sofort wieder, solange
+ *   andere Fragen im Modus verfügbar sind;
  * - Fragen laufender Prüfungen werden im Lernmodus nicht gezeigt.
  */
 final class LearningService
 {
     public const MODES = ['smart', 'new', 'wrong', 'favorites'];
     private const RATE_LIMIT = 60;
+    /** Mindestabstand (Sekunden), damit eine erneute richtige Antwort die Serie erhöht. */
+    public const STREAK_GAP_SECONDS = 300;
+    /** So viele zuletzt beantwortete Fragen nicht sofort wieder anbieten. */
+    public const RECENT_EXCLUDE = 3;
+    /** Laufende Prüfungen ohne Zeitlimit sperren ihre Fragen nur so lange (Sekunden). */
+    public const OPEN_EXAM_BLOCK_SECONDS = DAY_IN_SECONDS;
 
     private \wpdb $db;
     /** @var array<string,array<int,object>> */
@@ -81,8 +92,11 @@ final class LearningService
         }
         $progress = $this->progressFor($userId, array_keys($questions));
         $topicAccuracy = $this->topicAccuracy($questions, $progress);
+        // Abstand: die zuletzt beantworteten Fragen nur, wenn sonst nichts im Modus übrig ist.
+        $recent = array_flip($this->recentlyAnswered($userId, array_keys($questions)));
 
         $best = null;
+        $fallback = null;
         foreach ($questions as $id => $q) {
             $p = $progress[$id] ?? null;
             if ($mode === 'new' && $p !== null) {
@@ -92,10 +106,18 @@ final class LearningService
                 continue;
             }
             [$score, $reason] = $this->score($q, $p, $topicAccuracy);
+            if (isset($recent[$id])) {
+                if ($fallback === null || $score > $fallback['score']) {
+                    $fallback = ['question' => $q, 'score' => $score, 'reason' => $reason];
+                }
+
+                continue;
+            }
             if ($best === null || $score > $best['score']) {
                 $best = ['question' => $q, 'score' => $score, 'reason' => $reason];
             }
         }
+        $best ??= $fallback;
         if ($best === null) {
             return null;
         }
@@ -116,13 +138,34 @@ final class LearningService
     /** Musterantwort einer offenen Frage im Lernmodus. */
     public function reveal(int $userId, string $token): array
     {
-        $data = $this->presenter->verify($token, $userId);
-        $revision = $this->content->revision($data['r']);
-        if ($revision === null || $revision->question_type !== 'open_text') {
+        [$data, , , $revision] = $this->tokenContext($userId, $token);
+        if ($revision->question_type !== 'open_text') {
             throw new RuntimeException('Nur für offene Fragen.');
         }
 
         return ['model_answer' => $this->presenter->modelAnswer($data['r'])];
+    }
+
+    /**
+     * Prüft ein Frage-Token vollständig: Signatur/Konto/Alter, Kontext, aktueller Zugriff auf
+     * den Kurs (z. B. nach Erstattung) und ob die Frage noch ausgeliefert werden darf
+     * (Rechte, Status, Gültigkeit).
+     * @return array{0:array<string,mixed>,1:string,2:string,3:object} [Token-Daten, Kontext, Kurscode, Revision]
+     */
+    private function tokenContext(int $userId, string $token): array
+    {
+        $data = $this->presenter->verify($token, $userId);
+        [$context, $courseCode] = array_pad(explode(':', (string) $data['c'], 2), 2, '');
+        $feature = $context === 'video' ? AccessService::VIDEO : AccessService::QUESTION_BANK;
+        if (! in_array($context, ['learn', 'video'], true) || ! $this->access->can($userId, $courseCode, $feature)) {
+            throw new AccessDenied('Kein Zugriff auf diesen Kurs.');
+        }
+        $revision = $this->content->revision((int) $data['r']);
+        if ($revision === null || ! $this->content->isDeliverable((int) $revision->question_id)) {
+            throw new NotFound('Diese Frage ist derzeit nicht verfügbar.');
+        }
+
+        return [$data, $context, $courseCode, $revision];
     }
 
     /**
@@ -137,16 +180,7 @@ final class LearningService
         if (! preg_match('/^[0-9a-f-]{36}$/', $idempotencyKey)) {
             throw new RuntimeException('Ungültiger Idempotency-Key.');
         }
-        $data = $this->presenter->verify($token, $userId);
-        [$context, $courseCode] = array_pad(explode(':', $data['c'], 2), 2, '');
-        $feature = $context === 'video' ? AccessService::VIDEO : AccessService::QUESTION_BANK;
-        if (! in_array($context, ['learn', 'video'], true) || ! $this->access->can($userId, $courseCode, $feature)) {
-            throw new AccessDenied('Kein Zugriff auf diesen Kurs.');
-        }
-        $revision = $this->content->revision($data['r']);
-        if ($revision === null) {
-            throw new NotFound('Frage nicht gefunden.');
-        }
+        [$data, $context, $courseCode, $revision] = $this->tokenContext($userId, $token);
         // Fragen einer laufenden Prüfung nicht nebenbei (Lernmodus/Videoquiz) mit Lösung auswerten.
         if (in_array((int) $revision->question_id, $this->runningExamQuestionIds($userId), true)) {
             throw new RuntimeException('Diese Frage gehört zu deiner laufenden Prüfung. Beende zuerst die Prüfung.');
@@ -213,14 +247,22 @@ final class LearningService
             foreach ($selected as $position => $answerId) {
                 $this->db->insert($this->t('attempt_answer'), ['attempt_id' => $attemptId, 'answer_id' => $answerId, 'position' => $position]);
             }
-            $this->applyProgress($userId, (int) $revision->question_id, $correct, $now);
+            $counted = $this->applyProgress($userId, (int) $revision->question_id, $correct, $now);
             $this->db->query('COMMIT');
         } catch (\Throwable $e) {
             $this->db->query('ROLLBACK');
             throw $e;
         }
 
-        return $this->result($userId, $courseCode, $revision, $correct, $selected, false);
+        return $this->result($userId, $courseCode, $revision, $correct, $selected, false) + ['streak_counted' => $counted];
+    }
+
+    /** Gesamtfortschritt eines Kurses (wie courseProgress()['total'], ohne Module/Themen). @return array<string,int> */
+    public function courseTotal(int $userId, object $course): array
+    {
+        $ids = array_keys($this->allowedQuestions($userId, $course, array_map(static fn ($m) => (int) $m->id, $this->content->modules((int) $course->id))));
+
+        return self::summaryFrom($ids, $this->progressFor($userId, $ids));
     }
 
     /** Fortschritt je Modul eines Kurses. @return array<string,mixed> */
@@ -403,15 +445,21 @@ final class LearningService
 
     // ------------------------------------------------------------------
 
-    /** Wie MasteryCalculator der Quelle; Zeile wird für die Aktualisierung gesperrt. */
-    private function applyProgress(int $userId, int $questionId, bool $correct, string $now): void
+    /**
+     * Wie MasteryCalculator der Quelle; Zeile wird für die Aktualisierung gesperrt.
+     * Eine richtige Antwort erhöht die Serie nur mit Abstand (siehe Klassenkommentar);
+     * sonst bleibt die Serie unverändert (falsch setzt sie wie bisher auf 0).
+     * @return bool|null null bei falscher Antwort, sonst ob die Serie erhöht wurde
+     */
+    private function applyProgress(int $userId, int $questionId, bool $correct, string $now): ?bool
     {
         $this->db->query($this->db->prepare("INSERT IGNORE INTO {$this->t('progress')} (user_id, question_id) VALUES (%d, %d)", $userId, $questionId));
         $p = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t('progress')} WHERE user_id = %d AND question_id = %d FOR UPDATE", $userId, $questionId));
         $attempts = (int) $p->attempts + 1;
         $correctCount = (int) $p->correct_count + ($correct ? 1 : 0);
         $wrongCount = (int) $p->wrong_count + ($correct ? 0 : 1);
-        $streak = $correct ? (int) $p->streak + 1 : 0;
+        $counted = $correct ? $this->spaced($userId, $questionId, $p->last_answered_at, $now) : null;
+        $streak = $correct ? (int) $p->streak + ($counted ? 1 : 0) : 0;
         $mastery = round(min(1, 0.4 * ($correctCount / $attempts) + 0.6 * (min($streak, 3) / 3)), 4);
         $status = $streak >= 3 ? 'mastered' : ($streak === 0 ? 'unsure' : 'learning');
         $this->db->update($this->t('progress'), [
@@ -424,6 +472,60 @@ final class LearningService
             'first_answered_at' => $p->first_answered_at ?: $now,
             'last_answered_at' => $now,
         ], ['id' => (int) $p->id]);
+
+        return $counted;
+    }
+
+    /**
+     * Zählt eine richtige Antwort für die Serie? Ja beim ersten Mal, nach STREAK_GAP_SECONDS
+     * oder wenn seit der letzten Antwort auf diese Frage andere Fragen beantwortet wurden.
+     * Läuft in der Transaktion mit gesperrter Fortschrittszeile (zweiter Tab wartet und sieht
+     * danach die frische last_answered_at).
+     */
+    private function spaced(int $userId, int $questionId, ?string $lastAnsweredAt, string $now): bool
+    {
+        if ($lastAnsweredAt === null || $lastAnsweredAt === '') {
+            return true;
+        }
+        if (strtotime($now.' UTC') - strtotime($lastAnsweredAt.' UTC') >= self::STREAK_GAP_SECONDS) {
+            return true;
+        }
+
+        return (bool) $this->db->get_var($this->db->prepare(
+            "SELECT 1 FROM {$this->t('attempt')} WHERE user_id = %d AND created_at >= %s AND question_id <> %d LIMIT 1",
+            $userId,
+            $lastAnsweredAt,
+            $questionId
+        ));
+    }
+
+    /**
+     * Die zuletzt beantworteten Fragen (höchstens RECENT_EXCLUDE, letzte 2 Stunden) aus der Auswahl.
+     * @param list<int> $questionIds
+     * @return list<int>
+     */
+    private function recentlyAnswered(int $userId, array $questionIds): array
+    {
+        if ($questionIds === []) {
+            return [];
+        }
+        $in = array_flip($questionIds);
+        $out = [];
+        foreach ($this->db->get_col($this->db->prepare(
+            "SELECT question_id FROM {$this->t('attempt')} WHERE user_id = %d AND created_at >= %s ORDER BY created_at DESC, id DESC LIMIT 100",
+            $userId,
+            gmdate('Y-m-d H:i:s', time() - 2 * HOUR_IN_SECONDS)
+        )) as $id) {
+            $id = (int) $id;
+            if (isset($in[$id]) && ! in_array($id, $out, true)) {
+                $out[] = $id;
+                if (count($out) >= self::RECENT_EXCLUDE) {
+                    break;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /** @param list<int> $selected @return array<string,mixed> */
@@ -556,11 +658,27 @@ final class LearningService
     /** @return list<int> */
     private function runningExamQuestionIds(int $userId): array
     {
-        return array_map('intval', $this->db->get_col($this->db->prepare(
-            "SELECT sq.question_id FROM {$this->t('exam_session')} s JOIN {$this->t('exam_session_question')} sq ON sq.session_id = s.id
-             WHERE s.user_id = %d AND s.status = 'running' AND (s.deadline_at IS NULL OR s.deadline_at > %s)",
+        return self::blockedByRunningExam($userId);
+    }
+
+    /**
+     * Fragen laufender Prüfungen (für Lernmodus und Videoquiz gesperrt). Sitzungen mit Frist
+     * nur bis zum Fristende, Sitzungen ohne Zeitlimit nur OPEN_EXAM_BLOCK_SECONDS nach dem Start –
+     * eine vergessene Übungsprüfung sperrt ihre Fragen nicht dauerhaft.
+     * @return list<int>
+     */
+    public static function blockedByRunningExam(int $userId): array
+    {
+        global $wpdb;
+        $now = time();
+
+        return array_map('intval', $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT sq.question_id FROM {$wpdb->prefix}bp_exam_session s JOIN {$wpdb->prefix}bp_exam_session_question sq ON sq.session_id = s.id
+             WHERE s.user_id = %d AND s.status = 'running'
+               AND ((s.deadline_at IS NOT NULL AND s.deadline_at > %s) OR (s.deadline_at IS NULL AND s.started_at > %s))",
             $userId,
-            current_time('mysql', true)
+            gmdate('Y-m-d H:i:s', $now),
+            gmdate('Y-m-d H:i:s', $now - self::OPEN_EXAM_BLOCK_SECONDS)
         )));
     }
 

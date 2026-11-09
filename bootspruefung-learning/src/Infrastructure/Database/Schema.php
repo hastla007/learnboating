@@ -494,6 +494,7 @@ final class Schema
   PRIMARY KEY  (id),
   UNIQUE KEY idempotency_key (idempotency_key),
   KEY user_question (user_id,question_id),
+  KEY user_created (user_id,created_at),
   KEY revision_id (revision_id)",
             'attempt_answer' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,

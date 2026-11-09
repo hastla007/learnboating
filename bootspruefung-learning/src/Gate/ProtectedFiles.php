@@ -14,12 +14,17 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
  * Geschützte Dateien (z. B. PDFs) in der Mediathek: Feld „Lernzugang erforderlich“
  * am Anhang. Geschützte Dateien werden in einen gesperrten Ordner verschoben und
  * nur über /bootsscheine/datei/<id>/ nach Zugriffsprüfung ausgeliefert.
+ * Gelingt das Verschieben nicht, bleibt die Datei als „nicht geschützt“ markiert
+ * (kein Schutzfeld, das Sicherheit vortäuscht) und Admins sehen einen Hinweis.
+ * Seekarten (_bp_chart) lassen sich nicht auf „frei zugänglich“ stellen.
  */
 final class ProtectedFiles
 {
     public const META = '_bp_required_access';
     public const COURSE_META = '_bp_access_course';
     public const PATH_META = '_bp_protected_path';
+    public const ERROR_META = '_bp_protect_error';
+    private const NOTICE_TRANSIENT = 'bp_protect_notice_';
 
     public function register(): void
     {
@@ -30,6 +35,44 @@ final class ProtectedFiles
         add_action('template_redirect', [$this, 'serve'], 0);
         add_action('delete_attachment', [$this, 'onDelete']);
         add_filter('rest_prepare_attachment', [$this, 'restAttachment'], 20, 2);
+        add_action('admin_notices', [$this, 'adminNotice']);
+    }
+
+    /** Hinweis für Admins nach fehlgeschlagenem Schützen/Freigeben (einmalig je Nutzer). */
+    public function adminNotice(): void
+    {
+        $userId = get_current_user_id();
+        if ($userId <= 0 || ! current_user_can('upload_files')) {
+            return;
+        }
+        $messages = get_transient(self::NOTICE_TRANSIENT.$userId);
+        if (! is_array($messages) || $messages === []) {
+            return;
+        }
+        delete_transient(self::NOTICE_TRANSIENT.$userId);
+        foreach (array_unique($messages) as $message) {
+            echo '<div class="notice notice-error"><p>'.esc_html((string) $message).'</p></div>';
+        }
+    }
+
+    /** Hinweis am Anhang speichern und für die nächste Admin-Seite vormerken. */
+    private static function fail(int $id, string $message): void
+    {
+        update_post_meta($id, self::ERROR_META, $message);
+        $userId = get_current_user_id();
+        if ($userId > 0) {
+            $messages = get_transient(self::NOTICE_TRANSIENT.$userId);
+            $messages = is_array($messages) ? $messages : [];
+            $messages[] = $message;
+            set_transient(self::NOTICE_TRANSIENT.$userId, array_slice($messages, -10), HOUR_IN_SECONDS);
+        }
+        AuditLog::record('file_protect_failed', 'attachment', (string) $id, $message);
+    }
+
+    /** Seekarte (BSH)? Diese Dateien bleiben immer geschützt. */
+    public static function isChart(int $id): bool
+    {
+        return (string) get_post_meta($id, '_bp_chart', true) !== '';
     }
 
     public static function downloadUrl(int $attachmentId): string
@@ -56,7 +99,8 @@ final class ProtectedFiles
         }
         $req = self::requirement((int) $post->ID);
         $current = $req ? $req['course'].'|'.$req['feature'] : '';
-        $html = '<select name="attachments['.(int) $post->ID.'][bp_required_access]"><option value="">'.esc_html__('– frei zugänglich –', 'bootspruefung-learning').'</option>';
+        $chart = self::isChart((int) $post->ID);
+        $html = '<select name="attachments['.(int) $post->ID.'][bp_required_access]">'.($chart ? '' : '<option value="">'.esc_html__('– frei zugänglich –', 'bootspruefung-learning').'</option>');
         foreach (Labels::courses() as $code => $name) {
             foreach (array_merge([ContentGate::ANY], AccessService::FEATURES) as $feature) {
                 $value = $code.'|'.$feature;
@@ -67,6 +111,13 @@ final class ProtectedFiles
         $html .= '</select>';
         if ($req !== null) {
             $html .= '<p class="description">'.esc_html__('Link für Lernende:', 'bootspruefung-learning').' <code>'.esc_html(self::downloadUrl((int) $post->ID)).'</code></p>';
+        }
+        if ($chart) {
+            $html .= '<p class="description">'.esc_html__('Seekarte (BSH): bleibt immer geschützt; verwalten unter Bootsprüfung → Rechte.', 'bootspruefung-learning').'</p>';
+        }
+        $error = (string) get_post_meta((int) $post->ID, self::ERROR_META, true);
+        if ($error !== '') {
+            $html .= '<p class="description" style="color:#b32d2e">'.esc_html($error).'</p>';
         }
         $slot = SectionFiles::slot((int) $post->ID);
         $fields['bp_file_slot'] = ['label' => __('Anzeige im Lernbereich', 'bootspruefung-learning'), 'input' => 'html',
@@ -92,6 +143,12 @@ final class ProtectedFiles
 
         $value = sanitize_text_field((string) $input['bp_required_access']);
         if ($value === '') {
+            if (self::isChart($id)) {
+                // Lizenzpflichtige Seekarte nie öffentlich machen (Löschen/Ersetzen über die Rechte-Seite).
+                self::fail($id, __('Seekarten (BSH) können nicht frei zugänglich gemacht werden.', 'bootspruefung-learning'));
+
+                return $post;
+            }
             self::unprotect($id);
 
             return $post;
@@ -108,56 +165,99 @@ final class ProtectedFiles
         return $post;
     }
 
-    /** Datei in den gesperrten Ordner verschieben und Anforderung speichern. */
-    public static function protect(int $id, string $course, string $feature): void
+    /**
+     * Datei in den gesperrten Ordner verschieben und Anforderung speichern. Das Schutzfeld wird
+     * erst gesetzt, wenn die Datei sicher im gesperrten Ordner liegt.
+     * @return bool false, wenn die Datei nicht geschützt abgelegt werden konnte (Hinweis für Admins)
+     */
+    public static function protect(int $id, string $course, string $feature): bool
     {
-        update_post_meta($id, self::META, ['course' => $course, 'feature' => $feature]);
-        update_post_meta($id, self::COURSE_META, $course); // abfragbar für die Downloadliste
-        if (get_post_meta($id, self::PATH_META, true)) {
-            return;
+        $setMeta = static function () use ($id, $course, $feature): void {
+            update_post_meta($id, self::META, ['course' => $course, 'feature' => $feature]);
+            update_post_meta($id, self::COURSE_META, $course); // abfragbar für die Downloadliste
+            delete_post_meta($id, self::ERROR_META);
+        };
+        $path = (string) get_post_meta($id, self::PATH_META, true);
+        if ($path !== '' && is_file($path)) {
+            $setMeta();
+
+            return true;
         }
         $original = (string) get_post_meta($id, '_wp_attached_file', true);
         $uploads = wp_upload_dir(null, false);
         $source = trailingslashit($uploads['basedir']).$original;
         if ($original === '' || ! is_file($source)) {
-            return;
+            self::fail($id, sprintf(__('Datei #%d konnte nicht geschützt werden: Die Datei liegt nicht im Upload-Ordner. Bitte erneut hochladen.', 'bootspruefung-learning'), $id));
+
+            return false;
         }
         $dir = MediaStorage::protectedDir().'/'.$id;
         wp_mkdir_p($dir);
         $target = $dir.'/'.wp_basename($source);
-        if (@rename($source, $target)) {
-            update_post_meta($id, self::PATH_META, $target);
-            // Vorschaubilder/Größen (PDF-Vorschau, Bildgrößen, unskaliertes Original) mitnehmen – sonst öffentlich abrufbar.
-            foreach (self::derivedFiles($id, dirname($source)) as $file) {
-                wp_mkdir_p($dir.'/derived');
-                @rename($file, $dir.'/derived/'.wp_basename($file));
-            }
-            AuditLog::record('file_protected', 'attachment', (string) $id, null, ['course' => $course, 'feature' => $feature]);
+        if (! @rename($source, $target)) {
+            self::fail($id, sprintf(__('Datei #%d konnte nicht in den geschützten Ordner verschoben werden und bleibt frei zugänglich. Bitte Schreibrechte von %s prüfen und erneut speichern.', 'bootspruefung-learning'), $id, MediaStorage::protectedDir()));
+
+            return false;
         }
+        update_post_meta($id, self::PATH_META, $target);
+        $setMeta();
+        // Vorschaubilder/Größen (PDF-Vorschau, Bildgrößen, unskaliertes Original) mitnehmen – sonst öffentlich abrufbar.
+        $left = 0;
+        foreach (self::derivedFiles($id, dirname($source)) as $file) {
+            wp_mkdir_p($dir.'/derived');
+            if (! @rename($file, $dir.'/derived/'.wp_basename($file))) {
+                $left++;
+            }
+        }
+        if ($left > 0) {
+            self::fail($id, sprintf(__('Datei #%1$d ist geschützt, aber %2$d Vorschaubild(er) konnten nicht verschoben werden und sind noch öffentlich abrufbar.', 'bootspruefung-learning'), $id, $left));
+        }
+        AuditLog::record('file_protected', 'attachment', (string) $id, null, ['course' => $course, 'feature' => $feature]);
+
+        return true;
     }
 
-    /** Schutz aufheben und Datei an den ursprünglichen Ort zurücklegen. */
-    public static function unprotect(int $id): void
+    /**
+     * Schutz aufheben und Datei an den ursprünglichen Ort zurücklegen. Seekarten bleiben geschützt.
+     * @return bool false, wenn der Schutz bestehen bleibt (Seekarte oder Zurücklegen fehlgeschlagen)
+     */
+    public static function unprotect(int $id): bool
     {
+        if (self::isChart($id)) {
+            return false;
+        }
         $path = (string) get_post_meta($id, self::PATH_META, true);
-        delete_post_meta($id, self::META);
-        delete_post_meta($id, self::COURSE_META);
-        delete_post_meta($id, SectionFiles::SLOT_META);
-        if ($path === '') {
-            return;
+        $clear = static function () use ($id): void {
+            delete_post_meta($id, self::META);
+            delete_post_meta($id, self::COURSE_META);
+            delete_post_meta($id, SectionFiles::SLOT_META);
+            delete_post_meta($id, self::ERROR_META);
+        };
+        if ($path === '' || ! is_file($path)) {
+            $clear();
+            delete_post_meta($id, self::PATH_META);
+
+            return true;
         }
         $uploads = wp_upload_dir(null, false);
         $original = trailingslashit($uploads['basedir']).(string) get_post_meta($id, '_wp_attached_file', true);
         wp_mkdir_p(dirname($original));
-        if (is_file($path) && @rename($path, $original)) {
-            delete_post_meta($id, self::PATH_META);
-            foreach (glob(dirname($path).'/derived/*') ?: [] as $file) {
-                @rename($file, dirname($original).'/'.wp_basename($file));
-            }
-            @rmdir(dirname($path).'/derived');
-            @rmdir(dirname($path));
-            AuditLog::record('file_unprotected', 'attachment', (string) $id);
+        if (! @rename($path, $original)) {
+            // Datei bleibt im gesperrten Ordner – dann auch geschützt lassen, statt einen toten Link zu erzeugen.
+            self::fail($id, sprintf(__('Datei #%d konnte nicht zurückverschoben werden und bleibt geschützt.', 'bootspruefung-learning'), $id));
+
+            return false;
         }
+        $clear();
+        delete_post_meta($id, self::PATH_META);
+        foreach (glob(dirname($path).'/derived/*') ?: [] as $file) {
+            @rename($file, dirname($original).'/'.wp_basename($file));
+        }
+        @rmdir(dirname($path).'/derived');
+        @rmdir(dirname($path));
+        AuditLog::record('file_unprotected', 'attachment', (string) $id);
+
+        return true;
     }
 
     public function url($url, $attachmentId)

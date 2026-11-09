@@ -62,28 +62,33 @@ final class TrainerService
         return $out;
     }
 
-    /** Teilumfang: nur die ersten n Aufgaben (Reihenfolge wie Liste). */
-    private function requireNavigationTask(int $userId, object $course, int $taskId): void
+    /**
+     * Nur Aufgaben aus der für den Nutzer sichtbaren Liste (veröffentlicht, Rechte frei, mit
+     * Teilaufgaben); im Teilumfang nur die ersten n. Unbekannt/ausgefiltert → 404, gesperrt → 403.
+     * @param list<array<string,mixed>>|null $list bereits geladene navigationTasks()
+     * @return int Position in der Liste
+     */
+    private function requireNavigationTask(int $userId, object $course, int $taskId, ?array $list = null): int
     {
-        if ($this->access->limit($userId, $course->code, AccessService::NAVIGATION) === null) {
-            return;
-        }
-        foreach ($this->navigationTasks($userId, $course) as $task) {
+        foreach ($list ?? $this->navigationTasks($userId, $course) as $pos => $task) {
             if ($task['id'] === $taskId) {
                 if ($task['locked']) {
                     throw new AccessDenied(__('Diese Aufgabe ist im kostenlosen Umfang nicht enthalten.', 'bootspruefung-learning'));
                 }
 
-                return;
+                return $pos;
             }
         }
+        throw new NotFound(__('Navigationsaufgabe nicht gefunden.', 'bootspruefung-learning'));
     }
 
     /** @return array<string,mixed> */
     public function navigationTask(int $userId, object $course, int $taskId): array
     {
         $this->require($userId, $course, AccessService::NAVIGATION);
-        $this->requireNavigationTask($userId, $course, $taskId);
+        // Liste einmal laden: Prüfung und Nachbarn (previous/next) aus derselben sichtbaren Liste.
+        $list = $this->navigationTasks($userId, $course);
+        $pos = $this->requireNavigationTask($userId, $course, $taskId, $list);
         $task = $this->db->get_row($this->db->prepare(
             "SELECT t.* FROM {$this->t('navigation_task')} t JOIN {$this->t('navigation_task_course')} tc ON tc.task_id = t.id AND tc.course_id = %d
              ".Overrides::rightsJoin('navigation_task', 't', 'o')."
@@ -101,11 +106,9 @@ final class TrainerService
             $userId,
             $taskId
         ));
-        $ids = array_map(static fn ($r) => (int) $r->id, $this->db->get_results($this->db->prepare(
-            "SELECT t.id FROM {$this->t('navigation_task_course')} tc JOIN {$this->t('navigation_task')} t ON t.id = tc.task_id WHERE tc.course_id = %d AND t.status = 'published' ORDER BY t.sort_order",
-            $course->id
-        )));
-        $pos = array_search($taskId, $ids, true);
+        // Nachbarn aus derselben gefilterten Liste wie die Übersicht; gesperrte (Teilumfang) markiert.
+        $previous = $list[$pos - 1] ?? null;
+        $next = $list[$pos + 1] ?? null;
 
         return [
             'id' => (int) $task->id,
@@ -113,8 +116,10 @@ final class TrainerService
             'scenario' => $task->scenario_text,
             'hint' => $task->hint,
             'source' => $task->source_text,
-            'previous' => $pos > 0 ? $ids[$pos - 1] : null,
-            'next' => $pos !== false && isset($ids[$pos + 1]) ? $ids[$pos + 1] : null,
+            'previous' => $previous ? $previous['id'] : null,
+            'previous_locked' => $previous ? (bool) $previous['locked'] : false,
+            'next' => $next ? $next['id'] : null,
+            'next_locked' => $next ? (bool) $next['locked'] : false,
             'questions' => array_map(static fn ($q) => [
                 'id' => (int) $q->id,
                 'number' => (int) $q->question_number,
@@ -144,7 +149,9 @@ final class TrainerService
         if ($assessment !== null && ! in_array($assessment, ['correct', 'partly', 'wrong'], true)) {
             throw new RuntimeException(__('Ungültige Selbsteinschätzung.', 'bootspruefung-learning'));
         }
-        // NULL als SQL-Literal (prepare('%s', null) ergäbe '' und würde gespeicherte Werte überschreiben).
+        // null = Feld nicht mitgeschickt → gespeicherte Antwort bleibt (NULL-Literal + COALESCE);
+        // '' = Antwort bewusst geleert → wird als leerer Text gespeichert.
+        // (prepare('%s', null) ergäbe '' und würde gespeicherte Werte überschreiben.)
         $answerSql = $answer === null ? 'NULL' : $this->db->prepare('%s', mb_substr($answer, 0, 5000));
         $assessmentSql = $assessment === null ? 'NULL' : $this->db->prepare('%s', $assessment);
         // Werte oben einzeln vorbereitet, IDs als int – kein zweites prepare() über Nutzertext (wegen „%“).
@@ -152,8 +159,13 @@ final class TrainerService
             "INSERT INTO {$this->t('navigation_progress')} (user_id, navigation_question_id, answer_text, self_assessment, done) VALUES (".(int) $userId.', '.(int) $questionId.", {$answerSql}, {$assessmentSql}, ".($assessment !== null ? 1 : 0).')
              ON DUPLICATE KEY UPDATE answer_text = COALESCE(VALUES(answer_text), answer_text), self_assessment = COALESCE(VALUES(self_assessment), self_assessment), done = GREATEST(done, VALUES(done))'
         );
+        $saved = $this->db->get_row($this->db->prepare(
+            "SELECT answer_text, self_assessment, done FROM {$this->t('navigation_progress')} WHERE user_id = %d AND navigation_question_id = %d",
+            $userId,
+            $questionId
+        ));
 
-        return ['answer' => $q->answer_text, 'self_assessment' => $assessment, 'done' => $assessment !== null];
+        return ['answer' => $q->answer_text, 'self_assessment' => $assessment, 'done' => $assessment !== null, 'my_answer' => $saved ? $saved->answer_text : null];
     }
 
     // ------------------------------------------------------------------ Praxis

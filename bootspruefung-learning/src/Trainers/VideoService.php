@@ -7,6 +7,7 @@ namespace Bootspruefung\Learning\Trainers;
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Learning\Services\LearningService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Support\AccessDenied;
 use Bootspruefung\Learning\Support\NotFound;
@@ -59,10 +60,11 @@ final class VideoService
         $next = null;
         $limit = $this->access->limit($userId, $course->code, AccessService::VIDEO);
         $now = current_time('mysql', true);
+        $times = $this->access->unlockTimes($userId, $course->code, AccessService::VIDEO); // eine Abfrage für alle Kapitel
         $index = 0;
         foreach ($rows as $r) {
             if (! isset($modules[(int) $r->module_id])) {
-                $at = $this->access->unlockAt($userId, $course->code, AccessService::VIDEO, (string) $r->module_key);
+                $at = $times[(string) $r->module_key] ?? null;
                 $modules[(int) $r->module_id] = ['id' => (int) $r->module_id, 'title' => $r->module_title, 'group' => $r->group_label, 'lessons' => [],
                     'locked' => $at !== null && $at > $now, 'unlock_at' => $at];
             }
@@ -99,30 +101,30 @@ final class VideoService
     {
         $this->require($userId, $course);
         $lesson = $this->lessonRow($course, $lessonId);
-        $this->requireUnlocked($userId, $course, $lessonId);
+        // Übersicht einmal berechnen und für Freigabe und Nachbarn nutzen (statt zweimal course()).
+        $siblings = $this->course($userId, $course);
+        $this->requireUnlocked($userId, $course, $lessonId, $siblings);
         $steps = $this->db->get_results($this->db->prepare("SELECT title, sort_order FROM {$this->t('video_lesson_step')} WHERE lesson_id = %d ORDER BY sort_order", $lessonId));
         $quiz = [];
         // Fragen einer laufenden Prüfung nicht im Videoquiz zeigen (Auswertung würde die Lösung verraten).
-        $inExam = array_flip(array_map('intval', $this->db->get_col($this->db->prepare(
-            "SELECT sq.question_id FROM {$this->t('exam_session')} s JOIN {$this->t('exam_session_question')} sq ON sq.session_id = s.id
-             WHERE s.user_id = %d AND s.status = 'running' AND (s.deadline_at IS NULL OR s.deadline_at > %s)",
-            $userId, current_time('mysql', true)
-        ))));
-        foreach ($this->db->get_results($this->db->prepare(
-            "SELECT q.id FROM {$this->t('video_lesson_question')} vq JOIN {$this->t('question')} q ON q.id = vq.question_id WHERE vq.lesson_id = %d ORDER BY vq.sort_order",
+        $inExam = array_flip(LearningService::blockedByRunningExam($userId));
+        // Auslieferbare Quizfragen samt aktueller Revision mit einer Abfrage, Inhalte gesammelt vorladen.
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT q.id, r.id AS revision_id FROM {$this->t('video_lesson_question')} vq JOIN {$this->t('question')} q ON q.id = vq.question_id
+             JOIN {$this->t('question_revision')} r ON r.id = q.current_revision_id ".Overrides::rightsJoin('question', 'q', 'o').'
+             WHERE vq.lesson_id = %d AND '.$this->content->deliverableQuestionSql().' ORDER BY vq.sort_order',
             $lessonId
-        )) as $row) {
-            if (isset($inExam[(int) $row->id]) || ! $this->content->isDeliverable((int) $row->id)) {
-                continue;
-            }
-            $revisionId = (int) $this->db->get_var($this->db->prepare("SELECT current_revision_id FROM {$this->t('question')} WHERE id = %d", $row->id));
+        ));
+        $rows = array_values(array_filter($rows, static fn ($row) => ! isset($inExam[(int) $row->id])));
+        $this->presenter->preload(array_map(static fn ($row) => (int) $row->revision_id, $rows));
+        foreach ($rows as $row) {
+            $revisionId = (int) $row->revision_id;
             $presented = $this->presenter->present($revisionId);
             $presented['token'] = $this->presenter->token($userId, $revisionId, $presented['answer_order'], 'video:'.$course->code);
             unset($presented['answer_order']);
             $quiz[] = $presented;
         }
         $progress = $this->db->get_row($this->db->prepare("SELECT completed, position_seconds FROM {$this->t('video_progress')} WHERE user_id = %d AND lesson_id = %d", $userId, $lessonId));
-        $siblings = $this->course($userId, $course);
         $flat = [];
         $lockedIds = [];
         foreach ($siblings['modules'] as $m) {
@@ -196,10 +198,10 @@ final class VideoService
         return $row;
     }
 
-    /** Teilumfang (erste n Lektionen) und zeitgesteuerte Kapitel. */
-    private function requireUnlocked(int $userId, object $course, int $lessonId): void
+    /** Teilumfang (erste n Lektionen) und zeitgesteuerte Kapitel. @param array<string,mixed>|null $overview bereits berechnete course() */
+    private function requireUnlocked(int $userId, object $course, int $lessonId, ?array $overview = null): void
     {
-        foreach ($this->course($userId, $course)['modules'] as $module) {
+        foreach (($overview ?? $this->course($userId, $course))['modules'] as $module) {
             foreach ($module['lessons'] as $lesson) {
                 if ($lesson['id'] === $lessonId && $lesson['locked']) {
                     throw new AccessDenied($module['locked'] && $module['unlock_at']

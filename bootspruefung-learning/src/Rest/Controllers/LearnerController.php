@@ -128,9 +128,11 @@ final class LearnerController
         $user = get_current_user_id();
         $out = [];
         foreach ($this->content->courses() as $course) {
-            $features = $this->access->features($user, $course->code);
+            // Zugriff einmal je Kurs ermitteln (features/limits daraus statt zweimal scopes()).
+            $scopes = $this->access->scopes($user, $course->code);
+            $features = self::features($scopes);
             // Kostenloser Teilumfang (Schnupper-Paket): Fragen nur begrenzt, kein Vollzugang.
-            $trial = $features[AccessService::QUESTION_BANK] && isset($this->access->limits($user, $course->code)[AccessService::QUESTION_BANK]);
+            $trial = $features[AccessService::QUESTION_BANK] && isset(self::limits($scopes)[AccessService::QUESTION_BANK]);
             $out[] = [
                 'code' => $course->code,
                 'trial' => $trial,
@@ -138,7 +140,8 @@ final class LearnerController
                 'name' => $course->name,
                 'type' => $course->course_type,
                 'features' => $features,
-                'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseProgress($user, $course)['total'] : null,
+                // Nur die Gesamtsumme (ohne Module/Themen wie in courseProgress()).
+                'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseTotal($user, $course) : null,
                 'shop' => in_array(true, $features, true) && ! $trial ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
             ];
         }
@@ -150,7 +153,8 @@ final class LearnerController
     {
         $course = $this->courseOr404((string) $request['code']);
         $user = get_current_user_id();
-        $features = $this->access->features($user, $course->code);
+        $scopes = $this->access->scopes($user, $course->code);
+        $features = self::features($scopes);
 
         return [
             'code' => $course->code,
@@ -163,8 +167,8 @@ final class LearnerController
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course, (bool) $request['ergebnisse']) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
             // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
-            'shop' => $this->shopOffers($user, $course),
-            'limits' => $this->access->limits($user, $course->code),
+            'shop' => $this->shopOffers($user, $course, $scopes),
+            'limits' => self::limits($scopes),
             'downloads' => \Bootspruefung\Learning\Gate\DownloadService::items($user, $course->code),
             'files' => \Bootspruefung\Learning\Gate\SectionFiles::forCourse($user, $course->code),
             // Seekarten für den Navigationstrainer (url null = noch nicht lizenziert/hochgeladen).
@@ -216,10 +220,33 @@ final class LearnerController
         return ['favorite' => $on];
     }
 
-    /** Kaufangebote für gesperrte Funktionen; Theorie-Käufern zuerst das Video-Upgrade. @return array<string,list<array>> */
-    private function shopOffers(int $user, object $course): array
+    /** @param array<string,array{full:bool,limit:?int}> $scopes @return array<string,bool> wie AccessService::features() */
+    private static function features(array $scopes): array
     {
-        $shop = \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_combine(AccessService::FEATURES, array_map(fn ($f) => $this->access->full($user, $course->code, $f), AccessService::FEATURES)));
+        return array_map(static fn ($s) => $s['full'] || ($s['limit'] ?? 0) > 0, $scopes);
+    }
+
+    /** @param array<string,array{full:bool,limit:?int}> $scopes @return array<string,int> wie AccessService::limits() */
+    private static function limits(array $scopes): array
+    {
+        $out = [];
+        foreach ($scopes as $feature => $scope) {
+            if (! $scope['full'] && ($scope['limit'] ?? 0) > 0) {
+                $out[$feature] = (int) $scope['limit'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Kaufangebote für gesperrte Funktionen; Theorie-Käufern zuerst das Video-Upgrade.
+     * @param array<string,array{full:bool,limit:?int}> $scopes
+     * @return array<string,list<array>>
+     */
+    private function shopOffers(int $user, object $course, array $scopes): array
+    {
+        $shop = \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, array_map(static fn ($s) => (bool) $s['full'], $scopes));
         if (isset($shop[AccessService::VIDEO]) && ($upgrade = \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::offerFor($user, $course->code)) !== null) {
             array_unshift($shop[AccessService::VIDEO], $upgrade);
         }
@@ -280,7 +307,8 @@ final class LearnerController
         $course = $this->courseOr404((string) $request['code']);
         $id = $this->exams->start(get_current_user_id(), $course, $request['paper_id'] ? (int) $request['paper_id'] : null);
 
-        return new WP_REST_Response(['session_id' => $id], 201);
+        // live = offizielle Simulation; reduced = Fragenpool zu klein, verkürzte Übungsprüfung.
+        return new WP_REST_Response(['session_id' => $id] + $this->exams->flags(get_current_user_id(), $id), 201);
     }
 
     public function examShow(WP_REST_Request $request): array

@@ -20,6 +20,8 @@ use RuntimeException;
 final class RadioService
 {
     public const VOCAB_STREAK_TO_LEARN = 3;
+    /** Zweite Antwort auf dieselbe Karte innerhalb dieser Sekunden = Doppelklick/zweiter Tab, wird ignoriert. */
+    public const VOCAB_REPEAT_SECONDS = 2;
 
     private \wpdb $db;
 
@@ -204,17 +206,59 @@ final class RadioService
         return ['cards' => $cards, 'learned' => count(array_filter($cards, static fn ($c) => $c['learned'])), 'streak_to_learn' => self::VOCAB_STREAK_TO_LEARN];
     }
 
-    /** @return array{streak:int,learned:bool} */
-    public function vocabularyAnswer(int $userId, object $course, string $sourceId, bool $known): array
+    /**
+     * „Gewusst/nicht gewusst“ atomar zählen: Zeile anlegen bzw. sperren (FOR UPDATE), dann
+     * aktualisieren. Eine weitere Antwort auf dieselbe Karte innerhalb von VOCAB_REPEAT_SECONDS
+     * (Doppelklick, zweiter Tab) ändert nichts und liefert den gespeicherten Stand (repeated).
+     * Schickt der Client die angezeigte Serie mit ($expectedStreak), gilt statt des Zeitfensters
+     * ein Vergleich: weicht der gespeicherte Stand ab, war die Antwort schon gezählt → ignorieren.
+     * @return array{streak:int,learned:bool,repeated:bool}
+     */
+    public function vocabularyAnswer(int $userId, object $course, string $sourceId, bool $known, ?int $expectedStreak = null): array
     {
         $this->require($userId, $course);
         $this->item('radio_vocabulary', $course, $sourceId);
-        $p = $this->progress($userId, [$sourceId])[$sourceId] ?? null;
-        $streak = $known ? (int) ($p->streak ?? 0) + 1 : 0;
-        $learned = (bool) ($p->done ?? false) || $streak >= self::VOCAB_STREAK_TO_LEARN;
-        $this->save($userId, 'vocab', $sourceId, ['streak' => $streak, 'done' => $learned ? 1 : 0]);
+        $table = $this->t('radio_progress');
+        $this->db->query('START TRANSACTION');
+        try {
+            $created = (int) $this->db->query($this->db->prepare(
+                "INSERT IGNORE INTO {$table} (user_id, item_type, item_source_id, streak, done) VALUES (%d, 'vocab', %s, 0, 0)",
+                $userId,
+                $sourceId
+            )) === 1;
+            $p = $this->db->get_row($this->db->prepare(
+                "SELECT id, streak, done, TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM {$table} WHERE user_id = %d AND item_type = 'vocab' AND item_source_id = %s FOR UPDATE",
+                $userId,
+                $sourceId
+            ));
+            if (! $p) {
+                throw new RuntimeException(__('Antwort konnte nicht gespeichert werden.', 'bootspruefung-learning'));
+            }
+            // Mit Client-Serie: Vergleich (compare-and-set), sonst Zeitfenster.
+            $repeat = ! $created && ($expectedStreak !== null
+                ? $expectedStreak !== (int) $p->streak
+                : (int) $p->age >= 0 && (int) $p->age < self::VOCAB_REPEAT_SECONDS);
+            if ($repeat) {
+                $this->db->query('COMMIT');
 
-        return ['streak' => $streak, 'learned' => $learned];
+                return ['streak' => (int) $p->streak, 'learned' => (bool) $p->done, 'repeated' => true];
+            }
+            $streak = $known ? (int) $p->streak + 1 : 0;
+            $learned = (bool) $p->done || $streak >= self::VOCAB_STREAK_TO_LEARN;
+            // updated_at ausdrücklich setzen (ON UPDATE greift nur bei geänderten Werten).
+            $this->db->query($this->db->prepare(
+                "UPDATE {$table} SET streak = %d, done = %d, updated_at = NOW() WHERE id = %d",
+                $streak,
+                $learned ? 1 : 0,
+                (int) $p->id
+            ));
+            $this->db->query('COMMIT');
+        } catch (\Throwable $e) {
+            $this->db->query('ROLLBACK');
+            throw $e;
+        }
+
+        return ['streak' => $streak, 'learned' => $learned, 'repeated' => false];
     }
 
     /** Überblick für die Kursseite. @return array<string,int> */

@@ -84,8 +84,9 @@ final class TrainerController
             'catalog' => ['type' => 'string', 'enum' => ['SRC', 'UBI'], 'required' => true], 'category' => ['type' => ['string', 'null'], 'maxLength' => 191, 'default' => null],
         ]);
         $this->registerRadioPracticeAndDevice($route, $key);
-        $route('/radio/vocabulary/(?P<key>[A-Za-z0-9-]+)', WP_REST_Server::CREATABLE, fn ($r) => $this->radio->vocabularyAnswer(get_current_user_id(), $this->course($r), (string) $r['key'], (bool) $r['known']), [
-            'key' => $key, 'known' => ['type' => 'boolean', 'required' => true],
+        // streak (optional): Serie, die die Karte beim Antworten zeigte – schützt vor Doppelzählung (zweiter Tab).
+        $route('/radio/vocabulary/(?P<key>[A-Za-z0-9-]+)', WP_REST_Server::CREATABLE, fn ($r) => $this->radio->vocabularyAnswer(get_current_user_id(), $this->course($r), (string) $r['key'], (bool) $r['known'], $r['streak'] === null ? null : (int) $r['streak']), [
+            'key' => $key, 'known' => ['type' => 'boolean', 'required' => true], 'streak' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null],
         ]);
     }
 
