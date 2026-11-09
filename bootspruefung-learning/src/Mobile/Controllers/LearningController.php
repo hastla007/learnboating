@@ -8,6 +8,7 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\Idempotency;
 use Bootspruefung\Learning\Mobile\Mapper\QuestionMapper;
+use Bootspruefung\Learning\Mobile\TokenAuth;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -146,25 +147,43 @@ final class LearningController extends BaseController
 
     // ------------------------------------------------------------------ Favoriten & Sammlungen
 
+    /**
+     * Favoriten, sortiert nach Speicherzeitpunkt (`saved_at` = bp_favorite.created_at) bzw. –
+     * mit collection_id – nach Einsortierung in die Sammlung (`assigned_at` =
+     * bp_favorite_collection_item.created_at); bei gleichem Zeitpunkt nach Frage-ID.
+     */
     public function favorites(WP_REST_Request $request): WP_REST_Response
     {
         $course = $this->course($request);
         $this->requireFeature($course, AccessService::QUESTION_BANK);
         $filter = $request['collection_id'] !== null && $request['collection_id'] !== '' ? (int) $request['collection_id'] : null;
+        $sort = (string) ($request['sort'] ?: 'saved_at');
+        $order = (string) ($request['order'] ?: 'desc');
+        if ($sort === 'assigned_at' && $filter === null) {
+            throw ApiException::validation(['sort' => [__('Nach assigned_at kann nur zusammen mit collection_id sortiert werden.', 'bootspruefung-learning')]]);
+        }
         if ($filter !== null) {
             $this->ownCollection($course, $filter);
         }
         $overview = $this->collections->overview($this->user(), $course);
-        $created = $this->favoriteDates();
+        $saved = $this->favoriteDates();
+        $assigned = $filter !== null ? $this->assignmentDates($filter) : [];
         $items = [];
         foreach ($overview['items'] as $item) {
+            $qid = (int) $item['question_id'];
             if (! $item['favorite'] || ($filter !== null && ! in_array($filter, $item['collections'], true))) {
                 continue;
             }
-            $items[] = $this->favoritePayload($item, $created);
+            $payload = $this->favoritePayload($item, $saved);
+            if ($filter !== null) {
+                $payload['assigned_at'] = self::stamp($assigned[$qid] ?? null, $saved[$qid] ?? null);
+            }
+            $items[] = $payload;
         }
+        $dir = $order === 'asc' ? 1 : -1;
+        usort($items, static fn ($a, $b) => $dir * ((strcmp($a[$sort], $b[$sort]) ?: ((int) $a['question_id'] <=> (int) $b['question_id']))));
 
-        return $this->ok($items, 200, ['collections' => array_map([$this, 'collectionPayload'], $overview['collections'])]);
+        return $this->ok($items, 200, ['sort' => $sort, 'order' => $order, 'collection_id' => $filter !== null ? (string) $filter : null, 'collections' => array_map([$this, 'collectionPayload'], $overview['collections'])]);
     }
 
     /** Zuletzt falsch beantwortete Fragen („Favoriten & Fehler“ im Web). */
@@ -172,11 +191,11 @@ final class LearningController extends BaseController
     {
         $course = $this->course($request);
         $this->requireFeature($course, AccessService::QUESTION_BANK);
-        $created = $this->favoriteDates();
+        $saved = $this->favoriteDates();
         $items = [];
         foreach ($this->collections->overview($this->user(), $course)['items'] as $item) {
             if ($item['wrong']) {
-                $items[] = $this->favoritePayload($item, $created);
+                $items[] = $this->favoritePayload($item, $saved);
             }
         }
 
@@ -205,13 +224,15 @@ final class LearningController extends BaseController
             throw ApiException::notFound(__('Diese Frage gehört nicht zum freigeschalteten Umfang des Kurses.', 'bootspruefung-learning'));
         }
         $result = $this->collections->assign($user, $course, $questionId, true, $target);
+        $savedAt = self::stamp($this->favoriteDates()[$questionId] ?? null);
 
         return $this->ok([
             'question_id' => (string) $questionId,
             'context' => 'smart_learning',
             'collection_id' => isset($result['collections'][0]) ? (string) $result['collections'][0] : null,
             'collection_ids' => array_map('strval', $result['collections']),
-            'created_at' => $this->favoriteDates()[$questionId] ?? null,
+            'saved_at' => $savedAt,
+            'created_at' => $savedAt,
         ]);
     }
 
@@ -318,21 +339,57 @@ final class LearningController extends BaseController
         )));
     }
 
-    /** @return array<int,string> question_id => Zeitpunkt (ISO) */
+    /** @return array<int,string> question_id => bp_favorite.created_at (UTC, wie gespeichert) */
     private function favoriteDates(): array
     {
         global $wpdb;
         $out = [];
         foreach ($wpdb->get_results($wpdb->prepare("SELECT question_id, created_at FROM {$wpdb->prefix}bp_favorite WHERE user_id = %d AND context = 'question'", $this->user())) as $row) {
-            $out[(int) $row->question_id] = (string) \Bootspruefung\Learning\Mobile\TokenAuth::iso($row->created_at);
+            $out[(int) $row->question_id] = (string) $row->created_at;
         }
 
         return $out;
     }
 
-    /** @param array<string,mixed> $item @param array<int,string> $created @return array<string,mixed> */
-    private function favoritePayload(array $item, array $created): array
+    /** @return array<int,string> question_id => bp_favorite_collection_item.created_at einer eigenen Sammlung */
+    private function assignmentDates(int $collectionId): array
     {
+        global $wpdb;
+        $out = [];
+        foreach ($wpdb->get_results($wpdb->prepare(
+            "SELECT i.question_id, i.created_at FROM {$wpdb->prefix}bp_favorite_collection_item i JOIN {$wpdb->prefix}bp_favorite_collection c ON c.id = i.collection_id WHERE c.user_id = %d AND i.collection_id = %d",
+            $this->user(),
+            $collectionId
+        )) as $row) {
+            $out[(int) $row->question_id] = (string) $row->created_at;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Zeitstempel (RFC 3339, UTC), nie null: Die Spalten sind NOT NULL DEFAULT CURRENT_TIMESTAMP
+     * und werden beim Speichern gesetzt. Fehlt ein Wert dennoch oder ist er ungültig (z. B.
+     * Nulldatum aus einem Import ohne Strict-Mode), gilt der Ersatzwert, sonst 1970-01-01T00:00:00Z
+     * (sortiert ans Ende bzw. bei asc an den Anfang).
+     */
+    public static function stamp(?string $mysql, ?string $fallback = null): string
+    {
+        foreach ([$mysql, $fallback] as $value) {
+            $value = trim((string) $value);
+            if ($value !== '' && ! str_starts_with($value, '0000-00-00') && ($ts = strtotime($value.' UTC')) !== false && $ts > 0) {
+                return (string) TokenAuth::iso($value);
+            }
+        }
+
+        return '1970-01-01T00:00:00Z';
+    }
+
+    /** @param array<string,mixed> $item @param array<int,string> $saved @return array<string,mixed> */
+    private function favoritePayload(array $item, array $saved): array
+    {
+        $qid = (int) $item['question_id'];
+
         return [
             'question_id' => (string) $item['question_id'],
             'context' => 'smart_learning',
@@ -344,7 +401,10 @@ final class LearningController extends BaseController
             'text' => (string) $item['text'],
             'module' => (string) $item['module'],
             'topic' => $item['topic'] !== '' ? (string) $item['topic'] : null,
-            'created_at' => $created[(int) $item['question_id']] ?? null,
+            // Favoriten: immer gesetzt; Fehlerliste: null, wenn die Frage kein Favorit ist.
+            'saved_at' => $item['favorite'] ? self::stamp($saved[$qid] ?? null) : null,
+            // Veraltet (= saved_at), bleibt für bestehende App-Versionen.
+            'created_at' => $item['favorite'] ? self::stamp($saved[$qid] ?? null) : null,
         ];
     }
 
@@ -365,7 +425,6 @@ final class LearningController extends BaseController
             'name' => (string) $c['name'],
             'favorite_count' => (int) ($c['count'] ?? 0),
             'created_at' => \Bootspruefung\Learning\Mobile\TokenAuth::iso($this->collectionDates[$id] ?? null),
-            'updated_at' => null,
         ];
     }
 }

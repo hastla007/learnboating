@@ -104,15 +104,23 @@ final class CollectionService
         $this->db->query('START TRANSACTION');
         try {
             $this->learning->setFavorite($userId, $questionId, $favorite);
-            if ($own !== []) {
+            // Nur abgewählte Sammlungen entfernen; bestehende Zuordnungen behalten ihren Zeitpunkt
+            // (created_at = „einsortiert am“, Sortierung in der App).
+            $removed = array_diff($own, $collectionIds);
+            if ($removed !== []) {
                 $this->db->query($this->db->prepare(
-                    "DELETE FROM {$this->t('favorite_collection_item')} WHERE question_id = %d AND collection_id IN (".implode(',', array_map('intval', $own)).')',
+                    "DELETE FROM {$this->t('favorite_collection_item')} WHERE question_id = %d AND collection_id IN (".implode(',', array_map('intval', $removed)).')',
                     $questionId
                 ));
             }
             $now = current_time('mysql', true);
             foreach ($collectionIds as $cid) {
-                if (! $this->db->insert($this->t('favorite_collection_item'), ['collection_id' => $cid, 'question_id' => $questionId, 'created_at' => $now])) {
+                if ($this->db->query($this->db->prepare(
+                    "INSERT IGNORE INTO {$this->t('favorite_collection_item')} (collection_id, question_id, created_at) VALUES (%d, %d, %s)",
+                    $cid,
+                    $questionId,
+                    $now
+                )) === false) {
                     throw new RuntimeException(__('Die Sammlungen konnten nicht gespeichert werden.', 'bootspruefung-learning'));
                 }
             }

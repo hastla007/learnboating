@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+use Bootspruefung\Learning\ExamGuide\ExamGuideService;
+use Bootspruefung\Learning\Frontend\Router;
 use Bootspruefung\Learning\Gate\Charts;
 use Bootspruefung\Learning\Gate\DownloadService;
 use Bootspruefung\Learning\Gate\SectionFiles;
 use Bootspruefung\Learning\Learning\Services\AccessService;
+use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\Mapper\CourseMapper;
 use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Rest\Controllers\TrainerController;
+use Bootspruefung\Learning\Trainers\DeviceSimService;
+use Bootspruefung\Learning\Trainers\RadioPracticeService;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -34,16 +39,22 @@ final class CourseController extends BaseController
         $data = $this->courses->summary($user, $course);
         $features = $this->access->features($user, (string) $course->code);
         $exam = $features[AccessService::EXAM] ? $this->exams->overview($user, $course) : null;
+        $offers = $this->courses->offers($user, $course);
+        // Wie der Web-Lernbereich: Prüfungsanmeldung nur, wenn eingeschaltet und für den Kurs eine Anleitung existiert.
+        $guide = ExamGuideService::enabled() && (new ExamGuideService())->pagesFor((string) $course->code) !== [];
         $data += [
             'modules_count' => count($this->content->modules((int) $course->id)),
             'exam_options_count' => $exam === null ? 0 : count($exam['papers']) + ($exam['available'] ? 1 : 0),
             'favorites_count' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseFavoriteCount($user, $course) : 0,
             'trainers' => (new TrainerController())->summary($user, $course),
-            'offers' => (object) $this->courses->offers($user, $course),
+            'offers' => (object) $offers,
             'downloads' => array_map([self::class, 'file'], DownloadService::items($user, (string) $course->code)),
             'section_files' => (object) array_map(static fn ($list) => array_map([self::class, 'file'], $list), SectionFiles::forCourse($user, (string) $course->code)),
             'charts' => array_map(static fn ($c) => ['code' => (string) $c['code'], 'title' => (string) $c['title']] + self::fileUrl($c['url'] ?? null), Charts::forCourse($user, (string) $course->code)),
-            'web_url' => \Bootspruefung\Learning\Frontend\Router::url(strtolower((string) $course->code)),
+            'web_url' => Router::url(strtolower((string) $course->code)),
+            // Funkgerät-Simulator: nur Link in den Web-Lernbereich (keine Bedien-API).
+            'device_simulator' => RadioController::simulator($user, $course, new DeviceSimService($this->access, new RadioPracticeService($this->access)), $offers),
+            'exam_registration' => ['available' => $guide, 'web_url' => $guide ? Router::url(strtolower((string) $course->code).'/pruefung-anmelden') : null],
         ];
 
         return $this->ok($data);
@@ -91,6 +102,32 @@ final class CourseController extends BaseController
             'overall' => CourseMapper::progressSummary($progress['total']),
             'modules' => self::modulesOf($progress['modules']),
             'limit' => $progress['limit'],
+        ]);
+    }
+
+    /**
+     * Prüfungsanmeldung (nur lesen): Anleitung je Prüfung (Gebühr, Fristen, Unterlagen, Ablauf,
+     * FAQ) und Prüfungsausschüsse über ExamGuideService::payload wie die Web-Seite
+     * „Prüfung anmelden“. Anmelden können sich Lernende nur selbst beim Prüfungsausschuss –
+     * die App sendet nichts.
+     */
+    public function examRegistration(WP_REST_Request $request): WP_REST_Response
+    {
+        $course = $this->course($request);
+        if (! ExamGuideService::enabled()) {
+            throw ApiException::notFound(__('Diese Seite ist nicht verfügbar.', 'bootspruefung-learning'));
+        }
+        $payload = (new ExamGuideService())->payload((string) $course->code);
+        if ($payload['tabs'] === []) {
+            throw ApiException::notFound(__('Für diesen Kurs gibt es keine Anleitung zur Prüfungsanmeldung.', 'bootspruefung-learning'));
+        }
+
+        return $this->ok([
+            'course_id' => (string) $course->id,
+            'web_url' => Router::url(strtolower((string) $course->code).'/pruefung-anmelden'),
+            'registration_in_app' => false,
+            'guides' => $payload['tabs'],
+            'committees' => array_map(static fn ($c) => ['id' => (string) $c['id']] + $c, $payload['committees']),
         ]);
     }
 

@@ -32,8 +32,9 @@ src/Mobile/
 ├── Problem.php, ApiException.php   einheitliches Fehlerobjekt
 ├── MobileSettings.php       Option bp_learning_mobile (App an/aus, Tenant-Slug, Marke, Proxys)
 ├── Admin/MobileAdminPage.php  Bootsprüfung → Mobile App
-├── Controllers/             Auth, Account, Course, Learning, Exam, Training (Video/Navigation/Praxis),
-│                            Coupon, Privacy, File – je ein dünner Adapter auf die Services
+├── Controllers/             Auth, Account, Course (inkl. Prüfungsanmeldung), Learning, Exam,
+│                            Training (Video/Navigation/Praxis), Radio (Funktraining), Coupon, Privacy,
+│                            File – je ein dünner Adapter auf die Services
 └── Mapper/                  Course-, Question-, Media-Mapper (Service-Ergebnis → Vertragsformat)
 ```
 
@@ -51,16 +52,23 @@ stehen auch im Datenexport (ohne Token-Hashes).
 | `POST /auth/refresh`, `POST /auth/logout`, `GET/DELETE /me/sessions[/{id}]` | `TokenAuth` |
 | `POST /auth/password/forgot`, `POST /auth/password/reset` | `retrieve_password()`, `check_password_reset_key()`, `reset_password()` |
 | `GET /me` | WordPress-Konto, `Settings::brand()`, `MobileSettings` |
-| `GET /courses`, `GET /courses/{id}` | `ContentRepository::courses`, `AccessService::scopes`, `LearningService::courseTotal`, `ExamService::overview`, `TrainerController::summary`, `Integration::offers`, `VideoUpgrade::offerFor`, `DownloadService`, `SectionFiles`, `Charts` |
+| `GET /courses`, `GET /courses/{id}` | `ContentRepository::courses`, `AccessService::scopes`, `LearningService::courseTotal`, `ExamService::overview`, `TrainerController::summary`, `Integration::offers`, `VideoUpgrade::offerFor`, `DownloadService`, `SectionFiles`, `Charts`, `DeviceSimService::available/premium` (`device_simulator`), `ExamGuideService::pagesFor` (`exam_registration`) |
+| `GET /courses/{id}/exam-registration` | `ExamGuideService` (`enabled`, `payload` = Anleitungen + `committees`) wie `ExamGuideController` |
 | `GET /courses/{id}/overview`, `/modules`, `/progress` | `LearningService::courseProgress` (Module, Themen, Drip, Teilumfang) |
 | `GET /courses/{id}/trainer/next` | `LearningService::next` (+ `CollectionService::questionIds`, `ExamService::wrongQuestionIds`) |
 | `POST /courses/{id}/trainer/reveal` | `LearningService::reveal` |
 | `POST /courses/{id}/attempts`, `GET …/attempts/{id}` | `QuestionPresenter::verify`, `LearningService::answer` |
-| `…/favorites`, `…/favorite-collections`, `…/mistakes` | `CollectionService` (`overview`, `assign`, `create`, `rename`, `delete`), `LearningService::setFavorite` |
+| `…/favorites`, `…/favorite-collections`, `…/mistakes` | `CollectionService` (`overview`, `assign`, `create`, `rename`, `delete`), `LearningService::setFavorite`; `saved_at`/`assigned_at` aus `bp_favorite.created_at` / `bp_favorite_collection_item.created_at` |
 | `GET/POST /courses/{id}/exams`, `/exams/{id}…` | `ExamService` (`overview`, `start`, `show`, `saveAnswer`, `reveal`, `submit`) |
 | `GET /courses/{id}/videos`, `/videos/{id}`, `PUT …/progress` | `VideoService` (`course`, `lesson`, `progress`) |
 | `GET /courses/{id}/navigation-tasks`, `/navigation-tasks/{id}`, `POST …/parts/{partId}` | `TrainerService` (`navigationTasks`, `navigationTask`, `navigationAnswer`), `Charts` |
 | `GET/PUT /courses/{id}/praxis[/{cardId}]` | `TrainerService` (`praxis`, `praxisStatus`) |
+| `GET /courses/{id}/radio` | `RadioService::overview` (Texte, Vokabeln, Funkpraxis, Simulator-Zähler), `RadioPracticeService::catalogsFor`, `DeviceSimService::available/premium` |
+| `GET /courses/{id}/radio/spelling` | `RadioService::spelling` |
+| `GET /courses/{id}/radio/texts/{textId}`, `POST …/evaluate`, `PUT …/done` | `RadioService` (`text`, `evaluate`, `setDone`) |
+| `GET /courses/{id}/radio/vocabulary`, `POST …/vocabulary/{cardId}/answers` | `RadioService` (`vocabulary`, `vocabularyAnswer`) |
+| `GET /courses/{id}/radio/practice[/{scenarioId}]`, `POST …/evaluate`, `PUT …/done` | `RadioPracticeService` (`overview`, `show`, `evaluate`, `setDone`) |
+| `GET /courses/{id}/radio/samples` | `RadioPracticeService::samples` |
 | `POST /coupons/redeem` | `GroupService::join` (Beitrittscodes von Gruppenlizenzen) |
 | `POST /profile/export`, `GET /profile/export/{id}[/download]` | alle WordPress-Datenexporte (`PersonalData` des Plugins, WordPress-Konto, WooCommerce) |
 | `POST /me/deletion-request` | `wp_create_user_request()`, `wp_send_user_request()` |
@@ -137,7 +145,21 @@ stehen auch im Datenexport (ohne Token-Hashes).
 9. **Navigation:** Liste, Aufgabe (Lösungen erst nach Antwort/Aufdecken), `POST
    /navigation-tasks/{id}/parts/{partId}` mit eigener Antwort und/oder Einschätzung
    (`correct|partly|wrong`). Seekarten und Kurs-PDFs: URL aus der Antwort mit Authorization-Header laden.
-10. **Konto:** Sitzungen anzeigen/beenden, `POST /profile/export` → Download-URL (mit Token) innerhalb
+10. **Funktraining (SRC/UBI):** nur bei Fähigkeit `funk`. `GET /courses/{id}/radio` (Übersicht),
+    Texte: `GET /radio/texts/{textId}` → Eingabe → `POST …/evaluate` (Prozent, fehlende Wörter,
+    Musterlösung) → `PUT …/done`. Vokabeln: `GET /radio/vocabulary?catalog=SRC[&category=…]`,
+    `POST /radio/vocabulary/{cardId}/answers` mit `known` und der angezeigten `streak`.
+    Funkpraxis: `GET /radio/practice/{scenarioId}` → `POST …/evaluate` mit `answers`
+    (Feldname → Text) → `PUT …/done`. Dazu `/radio/spelling` und `/radio/samples`. Gesperrte
+    Übungen (Teilumfang) kommen mit `locked: true` und liefern beim Öffnen 403 `CONTENT_LOCKED`.
+11. **Funkgerät-Simulator:** keine App-API. `device_simulator` (Kursdetails und Funk-Übersicht)
+    nennt `available`, `premium`, `web_url`. Die App zeigt „Am Tablet oder im Browser öffnen“
+    und öffnet `web_url` im Systembrowser (Anmeldung dort mit demselben Konto).
+12. **Prüfungsanmeldung:** `GET /courses/{id}/exam-registration` (nur lesen: Gebühr, Fristen,
+    Unterlagen, Prüfungsformen, FAQ, Prüfungsausschüsse mit Kontaktdaten) und `web_url` zur
+    Web-Seite. Angemeldet wird nicht über die App, sondern direkt beim Prüfungsausschuss.
+    `exam_registration.available` in den Kursdetails zeigt, ob es die Seite gibt.
+13. **Konto:** Sitzungen anzeigen/beenden, `POST /profile/export` → Download-URL (mit Token) innerhalb
     von 24 h, `POST /me/deletion-request` (Kontolöschung beantragen, Bestätigung per E-Mail),
     `POST /auth/logout`.
 
@@ -204,7 +226,7 @@ beibehalten, wo es passt. Abweichungen:
 | Refresh-Wiederverwendung | Widerruf | Widerruf; innerhalb 10 s nach Rotation 409 ohne Widerruf | Parallele Refresh-Aufrufe der App sollen nicht abmelden |
 | Passwortänderung | Reset widerruft | Jede echte Änderung (Reset, Profil, WooCommerce-Konto, `wp_set_password`) widerruft; reines Neu-Hashen beim Login nicht | Konzept-Vorgabe vollständig |
 | Passwort-Reset | min. 12 Zeichen | übernommen (nur in der App) | Vertrag |
-| E-Mail-Bestätigung | eingeschränkte Sitzung, `EMAIL_NOT_VERIFIED` | Konten gelten als bestätigt; Endpunkt antwortet 202 ohne Versand | WooCommerce-Konten haben keine Bestätigung; keine künstliche Sperre |
+| E-Mail-Bestätigung | eingeschränkte Sitzung, `EMAIL_NOT_VERIFIED`, `POST /auth/email/verification-notification` | Konten gelten als bestätigt (`email_verified: true`); der Endpunkt ist entfernt (seit 1.1.0 → 404). Die App bietet **keinen** Bestätigungsablauf an | WooCommerce-Konten haben keine Bestätigung; keine künstliche Sperre |
 | Tenant | mehrere Mitgliedschaften | Ein Shop = ein Tenant (Slug einstellbar); Mitglied = jedes angemeldete Kundenkonto | Plattform ist ein Shop |
 | IDs | Strings | Strings mit numerischen Werten; `courseId` = `bp_course.id`, Kurscode wird auch akzeptiert | Vorgabe; Code bequem für Tests |
 | Zugangsstatus | active/expired/suspended/revoked/not_granted | zusätzlich `limited` (Schnupper-Umfang) und `pending` (Zahlung offen), dazu `trial`, `purchased`, `limits` | Plattform kennt Teilumfang und Zahlungsstatus |
@@ -218,7 +240,11 @@ beibehalten, wo es passt. Abweichungen:
 | Wiederholte Antwort | 201 | 201 beim ersten Mal, 200 mit `repeated: true` bei gleichem Frage-Token | Frage-Token zählt wie im Web genau einmal |
 | `mastery_score` | im Ergebnis | nicht ausgegeben | Web zeigt ihn nicht |
 | Favoriten | je Kurs, eine Sammlung | kontoweit wie im Web, mehrere Sammlungen je Frage (`collection_ids`); Löschen entfernt auch aus Sammlungen | Bestehende Tabellen/Regeln |
-| Sammlung `updated_at` | Pflicht | `null` | wird nicht gespeichert |
+| Sammlung `updated_at` | Pflicht | entfällt (seit 1.1.0 nicht mehr ausgegeben) | wird nicht gespeichert; ein immer leeres Feld war irreführend |
+| Favoriten-Zeitpunkte, Sortierung | `created_at` (optional) | `saved_at` (Pflicht, nie null), bei `collection_id` zusätzlich `assigned_at`; `sort` (`saved_at` oder `assigned_at`), `order` (`desc` oder `asc`), gleiche Zeitpunkte nach Frage-ID; `created_at` bleibt als veralteter Alias | App sortiert serverseitig stabil; Einsortieren in weitere Sammlungen ändert bestehende Zeitpunkte nicht |
+| Funktraining | nicht im Konzept | `/courses/{id}/radio/…` (Texte, Vokabeln, Buchstabiertafel, Funkpraxis, Muster) | gleiche Übungen und gleicher Lernstand wie im Web |
+| Funkgerät-Simulator | nicht im Konzept | keine Bedien-API; `device_simulator` mit Browser-Link und Testversion/Vollversion | Simulator ist eine große Browser-Anwendung (Gerätezeichnungen, Zustandsmaschine); Nachbau in der App wäre zweite Logik |
+| Prüfungsanmeldung | nicht im Konzept | `GET /courses/{id}/exam-registration`, nur lesen, `web_url` | Anmeldung erfolgt beim Prüfungsausschuss; keine Personendaten über die App |
 | Prüfungsoptionen | rule_set/fixed_paper | `id` „simulation“ bzw. Bogen-ID, `locked`/`lock_reason`/`unlock_at`, `running_exam_id`, `meta.live` | Teilumfang, Drip, Übungsmodus |
 | Prüfungsfragen | `questionId` | `questions[].id` = Position (1…n), Pfad `/answers/{position}` | Web liefert während der Prüfung bewusst keine Fragen-IDs |
 | Prüfung abgelaufen | Status `expired` | `status: evaluated` + `result.expired`; Antworten danach 410 | Plattform wertet abgelaufene Prüfungen automatisch aus |
@@ -230,18 +256,22 @@ beibehalten, wo es passt. Abweichungen:
 | Datenexport | asynchron, öffentliche Datei mit Link-Token | sofort fertig, in der Datenbank, Download nur mit Bearer-Token, 24 h, automatisch gelöscht; enthält alle WordPress-Exporte (Plugin, Konto, WooCommerce) | kein öffentliches Upload-Verzeichnis |
 | Kontolöschung | nicht in der App | `POST /me/deletion-request` (WordPress-Datenschutzanfrage mit Bestätigungsmail) | Apple verlangt einen Weg zur Kontolöschung in der App |
 | Idempotency-Key | bei allen POST Pflicht | Pflicht bei `attempts`; optional (aber unterstützt) bei Sammlung, Prüfungsstart, Code, Export | übrige Vorgänge sind ohnehin wiederholbar |
-| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/files/{id}`, `/profile/export/{id}/download` | Plattform-Funktionen, Server-Prüfung |
+| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download` | Plattform-Funktionen, Server-Prüfung |
 | Fehlerobjekt | RFC 9457 | gleiches Format, `type` als URN, zusätzlich `message`, `details`, `retry_after` | einheitlich und einfach auswertbar |
 
 ---
 
 ## 6. Tests
 
-- **Integration:** `tests/integration/mobile-api-test.php` (über 120 Prüfungen): Login/Refresh/Rotation/
+- **Integration:** `tests/integration/mobile-api-test.php` (rund 180 Prüfungen): Login/Refresh/Rotation/
   Wiederverwendung/Logout, Sitzungen, Passwort-Reset und -Änderung, Rate-Limit (IP, E-Mail, Proxy),
   Tenant, Kursliste mit WooCommerce-Kauf (ohne WooCommerce: manueller Zugang), Smarttrainer mit
-  gleichem Lernstand wie im Web, Idempotenz, Favoriten/Sammlungen, Prüfung Start → Antwort →
-  Abgabe → Ergebnis, Video, Navigation, Codes, Export, Löschantrag, fremde Daten (IDOR), Abschalten.
+  gleichem Lernstand wie im Web, Idempotenz, Favoriten/Sammlungen inkl. Sortierung und Nulldatum,
+  Prüfung Start → Antwort → Abgabe → Ergebnis, Video, Navigation, Funktraining (Texte, Vokabeln,
+  Funkpraxis, Teilumfang), Simulator-Link, Prüfungsanmeldung, Codes, Export, Löschantrag, fremde
+  Daten (IDOR), Abschalten und **Abgleich aller Routen mit `openapi.yaml`** (jede Route im Vertrag
+  und umgekehrt; übersprungen, wenn `docs/` nicht vorhanden ist). Funkinhalte und Anleitungen
+  kommen aus dem Paketimport von `content-flow-test.php`.
   Läuft nur gegen eine Test-Datenbank (`support/guard.php`).
 
   ```bash
@@ -263,8 +293,9 @@ beibehalten, wo es passt. Abweichungen:
 3. **Kontolöschung:** Nach der Bestätigung bearbeitet der Shop den Antrag in WordPress (Werkzeuge →
    Personenbezogene Daten löschen, danach Konto löschen). Soll das automatisch passieren? (Achtung
    Aufbewahrungsfristen für Bestellungen.)
-4. **Funktraining und Gerätesimulation** (SRC/UBI) haben noch keine App-Endpunkte; die Fähigkeit
-   `funk` wird angezeigt, die App kann auf `links.web_learning` verweisen. Ebenso die Prüfungsanmeldung.
+4. **Funkgerät-Simulator:** bewusst ohne App-API, nur Link in den Web-Lernbereich. Im Browser
+   ist eine erneute Anmeldung nötig (keine Sitzungsübergabe App → Web). Gewünscht wäre ggf. ein
+   einmaliger Anmeldelink (Magic Link) – nicht Teil dieser Lieferung.
 5. **Passwort-Reset-Link** führt auf die Web-Seite des Shops. Soll er die App öffnen, braucht es
    Universal Links/App Links (apple-app-site-association, assetlinks.json) – nicht Teil dieser Lieferung.
 6. **Sprache der WordPress-Mails** (Reset, Löschbestätigung) folgt der Website-Sprache; auf Staging
@@ -274,3 +305,32 @@ beibehalten, wo es passt. Abweichungen:
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“** in Prüfungen gibt es auf der Plattform nicht – gewünscht?
 9. Laufzeiten (15 Min./30/90 Tage) und Limits sind derzeit feste Werte im Code; bei Bedarf einstellbar machen.
+10. **Sprachausgabe im Funktraining:** Das Web liest Diktate mit der Browserstimme vor
+    (Einstellung `radio_voice_output`). Die App nutzt die Sprachausgabe des Geräts; eigene
+    Audiodateien gibt es nicht.
+
+---
+
+## 8. Änderungsprotokoll
+
+### 1.1.0 (API-Version, Header `X-Boatingschool-Api-Version`)
+
+- **Neu: Funktraining SRC/UBI** unter `/courses/{courseId}/radio/…` (Übersicht, Buchstabiertafel,
+  Funktexte mit Auswertung und „erledigt“, Vokabeln mit „gewusst/nicht gewusst“, Funkpraxis mit
+  Auswertung und „erledigt“, Muster-Funksprüche). Kurse ohne Funkinhalte → 404, ohne Zugang → 403.
+- **Neu: Prüfungsanmeldung** `GET /courses/{courseId}/exam-registration` (nur lesen) und
+  `exam_registration` in den Kursdetails.
+- **Neu: Funkgerät-Simulator als Link:** `device_simulator` in den Kursdetails und der
+  Funk-Übersicht (`available`, `premium`, `tier`, `web_url`, `hint`, `webshop_url`).
+- **Favoriten:** `saved_at` (Pflicht, nie null), bei `collection_id` `assigned_at` (Pflicht, nie null);
+  Parameter `sort` (`saved_at`, `assigned_at` nur mit `collection_id`) und `order` (`desc`, `asc`);
+  `meta.sort`, `meta.order`, `meta.collection_id`. `created_at` ist veraltet (= `saved_at`).
+  Fehlerliste (`/mistakes`): `saved_at` null bei Fragen, die kein Favorit sind.
+  Einsortieren in weitere Sammlungen lässt bestehende Zuordnungszeitpunkte unverändert
+  (`CollectionService::assign`, gilt auch im Web).
+- **Entfernt:** `updated_at` an Sammlungen (war immer null) und
+  `POST /auth/email/verification-notification` (→ 404). `email_verified` bleibt `true`.
+
+### 1.0.0
+
+- Erste Fassung der App-Schnittstelle.

@@ -13,6 +13,7 @@ use Bootspruefung\Learning\Mobile\Controllers\ExamController;
 use Bootspruefung\Learning\Mobile\Controllers\FileController;
 use Bootspruefung\Learning\Mobile\Controllers\LearningController;
 use Bootspruefung\Learning\Mobile\Controllers\PrivacyController;
+use Bootspruefung\Learning\Mobile\Controllers\RadioController;
 use Bootspruefung\Learning\Mobile\Controllers\TrainingController;
 use Bootspruefung\Learning\Plugin;
 use WP_Error;
@@ -31,7 +32,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.0.0';
+    public const API_VERSION = '1.1.0';
 
     public static function register(): void
     {
@@ -224,7 +225,6 @@ final class MobileApi
 
         // Konto (ohne Tenant)
         self::route('/auth/logout', 'POST', [AuthController::class, 'logout'], true, false);
-        self::route('/auth/email/verification-notification', 'POST', [AuthController::class, 'verification'], true, false);
         self::route('/me', 'GET', [AccountController::class, 'me'], true, false);
         self::route('/me/sessions', 'GET', [AccountController::class, 'sessions'], true, false);
         self::route('/me/sessions', 'DELETE', [AccountController::class, 'revokeOthers'], true, false);
@@ -239,6 +239,7 @@ final class MobileApi
         self::route($course.'/overview', 'GET', [CourseController::class, 'overview']);
         self::route($course.'/modules', 'GET', [CourseController::class, 'modules']);
         self::route($course.'/progress', 'GET', [CourseController::class, 'progress']);
+        self::route($course.'/exam-registration', 'GET', [CourseController::class, 'examRegistration']);
 
         // Lernen
         self::route($course.'/trainer/next', 'GET', [LearningController::class, 'next'], true, true, [
@@ -251,7 +252,11 @@ final class MobileApi
             'mode' => $nullableString(32), 'client_answered_at' => $nullableString(40), 'response_ms' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null],
         ]);
         self::route($course.'/attempts/'.sprintf($id, 'attemptId'), 'GET', [LearningController::class, 'attemptShow']);
-        self::route($course.'/favorites', 'GET', [LearningController::class, 'favorites'], true, true, ['collection_id' => $idValue]);
+        self::route($course.'/favorites', 'GET', [LearningController::class, 'favorites'], true, true, [
+            'collection_id' => $idValue,
+            'sort' => ['type' => 'string', 'enum' => ['saved_at', 'assigned_at'], 'default' => 'saved_at'],
+            'order' => ['type' => 'string', 'enum' => ['desc', 'asc'], 'default' => 'desc'],
+        ]);
         self::route($course.'/mistakes', 'GET', [LearningController::class, 'mistakes']);
         self::route($course.'/favorites/'.sprintf($id, 'questionId'), 'PUT', [LearningController::class, 'favoriteAdd'], true, true, [
             'collection_id' => $idValue, 'collection_ids' => ['type' => ['array', 'null'], 'items' => ['type' => ['string', 'integer']], 'maxItems' => 30, 'default' => null], 'context' => $nullableString(32),
@@ -292,6 +297,31 @@ final class MobileApi
         self::route($course.'/praxis/'.sprintf($id, 'cardId'), 'PUT', [TrainingController::class, 'praxisStatus'], true, true, [
             'status' => ['type' => 'string', 'enum' => ['known', 'practice', 'open'], 'required' => true],
         ]);
+
+        // Funktraining SRC/UBI (wie TrainerController im Web; Schlüssel = Quell-IDs, z. B. TXT-SRC-01, SRC-01)
+        $key = static fn (string $name): string => '(?P<'.$name.'>[A-Za-z0-9-]{1,64})';
+        $done = ['done' => ['type' => 'boolean', 'required' => true]];
+        self::route($course.'/radio', 'GET', [RadioController::class, 'overview']);
+        self::route($course.'/radio/spelling', 'GET', [RadioController::class, 'spelling']);
+        self::route($course.'/radio/texts/'.$key('textId'), 'GET', [RadioController::class, 'text']);
+        self::route($course.'/radio/texts/'.$key('textId').'/evaluate', 'POST', [RadioController::class, 'textEvaluate'], true, true, [
+            'direction' => ['type' => 'string', 'enum' => ['de-en', 'en-de', ''], 'default' => ''],
+            'transcript' => ['type' => 'string', 'maxLength' => 5000, 'default' => ''], 'translation' => ['type' => 'string', 'maxLength' => 5000, 'default' => ''],
+        ]);
+        self::route($course.'/radio/texts/'.$key('textId').'/done', 'PUT', [RadioController::class, 'textDone'], true, true, $done);
+        self::route($course.'/radio/vocabulary', 'GET', [RadioController::class, 'vocabulary'], true, true, [
+            'catalog' => ['type' => 'string', 'enum' => ['SRC', 'UBI'], 'required' => true], 'category' => $nullableString(191),
+        ]);
+        self::route($course.'/radio/vocabulary/'.$key('cardId').'/answers', 'POST', [RadioController::class, 'vocabularyAnswer'], true, true, [
+            'known' => ['type' => 'boolean', 'required' => true], 'streak' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null],
+        ]);
+        self::route($course.'/radio/practice', 'GET', [RadioController::class, 'practiceList']);
+        self::route($course.'/radio/practice/'.$key('scenarioId'), 'GET', [RadioController::class, 'practiceShow']);
+        self::route($course.'/radio/practice/'.$key('scenarioId').'/evaluate', 'POST', [RadioController::class, 'practiceEvaluate'], true, true, [
+            'answers' => ['type' => 'object', 'required' => true],
+        ]);
+        self::route($course.'/radio/practice/'.$key('scenarioId').'/done', 'PUT', [RadioController::class, 'practiceDone'], true, true, $done);
+        self::route($course.'/radio/samples', 'GET', [RadioController::class, 'samples']);
 
         // Codes und Datenschutz
         self::route('/coupons/redeem', 'POST', [CouponController::class, 'redeem'], true, true, ['code' => $string(300, true)]);

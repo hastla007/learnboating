@@ -128,13 +128,4 @@ final class AuthController extends BaseController
 
         return $this->noContent();
     }
-
-    /**
-     * Unsere Konten sind WooCommerce-Kundenkonten ohne eigene E-Mail-Bestätigung; sie gelten als
-     * bestätigt. Der Endpunkt bleibt für den Vertrag erhalten und versendet nichts.
-     */
-    public function verification(): WP_REST_Response
-    {
-        return new WP_REST_Response(null, 202);
-    }
 }

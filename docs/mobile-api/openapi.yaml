@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.0.0
+  version: 1.1.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -37,6 +37,8 @@ tags:
   - name: Videos
   - name: Navigation
   - name: Praxis
+  - name: Radio
+  - name: ExamRegistration
   - name: Coupons
   - name: Privacy
   - name: Files
@@ -83,7 +85,8 @@ paths:
         Cookies). Kein Tenant-Header nötig. Limit: 10 Fehlversuche je Client-IP und 5 je
         E-Mail-Adresse in 15 Minuten (danach 429 mit `retry_after`).
         Abweichung: Konten gelten immer als bestätigt (`email_verified: true`), es gibt keine
-        eingeschränkte Sitzung.
+        eingeschränkte Sitzung und keinen Bestätigungsablauf – die App darf keine
+        E-Mail-Bestätigung anbieten.
       security: []
       requestBody:
         required: true
@@ -188,17 +191,6 @@ paths:
         '204': {description: Passwort geändert; alle App-Sitzungen widerrufen}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
-  /auth/email/verification-notification:
-    post:
-      tags: [Auth]
-      operationId: resendEmailVerification
-      summary: Bestätigungs-E-Mail (ohne Funktion)
-      description: >-
-        Abweichung: Shop-Konten haben keine eigene E-Mail-Bestätigung und gelten als bestätigt.
-        Der Endpunkt bleibt aus Vertragsgründen erhalten, antwortet 202 und versendet nichts.
-      responses:
-        '202': {description: Angenommen (keine E-Mail)}
-        '401': {$ref: '#/components/responses/Problem'}
   /me:
     get:
       tags: [Account]
@@ -360,6 +352,31 @@ paths:
               schema: {$ref: '#/components/schemas/ProgressResponse'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/exam-registration:
+    get:
+      tags: [ExamRegistration]
+      operationId: getExamRegistration
+      summary: Prüfungsanmeldung – Anleitung und Prüfungsausschüsse (nur lesen)
+      description: >-
+        Erweiterung (ExamGuideService::payload wie die Web-Seite „Prüfung anmelden“). Lernende
+        melden sich selbst beim Prüfungsausschuss an – die App sendet keine Anmeldung
+        (`registration_in_app: false`) und verlinkt `web_url` bzw. die Kontaktdaten der Stellen.
+        Kein Kurszugang nötig (wie im Web). 404, wenn der Shop die Seite abgeschaltet hat oder für
+        den Kurs keine Anleitung existiert.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Anleitung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ExamRegistration'}
+        '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/trainer/next:
     get:
       tags: [Learning]
@@ -493,13 +510,27 @@ paths:
     get:
       tags: [Learning]
       operationId: listFavorites
-      summary: Favoriten (optional nach Sammlung gefiltert)
+      summary: Favoriten (optional nach Sammlung gefiltert), sortiert
+      description: >-
+        Jeder Favorit hat `saved_at` (Zeitpunkt des Speicherns, bp_favorite.created_at), mit
+        `collection_id` zusätzlich `assigned_at` (Zeitpunkt des Einsortierens in diese Sammlung,
+        bp_favorite_collection_item.created_at). Beide sind nie null; erneutes Speichern bzw.
+        Einsortieren ändert sie nicht. Sortierung serverseitig nach `sort`/`order`, bei gleichem
+        Zeitpunkt nach `question_id` (gleiche Richtung) – stabil. Defekte Altdaten (Nulldatum)
+        liefern `1970-01-01T00:00:00Z`.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/CourseId'
         - in: query
           name: collection_id
           schema: {type: string}
+        - in: query
+          name: sort
+          description: '`assigned_at` nur zusammen mit `collection_id` (sonst 422).'
+          schema: {type: string, enum: [saved_at, assigned_at], default: saved_at}
+        - in: query
+          name: order
+          schema: {type: string, enum: [desc, asc], default: desc}
       responses:
         '200':
           description: Favoriten
@@ -508,6 +539,7 @@ paths:
               schema: {$ref: '#/components/schemas/FavoritesResponse'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/mistakes:
     get:
       tags: [Learning]
@@ -522,7 +554,7 @@ paths:
           description: Fehlerliste
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/FavoritesResponse'}
+              schema: {$ref: '#/components/schemas/MistakesResponse'}
         '403': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/favorites/{questionId}:
     put:
@@ -1000,6 +1032,459 @@ paths:
                       status: {type: string}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio:
+    get:
+      tags: [Radio]
+      operationId: getRadioOverview
+      summary: Funktraining-Übersicht (Texte, Vokabeln, Funkpraxis, Simulator-Link)
+      description: >-
+        Erweiterung (RadioService::overview wie der Web-Lernbereich). Nur für Kurse mit Fähigkeit
+        `funk` – sonst 404. Ohne Zugang 403 `ENTITLEMENT_REQUIRED` (`details.capability: funk`).
+        Teilumfang: je Übungsart/Katalog die ersten `meta.limit` Übungen, weitere `locked: true`
+        ohne `teaser`. Lernstand (erledigt, Eingaben, Vokabelserien) ist derselbe wie im Web.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Übersicht
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: {$ref: '#/components/schemas/RadioOverview'}
+                  meta:
+                    type: object
+                    required: [limit, streak_to_learn]
+                    properties:
+                      limit: {type: [integer, 'null'], description: 'null = voller Zugang, n = Teilumfang je Übungsart/Katalog'}
+                      streak_to_learn: {type: integer, description: Vokabel gelernt nach so vielen „gewusst“ in Folge}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/spelling:
+    get:
+      tags: [Radio]
+      operationId: getRadioSpelling
+      summary: Buchstabiertafel mit Aussprachehilfen und Ziffern je Funkkatalog
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Buchstabiertafel
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [letters, digits, catalogs]
+                    properties:
+                      letters:
+                        type: array
+                        items:
+                          type: object
+                          required: [letter, word]
+                          properties:
+                            letter: {type: string}
+                            word: {type: string}
+                            hint: {type: [string, 'null'], description: Aussprachehilfe}
+                      digits:
+                        type: array
+                        items:
+                          type: object
+                          required: [catalog, items]
+                          properties:
+                            catalog: {type: string, enum: [SRC, UBI]}
+                            items:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  digit: {type: string}
+                                  word: {type: string}
+                                  spoken: {type: [string, 'null']}
+                      catalogs: {type: array, items: {type: string, enum: [SRC, UBI]}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioText
+      summary: Funktext (SRC-Übersetzung, UBI-Diktat/-Buchstabieren) mit gespeicherten Eingaben
+      description: >-
+        Übersetzungstexte enthalten beide Sprachen (`text_de`, `text_en`); die App blendet die
+        Zielsprache bis zur Auswertung aus (wie im Web). Diktat: `text_de` wird vorgelesen
+        (Sprachausgabe der App). Buchstabieren: `lines` mit markierten Wörtern und deren
+        Buchstabierung. Gesperrt (Teilumfang) → 403 `CONTENT_LOCKED`.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioTextId'
+      responses:
+        '200':
+          description: Funktext
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/RadioText'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioText
+      summary: Mitschrift/Übersetzung auswerten (und speichern)
+      description: >-
+        Wortvergleich wie im Web (RadioService::evaluate). Übersetzung: `direction` Pflicht
+        (`de-en`/`en-de`), `transcript` = Mitschrift der Ausgangssprache, `translation` = Übersetzung.
+        Diktat (UBI): nur `transcript`. Buchstabier-Übungen werden nicht ausgewertet (422).
+        Ohne Eingabe → 422. Die Eingaben werden gespeichert (erscheinen in `answers`).
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioTextId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction: {type: string, enum: [de-en, en-de, ''], default: ''}
+                transcript: {type: string, maxLength: 5000, default: ''}
+                translation: {type: string, maxLength: 5000, default: ''}
+      responses:
+        '200':
+          description: Auswertung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [text_id, transcript, translation, solution]
+                    properties:
+                      text_id: {type: string}
+                      transcript: {oneOf: [{$ref: '#/components/schemas/RadioWordMatch'}, {type: 'null'}]}
+                      translation: {oneOf: [{$ref: '#/components/schemas/RadioWordMatch'}, {type: 'null'}]}
+                      solution:
+                        type: object
+                        properties:
+                          from: {type: [string, 'null'], description: Ausgangstext (Musterlösung der Mitschrift)}
+                          to: {type: [string, 'null'], description: Musterübersetzung}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioTextDone
+      summary: Funktext als erledigt markieren (oder zurücksetzen)
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioTextId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RadioDoneRequest'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [text_id, done]
+                    properties:
+                      text_id: {type: string}
+                      done: {type: boolean}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary:
+    get:
+      tags: [Radio]
+      operationId: listRadioVocabulary
+      summary: Vokabelkarten eines Funkkatalogs (optional einer Kategorie)
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - in: query
+          name: catalog
+          required: true
+          schema: {type: string, enum: [SRC, UBI]}
+        - in: query
+          name: category
+          description: Kategorie aus der Übersicht (`vocabulary[].category`), z. B. „Notverkehr“
+          schema: {type: string, maxLength: 191}
+      responses:
+        '200':
+          description: Karten
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/RadioVocabularyCard'}
+                  meta:
+                    type: object
+                    properties:
+                      catalog: {type: string}
+                      category: {type: [string, 'null']}
+                      total: {type: integer}
+                      learned: {type: integer}
+                      streak_to_learn: {type: integer}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary/{cardId}/answers:
+    post:
+      tags: [Radio]
+      operationId: answerRadioVocabulary
+      summary: Vokabel „gewusst“ / „nicht gewusst“
+      description: >-
+        RadioService::vocabularyAnswer: gewusst → Serie +1, nicht gewusst → 0; gelernt ab
+        `streak_to_learn` in Folge (bleibt gelernt). `streak` = die auf der Karte angezeigte Serie:
+        weicht der gespeicherte Stand ab (Antwort schon gezählt, z. B. zweites Gerät), wird nichts
+        geändert und `repeated: true` geliefert. Ohne `streak`: zweite Antwort innerhalb von
+        2 Sekunden wird ignoriert. Zusätzlich optional Idempotency-Key für Netzwiederholungen.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - in: path
+          name: cardId
+          required: true
+          schema: {type: string, maxLength: 64}
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [known]
+              properties:
+                known: {type: boolean}
+                streak: {type: [integer, 'null'], minimum: 0}
+      responses:
+        '200':
+          description: Neuer Stand
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [card_id, known, streak, learned, repeated]
+                    properties:
+                      card_id: {type: string}
+                      known: {type: boolean}
+                      streak: {type: integer}
+                      learned: {type: boolean}
+                      repeated: {type: boolean}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice:
+    get:
+      tags: [Radio]
+      operationId: listRadioPractice
+      summary: Funkpraxis-Szenarien je Katalog
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Szenarien
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/RadioPracticeCatalog'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioPractice
+      summary: Funkpraxis-Aufgabe (Lage, Eingabefelder, gespeicherte Eingaben – ohne Musterlösung)
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioScenarioId'
+      responses:
+        '200':
+          description: Aufgabe
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/RadioPracticeTask'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioPractice
+      summary: Funkpraxis auswerten (Prüfpunkte und Musterlösung je Feld)
+      description: >-
+        RadioPracticeService::evaluate: `answers` = Feldname (`fields[].name`) → Text; unbekannte
+        Felder werden ignoriert, Eingaben gespeichert. Ohne Eingabe → 422.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioScenarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: object
+                  additionalProperties: {type: string, maxLength: 5000}
+      responses:
+        '200':
+          description: Auswertung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [scenario_id, fields, passed, total]
+                    properties:
+                      scenario_id: {type: string}
+                      passed: {type: integer, description: erfüllte Prüfpunkte}
+                      total: {type: integer}
+                      fields:
+                        type: array
+                        items:
+                          type: object
+                          required: [name, label, checks, solution]
+                          properties:
+                            name: {type: string}
+                            label: {type: string}
+                            solution: {type: [string, 'null'], description: Musterlösung des Feldes}
+                            checks:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  label: {type: string}
+                                  ok: {type: boolean}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioPracticeDone
+      summary: Funkpraxis-Aufgabe als erledigt markieren (oder zurücksetzen)
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+        - $ref: '#/components/parameters/RadioScenarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RadioDoneRequest'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [scenario_id, done]
+                    properties:
+                      scenario_id: {type: string}
+                      done: {type: boolean}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/samples:
+    get:
+      tags: [Radio]
+      operationId: listRadioSamples
+      summary: Muster-Funksprüche je Katalog und Meldungsart
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Muster
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [catalog, samples]
+                      properties:
+                        catalog: {type: string, enum: [SRC, UBI]}
+                        samples:
+                          type: array
+                          items:
+                            type: object
+                            required: [kind, id, number, locked]
+                            properties:
+                              kind: {type: string, enum: [distress, acknowledge, relay, false_alert, urgency, urgency_cancel, safety, routine]}
+                              id: {type: string}
+                              number: {type: integer}
+                              locked: {type: boolean}
+                              situation: {type: [string, 'null']}
+                              message: {type: [string, 'null'], description: Mustermeldung}
+                              steps:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    label: {type: string}
+                                    text: {type: string}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /coupons/redeem:
     post:
       tags: [Coupons]
@@ -1184,6 +1669,18 @@ components:
       name: taskId
       required: true
       schema: {type: string}
+    RadioTextId:
+      in: path
+      name: textId
+      required: true
+      description: Quell-ID des Funktexts, z. B. TXT-SRC-01, UBI-AUF-01
+      schema: {type: string, pattern: '^[A-Za-z0-9-]{1,64}$'}
+    RadioScenarioId:
+      in: path
+      name: scenarioId
+      required: true
+      description: Quell-ID des Funkpraxis-Szenarios, z. B. SRC-01
+      schema: {type: string, pattern: '^[A-Za-z0-9-]{1,64}$'}
     SessionId:
       in: path
       name: sessionId
@@ -1267,7 +1764,13 @@ components:
         first_name: {type: string}
         last_name: {type: string}
         email: {type: string, format: email}
-        email_verified: {type: boolean, const: true}
+        email_verified:
+          type: boolean
+          const: true
+          description: >-
+            Immer true. Shop-Konten brauchen keine E-Mail-Bestätigung; die App bietet keinen
+            Bestätigungsablauf an (der Endpunkt `/auth/email/verification-notification` des Konzepts
+            entfällt seit 1.1.0).
     Membership:
       type: object
       required: [tenant_slug, tenant_name, status, role, branding]
@@ -1458,6 +1961,14 @@ components:
                   type: array
                   items: {$ref: '#/components/schemas/FileRef'}
                 web_url: {type: string, format: uri}
+                device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
+                exam_registration:
+                  type: object
+                  required: [available, web_url]
+                  description: Erweiterung. Inhalte über GET /courses/{courseId}/exam-registration.
+                  properties:
+                    available: {type: boolean}
+                    web_url: {type: [string, 'null'], format: uri, description: Web-Seite „Prüfung anmelden“}
     Topic:
       type: object
       properties:
@@ -1618,7 +2129,7 @@ components:
       required: [data]
       properties:
         data: {$ref: '#/components/schemas/TrainerAnswerResult'}
-    Favorite:
+    FavoriteBase:
       type: object
       required: [question_id, context, collection_ids]
       properties:
@@ -1632,25 +2143,64 @@ components:
         text: {type: string}
         module: {type: string}
         topic: {type: [string, 'null']}
-        created_at: {type: [string, 'null'], format: date-time}
+    Favorite:
+      allOf:
+        - {$ref: '#/components/schemas/FavoriteBase'}
+        - type: object
+          required: [saved_at, created_at]
+          properties:
+            saved_at: {type: string, format: date-time, description: 'Gespeichert am (UTC), nie null'}
+            assigned_at:
+              type: string
+              format: date-time
+              description: 'Nur bei Filter collection_id (dann immer gesetzt): in diese Sammlung einsortiert am (UTC)'
+            created_at: {type: string, format: date-time, deprecated: true, description: 'Veraltet: gleich saved_at'}
+    Mistake:
+      allOf:
+        - {$ref: '#/components/schemas/FavoriteBase'}
+        - type: object
+          required: [saved_at]
+          properties:
+            saved_at: {type: [string, 'null'], format: date-time, description: 'null, wenn die Frage kein Favorit ist'}
+            created_at: {type: [string, 'null'], format: date-time, deprecated: true}
     FavoritesResponse:
       type: object
-      required: [data]
+      required: [data, meta]
       properties:
         data:
           type: array
           items: {$ref: '#/components/schemas/Favorite'}
         meta:
           type: object
+          required: [sort, order, collections]
           properties:
+            sort: {type: string, enum: [saved_at, assigned_at]}
+            order: {type: string, enum: [desc, asc]}
+            collection_id: {type: [string, 'null']}
             collections:
               type: array
               items: {$ref: '#/components/schemas/FavoriteCollection'}
+    MistakesResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Mistake'}
     FavoriteResponse:
       type: object
       required: [data]
       properties:
-        data: {$ref: '#/components/schemas/Favorite'}
+        data:
+          type: object
+          required: [question_id, context, collection_ids, saved_at]
+          properties:
+            question_id: {type: string}
+            context: {type: string, const: smart_learning}
+            collection_id: {type: [string, 'null']}
+            collection_ids: {type: array, items: {type: string}}
+            saved_at: {type: string, format: date-time}
+            created_at: {type: string, format: date-time, deprecated: true}
     FavoriteCollection:
       type: object
       required: [id, name, favorite_count]
@@ -1659,7 +2209,6 @@ components:
         name: {type: string, minLength: 1, maxLength: 60}
         favorite_count: {type: integer}
         created_at: {type: [string, 'null'], format: date-time}
-        updated_at: {type: 'null', description: nicht gespeichert}
     FavoriteCollectionRequest:
       type: object
       required: [name]
@@ -1677,6 +2226,218 @@ components:
         data:
           type: array
           items: {$ref: '#/components/schemas/FavoriteCollection'}
+    DeviceSimulatorLink:
+      type: object
+      required: [available, premium, tier, web_url, open_in, hint, webshop_url]
+      description: >-
+        Erweiterung. Der Funkgerät-Simulator hat keine App-API (Bedienung nur im Web-Lernbereich).
+        Die App zeigt den Hinweis „am Tablet oder im Browser öffnen“ und öffnet `web_url` im
+        Systembrowser; dort meldet sich der Nutzer mit demselben Konto an (keine Sitzungsübergabe).
+      properties:
+        available: {type: boolean, description: 'DeviceSimService::available – Funkkurs mit Simulator (mind. Testversion)'}
+        premium: {type: boolean, description: 'DeviceSimService::premium – Vollversion freigeschaltet'}
+        tier: {type: [string, 'null'], enum: [free, premium, null]}
+        web_url: {type: [string, 'null'], format: uri, description: '…/bootsscheine/<kurs>/funk/geraet/'}
+        open_in: {type: string, const: browser}
+        hint: {type: [string, 'null']}
+        webshop_url: {type: [string, 'null'], format: uri, description: Angebot für die Vollversion (nur Testversion)}
+        lessons: {type: integer, description: 'Nur in der Funk-Übersicht: sichtbare Lektionen (Testversion: nur die freien)'}
+        mastered: {type: integer, description: 'Nur in der Funk-Übersicht: davon allein gemeistert (Stufe 3)'}
+    RadioOverview:
+      type: object
+      required: [course_id, catalogs, texts, vocabulary, practice, device_simulator]
+      properties:
+        course_id: {type: string}
+        catalogs: {type: array, items: {type: string, enum: [SRC, UBI]}}
+        texts:
+          type: array
+          items:
+            type: object
+            required: [catalog, type, items]
+            properties:
+              catalog: {type: string, enum: [SRC, UBI]}
+              type: {type: string, enum: [translation, dictation, spelling], description: 'SRC: Übersetzung; UBI: Aufnahme (Diktat) und Abgabe (Buchstabieren)'}
+              items:
+                type: array
+                items:
+                  type: object
+                  required: [id, number, done, locked]
+                  properties:
+                    id: {type: string}
+                    number: {type: integer}
+                    direction: {type: [string, 'null'], description: 'Funkverkehr land/see (SRC)'}
+                    teaser: {type: [string, 'null'], description: null bei gesperrten Übungen}
+                    done: {type: boolean}
+                    locked: {type: boolean}
+        vocabulary:
+          type: array
+          items:
+            type: object
+            required: [catalog, category, total, learned]
+            properties:
+              catalog: {type: string, enum: [SRC, UBI]}
+              category: {type: string}
+              total: {type: integer}
+              learned: {type: integer}
+        practice:
+          type: array
+          items: {$ref: '#/components/schemas/RadioPracticeCatalog'}
+        device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
+    RadioText:
+      type: object
+      required: [id, course_id, catalog, type, number, evaluable, answers, done]
+      properties:
+        id: {type: string}
+        course_id: {type: string}
+        catalog: {type: string, enum: [SRC, UBI]}
+        type: {type: string, enum: [translation, dictation, spelling]}
+        number: {type: integer}
+        direction: {type: [string, 'null']}
+        evaluable: {type: boolean, description: 'false bei Buchstabier-Übungen (keine Auswertung)'}
+        text_de: {type: [string, 'null']}
+        text_en: {type: [string, 'null']}
+        lines:
+          type: [array, 'null']
+          description: Buchstabier-Übungen (UBI-Abgabe)
+          items:
+            type: object
+            properties:
+              text: {type: string}
+              spell:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    word: {type: string}
+                    spelled: {type: string}
+        answers:
+          type: object
+          description: 'Gespeicherte Eingaben: Übersetzung je Richtung {"de-en": {transcript, translation}}, Diktat {transcript}'
+          additionalProperties: true
+        done: {type: boolean}
+        previous_id: {type: [string, 'null']}
+        next_id: {type: [string, 'null']}
+    RadioWordMatch:
+      type: object
+      required: [percent, missing]
+      properties:
+        percent: {type: integer, minimum: 0, maximum: 100}
+        missing: {type: array, items: {type: string}, description: fehlende Wörter der Musterlösung}
+    RadioDoneRequest:
+      type: object
+      required: [done]
+      properties:
+        done: {type: boolean}
+    RadioVocabularyCard:
+      type: object
+      required: [id, category, de, en, streak, learned]
+      properties:
+        id: {type: string}
+        category: {type: string}
+        de: {type: string}
+        en: {type: [string, 'null']}
+        hint: {type: [string, 'null']}
+        streak: {type: integer}
+        learned: {type: boolean}
+    RadioPracticeCatalog:
+      type: object
+      required: [catalog, tasks]
+      properties:
+        catalog: {type: string, enum: [SRC, UBI]}
+        tasks:
+          type: array
+          items:
+            type: object
+            required: [id, number, kind, done, evaluated, locked]
+            properties:
+              id: {type: string}
+              number: {type: integer}
+              kind: {type: string, description: 'Meldungsart, z. B. distress, urgency, safety, routine'}
+              teaser: {type: [string, 'null']}
+              done: {type: boolean}
+              evaluated: {type: boolean, description: schon einmal ausgewertet}
+              locked: {type: boolean}
+    RadioPracticeTask:
+      type: object
+      required: [id, course_id, catalog, number, kind, situation_de, fields, answers, done]
+      properties:
+        id: {type: string}
+        course_id: {type: string}
+        catalog: {type: string, enum: [SRC, UBI]}
+        number: {type: integer}
+        kind: {type: string}
+        situation_de: {type: string}
+        situation_en: {type: [string, 'null']}
+        fields:
+          type: array
+          items:
+            type: object
+            required: [name, label]
+            properties:
+              name: {type: string, description: 'z. B. rank, dsc, radio, message (UBI: circle statt dsc)'}
+              label: {type: string}
+              placeholder: {type: [string, 'null']}
+              multiline: {type: boolean}
+        answers: {type: object, additionalProperties: {type: string}, description: gespeicherte Eingaben je Feld}
+        done: {type: boolean}
+        previous_id: {type: [string, 'null']}
+        next_id: {type: [string, 'null']}
+    ExamRegistration:
+      type: object
+      required: [course_id, web_url, registration_in_app, guides, committees]
+      properties:
+        course_id: {type: string}
+        web_url: {type: string, format: uri, description: 'Web-Seite …/bootsscheine/<kurs>/pruefung-anmelden/'}
+        registration_in_app: {type: boolean, const: false}
+        guides:
+          type: array
+          description: Eine Anleitung je Prüfung des Kurses (Reiter im Web), Felder wie ExamGuideService::payload
+          items:
+            type: object
+            required: [key, tab, title]
+            additionalProperties: true
+            properties:
+              key: {type: string}
+              tab: {type: string}
+              title: {type: string}
+              intro: {type: [string, 'null']}
+              fee: {type: [string, 'null']}
+              fee_note: {type: [string, 'null']}
+              lead_time: {type: [string, 'null']}
+              min_age: {type: [string, 'null']}
+              apply: {description: Anmeldehinweise}
+              deadline: {type: [string, 'null']}
+              documents: {description: Unterlagen}
+              variants: {type: array, items: {type: object, additionalProperties: true}, description: 'Prüfungsformen mit scope (Umfang) und pass_text (Bestehensgrenze)'}
+              exam_parts: {description: Prüfungsteile}
+              faq: {description: Häufige Fragen}
+              providers: {description: Anbieter/Prüfungsorganisationen}
+        committees:
+          type: array
+          description: Alle Prüfungsausschüsse, die für den Kurs zuständigen zuerst (`matches`)
+          items:
+            type: object
+            required: [id, label, commission, matches]
+            additionalProperties: true
+            properties:
+              id: {type: string}
+              label: {type: string}
+              commission: {type: string}
+              location_type: {type: [string, 'null']}
+              contact_person: {type: [string, 'null']}
+              address: {type: [string, 'null']}
+              postal_code: {type: [string, 'null']}
+              city: {type: [string, 'null']}
+              phone: {type: [string, 'null']}
+              fax: {type: [string, 'null']}
+              email: {type: [string, 'null']}
+              website: {type: [string, 'null']}
+              office_hours: {type: [string, 'null']}
+              note: {type: [string, 'null']}
+              course_codes: {type: array, items: {type: string}}
+              states: {type: array, items: {type: string}, description: 'Bundesländer (ISO 3166-2), aus dem Namen abgeleitet'}
+              rank: {type: integer}
+              matches: {type: boolean}
     PassRule:
       type: object
       properties:

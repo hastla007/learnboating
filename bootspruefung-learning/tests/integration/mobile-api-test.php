@@ -7,8 +7,10 @@ declare(strict_types=1);
  * Anmeldung, Token-Rotation und -Wiederverwendung, Abmeldung, Sitzungen, Passwortänderung,
  * Rate-Limit (auch hinter Proxy), Tenant, Kursliste mit WooCommerce-Kauf (ohne WooCommerce:
  * manueller Zugang), Smarttrainer (gleicher Lernstand wie im Web), Favoriten/Sammlungen,
- * Prüfung Start → Antwort → Abgabe → Ergebnis, Video, Navigation, Codes, Datenexport,
- * Löschantrag und Schutz fremder Daten (IDOR).
+ * Favoriten-Sortierung (saved_at/assigned_at), Prüfung Start → Antwort → Abgabe → Ergebnis,
+ * Video, Navigation, Funktraining SRC/UBI (Texte, Vokabeln, Buchstabiertafel, Funkpraxis,
+ * Teilumfang), Funkgerät-Simulator-Link, Prüfungsanmeldung, Codes, Datenexport, Löschantrag,
+ * Schutz fremder Daten (IDOR) und Abgleich Routen ↔ openapi.yaml.
  *
  *   WP_DIR=/pfad/zu/wordpress php tests/integration/mobile-api-test.php
  *
@@ -321,6 +323,50 @@ $r = $api('GET', "/courses/{$courseId}/favorites?collection_id={$colId}", [], $t
 $check($r['status'] === 404, 'fremde Sammlung als Filter → 404');
 $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=collection&collection_id={$colId}", [], $tokenA);
 $check($r['status'] === 200 && $r['body']['data']['question']['id'] === (string) $questionId, 'Lernen aus der Sammlung');
+
+echo "Favoriten: saved_at/assigned_at und Sortierung\n";
+$allowed = array_keys($learning->allowedQuestions($alice, $courseRow, array_map(static fn ($m) => (int) $m->id, $content->modules((int) $courseRow->id))));
+$q2 = (int) (array_values(array_filter($allowed, static fn ($id) => (int) $id !== $questionId))[0] ?? 0);
+$check($q2 > 0, 'zweite freigeschaltete Frage für die Sortierung');
+$api('PUT', "/courses/{$courseId}/favorites/{$q2}", ['collection_id' => $colId], $tokenA);
+$wpdb->update($p.'favorite', ['created_at' => '2026-01-01 10:00:00'], ['user_id' => $alice, 'question_id' => $questionId]);
+$wpdb->update($p.'favorite', ['created_at' => '2026-02-01 10:00:00'], ['user_id' => $alice, 'question_id' => $q2]);
+$wpdb->update($p.'favorite_collection_item', ['created_at' => '2026-03-05 08:00:00'], ['collection_id' => (int) $colId, 'question_id' => $questionId]);
+$wpdb->update($p.'favorite_collection_item', ['created_at' => '2026-03-01 08:00:00'], ['collection_id' => (int) $colId, 'question_id' => $q2]);
+$ids = static fn (array $r): array => array_map(static fn ($f) => (int) $f['question_id'], $r['body']['data'] ?? []);
+$favs = $api('GET', "/courses/{$courseId}/favorites", [], $tokenA);
+$check($favs['status'] === 200 && $ids($favs) === [$q2, $questionId] && $favs['body']['meta']['sort'] === 'saved_at' && $favs['body']['meta']['order'] === 'desc', 'Standard: saved_at absteigend');
+$check(($favs['body']['data'][0]['saved_at'] ?? null) === '2026-02-01T10:00:00Z' && $favs['body']['data'][1]['saved_at'] === '2026-01-01T10:00:00Z' && ! array_key_exists('assigned_at', $favs['body']['data'][0]), 'saved_at = bp_favorite.created_at (UTC), ohne Filter kein assigned_at');
+$check(array_filter($favs['body']['data'], static fn ($f) => ! is_string($f['saved_at']) || $f['saved_at'] !== $f['created_at']) === [], 'saved_at nie null, created_at (veraltet) gleich');
+$r = $api('GET', "/courses/{$courseId}/favorites?order=asc", [], $tokenA);
+$check($r['status'] === 200 && $ids($r) === [$questionId, $q2], 'order=asc');
+$r = $api('GET', "/courses/{$courseId}/favorites?collection_id={$colId}&sort=assigned_at", [], $tokenA);
+$check($r['status'] === 200 && $ids($r) === [$questionId, $q2] && $r['body']['data'][0]['assigned_at'] === '2026-03-05T08:00:00Z' && $r['body']['meta']['collection_id'] === $colId, 'Sammlung: sort=assigned_at mit assigned_at aus bp_favorite_collection_item');
+$r = $api('GET', "/courses/{$courseId}/favorites?collection_id={$colId}", [], $tokenA);
+$check($r['status'] === 200 && $ids($r) === [$q2, $questionId] && is_string($r['body']['data'][1]['assigned_at']), 'Sammlung ohne sort: saved_at, assigned_at trotzdem geliefert');
+$r = $api('GET', "/courses/{$courseId}/favorites?sort=assigned_at", [], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED' && isset($r['body']['errors']['sort']), 'sort=assigned_at ohne collection_id → 422');
+$r = $api('GET', "/courses/{$courseId}/favorites?sort=updated_at", [], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED', 'unbekannte Sortierung → 422');
+$r = $api('GET', "/courses/{$courseId}/favorites?order=sideways", [], $tokenA);
+$check($r['status'] === 422, 'unbekannte Reihenfolge → 422');
+$wpdb->update($p.'favorite', ['created_at' => '2026-01-01 10:00:00'], ['user_id' => $alice, 'question_id' => $q2]);
+$r = $api('GET', "/courses/{$courseId}/favorites", [], $tokenA);
+$desc = $ids($r);
+$r = $api('GET', "/courses/{$courseId}/favorites?order=asc", [], $tokenA);
+$check($desc === [max($q2, $questionId), min($q2, $questionId)] && $ids($r) === array_reverse($desc), 'gleicher Zeitpunkt: stabile Reihenfolge nach Frage-ID');
+$api('PUT', "/courses/{$courseId}/favorites/{$questionId}", ['collection_id' => $colId], $tokenA);
+$check($wpdb->get_var($wpdb->prepare("SELECT created_at FROM {$p}favorite_collection_item WHERE collection_id = %d AND question_id = %d", (int) $colId, $questionId)) === '2026-03-05 08:00:00'
+    && $wpdb->get_var($wpdb->prepare("SELECT created_at FROM {$p}favorite WHERE user_id = %d AND question_id = %d", $alice, $questionId)) === '2026-01-01 10:00:00', 'erneutes Speichern ändert saved_at/assigned_at nicht');
+$mode = (string) $wpdb->get_var('SELECT @@SESSION.sql_mode');
+$wpdb->query("SET SESSION sql_mode = ''");
+$wpdb->query($wpdb->prepare("UPDATE {$p}favorite SET created_at = '0000-00-00 00:00:00' WHERE user_id = %d AND question_id = %d", $alice, $q2));
+$wpdb->query($wpdb->prepare('SET SESSION sql_mode = %s', $mode));
+$r = $api('GET', "/courses/{$courseId}/favorites", [], $tokenA);
+$zero = array_values(array_filter($r['body']['data'] ?? [], static fn ($f) => (int) $f['question_id'] === $q2))[0] ?? [];
+$check($r['status'] === 200 && ($zero['saved_at'] ?? null) === '1970-01-01T00:00:00Z' && $ids($r)[1] === $q2, 'Nulldatum (Altdaten): saved_at 1970-01-01T00:00:00Z, sortiert ans Ende');
+$check(! array_key_exists('updated_at', $r['body']['meta']['collections'][0] ?? ['updated_at' => 1]), 'Sammlung ohne updated_at');
+$api('DELETE', "/courses/{$courseId}/favorites/{$q2}", [], $tokenA);
 $r = $api('DELETE', "/courses/{$courseId}/favorite-collections/{$colId}", [], $tokenA);
 $favs = $api('GET', "/courses/{$courseId}/favorites", [], $tokenA);
 $check($r['status'] === 204 && count($favs['body']['data']) === 1 && $favs['body']['data'][0]['collection_id'] === null, 'Sammlung gelöscht, Favorit bleibt');
@@ -407,6 +453,181 @@ if ($task !== null) {
     $check($t['status'] === 200 && array_filter($t['body']['data']['parts'], static fn ($x) => $x['solution'] === null) === [], 'Lösung auf Anforderung (show_solution=true)');
     $r = $api('POST', '/navigation-tasks/'.$task['id'].'/parts/999999', ['answer' => 'x'], $tokenA);
     $check($r['status'] === 404, 'fremde Teilaufgabe → 404');
+}
+
+echo "Funktraining SRC/UBI\n";
+$src = null;
+foreach ($content->courses() as $c) {
+    if ($c->code === 'SRC') {
+        $src = $c;
+    }
+}
+$r = $api('GET', "/courses/{$courseId}/radio", [], $tokenA);
+$check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'Kurs ohne Funkinhalte → 404');
+$ruleId = 0;
+if ($src === null) {
+    echo "  (kein SRC-Kurs importiert – Funktraining übersprungen)\n";
+} else {
+    $srcId = (string) $src->id;
+    $r = $api('GET', "/courses/{$srcId}/radio", [], $tokenA);
+    $check($r['status'] === 403 && $code($r) === 'ENTITLEMENT_REQUIRED' && ($r['body']['details']['capability'] ?? '') === 'funk', 'ohne Zugang → 403 ENTITLEMENT_REQUIRED (funk)');
+    $entitlements->grantManual($alice, 'SRC', ['radio_training'], null, 'App-Test Funk');
+    $ov = $api('GET', "/courses/{$srcId}/radio", [], $tokenA);
+    $o = $ov['body']['data'] ?? [];
+    $radioWeb = new \Bootspruefung\Learning\Trainers\RadioService(new AccessService());
+    $webOv = $radioWeb->overview($alice, $src);
+    $check($ov['status'] === 200 && count($o['texts']) === count($webOv['texts']) && count($o['vocabulary']) === count($webOv['vocabulary']) && count($o['practice']) === count($webOv['practice']) && $ov['body']['meta']['limit'] === null, 'Übersicht wie im Web (Texte, Vokabeln, Funkpraxis), ohne Teilumfang');
+    $check(($o['device_simulator']['available'] ?? false) === true && $o['device_simulator']['premium'] === false && str_ends_with((string) $o['device_simulator']['web_url'], '/bootsscheine/src/funk/geraet/') && $o['device_simulator']['open_in'] === 'browser', 'Simulator: verfügbar (Testversion) mit Link in den Web-Lernbereich');
+    $sp = $api('GET', "/courses/{$srcId}/radio/spelling", [], $tokenA);
+    $check($sp['status'] === 200 && count($sp['body']['data']['letters']) === 26 && in_array('SRC', $sp['body']['data']['catalogs'], true), 'Buchstabiertafel mit Ziffern je Katalog');
+    $textId = (string) ($o['texts'][0]['items'][0]['id'] ?? '');
+    $t = $api('GET', "/courses/{$srcId}/radio/texts/{$textId}", [], $tokenA);
+    $td = $t['body']['data'] ?? [];
+    $check($t['status'] === 200 && $td['id'] === $textId && $td['type'] === 'translation' && $td['evaluable'] === true && $td['done'] === false && is_string($td['text_de']), 'Funktext abrufen');
+    $r = $api('POST', "/courses/{$srcId}/radio/texts/{$textId}/evaluate", ['direction' => 'de-en'], $tokenA);
+    $check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED', 'Auswertung ohne Eingabe → 422');
+    $r = $api('POST', "/courses/{$srcId}/radio/texts/{$textId}/evaluate", ['transcript' => 'x'], $tokenA);
+    $check($r['status'] === 422, 'Übersetzung ohne Richtung → 422');
+    $ev = $api('POST', "/courses/{$srcId}/radio/texts/{$textId}/evaluate", ['direction' => 'de-en', 'transcript' => (string) $td['text_de'], 'translation' => 'mayday'], $tokenA);
+    $e = $ev['body']['data'] ?? [];
+    $check($ev['status'] === 200 && $e['transcript']['percent'] === 100 && is_int($e['translation']['percent']) && is_array($e['translation']['missing']) && $e['solution']['to'] === $td['text_en'], 'Auswertung: Prozent, fehlende Wörter, Lösung');
+    $stored = json_decode((string) $wpdb->get_var($wpdb->prepare("SELECT data FROM {$p}radio_progress WHERE user_id = %d AND item_type = 'text' AND item_source_id = %s", $alice, $textId)), true);
+    $check(($stored['de-en']['translation'] ?? '') === 'mayday', 'Eingabe in bp_radio_progress gespeichert (wie Web)');
+    $d = $api('PUT', "/courses/{$srcId}/radio/texts/{$textId}/done", ['done' => true], $tokenA);
+    $check($d['status'] === 200 && $d['body']['data']['done'] === true && $radioWeb->text($alice, $src, $textId)['done'] === true, 'erledigt markiert – im Web sichtbar');
+    $t = $api('GET', "/courses/{$srcId}/radio/texts/{$textId}", [], $tokenA);
+    $check($t['body']['data']['done'] === true && ($t['body']['data']['answers']['de-en']['translation'] ?? '') === 'mayday', 'Text zeigt gespeicherte Eingabe und Status');
+    $r = $api('PUT', "/courses/{$srcId}/radio/texts/{$textId}/done", [], $tokenA);
+    $check($r['status'] === 422, 'done fehlt → 422');
+    $r = $api('GET', "/courses/{$srcId}/radio/texts/TXT-GIBT-ES-NICHT", [], $tokenA);
+    $check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'unbekannter Text → 404');
+    $r = $api('GET', "/courses/{$srcId}/radio/vocabulary", [], $tokenA);
+    $check($r['status'] === 422, 'Vokabeln ohne Katalog → 422');
+    $voc = $api('GET', "/courses/{$srcId}/radio/vocabulary?catalog=SRC", [], $tokenA);
+    $card = $voc['body']['data'][0] ?? null;
+    $check($voc['status'] === 200 && $card !== null && $card['streak'] === 0 && $voc['body']['meta']['streak_to_learn'] === 3 && $voc['body']['meta']['total'] === count($voc['body']['data']), 'Vokabelkarten mit Serie');
+    $cat = $api('GET', "/courses/{$srcId}/radio/vocabulary?catalog=SRC&category=".rawurlencode((string) $card['category']), [], $tokenA);
+    $check($cat['status'] === 200 && array_filter($cat['body']['data'], static fn ($c) => $c['category'] !== $card['category']) === [], 'Vokabeln nach Kategorie');
+    $vkey = $uuid();
+    $va = $api('POST', "/courses/{$srcId}/radio/vocabulary/{$card['id']}/answers", ['known' => true, 'streak' => 0], $tokenA, ['Idempotency-Key' => $vkey]);
+    $check($va['status'] === 200 && $va['body']['data']['streak'] === 1 && $va['body']['data']['repeated'] === false, 'gewusst: Serie +1');
+    $va2 = $api('POST', "/courses/{$srcId}/radio/vocabulary/{$card['id']}/answers", ['known' => true, 'streak' => 0], $tokenA, ['Idempotency-Key' => $vkey]);
+    $check($va2['status'] === 200 && $va2['body']['data']['streak'] === 1 && (int) $wpdb->get_var($wpdb->prepare("SELECT streak FROM {$p}radio_progress WHERE user_id = %d AND item_type = 'vocab' AND item_source_id = %s", $alice, $card['id'])) === 1, 'Wiederholung mit gleichem Key zählt nicht doppelt');
+    $va3 = $api('POST', "/courses/{$srcId}/radio/vocabulary/{$card['id']}/answers", ['known' => true, 'streak' => 0], $tokenA);
+    $check($va3['status'] === 200 && $va3['body']['data']['repeated'] === true && $va3['body']['data']['streak'] === 1, 'veraltete Serie (zweites Gerät) → repeated, keine Doppelzählung');
+    $r = $api('POST', "/courses/{$srcId}/radio/vocabulary/{$card['id']}/answers", ['streak' => 1], $tokenA);
+    $check($r['status'] === 422, 'known fehlt → 422');
+    $pr = $api('GET', "/courses/{$srcId}/radio/practice", [], $tokenA);
+    $scenario = $pr['body']['data'][0]['tasks'][0] ?? null;
+    $check($pr['status'] === 200 && $scenario !== null && $scenario['locked'] === false, 'Funkpraxis-Übersicht');
+    $sc = $api('GET', "/courses/{$srcId}/radio/practice/{$scenario['id']}", [], $tokenA);
+    $field = $sc['body']['data']['fields'][0]['name'] ?? '';
+    $check($sc['status'] === 200 && $field !== '' && is_string($sc['body']['data']['situation_de']) && ! str_contains((string) wp_json_encode($sc['body']['data']), '"solution"'), 'Funkpraxis-Aufgabe ohne Musterlösung');
+    $r = $api('POST', "/courses/{$srcId}/radio/practice/{$scenario['id']}/evaluate", ['answers' => [$field => '']], $tokenA);
+    $check($r['status'] === 422, 'Funkpraxis ohne Eingabe → 422');
+    $r = $api('POST', "/courses/{$srcId}/radio/practice/{$scenario['id']}/evaluate", ['answers' => 'Mayday'], $tokenA);
+    $check($r['status'] === 422, 'answers kein Objekt → 422');
+    $pe = $api('POST', "/courses/{$srcId}/radio/practice/{$scenario['id']}/evaluate", ['answers' => [$field => 'Notverkehr Mayday Bestätigung']], $tokenA);
+    $pd = $pe['body']['data'] ?? [];
+    $check($pe['status'] === 200 && $pd['total'] > 0 && $pd['passed'] >= 1 && isset($pd['fields'][0]['checks'], $pd['fields'][0]['solution']), 'Funkpraxis ausgewertet: Prüfpunkte und Musterlösung je Feld');
+    $r = $api('PUT', "/courses/{$srcId}/radio/practice/{$scenario['id']}/done", ['done' => true], $tokenA);
+    $pr = $api('GET', "/courses/{$srcId}/radio/practice", [], $tokenA);
+    $check($r['status'] === 200 && $pr['body']['data'][0]['tasks'][0]['done'] === true && $pr['body']['data'][0]['tasks'][0]['evaluated'] === true, 'Funkpraxis erledigt und ausgewertet');
+    $sm = $api('GET', "/courses/{$srcId}/radio/samples", [], $tokenA);
+    $check($sm['status'] === 200 && isset($sm['body']['data'][0]['samples'][0]['message']), 'Muster-Funksprüche');
+    // Teilumfang: Bob ohne SRC-Zugang, kostenlos die erste Übung je Übungsart/Katalog.
+    $wpdb->insert($p.'access_rule', ['course_code' => 'SRC', 'feature_code' => 'radio_training', 'access_type' => 'free_limited', 'limit_type' => 'first_items', 'limit_value' => 1, 'created_at' => current_time('mysql', true), 'updated_at' => current_time('mysql', true)]);
+    $ruleId = (int) $wpdb->insert_id;
+    $bo = $api('GET', "/courses/{$srcId}/radio", [], $tokenB);
+    $items = $bo['body']['data']['texts'][0]['items'] ?? [];
+    $check($bo['status'] === 200 && $bo['body']['meta']['limit'] === 1 && $items[0]['locked'] === false && ($items[1]['locked'] ?? false) === true && $items[1]['teaser'] === null, 'Teilumfang: weitere Texte gesperrt (ohne Inhalt)');
+    $r = $api('GET', "/courses/{$srcId}/radio/texts/{$items[1]['id']}", [], $tokenB);
+    $check($r['status'] === 403 && $code($r) === 'CONTENT_LOCKED', 'gesperrter Text → 403 CONTENT_LOCKED');
+    $tasks = $api('GET', "/courses/{$srcId}/radio/practice", [], $tokenB)['body']['data'][0]['tasks'] ?? [];
+    $r = $api('POST', "/courses/{$srcId}/radio/practice/{$tasks[1]['id']}/evaluate", ['answers' => [$field => 'Mayday']], $tokenB);
+    $check($r['status'] === 403 && $code($r) === 'CONTENT_LOCKED', 'gesperrte Funkpraxis-Aufgabe → 403 CONTENT_LOCKED');
+    $wpdb->delete($p.'access_rule', ['id' => $ruleId]);
+
+    echo "Funkgerät-Simulator (Link)\n";
+    $sd = $api('GET', "/courses/{$srcId}", [], $tokenA);
+    $sim = $sd['body']['data']['device_simulator'] ?? [];
+    $check($sd['status'] === 200 && $sim['available'] === true && $sim['premium'] === false && $sim['tier'] === 'free' && str_ends_with((string) $sim['web_url'], '/bootsscheine/src/funk/geraet/') && is_string($sim['hint']), 'Kursdetails: Simulator als Testversion mit Browser-Link');
+    $entitlements->grantManual($alice, 'SRC', ['device_simulation'], null, 'App-Test Simulator');
+    $sim = $api('GET', "/courses/{$srcId}", [], $tokenA)['body']['data']['device_simulator'] ?? [];
+    $devWeb = new \Bootspruefung\Learning\Trainers\DeviceSimService(new AccessService(), new \Bootspruefung\Learning\Trainers\RadioPracticeService(new AccessService()));
+    $check($sim['premium'] === true && $sim['tier'] === 'premium' && $sim['webshop_url'] === null && $devWeb->premium($alice, $src) === true, 'mit Simulator-Zugang: premium (DeviceSimService::premium)');
+}
+$sim = $detail['body']['data']['device_simulator'] ?? null;
+$check(is_array($sim) && $sim['available'] === false && $sim['web_url'] === null, 'Kurs ohne Funk: Simulator nicht verfügbar');
+
+echo "Prüfungsanmeldung (nur lesen)\n";
+update_option(Settings::OPTION, array_merge(Settings::all(), ['exam_guide_enabled' => false]));
+$r = $api('GET', "/courses/{$courseId}/exam-registration", [], $tokenA);
+$check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'abgeschaltet → 404');
+$check(($api('GET', "/courses/{$courseId}", [], $tokenA)['body']['data']['exam_registration']['available'] ?? null) === false, 'Kursdetails: exam_registration.available false');
+update_option(Settings::OPTION, array_merge(Settings::all(), ['exam_guide_enabled' => true]));
+$guideWeb = (new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->payload($courseCode);
+$g = $api('GET', "/courses/{$courseId}/exam-registration", [], $tokenA);
+$gd = $g['body']['data'] ?? [];
+if ($guideWeb['tabs'] === []) {
+    $check($g['status'] === 404, 'Kurs ohne Anleitung → 404');
+} else {
+    $check($g['status'] === 200 && count($gd['guides']) === count($guideWeb['tabs']) && $gd['guides'][0]['title'] === $guideWeb['tabs'][0]['title'] && $gd['registration_in_app'] === false, 'Anleitung wie im Web (ExamGuideService::payload)');
+    $check(count($gd['committees']) === count($guideWeb['committees']) && is_string($gd['committees'][0]['id'] ?? null) && array_key_exists('matches', $gd['committees'][0]), 'Prüfungsausschüsse mit passenden zuerst');
+    $check(str_ends_with((string) $gd['web_url'], '/bootsscheine/'.strtolower($courseCode).'/pruefung-anmelden/'), 'Link zur Web-Seite „Prüfung anmelden“');
+    $er = $api('GET', "/courses/{$courseId}", [], $tokenA)['body']['data']['exam_registration'] ?? [];
+    $check(($er['available'] ?? false) === true && $er['web_url'] === $gd['web_url'], 'Kursdetails: exam_registration mit Link');
+}
+$noGuide = null;
+foreach ($content->courses() as $c) {
+    if ((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->pagesFor((string) $c->code) === []) {
+        $noGuide = $c;
+        break;
+    }
+}
+if ($noGuide !== null) {
+    $r = $api('GET', '/courses/'.$noGuide->id.'/exam-registration', [], $tokenA);
+    $check($r['status'] === 404 && str_contains((string) $r['body']['detail'], 'keine Anleitung'), 'Kurs ohne Anleitung → 404');
+}
+$r = $api('GET', "/courses/{$courseId}/exam-registration", [], $tokenB, ['X-Tenant-Slug' => 'falsch']);
+$check($r['status'] === 403 && $code($r) === 'TENANT_MEMBERSHIP_REQUIRED', 'Prüfungsanmeldung nur mit richtigem Tenant');
+
+echo "E-Mail-Bestätigung entfällt\n";
+$r = $api('POST', '/auth/email/verification-notification', [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'Route /auth/email/verification-notification entfernt → 404');
+$check($api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null])['body']['data']['user']['email_verified'] === true, '/me: email_verified bleibt true');
+
+echo "Vertrag (openapi.yaml) und Routen\n";
+$spec = dirname(__DIR__, 3).'/docs/mobile-api/openapi.yaml';
+if (! is_readable($spec)) {
+    echo "  (openapi.yaml nicht im Paket – übersprungen)\n";
+} else {
+    $documented = [];
+    $path = null;
+    foreach (file($spec) as $line) {
+        if (preg_match('#^  (/\S*):\s*$#', $line, $m)) {
+            $path = $m[1];
+        } elseif (preg_match('#^\S#', $line)) {
+            $path = null;
+        } elseif ($path !== null && preg_match('#^    (get|post|put|patch|delete):#', $line, $m)) {
+            $documented[] = $m[1].' '.$path;
+        }
+    }
+    $implemented = [];
+    foreach (rest_get_server()->get_routes('boatingschool/v1') as $route => $handlers) {
+        if ($route === '/boatingschool/v1') {
+            continue;
+        }
+        $pathOf = preg_replace('#\(\?P<(\w+)>[^)]+\)#', '{$1}', substr($route, strlen('/boatingschool/v1')));
+        foreach ($handlers as $h) {
+            foreach (array_keys($h['methods']) as $m) {
+                $implemented[] = strtolower($m).' '.$pathOf;
+            }
+        }
+    }
+    $onlyCode = array_diff($implemented, $documented);
+    $onlySpec = array_diff($documented, $implemented);
+    $check($onlyCode === [] && $onlySpec === [], 'jede Route im Vertrag und umgekehrt ('.count($implemented).' Operationen)'.($onlyCode || $onlySpec ? ' – nur Code: '.implode(', ', $onlyCode).' / nur Vertrag: '.implode(', ', $onlySpec) : ''));
 }
 
 echo "Codes, Dateien\n";
@@ -534,6 +755,7 @@ foreach (get_posts(['post_type' => 'user_request', 'post_status' => 'any', 'numb
 wp_delete_user($alice);
 wp_delete_user($bob);
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$alice}, {$bob})");
+$wpdb->query("DELETE FROM {$p}radio_progress WHERE user_id IN ({$alice}, {$bob})");
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}mobile_session WHERE user_id IN ({$alice}, {$bob})") === 0 && (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}mobile_idempotency WHERE user_id IN ({$alice}, {$bob})") === 0, 'Konto gelöscht: App-Sitzungen und Idempotenz-Daten entfernt');
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_bp\\_mobile\\_rl\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bp\\_mobile\\_rl\\_%'");
 update_option(Settings::OPTION, $settingsBefore);

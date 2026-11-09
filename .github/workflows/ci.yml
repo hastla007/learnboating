@@ -185,7 +185,11 @@ jobs:
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
-      - name: App-Schnittstelle boatingschool/v1 (Integration, ohne und mit Shop)
+      - name: App-Vertrag openapi.yaml (OpenAPI 3.1) gültig
+        run: |
+          python3 -m venv "$RUNNER_TEMP/oas" && "$RUNNER_TEMP/oas/bin/pip" install --quiet openapi-spec-validator
+          "$RUNNER_TEMP/oas/bin/python" -c "from openapi_spec_validator import validate; from openapi_spec_validator.readers import read_from_filename; validate(read_from_filename('docs/mobile-api/openapi.yaml')[0])"
+      - name: App-Schnittstelle boatingschool/v1 (Integration, ohne und mit Shop; prüft auch Routen ↔ openapi.yaml)
         run: |
           # Ohne WooCommerce: Zugang über manuelle Freischaltung.
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/mobile-api-test.php | tee mobile.log
