@@ -32,7 +32,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.1.0';
+    public const API_VERSION = '1.2.0';
 
     public static function register(): void
     {
@@ -303,14 +303,16 @@ final class MobileApi
         $done = ['done' => ['type' => 'boolean', 'required' => true]];
         self::route($course.'/radio', 'GET', [RadioController::class, 'overview']);
         self::route($course.'/radio/spelling', 'GET', [RadioController::class, 'spelling']);
-        self::route($course.'/radio/texts/'.$key('textId'), 'GET', [RadioController::class, 'text']);
+        self::route($course.'/radio/texts/'.$key('textId'), 'GET', [RadioController::class, 'text'], true, true, [
+            'direction' => ['type' => 'string', 'enum' => ['de-en', 'en-de', ''], 'default' => ''],
+        ]);
         self::route($course.'/radio/texts/'.$key('textId').'/evaluate', 'POST', [RadioController::class, 'textEvaluate'], true, true, [
             'direction' => ['type' => 'string', 'enum' => ['de-en', 'en-de', ''], 'default' => ''],
             'transcript' => ['type' => 'string', 'maxLength' => 5000, 'default' => ''], 'translation' => ['type' => 'string', 'maxLength' => 5000, 'default' => ''],
         ]);
         self::route($course.'/radio/texts/'.$key('textId').'/done', 'PUT', [RadioController::class, 'textDone'], true, true, $done);
         self::route($course.'/radio/vocabulary', 'GET', [RadioController::class, 'vocabulary'], true, true, [
-            'catalog' => ['type' => 'string', 'enum' => ['SRC', 'UBI'], 'required' => true], 'category' => $nullableString(191),
+            'catalog' => ['type' => 'string', 'enum' => ['SRC', 'UBI', ''], 'default' => ''], 'category' => $nullableString(191),
         ]);
         self::route($course.'/radio/vocabulary/'.$key('cardId').'/answers', 'POST', [RadioController::class, 'vocabularyAnswer'], true, true, [
             'known' => ['type' => 'boolean', 'required' => true], 'streak' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null],

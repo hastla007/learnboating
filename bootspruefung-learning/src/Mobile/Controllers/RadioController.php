@@ -79,10 +79,36 @@ final class RadioController extends BaseController
 
     // ------------------------------------------------------------------ Funktexte
 
+    /**
+     * Funktext. Übersetzungen: Die Lösung (Zielsprache) liefert der Server erst nach der
+     * Auswertung. Die Richtung wählt die App (`direction`, Standard de-en wie im Web); vor der
+     * ersten Auswertung in dieser Richtung ist die Zielsprache null (`solution_hidden: true`),
+     * danach – wie beim erneuten Öffnen im Web – enthalten. Die Lösung steht außerdem in der
+     * Antwort von POST …/evaluate (`solution.to`).
+     */
     public function text(WP_REST_Request $request): WP_REST_Response
     {
         $course = $this->radioCourse($request);
         $t = $this->radio->text($this->user(), $course, (string) $request['textId']);
+        $translation = $t['type'] === 'translation';
+        $textDe = $t['text_de'];
+        $textEn = $t['text_en'];
+        $lines = $t['lines'];
+        $direction = null;
+        $hidden = false;
+        $answers = $t['answers'] ?: [];
+        if ($translation) {
+            $direction = (string) $request['direction'] !== '' ? (string) $request['direction'] : 'de-en';
+            $hidden = empty($answers[$direction]);
+            if ($hidden) {
+                if ($direction === 'de-en') {
+                    $textEn = null;
+                } else {
+                    $textDe = null;
+                    $lines = null;
+                }
+            }
+        }
 
         return $this->ok([
             'id' => (string) $t['id'],
@@ -91,11 +117,13 @@ final class RadioController extends BaseController
             'type' => (string) $t['type'],
             'number' => (int) $t['number'],
             'direction' => $t['direction'],
+            'translation_direction' => $direction,
+            'solution_hidden' => $hidden,
             'evaluable' => in_array($t['type'], ['translation', 'dictation'], true),
-            'text_de' => $t['text_de'],
-            'text_en' => $t['text_en'],
-            'lines' => $t['lines'],
-            'answers' => (object) ($t['answers'] ?: []),
+            'text_de' => $textDe,
+            'text_en' => $textEn,
+            'lines' => $lines,
+            'answers' => (object) $answers,
             'done' => (bool) $t['done'],
             'previous_id' => $t['previous'],
             'next_id' => $t['next'],
@@ -125,9 +153,20 @@ final class RadioController extends BaseController
     {
         $course = $this->radioCourse($request);
         $category = $request['category'] !== null && $request['category'] !== '' ? (string) $request['category'] : null;
-        $v = $this->radio->vocabulary($this->user(), $course, (string) $request['catalog'], $category);
+        $catalog = (string) $request['catalog'];
+        if ($catalog === '') {
+            // Ohne Angabe: der einzige Vokabelkatalog des Kurses; bei SRC und UBI muss die App wählen.
+            $catalogs = array_values(array_unique(array_column($this->radio->overview($this->user(), $course)['vocabulary'], 'catalog')));
+            if (count($catalogs) !== 1) {
+                throw ApiException::validation(['catalog' => [$catalogs === []
+                    ? __('Dieser Kurs enthält keine Vokabeln.', 'bootspruefung-learning')
+                    : __('Dieser Kurs hat mehrere Vokabelkataloge. Bitte wähle SRC oder UBI.', 'bootspruefung-learning')]]);
+            }
+            $catalog = (string) $catalogs[0];
+        }
+        $v = $this->radio->vocabulary($this->user(), $course, $catalog, $category);
 
-        return $this->ok($v['cards'], 200, ['catalog' => (string) $request['catalog'], 'category' => $category, 'total' => count($v['cards']), 'learned' => (int) $v['learned'], 'streak_to_learn' => (int) $v['streak_to_learn']]);
+        return $this->ok($v['cards'], 200, ['catalog' => $catalog, 'category' => $category, 'total' => count($v['cards']), 'learned' => (int) $v['learned'], 'streak_to_learn' => (int) $v['streak_to_learn']]);
     }
 
     /**

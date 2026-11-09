@@ -146,8 +146,11 @@ stehen auch im Datenexport (ohne Token-Hashes).
    /navigation-tasks/{id}/parts/{partId}` mit eigener Antwort und/oder Einschätzung
    (`correct|partly|wrong`). Seekarten und Kurs-PDFs: URL aus der Antwort mit Authorization-Header laden.
 10. **Funktraining (SRC/UBI):** nur bei Fähigkeit `funk`. `GET /courses/{id}/radio` (Übersicht),
-    Texte: `GET /radio/texts/{textId}` → Eingabe → `POST …/evaluate` (Prozent, fehlende Wörter,
-    Musterlösung) → `PUT …/done`. Vokabeln: `GET /radio/vocabulary?catalog=SRC[&category=…]`,
+    Texte: `GET /radio/texts/{textId}[?direction=de-en|en-de]` → Eingabe → `POST …/evaluate`
+    (Prozent, fehlende Wörter, Musterlösung) → `PUT …/done`. Bei Übersetzungen hält der Server
+    die Lösung (Zielsprache) bis zur ersten Auswertung in dieser Richtung zurück
+    (`solution_hidden: true`, Zielsprache null). Vokabeln: `GET /radio/vocabulary[?catalog=SRC][&category=…]`
+    (ohne `catalog` gilt der einzige Katalog des Kurses; bei SRC und UBI → 422),
     `POST /radio/vocabulary/{cardId}/answers` mit `known` und der angezeigten `streak`.
     Funkpraxis: `GET /radio/practice/{scenarioId}` → `POST …/evaluate` mit `answers`
     (Feldname → Text) → `PUT …/done`. Dazu `/radio/spelling` und `/radio/samples`. Gesperrte
@@ -314,6 +317,17 @@ beibehalten, wo es passt. Abweichungen:
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.2.0
+
+- **Funktexte (Übersetzung):** Die Lösung kommt erst nach der Auswertung. `GET …/radio/texts/{textId}`
+  nimmt `direction` (`de-en` Standard, `en-de`) und liefert `translation_direction` und
+  `solution_hidden`. Vor der ersten Auswertung in dieser Richtung ist die Zielsprache
+  (`text_en` bzw. `text_de`) null; die Lösung steht in der Antwort von `POST …/evaluate`
+  (`solution.to`) und danach auch beim erneuten Abruf. Diktate und Buchstabieren unverändert
+  (der Text wird für die Sprachausgabe gebraucht).
+- **Vokabeln:** `catalog` ist optional. Ohne Angabe gilt der einzige Vokabelkatalog des Kurses
+  (`meta.catalog` nennt ihn); hat der Kurs SRC und UBI, kommt 422.
 
 ### 1.1.0 (API-Version, Header `X-Boatingschool-Api-Version`)
 

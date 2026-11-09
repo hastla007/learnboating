@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.1.0
+  version: 1.2.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -1117,14 +1117,20 @@ paths:
       operationId: getRadioText
       summary: Funktext (SRC-Übersetzung, UBI-Diktat/-Buchstabieren) mit gespeicherten Eingaben
       description: >-
-        Übersetzungstexte enthalten beide Sprachen (`text_de`, `text_en`); die App blendet die
-        Zielsprache bis zur Auswertung aus (wie im Web). Diktat: `text_de` wird vorgelesen
+        Übersetzung: Die App wählt die Richtung (`direction`, Standard `de-en`). Die Lösung
+        (Zielsprache) liefert der Server erst nach der ersten Auswertung in dieser Richtung;
+        vorher ist sie null und `solution_hidden` ist true. Die Lösung steht zudem in der Antwort
+        von POST …/evaluate (`solution.to`). Diktat: `text_de` wird vorgelesen
         (Sprachausgabe der App). Buchstabieren: `lines` mit markierten Wörtern und deren
         Buchstabierung. Gesperrt (Teilumfang) → 403 `CONTENT_LOCKED`.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/CourseId'
         - $ref: '#/components/parameters/RadioTextId'
+        - in: query
+          name: direction
+          description: Nur bei Übersetzungen – Übersetzungsrichtung (Standard de-en)
+          schema: {type: string, enum: [de-en, en-de]}
       responses:
         '200':
           description: Funktext
@@ -1227,7 +1233,9 @@ paths:
         - $ref: '#/components/parameters/CourseId'
         - in: query
           name: catalog
-          required: true
+          description: >-
+            Funkkatalog. Ohne Angabe gilt der einzige Vokabelkatalog des Kurses; hat der Kurs
+            mehrere (SRC und UBI), antwortet die API mit 422.
           schema: {type: string, enum: [SRC, UBI]}
         - in: query
           name: category
@@ -2285,17 +2293,19 @@ components:
         device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
     RadioText:
       type: object
-      required: [id, course_id, catalog, type, number, evaluable, answers, done]
+      required: [id, course_id, catalog, type, number, translation_direction, solution_hidden, evaluable, answers, done]
       properties:
         id: {type: string}
         course_id: {type: string}
         catalog: {type: string, enum: [SRC, UBI]}
         type: {type: string, enum: [translation, dictation, spelling]}
         number: {type: integer}
-        direction: {type: [string, 'null']}
+        direction: {type: [string, 'null'], description: 'Funkverkehrsrichtung (land/see), nicht die Übersetzungsrichtung'}
+        translation_direction: {type: [string, 'null'], enum: [de-en, en-de, null], description: 'Nur bei Übersetzungen: die angefragte Richtung'}
+        solution_hidden: {type: boolean, description: 'true, solange die Zielsprache zurückgehalten wird (Übersetzung vor der ersten Auswertung in dieser Richtung)'}
         evaluable: {type: boolean, description: 'false bei Buchstabier-Übungen (keine Auswertung)'}
-        text_de: {type: [string, 'null']}
-        text_en: {type: [string, 'null']}
+        text_de: {type: [string, 'null'], description: 'null, wenn Deutsch die zurückgehaltene Zielsprache ist'}
+        text_en: {type: [string, 'null'], description: 'null, wenn Englisch die zurückgehaltene Zielsprache ist'}
         lines:
           type: [array, 'null']
           description: Buchstabier-Übungen (UBI-Abgabe)
