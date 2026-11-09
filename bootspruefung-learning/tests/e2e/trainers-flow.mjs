@@ -160,7 +160,7 @@ await page.getByRole('heading', { name: 'Internationale Buchstabiertafel', level
 assert.equal(await page.locator('.bp-spell-grid').first().locator('li').count(), 26);
 await page.getByRole('heading', { name: 'Ziffern (UBI)' }).waitFor();
 await page.locator('.bp-spell-search').fill('DB5');
-assert.equal(await page.locator('.bp-spell-out').innerText(), 'DELTA BRAVO FIVE');
+assert.equal(await page.locator('.bp-spell-out').innerText(), 'DELTA BRAVO FIFE');
 
 await page.goto(`${base}/bootsscheine/src/funk/geraet/`);
 await page.locator('#bp-device-sim svg').first().waitFor();
