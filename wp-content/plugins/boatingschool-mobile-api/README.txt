@@ -20,4 +20,4 @@ Base path: /wp-json/boatingschool/v1
 OpenAPI document: openapi-wordpress-mobile-v1.yaml in the project docs.
 
 == Security ==
-Access tokens are short-lived and stored as hashes. Refresh tokens rotate. Login is rate limited per source IP. LMS-specific entitlements are checked through LearnDash when installed; otherwise configure a course as free or grant it through one-time codes.
+Access tokens are short-lived and stored as hashes. Refresh tokens rotate with 30-day inactivity and 90-day absolute expiry. Login is rate limited per source IP. LMS-specific entitlements are checked through LearnDash when installed; otherwise configure a course as free or grant it through one-time codes.
