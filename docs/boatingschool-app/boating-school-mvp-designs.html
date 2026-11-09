@@ -1,0 +1,954 @@
+<div id="boating-mvp-designs" class="viz-dotted-background">
+  <style>
+    @import url('https://fonts.bunny.net/css?family=figtree:400,500,600,700');
+    #boating-mvp-designs {
+      --bs-ink: light-dark(#102b3b, #eef5f7);
+      --bs-muted: light-dark(#657b87, #9eb0b8);
+      --bs-paper: light-dark(#f5f8f8, #111d25);
+      --bs-card: light-dark(#ffffff, #1a2b34);
+      --bs-line: light-dark(#e3ebeb, #30454e);
+      --bs-blue: #005fd7;
+      --bs-sea: #007a7a;
+      --bs-mist: light-dark(#eaf3f4, #213943);
+      --bs-green: light-dark(#e5f6ee, #153a2c);
+      color: var(--bs-ink);
+      font-family: Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light dark;
+      padding: 16px 0 24px;
+    }
+    #boating-mvp-designs * { box-sizing: border-box; }
+    #boating-mvp-designs .bs-screen { width: min(100%, 382px); margin: 0 auto 34px; }
+    #boating-mvp-designs .bs-caption { margin: 0 0 10px 13px; color: var(--bs-muted); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    #boating-mvp-designs .bs-phone { overflow: hidden; border: 1px solid color-mix(in srgb, var(--bs-line) 85%, transparent); border-radius: 31px; background: var(--bs-paper); box-shadow: 0 22px 58px rgba(14, 43, 57, .15), 0 3px 10px rgba(14, 43, 57, .06); }
+    #boating-mvp-designs .bs-status { height: 31px; padding: 8px 20px 0; display: flex; align-items: center; justify-content: space-between; color: var(--bs-ink); font-size: 10px; font-weight: 700; }
+    #boating-mvp-designs .bs-status-icons { display: flex; gap: 4px; align-items: center; }
+    #boating-mvp-designs .bs-status-icons i { width: 12px; height: 12px; }
+    #boating-mvp-designs .bs-content { padding: 9px 20px 18px; }
+    #boating-mvp-designs .bs-top { display: flex; align-items: center; justify-content: space-between; margin: 3px 0 24px; }
+    #boating-mvp-designs .bs-brand { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+    #boating-mvp-designs .bs-mark { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px; color: #fff; background: linear-gradient(145deg, #087bb5, #007a7a); }
+    #boating-mvp-designs .bs-mark i { width: 18px; height: 18px; }
+    #boating-mvp-designs .bs-school { display: block; margin-top: 2px; color: var(--bs-muted); font-size: 10px; font-weight: 500; letter-spacing: .01em; }
+    #boating-mvp-designs .bs-avatar { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--bs-sea) 18%, transparent); border-radius: 50%; color: var(--bs-sea); background: var(--bs-mist); font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs h2 { margin: 0; color: var(--bs-ink); font-size: 25px; line-height: 1.15; letter-spacing: -.035em; font-weight: 700; }
+    #boating-mvp-designs h3 { margin: 0; font-size: 15px; line-height: 1.3; font-weight: 700; }
+    #boating-mvp-designs p { margin: 0; }
+    #boating-mvp-designs .bs-muted { color: var(--bs-muted); font-size: 12px; line-height: 1.45; }
+    #boating-mvp-designs .bs-greeting { margin-bottom: 4px !important; font-size: 12px; }
+    #boating-mvp-designs .bs-hero { position: relative; overflow: hidden; margin-top: 18px; padding: 19px; border-radius: 23px; color: #fff; background: linear-gradient(125deg, #073b58 0%, #075d78 60%, #087f80 120%); }
+    #boating-mvp-designs .bs-hero::before, #boating-mvp-designs .bs-hero::after { position: absolute; content: ""; pointer-events: none; border-radius: 50%; background: rgba(255,255,255,.055); }
+    #boating-mvp-designs .bs-hero::before { width: 205px; height: 205px; right: -92px; top: -115px; }
+    #boating-mvp-designs .bs-hero::after { width: 158px; height: 158px; right: -53px; top: -92px; border: 1px solid rgba(255,255,255,.12); background: transparent; }
+    #boating-mvp-designs .bs-hero-label { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,.76); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    #boating-mvp-designs .bs-hero-label i { width: 13px; height: 13px; }
+    #boating-mvp-designs .bs-hero h3 { margin-top: 11px; font-size: 19px; letter-spacing: -.02em; }
+    #boating-mvp-designs .bs-hero-copy { margin-top: 5px !important; color: rgba(255,255,255,.76); font-size: 12px; }
+    #boating-mvp-designs .bs-hero-bottom { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    #boating-mvp-designs .bs-ring { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#a4e4da 0 62%, rgba(255,255,255,.23) 62% 100%); }
+    #boating-mvp-designs .bs-ring::before { content: "62%"; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #07546c; font-size: 9px; font-weight: 700; }
+    #boating-mvp-designs .bs-hero-detail { flex: 1; min-width: 0; color: rgba(255,255,255,.83); font-size: 11px; line-height: 1.4; }
+    #boating-mvp-designs .bs-hero-detail strong { display: block; color: #fff; font-size: 12px; }
+    #boating-mvp-designs .bs-hero-button { min-height: 42px; width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 17px; padding: 0 13px; border: 0; border-radius: 13px; color: #073b58; background: #fff; font: inherit; font-size: 12px; font-weight: 700; }
+    #boating-mvp-designs .bs-hero-button i { width: 16px; height: 16px; }
+    #boating-mvp-designs .bs-section-title { display: flex; align-items: center; justify-content: space-between; margin: 21px 0 7px; }
+    #boating-mvp-designs .bs-section-title strong { font-size: 13px; letter-spacing: -.01em; }
+    #boating-mvp-designs .bs-section-title span { color: var(--bs-blue); font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-course-list { padding: 0 13px; border: 1px solid var(--bs-line); border-radius: 17px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-course-row { min-height: 59px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-course-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-course-icon { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; color: var(--bs-blue); background: #eaf2fb; }
+    #boating-mvp-designs .bs-course-icon.teal { color: var(--bs-sea); background: #e9f4f1; }
+    #boating-mvp-designs .bs-course-icon i { width: 17px; height: 17px; }
+    #boating-mvp-designs .bs-course-info { flex: 1; min-width: 0; }
+    #boating-mvp-designs .bs-course-info strong { display: block; font-size: 12px; }
+    #boating-mvp-designs .bs-course-info small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-arrow { color: #8ca0aa; }
+    #boating-mvp-designs .bs-arrow i { width: 15px; height: 15px; }
+    #boating-mvp-designs .bs-recommend { display: flex; align-items: center; gap: 11px; padding: 12px 13px; border: 1px solid var(--bs-line); border-radius: 16px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-recommend-icon { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; color: var(--bs-sea); background: #e9f4f1; }
+    #boating-mvp-designs .bs-recommend-icon i { width: 17px; height: 17px; }
+    #boating-mvp-designs .bs-recommend-info { flex: 1; }
+    #boating-mvp-designs .bs-recommend-info strong { display: block; font-size: 12px; }
+    #boating-mvp-designs .bs-recommend-info span { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px 7px 12px; border-top: 1px solid var(--bs-line); background: var(--bs-card); }
+    #boating-mvp-designs .bs-tab { display: grid; justify-items: center; gap: 4px; color: var(--bs-muted); font-size: 9px; line-height: 1; }
+    #boating-mvp-designs .bs-tab i { width: 18px; height: 18px; stroke-width: 1.8; }
+    #boating-mvp-designs .bs-tab.active { color: var(--bs-blue); font-weight: 700; }
+    #boating-mvp-designs .bs-tab.active i { stroke-width: 2.4; }
+    #boating-mvp-designs .bs-back { display: flex; align-items: center; gap: 4px; margin: 3px 0 20px !important; color: var(--bs-muted); font-size: 12px; }
+    #boating-mvp-designs .bs-back i { width: 15px; height: 15px; }
+    #boating-mvp-designs .bs-course-title { display: flex; align-items: center; gap: 12px; }
+    #boating-mvp-designs .bs-course-title .bs-course-icon { width: 46px; height: 46px; border-radius: 15px; }
+    #boating-mvp-designs .bs-course-title .bs-course-icon i { width: 21px; height: 21px; }
+    #boating-mvp-designs .bs-course-title h2 { font-size: 22px; }
+    #boating-mvp-designs .bs-progress-card { margin-top: 19px; padding: 16px; border: 1px solid var(--bs-line); border-radius: 19px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-progress-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 600; }
+    #boating-mvp-designs .bs-progress-head strong { color: var(--bs-sea); font-size: 15px; }
+    #boating-mvp-designs .bs-progress-track { height: 6px; margin-top: 11px; border-radius: 99px; background: var(--bs-line); overflow: hidden; }
+    #boating-mvp-designs .bs-progress-track span { display: block; width: 62%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #006dc9, #05a08d); }
+    #boating-mvp-designs .bs-progress-card .bs-muted { margin-top: 9px; font-size: 11px; }
+    #boating-mvp-designs .bs-primary { min-height: 47px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 13px; border: 0; border-radius: 14px; color: #fff; background: var(--bs-blue); box-shadow: 0 5px 12px rgba(0,95,215,.18); font: inherit; font-size: 13px; font-weight: 700; }
+    #boating-mvp-designs .bs-primary i { width: 16px; height: 16px; }
+    #boating-mvp-designs .bs-section-label { margin: 21px 0 8px !important; color: var(--bs-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    #boating-mvp-designs .bs-hub-list { padding: 0 13px; border: 1px solid var(--bs-line); border-radius: 18px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-hub-row { min-height: 58px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-hub-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-hub-icon { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; color: var(--bs-sea); background: var(--bs-mist); }
+    #boating-mvp-designs .bs-hub-icon i { width: 17px; height: 17px; }
+    #boating-mvp-designs .bs-hub-copy { flex: 1; font-size: 12px; font-weight: 600; }
+    #boating-mvp-designs .bs-hub-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; font-weight: 400; }
+    #boating-mvp-designs .bs-question-top { display: flex; align-items: center; justify-content: space-between; margin: 3px 0 11px; }
+    #boating-mvp-designs .bs-question-back { display: flex; align-items: center; gap: 3px; color: var(--bs-muted); font-size: 12px; }
+    #boating-mvp-designs .bs-question-back i { width: 15px; height: 15px; }
+    #boating-mvp-designs .bs-question-count { font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-question-count span { color: var(--bs-muted); font-weight: 500; }
+    #boating-mvp-designs .bs-question-progress { height: 4px; margin-bottom: 19px; border-radius: 99px; background: var(--bs-line); overflow: hidden; }
+    #boating-mvp-designs .bs-question-progress span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--bs-sea); }
+    #boating-mvp-designs .bs-question-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #boating-mvp-designs .bs-topic { min-height: 26px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border-radius: 99px; color: var(--bs-sea); background: var(--bs-mist); font-size: 10px; font-weight: 700; }
+    #boating-mvp-designs .bs-topic i { width: 12px; height: 12px; }
+    #boating-mvp-designs .bs-favorite { min-height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--bs-line); border-radius: 11px; color: var(--bs-muted); background: var(--bs-card); font: inherit; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-favorite i { width: 15px; height: 15px; }
+    #boating-mvp-designs .bs-favorite[aria-pressed="true"] { color: #a96d00; border-color: #e5ce9b; background: light-dark(#fff8e7, #3a301c); }
+    #boating-mvp-designs .bs-question { margin: 17px 0 8px !important; color: var(--bs-ink); font-size: 19px !important; line-height: 1.3 !important; letter-spacing: -.025em; font-weight: 700; }
+    #boating-mvp-designs .bs-prompt { margin-bottom: 13px !important; color: var(--bs-muted); font-size: 11px; }
+    #boating-mvp-designs .bs-choice { min-height: 54px; width: 100%; display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--bs-line); border-radius: 14px; color: var(--bs-ink); background: var(--bs-card); text-align: left; font: inherit; font-size: 12px; line-height: 1.35; transition: border-color .15s ease, background .15s ease; }
+    #boating-mvp-designs .bs-radio { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 auto; border: 1.5px solid #9aadb5; border-radius: 50%; }
+    #boating-mvp-designs .bs-choice.selected { border: 1.5px solid var(--bs-blue); background: light-dark(#f1f7ff, #20384d); }
+    #boating-mvp-designs .bs-choice.selected .bs-radio { border: 5px solid var(--bs-blue); }
+    #boating-mvp-designs .bs-answer-label { margin: 11px 2px 2px !important; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-trainer-footer { padding: 12px 20px 16px; border-top: 1px solid var(--bs-line); background: var(--bs-card); }
+    #boating-mvp-designs .bs-trainer-footer .bs-primary { margin: 0; }
+    #boating-mvp-designs .bs-feedback { display: none; margin-top: 12px; padding: 13px; border: 1px solid color-mix(in srgb, var(--bs-sea) 18%, transparent); border-radius: 14px; color: var(--bs-ink); background: var(--bs-green); font-size: 11px; line-height: 1.45; }
+    #boating-mvp-designs .bs-phone.is-answered .bs-feedback { display: block; }
+    #boating-mvp-designs .bs-phone.is-answered .bs-answer-label { display: none; }
+    #boating-mvp-designs .bs-feedback-head { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; color: var(--bs-sea); font-size: 12px; font-weight: 700; }
+    #boating-mvp-designs .bs-feedback-head i { width: 15px; height: 15px; }
+    #boating-mvp-designs button { cursor: pointer; }
+    #boating-mvp-designs button:focus-visible { outline: 3px solid #7cc8e2; outline-offset: 2px; }
+    @media (max-width: 410px) { #boating-mvp-designs .bs-screen { width: 100%; } #boating-mvp-designs .bs-phone { border-radius: 25px; } }
+    @media (prefers-reduced-motion: reduce) { #boating-mvp-designs * { transition: none !important; } }
+    #boating-mvp-designs .bs-page-title { margin: 2px 0 5px; font-size: 23px; line-height: 1.18; font-weight: 700; letter-spacing: -.03em; }
+    #boating-mvp-designs .bs-page-intro { margin-bottom: 17px !important; color: var(--bs-muted); font-size: 11px; line-height: 1.45; }
+    #boating-mvp-designs .bs-entitlement { margin: 13px 0; padding: 13px; border: 1px solid var(--bs-line); border-radius: 16px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-entitlement-top { display: flex; align-items: center; gap: 10px; }
+    #boating-mvp-designs .bs-entitlement .bs-course-icon { width: 39px; height: 39px; }
+    #boating-mvp-designs .bs-entitlement-copy { flex: 1; }
+    #boating-mvp-designs .bs-entitlement-copy strong { display: block; font-size: 12px; }
+    #boating-mvp-designs .bs-entitlement-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-course-state { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 99px; color: var(--bs-sea); background: var(--bs-mist); font-size: 9px; font-weight: 700; white-space: nowrap; }
+    #boating-mvp-designs .bs-course-state i { width: 12px; height: 12px; }
+    #boating-mvp-designs .bs-course-progress { height: 4px; margin-top: 12px; border-radius: 99px; background: var(--bs-line); overflow: hidden; }
+    #boating-mvp-designs .bs-course-progress span { display: block; height: 100%; border-radius: inherit; background: var(--bs-sea); }
+    #boating-mvp-designs .bs-access-expired { color: #99630a; background: light-dark(#fff5d9, #3a301b); }
+    #boating-mvp-designs .bs-shop-button, #boating-mvp-designs .bs-code-button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; border: 1px solid var(--bs-line); border-radius: 12px; color: var(--bs-blue); background: var(--bs-card); font: inherit; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-shop-button i, #boating-mvp-designs .bs-code-button i { width: 14px; height: 14px; }
+    #boating-mvp-designs .bs-code-panel { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 12px; border-radius: 15px; background: var(--bs-mist); }
+    #boating-mvp-designs .bs-code-panel > i { width: 20px; height: 20px; color: var(--bs-sea); flex: 0 0 auto; }
+    #boating-mvp-designs .bs-code-copy { flex: 1; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-code-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; font-weight: 400; }
+    #boating-mvp-designs .bs-code-button { width: auto; min-height: 34px; margin: 0; padding: 0 9px; border: 0; color: #fff; background: var(--bs-blue); }
+    #boating-mvp-designs .bs-topic-card { margin-top: 10px; padding: 13px; border: 1px solid var(--bs-line); border-radius: 16px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-topic-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    #boating-mvp-designs .bs-topic-name { display: flex; gap: 9px; align-items: center; font-size: 12px; font-weight: 700; }
+    #boating-mvp-designs .bs-topic-name i { width: 16px; height: 16px; color: var(--bs-sea); }
+    #boating-mvp-designs .bs-topic-count { color: var(--bs-muted); font-size: 10px; white-space: nowrap; }
+    #boating-mvp-designs .bs-topic-line { height: 4px; margin-top: 10px; border-radius: 99px; background: var(--bs-line); overflow: hidden; }
+    #boating-mvp-designs .bs-topic-line span { display: block; height: 100%; border-radius: inherit; background: var(--bs-sea); }
+    #boating-mvp-designs .bs-topic-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-topic-bottom strong { color: var(--bs-ink); font-size: 10px; }
+    #boating-mvp-designs .bs-exam-info { padding: 15px; border-radius: 17px; color: white; background: linear-gradient(130deg, #073b58, #0b6570); }
+    #boating-mvp-designs .bs-exam-info-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    #boating-mvp-designs .bs-exam-info h3 { font-size: 14px; }
+    #boating-mvp-designs .bs-exam-info p { margin-top: 5px; color: rgba(255,255,255,.75); font-size: 10px; line-height: 1.4; }
+    #boating-mvp-designs .bs-exam-info-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 11px; background: rgba(255,255,255,.13); }
+    #boating-mvp-designs .bs-exam-info-icon i { width: 18px; height: 18px; }
+    #boating-mvp-designs .bs-rule-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+    #boating-mvp-designs .bs-rule-chips span { padding: 5px 8px; border-radius: 99px; color: #fff; background: rgba(255,255,255,.13); font-size: 9px; font-weight: 600; }
+    #boating-mvp-designs .bs-paper-row { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-paper-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-paper-number { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; color: var(--bs-blue); background: #eaf2fb; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-paper-copy { flex: 1; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-paper-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 10px; font-weight: 400; }
+    #boating-mvp-designs .bs-paper-result { color: var(--bs-sea); font-size: 10px; font-weight: 700; }
+    #boating-mvp-designs .bs-exam-bar { display: flex; justify-content: space-between; align-items: center; padding: 11px 12px; border-radius: 13px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-timer { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    #boating-mvp-designs .bs-timer i { width: 15px; height: 15px; color: #b57805; }
+    #boating-mvp-designs .bs-exam-state { color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-exam-question { margin: 17px 0 6px !important; font-size: 17px !important; }
+    #boating-mvp-designs .bs-question-image { height: 105px; display: grid; place-items: center; margin: 12px 0; border-radius: 14px; color: #427587; background: linear-gradient(145deg, #dfeef0, #f4f8f8); }
+    #boating-mvp-designs .bs-question-image i { width: 32px; height: 32px; stroke-width: 1.4; }
+    #boating-mvp-designs .bs-exam-choice { min-height: 44px; display: flex; align-items: center; gap: 9px; margin: 7px 0; padding: 8px 10px; border: 1px solid var(--bs-line); border-radius: 12px; background: var(--bs-card); font-size: 11px; }
+    #boating-mvp-designs .bs-exam-choice .bs-radio { width: 16px; height: 16px; }
+    #boating-mvp-designs .bs-exam-choice.selected { border-color: var(--bs-blue); background: light-dark(#f1f7ff, #20384d); }
+    #boating-mvp-designs .bs-question-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 15px 0 4px; }
+    #boating-mvp-designs .bs-question-grid span { height: 27px; display: grid; place-items: center; border-radius: 8px; color: var(--bs-muted); background: var(--bs-mist); font-size: 9px; font-weight: 600; }
+    #boating-mvp-designs .bs-question-grid span.done { color: var(--bs-sea); background: light-dark(#deefea, #21453f); }
+    #boating-mvp-designs .bs-question-grid span.current { color: #fff; background: var(--bs-blue); }
+    #boating-mvp-designs .bs-exam-actions { display: flex; gap: 9px; }
+    #boating-mvp-designs .bs-exam-actions .bs-primary { flex: 1; }
+    #boating-mvp-designs .bs-quiet-button { min-height: 44px; margin-top: 13px; padding: 0 12px; border: 1px solid var(--bs-line); border-radius: 13px; color: var(--bs-ink); background: var(--bs-card); font: inherit; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+    #boating-mvp-designs .bs-stat { padding: 13px; border: 1px solid var(--bs-line); border-radius: 15px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-stat span { display: block; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-stat strong { display: block; margin-top: 5px; font-size: 20px; letter-spacing: -.03em; }
+    #boating-mvp-designs .bs-stat small { display: block; margin-top: 2px; color: var(--bs-muted); font-size: 9px; }
+    #boating-mvp-designs .bs-progress-topic { margin-top: 15px; }
+    #boating-mvp-designs .bs-progress-topic .bs-topic-card { margin-top: 0; border-radius: 0; border-width: 0 0 1px; padding: 11px 2px; }
+    #boating-mvp-designs .bs-progress-topic .bs-topic-card:first-child { border-top: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-video-placeholder { height: 168px; position: relative; display: grid; place-items: center; overflow: hidden; margin: 14px 0 12px; border-radius: 17px; color: #d7eeee; background: linear-gradient(145deg, #123c52, #126c74); }
+    #boating-mvp-designs .bs-video-placeholder::before, #boating-mvp-designs .bs-video-placeholder::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; }
+    #boating-mvp-designs .bs-video-placeholder::before { width: 225px; height: 225px; right: -80px; top: -120px; }
+    #boating-mvp-designs .bs-video-placeholder::after { width: 165px; height: 165px; left: -80px; bottom: -100px; }
+    #boating-mvp-designs .bs-video-placeholder i { width: 38px; height: 38px; stroke-width: 1.3; }
+    #boating-mvp-designs .bs-video-tag { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border-radius: 9px; color: #effafa; background: rgba(0,0,0,.2); font-size: 9px; font-weight: 600; }
+    #boating-mvp-designs .bs-video-tag i { width: 12px; height: 12px; }
+    #boating-mvp-designs .bs-lesson-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-lesson-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-lesson-number { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px; color: var(--bs-sea); background: var(--bs-mist); font-size: 10px; font-weight: 700; }
+    #boating-mvp-designs .bs-lesson-copy { flex: 1; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-lesson-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 9px; font-weight: 400; }
+    #boating-mvp-designs .bs-setting-group { margin-top: 17px; }
+    #boating-mvp-designs .bs-setting-row { min-height: 53px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-setting-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-setting-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; color: var(--bs-sea); background: var(--bs-mist); }
+    #boating-mvp-designs .bs-setting-icon i { width: 16px; height: 16px; }
+    #boating-mvp-designs .bs-setting-copy { flex: 1; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-setting-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 9px; font-weight: 400; }
+    #boating-mvp-designs .bs-setting-card { padding: 0 12px; border: 1px solid var(--bs-line); border-radius: 16px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-form-label { display: block; margin: 12px 0 6px; color: var(--bs-ink); font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-input { width: 100%; min-height: 45px; padding: 0 12px; border: 1px solid var(--bs-line); border-radius: 12px; color: var(--bs-ink); background: var(--bs-card); font: inherit; font-size: 12px; }
+    #boating-mvp-designs .bs-input::placeholder { color: #8da0a9; }
+    #boating-mvp-designs .bs-auth-mark { width: 54px; height: 54px; display: grid; place-items: center; margin: 5px 0 20px; border-radius: 17px; color: #fff; background: linear-gradient(145deg, #087bb5, #007a7a); box-shadow: 0 8px 20px rgba(0,95,130,.18); }
+    #boating-mvp-designs .bs-auth-mark i { width: 27px; height: 27px; }
+    #boating-mvp-designs .bs-auth-copy { margin: 7px 0 15px !important; color: var(--bs-muted); font-size: 11px; line-height: 1.5; }
+    #boating-mvp-designs .bs-link { display: block; margin-top: 12px; color: var(--bs-blue); text-align: center; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-auth-note { margin-top: 16px !important; padding: 11px; border-radius: 12px; color: var(--bs-muted); background: var(--bs-mist); font-size: 10px; line-height: 1.45; }
+    #boating-mvp-designs .bs-success-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 16px auto; border-radius: 50%; color: var(--bs-sea); background: var(--bs-green); }
+    #boating-mvp-designs .bs-success-mark i { width: 27px; height: 27px; }
+    #boating-mvp-designs .bs-school-option { display: flex; align-items: center; gap: 11px; min-height: 62px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--bs-line); border-radius: 14px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-school-option.selected { border-color: var(--bs-blue); background: light-dark(#f1f7ff,#20384d); }
+    #boating-mvp-designs .bs-school-logo { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 12px; color: var(--bs-sea); background: var(--bs-mist); }
+    #boating-mvp-designs .bs-school-logo i { width: 18px; height: 18px; }
+    #boating-mvp-designs .bs-school-copy { flex: 1; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-school-copy small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 9px; font-weight: 400; }
+    #boating-mvp-designs .bs-round-check { width: 18px; height: 18px; display: grid; place-items: center; border: 1.5px solid #9aadb5; border-radius: 50%; color: transparent; }
+    #boating-mvp-designs .bs-school-option.selected .bs-round-check { border-color: var(--bs-blue); color: #fff; background: var(--bs-blue); }
+    #boating-mvp-designs .bs-round-check i { width: 12px; height: 12px; }
+    #boating-mvp-designs .bs-answer-summary { margin-top: 14px; padding: 14px; border-radius: 15px; background: var(--bs-green); }
+    #boating-mvp-designs .bs-answer-summary strong { display: block; color: var(--bs-sea); font-size: 12px; }
+    #boating-mvp-designs .bs-answer-summary p { margin-top: 5px; color: var(--bs-ink); font-size: 11px; line-height: 1.45; }
+    #boating-mvp-designs .bs-result-score { display: grid; justify-items: center; padding: 15px 0 17px; text-align: center; }
+    #boating-mvp-designs .bs-score-ring { width: 116px; height: 116px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(var(--bs-sea) 0 82%, var(--bs-line) 82% 100%); }
+    #boating-mvp-designs .bs-score-inner { width: 96px; height: 96px; display: grid; align-content: center; border-radius: 50%; color: var(--bs-ink); background: var(--bs-card); }
+    #boating-mvp-designs .bs-score-inner strong { font-size: 27px; line-height: 1; }
+    #boating-mvp-designs .bs-score-inner small { margin-top: 4px; color: var(--bs-muted); font-size: 9px; }
+    #boating-mvp-designs .bs-result-score h3 { margin-top: 12px; font-size: 15px; }
+    #boating-mvp-designs .bs-result-score p { margin-top: 4px; color: var(--bs-muted); font-size: 10px; }
+    #boating-mvp-designs .bs-status-note { display: flex; align-items: flex-start; gap: 9px; padding: 11px; border-radius: 13px; color: var(--bs-ink); background: var(--bs-mist); font-size: 10px; line-height: 1.45; }
+    #boating-mvp-designs .bs-status-note i { width: 16px; height: 16px; flex: 0 0 auto; color: var(--bs-sea); }
+    #boating-mvp-designs .bs-error-note { background: light-dark(#fff0ee,#402623); }
+    #boating-mvp-designs .bs-error-note i { color: #b64e3e; }
+    #boating-mvp-designs .bs-empty { padding: 32px 17px; text-align: center; }
+    #boating-mvp-designs .bs-empty-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 14px; border-radius: 19px; color: var(--bs-sea); background: var(--bs-mist); }
+    #boating-mvp-designs .bs-empty-icon i { width: 26px; height: 26px; }
+    #boating-mvp-designs .bs-empty h3 { font-size: 15px; }
+    #boating-mvp-designs .bs-empty p { max-width: 240px; margin: 6px auto 0; color: var(--bs-muted); font-size: 11px; line-height: 1.45; }
+    #boating-mvp-designs .bs-empty .bs-primary { margin-top: 17px; }
+    #boating-mvp-designs .bs-code-field { display: flex; align-items: center; min-height: 54px; margin-top: 8px; padding: 0 13px; border: 1.5px solid #c65a4b; border-radius: 13px; color: var(--bs-ink); background: var(--bs-card); font-size: 15px; font-weight: 700; letter-spacing: .12em; }
+    #boating-mvp-designs .bs-step-card { margin-top: 9px; padding: 12px; border: 1px solid var(--bs-line); border-radius: 14px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-step-head { display: flex; align-items: center; gap: 9px; }
+    #boating-mvp-designs .bs-step-badge { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px; color: var(--bs-sea); background: var(--bs-mist); font-size: 10px; font-weight: 700; }
+    #boating-mvp-designs .bs-step-head strong { font-size: 11px; }
+    #boating-mvp-designs .bs-step-sketch { height: 72px; display: grid; place-items: center; margin-top: 10px; border-radius: 10px; color: #54808a; background: linear-gradient(145deg,#e2eff0,#f2f7f7); }
+    #boating-mvp-designs .bs-step-sketch i { width: 24px; height: 24px; }
+    #boating-mvp-designs .bs-session-current { border-color: color-mix(in srgb, var(--bs-sea) 35%, var(--bs-line)); }
+    #boating-mvp-designs .bs-session-current .bs-course-state { color: #fff; background: var(--bs-sea); }
+    #boating-mvp-designs .bs-danger-button { width: 100%; min-height: 44px; margin-top: 12px; border: 1px solid #e6c1be; border-radius: 12px; color: #a6423a; background: light-dark(#fff6f4,#3a2424); font: inherit; font-size: 11px; font-weight: 700; }
+    #boating-mvp-designs .bs-export-state { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 13px; border-radius: 14px; background: var(--bs-green); }
+    #boating-mvp-designs .bs-export-state i { width: 20px; height: 20px; color: var(--bs-sea); }
+    #boating-mvp-designs .bs-export-state strong { display: block; font-size: 11px; }
+    #boating-mvp-designs .bs-export-state small { display: block; margin-top: 3px; color: var(--bs-muted); font-size: 9px; }
+    #boating-mvp-designs .bs-skeleton { height: 10px; border-radius: 99px; background: var(--bs-line); }
+    #boating-mvp-designs .bs-skeleton.large { height: 19px; width: 64%; border-radius: 8px; }
+    #boating-mvp-designs .bs-skeleton.medium { width: 47%; }
+    #boating-mvp-designs .bs-skeleton.short { width: 29%; }
+    #boating-mvp-designs .bs-skeleton-card { padding: 16px; margin-top: 13px; border: 1px solid var(--bs-line); border-radius: 16px; background: var(--bs-card); }
+    #boating-mvp-designs .bs-skeleton-stack { display: grid; gap: 10px; }
+    #boating-mvp-designs .bs-nav-map { height: 155px; display: grid; place-items: center; margin: 12px 0; border-radius: 15px; color: #547d87; background: linear-gradient(145deg,#e1eff0,#f3f8f8); }
+    #boating-mvp-designs .bs-nav-map i { width: 32px; height: 32px; stroke-width: 1.3; }
+    #boating-mvp-designs .bs-nav-task-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--bs-line); }
+    #boating-mvp-designs .bs-nav-task-row:last-child { border-bottom: 0; }
+    #boating-mvp-designs .bs-nav-task-row .bs-topic-name { flex: 1; font-size: 11px; }
+    #boating-mvp-designs .bs-field-error { margin-top: 6px !important; color: #b64e3e; font-size: 10px; line-height: 1.4; }
+    #boating-mvp-designs .bs-input.invalid { border-color: #c65a4b; background: light-dark(#fff9f8,#382827); }
+    #boating-mvp-designs .bs-auth-alert { display: flex; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 11px; border-radius: 12px; color: #a6423a; background: light-dark(#fff0ee,#402623); font-size: 10px; line-height: 1.45; }
+    #boating-mvp-designs .bs-auth-alert i { width: 16px; height: 16px; flex: 0 0 auto; }
+    #boating-mvp-designs .bs-gallery-toolbar { width: min(100%, 382px); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; align-items: end; margin: 0 auto 18px; }
+    #boating-mvp-designs .bs-gallery-toolbar label { display: grid; gap: 5px; color: var(--bs-muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    #boating-mvp-designs .bs-gallery-toolbar select { width: 100%; min-width: 0; min-height: 42px; padding: 0 12px; border: 1px solid var(--bs-line); border-radius: 12px; color: var(--bs-ink); background: var(--bs-card); font: inherit; font-size: 12px; font-weight: 600; }
+    #boating-mvp-designs .bs-gallery-counter { padding-bottom: 13px; color: var(--bs-muted); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    #boating-mvp-designs .bs-gallery-arrows { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; }
+    #boating-mvp-designs .bs-gallery-arrows button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--bs-line); border-radius: 11px; color: var(--bs-ink); background: var(--bs-card); font: inherit; font-size: 11px; font-weight: 600; }
+    #boating-mvp-designs .bs-gallery-arrows i { width: 14px; height: 14px; }
+    #boating-mvp-designs .bs-screen { display: none; }
+    #boating-mvp-designs .bs-screen.is-active { display: block; }
+  </style>
+
+  <div class="bs-gallery-toolbar">
+    <label for="bs-design-select">Flutter · Mobile Design-Frames<select id="bs-design-select" aria-label="Design-Frame auswählen"></select></label>
+    <span class="bs-gallery-counter" id="bs-frame-counter" aria-live="polite">01 / 29</span>
+    <div class="bs-gallery-arrows"><button type="button" id="bs-frame-prev" aria-label="Vorheriger Frame"><i data-lucide="arrow-left" aria-hidden="true"></i> Zurück</button><button type="button" id="bs-frame-next" aria-label="Nächster Frame">Weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+  </div>
+
+  <section class="bs-screen is-active" aria-label="Dashboard">
+    <p class="bs-caption">Start · Weiterlernen</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <header class="bs-top"><div class="bs-brand"><span class="bs-mark"><i data-lucide="waves" aria-hidden="true"></i></span><span>BoatingSchool<span class="bs-school">Bootsschule am See</span></span></div><div class="bs-avatar" aria-label="Profil Mia K.">MK</div></header>
+        <p class="bs-muted bs-greeting">Schön, dass du wieder da bist</p><h2>Hallo Mia</h2>
+        <article class="bs-hero">
+          <div class="bs-hero-label"><i data-lucide="compass" aria-hidden="true"></i> Dein nächster Schritt</div>
+          <h3>Weiter mit SBF See</h3><p class="bs-hero-copy">Du warst bei den Ausweichregeln.</p>
+          <div class="bs-hero-bottom"><div class="bs-ring" aria-label="62 Prozent Fortschritt"></div><div class="bs-hero-detail"><strong>62 % geschafft</strong>Ein paar Fragen, dann bist du weiter.</div></div>
+          <button class="bs-hero-button" type="button">Weiterlernen <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        </article>
+        <div class="bs-section-title"><strong>Deine Kurse</strong><span>Alle Kurse <i data-lucide="arrow-up-right" aria-hidden="true" style="width:12px;height:12px;vertical-align:-2px"></i></span></div>
+        <div class="bs-course-list">
+          <div class="bs-course-row"><div class="bs-course-icon"><i data-lucide="sailboat" aria-hidden="true"></i></div><div class="bs-course-info"><strong>SBF See</strong><small>62 % · Zugang bis 14.06.2027</small></div><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-course-row"><div class="bs-course-icon teal"><i data-lucide="radio" aria-hidden="true"></i></div><div class="bs-course-info"><strong>Funk (SRC)</strong><small>18 % · Weiter mit Lernfragen</small></div><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        </div>
+        <div class="bs-section-title"><strong>Heute empfohlen</strong></div>
+        <div class="bs-recommend"><div class="bs-recommend-icon"><i data-lucide="sparkles" aria-hidden="true"></i></div><div class="bs-recommend-info"><strong>Lichterführung wiederholen</strong><span>5 Fragen · passend zu deinem Lernstand</span></div><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab active"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Kurs-Lernhub">
+    <p class="bs-caption">Lernen · Kurs-Lernhub</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Meine Kurse</p>
+        <div class="bs-course-title"><div class="bs-course-icon"><i data-lucide="sailboat" aria-hidden="true"></i></div><div><h2>SBF See</h2><p class="bs-muted">Dein Lernbereich</p></div></div>
+        <div class="bs-progress-card"><div class="bs-progress-head"><span>Kursfortschritt</span><strong>62 %</strong></div><div class="bs-progress-track" role="progressbar" aria-label="Kursfortschritt" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100"><span></span></div><p class="bs-muted">Du bist auf einem guten Weg.</p></div>
+        <button class="bs-primary" type="button">Mit Smarttrainer weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        <p class="bs-section-label">Lernbereiche</p>
+        <div class="bs-hub-list">
+          <div class="bs-hub-row"><span class="bs-hub-icon"><i data-lucide="sparkles" aria-hidden="true"></i></span><span class="bs-hub-copy">Fragen üben<small>Smarttrainer und Wiederholung</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-hub-row"><span class="bs-hub-icon"><i data-lucide="list-tree" aria-hidden="true"></i></span><span class="bs-hub-copy">Module &amp; Themen<small>Gezielt nach Themen lernen</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-hub-row"><span class="bs-hub-icon"><i data-lucide="clipboard-check" aria-hidden="true"></i></span><span class="bs-hub-copy">Prüfungssimulation<small>Feste Bögen und Prüfungsmodus</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-hub-row"><span class="bs-hub-icon"><i data-lucide="star" aria-hidden="true"></i></span><span class="bs-hub-copy">Favoriten<small>Gespeicherte Fragen</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-hub-row"><span class="bs-hub-icon"><i data-lucide="play" aria-hidden="true"></i></span><span class="bs-hub-copy">Videokurs<small>Module und Lektionen</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        </div>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Smarttrainer-Frage">
+    <p class="bs-caption">Lernen · Smarttrainer-Frage</p>
+    <div class="bs-phone" id="bs-trainer-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <div class="bs-question-top"><span class="bs-question-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</span><strong class="bs-question-count">Frage 8 <span>von 20</span></strong></div>
+        <div class="bs-question-progress" aria-label="Frage 8 von 20"><span></span></div><p id="bs-attempt-counter" class="bs-muted" aria-live="polite" style="margin:-10px 0 12px!important;font-size:10px">Versuch 1 von 3 · 2 Versuche übrig</p>
+        <div class="bs-question-tools"><span class="bs-topic"><i data-lucide="compass" aria-hidden="true"></i> Ausweichregeln</span><button class="bs-favorite" type="button" aria-pressed="false" id="bs-favorite"><i data-lucide="star" aria-hidden="true"></i> Favorit</button></div>
+        <h2 class="bs-question">Zwei Motorboote kreuzen sich. Welches Fahrzeug muss ausweichen?</h2>
+        <p class="bs-prompt">Wähle die passende Antwort.</p>
+        <button type="button" class="bs-choice" data-answer data-correct="true"><span class="bs-radio"></span><span>Das Fahrzeug, das das andere an Steuerbord sieht.</span></button>
+        <button type="button" class="bs-choice" data-answer><span class="bs-radio"></span><span>Das Fahrzeug, das das andere an Backbord sieht.</span></button>
+        <button type="button" class="bs-choice" data-answer><span class="bs-radio"></span><span>Immer das kleinere Fahrzeug.</span></button>
+        <p class="bs-answer-label">Jede Frage wird dreimal geprüft. Dein Fortschritt wird nach jeder Antwort gespeichert.</p>
+        <div class="bs-feedback" aria-live="polite"><div class="bs-feedback-head"><i data-lucide="circle-check" aria-hidden="true"></i><span id="bs-feedback-title">Richtig</span></div><span id="bs-feedback-copy">Das Fahrzeug, das das andere an Steuerbord sieht, muss ausweichen. Gespeichert: Versuch 1 von 3.</span></div>
+      </div>
+      <div class="bs-trainer-footer"><button class="bs-primary" type="button" id="bs-check-answer">Antwort prüfen <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Kursübersicht">
+    <p class="bs-caption">Lernen · Meine Kurse</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Lernen</p>
+        <h2 class="bs-page-title">Deine Kurse</h2><p class="bs-page-intro">Zugänge und Lernfortschritt an einem Ort.</p>
+        <div class="bs-entitlement"><div class="bs-entitlement-top"><div class="bs-course-icon"><i data-lucide="sailboat" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>SBF See</strong><small>Zugang bis 14.06.2027</small></div><span class="bs-course-state"><i data-lucide="circle-check" aria-hidden="true"></i> Aktiv</span></div><div class="bs-course-progress"><span style="width:62%"></span></div><div class="bs-topic-bottom"><span>Kursfortschritt</span><strong>62 %</strong></div></div>
+        <div class="bs-entitlement"><div class="bs-entitlement-top"><div class="bs-course-icon teal"><i data-lucide="radio" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>Funk (SRC)</strong><small>Aktiver Kurszugang</small></div><span class="bs-course-state"><i data-lucide="circle-check" aria-hidden="true"></i> Aktiv</span></div><div class="bs-course-progress"><span style="width:18%"></span></div><div class="bs-topic-bottom"><span>Kursfortschritt</span><strong>18 %</strong></div></div>
+        <p class="bs-section-label">Weitere Kurse</p>
+        <div class="bs-entitlement"><div class="bs-entitlement-top"><div class="bs-course-icon" style="color:#697c89;background:#edf1f3"><i data-lucide="sailboat" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>SBF Binnen</strong><small>Noch nicht freigeschaltet</small></div></div><button type="button" class="bs-shop-button">Beim Schulshop ansehen <i data-lucide="external-link" aria-hidden="true"></i></button></div>
+        <div class="bs-code-panel"><i data-lucide="ticket-check" aria-hidden="true"></i><div class="bs-code-copy">Zugangscode erhalten?<small>Code von deiner Bootsschule einlösen</small></div><button type="button" class="bs-code-button">Einlösen <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Module und Themen">
+    <p class="bs-caption">Lernen · Themen wählen</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p>
+        <h2 class="bs-page-title">Module &amp; Themen</h2><p class="bs-page-intro">Wähle ein Thema und übe genau dort weiter.</p>
+        <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name"><i data-lucide="compass" aria-hidden="true"></i> Seemannschaft</span><span class="bs-topic-count">18 Fragen</span></div><div class="bs-topic-line"><span style="width:72%"></span></div><div class="bs-topic-bottom"><span>Gut im Lernfluss</span><strong>72 %</strong></div></div>
+        <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name"><i data-lucide="move-up-right" aria-hidden="true"></i> Ausweichregeln</span><span class="bs-topic-count">24 Fragen</span></div><div class="bs-topic-line"><span style="width:46%"></span></div><div class="bs-topic-bottom"><span>Weiter üben</span><strong>46 %</strong></div></div>
+        <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name"><i data-lucide="cloud-sun" aria-hidden="true"></i> Wetterkunde</span><span class="bs-topic-count">16 Fragen</span></div><div class="bs-topic-line"><span style="width:31%"></span></div><div class="bs-topic-bottom"><span>Noch offen</span><strong>31 %</strong></div></div>
+        <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name"><i data-lucide="lightbulb" aria-hidden="true"></i> Lichterführung</span><span class="bs-topic-count">12 Fragen</span></div><div class="bs-topic-line"><span style="width:84%"></span></div><div class="bs-topic-bottom"><span>Fast gefestigt</span><strong>84 %</strong></div></div>
+        <button class="bs-primary" type="button">Thema fortsetzen <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Prüfungsübersicht">
+    <p class="bs-caption">Prüfung · Vorbereiten</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p>
+        <h2 class="bs-page-title">Prüfungssimulation</h2><p class="bs-page-intro">Übe mit den festen Bögen oder starte eine Prüfung.</p>
+        <div class="bs-exam-info"><div class="bs-exam-info-top"><div><h3>So läuft die Prüfung</h3><p>30 Fragen · 60 Minuten<br>Ergebnis und Erklärung nach Abgabe</p></div><span class="bs-exam-info-icon"><i data-lucide="clipboard-check" aria-hidden="true"></i></span></div><div class="bs-rule-chips"><span>Keine Sofortauflösung</span><span>Fortsetzen möglich</span></div></div>
+        <button class="bs-primary" type="button">Prüfung starten <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        <div class="bs-section-title"><strong>Feste Prüfungsbögen</strong><span>15 Bögen</span></div>
+        <div class="bs-course-list" style="padding:0 13px">
+          <div class="bs-paper-row"><span class="bs-paper-number">01</span><span class="bs-paper-copy">Prüfungsbogen 1<small>30 Fragen · ca. 60 Minuten</small></span><span class="bs-paper-result">›</span></div>
+          <div class="bs-paper-row"><span class="bs-paper-number">02</span><span class="bs-paper-copy">Prüfungsbogen 2<small>30 Fragen · ca. 60 Minuten</small></span><span class="bs-paper-result">›</span></div>
+          <div class="bs-paper-row"><span class="bs-paper-number">03</span><span class="bs-paper-copy">Prüfungsbogen 3<small>30 Fragen · ca. 60 Minuten</small></span><span class="bs-paper-result">›</span></div>
+        </div>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab active"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Laufende Prüfung">
+    <p class="bs-caption">Prüfung · Laufender Versuch</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <div class="bs-question-top"><span class="bs-question-back"><i data-lucide="x" aria-hidden="true"></i> Prüfung verlassen</span><strong class="bs-question-count">7 <span>/ 30</span></strong></div>
+        <div class="bs-exam-bar"><span class="bs-timer"><i data-lucide="timer" aria-hidden="true"></i> 42:18</span><span class="bs-exam-state">Zeit verbleibend</span></div>
+        <h2 class="bs-exam-question">Welche Aussage trifft auf diese Situation zu?</h2>
+        <p class="bs-muted">Wähle eine Antwort. Du kannst später noch einmal zurückkehren.</p>
+        <div class="bs-question-image" aria-label="Platzhalter für Fragebild"><i data-lucide="map" aria-hidden="true"></i></div>
+        <div class="bs-exam-choice selected"><span class="bs-radio"></span><span>Antwortmöglichkeit A</span></div>
+        <div class="bs-exam-choice"><span class="bs-radio"></span><span>Antwortmöglichkeit B</span></div>
+        <div class="bs-exam-choice"><span class="bs-radio"></span><span>Antwortmöglichkeit C</span></div>
+        <div class="bs-question-grid" aria-label="Fragenübersicht"><span class="done">1</span><span class="done">2</span><span class="done">3</span><span class="done">4</span><span class="done">5</span><span class="done">6</span><span class="current">7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div>
+        <div class="bs-exam-actions"><button class="bs-quiet-button" type="button">‹ Zurück</button><button class="bs-primary" type="button">Weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+        <button class="bs-shop-button" type="button" style="color:var(--bs-muted)"><i data-lucide="flag" aria-hidden="true"></i> Frage markieren</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Fortschritt">
+    <p class="bs-caption">Fortschritt · Lernstand</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <h2 class="bs-page-title">Dein Lernstand</h2><p class="bs-page-intro">SBF See · synchronisiert mit deinem Web-Konto</p>
+        <div class="bs-stat-row"><div class="bs-stat"><span>Kursfortschritt</span><strong>62 %</strong><small>Fragen und Themen</small></div><div class="bs-stat"><span>Zuletzt geübt</span><strong>Heute</strong><small>Ausweichregeln</small></div></div>
+        <div class="bs-section-title"><strong>Themen im Überblick</strong><span>Alle Themen</span></div>
+        <div class="bs-progress-topic">
+          <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Seemannschaft</span><span class="bs-topic-count">72 %</span></div><div class="bs-topic-line"><span style="width:72%"></span></div><div class="bs-topic-bottom"><span>Zuletzt geübt: gestern</span><strong>Weiter →</strong></div></div>
+          <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Ausweichregeln</span><span class="bs-topic-count">46 %</span></div><div class="bs-topic-line"><span style="width:46%"></span></div><div class="bs-topic-bottom"><span>Zuletzt geübt: heute</span><strong>Weiter →</strong></div></div>
+          <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Wetterkunde</span><span class="bs-topic-count">31 %</span></div><div class="bs-topic-line"><span style="width:31%"></span></div><div class="bs-topic-bottom"><span>Dein nächster Lernbereich</span><strong>Üben →</strong></div></div>
+          <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Lichterführung</span><span class="bs-topic-count">84 %</span></div><div class="bs-topic-line"><span style="width:84%"></span></div><div class="bs-topic-bottom"><span>Zuletzt geübt: Montag</span><strong>Wiederholen →</strong></div></div>
+        </div>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab active"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Lektion mit Video-Platzhalter">
+    <p class="bs-caption">Lernen · Lektion</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Videokurs · SBF See</p>
+        <p class="bs-section-label" style="margin-top:3px!important">Modul 2 · Grundlagen</p>
+        <h2 class="bs-page-title" style="font-size:22px">Sicher unterwegs</h2>
+        <div class="bs-video-placeholder" role="img" aria-label="Video noch nicht verfügbar"><i data-lucide="video-off" aria-hidden="true"></i><span class="bs-video-tag"><i data-lucide="clock-3" aria-hidden="true"></i> Video folgt</span></div>
+        <p class="bs-muted">Das Video ist für diesen Kurs noch nicht verfügbar. Du kannst die Lektion später erneut aufrufen.</p>
+        <div class="bs-section-title"><strong>In diesem Modul</strong><span>3 Lektionen</span></div>
+        <div class="bs-course-list" style="padding:0 12px">
+          <div class="bs-lesson-row"><span class="bs-lesson-number"><i data-lucide="check" aria-hidden="true" style="width:14px;height:14px"></i></span><span class="bs-lesson-copy">Grundlagen an Bord<small>Abgeschlossen · 4 Min.</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-lesson-row"><span class="bs-lesson-number">2</span><span class="bs-lesson-copy">Sicher unterwegs<small>Aktuelle Lektion · 6 Min.</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-lesson-row"><span class="bs-lesson-number">3</span><span class="bs-lesson-copy">Knoten und Leinen<small>3 Schritte zum Durchgehen</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        </div>
+        <button class="bs-primary" type="button">Schritt-Galerie ansehen <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Profil und Einstellungen">
+    <p class="bs-caption">Profil · Einstellungen</p>
+    <div class="bs-phone">
+      <div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="bs-content">
+        <h2 class="bs-page-title">Profil</h2><p class="bs-page-intro">Konto und App-Einstellungen verwalten.</p>
+        <div class="bs-entitlement" style="display:flex;align-items:center;gap:12px"><div class="bs-avatar" style="width:46px;height:46px;font-size:13px">MK</div><div class="bs-entitlement-copy"><strong style="font-size:13px">Mia Keller</strong><small>mia@example.at</small><small>Bootsschule am See</small></div><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <p class="bs-section-label">Konto &amp; Sicherheit</p>
+        <div class="bs-setting-card">
+          <div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="building-2" aria-hidden="true"></i></span><span class="bs-setting-copy">Meine Schule<small>Bootsschule am See</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="smartphone" aria-hidden="true"></i></span><span class="bs-setting-copy">Gerätesitzungen<small>2 aktive Geräte</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="download" aria-hidden="true"></i></span><span class="bs-setting-copy">Datenexport<small>Persönliche Daten anfordern</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        </div>
+        <p class="bs-section-label">Hilfe &amp; Datenschutz</p>
+        <div class="bs-setting-card">
+          <div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="life-buoy" aria-hidden="true"></i></span><span class="bs-setting-copy">Support kontaktieren</span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+          <div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="shield-check" aria-hidden="true"></i></span><span class="bs-setting-copy">Datenschutz &amp; Export<small>Datenkopie und Datenschutz</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        </div>
+        <button class="bs-shop-button" type="button" style="margin-top:16px;color:#a34b4b;border-color:transparent;background:transparent"><i data-lucide="log-out" aria-hidden="true"></i> Abmelden</button>
+      </div>
+      <nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab active"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav>
+    </div>
+  </section>
+
+  <section class="bs-screen" aria-label="Anmeldung">
+    <p class="bs-caption">Konto · Anmeldung</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-auth-mark"><i data-lucide="waves" aria-hidden="true"></i></div><h2>Willkommen zurück</h2><p class="bs-auth-copy">Melde dich mit deinem bestehenden BoatingSchool-Konto an.</p>
+      <label class="bs-form-label" for="login-email">E-Mail-Adresse</label><input class="bs-input" id="login-email" type="email" value="mia@example.at">
+      <label class="bs-form-label" for="login-password">Passwort</label><input class="bs-input" id="login-password" type="password" value="sicherespasswort">
+      <p class="bs-link" style="text-align:right">Passwort vergessen?</p><button class="bs-primary" type="button" style="margin-top:17px">Anmelden <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <p class="bs-auth-note">Dein Web-Konto funktioniert auch in der App. Deine Schule wird nach dem Login zugeordnet.</p>
+      <p class="bs-muted" style="margin-top:18px;text-align:center;font-size:10px">Datenschutz&nbsp; · &nbsp;Impressum</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Passwort zurücksetzen">
+    <p class="bs-caption">Konto · Passwort zurücksetzen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Zur Anmeldung</p><div class="bs-auth-mark"><i data-lucide="key-round" aria-hidden="true"></i></div>
+      <h2>Passwort vergessen?</h2><p class="bs-auth-copy">Wir schicken dir einen Link, mit dem du ein neues Passwort setzen kannst.</p>
+      <label class="bs-form-label" for="reset-email">E-Mail-Adresse</label><input class="bs-input" id="reset-email" type="email" placeholder="name@beispiel.at">
+      <button class="bs-primary" type="button" style="margin-top:18px">Reset-E-Mail anfordern <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <p class="bs-auth-note">Wenn ein Konto zu dieser Adresse gehört, erhältst du eine E-Mail mit den nächsten Schritten.</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Neues Passwort setzen">
+    <p class="bs-caption">Konto · Neues Passwort</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Zur Anmeldung</p><div class="bs-auth-mark"><i data-lucide="lock-keyhole" aria-hidden="true"></i></div>
+      <h2>Neues Passwort</h2><p class="bs-auth-copy">Wähle ein sicheres Passwort für dein Konto.</p>
+      <label class="bs-form-label" for="new-password">Neues Passwort</label><input class="bs-input" id="new-password" type="password" placeholder="Mindestens 12 Zeichen">
+      <label class="bs-form-label" for="confirm-password">Passwort wiederholen</label><input class="bs-input" id="confirm-password" type="password" placeholder="Passwort bestätigen">
+      <p class="bs-auth-note">Der Reset-Link wird beim Speichern einmalig verwendet. Deine anderen Sitzungen werden abgemeldet.</p>
+      <button class="bs-primary" type="button" style="margin-top:16px">Passwort speichern <i data-lucide="check" aria-hidden="true"></i></button>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="E-Mail bestätigen">
+    <p class="bs-caption">Konto · E-Mail bestätigen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content" style="padding-top:25px">
+      <div class="bs-success-mark"><i data-lucide="mail-check" aria-hidden="true"></i></div><h2 style="text-align:center;font-size:22px">Bitte bestätige deine E-Mail</h2><p class="bs-auth-copy" style="text-align:center">Wir haben einen Bestätigungslink an <strong style="color:var(--bs-ink)">mia@example.at</strong> gesendet.</p>
+      <div class="bs-status-note"><i data-lucide="info" aria-hidden="true"></i><span>Öffne den Link aus der E-Mail. Danach kannst du alle Lernbereiche nutzen.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:18px">Bestätigungs-E-Mail erneut senden <i data-lucide="send" aria-hidden="true"></i></button><p class="bs-link">E-Mail-Adresse korrigieren</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Schule auswählen">
+    <p class="bs-caption">Konto · Schule auswählen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-auth-mark"><i data-lucide="building-2" aria-hidden="true"></i></div><h2>Deine Bootsschule</h2><p class="bs-auth-copy">Dein Konto gehört zu mehreren Schulen. Wähle, wo du jetzt lernen möchtest.</p>
+      <div class="bs-school-option selected"><span class="bs-school-logo"><i data-lucide="waves" aria-hidden="true"></i></span><span class="bs-school-copy">Bootsschule am See<small>2 aktive Kurse</small></span><span class="bs-round-check"><i data-lucide="check" aria-hidden="true"></i></span></div>
+      <div class="bs-school-option"><span class="bs-school-logo"><i data-lucide="sailboat" aria-hidden="true"></i></span><span class="bs-school-copy">Segelschule Donau<small>1 aktiver Kurs</small></span><span class="bs-round-check"></span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <p class="bs-auth-note">Du kannst die aktive Schule später in deinem Profil wechseln.</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Antwortfeedback">
+    <p class="bs-caption">Lernen · Antwortfeedback</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-question-top"><span class="bs-question-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</span><strong class="bs-question-count">Frage 8 <span>von 20</span></strong></div><div class="bs-question-progress"><span style="width:40%"></span></div>
+      <div class="bs-status-note" style="color:var(--bs-sea);background:var(--bs-green)"><i data-lucide="circle-check" aria-hidden="true"></i><span><strong>Richtig beantwortet</strong><br>Gespeichert: Versuch 1 von 3. Noch 2 Versuche.</span></div>
+      <h2 class="bs-question" style="margin-top:17px!important">Welches Fahrzeug muss ausweichen?</h2>
+      <div class="bs-exam-choice selected" style="min-height:48px;border-color:var(--bs-sea);background:var(--bs-green)"><span class="bs-round-check" style="border-color:var(--bs-sea);color:white;background:var(--bs-sea)"><i data-lucide="check" aria-hidden="true"></i></span><span>Das Fahrzeug, das das andere an Steuerbord sieht.</span></div>
+      <div class="bs-answer-summary"><strong>Warum?</strong><p>Bei kreuzenden Kursen muss das Fahrzeug ausweichen, das das andere auf seiner Steuerbordseite sieht.</p></div>
+      <div class="bs-status-note" style="margin-top:11px"><i data-lucide="lightbulb" aria-hidden="true"></i><span><strong>Merksatz</strong><br>Wer das andere an Steuerbord hat, hält sich frei.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:16px">Nächste Frage <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Favoriten">
+    <p class="bs-caption">Lernen · Favoriten</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p><h2 class="bs-page-title">Deine Favoriten</h2><p class="bs-page-intro">Fragen, die du für später gespeichert hast.</p>
+      <div class="bs-question-tools"><span class="bs-topic"><i data-lucide="star" aria-hidden="true"></i> 12 gespeicherte Fragen</span><span class="bs-topic" style="color:var(--bs-muted);background:var(--bs-card);border:1px solid var(--bs-line)">Alle Sammlungen</span></div><div class="bs-question-tools" style="justify-content:flex-start;flex-wrap:wrap;margin-top:9px"><span class="bs-topic" style="color:#fff;background:var(--bs-sea)">Alle</span><span class="bs-topic">Prüfung</span><span class="bs-topic">Noch üben</span><button class="bs-favorite" type="button" aria-label="Sammlung erstellen">+ Sammlung</button></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Ausweichregeln</span><span class="bs-arrow"><i data-lucide="star" aria-hidden="true" style="color:#b57805"></i></span></div><p class="bs-muted" style="margin-top:8px">Zwei Motorboote kreuzen sich. Welches Fahrzeug muss ausweichen?</p><div class="bs-topic-bottom"><span>Zuletzt geübt: heute</span><strong>Üben →</strong></div></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Lichterführung</span><span class="bs-arrow"><i data-lucide="star" aria-hidden="true" style="color:#b57805"></i></span></div><p class="bs-muted" style="margin-top:8px">Woran erkennst du ein Fahrzeug vor Anker?</p><div class="bs-topic-bottom"><span>Zuletzt geübt: gestern</span><strong>Üben →</strong></div></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Seemannschaft</span><span class="bs-arrow"><i data-lucide="star" aria-hidden="true" style="color:#b57805"></i></span></div><p class="bs-muted" style="margin-top:8px">Welche Leine wird zum Festmachen zuerst vorbereitet?</p><div class="bs-topic-bottom"><span>Zuletzt geübt: 12.10.</span><strong>Üben →</strong></div></div>
+      <button class="bs-quiet-button" type="button" style="width:100%;margin-top:12px">Fragen einer Sammlung zuordnen <i data-lucide="folder-input" aria-hidden="true"></i></button><button class="bs-primary" type="button">Favoriten üben <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+    </div><nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav></div>
+  </section>
+  <section class="bs-screen" aria-label="Favoritensammlung erstellen oder umbenennen">
+    <p class="bs-caption">Favoriten · Sammlung verwalten</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Favoriten</p><div class="bs-auth-mark"><i data-lucide="folder-plus" aria-hidden="true"></i></div><h2>Sammlung erstellen</h2><p class="bs-auth-copy">Erstelle eine Sammlung oder ändere den Namen einer bestehenden. Deine gespeicherten Fragen bleiben erhalten.</p>
+      <label class="bs-form-label" for="collection-name">Name der Sammlung</label><input class="bs-input" id="collection-name" type="text" value="Prüfung wiederholen" maxlength="60"><p class="bs-muted" style="margin-top:6px!important">Bis zu 60 Zeichen. Der Name ist nur für dich sichtbar.</p>
+      <button class="bs-primary" type="button" style="margin-top:18px">Sammlung speichern <i data-lucide="check" aria-hidden="true"></i></button><p class="bs-link">Abbrechen</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Favoritensammlung löschen bestätigen">
+    <p class="bs-caption">Favoriten · Löschbestätigung</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Prüfung wiederholen</p><div class="bs-auth-mark" style="color:#a6423a;background:light-dark(#fff0ee,#402623)"><i data-lucide="folder-x" aria-hidden="true"></i></div><h2>Sammlung löschen?</h2><p class="bs-auth-copy">„Prüfung wiederholen“ wird aus deinen Favoriten-Sammlungen entfernt.</p>
+      <div class="bs-status-note"><i data-lucide="star" aria-hidden="true"></i><span>Deine gespeicherten Fragen bleiben erhalten und erscheinen anschließend unter „Ohne Sammlung“.</span></div>
+      <button class="bs-danger-button" type="button">Sammlung löschen</button><p class="bs-link" style="color:var(--bs-muted)">Abbrechen</p>
+    </div></div>
+  </section>
+
+
+  <section class="bs-screen" aria-label="Prüfungsdetails und Start">
+    <p class="bs-caption">Prüfung · Details vor dem Start</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Prüfungsübersicht</p><div class="bs-exam-info"><div class="bs-exam-info-top"><div><p style="margin:0 0 6px;color:rgba(255,255,255,.72);font-size:9px;letter-spacing:.1em;font-weight:700">FESTER PRÜFUNGSBOGEN</p><h3 style="font-size:18px">Bogen 4 · SBF See</h3><p>Ein unveränderlicher Fragenmix wie in der Prüfung.</p></div><span class="bs-exam-info-icon"><i data-lucide="clipboard-list" aria-hidden="true"></i></span></div></div>
+      <div class="bs-stat-row"><div class="bs-stat"><span>Fragen</span><strong>30</strong><small>7 Basis · 23 See</small></div><div class="bs-stat"><span>Zeitlimit</span><strong>60 min</strong><small>Serverzeit gilt</small></div></div>
+      <div class="bs-section-title"><strong>Prüfungsregeln</strong></div><div class="bs-setting-card" style="padding:0 12px"><div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="eye-off" aria-hidden="true"></i></span><span class="bs-setting-copy">Keine Auflösung während der Prüfung<small>Ergebnis erst nach Abgabe</small></span></div><div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="save" aria-hidden="true"></i></span><span class="bs-setting-copy">Antworten werden gespeichert<small>Du kannst die Prüfung fortsetzen</small></span></div><div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="send" aria-hidden="true"></i></span><span class="bs-setting-copy">Abgabe beendet den Versuch<small>Danach siehst du dein Ergebnis</small></span></div></div>
+      <button class="bs-primary" type="button" style="margin-top:18px">Prüfung starten <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-muted" style="margin-top:9px;text-align:center;font-size:10px">Ein laufender Versuch wird beim erneuten Öffnen fortgesetzt.</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Prüfungsergebnis">
+    <p class="bs-caption">Prüfung · Ergebnis</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Prüfungssimulation</p><div class="bs-result-score"><div class="bs-score-ring"><div class="bs-score-inner"><strong>82%</strong><small>24 von 30 richtig</small></div></div><h3>Prüfung bestanden</h3><p>Bogen 4 · abgeschlossen heute um 09:38</p></div>
+      <div class="bs-status-note"><i data-lucide="info" aria-hidden="true"></i><span>Dein Prüfungsergebnis ist gespeichert. Während des Versuchs wurden keine Lösungen angezeigt.</span></div>
+      <div class="bs-section-title"><strong>Deine Themen</strong><span>Details <i data-lucide="chevron-right" aria-hidden="true" style="width:12px;height:12px;vertical-align:-2px"></i></span></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Seemannschaft</span><span class="bs-topic-count">8 / 9 richtig</span></div><div class="bs-topic-line"><span style="width:89%"></span></div></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Ausweichregeln</span><span class="bs-topic-count">6 / 8 richtig</span></div><div class="bs-topic-line"><span style="width:75%"></span></div></div>
+      <div class="bs-topic-card"><div class="bs-topic-head"><span class="bs-topic-name">Wetterkunde</span><span class="bs-topic-count">4 / 7 richtig</span></div><div class="bs-topic-line"><span style="width:57%"></span></div></div>
+      <button class="bs-primary" type="button">Themen weiterüben <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Zur Prüfungsübersicht</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Zugangscode einlösen">
+    <p class="bs-caption">Kurse · Zugangscode</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Deine Kurse</p><div class="bs-auth-mark"><i data-lucide="ticket-check" aria-hidden="true"></i></div><h2>Zugangscode einlösen</h2><p class="bs-auth-copy">Gib den Code ein, den dir deine Bootsschule nach dem Kauf geschickt hat.</p>
+      <label class="bs-form-label" for="coupon-code">Dein Zugangscode</label><input class="bs-input" id="coupon-code" value="SEE-2026-ABCD" style="font-weight:700;letter-spacing:.08em">
+      <div class="bs-status-note" style="margin-top:12px"><i data-lucide="mail" aria-hidden="true"></i><span>Der Code kommt per E-Mail von deiner Bootsschule. Der Kauf selbst findet im Schulshop statt.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Code prüfen <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <p class="bs-link">Code noch nicht erhalten? Schule kontaktieren</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Video- und Lektionsübersicht">
+    <p class="bs-caption">Lernen · Videokurs</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p><h2 class="bs-page-title">Videokurs</h2><p class="bs-page-intro">Lerne die Grundlagen Schritt für Schritt.</p>
+      <div class="bs-progress-card" style="margin-top:0"><div class="bs-progress-head"><span>Dein Videofortschritt</span><strong>4 von 12</strong></div><div class="bs-progress-track"><span style="width:33%"></span></div><p class="bs-muted">Du kannst jederzeit weitermachen.</p></div>
+      <div class="bs-section-title"><strong>Module &amp; Lektionen</strong></div>
+      <div class="bs-course-list" style="padding:0 12px">
+        <div class="bs-paper-row"><span class="bs-school-logo"><i data-lucide="circle-check" aria-hidden="true"></i></span><span class="bs-paper-copy">1. Grundlagen an Bord<small>4 Lektionen · 3 abgeschlossen</small></span><span class="bs-arrow"><i data-lucide="chevron-down" aria-hidden="true"></i></span></div>
+        <div class="bs-lesson-row" style="padding-left:8px"><span class="bs-lesson-number"><i data-lucide="check" aria-hidden="true" style="width:14px;height:14px"></i></span><span class="bs-lesson-copy">Das Boot kennenlernen<small>Abgeschlossen · 4 Min.</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-lesson-row" style="padding-left:8px"><span class="bs-lesson-number">4</span><span class="bs-lesson-copy">Sicher unterwegs<small>6 Min. · Video folgt</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-paper-row"><span class="bs-school-logo"><i data-lucide="lock-keyhole-open" aria-hidden="true"></i></span><span class="bs-paper-copy">2. Navigation<small>5 Lektionen</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-paper-row"><span class="bs-school-logo"><i data-lucide="lock-keyhole-open" aria-hidden="true"></i></span><span class="bs-paper-copy">3. Sicherheit an Bord<small>3 Lektionen · 1 Schritt-Galerie</small></span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+      </div>
+    </div><nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Schritt-Galerie">
+    <p class="bs-caption">Lernen · Schritt-Galerie</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Knoten und Leinen</p><p class="bs-section-label" style="margin-top:0!important">Lektion 3 · Schritt für Schritt</p><h2 class="bs-page-title" style="font-size:22px">Palstek knüpfen</h2><p class="bs-page-intro">Eine feste Schlaufe, die sich nach Belastung wieder lösen lässt.</p>
+      <div class="bs-step-card"><div class="bs-step-head"><span class="bs-step-badge">01</span><strong>Eine Schlaufe legen</strong></div><div class="bs-step-sketch"><i data-lucide="image" aria-hidden="true"></i></div><p class="bs-muted" style="margin-top:8px;font-size:10px">Lege das kurze Ende über das stehende Ende des Seils.</p></div>
+      <div class="bs-step-card"><div class="bs-step-head"><span class="bs-step-badge">02</span><strong>Das Ende durchführen</strong></div><div class="bs-step-sketch"><i data-lucide="image" aria-hidden="true"></i></div><p class="bs-muted" style="margin-top:8px;font-size:10px">Führe das kurze Ende von unten durch die Schlaufe.</p></div>
+      <div style="display:flex;gap:9px;margin-top:14px"><button class="bs-quiet-button" type="button" style="flex:1;margin:0">‹ Zurück</button><button class="bs-primary" type="button" style="flex:1;margin:0">Weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Gerätesitzungen">
+    <p class="bs-caption">Profil · Gerätesitzungen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Profil</p><h2 class="bs-page-title">Gerätesitzungen</h2><p class="bs-page-intro">Hier siehst du, auf welchen Geräten dein Konto angemeldet ist.</p>
+      <div class="bs-entitlement bs-session-current"><div class="bs-entitlement-top"><div class="bs-course-icon teal"><i data-lucide="smartphone" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>Dieses iPhone</strong><small>Zuletzt aktiv: gerade eben · Wien</small></div><span class="bs-course-state">Aktuell</span></div></div>
+      <div class="bs-entitlement"><div class="bs-entitlement-top"><div class="bs-course-icon"><i data-lucide="laptop" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>MacBook Air</strong><small>Zuletzt aktiv: gestern · Safari</small></div><span class="bs-arrow"><i data-lucide="ellipsis" aria-hidden="true"></i></span></div><button class="bs-shop-button" type="button" style="color:#a34b4b;justify-content:flex-start"><i data-lucide="log-out" aria-hidden="true"></i> Sitzung widerrufen</button></div>
+      <div class="bs-status-note" style="margin-top:16px"><i data-lucide="shield-check" aria-hidden="true"></i><span>Wenn du ein Gerät nicht erkennst, widerrufe die Sitzung und ändere dein Passwort.</span></div>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Datenexport">
+    <p class="bs-caption">Profil · Datenexport</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Profil</p><div class="bs-auth-mark"><i data-lucide="download" aria-hidden="true"></i></div><h2>Datenexport</h2><p class="bs-auth-copy">Fordere eine Kopie deiner persönlichen Daten und deines Lernstands an.</p>
+      <div class="bs-setting-card" style="padding:0 12px"><div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="user-round" aria-hidden="true"></i></span><span class="bs-setting-copy">Kontodaten<small>Name, E-Mail und Schule</small></span></div><div class="bs-setting-row"><span class="bs-setting-icon"><i data-lucide="book-open" aria-hidden="true"></i></span><span class="bs-setting-copy">Lernstände<small>Fortschritt, Favoriten und Prüfungen</small></span></div></div>
+      <button class="bs-primary" type="button" style="margin-top:16px">Export anfordern <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <div class="bs-export-state"><i data-lucide="clock-3" aria-hidden="true"></i><div><strong>Dein Export wird vorbereitet</strong><small>Wir benachrichtigen dich, sobald der Download bereit ist.</small></div></div>
+      <p class="bs-auth-note">Der Download ist nur für dich verfügbar und läuft nach einer begrenzten Zeit ab.</p>
+    </div></div>
+  </section>
+
+
+  <section class="bs-screen" aria-label="Leere Favoritenliste">
+    <p class="bs-caption">Zustand · Noch keine Favoriten</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content"><p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p><h2 class="bs-page-title">Deine Favoriten</h2>
+      <div class="bs-empty"><div class="bs-empty-icon"><i data-lucide="star" aria-hidden="true"></i></div><h3>Noch nichts gespeichert</h3><p>Tippe beim Üben auf den Stern, um Fragen hier für später zu sammeln.</p><button class="bs-primary" type="button">Fragen üben <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Abgelaufener Zugang">
+    <p class="bs-caption">Zustand · Zugang abgelaufen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Deine Kurse</p><div class="bs-auth-mark" style="color:#96680a;background:light-dark(#fff5d9,#3a301b)"><i data-lucide="hourglass" aria-hidden="true"></i></div><h2>Zugang abgelaufen</h2><p class="bs-auth-copy">Dein Zugang zu SBF See ist am 31.10.2026 abgelaufen.</p>
+      <div class="bs-status-note" style="background:var(--bs-mist)"><i data-lucide="archive" aria-hidden="true"></i><span>Dein bisheriger Lernfortschritt ist gespeichert. Mit einem Verlängerungscode kannst du dort weitermachen.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:16px">Verlängerungscode einlösen <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Bootsschule kontaktieren</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Ungültiger Zugangscode">
+    <p class="bs-caption">Zustand · Code ungültig</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Zugangscode einlösen</p><div class="bs-auth-mark" style="color:#a6423a;background:light-dark(#fff0ee,#402623)"><i data-lucide="ticket-x" aria-hidden="true"></i></div><h2>Code nicht erkannt</h2><p class="bs-auth-copy">Prüfe den Code aus der E-Mail deiner Bootsschule und versuche es noch einmal.</p>
+      <label class="bs-form-label" for="invalid-code">Zugangscode</label><div class="bs-code-field" id="invalid-code">SEE-2026-ABCD</div><p style="margin-top:6px;color:#b64e3e;font-size:10px">Der Code ist ungültig oder abgelaufen.</p>
+      <button class="bs-primary" type="button" style="margin-top:15px">Erneut prüfen <i data-lucide="rotate-cw" aria-hidden="true"></i></button><p class="bs-link">Bootsschule kontaktieren</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Verbindungsfehler">
+    <p class="bs-caption">Zustand · Verbindung unterbrochen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-top"><div class="bs-brand"><span class="bs-mark"><i data-lucide="waves" aria-hidden="true"></i></span><span>BoatingSchool<span class="bs-school">Bootsschule am See</span></span></div><div class="bs-avatar">MK</div></div>
+      <div class="bs-empty" style="padding:25px 8px"><div class="bs-empty-icon" style="color:#a6423a;background:light-dark(#fff0ee,#402623)"><i data-lucide="cloud-off" aria-hidden="true"></i></div><h3>Keine Verbindung</h3><p>Ohne Internet werden keine Lerninhalte geladen. Sobald du wieder online bist, kannst du sie erneut abrufen.</p><button class="bs-primary" type="button">Erneut versuchen <i data-lucide="rotate-cw" aria-hidden="true"></i></button></div>
+      <div class="bs-status-note"><i data-lucide="wifi" aria-hidden="true"></i><span>Deine Lerninhalte und dein Lernstand werden ausschließlich online geladen.</span></div>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Alle Smarttrainer-Fragen erledigt">
+    <p class="bs-caption">Zustand · Smarttrainer abgeschlossen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p><div class="bs-empty"><div class="bs-empty-icon"><i data-lucide="check-check" aria-hidden="true"></i></div><h3>Alle Fragen erledigt</h3><p>Du hast jede aktive Frage dreimal beantwortet. Abgeschlossene Fragen kommen in keinem Übungsmodus erneut.</p><button class="bs-primary" type="button">Themen ansehen <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+      <div class="bs-status-note"><i data-lucide="refresh-cw" aria-hidden="true"></i><span>Dein Lernstand bleibt gespeichert. Neue oder wieder fällige Fragen erscheinen automatisch.</span></div><p class="bs-link">Zur Kursübersicht</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Sitzung abgelaufen">
+    <p class="bs-caption">Zustand · Sitzung abgelaufen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content" style="padding-top:23px">
+      <div class="bs-auth-mark" style="color:#96680a;background:light-dark(#fff5d9,#3a301b)"><i data-lucide="lock-keyhole" aria-hidden="true"></i></div><h2>Sitzung abgelaufen</h2><p class="bs-auth-copy">Aus Sicherheitsgründen ist deine Anmeldung abgelaufen. Melde dich erneut an, um weiterzulernen.</p>
+      <div class="bs-status-note"><i data-lucide="save" aria-hidden="true"></i><span>Bereits gespeicherte Antworten und dein Lernstand bleiben erhalten.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:18px">Erneut anmelden <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Verbindung erneut versuchen</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Anmeldung fehlgeschlagen">
+    <p class="bs-caption">Zustand · Anmeldung fehlgeschlagen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-auth-mark"><i data-lucide="waves" aria-hidden="true"></i></div><h2>Willkommen zurück</h2><p class="bs-auth-copy">Melde dich mit deinem bestehenden BoatingSchool-Konto an.</p>
+      <label class="bs-form-label" for="login-error-email">E-Mail-Adresse</label><input class="bs-input invalid" id="login-error-email" type="email" value="mia@example.at">
+      <label class="bs-form-label" for="login-error-password">Passwort</label><input class="bs-input invalid" id="login-error-password" type="password" value="falschespasswort">
+      <p class="bs-field-error">E-Mail-Adresse oder Passwort ist nicht korrekt.</p><button class="bs-primary" type="button" style="margin-top:16px">Erneut versuchen <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      <p class="bs-link">Passwort vergessen?</p><p class="bs-auth-note">Nach mehreren Fehlversuchen kann die Anmeldung vorübergehend gesperrt sein.</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Reset-Link ungültig oder abgelaufen">
+    <p class="bs-caption">Zustand · Reset-Link abgelaufen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content" style="padding-top:22px">
+      <div class="bs-auth-mark" style="color:#a6423a;background:light-dark(#fff0ee,#402623)"><i data-lucide="link-2-off" aria-hidden="true"></i></div><h2>Link nicht mehr gültig</h2><p class="bs-auth-copy">Dieser Passwort-Link wurde bereits verwendet oder ist abgelaufen. Fordere einen neuen Link an.</p>
+      <div class="bs-auth-alert"><i data-lucide="triangle-alert" aria-hidden="true"></i><span>Aus Sicherheitsgründen kann jeder Reset-Link nur einmal und für begrenzte Zeit verwendet werden.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Neuen Reset-Link anfordern <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Zur Anmeldung</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Keine aktive Schulmitgliedschaft">
+    <p class="bs-caption">Zustand · Keine aktive Schule</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-empty" style="padding-top:29px"><div class="bs-empty-icon"><i data-lucide="building-2" aria-hidden="true"></i></div><h3>Keine aktive Schulmitgliedschaft</h3><p>Für dein Konto ist aktuell keine Bootsschule freigeschaltet. Bitte wende dich an deine Schule, damit sie deinen Zugang prüfen kann.</p><button class="bs-primary" type="button">Schule kontaktieren <i data-lucide="message-circle" aria-hidden="true"></i></button></div>
+      <div class="bs-status-note"><i data-lucide="shield-check" aria-hidden="true"></i><span>Deine Kursdaten bleiben erhalten. Die App zeigt Lerninhalte erst wieder nach einer aktiven Zuordnung an.</span></div><p class="bs-link">Anderes Konto verwenden</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Datenexport fehlgeschlagen">
+    <p class="bs-caption">Zustand · Export fehlgeschlagen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Profil</p><div class="bs-auth-mark" style="color:#a6423a;background:light-dark(#fff0ee,#402623)"><i data-lucide="file-warning" aria-hidden="true"></i></div><h2>Export nicht verfügbar</h2><p class="bs-auth-copy">Deine Daten konnten gerade nicht zusammengestellt werden.</p>
+      <div class="bs-auth-alert"><i data-lucide="triangle-alert" aria-hidden="true"></i><span>Deine Daten wurden nicht gelöscht oder verändert. Bitte versuche es später erneut.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Erneut anfordern <i data-lucide="rotate-cw" aria-hidden="true"></i></button><p class="bs-link">Support kontaktieren</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Export-Download abgelaufen">
+    <p class="bs-caption">Zustand · Download abgelaufen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Datenexport</p><div class="bs-auth-mark" style="color:#96680a;background:light-dark(#fff5d9,#3a301b)"><i data-lucide="clock-alert" aria-hidden="true"></i></div><h2>Download-Link abgelaufen</h2><p class="bs-auth-copy">Der sichere Link zu deinem Datenexport ist nicht mehr gültig.</p>
+      <div class="bs-status-note"><i data-lucide="lock-keyhole" aria-hidden="true"></i><span>Der alte Link ist aus Sicherheitsgründen abgelaufen. Fordere einfach einen neuen Export an.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Export erneut bereitstellen <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Zurück zum Profil</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Ladezustand">
+    <p class="bs-caption">Zustand · Inhalte laden</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-top"><div class="bs-brand"><span class="bs-mark"><i data-lucide="waves" aria-hidden="true"></i></span><span>BoatingSchool<span class="bs-school">Bootsschule am See</span></span></div><div class="bs-avatar">MK</div></div>
+      <div class="bs-skeleton-stack"><div class="bs-skeleton short"></div><div class="bs-skeleton large"></div></div>
+      <div class="bs-skeleton-card"><div class="bs-skeleton medium"></div><div class="bs-skeleton" style="width:74%;margin-top:11px"></div><div class="bs-skeleton" style="width:100%;height:6px;margin-top:19px"></div><div class="bs-skeleton" style="width:100%;height:42px;margin-top:15px;border-radius:12px"></div></div>
+      <p class="bs-section-label">Deine Kurse</p>
+      <div class="bs-skeleton-card" style="display:flex;align-items:center;gap:11px;margin-top:0"><div class="bs-skeleton" style="width:38px;height:38px;border-radius:12px"></div><div class="bs-skeleton-stack" style="flex:1"><div class="bs-skeleton medium"></div><div class="bs-skeleton short"></div></div></div>
+      <p class="bs-muted" style="margin-top:17px;text-align:center">Dein Lernstand wird geladen …</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Leere Kursliste">
+    <p class="bs-caption">Zustand · Noch kein Kurszugang</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Lernen</p><h2 class="bs-page-title">Deine Kurse</h2>
+      <div class="bs-empty"><div class="bs-empty-icon"><i data-lucide="book-open-check" aria-hidden="true"></i></div><h3>Noch kein Kurs freigeschaltet</h3><p>Wenn du schon einen Kurs gekauft hast, löse den Zugangscode aus der E-Mail deiner Bootsschule ein.</p><button class="bs-primary" type="button">Zugangscode einlösen <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+      <div class="bs-status-note"><i data-lucide="life-buoy" aria-hidden="true"></i><span>Du erwartest einen Kurszugang? Deine Bootsschule hilft dir gerne weiter.</span></div>
+    </div><nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Zugangscode erfolgreich eingelöst">
+    <p class="bs-caption">Zustand · Code erfolgreich</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content" style="padding-top:22px">
+      <div class="bs-success-mark"><i data-lucide="badge-check" aria-hidden="true"></i></div><h2 style="text-align:center;font-size:22px">Kurs freigeschaltet</h2><p class="bs-auth-copy" style="text-align:center">Dein Zugangscode wurde eingelöst. Du kannst sofort loslernen.</p>
+      <div class="bs-entitlement"><div class="bs-entitlement-top"><div class="bs-course-icon"><i data-lucide="sailboat" aria-hidden="true"></i></div><div class="bs-entitlement-copy"><strong>SBF Binnen</strong><small>Zugang aktiv bis 08.11.2027</small></div><span class="bs-course-state"><i data-lucide="circle-check" aria-hidden="true"></i> Aktiv</span></div></div>
+      <div class="bs-status-note"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>Dein vorhandener Lernstand bleibt erhalten. Der neue Kurs ist jetzt in „Deine Kurse“ verfügbar.</span></div>
+      <button class="bs-primary" type="button" style="margin-top:17px">Kurs öffnen <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Zur Kursübersicht</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Kein Schulshop verfügbar">
+    <p class="bs-caption">Zustand · Shop-Link fehlt</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Deine Kurse</p><h2 class="bs-page-title">SBF Binnen</h2><p class="bs-page-intro">Dieser Kurs ist bei deiner Schule noch nicht freigeschaltet.</p>
+      <div class="bs-empty" style="padding:22px 12px"><div class="bs-empty-icon"><i data-lucide="store" aria-hidden="true"></i></div><h3>Shop-Link nicht verfügbar</h3><p>Deine Bootsschule hat aktuell keinen Online-Shop-Link hinterlegt. Frag direkt bei der Schule nach dem Kurszugang.</p></div>
+      <button class="bs-primary" type="button">Bootsschule kontaktieren <i data-lucide="message-circle" aria-hidden="true"></i></button>
+      <div class="bs-code-panel"><i data-lucide="ticket-check" aria-hidden="true"></i><div class="bs-code-copy">Hast du schon einen Code?<small>Du kannst ihn hier trotzdem einlösen.</small></div><button class="bs-code-button" type="button">Code einlösen</button></div>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Prüfung abgelaufen">
+    <p class="bs-caption">Zustand · Prüfungszeit abgelaufen</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <div class="bs-success-mark" style="color:#96680a;background:light-dark(#fff5d9,#3a301b)"><i data-lucide="timer-off" aria-hidden="true"></i></div><h2 style="text-align:center;font-size:22px">Prüfungszeit abgelaufen</h2><p class="bs-auth-copy" style="text-align:center">Deine Prüfung wurde mit den gespeicherten Antworten beendet.</p>
+      <div class="bs-status-note"><i data-lucide="save" aria-hidden="true"></i><span>Deine zuletzt gespeicherten Antworten wurden übernommen. Während der Prüfung wurden keine Lösungen angezeigt.</span></div>
+      <div class="bs-exam-bar" style="margin-top:14px"><span class="bs-timer"><i data-lucide="clipboard-check" aria-hidden="true"></i> Prüfung beendet</span><span class="bs-exam-state">Bogen 4 · SBF See</span></div>
+      <button class="bs-primary" type="button" style="margin-top:16px">Ergebnis ansehen <i data-lucide="arrow-right" aria-hidden="true"></i></button><p class="bs-link">Zur Prüfungsübersicht</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Datenexport bereit">
+    <p class="bs-caption">Zustand · Export bereit</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Profil</p><div class="bs-success-mark"><i data-lucide="file-check-2" aria-hidden="true"></i></div><h2 style="text-align:center;font-size:22px">Dein Export ist bereit</h2><p class="bs-auth-copy" style="text-align:center">Die angeforderte Kopie deiner Daten kann jetzt heruntergeladen werden.</p>
+      <div class="bs-export-state"><i data-lucide="file-archive" aria-hidden="true"></i><div><strong>Datenexport · ZIP</strong><small>Erstellt heute · Download verfügbar bis 15.11.2026</small></div></div>
+      <button class="bs-primary" type="button" style="margin-top:16px">Export herunterladen <i data-lucide="download" aria-hidden="true"></i></button>
+      <p class="bs-auth-note">Der Download-Link ist persönlich und läuft nach einer begrenzten Zeit ab. Danach kannst du einen neuen Export anfordern.</p>
+    </div></div>
+  </section>
+
+
+  <section class="bs-screen" aria-label="Navigationstrainer Übersicht">
+    <p class="bs-caption">Nach MVP · Navigationstrainer</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> SBF See</p><h2 class="bs-page-title">Navigation üben</h2><p class="bs-page-intro">Übe mit den offiziellen Aufgaben und prüfe deine Lösung, wenn du bereit bist.</p>
+      <div class="bs-status-note"><i data-lucide="map" aria-hidden="true"></i><span>15 Aufgaben · jeweils 9 Teilfragen · Musterlösung im Übungsmodus</span></div>
+      <div class="bs-course-list" style="padding:0 13px;margin-top:14px">
+        <div class="bs-nav-task-row"><span class="bs-paper-number">01</span><span class="bs-topic-name">Kurs und Entfernung bestimmen</span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-nav-task-row"><span class="bs-paper-number">02</span><span class="bs-topic-name">Standort in der Seekarte finden</span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-nav-task-row"><span class="bs-paper-number">03</span><span class="bs-topic-name">Fahrwasser und Tonnen</span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+        <div class="bs-nav-task-row"><span class="bs-paper-number">04</span><span class="bs-topic-name">Peilung und Standort</span><span class="bs-arrow"><i data-lucide="chevron-right" aria-hidden="true"></i></span></div>
+      </div>
+    </div><nav class="bs-tabbar" aria-label="Hauptnavigation"><div class="bs-tab"><i data-lucide="house" aria-hidden="true"></i>Start</div><div class="bs-tab active"><i data-lucide="book-open" aria-hidden="true"></i>Lernen</div><div class="bs-tab"><i data-lucide="clipboard-check" aria-hidden="true"></i>Prüfung</div><div class="bs-tab"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i>Fortschritt</div><div class="bs-tab"><i data-lucide="user-round" aria-hidden="true"></i>Profil</div></nav></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Navigationsaufgabe">
+    <p class="bs-caption">Nach MVP · Aufgabe 2</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Navigation üben</p><div class="bs-question-top"><span class="bs-question-back">Aufgabe 2 · Teilfrage 3</span><strong class="bs-question-count">3 <span>/ 9</span></strong></div>
+      <h2 class="bs-exam-question">Bestimme den nächsten Kurs laut Karte.</h2><p class="bs-muted">Nutze die eingezeichnete Position und beachte das Fahrwasser.</p>
+      <div class="bs-nav-map" role="img" aria-label="Platzhalter für Seekarte"><i data-lucide="map" aria-hidden="true"></i></div>
+      <div class="bs-exam-choice"><span class="bs-radio"></span><span>Antwort A · Beispielkurs</span></div><div class="bs-exam-choice selected"><span class="bs-radio"></span><span>Antwort B · Beispielkurs</span></div><div class="bs-exam-choice"><span class="bs-radio"></span><span>Antwort C · Beispielkurs</span></div>
+      <div style="display:flex;gap:9px;margin-top:14px"><button class="bs-quiet-button" type="button" style="flex:1;margin:0">‹ Zurück</button><button class="bs-primary" type="button" style="flex:1;margin:0">Weiter <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+      <p class="bs-link">Musterlösung ansehen</p>
+    </div></div>
+  </section>
+
+  <section class="bs-screen" aria-label="Navigationsaufgabe Musterlösung">
+    <p class="bs-caption">Nach MVP · Musterlösung</p>
+    <div class="bs-phone"><div class="bs-status"><span>9:41</span><span class="bs-status-icons"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div><div class="bs-content">
+      <p class="bs-back"><i data-lucide="arrow-left" aria-hidden="true"></i> Aufgabe 2 · Teilfrage 3</p><div class="bs-status-note"><i data-lucide="book-open-check" aria-hidden="true"></i><span>Musterlösung · Übungsmodus</span></div>
+      <h2 class="bs-exam-question" style="margin-top:15px!important">So gehst du vor</h2><div class="bs-nav-map" role="img" aria-label="Seekarte mit Musterroute"><i data-lucide="map-pinned" aria-hidden="true"></i></div>
+      <div class="bs-step-card"><div class="bs-step-head"><span class="bs-step-badge">1</span><strong>Position ablesen</strong></div><p class="bs-muted" style="margin-top:7px;font-size:10px">Lies zuerst die aktuelle Position aus den angegebenen Peilungen ab.</p></div>
+      <div class="bs-step-card"><div class="bs-step-head"><span class="bs-step-badge">2</span><strong>Fahrwasser verfolgen</strong></div><p class="bs-muted" style="margin-top:7px;font-size:10px">Folge der markierten Fahrrinne und beachte die Tonnenkennzeichnung.</p></div>
+      <div class="bs-answer-summary"><strong>Musterantwort</strong><p>Die korrekte Auswahl und der Rechenweg erscheinen hier aus dem veröffentlichten Aufgabeninhalt.</p></div>
+      <button class="bs-primary" type="button" style="margin-top:15px">Zur nächsten Teilfrage <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+    </div></div>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.getElementById('boating-mvp-designs');
+      const screens = [...root.querySelectorAll('.bs-screen')];
+      const screenSelect = root.querySelector('#bs-design-select');
+      const frameCounter = root.querySelector('#bs-frame-counter');
+      const showFrame = index => {
+        const safeIndex = (index + screens.length) % screens.length;
+        screens.forEach((screen, i) => screen.classList.toggle('is-active', i === safeIndex));
+        screenSelect.value = String(safeIndex);
+        frameCounter.textContent = `${String(safeIndex + 1).padStart(2, '0')} / ${String(screens.length).padStart(2, '0')}`;
+      };
+      screens.forEach((screen, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = screen.getAttribute('aria-label');
+        screenSelect.append(option);
+      });
+      screenSelect.addEventListener('change', () => showFrame(Number(screenSelect.value)));
+      root.querySelector('#bs-frame-prev').addEventListener('click', () => showFrame(Number(screenSelect.value) - 1));
+      root.querySelector('#bs-frame-next').addEventListener('click', () => showFrame(Number(screenSelect.value) + 1));
+      showFrame(0);
+      const phone = root.querySelector('#bs-trainer-phone');
+      const choices = [...root.querySelectorAll('[data-answer]')];
+      const check = root.querySelector('#bs-check-answer');
+      const favorite = root.querySelector('#bs-favorite');
+      const attemptCounter = root.querySelector('#bs-attempt-counter');
+      let completedAttempts = 0;
+      choices.forEach(choice => choice.addEventListener('click', () => {
+        if (phone.classList.contains('is-answered')) return;
+        choices.forEach(item => item.classList.remove('selected'));
+        choice.classList.add('selected');
+      }));
+      check.addEventListener('click', () => {
+        if (phone.classList.contains('is-answered')) {
+          if (completedAttempts >= 3) return;
+          phone.classList.remove('is-answered');
+          choices.forEach(item => item.classList.remove('selected'));
+          attemptCounter.textContent = `Versuch ${completedAttempts + 1} von 3 · ${3 - completedAttempts} Versuche übrig`;
+          check.innerHTML = 'Antwort prüfen <i data-lucide="arrow-right" aria-hidden="true"></i>';
+          if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+          return;
+        }
+        const selected = choices.find(choice => choice.classList.contains('selected'));
+        if (!selected) return;
+        const correct = selected.hasAttribute('data-correct');
+        completedAttempts += 1;
+        root.querySelector('#bs-feedback-title').textContent = correct ? 'Richtig' : 'Noch nicht richtig';
+        const explanation = correct
+          ? 'Das Fahrzeug, das das andere an Steuerbord sieht, muss ausweichen.'
+          : 'Bei kreuzenden Kursen weicht das Fahrzeug aus, das das andere an Steuerbord sieht.';
+        root.querySelector('#bs-feedback-copy').textContent = `${explanation} Gespeichert: Versuch ${completedAttempts} von 3.`;
+        attemptCounter.textContent = `Gespeichert: Versuch ${completedAttempts} von 3 · ${3 - completedAttempts} Versuche offen`;
+        phone.classList.add('is-answered');
+        check.innerHTML = completedAttempts < 3
+          ? `Noch einmal üben · Versuch ${completedAttempts + 1} von 3 <i data-lucide="rotate-cw" aria-hidden="true"></i>`
+          : 'Frage abgeschlossen <i data-lucide="check" aria-hidden="true"></i>';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      });
+      favorite.addEventListener('click', () => {
+        const active = favorite.getAttribute('aria-pressed') !== 'true';
+        favorite.setAttribute('aria-pressed', String(active));
+        favorite.innerHTML = active ? '<i data-lucide="star" aria-hidden="true"></i> Gespeichert' : '<i data-lucide="star" aria-hidden="true"></i> Favorit';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      });
+    })();
+  </script>
+</div>
