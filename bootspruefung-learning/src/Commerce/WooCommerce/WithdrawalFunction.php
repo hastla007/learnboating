@@ -15,7 +15,12 @@ use Bootspruefung\Learning\Commerce\Labels;
  * „order-withdrawal“ unter Mein Konto, auch ohne Anmeldung erreichbar). Dieses Plugin
  * - stellt eine feste Adresse /vertrag-widerrufen/ bereit (Fußzeile, Rechtstexte), die dorthin weiterleitet,
  * - zeigt „Vertrag hier widerrufen“ während der Frist unter „Mein Lernen“ und in der Bestellansicht,
- * - weist im Admin darauf hin, wenn die WooCommerce-Funktion ausgeschaltet ist (mit Knopf zum Einschalten).
+ * - schaltet die WooCommerce-Funktion einmalig automatisch ein (ab Werk aus); ein späteres bewusstes
+ *   Ausschalten bleibt bestehen,
+ * - weist im Admin darauf hin, wenn die WooCommerce-Funktion ausgeschaltet ist (mit Knopf zum Einschalten);
+ *   solange sie aus ist, führt /vertrag-widerrufen/ zur Widerrufsbelehrung (Kontakt, Muster-Formular),
+ * - zeigt Widerrufe aus der früheren eigenen Funktion (_bp_withdrawal) weiter im Bestell-Admin an und
+ *   nimmt sie in Datenexport und -löschung von WooCommerce auf.
  *
  * Rückzahlung und Ende des Zugangs veranlasst der Betreiber über „Erstattung“ in der Bestellung.
  */
@@ -32,8 +37,14 @@ final class WithdrawalFunction
     /** Von WooCommerce gesetzt, sobald zu einer Bestellung ein Widerruf eingegangen ist. */
     public const REQUESTED_META = '_order_withdrawal_requested';
 
-    /** Seite der früheren eigenen Widerrufsfunktion (wird einmalig entfernt). */
+    /** Seite der früheren eigenen Widerrufsfunktion (wird entfernt, sobald die WooCommerce-Funktion an ist). */
     private const LEGACY_PAGE_OPTION = 'bp_learning_withdrawal_page';
+
+    /** Widerrufe der früheren eigenen Funktion: Liste mit time, name, email, order_ref, note, user_id. */
+    public const LEGACY_META = '_bp_withdrawal';
+
+    /** Gesetzt, sobald die WooCommerce-Funktion einmal automatisch eingeschaltet wurde ('notice' = Hinweis noch zeigen). */
+    public const AUTOENABLED_OPTION = 'bp_learning_withdrawal_autoenabled';
 
     /** Widerrufsfrist in Tagen ab Vertragsschluss (§ 355 Abs. 2 BGB). */
     public const DAYS = 14;
@@ -46,9 +57,43 @@ final class WithdrawalFunction
         add_action('woocommerce_order_details_after_order_table', [$this, 'orderDetails'], 20);
         add_action('admin_notices', [$this, 'adminNotice']);
         add_action('admin_post_bp_enable_withdrawal', [$this, 'handleEnable']);
+        add_action('admin_init', [self::class, 'autoEnable'], 5);
         add_action('admin_init', [self::class, 'removeLegacyPage']);
+        add_action('woocommerce_admin_order_data_after_order_details', [$this, 'adminLegacy'], 20);
+        add_filter('woocommerce_privacy_export_order_personal_data', [self::class, 'exportPersonalData'], 10, 2);
+        add_action('woocommerce_privacy_remove_order_personal_data', [self::class, 'erasePersonalData'], 10, 1);
         // Frühere eigene Seite enthielt diesen Shortcode: Knopf statt Formular.
-        add_shortcode('bootspruefung_vertrag_widerrufen', static fn () => '<p><a class="button wp-element-button" href="'.esc_url(self::endpointUrl()).'">'.esc_html(self::buttonLabel()).'</a></p>');
+        add_shortcode('bootspruefung_vertrag_widerrufen', [self::class, 'shortcode']);
+    }
+
+    public static function shortcode(): string
+    {
+        if (self::enabled()) {
+            return '<p><a class="button wp-element-button" href="'.esc_url(self::endpointUrl()).'">'.esc_html(self::buttonLabel()).'</a></p>';
+        }
+
+        return '<p>'.sprintf(
+            /* translators: %s: Link „Widerrufsbelehrung“ */
+            esc_html__('Das Online-Formular ist gerade nicht erreichbar. Du kannst deinen Widerruf formlos per E-Mail oder Post erklären – Kontakt und Muster-Widerrufsformular findest du in der %s.', 'bootspruefung-learning'),
+            '<a href="'.esc_url(DigitalConsent::withdrawalUrl()).'">'.esc_html__('Widerrufsbelehrung', 'bootspruefung-learning').'</a>'
+        ).'</p>';
+    }
+
+    /**
+     * Einmalig beim ersten Admin-Aufruf nach dem Update: WooCommerce-Funktion einschalten (ab Werk aus).
+     * Das Kennzeichen verhindert, dass ein späteres bewusstes Ausschalten wieder rückgängig gemacht wird.
+     */
+    public static function autoEnable(): void
+    {
+        if (get_option(self::AUTOENABLED_OPTION, '') !== '' || ! self::available()) {
+            return; // schon erledigt bzw. WooCommerce zu alt – nach dessen Update erneut versuchen
+        }
+        if (self::enabled()) {
+            update_option(self::AUTOENABLED_OPTION, 'yes', false);
+
+            return;
+        }
+        update_option(self::AUTOENABLED_OPTION, self::enable() ? 'notice' : 'yes', false);
     }
 
     public static function buttonLabel(): string
@@ -79,33 +124,65 @@ final class WithdrawalFunction
         return (bool) $features->change_feature_enable(self::FEATURE, true);
     }
 
-    /** Feste Adresse für Links (Fußzeile, Rechtstexte, Mails). */
+    /**
+     * Feste Adresse für Links (Fußzeile, Rechtstexte, Mails). Bei „einfachen“ Permalinks erreicht
+     * /vertrag-widerrufen/ WordPress nicht (kein Rewrite) – dann direkt das Formular bzw. der Ersatz.
+     */
     public static function url(): string
     {
+        if ((string) get_option('permalink_structure') === '') {
+            return self::endpointUrl();
+        }
+
         return home_url('/'.self::SLUG.'/');
     }
 
-    /** Formular der WooCommerce-Funktion. */
+    /**
+     * Formular der WooCommerce-Funktion. Ist sie aus: Seite der früheren eigenen Funktion, falls noch
+     * vorhanden, sonst die Widerrufsbelehrung (Kontakt und Muster-Formular).
+     */
     public static function endpointUrl(): string
     {
         $account = function_exists('wc_get_page_permalink') ? (string) wc_get_page_permalink('myaccount') : '';
-        if ($account === '' || ! function_exists('wc_get_endpoint_url')) {
-            return self::url();
+        if (! self::enabled() || $account === '' || ! function_exists('wc_get_endpoint_url')) {
+            return self::fallbackUrl();
         }
 
         return (string) wc_get_endpoint_url(self::ENDPOINT, '', $account);
     }
 
-    /** /vertrag-widerrufen/ → Formular von WooCommerce. */
+    /** Ersatzziel, solange die WooCommerce-Funktion aus ist. */
+    private static function fallbackUrl(): string
+    {
+        $legacy = self::legacyPage();
+
+        return $legacy !== null ? (string) get_permalink($legacy) : DigitalConsent::withdrawalUrl();
+    }
+
+    /** Noch veröffentlichte Seite /vertrag-widerrufen/ (frühere eigene Funktion oder vom Betreiber angelegt). */
+    private static function legacyPage(): ?\WP_Post
+    {
+        $page = get_page_by_path(self::SLUG, OBJECT, 'page');
+
+        return $page instanceof \WP_Post && $page->post_status === 'publish' ? $page : null;
+    }
+
+    /**
+     * /vertrag-widerrufen/ → Formular von WooCommerce. Ist die Funktion aus: Eine noch vorhandene Seite
+     * liefert WordPress selbst aus; sonst Weiterleitung zur Widerrufsbelehrung statt „Seite nicht gefunden“.
+     */
     public function redirect(): void
     {
         $path = (string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         $home = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
-        if (trim(substr($path, strlen(rtrim($home, '/'))), '/') !== self::SLUG || ! self::enabled()) {
+        if (trim(substr($path, strlen(rtrim($home, '/'))), '/') !== self::SLUG) {
+            return;
+        }
+        if (! self::enabled() && self::legacyPage() !== null) {
             return;
         }
         nocache_headers();
-        wp_safe_redirect(self::endpointUrl(), 302, 'Bootspruefung');
+        wp_safe_redirect(self::enabled() ? self::endpointUrl() : DigitalConsent::withdrawalUrl(), 302, 'Bootspruefung');
         exit;
     }
 
@@ -135,9 +212,96 @@ final class WithdrawalFunction
         return $deadline !== null && time() <= $deadline && in_array($order->get_status(), self::STATUSES, true);
     }
 
+    /** Widerruf eingegangen – über die WooCommerce-Funktion oder die frühere eigene Funktion? */
     public static function requested(\WC_Order $order): bool
     {
-        return $order->get_meta(self::REQUESTED_META, true) === 'yes';
+        return $order->get_meta(self::REQUESTED_META, true) === 'yes' || self::legacyEntries($order) !== [];
+    }
+
+    /**
+     * Widerrufe aus der früheren eigenen Funktion.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function legacyEntries(\WC_Order $order): array
+    {
+        $value = $order->get_meta(self::LEGACY_META, true);
+
+        return is_array($value) ? array_values(array_filter($value, static fn ($e) => is_array($e) && ! empty($e['time']))) : [];
+    }
+
+    /** Bestell-Admin: früher eingegangene Widerrufe weiter anzeigen (nur lesend). */
+    public function adminLegacy($order): void
+    {
+        if (! $order instanceof \WC_Order) {
+            return;
+        }
+        foreach (self::legacyEntries($order) as $entry) {
+            echo '<p class="form-field form-field-wide bp-withdrawal-admin" style="clear:both"><strong>'.esc_html__('Widerruf (frühere Widerrufsfunktion):', 'bootspruefung-learning').'</strong><br>'
+                .esc_html(sprintf(
+                    /* translators: 1: Datum und Uhrzeit, 2: Name, 3: E-Mail-Adresse */
+                    __('Eingegangen am %1$s von %2$s <%3$s>.', 'bootspruefung-learning'),
+                    self::formatTime((int) $entry['time']),
+                    (string) ($entry['name'] ?? ''),
+                    (string) ($entry['email'] ?? '')
+                ))
+                .'<br>'.esc_html__('Bitte prüfen und ggf. über „Erstattung“ zurückzahlen – der Zugang endet dann automatisch.', 'bootspruefung-learning').'</p>';
+        }
+    }
+
+    /**
+     * WooCommerce-Datenexport einer Bestellung: frühere Widerrufe und Zustimmung zum vorzeitigen Beginn.
+     *
+     * @param array<int,array{name:string,value:string}> $data
+     * @return array<int,array{name:string,value:string}>
+     */
+    public static function exportPersonalData($data, $order)
+    {
+        if (! is_array($data) || ! $order instanceof \WC_Order) {
+            return $data;
+        }
+        foreach (self::legacyEntries($order) as $entry) {
+            $parts = [
+                sprintf(__('Eingang: %s', 'bootspruefung-learning'), self::formatTime((int) $entry['time'])),
+                sprintf(__('Name: %s', 'bootspruefung-learning'), (string) ($entry['name'] ?? '')),
+                sprintf(__('E-Mail: %s', 'bootspruefung-learning'), (string) ($entry['email'] ?? '')),
+                sprintf(__('Bestellangabe: %s', 'bootspruefung-learning'), (string) ($entry['order_ref'] ?? '')),
+            ];
+            if ((string) ($entry['note'] ?? '') !== '') {
+                $parts[] = sprintf(__('Anmerkung: %s', 'bootspruefung-learning'), (string) $entry['note']);
+            }
+            $data[] = ['name' => __('Widerruf (frühere Widerrufsfunktion)', 'bootspruefung-learning'), 'value' => implode('; ', $parts)];
+        }
+        $consent = DigitalConsent::consentFor($order);
+        if ($consent !== null) {
+            $data[] = [
+                'name' => __('Zustimmung zum vorzeitigen Beginn (digitale Inhalte)', 'bootspruefung-learning'),
+                'value' => sprintf(__('Zeitpunkt: %1$s; Quelle: %2$s; Wortlaut: %3$s', 'bootspruefung-learning'), self::formatTime($consent['time']), DigitalConsent::sourceLabel($consent['source']), $consent['text']),
+            ];
+        }
+
+        return $data;
+    }
+
+    /** WooCommerce-Datenlöschung einer Bestellung: Name, E-Mail und Anmerkung früherer Widerrufe anonymisieren, Zeitpunkt bleibt. */
+    public static function erasePersonalData($order): void
+    {
+        if (! $order instanceof \WC_Order) {
+            return;
+        }
+        $entries = self::legacyEntries($order);
+        if ($entries === []) {
+            return;
+        }
+        foreach ($entries as &$entry) {
+            $entry['name'] = function_exists('wp_privacy_anonymize_data') ? wp_privacy_anonymize_data('text', (string) ($entry['name'] ?? '')) : '';
+            $entry['email'] = function_exists('wp_privacy_anonymize_data') ? wp_privacy_anonymize_data('email', (string) ($entry['email'] ?? '')) : '';
+            $entry['note'] = '';
+            $entry['user_id'] = 0;
+        }
+        unset($entry);
+        $order->update_meta_data(self::LEGACY_META, $entries);
+        $order->save();
     }
 
     /** Abschnitt unter „Mein Lernen“: Bestellungen innerhalb der Widerrufsfrist. */
@@ -184,7 +348,16 @@ final class WithdrawalFunction
 
     public function adminNotice(): void
     {
-        if (! current_user_can('manage_woocommerce') || self::enabled()) {
+        if (! current_user_can('manage_woocommerce')) {
+            return;
+        }
+        if (self::enabled()) {
+            if (get_option(self::AUTOENABLED_OPTION) === 'notice') {
+                update_option(self::AUTOENABLED_OPTION, 'yes', false);
+                echo '<div class="notice notice-success is-dismissible"><p><strong>'.esc_html__('Bootsprüfung: Widerrufsfunktion (§ 356a BGB) eingeschaltet.', 'bootspruefung-learning').'</strong> '
+                    .esc_html__('Die WooCommerce-Funktion „Order withdrawal“ wurde beim Update einmalig eingeschaltet: „Vertrag hier widerrufen“ in der Fußzeile und unter „Mein Lernen“ führt jetzt zum Online-Formular mit Eingangsbestätigung per E-Mail. Ausschalten kannst du sie unter WooCommerce → Einstellungen → Erweitert → Funktionen; sie bleibt dann aus.', 'bootspruefung-learning').'</p></div>';
+            }
+
             return;
         }
         echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Widerrufsfunktion (§ 356a BGB) ist aus.', 'bootspruefung-learning').'</strong> ';
@@ -193,7 +366,7 @@ final class WithdrawalFunction
 
             return;
         }
-        echo esc_html__('Seit 19.06.2026 müssen Online-Shops Verbrauchern einen Button „Vertrag hier widerrufen“ anbieten. WooCommerce bringt die Funktion mit; die Fußzeile verlinkt sie, sobald sie eingeschaltet ist.', 'bootspruefung-learning').'</p>'
+        echo esc_html__('Seit 19.06.2026 müssen Online-Shops Verbrauchern einen Button „Vertrag hier widerrufen“ mit Online-Formular anbieten. WooCommerce bringt die Funktion mit, sie ist aber ausgeschaltet. Der Link „Vertrag hier widerrufen“ in der Fußzeile führt solange nur zur Widerrufsbelehrung (Kontakt und Muster-Formular) – ein Online-Formular gibt es erst, wenn du die Funktion einschaltest.', 'bootspruefung-learning').'</p>'
             .'<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><p>'
             .wp_nonce_field('bp_enable_withdrawal', '_wpnonce', true, false)
             .'<input type="hidden" name="action" value="bp_enable_withdrawal">'
@@ -214,6 +387,9 @@ final class WithdrawalFunction
     /** Seite der früheren eigenen Widerrufsfunktion entfernen (die Adresse leitet jetzt weiter). */
     public static function removeLegacyPage(): void
     {
+        if (! self::enabled()) {
+            return; // Seite bleibt Anlaufstelle, solange es kein Online-Formular gibt
+        }
         $id = (int) get_option(self::LEGACY_PAGE_OPTION, 0);
         if ($id <= 0) {
             return;
@@ -223,5 +399,11 @@ final class WithdrawalFunction
             wp_delete_post($id, true);
         }
         delete_option(self::LEGACY_PAGE_OPTION);
+    }
+
+    private static function formatTime(int $time): string
+    {
+        /* translators: 1: Datum (TT.MM.JJJJ), 2: Uhrzeit */
+        return sprintf(__('%1$s um %2$s Uhr', 'bootspruefung-learning'), (string) wp_date('d.m.Y', $time), (string) wp_date('H:i:s', $time));
     }
 }

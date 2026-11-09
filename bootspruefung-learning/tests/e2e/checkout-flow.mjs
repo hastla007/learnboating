@@ -37,6 +37,19 @@ let current = null;
 try {
   let env = setupJson();
 
+  step('Widerrufsfunktion: /vertrag-widerrufen/ führt nicht ins Leere');
+  const withdrawal = current = await newPage();
+  const hop = await withdrawal.request.get(`${base}/vertrag-widerrufen/`, { maxRedirects: 0 });
+  assert.equal(hop.status(), 302, 'feste Adresse leitet weiter');
+  // Eingeschaltet: Formular der WooCommerce-Funktion; ausgeschaltet: Widerrufsbelehrung.
+  assert.match(hop.headers().location ?? '', /withdraw|widerruf/i);
+  if (/withdraw/.test(hop.headers().location ?? '')) {
+    const form = await withdrawal.goto(`${base}/vertrag-widerrufen/`);
+    assert.equal(form.status(), 200, 'Formular erreichbar');
+    await withdrawal.locator('form input[type="email"]').first().waitFor();
+  }
+  await withdrawal.context().close();
+
   step('Gast: Lernprodukt verlangt Kundenkonto (Block-Checkout)');
   const guest = current = await newPage();
   await guest.goto(`${base}/?add-to-cart=${env.product}`);

@@ -8,7 +8,12 @@ namespace Bootspruefung\Learning\Commerce\WooCommerce;
  * § 312f Abs. 2 BGB: Vertragsbestätigung auf einem dauerhaften Datenträger mit den Vertragsbestimmungen.
  * Hängt den vollständigen Text der veröffentlichten Seiten „AGB“ (WooCommerce-Option
  * woocommerce_terms_page_id) und „Widerrufsbelehrung“ (Slug widerruf, inkl. Muster-Widerrufsformular)
- * an die Bestellmails an Kundinnen und Kunden (in Bearbeitung, in Wartestellung, abgeschlossen) an.
+ * an die erste dieser Bestellmails an Kundinnen und Kunden (in Bearbeitung, in Wartestellung,
+ * abgeschlossen) je Bestellung an – mit Stand-Datum (Versanddatum). Der Versand wird in der Bestellung
+ * vermerkt (_bp_legal_texts_sent), weitere Mails derselben Bestellung wiederholen die Texte nicht.
+ *
+ * Enthält eine der Seiten noch [[Betreiber: …]]-Platzhalter, wird nichts angehängt (und nichts vermerkt);
+ * der Betreiber sieht dazu einen Admin-Hinweis.
  *
  * Der Inhalt wird über do_blocks() gerendert, nicht über the_content: Dessen Theme-Filter markieren
  * Platzhalter für die Seitenansicht. Hinweis-Absätze der Vorlage für den Betreiber (kw-placeholder)
@@ -17,6 +22,14 @@ namespace Bootspruefung\Learning\Commerce\WooCommerce;
 final class LegalTextsEmail
 {
     public const EMAILS = ['customer_processing_order', 'customer_on_hold_order', 'customer_completed_order'];
+
+    /** Zeitpunkt (Unix) des Versands mit Rechtstexten. */
+    public const SENT_META = '_bp_legal_texts_sent';
+
+    public const PLACEHOLDER = '[[Betreiber:';
+
+    /** @var array<int,array{email:string,time:int}> In dieser Anfrage vermerkt (Mehrteil-Mails rendern HTML und Text). */
+    private static array $sentNow = [];
 
     private const ALLOWED = [
         'h2' => [], 'h3' => [], 'h4' => [], 'h5' => [], 'h6' => [],
@@ -30,11 +43,43 @@ final class LegalTextsEmail
     {
         // Nach den Kundendaten (Adressen: Priorität 20), vor dem Zusatztext der Mail.
         add_action('woocommerce_email_customer_details', [$this, 'email'], 60, 4);
+        add_action('admin_notices', [$this, 'adminNotice']);
     }
 
-    public static function heading(): string
+    public static function heading(?int $time = null): string
     {
-        return __('Unsere AGB und Widerrufsbelehrung (Stand bei Bestellung)', 'bootspruefung-learning');
+        /* translators: %s: Datum TT.MM.JJJJ */
+        return sprintf(__('Unsere AGB und Widerrufsbelehrung (Stand: %s)', 'bootspruefung-learning'), (string) wp_date('d.m.Y', $time ?? time()));
+    }
+
+    /**
+     * Seiten, die noch [[Betreiber: …]]-Platzhalter enthalten.
+     *
+     * @param list<\WP_Post>|null $pages
+     * @return list<\WP_Post>
+     */
+    public static function withPlaceholders(?array $pages = null): array
+    {
+        return array_values(array_filter($pages ?? self::pages(), static fn (\WP_Post $p): bool => str_contains((string) $p->post_content, self::PLACEHOLDER)));
+    }
+
+    public function adminNotice(): void
+    {
+        if (! current_user_can('manage_woocommerce')) {
+            return;
+        }
+        $open = self::withPlaceholders();
+        if ($open === []) {
+            return;
+        }
+        $links = array_map(static function (\WP_Post $p): string {
+            $edit = get_edit_post_link($p->ID);
+
+            return $edit ? '<a href="'.esc_url($edit).'">'.esc_html(self::title($p)).'</a>' : esc_html(self::title($p));
+        }, $open);
+        echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Rechtstexte enthalten Platzhalter – werden nicht in Bestellmails übernommen.', 'bootspruefung-learning').'</strong> '
+            .esc_html__('Die Bestellbestätigung soll AGB und Widerrufsbelehrung enthalten (§ 312f Abs. 2 BGB). Bitte ersetze die [[Betreiber: …]]-Platzhalter in:', 'bootspruefung-learning').' '
+            .implode(', ', $links).'</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- oben escaped
     }
 
     /**
@@ -45,6 +90,7 @@ final class LegalTextsEmail
     public static function pages(): array
     {
         $pages = [];
+        // (Filter unten erlaubt Tests und eigene Rechtstext-Seiten.)
         $terms = (int) get_option('woocommerce_terms_page_id');
         $agb = $terms > 0 ? get_post($terms) : null;
         if ($agb instanceof \WP_Post && $agb->post_type === 'page' && $agb->post_status === 'publish') {
@@ -54,8 +100,9 @@ final class LegalTextsEmail
         if ($widerruf instanceof \WP_Post && $widerruf->post_status === 'publish' && ! in_array($widerruf->ID, array_map(static fn ($p) => $p->ID, $pages), true)) {
             $pages[] = $widerruf;
         }
+        $pages = apply_filters('bootspruefung_legal_texts_email_pages', $pages);
 
-        return $pages;
+        return is_array($pages) ? array_values(array_filter($pages, static fn ($p) => $p instanceof \WP_Post)) : [];
     }
 
     public function email($order, $sentToAdmin = false, $plainText = false, $email = null): void
@@ -64,18 +111,38 @@ final class LegalTextsEmail
         if ($sentToAdmin || ! $order instanceof \WC_Order || ! in_array($emailId, self::EMAILS, true)) {
             return;
         }
-        echo $plainText ? self::plain() : self::html(); // phpcs:ignore WordPress.Security.EscapeOutput -- in html()/plain() bereinigt
+        $id = (int) $order->get_id();
+        $sent = (int) $order->get_meta(self::SENT_META, true);
+        $now = self::$sentNow[$id] ?? null;
+        if ($sent > 0 && ($now === null || $now['email'] !== $emailId)) {
+            return; // schon mit einer früheren Mail verschickt
+        }
+        $pages = self::pages();
+        if ($pages === [] || self::withPlaceholders($pages) !== []) {
+            return;
+        }
+        $time = $now['time'] ?? time();
+        $out = $plainText ? self::plain($time) : self::html($time);
+        if ($out === '') {
+            return;
+        }
+        if ($id > 0 && $sent === 0) {
+            $order->update_meta_data(self::SENT_META, $time);
+            $order->save_meta_data();
+            self::$sentNow[$id] = ['email' => $emailId, 'time' => $time];
+        }
+        echo $out; // phpcs:ignore WordPress.Security.EscapeOutput -- in html()/plain() bereinigt
     }
 
     /** HTML-Fassung: Überschriften, Absätze, Listen und Links bleiben erhalten. */
-    public static function html(): string
+    public static function html(?int $time = null): string
     {
         $pages = self::pages();
         if ($pages === []) {
             return '';
         }
         $out = '<div class="bp-legal-texts" style="margin-top:32px;border-top:1px solid #e5e5e5;padding-top:16px;">'
-            .'<h2>'.esc_html(self::heading()).'</h2>';
+            .'<h2>'.esc_html(self::heading($time)).'</h2>';
         foreach ($pages as $page) {
             $body = self::bodyHtml($page);
             $out .= (self::startsWithTitle($page, $body) ? '' : '<h2>'.esc_html(self::title($page)).'</h2>').$body;
@@ -85,14 +152,14 @@ final class LegalTextsEmail
     }
 
     /** Klartext-Fassung für Text-Mails. */
-    public static function plain(): string
+    public static function plain(?int $time = null): string
     {
         $pages = self::pages();
         if ($pages === []) {
             return '';
         }
         $line = str_repeat('=', 60);
-        $out = "\n".$line."\n".self::heading()."\n".$line."\n\n";
+        $out = "\n".$line."\n".self::heading($time)."\n".$line."\n\n";
         foreach ($pages as $page) {
             $title = self::title($page);
             $body = self::bodyHtml($page);

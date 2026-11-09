@@ -7,12 +7,19 @@ namespace Bootspruefung\Learning\Commerce\WooCommerce;
 /**
  * Deutsche Ersatztexte für die WooCommerce-Widerrufsfunktion („Order withdrawal“, seit WooCommerce 11.1).
  *
- * Greift nur, wenn die Website Deutsch spricht UND das WooCommerce-Sprachpaket den Text (noch) nicht
- * übersetzt – eine vorhandene offizielle Übersetzung hat immer Vorrang. Die gesetzlich geforderten
- * Beschriftungen (§ 356a BGB) stehen so auch bei neuen, noch unübersetzten Texten auf Deutsch da.
+ * Greift nur, wenn die Website Deutsch spricht. Die zwei gesetzlich vorgegebenen Beschriftungen
+ * (§ 356a Abs. 1 und 2 BGB: „Vertrag hier widerrufen“, „Widerruf bestätigen“) werden immer ersetzt,
+ * auch wenn das Sprachpaket sie anders übersetzt. Alle übrigen Texte nur, solange das
+ * WooCommerce-Sprachpaket sie (noch) nicht übersetzt – dort hat die offizielle Übersetzung Vorrang.
  */
 final class WithdrawalTexts
 {
+    /** @var array<string,string> Gesetzlicher Wortlaut – immer, unabhängig vom Sprachpaket. */
+    private const MANDATORY = [
+        'Withdraw from contract' => 'Vertrag hier widerrufen',
+        'Confirm withdrawal' => 'Widerruf bestätigen',
+    ];
+
     /** @var array<string,string> Englischer Quelltext => Deutsch (Du-Form) */
     private const TEXTS = [
         // Seite und Formular
@@ -87,6 +94,9 @@ final class WithdrawalTexts
     /** @param string $translation @param string $text */
     public function translate($translation, $text)
     {
+        if (isset(self::MANDATORY[$text]) && self::german()) {
+            return self::MANDATORY[$text];
+        }
         if ($translation !== $text || ! isset(self::TEXTS[$text]) || ! self::german()) {
             return $translation;
         }

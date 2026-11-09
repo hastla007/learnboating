@@ -11,10 +11,19 @@ use Bootspruefung\Learning\Commerce\ProductAccessRepository;
  * Kasse (Block und klassisch) und auf „Bestellung bezahlen“, nur wenn der Warenkorb Lernprodukte enthält. Die Zustimmung wird mit
  * Zeitpunkt in der Bestellung gespeichert (_bp_digital_consent), im Bestell-Admin angezeigt und in den
  * Bestellmails an Kundinnen und Kunden bestätigt (dauerhafter Datenträger, § 312f Abs. 3 BGB).
+ *
+ * „Bestellung bezahlen“: Die Zustimmung gilt erst, wenn die Zahlung angestoßen ist. Sie wird zunächst
+ * vorläufig gespeichert (_bp_digital_consent_pending) und beim Statuswechsel auf in Wartestellung
+ * (z. B. Überweisung), in Bearbeitung oder abgeschlossen (also nach erfolgreichem Zahlungsabschluss)
+ * endgültig. Schlägt die Zahlung fehl, erscheint das Kästchen beim nächsten Versuch wieder.
  */
 final class DigitalConsent
 {
     public const META = '_bp_digital_consent';
+    /** Vorläufige Zustimmung auf „Bestellung bezahlen“, bis die Zahlung angestoßen ist. */
+    public const PENDING_META = '_bp_digital_consent_pending';
+    /** Status, bei denen eine vorläufige Zustimmung endgültig wird. */
+    private const CONFIRM_STATUSES = ['on-hold', 'processing', 'completed'];
     /** Zusätzliches Kassenfeld (Additional Checkout Fields API, Ort „order“). */
     public const FIELD = 'bootspruefung/digital-consent';
     /** Feldname im klassischen Checkout. */
@@ -41,6 +50,11 @@ final class DigitalConsent
         // „Bestellung bezahlen“ (order-pay, z. B. vom Shop angelegte Bestellung oder erneuter Zahlungsversuch).
         add_action('woocommerce_pay_order_before_submit', [$this, 'payField']);
         add_action('woocommerce_before_pay_action', [$this, 'payValidate']);
+        // Vor den Bestellmails (die an woocommerce_order_status_{alt}_to_{neu} hängen): woocommerce_order_status_{neu} kommt zuerst.
+        foreach (self::CONFIRM_STATUSES as $status) {
+            add_action('woocommerce_order_status_'.$status, [self::class, 'confirmPending'], 1, 2);
+        }
+        add_action('woocommerce_payment_complete', [self::class, 'confirmPending'], 1, 1);
 
         // Anzeige und Bestätigung.
         add_action('woocommerce_admin_order_data_after_order_details', [$this, 'adminNotice']);
@@ -67,16 +81,40 @@ final class DigitalConsent
     /**
      * Gespeicherte Zustimmung einer Bestellung.
      *
-     * @return array{time:int,text:string,source:string}|null
+     * @return array{time:int,text:string,source:string,user_id:int,customer_match:?bool}|null
      */
-    public static function consentFor(\WC_Order $order): ?array
+    public static function consentFor(\WC_Order $order, bool $pending = false): ?array
     {
-        $value = $order->get_meta(self::META, true);
+        $value = $order->get_meta($pending ? self::PENDING_META : self::META, true);
         if (! is_array($value) || empty($value['time'])) {
             return null;
         }
 
-        return ['time' => (int) $value['time'], 'text' => (string) ($value['text'] ?? ''), 'source' => (string) ($value['source'] ?? '')];
+        return [
+            'time' => (int) $value['time'],
+            'text' => (string) ($value['text'] ?? ''),
+            'source' => (string) ($value['source'] ?? ''),
+            'user_id' => (int) ($value['user_id'] ?? 0),
+            'customer_match' => array_key_exists('customer_match', $value) ? (bool) $value['customer_match'] : null,
+        ];
+    }
+
+    /** Vorläufige Zustimmung („Bestellung bezahlen“) endgültig machen, sobald die Zahlung angestoßen bzw. abgeschlossen ist. */
+    public static function confirmPending($orderId, $order = null): void
+    {
+        $order = $order instanceof \WC_Order ? $order : wc_get_order((int) $orderId);
+        if (! $order instanceof \WC_Order) {
+            return;
+        }
+        $pending = $order->get_meta(self::PENDING_META, true);
+        if (! is_array($pending) || empty($pending['time'])) {
+            return;
+        }
+        if (self::consentFor($order) === null) {
+            $order->update_meta_data(self::META, $pending);
+        }
+        $order->delete_meta_data(self::PENDING_META);
+        $order->save();
     }
 
     // ------------------------------------------------------------------ Checkout-Block
@@ -248,7 +286,8 @@ final class DigitalConsent
 
             return;
         }
-        $this->store($order, 'order_pay');
+        // Nur vorläufig: endgültig erst mit dem Zahlungsabschluss (confirmPending), sonst beim nächsten Versuch erneut.
+        $order->update_meta_data(self::PENDING_META, self::record($order, 'order_pay'));
         $order->save();
     }
 
@@ -272,14 +311,29 @@ final class DigitalConsent
             return;
         }
         echo '<p class="form-field form-field-wide bp-digital-consent-admin"><strong>'.esc_html__('Widerrufsrecht (digitale Inhalte):', 'bootspruefung-learning').'</strong><br>';
-        if ($consent === null) {
+        $pending = $consent === null ? self::consentFor($order, true) : null;
+        if ($consent === null && $pending === null) {
             echo esc_html__('Keine Zustimmung zum vorzeitigen Beginn gespeichert.', 'bootspruefung-learning');
+        } elseif ($consent === null) {
+            echo esc_html(sprintf(
+                /* translators: %s: Datum und Uhrzeit */
+                __('Zustimmung beim Bezahlen am %s erteilt, aber noch vorläufig: Die Zahlung ist (noch) nicht abgeschlossen.', 'bootspruefung-learning'),
+                self::formatTime($pending['time'])
+            ));
         } else {
             echo esc_html(sprintf(
                 /* translators: 1: Datum und Uhrzeit, 2: Checkout-Art */
                 __('Zustimmung zum vorzeitigen Beginn und Kenntnis vom Verlust des Widerrufsrechts bestätigt am %1$s (%2$s).', 'bootspruefung-learning'),
                 self::formatTime($consent['time']),
                 self::sourceLabel($consent['source'])
+            ));
+        }
+        $shown = $consent ?? $pending;
+        if ($shown !== null && $shown['customer_match'] === false) {
+            echo '<br>'.esc_html(sprintf(
+                /* translators: %d: Benutzer-ID */
+                __('Achtung: erteilt von Benutzerkonto #%d, nicht vom Kundenkonto dieser Bestellung.', 'bootspruefung-learning'),
+                $shown['user_id']
             ));
         }
         echo '</p>';
@@ -315,10 +369,25 @@ final class DigitalConsent
         if (self::consentFor($order) !== null) {
             return; // erste Zustimmung bleibt maßgeblich (z. B. erneuter Zahlungsversuch)
         }
-        $order->update_meta_data(self::META, ['time' => time(), 'text' => self::label(), 'source' => $source]);
+        $order->update_meta_data(self::META, self::record($order, $source));
     }
 
-    private static function sourceLabel(string $source): string
+    /** @return array{time:int,text:string,source:string,user_id:int,customer_match:bool} */
+    private static function record(\WC_Order $order, string $source): array
+    {
+        $user = get_current_user_id();
+
+        return [
+            'time' => time(),
+            'text' => self::label(),
+            'source' => $source,
+            'user_id' => $user,
+            // Gast-Bestellung (Kundenkonto 0) ohne Anmeldung zählt als übereinstimmend.
+            'customer_match' => $user === (int) $order->get_customer_id(),
+        ];
+    }
+
+    public static function sourceLabel(string $source): string
     {
         switch ($source) {
             case 'classic':

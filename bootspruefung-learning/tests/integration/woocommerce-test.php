@@ -507,8 +507,61 @@ if (function_exists('wc_load_cart')) {
 // Widerrufsfunktion (§ 356a BGB): WooCommerce-Funktion „Order withdrawal“ + Anbindung.
 $wf = \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class;
 $check($wf::available(), 'WooCommerce bringt die Widerrufsfunktion mit');
+$wfFeatures = wc_get_container()->get(\Automattic\WooCommerce\Internal\Features\FeaturesController::class);
+$wfWasEnabled = $wf::enabled();
+$wfAutoBefore = get_option($wf::AUTOENABLED_OPTION, null);
+// Einmaliges automatisches Einschalten; späteres bewusstes Ausschalten bleibt bestehen.
+delete_option($wf::AUTOENABLED_OPTION);
+$wfFeatures->change_feature_enable($wf::FEATURE, false);
+$wf::autoEnable();
+$check($wf::enabled() && get_option($wf::AUTOENABLED_OPTION) === 'notice', 'Widerrufsfunktion beim ersten Admin-Aufruf automatisch eingeschaltet');
+$wfFeatures->change_feature_enable($wf::FEATURE, false);
+$wf::autoEnable();
+$check(! $wf::enabled(), 'bewusst ausgeschaltet: bleibt aus');
+// Ausgeschaltet: kein Link ins Leere.
+$wfRedirect = static function () use ($wf): ?string {
+    $location = null;
+    $catch = static function ($to) use (&$location) {
+        $location = (string) $to;
+        throw new RuntimeException('redirect');
+    };
+    add_filter('wp_redirect', $catch, 1);
+    $uri = $_SERVER['REQUEST_URI'];
+    $_SERVER['REQUEST_URI'] = (string) wp_parse_url(home_url('/vertrag-widerrufen/'), PHP_URL_PATH);
+    try {
+        (new $wf())->redirect();
+    } catch (RuntimeException $e) {
+    }
+    $_SERVER['REQUEST_URI'] = $uri;
+    remove_filter('wp_redirect', $catch, 1);
+
+    return $location;
+};
+$legacyBefore = get_page_by_path($wf::SLUG, OBJECT, 'page');
+if (! $legacyBefore instanceof WP_Post) {
+    $dcUrl = \Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::withdrawalUrl();
+    $check($wfRedirect() === $dcUrl, 'ausgeschaltet: /vertrag-widerrufen/ leitet zur Widerrufsbelehrung');
+    $check($wf::endpointUrl() === $dcUrl && rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'ausgeschaltet: Knöpfe führen zur Widerrufsbelehrung, feste Adresse bleibt');
+    $check(str_contains($wf::shortcode(), 'Widerrufsbelehrung') && ! str_contains($wf::shortcode(), 'order-withdrawal'), 'ausgeschaltet: Shortcode verweist auf die Widerrufsbelehrung');
+    // Seite der früheren Funktion bleibt erhalten und wird von WordPress ausgeliefert.
+    $legacyId = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Vertrag widerrufen', 'post_name' => $wf::SLUG, 'post_content' => '[bootspruefung_vertrag_widerrufen]']);
+    $legacyOptBefore = get_option('bp_learning_withdrawal_page', null);
+    update_option('bp_learning_withdrawal_page', $legacyId);
+    $wf::removeLegacyPage();
+    $check(get_post($legacyId) instanceof WP_Post && $wfRedirect() === null && $wf::endpointUrl() === get_permalink($legacyId), 'ausgeschaltet: alte Seite bleibt und wird ausgeliefert');
+    $wf::enable();
+    $wf::removeLegacyPage();
+    $check(! get_post($legacyId) instanceof WP_Post, 'eingeschaltet: alte Seite entfernt');
+    $legacyOptBefore === null ? delete_option('bp_learning_withdrawal_page') : update_option('bp_learning_withdrawal_page', $legacyOptBefore);
+}
 $wf::enable();
 $check($wf::enabled(), 'Widerrufsfunktion eingeschaltet');
+$check($wfRedirect() === $wf::endpointUrl(), 'eingeschaltet: /vertrag-widerrufen/ leitet zum Formular');
+$plainPermalinks = static fn () => '';
+add_filter('pre_option_permalink_structure', $plainPermalinks);
+$check($wf::url() === $wf::endpointUrl() && ! str_contains($wf::url(), 'vertrag-widerrufen'), 'einfache Permalinks: Link direkt zum Formular');
+remove_filter('pre_option_permalink_structure', $plainPermalinks);
+$wfAutoBefore === null ? delete_option($wf::AUTOENABLED_OPTION) : update_option($wf::AUTOENABLED_OPTION, $wfAutoBefore, false);
 $check(str_contains($wf::endpointUrl(), 'order-withdrawal') || str_contains($wf::endpointUrl(), 'withdraw-order'), 'Formular-Adresse unter Mein Konto');
 $check(rtrim($wf::url(), '/') === rtrim(home_url('/vertrag-widerrufen/'), '/'), 'feste Adresse /vertrag-widerrufen/');
 $wOrder = wc_create_order();
@@ -530,10 +583,41 @@ $wOrder->save();
 $check(! $wf::offered($wOrder), 'stornierte Bestellung: nicht angeboten');
 $wOrder->delete(true);
 
-$de = static fn () => 'de_DE';
-add_filter('determine_locale', $de);
-$check(__('Confirm withdrawal', 'woocommerce') !== 'Confirm withdrawal' && __('Withdraw from contract', 'woocommerce') !== 'Withdraw from contract', 'Widerrufsformular auf Deutsch (Pflichtbeschriftungen)');
-remove_filter('determine_locale', $de);
+// Widerrufe aus der früheren eigenen Funktion: erkannt, angezeigt, exportiert, anonymisiert.
+$lOrder = wc_create_order(['customer_id' => $alice]);
+$lTime = time() - HOUR_IN_SECONDS;
+$lOrder->update_meta_data($wf::LEGACY_META, [['time' => $lTime, 'name' => 'Erika Widerruf', 'email' => 'erika.widerruf@example.org', 'order_ref' => (string) $lOrder->get_id(), 'note' => 'Bitte Geld zurück', 'user_id' => $alice]]);
+$lOrder->update_meta_data(\Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::META, ['time' => $lTime, 'text' => 'Wortlaut Test', 'source' => 'classic']);
+$lOrder->save();
+$lOrder = wc_get_order($lOrder->get_id());
+$check($wf::requested($lOrder), 'früherer Widerruf (_bp_withdrawal) wird erkannt');
+ob_start();
+(new $wf())->adminLegacy($lOrder);
+$lAdmin = (string) ob_get_clean();
+$check(str_contains($lAdmin, 'Erika Widerruf') && str_contains($lAdmin, 'erika.widerruf@example.org') && str_contains($lAdmin, 'Eingegangen am'), 'Bestell-Admin zeigt früheren Widerruf (Eingang, Name, E-Mail)');
+$lExport = (string) wp_json_encode(apply_filters('woocommerce_privacy_export_order_personal_data', [], $lOrder));
+$check(str_contains($lExport, 'Erika Widerruf') && str_contains($lExport, 'Bitte Geld zur') && str_contains($lExport, 'Wortlaut Test'), 'Datenexport enthält früheren Widerruf und Zustimmung');
+do_action('woocommerce_privacy_remove_order_personal_data', $lOrder);
+$lEntry = $wf::legacyEntries(wc_get_order($lOrder->get_id()))[0] ?? [];
+$check(($lEntry['time'] ?? 0) === $lTime && ! str_contains((string) wp_json_encode($lEntry), 'Erika') && ! str_contains((string) wp_json_encode($lEntry), 'erika.widerruf') && ($lEntry['note'] ?? 'x') === '', 'Datenlöschung: Name, E-Mail, Notiz anonymisiert, Zeitpunkt bleibt');
+$lOrder->delete(true);
+
+// Pflichtbeschriftungen: immer der gesetzliche Wortlaut. switch_to_locale() geht nur mit installiertem
+// Sprachpaket (lädt dann die Textdomain neu); sonst Website-Sprache per Filter auf Deutsch.
+$switched = switch_to_locale('de_DE');
+$deLocale = static fn () => 'de_DE';
+if (! $switched) {
+    add_filter('locale', $deLocale);
+}
+$check(str_starts_with(determine_locale(), 'de'), 'Testsprache Deutsch ('.($switched ? 'Sprachpaket' : 'ohne Sprachpaket').')');
+$check(__('Withdraw from contract', 'woocommerce') === 'Vertrag hier widerrufen' && __('Confirm withdrawal', 'woocommerce') === 'Widerruf bestätigen', 'Pflichtbeschriftungen „Vertrag hier widerrufen“ / „Widerruf bestätigen“');
+$overrideLabel = static fn ($t, $text) => $text === 'Confirm withdrawal' ? 'Widerruf abschicken' : $t;
+add_filter('gettext_woocommerce', $overrideLabel, 10, 2);
+$check(__('Confirm withdrawal', 'woocommerce') === 'Widerruf bestätigen', 'abweichende Übersetzung des Sprachpakets wird ersetzt');
+remove_filter('gettext_woocommerce', $overrideLabel, 10);
+$check(__('Order number', 'woocommerce') !== 'Order number', 'übrige Texte auf Deutsch');
+$switched ? restore_previous_locale() : remove_filter('locale', $deLocale);
+$check(str_starts_with(determine_locale(), 'de') || __('Confirm withdrawal', 'woocommerce') === 'Confirm withdrawal', 'englische Website: kein Ersatz');
 echo "Zustimmung digitale Inhalte (§ 356 Abs. 5 BGB), klassisch und „Bestellung bezahlen“\n";
 $dc = \Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::class;
 $consent = new $dc();
@@ -577,11 +661,42 @@ if (function_exists('wc_load_cart')) {
     wc_clear_notices();
     $_POST[$dc::POST_FIELD] = '1';
     $consent->payValidate($pOrder);
-    $paySaved = $dc::consentFor(wc_get_order($pOrder->get_id()));
-    $check(wc_notice_count('error') === 0 && $paySaved !== null && $paySaved['source'] === 'order_pay', 'Bestellung bezahlen: Zustimmung gespeichert');
+    $pOrder = wc_get_order($pOrder->get_id());
+    $payPending = $dc::consentFor($pOrder, true);
+    $check(wc_notice_count('error') === 0 && $dc::consentFor($pOrder) === null && $payPending !== null && $payPending['source'] === 'order_pay' && $payPending['user_id'] === $consentUser && $payPending['customer_match'] === true, 'Bestellung bezahlen: Zustimmung vorläufig gespeichert (mit Benutzer, passt zur Kundin)');
+    set_query_var('order-pay', $pOrder->get_id());
+    $pOrder->update_status('failed');
+    $_POST[$dc::POST_FIELD] = '';
+    ob_start();
+    $consent->payField();
+    $payFieldHtml = (string) ob_get_clean();
+    $check($dc::consentFor(wc_get_order($pOrder->get_id())) === null && str_contains($payFieldHtml, $dc::POST_FIELD), 'Zahlung fehlgeschlagen: keine endgültige Zustimmung, Kästchen erscheint wieder');
     unset($_POST[$dc::POST_FIELD]);
-    $consent->payValidate(wc_get_order($pOrder->get_id()));
+    $pOrder = wc_get_order($pOrder->get_id());
+    $pOrder->update_status('on-hold'); // z. B. Überweisung
+    $pOrder = wc_get_order($pOrder->get_id());
+    $paySaved = $dc::consentFor($pOrder);
+    $check($paySaved !== null && $paySaved['source'] === 'order_pay' && $paySaved['time'] === $payPending['time'] && $dc::consentFor($pOrder, true) === null, 'Zahlung angestoßen (in Wartestellung): Zustimmung endgültig');
+    ob_start();
+    $consent->payField();
+    $check((string) ob_get_clean() === '', 'Bestellung bezahlen: nach Zustimmung kein Kästchen mehr');
+    set_query_var('order-pay', 0);
+    $consent->payValidate($pOrder);
     $check(wc_notice_count('error') === 0, 'Bestellung bezahlen: bereits zugestimmt, keine erneute Abfrage');
+    // Andere angemeldete Person bezahlt: wird vermerkt.
+    $mOrder = wc_create_order(['customer_id' => $alice]);
+    $mOrder->add_product(wc_get_product($lern), 1);
+    $mOrder->calculate_totals();
+    $mOrder->save();
+    $_POST[$dc::POST_FIELD] = '1';
+    $consent->payValidate($mOrder);
+    unset($_POST[$dc::POST_FIELD]);
+    $mOrder->payment_complete('bp-test-'.wp_generate_password(6, false));
+    $mSaved = $dc::consentFor(wc_get_order($mOrder->get_id()));
+    $check($mSaved !== null && $mSaved['user_id'] === $consentUser && $mSaved['customer_match'] === false, 'Zahlung abgeschlossen: Zustimmung endgültig, abweichendes Benutzerkonto vermerkt');
+    $wpdb->delete($wpdb->prefix.'bp_entitlement', ['order_id' => $mOrder->get_id()]);
+    $wpdb->delete($wpdb->prefix.'bp_entitlement', ['order_id' => $pOrder->get_id()]);
+    $mOrder->delete(true);
     $bOrder = wc_create_order(['customer_id' => $consentUser]);
     $bOrder->add_product(wc_get_product($book), 1);
     $bOrder->calculate_totals();
@@ -613,10 +728,39 @@ $check(! is_wp_error($gRefund) && $expected > 0 && abs($parts['amount'] - $expec
 $gOrder->delete(true);
 
 echo "Bestell-Schaltfläche (§ 312j Abs. 3 BGB)\n";
-$check(apply_filters('woocommerce_order_button_text', 'Place order') === 'Zahlungspflichtig bestellen', 'klassische Kasse: „Zahlungspflichtig bestellen“');
+$freeProduct = $make('Gratis-Test (Bestellknopf)', '0');
+$blockLabel = static fn (): string => (string) (apply_filters('render_block_data', ['blockName' => 'woocommerce/checkout-actions-block', 'attrs' => ['placeOrderButtonLabel' => 'Place Order'], 'innerBlocks' => []], [], null)['attrs']['placeOrderButtonLabel'] ?? '');
+if (function_exists('wc_load_cart')) {
+    wp_set_current_user($alice);
+    wc_load_cart();
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($book);
+    WC()->cart->calculate_totals();
+    $check(apply_filters('woocommerce_order_button_text', 'Place order') === 'Zahlungspflichtig bestellen', 'klassische Kasse: „Zahlungspflichtig bestellen“');
+    $check($blockLabel() === 'Zahlungspflichtig bestellen', 'Kassen-Block: placeOrderButtonLabel gesetzt');
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($freeProduct);
+    WC()->cart->calculate_totals();
+    $check(apply_filters('woocommerce_order_button_text', 'Place order') === 'Place order' && $blockLabel() === 'Place Order', 'nichts zu bezahlen (0 €): Standardbeschriftung');
+    WC()->cart->empty_cart();
+    wp_set_current_user(1);
+}
+$payBtnOrder = wc_create_order(['customer_id' => $alice]);
+$payBtnOrder->add_product(wc_get_product($book), 1);
+$payBtnOrder->calculate_totals();
+$payBtnOrder->save();
+set_query_var('order-pay', $payBtnOrder->get_id());
 $check(apply_filters('woocommerce_pay_order_button_text', 'Pay for order') === 'Zahlungspflichtig bestellen', 'Bestellung bezahlen: „Zahlungspflichtig bestellen“');
-$actionsBlock = apply_filters('render_block_data', ['blockName' => 'woocommerce/checkout-actions-block', 'attrs' => ['placeOrderButtonLabel' => 'Place Order'], 'innerBlocks' => []], [], null);
-$check(($actionsBlock['attrs']['placeOrderButtonLabel'] ?? '') === 'Zahlungspflichtig bestellen', 'Kassen-Block: placeOrderButtonLabel gesetzt');
+$freeOrder = wc_create_order(['customer_id' => $alice]);
+$freeOrder->add_product(wc_get_product($freeProduct), 1);
+$freeOrder->calculate_totals();
+$freeOrder->save();
+set_query_var('order-pay', $freeOrder->get_id());
+$check(apply_filters('woocommerce_pay_order_button_text', 'Pay for order') === 'Pay for order', 'Bestellung bezahlen ohne Betrag: Standardbeschriftung');
+set_query_var('order-pay', 0);
+$payBtnOrder->delete(true);
+$freeOrder->delete(true);
+wp_delete_post($freeProduct, true);
 $fakeGateway = new class() extends WC_Payment_Gateway {
     public function __construct()
     {
@@ -631,24 +775,61 @@ $lt = \Bootspruefung\Learning\Commerce\WooCommerce\LegalTextsEmail::class;
 $termsBefore = get_option('woocommerce_terms_page_id');
 $termsPage = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'AGB Test', 'post_name' => 'agb-test-'.wp_generate_password(6, false, false), 'post_content' => "<!-- wp:paragraph {\"className\":\"kw-placeholder\"} -->\n<p class=\"kw-placeholder\">Hinweis für den Betreiber</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">1. Geltungsbereich</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Diese AGB gelten für alle <a href=\"https://example.org/kurse/\">Kurse</a>.</p>\n<!-- /wp:paragraph -->"]);
 update_option('woocommerce_terms_page_id', $termsPage);
+// Nur die Test-AGB (die echte Widerrufsbelehrung der Website kann noch Platzhalter enthalten).
+$onlyTerms = static fn ($pages) => array_values(array_filter((array) $pages, static fn ($p) => $p->ID === $termsPage));
+add_filter('bootspruefung_legal_texts_email_pages', $onlyTerms);
 $mailOrder = wc_create_order(['customer_id' => $alice]);
-$mailFor = static function (string $id, bool $admin, bool $plain) use ($lt, $mailOrder): string {
+$mailFor = static function (string $id, bool $admin, bool $plain, ?WC_Order $o = null) use ($lt, &$mailOrder): string {
+    $o = $o ?? wc_get_order($mailOrder->get_id());
     ob_start();
-    (new $lt())->email($mailOrder, $admin, $plain, (object) ['id' => $id]);
+    (new $lt())->email($o, $admin, $plain, (object) ['id' => $id]);
 
     return (string) ob_get_clean();
 };
+$freshMail = static function () use (&$mailOrder, $alice): void {
+    $mailOrder->delete(true);
+    $mailOrder = wc_create_order(['customer_id' => $alice]);
+};
 $htmlMail = $mailFor('customer_processing_order', false, false);
+$sentAt = (int) wc_get_order($mailOrder->get_id())->get_meta($lt::SENT_META, true);
+$check($sentAt > 0 && str_contains($htmlMail, 'Stand: '.wp_date('d.m.Y', $sentAt)), 'Überschrift mit Stand-Datum (Versanddatum), Versand in der Bestellung vermerkt');
+$check($mailFor('customer_completed_order', false, false) === '', 'spätere Mail derselben Bestellung: Texte nicht erneut angehängt');
+$freshMail();
 $plainMail = $mailFor('customer_completed_order', false, true);
-$check(str_contains($htmlMail, $lt::heading()) && str_contains($htmlMail, '<h2>1. Geltungsbereich</h2>') && str_contains($htmlMail, 'href="https://example.org/kurse/"') && ! str_contains($htmlMail, 'Hinweis für den Betreiber') && ! str_contains($htmlMail, '<mark'), 'HTML-Mail: vollständiger AGB-Text mit Überschriften, ohne Betreiber-Hinweis');
+$freshMail();
+$check(str_contains($htmlMail, $lt::heading($sentAt)) && str_contains($htmlMail, '<h2>1. Geltungsbereich</h2>') && str_contains($htmlMail, 'href="https://example.org/kurse/"') && ! str_contains($htmlMail, 'Hinweis für den Betreiber') && ! str_contains($htmlMail, '<mark'), 'HTML-Mail: vollständiger AGB-Text mit Überschriften, ohne Betreiber-Hinweis');
 $check(str_contains($plainMail, 'AGB TEST') && str_contains($plainMail, 'Kurse (https://example.org/kurse/)') && ! str_contains($plainMail, '<'), 'Text-Mail: AGB als Klartext mit ausgeschriebenen Links');
-$check($mailFor('customer_on_hold_order', false, false) !== '' && $mailFor('new_order', true, false) === '' && $mailFor('customer_invoice', false, false) === '', 'nur Kunden-Mails in Bearbeitung/Wartestellung/abgeschlossen');
+$check($mailFor('new_order', true, false) === '' && $mailFor('customer_invoice', false, false) === '' && $mailFor('customer_on_hold_order', false, false) !== '', 'nur Kunden-Mails in Bearbeitung/Wartestellung/abgeschlossen');
+remove_filter('bootspruefung_legal_texts_email_pages', $onlyTerms);
 $widerrufPage = get_page_by_path('widerruf', OBJECT, 'page');
 if ($widerrufPage instanceof WP_Post && $widerrufPage->post_status === 'publish') {
-    $check(str_contains($htmlMail, 'Widerrufsbelehrung') && str_contains($htmlMail, 'Muster'), 'veröffentlichte Widerrufsbelehrung samt Muster-Formular angehängt');
+    $freshMail();
+    $withWiderruf = $mailFor('customer_processing_order', false, false);
+    if (str_contains($widerrufPage->post_content, $lt::PLACEHOLDER)) {
+        $check($withWiderruf === '' && (string) wc_get_order($mailOrder->get_id())->get_meta($lt::SENT_META, true) === '', 'Widerrufsbelehrung mit [[Betreiber:]]-Platzhaltern: nichts angehängt, nichts vermerkt');
+    } else {
+        $check(str_contains($withWiderruf, 'Widerrufsbelehrung') && str_contains($withWiderruf, 'Muster'), 'veröffentlichte Widerrufsbelehrung samt Muster-Formular angehängt');
+    }
 }
+add_filter('bootspruefung_legal_texts_email_pages', $onlyTerms);
+$freshMail();
+$placeholderTerms = (string) get_post($termsPage)->post_content;
+wp_update_post(['ID' => $termsPage, 'post_content' => $placeholderTerms."\n<!-- wp:paragraph --><p>[[Betreiber: Name]]</p><!-- /wp:paragraph -->"]);
+$check($mailFor('customer_processing_order', false, false) === '' && (string) wc_get_order($mailOrder->get_id())->get_meta($lt::SENT_META, true) === '', 'AGB mit Platzhalter: nicht angehängt, nichts vermerkt');
+$noticeFor = static function (int $user) use ($lt): string {
+    wp_set_current_user($user);
+    ob_start();
+    (new $lt())->adminNotice();
+
+    return (string) ob_get_clean();
+};
+$check(str_contains($noticeFor(1), 'Rechtstexte enthalten Platzhalter') && $noticeFor($alice) === '', 'Admin-Hinweis zu Platzhaltern (nur für Shop-Verwaltung)');
+wp_set_current_user(1);
+wp_update_post(['ID' => $termsPage, 'post_content' => $placeholderTerms]);
+$freshMail();
 wp_update_post(['ID' => $termsPage, 'post_status' => 'draft']);
 $check(! str_contains($mailFor('customer_processing_order', false, false), 'Geltungsbereich'), 'unveröffentlichte AGB-Seite wird nicht angehängt');
+remove_filter('bootspruefung_legal_texts_email_pages', $onlyTerms);
 update_option('woocommerce_terms_page_id', $termsBefore);
 wp_delete_post($termsPage, true);
 $mailOrder->delete(true);
