@@ -18,6 +18,16 @@
 	line-height: 1.5;
 }
 .kw-consent[hidden] { display: none; }
+/*
+ * Solange ein modaler Dialog offen ist (Mini-Cart-Drawer, z-index 9999 mit Fokusfalle), Banner ausblenden statt
+ * es darüber zu legen: Darüber wäre es per Tastatur ohnehin nicht erreichbar (Fokusfalle des Dialogs) und
+ * verdeckte dessen Knöpfe; darunter (z-index < 9999) läge es abgedunkelt im Hintergrund. Nach dem Schließen
+ * erscheint es wieder. Ersatz ohne :has(): Klasse kw-consent-behind-modal aus consent.js.
+ */
+/* Getrennte Regeln: Ein Browser ohne :has() verwirft sonst die ganze Liste samt Ersatz-Klasse. */
+.kw-consent-behind-modal .kw-consent { display: none; }
+body:has([aria-modal="true"]) .kw-consent { display: none; }
+body:has(.wc-block-components-drawer__screen-overlay:not(.wc-block-components-drawer__screen-overlay--is-hidden)) .kw-consent { display: none; }
 .kw-consent:focus { outline: 3px solid var(--kw-blue-dark, #0a6f91); outline-offset: 2px; }
 .kw-consent:focus:not(:focus-visible) { outline: none; }
 .kw-consent-title { margin: 0 0 .5rem; color: var(--kw-navy, #071b2e); font-size: 1.1rem; line-height: 1.3; }

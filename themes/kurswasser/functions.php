@@ -208,6 +208,49 @@ add_filter('pre_get_avatar_data', static function (array $args): array {
     return $args;
 });
 
+/**
+ * Enthält das Markup schon einen Link auf die Widerrufsfunktion? Erkennt absolute, protokoll-relative und
+ * relative Adressen (/vertrag-widerrufen/) sowie den WooCommerce-Endpunkt des Plugins (Pfadvergleich).
+ */
+function kurswasser_has_withdrawal_link(string $html): bool
+{
+    if (! preg_match_all('#\bhref\s*=\s*(["\'])(.*?)\1#is', $html, $m)) {
+        return false;
+    }
+    $norm = static fn (string $path): string => '/'.trim(rawurldecode($path), '/');
+    $homeHost = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+    $targets = [kurswasser_url('vertrag-widerrufen'), home_url('/vertrag-widerrufen/')];
+    $class = \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class;
+    if (class_exists($class) && method_exists($class, 'endpointUrl')) {
+        $targets[] = (string) $class::endpointUrl();
+    }
+    $paths = [];
+    foreach ($targets as $target) {
+        $path = wp_parse_url($target, PHP_URL_PATH);
+        if (is_string($path) && trim($path, '/') !== '') {
+            $paths[$norm($path)] = true;
+        }
+    }
+    foreach ($m[2] as $href) {
+        $href = html_entity_decode(trim($href), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $parts = wp_parse_url($href);
+        if (! is_array($parts) || empty($parts['path'])) {
+            continue;
+        }
+        if (! empty($parts['host']) && strtolower($parts['host']) !== $homeHost) {
+            continue;
+        }
+        if (empty($parts['host']) && ! str_starts_with($parts['path'], '/')) {
+            continue; // Relativ zur aktuellen Seite (z. B. „vertrag-widerrufen/“) – nicht eindeutig.
+        }
+        if (isset($paths[$norm($parts['path'])])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /*
  * Pflichtlink „Vertrag hier widerrufen“ (§ 356a BGB): Wurde die Fußzeile im Website-Editor angepasst
  * (kurswasser//footer in der Datenbank), fehlt der später ergänzte Link. Dann vor dem schließenden
@@ -218,8 +261,7 @@ add_filter('render_block', static function (string $html, array $block): string 
         return $html;
     }
     $url = kurswasser_url('vertrag-widerrufen');
-    $bare = untrailingslashit((string) preg_replace('#^https?:#', '', $url));
-    if (preg_match('#href=["\'](?:https?:)?'.preg_quote($bare, '#').'/?["\'?\#]#i', $html)) {
+    if (kurswasser_has_withdrawal_link($html)) {
         return $html;
     }
     $link = '<p class="kw-footer-withdrawal alignwide has-small-font-size"><a href="'.esc_url($url).'">'.esc_html__('Vertrag hier widerrufen', 'kurswasser').'</a></p>';
@@ -239,6 +281,9 @@ add_filter('render_block', static function (string $html, array $block): string 
 remove_action('wp_head', 'print_emoji_detection_script', 7);
 remove_action('wp_print_styles', 'print_emoji_styles');
 remove_action('wp_enqueue_scripts', 'wp_enqueue_emoji_styles');
+// Auch in oEmbed-Ansichten (/embed/) nicht.
+remove_action('embed_head', 'print_emoji_detection_script');
+remove_action('enqueue_embed_scripts', 'wp_enqueue_emoji_styles');
 remove_filter('the_content_feed', 'wp_staticize_emoji');
 remove_filter('comment_text_rss', 'wp_staticize_emoji');
 remove_filter('wp_mail', 'wp_staticize_emoji_for_email');

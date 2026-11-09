@@ -5,9 +5,10 @@
  * Kategorien: „notwendig“ (immer aktiv) und „statistik“ (WooCommerce-Bestellzuordnung, sbjs_*-Cookies).
  * Einwilligungs-Cookie kw_consent = rawurlencode("<version>|<kategorien>|<unix-zeit>"), 12 Monate.
  * Seiten-Cache-fest: Der Server liefert allen dieselbe Seite. wc_order_attribution_allow_tracking ist daher
- * immer false (WooCommerce startet sourcebuster.js nicht von sich aus); consent.js liest kw_consent im Browser
- * und ruft wc_order_attribution.setOrderTracking(true|false) auf – true startet die Erfassung, false löscht
- * die sbjs_*-Cookies. Auch Banner und Häkchen setzt erst das Script, nichts hängt vom Cookie im HTML ab.
+ * immer false. Ein Inline-Script direkt vor order-attribution.js liest kw_consent im Browser und setzt bei
+ * Statistik-Einwilligung params.allowTracking = true – sonst würde WooCommerce beim Start die sbjs_*-Cookies
+ * löschen und jede Bestellung als „Direkt“ zuordnen. consent.js ruft setOrderTracking() nur bei einer
+ * Änderung der Wahl auf. Auch Banner und Häkchen setzt erst das Script, nichts hängt vom Cookie im HTML ab.
  *
  * @package Kurswasser
  */
@@ -21,6 +22,8 @@ if (! defined('ABSPATH')) {
 /** Bei inhaltlicher Änderung der Kategorien erhöhen – das Banner erscheint dann erneut. */
 const KURSWASSER_CONSENT_VERSION = 1;
 const KURSWASSER_CONSENT_COOKIE = 'kw_consent';
+/** Gültigkeit einer Entscheidung (Sekunden) – wie max-age des Cookies. */
+const KURSWASSER_CONSENT_MAX_AGE = 365 * 24 * 60 * 60;
 
 /**
  * Eingewilligte Kategorien aus dem Cookie (leer, wenn keine gültige Entscheidung vorliegt).
@@ -32,6 +35,10 @@ function kurswasser_consent_categories(): array
     $raw = isset($_COOKIE[KURSWASSER_CONSENT_COOKIE]) ? sanitize_text_field(wp_unslash((string) $_COOKIE[KURSWASSER_CONSENT_COOKIE])) : '';
     $parts = explode('|', rawurldecode($raw));
     if (count($parts) < 2 || (int) $parts[0] !== KURSWASSER_CONSENT_VERSION) {
+        return [];
+    }
+    $time = (int) ($parts[2] ?? 0);
+    if ($time > 0 && time() - $time > KURSWASSER_CONSENT_MAX_AGE) {
         return [];
     }
 
@@ -46,7 +53,8 @@ function kurswasser_has_consent(string $category): bool
 
 /*
  * WooCommerce-Bestellzuordnung serverseitig immer aus: Der Wert landet per wp_localize_script im HTML und
- * würde mit einem Seiten-Cache an alle Besucher ausgeliefert. Eingeschaltet wird nur im Browser (consent.js).
+ * würde mit einem Seiten-Cache an alle Besucher ausgeliefert. Eingeschaltet wird nur im Browser
+ * (kurswasser_consent_tracking_script() vor order-attribution.js, Änderungen per consent.js).
  * Späte Priorität, damit auch der Filter der WP-Consent-API-Integration von WooCommerce überstimmt wird.
  */
 add_filter('wc_order_attribution_allow_tracking', '__return_false', 100);
@@ -66,6 +74,7 @@ add_action('wp_enqueue_scripts', static function (): void {
     wp_localize_script('kurswasser-consent', 'kwConsent', [
         'cookie' => KURSWASSER_CONSENT_COOKIE,
         'version' => KURSWASSER_CONSENT_VERSION,
+        'maxAge' => KURSWASSER_CONSENT_MAX_AGE,
         'path' => (string) (wp_parse_url(home_url('/'), PHP_URL_PATH) ?: '/'),
         'secure' => is_ssl(),
         'saved' => __('Deine Auswahl ist gespeichert.', 'kurswasser'),
@@ -76,10 +85,46 @@ add_action('wp_enqueue_scripts', static function (): void {
      * (Herkunft des Besuchs, keine Weitergabe, kein Werbeprofil) – Banner und Datenschutzerklärung sagen das
      * ebenso. Die Integration von WooCommerce deshalb auf „statistics“ umstellen; „marketing“ geben wir nie frei.
      */
+    /*
+     * Vor order-attribution.js (nach dessen wp_localize_script-Daten): Mit gültiger Statistik-Einwilligung
+     * startet WooCommerce die Erfassung selbst, statt beim Start die sbjs_*-Cookies zu löschen. Ohne
+     * Einwilligung bleibt allowTracking false (WooCommerce löscht die Cookies). Passt zur WP Consent API:
+     * consent.js hält deren Kategorie „statistics“ synchron zu kw_consent.
+     */
+    if (wp_script_is('wc-order-attribution', 'registered')) {
+        wp_add_inline_script('wc-order-attribution', kurswasser_consent_tracking_script(), 'before');
+    }
+
     if (wp_script_is('wp-consent-api-integration', 'enqueued')) {
-        wp_add_inline_script('wp-consent-api-integration', 'window.wc_order_attribution&&(window.wc_order_attribution.params.consentCategory="statistics");', 'before');
+        /*
+         * Außerdem: Die Integration ruft bei wp_consent_type_defined setOrderTracking(true) auf, obwohl die
+         * Erfassung (Inline-Script oben) schon läuft – sourcebuster.js zählte jeden Seitenaufruf doppelt.
+         * Wiederholte true-Aufrufe bei laufender Erfassung daher ignorieren; false geht immer durch.
+         */
+        wp_add_inline_script(
+            'wp-consent-api-integration',
+            '(function(o){if(!o||!o.params){return;}o.params.consentCategory="statistics";var f=o.setOrderTracking;if(typeof f!=="function"){return;}'
+            .'o.setOrderTracking=function(a){if(a&&o.params.allowTracking&&typeof sbjs!=="undefined"&&sbjs.get){return;}return f.apply(this,arguments);};})(window.wc_order_attribution);',
+            'before'
+        );
     }
 }, 100);
+
+/** Inline-Script: kw_consent im Browser lesen, bei Statistik-Einwilligung allowTracking einschalten. */
+function kurswasser_consent_tracking_script(): string
+{
+    return sprintf(
+        '(function(){var o=window.wc_order_attribution;if(!o||!o.params){return;}'
+        .'var m=document.cookie.match(/(?:^|;\\s*)%1$s=([^;]*)/);if(!m){return;}'
+        .'var p;try{p=decodeURIComponent(m[1]).split("|");}catch(e){return;}'
+        .'var t=parseInt(p[2],10);'
+        .'if(p.length<2||parseInt(p[0],10)!==%2$d||(t>0&&Date.now()/1e3-t>%3$d)){return;}'
+        .'if(p[1].split(",").indexOf("statistik")!==-1){o.params.allowTracking=true;}})();',
+        KURSWASSER_CONSENT_COOKIE,
+        KURSWASSER_CONSENT_VERSION,
+        KURSWASSER_CONSENT_MAX_AGE
+    );
+}
 
 /**
  * Banner-Markup (startet versteckt; consent.js zeigt es ohne gültige Entscheidung oder auf Wunsch an).
@@ -134,10 +179,23 @@ add_action('wp_footer', 'kurswasser_consent_banner', 50);
 /**
  * [kurswasser_consent_settings label="…"] – Knopf zum erneuten Öffnen der Cookie-Einstellungen (Fußzeile,
  * Datenschutzerklärung). Startet mit hidden: Ohne JavaScript könnte er nichts öffnen (und ohne JavaScript
- * werden auch keine einwilligungspflichtigen Cookies gesetzt); consent.js blendet ihn ein.
+ * werden auch keine einwilligungspflichtigen Cookies gesetzt); consent.js blendet ihn ein – samt einem
+ * umgebenden Element mit data-kw-consent-wrap (Listenpunkt der Fußzeile, Absatz des Shortcode-Blocks).
  */
 add_shortcode('kurswasser_consent_settings', static function ($atts): string {
     $atts = shortcode_atts(['label' => __('Cookie-Einstellungen', 'kurswasser')], (array) $atts, 'kurswasser_consent_settings');
 
     return '<button type="button" class="kw-consent-open" aria-controls="kw-consent" hidden data-kw-consent-open>'.esc_html((string) $atts['label']).'</button>';
+});
+
+/*
+ * Shortcode-Block, der nur den Knopf enthält (Datenschutzerklärung): Hat wpautop ihn in einen Absatz gepackt,
+ * den Absatz ebenfalls verstecken, damit ohne JavaScript kein leerer Absatz stehen bleibt. (WordPress 7.1
+ * ersetzt den Shortcode schon im Block, daher beide Formen; ohne Absatz bleibt die Ausgabe unverändert.)
+ */
+add_filter('render_block_core/shortcode', static function (string $html): string {
+    $inner = '(?:\[kurswasser_consent_settings\b[^\]]*\]|<button\b[^>]*\bdata-kw-consent-open\b[^>]*>.*?</button>)';
+    $out = preg_replace('#^(\s*)<p>(\s*'.$inner.'\s*)</p>(\s*)$#s', '$1<p hidden data-kw-consent-wrap>$2</p>$3', $html);
+
+    return is_string($out) ? $out : $html;
 });

@@ -82,11 +82,13 @@ function kurswasser_legal_resolve_links(string $content): string
 
 /**
  * Pflichtseiten mit den Vorlagen aus legal/ füllen. Überschreibt nie eine vom Betreiber bearbeitete
- * Seite (außer mit $force). Status (Entwurf/veröffentlicht) bleibt unverändert.
+ * Seite (außer mit $force). Status (Entwurf/veröffentlicht) bleibt unverändert. Mit $draftsOnly werden
+ * nur Entwürfe (draft/pending) geändert; unbearbeitete, nicht mehr aktuelle Seiten mit anderem Status
+ * (veröffentlicht, geplant, privat) meldet das Ergebnis als „pending“, ohne sie anzufassen.
  *
- * @return array<string,string> Slug => filled|updated|unchanged|edited|no-page|no-file
+ * @return array<string,string> Slug => filled|updated|unchanged|pending|edited|no-page|no-file|error
  */
-function kurswasser_fill_legal_pages(bool $force = false): array
+function kurswasser_fill_legal_pages(bool $force = false, bool $draftsOnly = false): array
 {
     $result = [];
     foreach (array_keys(kurswasser_legal_pages()) as $slug) {
@@ -108,6 +110,10 @@ function kurswasser_fill_legal_pages(bool $force = false): array
         $stored = (string) get_post_meta($page->ID, '_kurswasser_legal_source', true);
         if (! $force && $stored === md5($template) && trim($page->post_content) !== '' && ! str_contains($page->post_content, 'Platzhalter – hier den geprüften Text einfügen')) {
             $result[$slug] = 'unchanged';
+            continue;
+        }
+        if ($draftsOnly && ! in_array($page->post_status, ['draft', 'pending', 'auto-draft'], true)) {
+            $result[$slug] = 'pending';
             continue;
         }
         $wasPlaceholder = str_contains($page->post_content, 'Platzhalter – hier den geprüften Text einfügen');
@@ -168,9 +174,10 @@ add_filter('woocommerce_checkout_show_terms', static function ($show) {
     return $show && $id > 0 && get_post_status($id) === 'publish';
 });
 
-// Nach dem Anlegen der Seiten (kurswasser_create_pages, Priorität 10) füllen und zuordnen.
+// Nach dem Anlegen der Seiten (kurswasser_create_pages, Priorität 10) füllen und zuordnen. Auch hier nur
+// Entwürfe automatisch – veröffentlichte, unbearbeitete Seiten bekommen den Hinweis mit „Vorlagen übernehmen“.
 add_action('after_switch_theme', static function (): void {
-    kurswasser_fill_legal_pages();
+    kurswasser_legal_sync(true);
     kurswasser_assign_legal_pages();
 }, 20);
 
@@ -186,45 +193,144 @@ function kurswasser_legal_templates_hash(): string
     return md5(implode('|', $sums));
 }
 
-/*
- * Bestehende Installationen: Nach einem Theme-Update mit geänderten Vorlagen die Pflichtseiten nachziehen
- * (ohne force – vom Betreiber bearbeitete Seiten bleiben unangetastet) und einmalig darauf hinweisen.
+/**
+ * Sperre gegen parallele Abgleiche (zwei Admin-Tabs, Admin + Cron). INSERT IGNORE ist atomar – add_option()
+ * nutzt „ON DUPLICATE KEY UPDATE“ und würde beim gleichzeitigen Zugriff beiden Anfragen Erfolg melden.
+ * Eine liegen gebliebene Sperre (abgebrochene Anfrage) verfällt nach fünf Minuten.
  */
-add_action('admin_init', static function (): void {
-    if (! current_user_can('manage_options') || wp_doing_ajax()) {
+function kurswasser_legal_lock(bool $acquire): bool
+{
+    global $wpdb;
+    $name = 'kurswasser_legal_lock';
+    if (! $acquire) {
+        $wpdb->delete($wpdb->options, ['option_name' => $name]);
+        wp_cache_delete($name, 'options');
+
+        return true;
+    }
+    $insert = static fn (): bool => 1 === (int) $wpdb->query($wpdb->prepare(
+        "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+        $name,
+        (string) time()
+    ));
+    if ($insert()) {
+        return true;
+    }
+    $since = (int) $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $name));
+    if ($since > 0 && time() - $since < 5 * MINUTE_IN_SECONDS) {
+        return false;
+    }
+    // Abgelaufen: nur löschen, wenn es noch dieselbe Sperre ist, dann neu versuchen (atomar).
+    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $name, (string) $since));
+
+    return $insert();
+}
+
+/**
+ * Vorlagen mit den Pflichtseiten abgleichen. Günstige Vorprüfung ohne Dateizugriff: Der Zustand (Theme-
+ * Version, Vorlagen-Prüfsumme, letzte Prüfung) steht in einer automatisch geladenen Option; die Vorlagen
+ * werden nur gehasht, wenn sich KURSWASSER_VERSION geändert hat oder die letzte Prüfung über einen Tag her
+ * ist (fängt Vorlagen-Änderungen ohne Versionssprung ab). Bei geänderten Vorlagen: Entwürfe automatisch
+ * aktualisieren, veröffentlichte unbearbeitete Seiten nur melden (Hinweis mit Knopf „Vorlagen übernehmen“).
+ * Prüfsumme und Version werden erst nach fehlerfreiem Füllen gespeichert.
+ */
+function kurswasser_legal_sync(bool $recheck = false): void
+{
+    $state = get_option('kurswasser_legal_templates_state');
+    $state = is_array($state) ? $state : [];
+    if (! $state && is_string($legacy = get_option('kurswasser_legal_templates_hash'))) {
+        // Bisheriger Stand (nur Prüfsumme): übernehmen, damit nach dem Update nicht alles neu gemeldet wird.
+        $state = ['hash' => $legacy];
+    }
+    $sameVersion = ($state['version'] ?? '') === KURSWASSER_VERSION;
+    if (! $recheck && $sameVersion && time() - (int) ($state['checked'] ?? 0) < DAY_IN_SECONDS) {
         return;
     }
     $hash = kurswasser_legal_templates_hash();
-    if (get_option('kurswasser_legal_templates_hash') === $hash) {
+    $save = static function () use ($hash): void {
+        update_option('kurswasser_legal_templates_state', ['version' => KURSWASSER_VERSION, 'hash' => $hash, 'checked' => time()], true);
+        delete_option('kurswasser_legal_templates_hash');
+    };
+    if (! $recheck && ($state['hash'] ?? '') === $hash) {
+        $save();
+
         return;
     }
-    update_option('kurswasser_legal_templates_hash', $hash, false);
-    $result = kurswasser_fill_legal_pages();
+    if (! kurswasser_legal_lock(true)) {
+        return; // Eine andere Anfrage gleicht gerade ab.
+    }
+    try {
+        $result = kurswasser_fill_legal_pages(false, true);
+        if (in_array('error', $result, true)) {
+            return; // Zustand nicht speichern – nächster Admin-Aufruf versucht es erneut.
+        }
+        $notice = kurswasser_legal_notice_from_result($result);
+        if (array_filter($notice)) {
+            $notice['id'] = $hash;
+            update_option('kurswasser_legal_update_notice', $notice, false);
+        }
+        $save();
+    } finally {
+        kurswasser_legal_lock(false);
+    }
+}
+
+/**
+ * Hinweis-Inhalt (Seitentitel je Gruppe) aus dem Ergebnis von kurswasser_fill_legal_pages().
+ *
+ * @param array<string,string> $result
+ * @return array{updated:list<string>,pending:list<string>,edited:list<string>}
+ */
+function kurswasser_legal_notice_from_result(array $result): array
+{
     $pages = kurswasser_legal_pages();
     $pick = static fn (array $states): array => array_values(array_map(
         static fn (string $slug): string => $pages[$slug] ?? $slug,
         array_keys(array_filter($result, static fn (string $s): bool => in_array($s, $states, true)))
     ));
-    $notice = ['updated' => $pick(['updated', 'filled']), 'edited' => $pick(['edited'])];
-    if ($notice['updated'] || $notice['edited']) {
-        update_option('kurswasser_legal_update_notice', $notice, false);
+
+    return ['updated' => $pick(['updated', 'filled']), 'pending' => $pick(['pending']), 'edited' => $pick(['edited'])];
+}
+
+add_action('admin_init', static function (): void {
+    if (! current_user_can('manage_options') || wp_doing_ajax()) {
+        return;
     }
+    kurswasser_legal_sync();
 });
 
+/*
+ * Hinweis nach einem Vorlagen-Update: bleibt, bis die Person ihn wegklickt (je Admin in User-Meta, per AJAX
+ * mit Nonce). Nicht im Block-/Website-Editor (dort würde er unsichtbar als Snackbar o. Ä. verbraucht).
+ */
 add_action('admin_notices', static function (): void {
     if (! current_user_can('manage_options')) {
         return;
     }
-    $notice = get_option('kurswasser_legal_update_notice');
-    if (! is_array($notice)) {
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && $screen->is_block_editor()) {
         return;
     }
-    delete_option('kurswasser_legal_update_notice');
-    echo '<div class="notice notice-info is-dismissible">';
+    $notice = get_option('kurswasser_legal_update_notice');
+    if (! is_array($notice) || empty($notice['id'])) {
+        return;
+    }
+    $id = (string) $notice['id'];
+    if (get_user_meta(get_current_user_id(), 'kurswasser_legal_notice_dismissed', true) === $id) {
+        return;
+    }
+    echo '<div class="notice notice-info is-dismissible" data-kw-legal-notice="'.esc_attr($id).'">';
     if (! empty($notice['updated'])) {
-        echo '<p><strong>'.esc_html__('Rechtstext-Vorlagen aktualisiert:', 'kurswasser').'</strong> '
+        echo '<p><strong>'.esc_html__('Rechtstext-Vorlagen in Entwürfe übernommen:', 'kurswasser').'</strong> '
             .esc_html(implode(', ', (array) $notice['updated'])).'. '
             .esc_html__('Bitte die geänderten Seiten prüfen.', 'kurswasser').'</p>';
+    }
+    if (! empty($notice['pending'])) {
+        $url = wp_nonce_url(admin_url('admin-post.php?action=kurswasser_legal_fill'), 'kurswasser_legal_fill');
+        echo '<p><strong>'.esc_html__('Neue Rechtstext-Vorlagen für veröffentlichte Seiten:', 'kurswasser').'</strong> '
+            .esc_html(implode(', ', (array) $notice['pending'])).'. '
+            .esc_html__('Die Seiten sind live und wurden deshalb nicht automatisch geändert. Bitte die Vorlagen prüfen und dann übernehmen (nur unbearbeitete Seiten werden ersetzt).', 'kurswasser').'</p>'
+            .'<p><a class="button button-primary" href="'.esc_url($url).'">'.esc_html__('Vorlagen übernehmen', 'kurswasser').'</a></p>';
     }
     if (! empty($notice['edited'])) {
         echo '<p><strong>'.esc_html__('Neue Rechtstext-Vorlagen nicht übernommen', 'kurswasser').'</strong> '
@@ -232,6 +338,24 @@ add_action('admin_notices', static function (): void {
             .esc_html(implode(', ', (array) $notice['edited'])).'</p>';
     }
     echo '</div>';
+    $nonce = wp_create_nonce('kurswasser_legal_notice');
+    // Wegklicken: common.js entfernt den Hinweis; hier nur die Entscheidung je Admin speichern.
+    echo '<script>document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-kw-legal-notice] .notice-dismiss");if(!b){return;}'
+        .'var d=new FormData();d.append("action","kurswasser_legal_notice_dismiss");d.append("id",b.closest("[data-kw-legal-notice]").getAttribute("data-kw-legal-notice"));d.append("_ajax_nonce",'.wp_json_encode($nonce).');'
+        .'fetch('.wp_json_encode(admin_url('admin-ajax.php')).',{method:"POST",body:d,credentials:"same-origin"});});</script>';
+});
+
+add_action('wp_ajax_kurswasser_legal_notice_dismiss', static function (): void {
+    check_ajax_referer('kurswasser_legal_notice');
+    if (! current_user_can('manage_options')) {
+        wp_send_json_error(null, 403);
+    }
+    $id = sanitize_key(wp_unslash((string) ($_POST['id'] ?? '')));
+    if ($id === '') {
+        wp_send_json_error(null, 400);
+    }
+    update_user_meta(get_current_user_id(), 'kurswasser_legal_notice_dismissed', $id);
+    wp_send_json_success();
 });
 
 /**
@@ -299,7 +423,17 @@ add_action('admin_post_kurswasser_legal_fill', static function (): void {
         wp_die(esc_html__('Keine Berechtigung.', 'kurswasser'), '', ['response' => 403]);
     }
     check_admin_referer('kurswasser_legal_fill');
-    kurswasser_fill_legal_pages();
+    if (kurswasser_legal_lock(true)) {
+        try {
+            $result = kurswasser_fill_legal_pages();
+            // Erledigt: Der Hinweis auf ausstehende Vorlagen verschwindet (bei einem Fehler bleibt er stehen).
+            if (! in_array('error', $result, true)) {
+                delete_option('kurswasser_legal_update_notice');
+            }
+        } finally {
+            kurswasser_legal_lock(false);
+        }
+    }
     kurswasser_assign_legal_pages();
     wp_safe_redirect(wp_get_referer() ?: admin_url('edit.php?post_type=page'));
     exit;
@@ -307,21 +441,30 @@ add_action('admin_post_kurswasser_legal_fill', static function (): void {
 
 /**
  * Platzhalter für Redakteure im Frontend hervorheben (nur Textknoten, keine Attribute). Inhalte von
- * <script>, <style> und <textarea> bleiben samt Tags unverändert (ein <mark> dort wäre Code bzw. Rohtext).
+ * <script>, <style>, <textarea> und <option> bleiben samt Tags unverändert (ein <mark> dort wäre Code bzw.
+ * Rohtext). Als Tag gilt nur „<“ gefolgt von Buchstabe, „/“ oder „!“ – ein loses „<“ im Text ist Text.
+ * Bei einem Regex-Fehler (z. B. Backtrack-Limit) bleibt das Markup unverändert.
  */
 function kurswasser_mark_legal_placeholders(string $html): string
 {
     if (! str_contains($html, '[[Betreiber:')) {
         return $html;
     }
-    // Gruppe 1: Tags bzw. ganze script/style/textarea-Elemente (unverändert), Gruppe 3: Text.
-    return (string) preg_replace_callback(
-        '/(<!--.*?-->|<(script|style|textarea)\b[^>]*>.*?<\/\2\s*>|<[^>]*>)|([^<]+|<)/is',
-        static fn (array $m): string => isset($m[3]) && $m[3] !== '' && str_contains($m[3], '[[Betreiber:')
-            ? (string) preg_replace('/\[\[Betreiber:[^\[\]]*\]\]/u', '<mark class="kw-legal-placeholder">$0</mark>', $m[3])
-            : $m[0],
+    // Gruppe 1: Tags bzw. ganze script/style/textarea/option-Elemente (unverändert), Gruppe 3: Text.
+    $marked = preg_replace_callback(
+        '/(<!--.*?-->|<(script|style|textarea|option)\b[^>]*>.*?<\/\2\s*>|<[a-zA-Z\/!][^>]*>)|([^<]+|<)/is',
+        static function (array $m): string {
+            if (! isset($m[3]) || $m[3] === '' || ! str_contains($m[3], '[[Betreiber:')) {
+                return $m[0];
+            }
+            $text = preg_replace('/\[\[Betreiber:[^\[\]]*\]\]/u', '<mark class="kw-legal-placeholder">$0</mark>', $m[3]);
+
+            return is_string($text) ? $text : $m[0];
+        },
         $html
     );
+
+    return is_string($marked) ? $marked : $html;
 }
 
 add_filter('the_content', static function ($content) {
@@ -352,11 +495,14 @@ add_filter('render_block', static function (string $html, array $block): string 
     if (($block['blockName'] ?? '') !== 'core/html' || ! str_contains($html, 'kw-footer-links')) {
         return $html;
     }
+    // Listenpunkt des Knopfs mit verstecken (consent.js blendet ihn samt Knopf ein) – ohne JavaScript kein
+    // leerer Punkt. Die Template-Part-Ausgabe hat den Shortcode meist schon ersetzt, daher beide Formen.
+    $html = (string) preg_replace('/<li>(\s*(?:\[kurswasser_consent_settings\b|<button\b[^>]*\bdata-kw-consent-open\b))/', '<li hidden data-kw-consent-wrap>$1', $html);
     if (str_contains($html, '[kurswasser_consent_settings')) {
         $html = do_shortcode($html);
     }
 
-    return (string) preg_replace('/<li>\s*<\/li>/', '', $html);
+    return (string) preg_replace('/<li\b[^>]*>\s*<\/li>/', '', $html);
 }, 10, 2);
 
 if (defined('WP_CLI') && WP_CLI) {
