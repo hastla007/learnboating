@@ -1,29 +1,37 @@
-# BoatingSchool Mobile App – WordPress handoff
+# BoatingSchool Mobile API für WordPress
 
-This package carries forward the supplied concept, UI prototype, and OpenAPI contract and adds a small WordPress REST API plugin foundation.
+Das Plugin stellt die API-Routen aus `openapi-wordpress-mobile-v1.yaml` im Namespace `/wp-json/boatingschool/v1` bereit. Es verwendet WordPress-Konten, eigene Content-Types für Kursinhalte und LearnDash-Kurse als optionalen Kurs-Adapter.
 
-## Install
+## Installation
 
-Copy `wp-plugin/boatingschool-mobile-api/boatingschool-mobile-api.php` to `wp-content/plugins/boatingschool-mobile-api/`, activate **BoatingSchool Mobile API**, and serve the WordPress site over HTTPS. The namespace is `wp-json/boatingschool/v1`.
+1. Das Verzeichnis `wp-plugin/boatingschool-mobile-api/` nach `wp-content/plugins/` kopieren.
+2. In WordPress **BoatingSchool Mobile API** aktivieren. Beim Aktivieren wird die Tabelle für widerrufbare Gerätesitzungen angelegt.
+3. Unter **Einstellungen → BoatingSchool API** Tenant-Slug, Shop-URL und Einlösecodes im Format `CODE=KURS-ID` setzen.
+4. Kurse, Module, Fragen, Lektionen und Navigationsaufgaben in der WP-Administration anlegen und veröffentlichen. Kurs-IDs werden in den Metadaten der Module/Fragen/Lektionen eingetragen.
+5. Mit HTTPS betreiben, Permalinks aktivieren und den Login-Endpunkt gegen Brute-Force drosseln (Webserver/WAF oder vorhandenes Security-Plugin).
 
-## Implemented routes
+## Inhaltsmodell
 
-| Method | Route | Purpose |
-|---|---|---|
-| POST | `/auth/login` | WordPress username/password login; returns a revocable bearer token (12-hour expiry) |
-| POST | `/auth/logout` | Revoke the current bearer token |
-| GET | `/me` | Current WordPress user |
-| GET | `/courses` | Published courses, default post types `sfwd-courses` and `course` |
-| GET | `/courses/{courseId}` | Published course detail; checks `read_post` capability |
+- **Kurs**: eigener Typ `bsm_course`, außerdem werden vorhandene `sfwd-courses` und `course` erkannt. Im Metabox-Bereich „BoatingSchool API“ Zugangsmodus, Tenant, Shop-Link und Prüfungsregeln pflegen. `free` gibt den Kurs frei; andere Werte erfordern LearnDash-Zugang oder einen eingelösten Code.
+- **Modul**: `bsm_module`, mit Kurs-ID und optionaler Themenkennung.
+- **Frage**: `bsm_question`, Fragetext im Editor, Antwortoptionen als JSON `[{"id":"a","text":"Antwort A"}]`, korrekte IDs als JSON-Array ` ["a"] `, plus Kurs-/Modul-ID und Thema.
+- **Video-Lektion**: `bsm_lesson`, Kurs-ID, Medien-URL und Dauer. Leere Medien-URL wird als nicht abspielbarer Platzhalter ausgegeben.
+- **Navigationsaufgabe**: `bsm_navigation_task`, Kurs-ID, Teile als JSON im Options-Feld und Musterlösung im Lösungsfeld.
 
-Requests use `Authorization: Bearer <access_token>`. Login body: `{"username":"…","password":"…"}`. Course lists accept `page` and `per_page` (maximum 50).
+Eigene LMS-Systeme können `boatingschool_mobile_course_post_types` und `boatingschool_mobile_course_payload` filtern. LearnDash-Enrolments werden direkt geprüft; Fragen und Module müssen derzeit in das BoatingSchool-Inhaltsmodell importiert oder über die Adapter erweitert werden.
 
-## Connect the WordPress course model
+## API und Authentifizierung
 
-The plugin intentionally does not assume a specific LMS schema or grant purchase access. It only exposes published posts of the configured course post types. Configure post types with `boatingschool_mobile_course_post_types` and enrich output with `boatingschool_mobile_course_payload`. Add the LMS-specific entitlement check before exposing paid course content; implement it in the host plugin or a site-specific add-on. The default WordPress `read_post` check alone is not a paid-course authorization system.
+Basis: `https://<wordpress-host>/wp-json/boatingschool/v1`. Login erwartet E-Mail, Passwort und Gerätename. Das Plugin stellt kurzlebige Bearer-Tokens (15 Minuten) und rotierende Refresh-Tokens (90 Tage) aus; nur Token-Hashes werden in der WP-Datenbank gespeichert. Geschützte Routen verlangen `Authorization: Bearer …` sowie `X-Tenant-Slug` (Standard-Tenant, wenn ausgelassen). WordPress-Passwort-Reset-Mails werden verwendet; E-Mail-Verifikationsmails werden durch das Plugin signiert und bestätigt.
 
-## Scope and deployment notes
+Die API umfasst Login/Refresh/Logout, Sitzungsverwaltung, Profil, Kurse/Module, Smarttrainer/Versuche, Favoriten/Sammlungen/Fortschritt, Prüfungen, Video/Fortschritt, Navigation, Code-Einlösung und Datenschutzexport. Die genaue Request-/Response-Spezifikation ist `openapi-wordpress-mobile-v1.yaml`.
 
-This is an integration foundation, not the full mobile API described by the supplied OpenAPI file. Attempts, exam sessions, favorites, progress, memberships/tenants, refresh-token rotation, password recovery, and LMS entitlements need adapters to the installed WP/LMS data model before an app release. Tokens are stored as hashed transient keys and expire after 12 hours; persistent storage and per-device session management should replace this for production-scale deployments. Use HTTPS, rate-limit login at the edge, and avoid logging credentials or bearer tokens.
+## Einlösecodes und Zugriff
 
-The supplied OpenAPI contract retains its original `/api/v1` paths and is the product target contract. This plugin currently exposes the small subset above under WordPress's `/wp-json/boatingschool/v1` namespace. Keep these contracts aligned as routes are implemented.
+Codes werden in den Plugin-Einstellungen als `CODE=KURS-ID` gepflegt und nach Einlösung dem Nutzerzugang hinzugefügt. Jeder Code ist einmalig. LearnDash-Enrolments werden als Kurszugang akzeptiert. Ein eigener WooCommerce- oder CRM-Kaufabgleich ist nicht enthalten; die Shop-URL bleibt ein externer Link.
+
+## Betriebsgrenzen, die vor Produktivstart zu konfigurieren sind
+
+Die Implementierung ist auf ein WordPress-Projekt je Tenant ausgelegt; der Tenant-Slug ist Kontext und Membership-Prüfung, kein vollständiger Multi-Tenant-SaaS-Isolationsmechanismus. Inhalte, Kursberechtigungen, Exam-Regeln, Codes und URLs müssen in der WP-Administration gepflegt werden. Prüfungsregeln haben ein Standardprofil und können pro Kurs als JSON überschrieben werden. E-Mail-Transport, WP-Uploads, Reverse-Proxy-Weitergabe des `Authorization`-Headers, HTTPS, Backups und Rate-Limits hängen von der Hosting-Konfiguration ab.
+
+Die ZIP enthält zusätzlich den ursprünglichen Konzepttext und UI-Entwurf. Wo darin Laravel als Backend genannt ist, beschreibt das den früheren Zielentwurf; diese WordPress-Ergänzung ist der aktuelle API-Pfad.
