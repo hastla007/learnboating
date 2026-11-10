@@ -434,6 +434,15 @@ echo "Prüfung\n";
 $exams = $api('GET', "/courses/{$courseId}/exams", [], $tokenA);
 $kinds = array_column($exams['body']['data'] ?? [], 'kind');
 $check($exams['status'] === 200 && in_array('fixed_paper', $kinds, true) && in_array('rule_set', $kinds, true), 'Übersicht mit Regelwerk und festen Bögen');
+// Seit 1.6.0: Bestehensgrenzen strukturiert und Fragetypen vor dem Start.
+$sim = array_values(array_filter($exams['body']['data'], static fn ($o) => $o['kind'] === 'rule_set'))[0];
+$pr = $sim['pass_rule'];
+$partsText = implode(' · ', array_map(static fn ($pt) => "{$pt['label']} {$pt['minimum_correct']}/{$pt['of']}", $pr['parts']));
+$check(($pr['parts'] !== [] ? ($pr['minimum_correct'] === null && str_starts_with($pr['description'], $partsText) && array_sum(array_column($pr['parts'], 'of')) === $sim['question_count']) : is_int($pr['minimum_correct'])), 'pass_rule: Grenzen je Teil passend zum Text ('.$pr['description'].')');
+$check($courseCode !== 'SBF-SEE' || ($pr['parts'] !== [] && array_column($pr['parts'], 'minimum_correct') === [5, 18] && array_column($pr['parts'], 'of') === [7, 23]), 'SBF See: Basis 5/7 und See 18/23');
+$check($sim['question_types'] === null || array_sum($sim['question_types']) === $sim['question_count'], 'Zufallsprüfung: question_types null oder Summe = Fragenzahl');
+$fixed = array_values(array_filter($exams['body']['data'], static fn ($o) => $o['kind'] === 'fixed_paper'))[0];
+$check(is_array($fixed['question_types']) && array_sum($fixed['question_types']) === $fixed['question_count'] && array_diff(array_keys($fixed['question_types']), ['single_choice', 'multi_choice', 'open_text']) === [], 'fester Bogen: Fragen je Typ, Summe = Fragenzahl');
 $paper = null;
 foreach ($exams['body']['data'] as $opt) {
     if ($opt['kind'] === 'fixed_paper' && $opt['startable']) {

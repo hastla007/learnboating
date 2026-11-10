@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.5.0
+  version: 1.6.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -2776,8 +2776,20 @@ components:
       properties:
         description: {type: string, description: 'z. B. „Basis 5/7 · See 18/23 · 60 Minuten“'}
         note: {type: [string, 'null']}
-        minimum_correct: {type: [integer, 'null']}
+        minimum_correct: {type: [integer, 'null'], description: 'Gesamtgrenze, wenn es keine Prüfungsteile gibt (seit 1.6.0 in der Prüfungsübersicht befüllt)'}
         minimum_score: {type: [number, 'null']}
+        parts:
+          type: array
+          description: >-
+            Seit 1.6.0 (Prüfungsübersicht): Bestehensgrenze je Prüfungsteil, z. B. SBF See
+            Basisfragen 5 von 7 und Spezifische See 18 von 23. Leer, wenn nur eine Gesamtgrenze gilt.
+          items:
+            type: object
+            required: [label, minimum_correct, of]
+            properties:
+              label: {type: string}
+              minimum_correct: {type: integer}
+              of: {type: integer}
     ExamResultSummary:
       type: object
       required: [exam_id, status, passed, score, correct_count, question_count]
@@ -2800,6 +2812,17 @@ components:
         question_count: {type: integer}
         duration_seconds: {type: [integer, 'null'], description: null = Zeit ergibt sich beim Start (Kombikurse) bzw. ohne Zeitlimit}
         pass_rule: {$ref: '#/components/schemas/PassRule'}
+        question_types:
+          description: >-
+            Seit 1.6.0: Anzahl der Fragen je Fragetyp. Feste Bögen immer; Zufallsprüfung nur, wenn alle
+            Fragen der Prüfungsmodule denselben Typ haben (sonst null – die Verteilung steht erst beim Start fest).
+          oneOf:
+            - type: object
+              properties:
+                single_choice: {type: integer}
+                multi_choice: {type: integer}
+                open_text: {type: integer}
+            - type: 'null'
         startable: {type: boolean}
         locked: {type: boolean}
         lock_reason: {type: [string, 'null'], enum: [trial, drip, null]}

@@ -43,7 +43,9 @@ final class ExamController extends BaseController
                 'paper_number' => null,
                 'question_count' => (int) $o['rule']['questions'],
                 'duration_seconds' => (int) $o['rule']['time_limit_seconds'] > 0 ? (int) $o['rule']['time_limit_seconds'] : null,
-                'pass_rule' => ['description' => (string) $o['rule']['passing'], 'note' => $o['rule']['note'], 'minimum_correct' => null, 'minimum_score' => null],
+                'pass_rule' => self::passRule((string) $o['rule']['passing'], $o['rule']['note'], $o['rule']['passing_parts'] ?? null),
+                // Zufallsprüfung: Verteilung nur bekannt, wenn alle Fragen der Module denselben Typ haben; sonst null.
+                'question_types' => isset($o['rule']['types']) ? (object) $o['rule']['types'] : null,
                 'startable' => ! $o['simulation_locked'],
                 'locked' => (bool) $o['simulation_locked'],
                 'lock_reason' => $o['simulation_locked'] ? 'trial' : null,
@@ -61,7 +63,8 @@ final class ExamController extends BaseController
                 'paper_number' => (int) $p['number'],
                 'question_count' => (int) $p['questions'],
                 'duration_seconds' => $p['rule'] === null && $o['rule'] !== null && (int) $o['rule']['time_limit_seconds'] > 0 ? (int) $o['rule']['time_limit_seconds'] : null,
-                'pass_rule' => ['description' => (string) ($p['rule'] ?? ($o['rule']['passing'] ?? '')), 'note' => $o['rule']['note'] ?? null, 'minimum_correct' => null, 'minimum_score' => null],
+                'pass_rule' => self::passRule((string) ($p['rule'] ?? ($o['rule']['passing'] ?? '')), $o['rule']['note'] ?? null, $p['passing'] ?? null),
+                'question_types' => (object) ($p['types'] ?? []),
                 'startable' => ! $p['locked'] && $o['rule'] !== null,
                 'locked' => (bool) $p['locked'],
                 'lock_reason' => $p['lock_reason'],
@@ -319,6 +322,23 @@ final class ExamController extends BaseController
             'correct_count' => (int) $score,
             'question_count' => (int) $max,
             'evaluated_at' => TokenAuth::iso($at),
+        ];
+    }
+
+    /**
+     * Bestehensregel: Text wie im Web plus strukturierte Grenzen (seit 1.6.0). Mit Prüfungsteilen
+     * (z. B. Basis 5/7, See 18/23) steht die Mindestzahl je Teil in parts, sonst gesamt in minimum_correct.
+     * @param ?array{parts:list<array{label:string,minimum_correct:int,of:int}>,minimum_correct:?int} $structure
+     * @return array<string,mixed>
+     */
+    private static function passRule(string $description, ?string $note, ?array $structure): array
+    {
+        return [
+            'description' => $description,
+            'note' => $note,
+            'minimum_correct' => $structure['minimum_correct'] ?? null,
+            'minimum_score' => null,
+            'parts' => $structure['parts'] ?? [],
         ];
     }
 }

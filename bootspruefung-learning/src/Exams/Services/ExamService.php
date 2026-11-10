@@ -77,9 +77,11 @@ final class ExamService
         }
         foreach ($paperList as $index => $paper) {
             $paperRule = null;
+            $paperPassing = $rule !== null ? $this->passingStructure((array) $rule->passing, (int) $paper->question_count) : null;
             if ($perPaper) {
                 [$pp, $pt] = $this->applicableParts((array) $rule->passing, $paperQuestions[(int) $paper->id] ?? [], (int) $rule->time_limit_seconds);
                 $paperRule = $this->passingText($pp, (int) $paper->question_count, $pt);
+                $paperPassing = $this->passingStructure($pp, (int) $paper->question_count);
             }
             $last = $lastByPaper[(int) $paper->id] ?? null;
             $trialLocked = $limit !== null && $index >= $limit;
@@ -89,6 +91,9 @@ final class ExamService
                 'number' => (int) $paper->paper_number,
                 'questions' => (int) $paper->question_count,
                 'rule' => $paperRule,
+                // Bestehensgrenzen je Teil bzw. gesamt und Anzahl je Fragetyp (strukturiert, z. B. für Apps).
+                'passing' => $paperPassing,
+                'types' => $this->typeCounts($paperQuestions[(int) $paper->id] ?? []),
                 // gesperrt: kostenloser Teilumfang (lock_reason „trial“) oder Module noch nicht freigegeben („drip“, ab unlock_at).
                 'locked' => $trialLocked || $dripAt !== null,
                 'lock_reason' => $trialLocked ? 'trial' : ($dripAt !== null ? 'drip' : null),
@@ -776,7 +781,60 @@ final class ExamService
             'questions' => $count,
             'passing' => $this->passingText($rule->passing, $count, (int) $rule->time_limit_seconds),
             'note' => $rule->passing['note'] ?? null,
+            'passing_parts' => $this->passingStructure((array) $rule->passing, $count),
+            'types' => $this->simulationTypes($rule, $count),
         ];
+    }
+
+    /**
+     * Bestehensgrenzen strukturiert (wie passingText): je Teil Mindestzahl richtiger Antworten,
+     * ohne Teile eine Gesamtgrenze.
+     * @param array<string,mixed> $passing
+     * @return array{parts:list<array{label:string,minimum_correct:int,of:int}>,minimum_correct:?int}
+     */
+    private function passingStructure(array $passing, int $total): array
+    {
+        $parts = $passing['parts'] ?? [];
+        if ($parts !== []) {
+            return ['parts' => array_map(static fn ($p) => ['label' => (string) $p['label'], 'minimum_correct' => (int) $p['min_correct'], 'of' => (int) $p['of']], array_values($parts)), 'minimum_correct' => null];
+        }
+
+        return ['parts' => [], 'minimum_correct' => (int) ceil(((float) ($passing['min_correct_ratio'] ?? 0.75)) * $total - 1e-9)];
+    }
+
+    /**
+     * Anzahl je Fragetyp für feste Fragen. @param list<int> $questionIds
+     * @return array<string,int> single_choice|multi_choice|open_text => Anzahl
+     */
+    private function typeCounts(array $questionIds): array
+    {
+        if ($questionIds === []) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->db->get_results(
+            "SELECT r.question_type AS type, COUNT(*) AS n FROM {$this->t('question')} q JOIN {$this->t('question_revision')} r ON r.id = q.current_revision_id ".Overrides::rightsJoin('question', 'q', 'o').'
+             WHERE q.id IN ('.implode(',', array_map('intval', $questionIds)).') AND '.$this->content->deliverableQuestionSql().' GROUP BY r.question_type'
+        ) as $row) {
+            $out[(string) $row->type] = (int) $row->n;
+        }
+        ksort($out);
+
+        return $out;
+    }
+
+    /**
+     * Zufallsprüfung: Fragetypen stehen erst beim Ziehen fest. Haben alle Fragen der Module des
+     * Regelwerks denselben Typ (z. B. SBF See nur Einfachauswahl), ist die Verteilung trotzdem
+     * eindeutig; sonst null (gemischt).
+     * @return ?array<string,int>
+     */
+    private function simulationTypes(object $rule, int $count): ?array
+    {
+        $moduleIds = array_values(array_unique(array_map(static fn ($b) => (int) $b->module_id, $this->content->blueprints((int) $rule->id))));
+        $pool = $this->typeCounts(array_merge(...array_values($this->content->moduleQuestionIds($moduleIds)) ?: [[]]));
+
+        return count($pool) === 1 ? [(string) array_key_first($pool) => $count] : null;
     }
 
     /**

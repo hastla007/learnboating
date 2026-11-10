@@ -512,6 +512,15 @@ beibehalten, wo es passt. Abweichungen:
 
 ## 8. Änderungsprotokoll
 
+### 1.6.0 (additiv)
+
+- **Bestehensgrenzen strukturiert:** `pass_rule.parts` in `GET /courses/{courseId}/exams` (je Teil
+  `label`, `minimum_correct`, `of`, z. B. Basisfragen 5/7 und Spezifische See 18/23); ohne Teile
+  steht die Gesamtgrenze in `pass_rule.minimum_correct`. Der Text `description` bleibt.
+- **Fragetypen vor dem Start:** `question_types` je Prüfungsoption (`single_choice`, `multi_choice`,
+  `open_text` → Anzahl). Feste Bögen immer; Zufallsprüfung nur, wenn alle Fragen der Prüfungsmodule
+  denselben Typ haben, sonst `null`.
+
 ### 1.5.0 (additiv)
 
 - **Knoten als eigener Bereich:** `knots` in `GET /courses/{courseId}` (Kapitel-ID, Lektionen,
