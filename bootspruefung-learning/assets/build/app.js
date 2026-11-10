@@ -2419,8 +2419,33 @@
 		});
 	}
 
+	// Automatische Prüfung der eigenen Werte (nur Hilfe): Ergebnis je Wert als Text, nicht nur über die Farbe.
+	function navigationCheckNumber(n) {
+		return String(Math.round(Math.abs(n) * 100) / 100).replace('.', ',');
+	}
+
+	function navigationCheckBlock(check) {
+		var list = el('ul', { class: 'bp-nav-check-list' }, check.values.map(function (v) {
+			var tolerance = navigationCheckNumber(v.tolerance) + (v.tolerance_unit === '°' || v.tolerance_unit === "'" ? '' : ' ') + v.tolerance_unit;
+			var vars = { label: v.label, given: v.given, expected: v.expected || '–', tolerance: tolerance, deviation: v.deviation === null ? '' : navigationCheckNumber(v.deviation) + (v.tolerance_unit === '°' || v.tolerance_unit === "'" ? '' : ' ') + v.tolerance_unit };
+			var key = v.given === null ? 'nav_check_missing' : (v.ok ? 'nav_check_ok' : 'nav_check_off');
+			return el('li', { class: v.ok ? 'is-ok' : 'is-off' }, [
+				el('span', { class: 'bp-nav-check-mark', text: v.ok ? t('nav_check_mark_ok') : t('nav_check_mark_off') }),
+				el('span', { text: t(key, vars) })
+			]);
+		}));
+		return el('div', { class: 'bp-nav-check is-' + check.status }, [
+			el('p', { class: 'bp-nav-check-title', text: t('nav_check_title') }),
+			el('p', { class: 'bp-nav-check-summary', text: check.message }),
+			list,
+			el('p', { class: 'bp-muted bp-nav-check-hint', text: t('nav_check_hint') })
+		]);
+	}
+
 	function navigationQuestion(slug, q, onDone) {
 		var item = el('li', { class: 'bp-card bp-nav-question' + (q.done ? ' is-correct' : '') });
+		// Bleibt über Neuaufbauten bestehen, damit Screenreader das Prüfergebnis ansagen (aria-live).
+		var checkLive = el('div', { class: 'bp-nav-check-live', 'aria-live': 'polite' });
 		function render(focusKey) {
 			item.textContent = '';
 			item.appendChild(el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('nav_question', { number: q.number }) }), q.self_assessment ? badge(t('assess_' + q.self_assessment), q.self_assessment === 'correct' ? 'ok' : (q.self_assessment === 'wrong' ? 'bad' : 'warn')) : null]));
@@ -2428,7 +2453,11 @@
 			var area = el('textarea', { class: 'bp-notes', rows: '2', 'aria-label': t('nav_own_solution') + ' – ' + t('nav_question', { number: q.number }), placeholder: t('nav_own_solution') });
 			area.value = q.my_answer || '';
 			item.appendChild(area);
+			checkLive.textContent = '';
 			if (q.answer === null) {
+				if (q.auto_check) {
+					item.appendChild(el('p', { class: 'bp-muted bp-nav-check-available', text: t('nav_check_available') }));
+				}
 				var reveal = el('button', { type: 'button', class: 'bp-button', text: t('nav_show_solution') });
 				reveal.addEventListener('click', function () {
 					if (isBusy(reveal)) { return; }
@@ -2436,6 +2465,7 @@
 					api('POST', 'courses/' + encodeURIComponent(slug) + '/navigation-questions/' + q.id, { answer: area.value || null }).then(function (r) {
 						q.answer = r.answer;
 						q.my_answer = r.my_answer !== undefined ? r.my_answer : area.value;
+						q.check = r.check || null;
 						render('official');
 					}).catch(function (e) { setBusy(reveal, false); alertMessage(item, e); });
 				});
@@ -2444,6 +2474,11 @@
 			}
 			var official = el('div', { class: 'bp-model', tabindex: '-1' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer)]);
 			item.appendChild(official);
+			// Prüfergebnis erst nach dem Einhängen füllen, damit die Live-Region die Änderung meldet.
+			item.appendChild(checkLive);
+			if (q.check) {
+				checkLive.appendChild(navigationCheckBlock(q.check));
+			}
 			var group = el('div', { class: 'bp-actions', role: 'group', 'aria-label': t('self_assessment') });
 			var buttons = [];
 			['correct', 'partly', 'wrong'].forEach(function (a) {
@@ -2455,6 +2490,7 @@
 						q.self_assessment = a;
 						q.done = true;
 						q.my_answer = r && r.my_answer !== undefined ? r.my_answer : area.value;
+						if (r && r.check !== undefined) { q.check = r.check; }
 						item.classList.add('is-correct');
 						render('assess-' + a);
 						if (onDone) { onDone(); }
@@ -3631,6 +3667,14 @@
 		var nav = el('ol', { class: 'bp-exam-nav', 'aria-label': t('exam_nav') });
 		var stage = el('div', { class: 'bp-exam-stage' });
 		var submitting = false;
+		// Markierungen „zur Überprüfung“: Zähler und Filter der Fragenübersicht.
+		var flagCount = el('span', { class: 'bp-exam-flag-count' });
+		var onlyFlagged = el('input', { type: 'checkbox', id: 'bp-exam-only-flagged' });
+		onlyFlagged.addEventListener('change', function () { renderNav(); });
+
+		function flaggedCount() {
+			return questions.filter(function (q) { return q.flagged; }).length;
+		}
 
 		function answered(q) {
 			return q.type === 'open_text' ? q.known !== null : q.selected_ids.length > 0;
@@ -3640,12 +3684,39 @@
 			var n = questions.filter(answered).length;
 			doneCount.textContent = t('exam_progress', { n: n, total: questions.length });
 			doneFill.style.width = (n * 100 / Math.max(questions.length, 1)) + '%';
+			var flagged = flaggedCount();
+			flagCount.textContent = t('exam_flag_count', { n: flagged });
+			if (!flagged) { onlyFlagged.checked = false; }
+			onlyFlagged.disabled = !flagged;
 			nav.textContent = '';
 			questions.forEach(function (q, i) {
-				var b = el('button', { type: 'button', class: 'bp-exam-nav-item' + (answered(q) ? ' is-answered' : '') + (i === current ? ' is-current' : ''), 'aria-current': i === current ? 'step' : null, 'aria-label': t('exam_nav_item', { n: q.position, state: answered(q) ? t('answered') : t('unanswered') }), text: String(q.position) });
+				var b = el('button', { type: 'button', class: 'bp-exam-nav-item' + (answered(q) ? ' is-answered' : '') + (q.flagged ? ' is-flagged' : '') + (i === current ? ' is-current' : ''), 'aria-current': i === current ? 'step' : null, 'aria-label': t(q.flagged ? 'exam_nav_item_flagged' : 'exam_nav_item', { n: q.position, state: answered(q) ? t('answered') : t('unanswered') }), text: String(q.position) });
 				b.addEventListener('click', function () { current = i; renderQuestion(true); });
-				nav.appendChild(el('li', {}, [b]));
+				nav.appendChild(el('li', { hidden: onlyFlagged.checked && !q.flagged && i !== current }, [b]));
 			});
+		}
+
+		function flagButton(q) {
+			var b = el('button', { type: 'button', class: 'bp-button bp-exam-flag' + (q.flagged ? ' is-flagged' : ''), 'aria-pressed': q.flagged ? 'true' : 'false', title: t('exam_flag_hint'), text: t('exam_flag') });
+			b.addEventListener('click', function () {
+				if (isBusy(b) || submitting) { return; }
+				setBusy(b, true);
+				api('PUT', 'exam-sessions/' + s.id + '/answers/' + q.position + '/flag', { flagged: !q.flagged }).then(function (r) {
+					q.flagged = !!r.flagged;
+					setBusy(b, false);
+					b.setAttribute('aria-pressed', q.flagged ? 'true' : 'false');
+					b.classList.toggle('is-flagged', q.flagged);
+					status.textContent = t(q.flagged ? 'exam_flag_saved' : 'exam_flag_removed');
+					renderNav();
+				}).catch(function (e) {
+					setBusy(b, false);
+					status.textContent = e.message;
+					if (e.status === 422 && /abgelaufen|abgeschlossen/i.test(e.message)) {
+						viewExam(slug, s.id).catch(showError);
+					}
+				});
+			});
+			return b;
 		}
 
 		// Speichern je Frage strikt nacheinander: höchstens eine Anfrage gleichzeitig, der zuletzt gewählte
@@ -3719,7 +3790,7 @@
 			stage.textContent = '';
 			var name = 'bp-e-' + q.position;
 			var card = el('article', { class: 'bp-card bp-question' }, [
-				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: questions.length }) }), q.official_number ? el('span', { class: 'bp-pill', text: t('question_number', { number: q.official_number }) }) : null]),
+				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: questions.length }) }), q.official_number ? el('span', { class: 'bp-pill', text: t('question_number', { number: q.official_number }) }) : null, flagButton(q)]),
 				multiline('h2', q.text, 'bp-question-text'),
 				questionMedia(q.media)
 			]);
@@ -3792,7 +3863,9 @@
 				return;
 			}
 			var open = questions.filter(function (q) { return !answered(q); }).length;
-			if (!auto && !window.confirm(open > 0 ? t('confirm_submit_open', { n: open }) : t('confirm_submit'))) {
+			var flagged = flaggedCount();
+			var question = (flagged > 0 ? t('confirm_submit_flagged', { n: flagged }) + ' ' : '') + (open > 0 ? t('confirm_submit_open', { n: open }) : t('confirm_submit'));
+			if (!auto && !window.confirm(question)) {
 				return;
 			}
 			submitting = true;
@@ -3825,8 +3898,9 @@
 				stage,
 				el('aside', { class: 'bp-exam-side', 'aria-label': t('exam_overview') }, [
 					el('div', { class: 'bp-exam-progress' }, [doneCount, el('span', { class: 'bp-exam-bar', 'aria-hidden': 'true' }, [doneFill])]),
+					el('div', { class: 'bp-exam-flags' }, [flagCount, el('p', { class: 'bp-switch' }, [onlyFlagged, el('label', { for: 'bp-exam-only-flagged', text: t('exam_only_flagged') })])]),
 					nav,
-					el('p', { class: 'bp-exam-legend', 'aria-hidden': 'true' }, [el('span', { class: 'is-answered' }), t('answered'), el('span'), t('unanswered')]),
+					el('p', { class: 'bp-exam-legend', 'aria-hidden': 'true' }, [el('span', { class: 'is-answered' }), t('answered'), el('span'), t('unanswered'), el('span', { class: 'is-flagged' }), t('exam_flagged')]),
 					el('div', { class: 'bp-exam-footer' }, [submitButton, status])
 				])
 			])
@@ -3896,11 +3970,14 @@
 		var r = s.result;
 		var list = el('ol', { class: 'bp-review' });
 		var onlyWrong = el('input', { type: 'checkbox', id: 'bp-only-wrong' });
+		var onlyFlagged = el('input', { type: 'checkbox', id: 'bp-only-flagged' });
 		var wrong = 0;
+		var flagged = 0;
 		r.questions.forEach(function (q) {
 			if (!q.correct) { wrong++; }
-			var item = el('li', { class: 'bp-card bp-review-item ' + (q.correct ? 'is-correct' : 'is-wrong') }, [
-				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: r.questions.length }) }), badge(q.correct ? t('mark_correct') : (q.answered ? t('mark_wrong') : t('unanswered')), q.correct ? 'ok' : 'bad')]),
+			if (q.flagged) { flagged++; }
+			var item = el('li', { class: 'bp-card bp-review-item ' + (q.correct ? 'is-correct' : 'is-wrong') + (q.flagged ? ' is-flagged' : '') }, [
+				el('p', { class: 'bp-question-meta' }, [el('span', { class: 'bp-pill bp-pill-strong', text: t('exam_question_of', { n: q.position, total: r.questions.length }) }), badge(q.correct ? t('mark_correct') : (q.answered ? t('mark_wrong') : t('unanswered')), q.correct ? 'ok' : 'bad'), q.flagged ? badge(t('exam_flagged'), 'warn') : null]),
 				multiline('h3', q.text, 'bp-question-text'),
 				questionMedia(q.media)
 			]);
@@ -3918,6 +3995,7 @@
 			list.appendChild(item);
 		});
 		onlyWrong.addEventListener('change', function () { list.classList.toggle('bp-only-wrong', onlyWrong.checked); });
+		onlyFlagged.addEventListener('change', function () { list.classList.toggle('bp-only-flagged', onlyFlagged.checked); });
 
 		var parts = null;
 		if (r.parts.length) {
@@ -3977,8 +4055,10 @@
 			el('section', { class: 'bp-section' }, [
 				el('div', { class: 'bp-section-head' }, [
 					el('h2', { text: t('review_title') }),
-					el('p', { class: 'bp-switch' }, [onlyWrong, el('label', { for: 'bp-only-wrong', text: t('only_wrong') })])
+					el('p', { class: 'bp-switch' }, [onlyWrong, el('label', { for: 'bp-only-wrong', text: t('only_wrong') })]),
+					flagged ? el('p', { class: 'bp-switch' }, [onlyFlagged, el('label', { for: 'bp-only-flagged', text: t('only_flagged') })]) : null
 				]),
+				flagged ? el('p', { class: 'bp-muted bp-result-flagged', text: t('result_flagged', { n: flagged }) }) : null,
 				list
 			])
 		], t('result_title', { title: examTitle(s) }));

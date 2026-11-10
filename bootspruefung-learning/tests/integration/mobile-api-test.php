@@ -504,6 +504,35 @@ if ($task !== null) {
     $check($r['status'] === 404, 'fremde Teilaufgabe → 404');
 }
 
+// --- 1.4.0 (Navigation): automatische Prüfung der eigenen Werte (auto_check/check) -----------------
+echo "Navigation: automatische Prüfung (1.4.0)\n";
+if ($task !== null && $courseCode === 'SBF-SEE') {
+    $t = $api('GET', '/navigation-tasks/'.$task['id']."?course_id={$courseId}", [], $tokenA);
+    $parts = $t['body']['data']['parts'] ?? [];
+    $byNumber = array_column($parts, null, 'number');
+    $check(isset($byNumber[1], $byNumber[7]) && $byNumber[1]['auto_check'] === true && $byNumber[7]['auto_check'] === false && array_key_exists('check', $byNumber[2] ?? []), 'Aufgabe: auto_check je Teilaufgabe (NAV-01-01 ja, „Siehe Karte“ nein), Feld check');
+    $check(isset($byNumber[2]) && array_key_exists('check', $byNumber[2]) && $byNumber[2]['check'] === null, 'check null ohne eigene Antwort');
+    if (isset($byNumber[1], $byNumber[2], $byNumber[6], $byNumber[7])) {
+        // NAV-01-01: amtlich rwK = 079° (±2°); 045° aus dem Block oben weicht ab.
+        $a = $api('POST', '/navigation-tasks/'.$task['id'].'/parts/'.$byNumber[1]['id'], ['answer' => 'rwK = 80°', 'course_id' => $courseId], $tokenA);
+        $c = $a['body']['data']['check'] ?? null;
+        $check($a['status'] === 200 && $a['body']['data']['auto_check'] === true && ($c['status'] ?? null) === 'within' && ($c['values'][0]['label'] ?? null) === 'rwK' && $c['values'][0]['ok'] === true && $c['values'][0]['given'] === '080°' && $c['values'][0]['expected'] === '079°' && $c['values'][0]['deviation'] == 1, 'Antwort: check im Toleranzbereich (given, expected, deviation)');
+        $a = $api('POST', '/navigation-tasks/'.$task['id'].'/parts/'.$byNumber[2]['id'], ['answer' => 'MgK 069°', 'course_id' => $courseId], $tokenA);
+        $c = $a['body']['data']['check'] ?? null;
+        $check(($c['status'] ?? null) === 'deviates' && $c['values'][0]['ok'] === false && $c['values'][0]['deviation'] == -5 && $c['values'][0]['expected'] === '074°' && is_string($c['message']), 'Antwort: Abweichung erkannt (berichtigter MgK 074°)');
+        $a = $api('POST', '/navigation-tasks/'.$task['id'].'/parts/'.$byNumber[6]['id'], ['answer' => 'ST 066°, 4a 171°', 'course_id' => $courseId], $tokenA);
+        $c = $a['body']['data']['check'] ?? null;
+        $check(($c['status'] ?? null) === 'within' && count($c['values']) === 2 && $c['values'][0]['given'] === '171°' && $c['values'][1]['given'] === '066°', 'mehrere Peilungen über Beschriftung zugeordnet');
+        $a = $api('POST', '/navigation-tasks/'.$task['id'].'/parts/'.$byNumber[7]['id'], ['answer' => 'eingetragen', 'course_id' => $courseId], $tokenA);
+        $check($a['status'] === 200 && $a['body']['data']['auto_check'] === false && $a['body']['data']['check'] === null && is_string($a['body']['data']['solution']), 'Teilaufgabe ohne Werte: wie bisher, check null');
+        $t = $api('GET', '/navigation-tasks/'.$task['id']."?course_id={$courseId}", [], $tokenA);
+        $byNumber = array_column($t['body']['data']['parts'] ?? [], null, 'number');
+        $check(($byNumber[1]['check']['status'] ?? null) === 'within' && ($byNumber[2]['check']['status'] ?? null) === 'deviates', 'Aufgabe liefert check der gespeicherten Antworten');
+        $check(($byNumber[1]['self_assessment'] ?? null) === 'partly' && $byNumber[1]['done'] === true && $byNumber[1]['my_answer'] === 'rwK = 80°', 'Selbsteinschätzung bleibt maßgeblich und unverändert gespeichert');
+    }
+}
+// --- Ende 1.4.0 (Navigation) -----------------------------------------------------------------------
+
 echo "Funktraining SRC/UBI\n";
 $src = null;
 foreach ($content->courses() as $c) {

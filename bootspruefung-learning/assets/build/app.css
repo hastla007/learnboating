@@ -547,6 +547,20 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-exam-legend span { width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent); }
 .bp-exam-legend span.is-answered { background: color-mix(in srgb, var(--bp-accent) 30%, transparent); border-color: transparent; }
 .bp-exam-legend span:nth-of-type(2) { margin-left: 0.6rem; }
+/* Markieren „zur Überprüfung“: Fähnchen zusätzlich zur Farbe (Zustand auch über aria-pressed/aria-label) */
+.bp-exam-legend span:nth-of-type(3) { margin-left: 0.6rem; }
+.bp-exam-legend span.is-flagged { border-color: var(--bp-warn); box-shadow: inset 0 -3px 0 var(--bp-warn); }
+.bp-app .bp-question-meta .bp-exam-flag { margin-left: auto; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+.bp-exam-flag::before { content: "⚑ "; content: "⚑ " / ""; opacity: 0.45; }
+.bp-exam-flag.is-flagged { border-color: var(--bp-warn); color: var(--bp-warn); background: color-mix(in srgb, var(--bp-warn) 10%, transparent); font-weight: 700; }
+.bp-exam-flag.is-flagged::before { opacity: 1; }
+.bp-app .bp-exam-nav-item.is-flagged { position: relative; border-color: var(--bp-warn); box-shadow: inset 0 -4px 0 var(--bp-warn); }
+.bp-app .bp-exam-nav-item.is-flagged::after { content: "⚑"; position: absolute; top: 1px; right: 3px; font-size: 0.65rem; color: var(--bp-warn); }
+.bp-app .bp-exam-nav-item.is-current.is-flagged::after { color: #fff; }
+.bp-exam-flags { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.8rem; font-size: 0.85rem; }
+.bp-exam-flag-count { font-weight: 600; }
+.bp-review.bp-only-flagged .bp-review-item:not(.is-flagged) { display: none; }
+.bp-review-item.is-flagged { box-shadow: inset 4px 0 0 var(--bp-warn); }
 .bp-app .bp-exam-footer { position: static; display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem; margin-top: 1.1rem; padding: 1rem 0 0; border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent); background: none; }
 .bp-exam-footer .bp-button { justify-content: center; }
 .bp-save-status { margin: 0; min-height: 1.3em; font-size: 0.82rem; text-align: center; opacity: 0.7; }
@@ -895,6 +909,17 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-nav-questions .bp-review { gap: 1rem; }
 .bp-app .bp-nav-question.is-correct { border-left: 4px solid var(--bp-ok); }
 .bp-nav-pager { justify-content: space-between; }
+/* Automatische Prüfung (Navigation): Zustand als Text („passt“/„weicht ab“), Farbe nur zusätzlich */
+.bp-nav-check { border-left: 4px solid var(--bp-warn); padding: 0.5rem 0.9rem; margin: 0.8rem 0; background: color-mix(in srgb, var(--bp-warn) 6%, transparent); }
+.bp-nav-check.is-within { border-left-color: var(--bp-ok); background: color-mix(in srgb, var(--bp-ok) 6%, transparent); }
+.bp-nav-check-title { font-weight: 700; margin: 0 0 0.2rem; }
+.bp-nav-check-summary { margin: 0 0 0.4rem; }
+.bp-nav-check-list { list-style: none; margin: 0 0 0.4rem; padding: 0; display: grid; gap: 0.3rem; }
+.bp-nav-check-list li { display: flex; gap: 0.5rem; align-items: baseline; }
+.bp-nav-check-mark { flex: none; font-size: 0.8rem; font-weight: 700; padding: 0.05rem 0.45rem; border: 1px solid currentColor; border-radius: 999px; }
+.bp-nav-check-list .is-ok .bp-nav-check-mark { color: var(--bp-ok); }
+.bp-nav-check-list .is-off .bp-nav-check-mark { color: var(--bp-bad); }
+.bp-nav-check-hint, .bp-nav-check-available { font-size: 0.85rem; margin: 0.3rem 0 0; }
 .bp-app .bp-chart-note { margin: 0 0 1rem; }
 
 /* Praxistrainer und Vokabeln: Karteikarte */

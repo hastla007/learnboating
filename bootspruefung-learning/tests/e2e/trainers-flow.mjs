@@ -47,10 +47,22 @@ assert.equal(await page.locator('.bp-nav-question').count(), 9);
 assert.equal(await page.locator('.bp-model').count(), 0, 'Ergebnis erst nach Klick');
 const first = page.locator('.bp-nav-question').first();
 await first.locator('textarea').fill('rwK 079°');
+await first.locator('.bp-nav-check-available').waitFor();
 await first.getByRole('button', { name: 'Amtliches Ergebnis anzeigen' }).click();
 await first.locator('.bp-model').waitFor();
+// Automatische Prüfung (Hilfe): Ergebnis als Text in einer Live-Region, Selbsteinschätzung danach wie bisher.
+await first.locator('[aria-live="polite"] .bp-nav-check.is-within').waitFor();
+assert.match(await first.locator('.bp-nav-check').innerText(), /Deine Werte liegen im Toleranzbereich\.[\s\S]*passt[\s\S]*rwK: 079° – im Toleranzbereich \(amtlich 079°, Toleranz ±2°\)/);
 await first.getByRole('button', { name: 'richtig' }).click();
 await first.locator('.bp-badge', { hasText: 'richtig' }).waitFor();
+const second = page.locator('.bp-nav-question').nth(1);
+await second.locator('textarea').fill('MgK 080°');
+await second.getByRole('button', { name: 'Amtliches Ergebnis anzeigen' }).click();
+await second.locator('.bp-nav-check.is-deviates').waitFor();
+assert.match(await second.locator('.bp-nav-check').innerText(), /weicht ab[\s\S]*MgK: 080° – weicht um 6° ab \(amtlich 074°, Toleranz ±2°\)/);
+await second.getByRole('button', { name: 'teilweise' }).click();
+await second.locator('.bp-badge', { hasText: 'teilweise' }).waitFor();
+assert.equal(await page.locator('.bp-nav-question').nth(6).locator('.bp-nav-check-available').count(), 0, '„Siehe Karte“: keine automatische Prüfung');
 await shot('20-navigation');
 
 step('Praxistrainer');

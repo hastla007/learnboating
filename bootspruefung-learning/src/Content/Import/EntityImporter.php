@@ -425,6 +425,8 @@ final class EntityImporter
                 'question_number' => $q['question_number'],
                 'question_text' => $q['question_text'],
                 'answer_text' => $q['answer_text'],
+                // Ab Paketschema 1.4: prüfbare Lösungswerte (JSON) für die automatische Prüfung; sonst NULL.
+                'answer_values' => isset($q['answer_values']) ? wp_json_encode($q['answer_values']) : null,
                 'sort_order' => $q['sort_order'],
                 'status' => $r['status'],
             ]);

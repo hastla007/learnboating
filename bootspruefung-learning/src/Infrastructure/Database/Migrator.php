@@ -14,7 +14,7 @@ use wpdb;
  */
 final class Migrator
 {
-    public const SCHEMA_VERSION = '1.11.0';
+    public const SCHEMA_VERSION = '1.12.0';
     public const OPTION_VERSION = 'bp_learning_schema_version';
     private const OPTION_LOCK = 'bp_learning_migration_lock';
     private const LOCK_TTL = 300;

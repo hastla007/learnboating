@@ -178,6 +178,17 @@ entfernt).
 9. **Navigation:** Liste, Aufgabe (Lösungen erst nach Antwort/Aufdecken), `POST
    /navigation-tasks/{id}/parts/{partId}` mit eigener Antwort und/oder Einschätzung
    (`correct|partly|wrong`). Seekarten und Kurs-PDFs: URL aus der Antwort mit Authorization-Header laden.
+
+   **Automatische Prüfung der eigenen Werte (seit 1.4.0, Navigation):** Teilaufgaben mit prüfbaren
+   Lösungswerten tragen `auto_check: true` (78 von 135: Kurse, Peilungen, Besteckversetzung,
+   Distanzen, Positionen, Uhrzeiten, Fahrt, Dauer; nicht bei „Siehe Karte“ und Beschreibungen). Nach
+   `POST …/parts/{partId}` mit `answer` enthält die Antwort `check`: `status` (`within` | `deviates` |
+   `unrecognized`), `message` und je Wert `label`, `given`, `ok`, `deviation`, `tolerance`,
+   `tolerance_unit`, `expected` (Schema `NavigationCheck`). `GET /navigation-tasks/{id}` liefert
+   `check` je Teilaufgabe, sobald die Lösung aufgedeckt ist. Das Ergebnis ist nur eine Hilfe: Die App
+   zeigt es vor der Selbsteinschätzung an (als Text, nicht nur farbig); maßgeblich bleibt
+   `self_assessment`, das wie bisher gespeichert wird. Teilaufgaben ohne Werte (`auto_check: false`,
+   `check: null`) verhalten sich wie bisher.
 10. **Funktraining (SRC/UBI):** nur bei Fähigkeit `funk`. `GET /courses/{id}/radio` (Übersicht),
     Texte: `GET /radio/texts/{textId}[?direction=de-en|en-de]` → Eingabe → `POST …/evaluate`
     (Prozent, fehlende Wörter, Musterlösung) → `PUT …/done`. Bei Übersetzungen hält der Server
@@ -229,7 +240,7 @@ entfernt).
 `{"flagged": true|false}` (auch `marked_for_review` beim Antworten). `GET /exams/{examId}` liefert
 `flagged` je Frage (in `questions[]` und `answers[]`) und `flagged_count` – beim Fortsetzen
 wiederherstellen. Nach Abgabe 409, nach Fristende 410. Das Ergebnis zeigt `review[].flagged`.
-Der Web-Lernbereich zeigt Markierungen noch nicht an.
+Der Web-Lernbereich zeigt und setzt dieselben Markierungen (gemeinsame Spalte, auch geräteübergreifend).
 
 Allgemein: Erfolg = `{data, meta?}`; IDs sind Strings; Zeitstempel UTC (RFC 3339);
 Fehlertexte sind deutsch (Du-Form), die App sollte trotzdem anhand von `code` reagieren und
@@ -319,7 +330,7 @@ beibehalten, wo es passt. Abweichungen:
 | Prüfungsoptionen | rule_set/fixed_paper | `id` „simulation“ bzw. Bogen-ID, `locked`/`lock_reason`/`unlock_at`, `running_exam_id`, `meta.live` | Teilumfang, Drip, Übungsmodus |
 | Prüfungsfragen | `questionId` | `questions[].id` = Position (1…n), Pfad `/answers/{position}` | Web liefert während der Prüfung bewusst keine Fragen-IDs |
 | Prüfung abgelaufen | Status `expired` | `status: evaluated` + `result.expired`; Antworten danach 410 | Plattform wertet abgelaufene Prüfungen automatisch aus |
-| `marked_for_review` | gespeichert | seit 1.3.0 gespeichert (`bp_exam_session_question.flagged`), eigener Endpunkt `PUT …/answers/{position}/flag`, `flagged`/`flagged_count` in Prüfung und Ergebnis; bis 1.2.0 immer `false` | Wunsch des App-Teams; Web zeigt Markierungen noch nicht |
+| `marked_for_review` | gespeichert | seit 1.3.0 gespeichert (`bp_exam_session_question.flagged`), eigener Endpunkt `PUT …/answers/{position}/flag`, `flagged`/`flagged_count` in Prüfung und Ergebnis; bis 1.2.0 immer `false` | Wunsch des App-Teams; Web zeigt und setzt Markierungen ebenfalls |
 | Prüfungsergebnis | Grunddaten, Themen | + Teilergebnisse/Teilgrenzen, `reduced`, `live`, `expired`, falsche Fragen, vollständige Auswertung | Regeln der Plattform (z. B. Basis 5/7, See 18/23) |
 | Videos | `/videos/{id}` | Kurs wird aus der Lektion ermittelt; Schrittbilder als Platzhalter „Bild folgt“; `completed` optional | Inhalte haben noch keine Schrittbilder |
 | Navigation | `show_solution` | Lösungen erst nach Antwort/Aufdecken; `show_solution=true` deckt dauerhaft auf (wie Web); neuer Endpunkt für Antwort + Einschätzung; `course_id` optional | Aufgaben gehören zu mehreren Kursen |
@@ -383,24 +394,40 @@ beibehalten, wo es passt. Abweichungen:
    Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Fragenbilder liegen wie im
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“ (seit 1.3.0 in der App):** serverseitig gespeichert
-   (`PUT /exams/{examId}/answers/{position}/flag`, `flagged` in Prüfung und Ergebnis). Der
-   Web-Lernbereich zeigt und setzt Markierungen noch nicht – soll das Web nachziehen?
+   (`PUT /exams/{examId}/answers/{position}/flag`, `flagged` in Prüfung und Ergebnis). Entschieden:
+   Der Web-Lernbereich zeigt und setzt Markierungen ebenfalls (Knopf „Markieren“, Übersicht, Ergebnis).
 9. Laufzeiten (15 Min./30/90 Tage) und Limits sind derzeit feste Werte im Code; bei Bedarf einstellbar machen.
 10. **Sprachausgabe im Funktraining (entschieden):** Vorerst liest die App Diktate mit der
     Sprachausgabe des Geräts vor (das Web mit der Browserstimme, Einstellung `radio_voice_output`).
     Eigene Tonaufnahmen werden später ergänzt; dann kommt ein Audio-Feld in die Antworten.
-11. **Automatische Bewertung freier Antworten (untersucht, nicht umgesetzt):** Navigationsaufgaben
+11. **Automatische Bewertung freier Antworten (entschieden, seit 1.4.0 als Hilfe umgesetzt – siehe
+    Abschnitt 3, Punkt 9):** Navigationsaufgaben
     (15 Aufgaben, 135 Teilaufgaben) speichern nur die amtliche Lösung als Text (`answer_text`, z. B.
     `rwK = 079°`, `6,1 sm`, `53° 55,8' N 007° 51,3' E`, `Siehe Karte`); bewertet wird per
     Selbsteinschätzung. Rund 60 % sind Zahlenwerte (Kurse/Peilungen, Positionen, Distanzen, Zeiten,
     Fahrt), ein Viertel „Siehe Karte“ (Eintragung in die Karte), der Rest Beschreibungen. Eine
     automatische Prüfung der Zahlenwerte wäre mit strukturierten Lösungen (Größe, Wert, Einheit,
-    Toleranz) machbar; das erfordert eine redaktionelle Erweiterung des Inhaltspakets. Entscheidung
-    des Auftraggebers offen.
+    Toleranz) machbar; das erfordert eine redaktionelle Erweiterung des Inhaltspakets. Umgesetzt mit
+    der Pflegedatei `tools/content-build/data/navigation_answer_values.json`; die Selbsteinschätzung
+    bleibt maßgeblich.
 
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.4.0 (Navigation)
+
+- **Neu: Automatische Prüfung bei Navigationsaufgaben** (Hilfe, keine Bewertung): `auto_check` je
+  Teilaufgabe in `GET /navigation-tasks/{taskId}`; `check` (Schema `NavigationCheck`) in der Antwort von
+  `POST /navigation-tasks/{taskId}/parts/{partId}` und je aufgedeckter Teilaufgabe in der Aufgabe.
+  Toleranzen: Kurs/Peilung/Winkel ±2°, Distanz ±0,2 sm, Position ±0,3', Uhrzeit ±3 min,
+  Fahrt ±0,3 kn, Dauer ±3 min. Die Selbsteinschätzung bleibt maßgeblich; Teilaufgaben ohne Werte
+  unverändert. Sollwerte (`expected`) nur, wenn die Lösung ohnehin sichtbar ist.
+- Inhalte: Content-Paket ab Schema 1.4 mit `answer_values` (Pflegedatei des Konverters, von Hand
+  geprüft; Werte folgen dem angezeigten, ggf. berichtigten amtlichen Ergebnis). Wirksam nach dem
+  Import eines neuen Pakets.
+- Datenbank: Schema 1.12.0 (Spalte `bp_navigation_question.answer_values`).
+- Keine Änderung an bestehenden Feldern; neue Felder sind additiv.
 
 ### 1.3.1 (Sicherheitskorrektur, ohne Vertragsänderung)
 
