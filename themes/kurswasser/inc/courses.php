@@ -339,7 +339,7 @@ function kurswasser_course_faqs_fallback(): array
             'items' => [
                 ['question' => 'Welche Funkzeugnisse umfasst der Kombikurs?', 'answer' => 'Der Kurs verbindet die Vorbereitung auf SRC für den Seefunk und UBI für den Binnenfunk.'],
                 ['question' => 'Welche Funkübungen sind enthalten?', 'answer' => 'Je nach Funkzeugnis übst du englische oder deutsche Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien.'],
-                ['question' => 'Ist der Funkgerät-Simulator im Kombikurs enthalten?', 'answer' => 'Der Simulator kann getestet werden. Ob die Vollversion enthalten ist oder als Upgrade gebucht wird, richtet sich nach der gewählten Angebotsstufe.'],
+                ['question' => 'Ist der Funkgerät-Simulator im Kombikurs enthalten?', 'answer' => 'Im Kombikurs ist die Testversion enthalten. Die Vollversion buchst du als Upgrade dazu – im Kapitäns-Bundle und in den Pässen ist sie schon enthalten.'],
             ],
         ],
     ];
