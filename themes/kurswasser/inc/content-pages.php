@@ -13,7 +13,11 @@
  * übersprungen – diese Seite pflegt inc/legal.php.
  *
  * Typ A (Vorlage course): Der Kurs-Hero kommt aus dem Shortcode [kurswasser_page_hero] am Seitenanfang
- * (Eyebrow, Lead, CTAs als Attribute, H1 = Seitentitel, Brotkrumen aus _kw_breadcrumb bzw. Hierarchie).
+ * (Eyebrow, Lead, CTAs, Zeile unter den Buttons als Attribute, H1 = Seitentitel, Brotkrumen aus _kw_breadcrumb bzw.
+ * Hierarchie).
+ *
+ * Links auf Inhaltsseiten, die noch Entwurf sind, gibt das Theme nicht als Link aus (kurswasser_content_unlink_
+ * unpublished); eine alte FAQ-Seite /haeufige-fragen/ leitet auf /faq-bootsfuehrerschein/ weiter.
  *
  * @package Kurswasser
  */
@@ -70,11 +74,150 @@ function kurswasser_content_page(array $entry): ?WP_Post
     return $page instanceof WP_Post ? $page : null;
 }
 
-/** Enthält der Text noch Angaben, die nur der Betreiber liefern kann (→ immer Entwurf)? */
+/** Enthält der Text noch Angaben, die nur der Betreiber liefern kann (→ immer Entwurf)? Auch maskiert in Shortcode-Attributen. */
 function kurswasser_content_has_placeholders(string $text): bool
 {
-    return str_contains($text, '[[Betreiber:') || str_contains($text, 'kw-placeholder');
+    return str_contains($text, '[[Betreiber:') || str_contains($text, '&#91;&#91;Betreiber:') || str_contains($text, 'kw-placeholder');
 }
+
+/*
+ * Links auf Inhaltsseiten, die (noch) nicht veröffentlicht sind: Navigation, Fuß und Seiteninhalt sollen nicht ins
+ * Leere führen. Gilt für die Seiten des Manifests (auch die Kontaktseite, die inc/legal.php pflegt): fehlt die Seite
+ * oder ist sie Entwurf, privat, geplant bzw. im Papierkorb, wird ein Link darauf im Seiteninhalt und in Mustern zu
+ * normalem Text; Karten und Kacheln, deren Titel darauf verlinkt, und Buttons entfallen. Navigation und Fuß nutzen
+ * dafür das Ziel #kw:page:<pfad> (functions.php); die Pflichtlinks unter „Rechtliches“ bleiben unverändert.
+ */
+
+/** Ist die Seite mit diesem Pfad (z. B. „ueber-uns/team“) veröffentlicht? */
+function kurswasser_page_published(string $path): bool
+{
+    $path = trim($path, '/');
+    if ($path === '') {
+        return true;
+    }
+    $page = get_page_by_path($path, OBJECT, 'page');
+
+    return $page instanceof WP_Post && $page->post_status === 'publish' && $page->post_password === '';
+}
+
+/**
+ * Pfade der Inhaltsseiten aus dem Manifest, die nicht veröffentlicht sind (Pfad => true). Zwischengespeichert je
+ * Stand der Beiträge (last_changed), damit Änderungen in derselben Anfrage (Tests, Synchronisation) sofort wirken.
+ *
+ * @return array<string,bool>
+ */
+function kurswasser_content_unpublished_paths(): array
+{
+    static $cache = [];
+    $key = wp_cache_get_last_changed('posts');
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    $paths = [];
+    foreach (kurswasser_content_manifest() as $entry) {
+        $path = trim((string) $entry['path'], '/');
+        if (! kurswasser_page_published($path)) {
+            $paths[$path] = true;
+        }
+    }
+
+    $cache = [$key => (array) apply_filters('kurswasser_content_unpublished_paths', $paths)];
+
+    return $cache[$key];
+}
+
+/** Zeigt der Link (#kw:…, /pfad/ oder absolute URL dieser Website) auf eine nicht veröffentlichte Inhaltsseite? */
+function kurswasser_link_unpublished(string $href): bool
+{
+    $paths = kurswasser_content_unpublished_paths();
+    if ($paths === []) {
+        return false;
+    }
+    $href = html_entity_decode(trim($href), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if (preg_match('/^#kw:page:([a-z0-9\/-]+)/', $href, $m)) {
+        return isset($paths[trim($m[1], '/')]);
+    }
+    if (preg_match('/^#kw:([a-z0-9\/-]+)/', $href, $m) && function_exists('kurswasser_url')) {
+        $href = kurswasser_url($m[1]);
+    }
+    $parts = wp_parse_url($href);
+    if (! is_array($parts) || empty($parts['path']) || (empty($parts['host']) && ! str_starts_with($parts['path'], '/'))) {
+        return false;
+    }
+    if (! empty($parts['host']) && strtolower($parts['host']) !== strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST))) {
+        return false;
+    }
+    $base = trim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+    $path = trim(rawurldecode($parts['path']), '/');
+    if ($base !== '' && str_starts_with($path.'/', $base.'/')) {
+        $path = trim(substr($path, strlen($base)), '/');
+    }
+
+    return isset($paths[$path]);
+}
+
+/** Link auf eine Seite, wenn sie veröffentlicht ist, sonst nur der Text (für Muster und feste Texte). */
+function kurswasser_page_link(string $path, string $label, string $fragment = ''): string
+{
+    if (! kurswasser_page_published($path)) {
+        return esc_html($label);
+    }
+    $page = get_page_by_path(trim($path, '/'), OBJECT, 'page');
+
+    return '<a href="'.esc_url((string) get_permalink($page).$fragment).'">'.esc_html($label).'</a>';
+}
+
+/**
+ * Links auf nicht veröffentlichte Inhaltsseiten im fertigen HTML entschärfen: Karten (kw-feature) und Kacheln
+ * (kw-tile) mit solchem Titel-Link und Buttons entfallen, alle übrigen Links werden zu Text.
+ */
+function kurswasser_content_unlink_unpublished(string $html): string
+{
+    if (! str_contains($html, 'href=') || kurswasser_content_unpublished_paths() === []) {
+        return $html;
+    }
+    $bad = static fn (string $chunk): bool => (bool) preg_match_all('/href="([^"]*)"/', $chunk, $m) && array_filter($m[1], 'kurswasser_link_unpublished') !== [];
+    $html = (string) preg_replace_callback('#<div class="kw-feature">.*?</div>|<article class="kw-tile">.*?</article>#s', static fn (array $m): string => $bad($m[0]) ? '' : $m[0], $html);
+    $html = (string) preg_replace_callback('#<div class="wp-block-button[^"]*">\s*<a\b[^>]*>.*?</a>\s*</div>|<a class="kw-btn\b[^"]*"[^>]*>.*?</a>#s', static fn (array $m): string => $bad($m[0]) ? '' : $m[0], $html);
+
+    return (string) preg_replace_callback('#<a\b([^>]*)>(.*?)</a>#s', static fn (array $m): string => preg_match('/href="([^"]*)"/', $m[1], $h) && kurswasser_link_unpublished($h[1]) ? $m[2] : $m[0], $html);
+}
+
+add_filter('render_block', static function (string $html, array $block): string {
+    return in_array($block['blockName'] ?? '', ['core/post-content', 'core/pattern'], true) ? kurswasser_content_unlink_unpublished($html) : $html;
+}, 25, 2);
+
+/**
+ * Alte FAQ-Seite des Plugins (/haeufige-fragen/ mit [bootspruefung_faq], „FAQ-Seite anlegen“ vor dem 10.11.2026):
+ * 301 auf die FAQ-Seite /faq-bootsfuehrerschein/, sobald diese veröffentlicht ist – auch wenn die alte Seite
+ * inzwischen Entwurf ist (404).
+ */
+function kurswasser_faq_redirect_target(): ?string
+{
+    $path = trim((string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/');
+    $base = trim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+    if ($base !== '' && str_starts_with($path.'/', $base.'/')) {
+        $path = trim(substr($path, strlen($base)), '/');
+    }
+    if ($path !== 'haeufige-fragen') {
+        return null;
+    }
+    $old = get_page_by_path('haeufige-fragen', OBJECT, 'page');
+    $new = get_page_by_path('faq-bootsfuehrerschein', OBJECT, 'page');
+    if (! $old instanceof WP_Post || ! has_shortcode($old->post_content, 'bootspruefung_faq') || ! $new instanceof WP_Post
+        || $new->ID === $old->ID || $new->post_status !== 'publish') {
+        return null;
+    }
+
+    return (string) get_permalink($new);
+}
+
+add_action('template_redirect', static function (): void {
+    if ((is_page() || is_404()) && ($target = kurswasser_faq_redirect_target()) !== null) {
+        wp_safe_redirect($target, 301, 'Kurswasser');
+        exit;
+    }
+}, 5);
 
 function kurswasser_content_hash(WP_Post $page): string
 {
@@ -343,7 +486,7 @@ add_filter('kses_allowed_protocols', static function (array $protocols): array {
 
 /** Kurs-Hero für Infoseiten (Typ A, Vorlage course) – Markup wie die Kursseiten (inc/courses.php). */
 add_shortcode('kurswasser_page_hero', static function ($atts): string {
-    $a = shortcode_atts(['eyebrow' => '', 'lead' => '', 'primary' => '', 'secondary' => '', 'photo' => '', 'stats' => '', 'nav' => '', 'title' => ''], (array) $atts, 'kurswasser_page_hero');
+    $a = shortcode_atts(['eyebrow' => '', 'lead' => '', 'primary' => '', 'secondary' => '', 'photo' => '', 'stats' => '', 'nav' => '', 'title' => '', 'note' => ''], (array) $atts, 'kurswasser_page_hero');
     $a = array_map(static fn ($v): string => kurswasser_content_tokens(html_entity_decode((string) $v, ENT_QUOTES | ENT_HTML5, 'UTF-8')), $a);
     $post = get_post();
     $title = $a['title'] !== '' ? esc_html($a['title']) : ($post ? esc_html(get_the_title($post)) : '');
@@ -368,12 +511,16 @@ add_shortcode('kurswasser_page_hero', static function ($atts): string {
     $buttons = '';
     foreach (['primary' => 'kw-btn-signal', 'secondary' => 'kw-btn-ghost'] as $key => $class) {
         $parts = array_map('trim', explode('|', $a[$key]));
-        if (count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '') {
+        if (count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '' && ! kurswasser_link_unpublished($parts[1])) {
             $buttons .= '<a class="kw-btn '.$class.'" href="'.esc_url(kurswasser_content_link($parts[1])).'">'.esc_html($parts[0]).'</a>';
         }
     }
     if ($buttons !== '') {
         $html .= '<div class="kw-course-cta">'.$buttons.'</div>';
+    }
+    if ($a['note'] !== '') {
+        // Kurze Zeile unter den Buttons (z. B. „Mit kostenlosem Kundenkonto.“) – Farbe und Schrift wie der Lead, kleiner.
+        $html .= '<p class="kw-course-lead kw-page-hero-note" style="margin-top:.9rem;font-size:.85rem">'.esc_html($a['note']).'</p>';
     }
     $nav = array_filter(array_map(static fn ($s) => array_map('trim', explode('|', $s)), explode('||', $a['nav'])), static fn ($s) => count($s) === 2 && str_starts_with($s[0], '#'));
     if ($nav) {

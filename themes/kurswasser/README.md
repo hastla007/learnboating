@@ -65,6 +65,10 @@ In Vorlagen und Mustern stehen Ziele als `#kw:<ziel>` und werden beim Ausgeben e
 `pakete`, `gruppen` (feste Kürzel aus dem Plugin-Katalog), Startseiten-Anker wie `#kw:#faq` und
 sonst `/<ziel>/` (z. B. `#kw:impressum`).
 
+`#kw:page:<pfad>[#anker][|<ersatz>]` (Kopf und Fuß): Link auf eine Seite nur, wenn sie veröffentlicht ist; sonst
+das Ersatzziel (z. B. `|gruppen`, `|#faq`) oder der Eintrag entfällt. Im Seiteninhalt und in Mustern werden Links
+auf Inhaltsseiten, die noch Entwurf sind, als Text ausgegeben; Karten, Kacheln und Buttons mit solchem Ziel entfallen.
+
 ## Gestaltung
 
 - Farben, Schrift und Abstände in `theme.json`, Komponenten in `assets/css/theme.css`.
@@ -80,11 +84,13 @@ sonst `/<ziel>/` (z. B. `#kw:impressum`).
 ## Inhaltsseiten (Info- und Marketingseiten)
 
 Texte entstehen als Markdown (`NN-slug.md`: Front-Matter + `## Inhalt` mit `### [Typ] Überschrift`,
-Typen B1–B10 des Seiten-Baukastens; Format im Kopf von `tools/content_build.py`). Daraus:
+Typen B1–B10 des Seiten-Baukastens; Format im Kopf von `tools/content_build.py`). Die Quellen der 35 Seiten
+(Moderation vom 10.11.2026) liegen in `content/src/`, die Moderationsunterlagen (FAQ-Änderungen, Seitenindex,
+Navigation) in `content/src/_moderation/`. Daraus:
 
 ```bash
-python3 themes/kurswasser/tools/content_build.py <ordner-mit-md> --check   # nur prüfen
-python3 themes/kurswasser/tools/content_build.py <ordner-mit-md>           # → content/pages.php + content/pages/*.html
+python3 themes/kurswasser/tools/content_build.py themes/kurswasser/content/src --check   # nur prüfen
+python3 themes/kurswasser/tools/content_build.py themes/kurswasser/content/src           # → content/pages.php + content/pages/*.html
 wp kurswasser content-pages status                                         # was wäre neu/aktualisierbar, offene Punkte
 wp kurswasser content-pages sync --user=<admin>                             # anlegen bzw. aktualisieren
 ```
@@ -95,7 +101,9 @@ wp kurswasser content-pages sync --user=<admin>                             # an
 - Nichts wird ungefragt überschrieben: vom Betreiber geänderte Seiten bleiben (Prüfsumme), neue Vorlagenstände
   meldet der Admin-Hinweis (Dashboard, Seiten) mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ und den
   offenen Punkten je Seite. Seiten mit `[[Betreiber: …]]` bzw. „Offen“-Kasten entstehen als Entwurf.
-- Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`.
+- Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`
+  (Seite 33 steckt in `legal/kontakt.html`).
+- Eine alte FAQ-Seite `/haeufige-fragen/` mit `[bootspruefung_faq]` leitet per 301 auf `/faq-bootsfuehrerschein/`.
 - `#kw:`-Links überstehen kses (auch ohne `unfiltered_html`).
 
 ## SEO (`inc/seo.php`)

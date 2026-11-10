@@ -102,9 +102,18 @@ function kurswasser_offer_title(string $name): array
     return [$name, ''];
 }
 
+/** Ziel für „Geld-zurück-Garantie“: die Garantieseite, sobald sie veröffentlicht ist, sonst der AGB-Abschnitt. */
+function kurswasser_guarantee_url(): string
+{
+    $page = function_exists('kurswasser_page_published') && kurswasser_page_published('geld-zurueck-garantie-bootsfuehrerschein')
+        ? get_page_by_path('geld-zurueck-garantie-bootsfuehrerschein', OBJECT, 'page') : null;
+
+    return $page instanceof WP_Post ? (string) get_permalink($page) : kurswasser_url('agb').'#geld-zurueck-garantie';
+}
+
 function kurswasser_offer_trust(): string
 {
-    return '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span><a href="'.esc_url(kurswasser_url('agb').'#geld-zurueck-garantie').'">'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</a> – '.esc_html__('bei weniger als 20 % genutzt', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
+    return '<ul class="kw-offers-trust"><li><span class="kw-icon kw-icon-shield" aria-hidden="true"></span><a href="'.esc_url(kurswasser_guarantee_url()).'">'.esc_html__('14 Tage Geld-zurück-Garantie', 'kurswasser').'</a> – '.esc_html__('bei weniger als 20 % genutzt', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Zugang direkt nach Zahlungseingang', 'kurswasser').'</li><li><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html__('Kein Abo – einmal zahlen', 'kurswasser').'</li></ul>';
 }
 
 /**
@@ -133,15 +142,16 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
             $html .= '<p class="kw-offer-flag">'.esc_html($flag).'</p>';
         }
         $html .= '<header><h3>'.esc_html($title).'</h3>'.($sub !== '' ? '<p class="kw-offer-sub">'.esc_html($sub).'</p>' : '').'</header>';
-        $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span>'
-            .($saving >= 1 ? '<s class="kw-offer-was" aria-label="'.esc_attr(sprintf(__('Einzeln %s', 'kurswasser'), kurswasser_money($o['price'] + $saving))).'">'.esc_html(kurswasser_money($o['price'] + $saving)).'</s>' : '<span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span>').'</div>';
+        // Kein durchgestrichener Vergleichspreis (Festlegung Inhaltsmoderation 10.11.2026): Die Summe der Einzelkurse
+        // steht sachlich unter dem Preis, die Ersparnis ist live aus den aktuellen Einzelpreisen berechnet.
+        $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span><span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span></div>';
         $meta = array_filter([kurswasser_price_note(), $duration]);
         if ($months === 12) {
             $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
         }
         $html .= '<p class="kw-offer-meta">'.esc_html(implode(' · ', $meta)).'</p>';
         if ($saving >= 1) {
-            $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Du sparst %s gegenüber dem Einzelkauf', 'kurswasser'), kurswasser_money($saving))).'</p>';
+            $html .= '<p class="kw-offer-save">'.esc_html(sprintf(__('Einzeln gekauft: %1$s – du sparst %2$s gegenüber den Einzelkursen', 'kurswasser'), kurswasser_money($o['price'] + $saving), kurswasser_money($saving))).'</p>';
         }
         $html .= '<ul class="kw-offer-list">';
         $list = array_values(array_filter($o['items'], static fn ($t) => ! str_contains($t, 'Lernfortschritt')));

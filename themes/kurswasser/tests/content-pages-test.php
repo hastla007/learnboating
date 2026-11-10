@@ -209,6 +209,10 @@ ob_start();
 rel_canonical();
 $canon = (string) ob_get_clean();
 $check(str_contains($canon, 'href="'.get_permalink($p1).'"'), 'Canonical auf die Hauptseite');
+update_post_meta($p3->ID, '_kw_canonical', 'beispiel-angebot');
+ob_start();
+rel_canonical();
+$check(str_contains((string) ob_get_clean(), 'href="'.get_permalink($p3).'"'), 'Canonical auf einen Entwurf: Selbstreferenz statt nicht erreichbarer Seite');
 delete_post_meta($p3->ID, '_kw_canonical');
 ob_start();
 rel_canonical();
@@ -246,6 +250,48 @@ $check(apply_filters('wpseo_metadesc', 'Yoast-Text') === 'Yoast-Text', 'Yoast-Fe
 delete_post_meta($p2->ID, '_yoast_wpseo_metadesc');
 $check(apply_filters('wpseo_robots_array', ['index' => 'index', 'follow' => 'follow'])['index'] === 'noindex', 'Yoast-Robots: eigenes noindex weitergereicht');
 remove_filter('kurswasser_seo_plugin_active', '__return_true');
+
+echo "Links auf Entwürfe, #kw:page:, Hero-Zeile, Weiterleitung\n";
+$dirFilter = static fn (): string => $tmp;
+add_filter('kurswasser_content_dir', $dirFilter);
+$unpub = kurswasser_content_unpublished_paths();
+$check(isset($unpub['beispiel-angebot'], $unpub['beispiel-ueber-uns/beispiel-team']) && ! isset($unpub['beispiel-ratgeber']) && isset($unpub['kontakt']) === ! kurswasser_page_published('kontakt'), 'nicht veröffentlicht: Entwürfe des Manifests (Kontakt je nach Status der Rechtstext-Seite): '.implode(', ', array_keys($unpub)));
+$sample = '<p>Siehe <a href="/beispiel-angebot/">Gruppen</a> und <a href="'.esc_url(home_url('/beispiel-ratgeber/#motor')).'">Ratgeber</a> sowie <a href="'.esc_url(home_url('/beispiel-ueber-uns/beispiel-team/')).'">Team</a>.</p>'
+    .'<div class="kw-feature-grid"><div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-anchor"></span></span><h3><a href="/beispiel-angebot/">Karte Entwurf</a></h3><p>x</p></div><div class="kw-feature"><span class="kw-feature-icon"><span class="kw-icon kw-icon-anchor"></span></span><h3><a href="/beispiel-ratgeber/">Karte live</a></h3></div></div>'
+    .'<div class="wp-block-buttons"><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="#kw:beispiel-angebot">Button Entwurf</a></div></div>';
+$out = kurswasser_content_unlink_unpublished($sample);
+$check(str_contains($out, 'Siehe Gruppen und') && str_contains($out, '">Ratgeber</a>') && str_contains($out, 'sowie Team.'), 'Links auf Entwürfe werden Text, Links auf veröffentlichte Seiten bleiben');
+$check(! str_contains($out, 'Karte Entwurf') && str_contains($out, 'Karte live') && ! str_contains($out, 'Button Entwurf'), 'Karte und Button mit Ziel Entwurf entfallen');
+$view($p1);
+$link = '<p><a href="/beispiel-angebot/">Angebot</a></p>';
+$check(str_contains(render_block(['blockName' => 'core/group', 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => $link, 'innerContent' => [$link]]), 'href="/beispiel-angebot/"')
+    && ! str_contains(kurswasser_content_unlink_unpublished(render_block(['blockName' => 'core/group', 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => $link, 'innerContent' => [$link]])), 'href='), 'einzelner Block unverändert, Seiteninhalt ohne Link auf den Entwurf');
+$check(! str_contains(do_blocks('<!-- wp:pattern {"slug":"kurswasser/guarantee"} /-->'), 'beispiel-angebot'), 'Muster laufen durch denselben Filter (core/pattern)');
+$footer = do_blocks('<!-- wp:html --><ul class="kw-footer-links"><li><a href="#kw:page:beispiel-ratgeber">Live</a></li><li><a href="#kw:page:beispiel-angebot">Entwurf</a></li><li><a href="#kw:page:beispiel-angebot|gruppen">Mit Ersatz</a></li><li><a href="#kw:page:gibt-es-nicht|#faq">FAQ</a></li></ul><!-- /wp:html -->');
+$check(str_contains($footer, '<a href="'.esc_url(get_permalink($p1)).'">Live</a>') && ! str_contains($footer, '>Entwurf<') && str_contains($footer, '<a href="'.esc_url(kurswasser_url('gruppen')).'">Mit Ersatz</a>') && str_contains($footer, '<a href="'.esc_url(home_url('/').'#faq').'">FAQ</a>') && ! str_contains($footer, '#kw:'), '#kw:page: nur veröffentlichte Seiten, sonst Ersatzziel oder Eintrag entfällt');
+$check(do_blocks('<!-- wp:column --><div class="wp-block-column"><!-- wp:html --><ul class="kw-footer-links"><li><a href="#kw:page:beispiel-angebot">Entwurf</a></li></ul><!-- /wp:html --></div><!-- /wp:column -->') === '', 'Fußspalte ohne veröffentlichte Ziele entfällt');
+$nav = do_blocks('<!-- wp:navigation {"overlayMenu":"never"} --><!-- wp:navigation-link {"label":"NavLive","url":"#kw:page:beispiel-ratgeber","kind":"custom"} /--><!-- wp:navigation-link {"label":"NavEntwurf","url":"#kw:page:beispiel-angebot","kind":"custom"} /--><!-- /wp:navigation -->');
+$check(str_contains($nav, 'NavLive') && str_contains($nav, esc_url(get_permalink($p1))) && ! str_contains($nav, 'NavEntwurf'), 'Navigation: Eintrag auf Entwurf nicht ausgegeben');
+$hero = do_shortcode('[kurswasser_page_hero lead="L" primary="Zum Entwurf|/beispiel-angebot/" secondary="Live|/beispiel-ratgeber/" note="Mit kostenlosem Kundenkonto."]');
+$check(! str_contains($hero, 'Zum Entwurf') && str_contains($hero, '>Live</a>') && str_contains($hero, 'kw-page-hero-note" style="margin-top:.9rem;font-size:.85rem">Mit kostenlosem Kundenkonto.</p>'), 'Hero: Button auf Entwurf entfällt, Zeile unter den Buttons');
+$check(kurswasser_content_has_placeholders('[kurswasser_page_hero note="&#91;&#91;Betreiber: Anschrift&#93;&#93;"]'), 'Platzhalter auch maskiert im Shortcode-Attribut erkannt');
+$check(str_contains(kurswasser_page_link('beispiel-ratgeber', 'R'), 'href=') && kurswasser_page_link('beispiel-angebot', 'A') === 'A', 'kurswasser_page_link: Link nur auf veröffentlichte Seiten');
+remove_filter('kurswasser_content_dir', $dirFilter);
+$check(! str_contains(kurswasser_offer_trust(), 'geld-zurueck-garantie-bootsfuehrerschein') || kurswasser_page_published('geld-zurueck-garantie-bootsfuehrerschein'), 'Vertrauenszeile: Garantieseite nur, wenn veröffentlicht, sonst AGB-Abschnitt');
+$oldFaq = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Häufige Fragen', 'post_name' => 'haeufige-fragen', 'post_content' => '<!-- wp:shortcode -->[bootspruefung_faq]<!-- /wp:shortcode -->']);
+$newFaq = get_page_by_path('faq-bootsfuehrerschein', OBJECT, 'page');
+$tmpFaq = $newFaq ? 0 : (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'FAQ', 'post_name' => 'faq-bootsfuehrerschein', 'post_content' => '[bootspruefung_faq]']);
+$newFaq = get_page_by_path('faq-bootsfuehrerschein', OBJECT, 'page');
+$_SERVER['REQUEST_URI'] = (string) wp_parse_url(home_url('/haeufige-fragen/'), PHP_URL_PATH);
+$target = $newFaq && $newFaq->post_status === 'publish' ? kurswasser_faq_redirect_target() : 'übersprungen';
+$check($target === 'übersprungen' || $target === get_permalink($newFaq), '/haeufige-fragen/ mit Shortcode → 301 auf /faq-bootsfuehrerschein/');
+$_SERVER['REQUEST_URI'] = '/andere-seite/';
+$check(kurswasser_faq_redirect_target() === null, 'andere Pfade: keine Weiterleitung');
+$_SERVER['REQUEST_URI'] = '/';
+wp_delete_post($oldFaq, true);
+if ($tmpFaq) {
+    wp_delete_post($tmpFaq, true);
+}
 
 echo "Kursseiten\n";
 $kurse = get_page_by_path('kurse');

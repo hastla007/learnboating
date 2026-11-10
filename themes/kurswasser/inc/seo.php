@@ -128,6 +128,9 @@ function kurswasser_seo_canonical(WP_Post $post): ?string
     if ($page instanceof WP_Post && $page->post_status === 'publish') {
         return (string) get_permalink($page);
     }
+    if ($page instanceof WP_Post) {
+        return null; // Ziel ist (noch) Entwurf o. ä. – kein Canonical auf eine nicht erreichbare Seite, sondern Selbstreferenz.
+    }
 
     return home_url('/'.($path !== '' ? $path.'/' : ''));
 }

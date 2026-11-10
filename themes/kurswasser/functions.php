@@ -116,27 +116,79 @@ function kurswasser_url(string $target): string
 }
 
 /**
+ * Ziel #kw:page:<pfad>[#anker][|<ersatz>]: Link auf eine Seite, nur wenn sie veröffentlicht ist. Sonst das
+ * Ersatzziel (wie #kw:<ersatz>, z. B. „gruppen“ oder „#faq“) oder null – dann entfällt der Eintrag (Navigation, Fuß).
+ */
+const KURSWASSER_PAGE_TARGET = '#kw:page:[a-z0-9\/-]+(?:#[a-z0-9-]+)?(?:\|[a-z0-9\/-]*(?:#[a-z0-9-]+)?)?';
+
+function kurswasser_page_target(string $spec): ?string
+{
+    if (! preg_match('/^#kw:page:([a-z0-9\/-]+)(#[a-z0-9-]+)?(\|([a-z0-9\/-]*)(#[a-z0-9-]+)?)?$/', $spec, $m)) {
+        return null;
+    }
+    $page = get_page_by_path(trim($m[1], '/'), OBJECT, 'page');
+    if ($page instanceof WP_Post && $page->post_status === 'publish' && $page->post_password === '') {
+        return (string) get_permalink($page).($m[2] ?? '');
+    }
+
+    return ! empty($m[3]) ? kurswasser_url($m[4] ?? '').($m[5] ?? '') : null;
+}
+
+/**
  * Platzhalter-Links in Vorlagen/Mustern: href="#kw:shop" usw. werden beim Ausgeben ersetzt,
  * damit Vorlagen ohne feste IDs/Slugs auskommen.
  */
 // Navigationslinks maskiert WordPress vor render_block (esc_url verwirft „#kw:…“) – daher schon die Blockdaten ersetzen.
 add_filter('render_block_data', static function (array $block): array {
     $url = $block['attrs']['url'] ?? null;
-    if (in_array($block['blockName'] ?? '', ['core/navigation-link', 'core/navigation-submenu'], true) && is_string($url)
-        && preg_match('/^#kw:([a-z0-9\/-]*)(#[a-z0-9-]+)?$/', $url, $m)) {
+    if (! in_array($block['blockName'] ?? '', ['core/navigation-link', 'core/navigation-submenu'], true) || ! is_string($url)) {
+        return $block;
+    }
+    if (preg_match('/^'.KURSWASSER_PAGE_TARGET.'$/', $url)) {
+        $target = kurswasser_page_target($url);
+        $target === null ? $block['attrs']['kwHidden'] = true : $block['attrs']['url'] = $target;
+    } elseif (preg_match('/^#kw:([a-z0-9\/-]*)(#[a-z0-9-]+)?$/', $url, $m)) {
         $block['attrs']['url'] = kurswasser_url($m[1]).($m[2] ?? '');
     }
 
     return $block;
 });
 
-add_filter('render_block', static function (string $html): string {
+add_filter('render_block', static function (string $html, array $block = []): string {
+    $url = $block['attrs']['url'] ?? null;
+    if (! empty($block['attrs']['kwHidden'])) {
+        return ''; // Navigationseintrag auf eine nicht veröffentlichte Seite (ohne Ersatzziel).
+    }
+    if (in_array($block['blockName'] ?? '', ['core/navigation-link', 'core/navigation-submenu'], true) && is_string($url) && preg_match('/^'.KURSWASSER_PAGE_TARGET.'$/', $url)) {
+        // Navigation rendert ihre Einträge ohne render_block_data – hier über die ursprüngliche URL entscheiden.
+        $target = kurswasser_page_target($url);
+
+        return $target === null ? '' : (string) preg_replace('/href="#kw:page:[^"]*"/', 'href="'.esc_url($target).'"', $html);
+    }
     if (! str_contains($html, '#kw:')) {
         return $html;
     }
+    if (str_contains($html, '#kw:page:')) {
+        // Listeneintrag (Fuß) mit Link auf eine nicht veröffentlichte Seite ganz entfernen, sonst Ziel einsetzen.
+        $html = (string) preg_replace_callback('~<li>\s*<a href="('.KURSWASSER_PAGE_TARGET.')">.*?</a>\s*</li>~s', static function (array $m): string {
+            $target = kurswasser_page_target($m[1]);
+
+            return $target === null ? '' : str_replace('href="'.$m[1].'"', 'href="'.esc_url($target).'"', $m[0]);
+        }, $html);
+        $html = (string) preg_replace_callback('~<a href="('.KURSWASSER_PAGE_TARGET.')"([^>]*)>(.*?)</a>~s', static function (array $m): string {
+            $target = kurswasser_page_target($m[1]);
+
+            return $target === null ? $m[3] : '<a href="'.esc_url($target).'"'.$m[2].'>'.$m[3].'</a>';
+        }, $html);
+    }
 
     return (string) preg_replace_callback('/href="#kw:([a-z0-9\/-]*)(#[a-z0-9-]+)?"/', static fn ($m) => 'href="'.esc_url(kurswasser_url($m[1]).($m[2] ?? '')).'"', $html);
-}, 20);
+}, 20, 2);
+
+// Fußspalte, deren Linkliste leer ist (alle Ziele noch Entwurf), nicht ausgeben.
+add_filter('render_block_core/column', static function (string $html): string {
+    return preg_match('#<ul class="kw-footer-links">\s*</ul>#', $html) ? '' : $html;
+});
 
 /** Kontobereich im Kopf: Anmelden bzw. Lernbereich (Shortcode für den Kopfbereich). */
 add_shortcode('kurswasser_account', static function (): string {
