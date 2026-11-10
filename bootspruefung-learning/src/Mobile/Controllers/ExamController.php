@@ -113,8 +113,12 @@ final class ExamController extends BaseController
         $selected = QuestionMapper::ids($request['selected_answer_ids']);
         $known = $request['known'] === null ? null : (bool) $request['known'];
         $this->exams->saveAnswer($this->user(), $id, $position, $selected, $known);
+        // Seit 1.3.0: marked_for_review (Konzept) = Markierung „zur Überprüfung“ (wie PUT …/flag).
+        if ($request['marked_for_review'] !== null) {
+            $this->exams->setFlag($this->user(), $id, $position, (bool) $request['marked_for_review']);
+        }
         global $wpdb;
-        $row = $wpdb->get_row($wpdb->prepare("SELECT given_answer, self_assessed_known, answered_at FROM {$wpdb->prefix}bp_exam_session_question WHERE session_id = %d AND position = %d", $id, $position));
+        $row = $wpdb->get_row($wpdb->prepare("SELECT given_answer, self_assessed_known, answered_at, flagged FROM {$wpdb->prefix}bp_exam_session_question WHERE session_id = %d AND position = %d", $id, $position));
         $given = $row ? (json_decode((string) $row->given_answer, true) ?: []) : [];
 
         return $this->ok([
@@ -123,9 +127,25 @@ final class ExamController extends BaseController
             'selected_answer_ids' => array_map('strval', (array) ($given['answer_ids'] ?? [])),
             'known' => $row && $row->self_assessed_known !== null ? (bool) $row->self_assessed_known : null,
             'answered' => $row && $row->answered_at !== null,
-            'marked_for_review' => false,
+            'marked_for_review' => $row && (bool) $row->flagged,
+            'flagged' => $row && (bool) $row->flagged,
             'saved_at' => $row ? TokenAuth::iso($row->answered_at) : null,
         ]);
+    }
+
+    /**
+     * Frage zur Überprüfung markieren bzw. Markierung entfernen (nur laufende Prüfung).
+     * Adressierung wie bei answer(): Position 1…n. Ändert die Antwort nicht.
+     */
+    public function flag(WP_REST_Request $request): WP_REST_Response
+    {
+        $id = (int) $request['examId'];
+        $position = (int) $request['questionId'];
+        $this->requireRunning($id);
+        $flagged = (bool) $request['flagged'];
+        $count = $this->exams->setFlag($this->user(), $id, $position, $flagged);
+
+        return $this->ok(['question_id' => (string) $position, 'flagged' => $flagged, 'flagged_count' => $count]);
     }
 
     /** Musterantwort einer offenen Frage freigeben (danach Selbsteinschätzung möglich). */
@@ -201,24 +221,29 @@ final class ExamController extends BaseController
         if ($view['status'] !== 'running') {
             $result = self::resultPayload($id, $view);
 
-            return $base + ['question_count' => $result['question_count'], 'remaining_seconds' => 0, 'questions' => [], 'answers' => [], 'result' => $result];
+            return $base + ['question_count' => $result['question_count'], 'flagged_count' => $result['flagged_count'], 'remaining_seconds' => 0, 'questions' => [], 'answers' => [], 'result' => $result];
         }
         $questions = [];
         $answers = [];
+        $flagged = 0;
         foreach ($view['questions'] as $q) {
             $pos = (string) $q['position'];
-            $questions[] = ['position' => (int) $q['position'], 'model_answer' => $q['model_answer']] + QuestionMapper::question($q + ['question_id' => $q['position']], $pos);
+            $isFlagged = (bool) ($q['flagged'] ?? false);
+            $flagged += $isFlagged ? 1 : 0;
+            $questions[] = ['position' => (int) $q['position'], 'model_answer' => $q['model_answer'], 'flagged' => $isFlagged] + QuestionMapper::question($q + ['question_id' => $q['position']], $pos);
             $answers[] = [
                 'question_id' => $pos,
                 'selected_answer_ids' => array_map('strval', $q['selected_ids']),
                 'known' => $q['known'],
                 'answered' => (bool) $q['answered'],
-                'marked_for_review' => false,
+                'flagged' => $isFlagged,
+                'marked_for_review' => $isFlagged,
             ];
         }
 
         return $base + [
             'question_count' => count($questions),
+            'flagged_count' => $flagged,
             'remaining_seconds' => $view['remaining_seconds'],
             'questions' => $questions,
             'answers' => $answers,
@@ -232,10 +257,12 @@ final class ExamController extends BaseController
         $r = $view['result'] ?? [];
         $review = [];
         $wrong = [];
+        $flagged = 0;
         foreach ((array) ($r['questions'] ?? []) as $q) {
             if (! $q['correct']) {
                 $wrong[] = (string) $q['question_id'];
             }
+            $flagged += ! empty($q['flagged']) ? 1 : 0;
             $review[] = [
                 'position' => (int) $q['position'],
                 'question' => QuestionMapper::question($q),
@@ -245,6 +272,7 @@ final class ExamController extends BaseController
                 'known' => $q['known'],
                 'answered' => (bool) $q['answered'],
                 'correct' => (bool) $q['correct'],
+                'flagged' => (bool) ($q['flagged'] ?? false),
                 'explanation' => $q['explanation'],
             ];
         }
@@ -274,6 +302,7 @@ final class ExamController extends BaseController
             'by_topic' => $topics,
             'open_text' => ['question_count' => (int) ($r['open_text']['total'] ?? 0), 'correct_count' => (int) ($r['open_text']['correct'] ?? 0)],
             'wrong_question_ids' => $wrong,
+            'flagged_count' => $flagged,
             'practice_mistakes' => $wrong !== [] ? ['mode' => 'exam_mistakes', 'exam_id' => (string) $id] : null,
             'review' => $review,
         ];

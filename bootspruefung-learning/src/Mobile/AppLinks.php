@@ -1,0 +1,183 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Mobile;
+
+/**
+ * Universal Links (iOS) und App Links (Android) für den Passwort-Reset-Link:
+ * - /.well-known/apple-app-site-association und /.well-known/assetlinks.json direkt aus WordPress
+ *   (application/json, ohne Weiterleitung), nur wenn in „Bootsprüfung → Mobile App“ eingetragen –
+ *   sonst schlichte 404 (ohne Weiterleitung/Theme-Seite);
+ * - App-Link-Pfad /app/passwort/: ist die App installiert, öffnet das System die App; sonst landet
+ *   der Browser hier und wird auf die normale WordPress-Seite zum Setzen des Passworts
+ *   (wp-login.php?action=rp&key=…&login=…) weitergeleitet – der Link funktioniert also immer;
+ * - nur bei POST /auth/password/forgot (App) und nur bei eingetragenen App-Kennungen zeigt der Link
+ *   der Reset-Mail auf /app/passwort/ (Filter retrieve_password_message nur für diese Anfrage).
+ */
+final class AppLinks
+{
+    public const RESET_PATH = 'app/passwort';
+
+    public static function register(): void
+    {
+        add_action('parse_request', [self::class, 'handleRequest'], 0);
+    }
+
+    /** Pfad ab WordPress-Adresse (ohne Unterverzeichnis), z. B. /.well-known/assetlinks.json */
+    private static function requestPath(string $requestUri): string
+    {
+        $path = (string) wp_parse_url($requestUri, PHP_URL_PATH);
+        $home = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+        if ($home !== '' && str_starts_with($path, $home.'/')) {
+            $path = substr($path, strlen($home));
+        }
+
+        return $path;
+    }
+
+    public static function configured(): bool
+    {
+        return MobileSettings::iosAppIds() !== [] || (MobileSettings::androidPackage() !== null && MobileSettings::androidFingerprints() !== []);
+    }
+
+    /** Pfad-Muster des App-Links ab Domain (für apple-app-site-association). */
+    public static function resetPathPattern(): string
+    {
+        return rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/').'/'.self::RESET_PATH.'/*';
+    }
+
+    public static function resetUrl(): string
+    {
+        return home_url('/'.self::RESET_PATH.'/');
+    }
+
+    /**
+     * Antwort für eine der beiden /.well-known-Dateien: 200 mit JSON, wenn eingetragen, sonst 404;
+     * null bei anderen Adressen (WordPress macht weiter).
+     * @return ?array{status:int,content_type:string,body:string}
+     */
+    public static function wellKnown(string $path): ?array
+    {
+        if (! in_array($path, ['/.well-known/apple-app-site-association', '/apple-app-site-association', '/.well-known/assetlinks.json'], true)) {
+            return null;
+        }
+
+        return self::file($path) ?? ['status' => 404, 'content_type' => 'text/plain; charset=utf-8', 'body' => 'Not Found'];
+    }
+
+    /** @return ?array{status:int,content_type:string,body:string} JSON-Inhalt oder null (nicht eingetragen) */
+    private static function file(string $path): ?array
+    {
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        if ($path === '/.well-known/apple-app-site-association' || $path === '/apple-app-site-association') {
+            $ids = MobileSettings::iosAppIds();
+            if ($ids === []) {
+                return null;
+            }
+            $body = [
+                'applinks' => [
+                    'details' => [[
+                        'appIDs' => $ids,
+                        'components' => [['/' => self::resetPathPattern(), 'comment' => 'Passwort zurücksetzen in der App']],
+                    ]],
+                ],
+            ];
+
+            return ['status' => 200, 'content_type' => 'application/json', 'body' => (string) wp_json_encode($body, $flags)];
+        }
+        if ($path === '/.well-known/assetlinks.json') {
+            $package = MobileSettings::androidPackage();
+            $prints = MobileSettings::androidFingerprints();
+            if ($package === null || $prints === []) {
+                return null;
+            }
+            $body = [[
+                'relation' => ['delegate_permission/common.handle_all_urls'],
+                'target' => ['namespace' => 'android_app', 'package_name' => $package, 'sha256_cert_fingerprints' => $prints],
+            ]];
+
+            return ['status' => 200, 'content_type' => 'application/json', 'body' => (string) wp_json_encode($body, $flags)];
+        }
+
+        return null;
+    }
+
+    /**
+     * Browser statt App: /app/passwort/?key=…&login=… → normale WordPress-Seite zum Passwortsetzen.
+     * Ohne Schlüssel → Seite „Passwort vergessen“. @param array<string,mixed> $query
+     */
+    public static function resetRedirect(array $query): string
+    {
+        $key = isset($query['key']) && is_string($query['key']) ? $query['key'] : '';
+        $login = isset($query['login']) && is_string($query['login']) ? $query['login'] : '';
+        if ($key === '' || $login === '' || preg_match('/^[A-Za-z0-9]{1,64}$/', $key) !== 1 || strlen($login) > 200) {
+            return wp_lostpassword_url();
+        }
+        $url = network_site_url('wp-login.php?action=rp&key='.rawurlencode($key).'&login='.rawurlencode($login), 'login');
+        if (isset($query['wp_lang']) && is_string($query['wp_lang']) && preg_match('/^[a-z]{2,3}(_[A-Z]{2})?(_[a-z]+)?$/', $query['wp_lang']) === 1) {
+            $url .= '&wp_lang='.$query['wp_lang'];
+        }
+
+        return $url;
+    }
+
+    /** parse_request (früh, vor Kanonisierung/Template): /.well-known und App-Link-Pfad bedienen. */
+    public static function handleRequest(): void
+    {
+        $path = self::requestPath((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $file = self::wellKnown($path);
+        if ($file !== null) {
+            status_header($file['status']);
+            header('Content-Type: '.$file['content_type']);
+            header('Cache-Control: '.($file['status'] === 200 ? 'public, max-age=3600' : 'no-cache, max-age=0'));
+            header('X-Content-Type-Options: nosniff');
+            echo $file['body']; // phpcs:ignore WordPress.Security.EscapeOutput -- JSON aus geprüften Einstellungen
+            exit;
+        }
+        if (rtrim($path, '/') === '/'.self::RESET_PATH) {
+            nocache_headers();
+            header('Referrer-Policy: no-referrer');
+            header('X-Robots-Tag: noindex, nofollow');
+            wp_safe_redirect(self::resetRedirect(wp_unslash($_GET)), 302, 'bootspruefung-learning'); // phpcs:ignore WordPress.Security.NonceVerification
+            exit;
+        }
+    }
+
+    /**
+     * Link der Reset-Mail auf den App-Link-Pfad umschreiben (nur innerhalb von $callback, nur wenn
+     * App-Kennungen eingetragen sind). Erkannt wird der WordPress-Link wp-login.php?…action=rp…
+     * mit genau diesem Schlüssel; Sprache (wp_lang) bleibt erhalten. Andere Mails unverändert.
+     */
+    public static function withAppResetLink(callable $callback): mixed
+    {
+        if (! self::configured()) {
+            return $callback();
+        }
+        $filter = static function ($message, $key = '', $login = '') {
+            if (! is_string($message) || ! is_string($key) || $key === '') {
+                return $message;
+            }
+            $base = preg_quote(network_site_url('wp-login.php', 'login'), '#');
+
+            return (string) preg_replace_callback('#'.$base.'\?[^\s<>"\']+#', static function (array $m) use ($key, $login): string {
+                parse_str(html_entity_decode((string) wp_parse_url($m[0], PHP_URL_QUERY)), $q);
+                if (($q['action'] ?? '') !== 'rp' || ($q['key'] ?? '') !== $key) {
+                    return $m[0];
+                }
+                $args = ['key' => $key, 'login' => (string) ($q['login'] ?? $login)];
+                if (isset($q['wp_lang']) && is_string($q['wp_lang'])) {
+                    $args['wp_lang'] = $q['wp_lang'];
+                }
+
+                return self::resetUrl().'?'.http_build_query($args, '', '&', PHP_QUERY_RFC3986);
+            }, $message);
+        };
+        add_filter('retrieve_password_message', $filter, 50, 3);
+        try {
+            return $callback();
+        } finally {
+            remove_filter('retrieve_password_message', $filter, 50);
+        }
+    }
+}

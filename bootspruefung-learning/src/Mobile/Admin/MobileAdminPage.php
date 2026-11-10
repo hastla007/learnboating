@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Mobile\Admin;
 
 use Bootspruefung\Learning\Audit\AuditLog;
+use Bootspruefung\Learning\Mobile\AppLinks;
 use Bootspruefung\Learning\Mobile\MobileApi;
 use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\TokenAuth;
 
 /**
  * Adminseite „Bootsprüfung → Mobile App“: App ein/aus, Tenant-Slug, Marke, vertrauenswürdige
- * Proxys, Server-Prüfung (Authorization-Header) und Sitzungen eines Kunden widerrufen.
+ * Proxys, Sitzungsübergabe an die Webansicht, Universal Links/App Links (Passwort-Reset),
+ * Server-Prüfung (Authorization-Header) und Sitzungen eines Kunden widerrufen.
  * Nur mit manage_options und Nonce.
  */
 final class MobileAdminPage
@@ -116,6 +118,21 @@ final class MobileAdminPage
         printf('<tr><th scope="row"><label for="bp-mobile-color">%s</label></th><td><input type="text" id="bp-mobile-color" name="bp_mobile[primary_color]" value="%s" placeholder="#005FD7" pattern="#[0-9A-Fa-f]{6}"><p class="description">%s</p></td></tr>', esc_html__('Markenfarbe', 'bootspruefung-learning'), esc_attr((string) $s['primary_color']), esc_html__('Hex-Farbe für die App (leer = App-Standard). Logo: Website-Icon bzw. Theme-Logo.', 'bootspruefung-learning'));
         printf('<tr><th scope="row"><label for="bp-mobile-support">%s</label></th><td><input type="email" id="bp-mobile-support" class="regular-text" name="bp_mobile[support_email]" value="%s" placeholder="%s"></td></tr>', esc_html__('Support-E-Mail', 'bootspruefung-learning'), esc_attr((string) $s['support_email']), esc_attr((string) MobileSettings::supportEmail()));
         printf('<tr><th scope="row"><label for="bp-mobile-proxies">%s</label></th><td><textarea id="bp-mobile-proxies" class="large-text code" rows="3" name="bp_mobile[trusted_proxies]">%s</textarea><p class="description">%s</p></td></tr>', esc_html__('Vertrauenswürdige Proxys', 'bootspruefung-learning'), esc_textarea((string) $s['trusted_proxies']), esc_html__('IP-Adressen oder Netze (CIDR), deren X-Forwarded-For für Anmelde-Limits gilt – z. B. CDN/Load-Balancer mit öffentlicher IP. Loopback und private Netze gelten immer.', 'bootspruefung-learning'));
+        printf('<tr><th scope="row">%s</th><td><input type="hidden" name="bp_mobile[web_session_enabled]" value="0"><label><input type="checkbox" name="bp_mobile[web_session_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>', esc_html__('Anmeldung in der Webansicht', 'bootspruefung-learning'), checked(! empty($s['web_session_enabled']), true, false), esc_html__('Erlaubt (Standard)', 'bootspruefung-learning'), esc_html__('Die App darf Kundinnen und Kunden mit einem 60 Sekunden gültigen Einmal-Link im Web-Lernbereich anmelden (z. B. Funkgerät-Simulator in der Tablet-App). Nur Seiten unter dem Lernbereich; nie für Konten mit Verwaltungsrechten.', 'bootspruefung-learning'));
+        echo '</tbody></table>';
+
+        echo '<h3>'.esc_html__('Reset-Link öffnet die App (Universal Links / App Links)', 'bootspruefung-learning').'</h3>';
+        printf('<p class="description">%s</p>', esc_html(sprintf(
+            /* translators: 1: App-Link-Pfad, 2: Adresse apple-app-site-association, 3: Adresse assetlinks.json */
+            __('Leer = aus. Mit Einträgen zeigt der Link der Passwort-Mail, die aus der App angefordert wird, auf %1$s (öffnet die App; ohne App leitet die Website auf die normale Seite zum Passwortsetzen weiter). Die Website liefert dann %2$s und %3$s aus. Die Werte stellt das App-Entwicklerteam bereit.', 'bootspruefung-learning'),
+            AppLinks::resetUrl(),
+            home_url('/.well-known/apple-app-site-association'),
+            home_url('/.well-known/assetlinks.json')
+        )));
+        echo '<table class="form-table"><tbody>';
+        printf('<tr><th scope="row"><label for="bp-mobile-ios">%s</label></th><td><textarea id="bp-mobile-ios" class="large-text code" rows="2" name="bp_mobile[ios_app_ids]" placeholder="ABCDE12345.at.example.bootsschule">%s</textarea><p class="description">%s</p></td></tr>', esc_html__('iOS-App-IDs', 'bootspruefung-learning'), esc_textarea((string) $s['ios_app_ids']), esc_html__('Je Zeile Team-ID und Bundle-ID (TEAMID.bundle.id) aus dem Apple-Developer-Konto.', 'bootspruefung-learning'));
+        printf('<tr><th scope="row"><label for="bp-mobile-android">%s</label></th><td><input type="text" id="bp-mobile-android" class="regular-text code" name="bp_mobile[android_package]" value="%s" placeholder="at.example.bootsschule"></td></tr>', esc_html__('Android-Paketname', 'bootspruefung-learning'), esc_attr((string) $s['android_package']));
+        printf('<tr><th scope="row"><label for="bp-mobile-fp">%s</label></th><td><textarea id="bp-mobile-fp" class="large-text code" rows="2" name="bp_mobile[android_cert_fingerprints]">%s</textarea><p class="description">%s</p></td></tr>', esc_html__('Android-Zertifikat (SHA-256)', 'bootspruefung-learning'), esc_textarea((string) $s['android_cert_fingerprints']), esc_html__('Je Zeile ein SHA-256-Fingerabdruck des Signaturzertifikats (AA:BB:…, 32 Bytes) – bei Google Play der Schlüssel aus „App-Signatur“, ggf. zusätzlich der Upload-/Debug-Schlüssel.', 'bootspruefung-learning'));
         echo '</tbody></table>';
         submit_button();
         echo '</form>';

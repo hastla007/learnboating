@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
 use Bootspruefung\Learning\Mobile\ApiException;
+use Bootspruefung\Learning\Mobile\AppLinks;
+use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Mobile\TokenAuth;
+use Bootspruefung\Learning\Mobile\WebSession;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -92,13 +95,39 @@ final class AuthController extends BaseController
         $user = get_user_by('email', $email);
         if ($user instanceof \WP_User) {
             // WordPress-/WooCommerce-Mechanismus: E-Mail mit Link zum Setzen eines neuen Passworts.
-            $result = retrieve_password($user->user_login);
+            // Mit eingetragenen App-Kennungen zeigt der Link auf den App-Link-Pfad (öffnet die App,
+            // ohne App leitet der Server auf die Web-Seite weiter); Web-Ablauf sonst unverändert.
+            $result = AppLinks::withAppResetLink(static fn () => retrieve_password($user->user_login));
             if (is_wp_error($result)) {
                 error_log('[bootspruefung-learning mobile] Passwort-Mail fehlgeschlagen: '.$result->get_error_message());
             }
         }
 
         return new WP_REST_Response(null, 202);
+    }
+
+    /**
+     * Einmal-URL für die eingebettete Webansicht (z. B. Funkgerät-Simulator am Tablet): meldet das
+     * Konto der App-Sitzung im Web-Lernbereich an. Nur Ziele unter /bootsscheine/…, 60 Sekunden,
+     * einmal verwendbar; nicht für Konten mit Verwaltungsrechten.
+     */
+    public function webSession(WP_REST_Request $request): WP_REST_Response
+    {
+        if (! MobileSettings::webSessionEnabled()) {
+            throw new ApiException('WEB_SESSION_DISABLED', __('Die Anmeldung in der Webansicht ist bei dieser Bootsschule abgeschaltet. Bitte öffne die Seite im Browser.', 'bootspruefung-learning'), 403);
+        }
+        $userId = $this->user();
+        if (WebSession::privileged(get_userdata($userId))) {
+            throw new ApiException('WEB_SESSION_NOT_ALLOWED', __('Für Konten mit Verwaltungsrechten ist die Anmeldung in der Webansicht über die App nicht möglich. Bitte melde dich im Browser an.', 'bootspruefung-learning'), 403);
+        }
+        RateLimiter::hit('web-session|'.$userId, WebSession::RATE_LIMIT, WebSession::RATE_WINDOW);
+        $path = WebSession::normalizeTarget((string) $request['redirect']);
+        if ($path === null) {
+            throw ApiException::validation(['redirect' => [__('Erlaubt sind nur Seiten im Lernbereich dieser Website, z. B. /bootsscheine/src/funk/geraet/.', 'bootspruefung-learning')]]);
+        }
+        $session = TokenAuth::current();
+
+        return $this->ok(WebSession::create($userId, $session !== null ? (int) $session->id : 0, $path), 201);
     }
 
     /** Neues Passwort mit dem Schlüssel aus der Reset-E-Mail; widerruft alle App-Sitzungen. */
@@ -118,7 +147,12 @@ final class AuthController extends BaseController
         if ($errors !== []) {
             throw ApiException::validation($errors);
         }
-        $user = is_email($email) ? get_user_by('email', $email) : false;
+        // Konto über die E-Mail-Adresse oder (seit 1.3.0, aus dem App-Link /app/passwort/) den Benutzernamen.
+        $login = trim((string) $request['login']);
+        $user = $login !== '' ? get_user_by('login', $login) : (is_email($email) ? get_user_by('email', $email) : false);
+        if ($user instanceof \WP_User && $login !== '' && $email !== '' && strcasecmp((string) $user->user_email, $email) !== 0) {
+            $user = false;
+        }
         $checked = $user instanceof \WP_User ? check_password_reset_key($key, $user->user_login) : null;
         if (! $checked instanceof \WP_User) {
             throw new ApiException('PASSWORD_RESET_INVALID_OR_EXPIRED', __('Der Link zum Zurücksetzen ist ungültig oder abgelaufen. Bitte fordere einen neuen an.', 'bootspruefung-learning'), 422);

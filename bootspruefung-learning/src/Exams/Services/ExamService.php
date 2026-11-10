@@ -335,6 +335,7 @@ final class ExamService
                     'known' => $sq->self_assessed_known === null ? null : (bool) $sq->self_assessed_known,
                     'model_answer' => $sq->revealed_at ? $this->presenter->modelAnswer((int) $sq->revision_id) : null,
                     'answered' => $sq->answered_at !== null,
+                    'flagged' => (bool) ($sq->flagged ?? false),
                 ];
             }
 
@@ -388,6 +389,27 @@ final class ExamService
         }
         $this->db->update($this->t('exam_session_question'), $data, ['id' => (int) $sq->id]);
         $this->db->query('COMMIT');
+    }
+
+    /**
+     * Frage einer laufenden Prüfung „zur Überprüfung markieren“ (bzw. Markierung entfernen).
+     * Ändert weder Antwort noch Bewertung; nach Abgabe/Fristende nicht mehr möglich.
+     * @return int Anzahl markierter Fragen der Sitzung
+     */
+    public function setFlag(int $userId, int $sessionId, int $position, bool $flagged): int
+    {
+        $this->runningSession($userId, $sessionId);
+        $sq = $this->sessionQuestion($sessionId, $position);
+        $this->db->query('START TRANSACTION');
+        $status = $this->db->get_var($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
+        if ($status !== 'running') {
+            $this->db->query('ROLLBACK');
+            throw new RuntimeException('Die Prüfung ist bereits beendet.');
+        }
+        $this->db->update($this->t('exam_session_question'), ['flagged' => $flagged ? 1 : 0], ['id' => (int) $sq->id]);
+        $this->db->query('COMMIT');
+
+        return (int) $this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t('exam_session_question')} WHERE session_id = %d AND flagged = 1", $sessionId));
     }
 
     /** Musterantwort einer offenen Frage freigeben (Voraussetzung für die Selbsteinschätzung). */
@@ -721,6 +743,7 @@ final class ExamService
                 'model_answer' => $presented['type'] === 'open_text' ? $this->presenter->modelAnswer((int) $sq->revision_id) : null,
                 'known' => $sq->self_assessed_known === null ? null : (bool) $sq->self_assessed_known,
                 'answered' => $sq->answered_at !== null,
+                'flagged' => (bool) ($sq->flagged ?? false),
                 'correct' => (bool) $sq->is_correct,
                 'explanation' => $explain ? ((bool) $sq->is_correct ? $revision->feedback_correct : $revision->feedback_incorrect) : null,
             ];

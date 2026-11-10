@@ -128,6 +128,7 @@ final class PersonalData
         if ($index >= count($tables)) {
             return ['data' => [], 'done' => true];
         }
+        $extra = $page === 1 && $user ? self::appSettingsItems((int) $user->ID) : [];
         $table = $tables[$index];
         $rows = $wpdb->get_results(self::sql('SELECT *', $table, $sources[$table][1]).' ORDER BY id LIMIT '.self::EXPORT_LIMIT.' OFFSET '.(int) $offset, ARRAY_A) ?: [];
         $data = [];
@@ -142,7 +143,27 @@ final class PersonalData
         }
         $last = $index === count($tables) - 1 && count($rows) < self::EXPORT_LIMIT;
 
-        return ['data' => $data, 'done' => $last];
+        return ['data' => array_merge($extra, $data), 'done' => $last];
+    }
+
+    /** Synchronisierte App-Einstellungen (Nutzer-Meta bp_app_settings, GET/PUT /me/settings). @return list<array<string,mixed>> */
+    private static function appSettingsItems(int $userId): array
+    {
+        $state = \Bootspruefung\Learning\Mobile\AppSettings::get($userId);
+        if ($state['version'] === 0) {
+            return [];
+        }
+
+        return [[
+            'group_id' => self::GROUP.'-app_settings',
+            'group_label' => __('Bootsprüfung', 'bootspruefung-learning').' – '.__('App-Einstellungen', 'bootspruefung-learning'),
+            'item_id' => 'bp-app-settings-'.$userId,
+            'data' => [
+                ['name' => 'settings', 'value' => (string) wp_json_encode($state['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
+                ['name' => 'version', 'value' => (string) $state['version']],
+                ['name' => 'updated_at', 'value' => (string) $state['updated_at']],
+            ],
+        ]];
     }
 
     /** $where ist bereits vorbereitet (sources()). */
@@ -210,6 +231,8 @@ final class PersonalData
                 }
                 $removed = $removed || $deleted > 0;
             }
+            // Synchronisierte App-Einstellungen (Nutzer-Meta).
+            $removed = \Bootspruefung\Learning\Mobile\AppSettings::delete((int) $user->ID) || $removed;
             // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
             $members = self::eraseGroupMembers((int) $user->ID, $email);
             if ($members === false) {

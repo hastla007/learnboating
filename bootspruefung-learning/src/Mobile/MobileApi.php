@@ -14,6 +14,7 @@ use Bootspruefung\Learning\Mobile\Controllers\FileController;
 use Bootspruefung\Learning\Mobile\Controllers\LearningController;
 use Bootspruefung\Learning\Mobile\Controllers\PrivacyController;
 use Bootspruefung\Learning\Mobile\Controllers\RadioController;
+use Bootspruefung\Learning\Mobile\Controllers\SettingsController;
 use Bootspruefung\Learning\Mobile\Controllers\TrainingController;
 use Bootspruefung\Learning\Plugin;
 use WP_Error;
@@ -32,7 +33,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.2.0';
+    public const API_VERSION = '1.3.0';
 
     public static function register(): void
     {
@@ -47,6 +48,9 @@ final class MobileApi
         add_action('after_password_reset', static fn ($user) => $user instanceof \WP_User ? TokenAuth::revokeAll((int) $user->ID, 'password_change') : null);
         add_action('wp_set_password', [self::class, 'passwordSet'], 10, 3);
         add_action('profile_update', [self::class, 'profileUpdated'], 10, 2);
+        // Sitzungsübergabe App → Web (?bp_app_login=…) und Universal/App Links (/.well-known, /app/passwort/).
+        WebSession::register();
+        AppLinks::register();
         if (is_admin()) {
             (new Admin\MobileAdminPage())->register();
         }
@@ -196,6 +200,7 @@ final class MobileApi
         TokenAuth::cleanup();
         Idempotency::cleanup();
         PrivacyController::cleanup();
+        WebSession::cleanup();
     }
 
     // ------------------------------------------------------------------ Routen
@@ -220,7 +225,7 @@ final class MobileApi
         self::route('/auth/refresh', 'POST', [AuthController::class, 'refresh'], false, false, ['refresh_token' => $string(300, true)]);
         self::route('/auth/password/forgot', 'POST', [AuthController::class, 'forgotPassword'], false, false, ['email' => $string(190, true)]);
         self::route('/auth/password/reset', 'POST', [AuthController::class, 'resetPassword'], false, false, [
-            'email' => $string(190, true), 'token' => $string(200, true), 'password' => ['type' => 'string', 'maxLength' => 4096, 'required' => true], 'password_confirmation' => ['type' => 'string', 'maxLength' => 4096, 'required' => true],
+            'email' => $string(190), 'login' => $string(60), 'token' => $string(200, true), 'password' => ['type' => 'string', 'maxLength' => 4096, 'required' => true], 'password_confirmation' => ['type' => 'string', 'maxLength' => 4096, 'required' => true],
         ]);
 
         // Konto (ohne Tenant)
@@ -230,6 +235,9 @@ final class MobileApi
         self::route('/me/sessions', 'DELETE', [AccountController::class, 'revokeOthers'], true, false);
         self::route('/me/sessions/'.sprintf($id, 'sessionId'), 'DELETE', [AccountController::class, 'revokeSession'], true, false);
         self::route('/me/deletion-request', 'POST', [PrivacyController::class, 'deletionRequest'], true, false);
+        self::route('/me/settings', 'GET', [SettingsController::class, 'show'], true, false);
+        self::route('/me/settings', 'PUT', [SettingsController::class, 'replace'], true, false);
+        self::route('/auth/web-session', 'POST', [AuthController::class, 'webSession'], true, false, ['redirect' => $string(400, true)]);
         self::route('/files/'.sprintf($id, 'fileId'), 'GET', [FileController::class, 'download'], true, false);
         self::route('/profile/export/(?P<exportId>[0-9a-f]{32})/download', 'GET', [PrivacyController::class, 'download'], true, false);
 
@@ -277,6 +285,7 @@ final class MobileApi
             'selected_answer_ids' => $ids, 'known' => $bool, 'marked_for_review' => $bool,
         ]);
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/reveal', 'POST', [ExamController::class, 'reveal']);
+        self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/flag', 'PUT', [ExamController::class, 'flag'], true, true, ['flagged' => ['type' => 'boolean', 'required' => true]]);
         self::route('/exams/'.sprintf($id, 'examId').'/submit', 'POST', [ExamController::class, 'submit']);
         self::route('/exams/'.sprintf($id, 'examId').'/result', 'GET', [ExamController::class, 'result']);
 

@@ -10,7 +10,9 @@ declare(strict_types=1);
  * Favoriten-Sortierung (saved_at/assigned_at), Prüfung Start → Antwort → Abgabe → Ergebnis,
  * Video, Navigation, Funktraining SRC/UBI (Texte, Vokabeln, Buchstabiertafel, Funkpraxis,
  * Teilumfang), Funkgerät-Simulator-Link, Prüfungsanmeldung, Codes, Datenexport, Löschantrag,
- * Schutz fremder Daten (IDOR) und Abgleich Routen ↔ openapi.yaml.
+ * Schutz fremder Daten (IDOR), Prüfungsfragen markieren, Sitzungsübergabe App → Web,
+ * synchronisierte App-Einstellungen, Universal Links/App Links (Reset-Link) und Abgleich
+ * Routen ↔ openapi.yaml.
  *
  *   WP_DIR=/pfad/zu/wordpress php tests/integration/mobile-api-test.php
  *
@@ -33,6 +35,7 @@ use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\LearningService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
+use Bootspruefung\Learning\Mobile\AppLinks;
 use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\Problem;
 use Bootspruefung\Learning\Mobile\TokenAuth;
@@ -51,6 +54,7 @@ $p = $wpdb->prefix.'bp_';
 // Migration (neue Tabellen) wie beim Plugin-Update.
 \Bootspruefung\Learning\Plugin::instance()->maybeMigrate();
 $check((bool) $wpdb->get_var("SHOW TABLES LIKE '{$p}mobile_session'"), 'Tabelle bp_mobile_session angelegt');
+$check((bool) $wpdb->get_var("SHOW TABLES LIKE '{$p}mobile_web_code'") && (bool) $wpdb->get_var("SHOW COLUMNS FROM {$p}exam_session_question LIKE 'flagged'"), 'Migration 1.11.0: Tabelle bp_mobile_web_code und Spalte exam_session_question.flagged');
 
 $settingsBefore = get_option(Settings::OPTION);
 $mobileBefore = get_option(MobileSettings::OPTION);
@@ -410,6 +414,25 @@ $resume = $api('GET', "/exams/{$examId}", [], $tokenA);
 $check($resume['status'] === 200 && $resume['body']['data']['answers'][0]['answered'] === true && $resume['body']['data']['remaining_seconds'] > 0, 'laufende Prüfung fortsetzen (gespeicherte Antworten)');
 $r = $api('GET', "/exams/{$examId}/result", [], $tokenA);
 $check($r['status'] === 409 && $code($r) === 'EXAM_NOT_SUBMITTED', 'Ergebnis vor Abgabe → 409');
+$check($resume['body']['data']['flagged_count'] === 0 && $resume['body']['data']['answers'][0]['flagged'] === false && $resume['body']['data']['questions'][0]['flagged'] === false, 'Markierung: anfangs keine Frage markiert');
+$f = $api('PUT', "/exams/{$examId}/answers/2/flag", ['flagged' => true], $tokenA);
+$check($f['status'] === 200 && $f['body']['data'] === ['question_id' => '2', 'flagged' => true, 'flagged_count' => 1], 'Frage 2 zur Überprüfung markiert (Adressierung über Position)');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT flagged FROM {$p}exam_session_question WHERE session_id = %d AND position = 2", (int) $examId)) === 1, 'Markierung serverseitig gespeichert (exam_session_question.flagged)');
+$f = $api('PUT', "/exams/{$examId}/answers/2/flag", ['flagged' => true], $tokenA);
+$check($f['status'] === 200 && $f['body']['data']['flagged_count'] === 1, 'erneutes Markieren idempotent');
+$api('PUT', "/exams/{$examId}/answers/3/flag", ['flagged' => true], $tokenA);
+$f = $api('PUT', "/exams/{$examId}/answers/3/flag", ['flagged' => false], $tokenA);
+$check($f['status'] === 200 && $f['body']['data']['flagged'] === false && $f['body']['data']['flagged_count'] === 1, 'Markierung entfernt');
+$r = $api('PUT', "/exams/{$examId}/answers/2/flag", [], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED' && isset($r['body']['errors']['flagged']), 'flagged fehlt → 422');
+$r = $api('PUT', "/exams/{$examId}/answers/999/flag", ['flagged' => true], $tokenA);
+$check($r['status'] === 404, 'unbekannte Position → 404');
+$r = $api('PUT', "/exams/{$examId}/answers/2/flag", ['flagged' => true], $tokenB);
+$check($r['status'] === 404, 'Markierung in fremder Prüfung → 404');
+$save = $api('PUT', "/exams/{$examId}/answers/1", ['selected_answer_ids' => $pick, 'known' => $first['answer_selection'] === 'open' ? true : null, 'marked_for_review' => true], $tokenA);
+$check($save['status'] === 200 && $save['body']['data']['marked_for_review'] === true && $save['body']['data']['flagged'] === true, 'marked_for_review beim Antworten speichert die Markierung');
+$resume = $api('GET', "/exams/{$examId}", [], $tokenA)['body']['data'] ?? [];
+$check(($resume['flagged_count'] ?? null) === 2 && $resume['answers'][1]['flagged'] === true && $resume['answers'][1]['marked_for_review'] === true && $resume['questions'][1]['flagged'] === true && $resume['answers'][2]['flagged'] === false, 'Fortsetzen stellt Markierungen wieder her (flagged je Frage, flagged_count)');
 $sub = $api('POST', "/exams/{$examId}/submit", [], $tokenA);
 $result = $sub['body']['data'] ?? [];
 $check($sub['status'] === 200 && $result['status'] === 'evaluated' && is_bool($result['passed']) && $result['question_count'] === $paper['question_count'] && isset($result['parts'], $result['by_topic'], $result['review']) && array_key_exists('reduced', $result), 'Abgabe: Ergebnis mit Teilergebnissen, Themen, Auswertung');
@@ -417,6 +440,9 @@ $check(count($result['wrong_question_ids']) >= $paper['question_count'] - 1, 'fa
 $check($api('POST', "/exams/{$examId}/submit", [], $tokenA)['body']['data']['correct_count'] === $result['correct_count'], 'erneute Abgabe liefert dasselbe Ergebnis');
 $r = $api('PUT', "/exams/{$examId}/answers/2", ['selected_answer_ids' => $pick], $tokenA);
 $check($r['status'] === 409 && $code($r) === 'EXAM_ALREADY_SUBMITTED', 'Antwort nach Abgabe → 409');
+$r = $api('PUT', "/exams/{$examId}/answers/3/flag", ['flagged' => true], $tokenA);
+$check($r['status'] === 409 && $code($r) === 'EXAM_ALREADY_SUBMITTED' && (int) $wpdb->get_var($wpdb->prepare("SELECT flagged FROM {$p}exam_session_question WHERE session_id = %d AND position = 3", (int) $examId)) === 0, 'Markieren nach Abgabe → 409, nichts gespeichert');
+$check($result['flagged_count'] === 2 && $result['review'][1]['flagged'] === true && $result['review'][2]['flagged'] === false, 'Ergebnis zeigt markierte Fragen');
 $r = $api('GET', "/exams/{$examId}/result", [], $tokenA);
 $check($r['status'] === 200 && $r['body']['data']['exam_id'] === $examId, 'Ergebnis abrufbar');
 $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=exam_mistakes&exam_id={$examId}", [], $tokenA);
@@ -603,6 +629,144 @@ $r = $api('POST', '/auth/email/verification-notification', [], $tokenA, ['X-Tena
 $check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'Route /auth/email/verification-notification entfernt → 404');
 $check($api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null])['body']['data']['user']['email_verified'] === true, '/me: email_verified bleibt true');
 
+echo "Sitzungsübergabe App → Web\n";
+$carolPass = 'Mobil-Passwort-789!';
+$carol = $customer('mobile_kundin_c', $carolPass);
+$staff = [];
+foreach (['administrator' => 'mobile_admin_t', 'editor' => 'mobile_redaktion_t'] as $role => $staffLogin) {
+    $u = get_user_by('login', $staffLogin);
+    if ($u) {
+        wp_delete_user((int) $u->ID);
+    }
+    $staff[$role] = (int) wp_insert_user(['user_login' => $staffLogin, 'user_pass' => 'Staff-Passwort-321!', 'user_email' => $staffLogin.'@example.test', 'role' => $role]);
+}
+$origin = (static function (): string {
+    $h = wp_parse_url(home_url('/'));
+
+    return $h['scheme'].'://'.$h['host'].(isset($h['port']) ? ':'.$h['port'] : '');
+})();
+$simPath = '/'.trim((string) wp_parse_url(home_url('/bootsscheine/src/funk/geraet/'), PHP_URL_PATH), '/').'/';
+$codeOf = static fn (array $r): string => (string) (preg_match('/[?&]bp_app_login=([^&]+)/', (string) ($r['body']['data']['url'] ?? ''), $m) ? $m[1] : '');
+$ws = $api('POST', '/auth/web-session', ['redirect' => '/bootsscheine/src/funk/geraet/'], $tokenA, ['X-Tenant-Slug' => null]);
+$wcode = $codeOf($ws);
+$check($ws['status'] === 201 && str_starts_with((string) $ws['body']['data']['url'], $origin.$simPath.'?bp_app_login=bpw_') && strlen($wcode) === 47 && $ws['body']['data']['expires_in'] === 60, 'POST /auth/web-session → Einmal-URL ins Lernbereich-Ziel');
+$check(abs(strtotime((string) $ws['body']['data']['expires_at']) - time() - 60) <= 2 && ($ws['headers']['Cache-Control'] ?? '') === 'private, no-store, max-age=0', 'Code 60 Sekunden gültig, Antwort no-store');
+$wrow = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}mobile_web_code WHERE code_hash = %s", hash('sha256', $wcode)));
+$check($wrow && (int) $wrow->user_id === $alice && (int) $wrow->session_id === (int) $tokensA['session_id'] && ! str_contains((string) wp_json_encode($wrow), $wcode), 'nur Hash gespeichert, gebunden an Konto und App-Sitzung');
+$check($api('POST', '/auth/web-session', ['redirect' => '/bootsscheine/'])['status'] === 401, 'ohne Anmeldung → 401');
+$evil = ['https://evil.example/bootsscheine/', '//evil.example/bootsscheine/', '/wp-admin/', '/bootsscheine/../wp-admin/', '/bootsscheine/%2e%2e/wp-admin/', 'javascript:alert(1)', '/bootsscheine\\..\\wp-admin', $origin.'.evil.example/bootsscheine/', 'http://user@localhost/bootsscheine/', '/bootsscheinex/', '/bootsscheine/#//evil.example', '/bootsscheine/src/?next=https://evil.example', ''];
+$rejected = 0;
+foreach ($evil as $target) {
+    $r = $api('POST', '/auth/web-session', ['redirect' => $target], $tokenA, ['X-Tenant-Slug' => null]);
+    $rejected += $r['status'] === 422 && $code($r) === 'VALIDATION_FAILED' ? 1 : 0;
+}
+$check($rejected === count($evil), 'offene Weiterleitung verhindert: fremde Hosts, //, .., %2e, Schema, Pfade außerhalb des Lernbereichs → 422 ('.$rejected.'/'.count($evil).')');
+$r = $api('POST', '/auth/web-session', ['redirect' => home_url('/bootsscheine/src/?modus=frei&bp_app_login=alt')], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 201 && str_contains((string) $r['body']['data']['redirect'], '/bootsscheine/src/?modus=frei') && substr_count((string) $r['body']['data']['url'], 'bp_app_login=') === 1, 'absolute URL derselben Website erlaubt (alter Code-Parameter entfernt)');
+$authCookies = [];
+add_filter('send_auth_cookies', '__return_false', 99);
+add_action('set_auth_cookie', static function ($cookie, $expire, $expiration, $userId) use (&$authCookies): void {
+    $authCookies[] = ['expire' => (int) $expire, 'user' => (int) $userId];
+}, 10, 4);
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($wcode, $simPath.'?bp_app_login='.$wcode);
+$check($res['user_id'] === $alice && $res['location'] === $origin.$simPath && count($authCookies) === 1 && $authCookies[0]['user'] === $alice, 'Einlösen: WordPress-Anmeldecookie gesetzt, Weiterleitung aufs Ziel ohne Code');
+$check($authCookies[0]['expire'] === 0 && get_current_user_id() === $alice, 'Sitzungscookie ohne „angemeldet bleiben“');
+$again = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($wcode, $simPath.'?bp_app_login='.$wcode);
+$loginTo = wp_login_url($origin.$simPath);
+$check($again['user_id'] === 0 && $again['location'] === $loginTo && count($authCookies) === 1, 'Code zweimal benutzt → Anmeldeseite mit redirect_to aufs Ziel, kein Cookie');
+$r = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokenA, ['X-Tenant-Slug' => null]);
+$c2 = $codeOf($r);
+$wpdb->update($p.'mobile_web_code', ['expires_at' => gmdate('Y-m-d H:i:s', time() - 1)], ['code_hash' => hash('sha256', $c2)]);
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c2, $simPath.'?bp_app_login='.$c2);
+$check($res['user_id'] === 0 && $res['location'] === $loginTo, 'abgelaufener Code → Anmeldeseite (gleiche Antwort wie ungültig)');
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest('bpw_'.str_repeat('A', 43), '/wp-admin/?bp_app_login=x');
+$check($res['user_id'] === 0 && $res['location'] === wp_login_url(\Bootspruefung\Learning\Frontend\Router::url()), 'ungültiger Code an fremdem Pfad → Anmeldeseite mit Lernbereich als Ziel');
+$lc = $login('mobile_kundin_c@example.test', $carolPass, 'Tablet');
+$tokC = (string) $lc['body']['data']['access_token'];
+$c3 = $codeOf($api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]));
+$api('POST', '/auth/logout', [], $tokC, ['X-Tenant-Slug' => null]);
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c3, $simPath);
+$check($res['user_id'] === 0, 'App-Sitzung widerrufen → offener Code unbrauchbar');
+$lc = $login('mobile_kundin_c@example.test', $carolPass, 'Tablet');
+$tokC = (string) $lc['body']['data']['access_token'];
+$c4 = $codeOf($api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]));
+$carolPass = 'Mobil-Passwort-790!';
+wp_set_password($carolPass, $carol);
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c4, $simPath);
+$check($c4 !== '' && $res['user_id'] === 0, 'Passwortänderung → offener Code unbrauchbar');
+$tokC = (string) $login('mobile_kundin_c@example.test', $carolPass, 'Tablet')['body']['data']['access_token'];
+$c5 = $codeOf($api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]));
+(new WP_User($carol))->set_role('editor');
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c5, $simPath);
+(new WP_User($carol))->set_role('customer');
+$check($c5 !== '' && $res['user_id'] === 0, 'Konto inzwischen mit Redaktionsrechten → Code wird nicht eingelöst');
+foreach ($staff as $role => $staffId) {
+    $tokS = (string) ($login($role === 'administrator' ? 'mobile_admin_t@example.test' : 'mobile_redaktion_t@example.test', 'Staff-Passwort-321!')['body']['data']['access_token'] ?? '');
+    $r = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokS, ['X-Tenant-Slug' => null]);
+    $check($r['status'] === 403 && $code($r) === 'WEB_SESSION_NOT_ALLOWED', 'Konto mit Rolle '.$role.' → 403 WEB_SESSION_NOT_ALLOWED (keine Admin-Sitzung über App-Token)');
+}
+$c6 = $codeOf($api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]));
+MobileSettings::save(array_merge(MobileSettings::all(), ['web_session_enabled' => false]));
+$r = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]);
+$res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c6, $simPath);
+$check($r['status'] === 403 && $code($r) === 'WEB_SESSION_DISABLED' && $res['user_id'] === 0, 'Einstellung aus → 403 WEB_SESSION_DISABLED, offene Codes werden nicht eingelöst');
+MobileSettings::save(array_merge(MobileSettings::all(), ['web_session_enabled' => true]));
+$check(MobileSettings::webSessionEnabled() && MobileSettings::sanitize([])['web_session_enabled'] === true, 'Standard: Übergabe an');
+\Bootspruefung\Learning\Mobile\RateLimiter::clear('web-session|'.$carol);
+$statuses = [];
+for ($i = 0; $i < \Bootspruefung\Learning\Mobile\WebSession::RATE_LIMIT + 1; $i++) {
+    $statuses[] = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null])['status'];
+}
+$check(count(array_filter($statuses, static fn ($s) => $s === 201)) === \Bootspruefung\Learning\Mobile\WebSession::RATE_LIMIT && end($statuses) === 429, 'Erzeugung begrenzt ('.\Bootspruefung\Learning\Mobile\WebSession::RATE_LIMIT.' je 15 Minuten) → 429');
+remove_filter('send_auth_cookies', '__return_false', 99);
+wp_set_current_user(0);
+$wpdb->update($p.'mobile_web_code', ['expires_at' => gmdate('Y-m-d H:i:s', time() - 2 * DAY_IN_SECONDS)], ['user_id' => $carol]);
+\Bootspruefung\Learning\Mobile\MobileApi::cleanup();
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}mobile_web_code WHERE user_id = %d", $carol)) === 0, 'alte Codes werden automatisch gelöscht');
+
+echo "Synchronisierte App-Einstellungen\n";
+$st = $api('GET', '/me/settings', [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($st['status'] === 200 && $st['body']['data']['settings'] === [] && $st['body']['data']['version'] === 0 && $st['body']['data']['updated_at'] === null && ($st['headers']['ETag'] ?? '') === '"0"', 'GET /me/settings ohne Daten: leeres Objekt, Version 0');
+$check(\Bootspruefung\Learning\Mobile\AppSettings::get($alice)['settings'] instanceof stdClass, 'leere Einstellungen als Objekt (nicht als Liste)');
+$prefs = ['theme' => 'dark', 'audio.volume' => 0.8, 'trainer' => ['daily_goal' => 20, 'modes' => ['smarttrainer', 'favorites'], 'sound' => true, 'nested' => ['deep' => ['x' => null]]], 'path' => 'C:\\Ordner "x" – Übung', 'empty' => new stdClass()];
+$put = $api('PUT', '/me/settings', ['settings' => $prefs], $tokenA, ['X-Tenant-Slug' => null]);
+$sd = $put['body']['data'] ?? [];
+$check($put['status'] === 200 && $sd['version'] === 1 && is_string($sd['updated_at']) && ($put['headers']['ETag'] ?? '') === '"1"' && $sd['settings']['trainer']['modes'] === ['smarttrainer', 'favorites'], 'PUT /me/settings speichert (Version 1, ETag)');
+$stored = \Bootspruefung\Learning\Mobile\AppSettings::get($alice);
+$check($stored['settings']->path === 'C:\\Ordner "x" – Übung' && $stored['settings']->empty instanceof stdClass && $stored['settings']->{'audio.volume'} === 0.8, 'Sonderzeichen, Backslashes, Zahlen und leere Objekte bleiben erhalten');
+$check(is_string(get_user_meta($alice, 'bp_app_settings', true)), 'gespeichert in der Nutzer-Meta bp_app_settings');
+$g = $api('GET', '/me/settings', [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($g['status'] === 200 && $g['body']['data']['version'] === 1 && $g['body']['data']['settings']['theme'] === 'dark', 'GET liefert gespeicherten Stand (anderes Gerät)');
+$r = $api('PUT', '/me/settings', ['settings' => ['theme' => 'light']], $tokenA, ['X-Tenant-Slug' => null, 'If-Match' => '"0"']);
+$check($r['status'] === 409 && $code($r) === 'VERSION_CONFLICT' && ($r['body']['details']['current']['version'] ?? null) === 1 && ($r['body']['details']['current']['settings']['theme'] ?? '') === 'dark', 'veraltete Version (If-Match) → 409 VERSION_CONFLICT mit aktuellem Stand');
+$r = $api('PUT', '/me/settings', ['settings' => ['theme' => 'light'], 'expected_version' => 5], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 409 && $code($r) === 'VERSION_CONFLICT', 'expected_version passt nicht → 409');
+$r = $api('PUT', '/me/settings', ['settings' => ['theme' => 'light']], $tokenA, ['X-Tenant-Slug' => null, 'If-Match' => '"1"']);
+$check($r['status'] === 200 && $r['body']['data']['version'] === 2 && $r['body']['data']['settings'] === ['theme' => 'light'], 'passende Version → ersetzt vollständig (Version 2)');
+$r = $api('PUT', '/me/settings', ['settings' => ['theme' => 'sepia'], 'expected_version' => 2], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && $r['body']['data']['version'] === 3, 'expected_version im Body');
+$bad = [
+    'zu groß' => ['settings' => ['blob' => str_repeat('x', 8200)]],
+    'zu tief' => ['settings' => ['a' => ['b' => ['c' => ['d' => ['e' => 1]]]]]],
+    'Schlüssel' => ['settings' => ['Theme' => 'dark']],
+    'Schlüssel verschachtelt' => ['settings' => ['ok' => ['bad key' => 1]]],
+    'Liste' => ['settings' => [1, 2]],
+    'Text' => ['settings' => 'dark'],
+    'fehlt' => ['theme' => 'dark'],
+];
+foreach ($bad as $label => $payload) {
+    $r = $api('PUT', '/me/settings', $payload, $tokenA, ['X-Tenant-Slug' => null]);
+    $check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED' && isset($r['body']['errors']), 'ungültige Einstellungen ('.$label.') → 422');
+}
+$r = $api('PUT', '/me/settings', ['settings' => ['a' => ['b' => ['c' => ['d' => 1]]]]], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && $r['body']['data']['version'] === 4, '4 Ebenen erlaubt');
+$r = $api('PUT', '/me/settings', ['settings' => ['blob' => str_repeat('x', 8150)]], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200, 'knapp unter 8 KB erlaubt');
+$api('PUT', '/me/settings', ['settings' => $prefs], $tokenA, ['X-Tenant-Slug' => null]);
+$r = $api('GET', '/me/settings', [], $tokenB, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && $r['body']['data']['version'] === 0, 'Einstellungen je Konto (fremde nicht sichtbar)');
+$check($api('GET', '/me/settings')['status'] === 401, 'ohne Anmeldung → 401');
+
 echo "Vertrag (openapi.yaml) und Routen\n";
 $spec = dirname(__DIR__, 3).'/docs/mobile-api/openapi.yaml';
 if (! is_readable($spec)) {
@@ -658,6 +822,8 @@ $dl = $api('GET', "/profile/export/{$expId}/download", [], $tokenA);
 $groups = array_keys($dl['body']['groups'] ?? []);
 $check($dl['status'] === 200 && in_array('bootspruefung-learning-attempt', $groups, true) && in_array('bootspruefung-learning-mobile_session', $groups, true), 'Export enthält Lernstand und App-Sitzungen');
 $check(in_array('user', $groups, true) || (bool) array_filter($groups, static fn ($g) => str_contains($g, 'user')), 'Export enthält das WordPress-Konto');
+$exportedSettings = json_decode((string) ($dl['body']['groups']['bootspruefung-learning-app_settings']['items'][0]['data']['settings'] ?? ''), true);
+$check(($exportedSettings['theme'] ?? '') === 'dark' && ($dl['body']['groups']['bootspruefung-learning-app_settings']['items'][0]['data']['version'] ?? '') === '6', 'Export (/profile/export) enthält die App-Einstellungen');
 $check(! str_contains((string) wp_json_encode($dl['body']), (string) $row->access_hash), 'Export ohne Token-Hashes');
 if (Integration::active()) {
     $check((bool) array_filter($groups, static fn ($g) => str_contains($g, 'woocommerce')), 'Export enthält WooCommerce-Daten');
@@ -703,6 +869,52 @@ $l = $login('mobile_kundin_a@example.test', $passA, 'Gerät vor Passwortänderun
 $tok = (string) $l['body']['data']['access_token'];
 $r = $api('POST', '/auth/password/forgot', ['email' => 'niemand@example.test'], null, ['X-Tenant-Slug' => null]);
 $check($r['status'] === 202, 'Passwort vergessen: neutral 202 (auch ohne Konto)');
+
+echo "Universal Links / App Links (Reset-Link)\n";
+$check(AppLinks::wellKnown('/.well-known/apple-app-site-association')['status'] === 404 && AppLinks::wellKnown('/.well-known/assetlinks.json')['status'] === 404 && ! AppLinks::configured(), 'ohne Einträge: .well-known-Dateien → 404 (keine Weiterleitung)');
+$mails = [];
+$capture = static function ($return, $atts) use (&$mails) {
+    $mails[] = (string) ($atts['message'] ?? '');
+
+    return true; // nicht wirklich senden
+};
+add_filter('pre_wp_mail', $capture, 10, 2);
+$api('POST', '/auth/password/forgot', ['email' => 'mobile_kundin_a@example.test'], null, ['X-Tenant-Slug' => null]);
+$check(count($mails) === 1 && str_contains($mails[0], 'wp-login.php') && ! str_contains($mails[0], '/app/passwort/'), 'ohne App-Kennungen: Reset-Mail aus der App mit Web-Link (unverändert)');
+$hexPrint = strtolower(str_repeat('ab', 16).str_repeat('0f', 16));
+MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => "ABCDE12345.at.example.bootsschule\nkaputt\nabcde12345.klein", 'android_package' => 'at.example.bootsschule', 'android_cert_fingerprints' => $hexPrint."\nZZ:00"]));
+$check(MobileSettings::iosAppIds() === ['ABCDE12345.at.example.bootsschule'] && MobileSettings::androidFingerprints() === [implode(':', str_split(strtoupper($hexPrint), 2))], 'Einstellungen geprüft und normalisiert (ungültige Einträge verworfen)');
+$aasa = AppLinks::wellKnown('/.well-known/apple-app-site-association');
+$aj = json_decode((string) ($aasa['body'] ?? ''), true);
+$check($aasa !== null && $aasa['status'] === 200 && $aasa['content_type'] === 'application/json' && ($aj['applinks']['details'][0]['appIDs'] ?? null) === ['ABCDE12345.at.example.bootsschule'] && ($aj['applinks']['details'][0]['components'][0]['/'] ?? '') === AppLinks::resetPathPattern() && str_ends_with(AppLinks::resetPathPattern(), '/app/passwort/*'), 'apple-app-site-association: JSON mit appIDs und nur dem App-Link-Pfad');
+$al = AppLinks::wellKnown('/.well-known/assetlinks.json');
+$alj = json_decode((string) ($al['body'] ?? ''), true);
+$check($al !== null && $al['status'] === 200 && ($alj[0]['relation'][0] ?? '') === 'delegate_permission/common.handle_all_urls' && ($alj[0]['target']['package_name'] ?? '') === 'at.example.bootsschule' && ($alj[0]['target']['sha256_cert_fingerprints'][0] ?? '') === implode(':', str_split(strtoupper($hexPrint), 2)), 'assetlinks.json: Paketname und SHA-256-Fingerabdruck');
+$check(AppLinks::wellKnown('/.well-known/security.txt') === null && AppLinks::wellKnown('/wp-json/') === null, 'andere Adressen unberührt');
+$api('POST', '/auth/password/forgot', ['email' => 'mobile_kundin_a@example.test'], null, ['X-Tenant-Slug' => null]);
+$appMail = $mails[1] ?? '';
+$linkOk = preg_match('#'.preg_quote(AppLinks::resetUrl(), '#').'\?key=([A-Za-z0-9]+)&login=([^&\s]+)#', $appMail, $lm) === 1;
+$check($linkOk && ! str_contains($appMail, 'wp-login.php?') && rawurldecode($lm[2]) === 'mobile_kundin_a', 'Reset-Mail aus der App: Link auf /app/passwort/?key=…&login=… (öffnet die App)');
+$check($linkOk && check_password_reset_key($lm[1], 'mobile_kundin_a') instanceof WP_User, 'Schlüssel im App-Link ist ein gültiger WordPress-Reset-Schlüssel (für POST /auth/password/reset)');
+$r = $api('POST', '/auth/password/reset', ['login' => 'mobile_kundin_a', 'email' => 'mobile_kunde_b@example.test', 'token' => (string) ($lm[1] ?? 'x'), 'password' => 'App-Link-Passwort-1', 'password_confirmation' => 'App-Link-Passwort-1'], null, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 422 && $code($r) === 'PASSWORD_RESET_INVALID_OR_EXPIRED', 'Reset mit login und nicht passender E-Mail → 422');
+$r = $api('POST', '/auth/password/reset', ['token' => 'x', 'password' => 'App-Link-Passwort-1', 'password_confirmation' => 'App-Link-Passwort-1'], null, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 422, 'Reset ohne login und email → 422');
+$r = $api('POST', '/auth/password/reset', ['login' => 'mobile_kundin_a', 'token' => (string) ($lm[1] ?? 'x'), 'password' => 'App-Link-Passwort-1', 'password_confirmation' => 'App-Link-Passwort-1'], null, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 204 && $login('mobile_kundin_a@example.test', 'App-Link-Passwort-1')['status'] === 200, 'Reset mit Schlüssel und login aus dem App-Link → neues Passwort gilt');
+$passA = 'App-Link-Passwort-1';
+$tok = (string) $login('mobile_kundin_a@example.test', $passA, 'Gerät vor Passwortänderung')['body']['data']['access_token'];
+$mails = [];
+retrieve_password('mobile_kundin_a');
+$webMail = $mails[0] ?? '';
+$check(str_contains($webMail, network_site_url('wp-login.php', 'login').'?') && str_contains($webMail, 'action=rp') && ! str_contains($webMail, '/app/passwort/'), 'Reset über die Website: Link unverändert (wp-login.php?action=rp)');
+remove_filter('pre_wp_mail', $capture, 10);
+$to = AppLinks::resetRedirect(['key' => 'Abc123XYZ', 'login' => 'mobile_kundin_a', 'wp_lang' => 'de_DE']);
+$check($to === network_site_url('wp-login.php?action=rp&key=Abc123XYZ&login=mobile_kundin_a', 'login').'&wp_lang=de_DE', 'ohne App: /app/passwort/ leitet auf die WordPress-Seite zum Passwortsetzen weiter');
+$check(AppLinks::resetRedirect([]) === wp_lostpassword_url() && AppLinks::resetRedirect(['key' => '<script>', 'login' => 'x']) === wp_lostpassword_url(), 'ohne/mit ungültigem Schlüssel → „Passwort vergessen“');
+MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => '', 'android_package' => 'at.example.bootsschule', 'android_cert_fingerprints' => '']));
+$check(AppLinks::wellKnown('/.well-known/assetlinks.json')['status'] === 404 && AppLinks::wellKnown('/.well-known/apple-app-site-association')['status'] === 404, 'Android ohne Fingerabdruck: nicht ausgeliefert (404)');
+MobileSettings::save(array_merge(MobileSettings::all(), ['android_package' => '']));
 $r = $api('POST', '/auth/password/reset', ['email' => 'mobile_kundin_a@example.test', 'token' => 'ungueltigerSchluessel12345', 'password' => 'Neues-Passwort-987', 'password_confirmation' => 'Neues-Passwort-987'], null, ['X-Tenant-Slug' => null]);
 $check($r['status'] === 422 && $code($r) === 'PASSWORD_RESET_INVALID_OR_EXPIRED', 'ungültiger Reset-Schlüssel → 422');
 $resetKey = get_password_reset_key(get_userdata($alice));
@@ -758,8 +970,14 @@ if ($couponId > 0) {
 foreach (get_posts(['post_type' => 'user_request', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'title' => 'mobile_kundin_a@example.test']) as $rid) {
     wp_delete_post((int) $rid, true);
 }
+$erased = \Bootspruefung\Learning\Privacy\PersonalData::erase('mobile_kundin_a@example.test');
+$check($erased['items_removed'] === true && get_user_meta($alice, 'bp_app_settings', true) === '' && \Bootspruefung\Learning\Mobile\AppSettings::get($alice)['version'] === 0, 'Datenschutz-Löschung entfernt die App-Einstellungen');
 wp_delete_user($alice);
 wp_delete_user($bob);
+wp_delete_user($carol);
+foreach ($staff as $staffId) {
+    wp_delete_user($staffId);
+}
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$alice}, {$bob})");
 $wpdb->query("DELETE FROM {$p}radio_progress WHERE user_id IN ({$alice}, {$bob})");
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}mobile_session WHERE user_id IN ({$alice}, {$bob})") === 0 && (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}mobile_idempotency WHERE user_id IN ({$alice}, {$bob})") === 0, 'Konto gelöscht: App-Sitzungen und Idempotenz-Daten entfernt');

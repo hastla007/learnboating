@@ -31,6 +31,8 @@ foreach (get_posts(['post_type' => 'attachment', 'post_status' => 'any', 'number
 (new Migrator($wpdb))->dropAll();
 Capabilities::removeFromAllRoles();
 delete_option(Settings::OPTION);
+// Synchronisierte App-Einstellungen (Nutzer-Meta, GET/PUT /me/settings).
+delete_metadata('user', 0, 'bp_app_settings', '', true);
 
 // Eigene Optionen, Zwischenspeicher und Tipps.
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'bp\\_learning\\_%' OR option_name LIKE '\\_transient\\_bp\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bp\\_%'");
