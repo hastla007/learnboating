@@ -402,6 +402,13 @@ beibehalten, wo es passt. Abweichungen:
 
 ## 8. Änderungsprotokoll
 
+### 1.3.1 (Sicherheitskorrektur, ohne Vertragsänderung)
+
+- Bearer-Token galt über eine gemischte Anfrage (`/wp-json/boatingschool/v1/…?rest_route=/wp/v2/…`)
+  auch für andere WordPress-Routen. Jetzt wertet die Erkennung `rest_route` (POST/GET) wie
+  WordPress vor dem Pfad aus, und `rest_pre_dispatch` lehnt jede fremde Route ab, solange eine
+  App-Sitzung aktiv ist (401).
+
 ### 1.3.0
 
 - **Neu: Sitzungsübergabe App → Web** `POST /auth/web-session` (`redirect` im Lernbereich) → Einmal-URL

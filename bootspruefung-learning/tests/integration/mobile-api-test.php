@@ -167,6 +167,29 @@ $_SERVER['REQUEST_URI'] = '/wp-json/wp/v2/users/me';
 $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer '.$tokenA;
 $GLOBALS['current_user'] = null;
 $check(\Bootspruefung\Learning\Mobile\MobileApi::determineUser(false) === false, 'App-Token gilt nicht für /wp/v2');
+// Gemischte Anfrage: Pfad im App-Namespace, aber rest_route (GET oder POST) zeigt auf /wp/v2 – WordPress führt rest_route aus.
+foreach (['_GET', '_POST'] as $source) {
+    $_SERVER['REQUEST_URI'] = '/wp-json/boatingschool/v1/x?rest_route=/wp/v2/users/me';
+    $GLOBALS[$source]['rest_route'] = '/wp/v2/users/me';
+    $GLOBALS['current_user'] = null;
+    $check(\Bootspruefung\Learning\Mobile\MobileApi::determineUser(false) === false, "App-Token gilt nicht für /wp/v2 über rest_route aus {$source}");
+    unset($GLOBALS[$source]['rest_route']);
+}
+$_GET['rest_route'] = '/boatingschool/v1/me';
+$_SERVER['REQUEST_URI'] = '/index.php?rest_route=/boatingschool/v1/me';
+$check(\Bootspruefung\Learning\Mobile\MobileApi::isMobileRequest() === true, 'rest_route auf den App-Namespace wird erkannt');
+$_GET['rest_route'] = '/boatingschool/v1x/me';
+$check(\Bootspruefung\Learning\Mobile\MobileApi::isMobileRequest() === false, 'ähnlicher Namespace (boatingschool/v1x) zählt nicht');
+unset($_GET['rest_route']);
+// Zweite Sicherung: Ist eine App-Sitzung aktiv, wird jede fremde Route abgelehnt.
+TokenAuth::reset();
+$_SERVER['REQUEST_URI'] = '/wp-json/boatingschool/v1/me';
+$_SERVER['HTTP_AUTHORIZATION'] = 'Bearer '.$tokenA;
+$GLOBALS['current_user'] = null;
+$uid = \Bootspruefung\Learning\Mobile\MobileApi::determineUser(false);
+$blocked = \Bootspruefung\Learning\Mobile\MobileApi::preDispatch(null, rest_get_server(), new WP_REST_Request('POST', '/wp/v2/users/me'));
+$check($uid === $alice && TokenAuth::current() !== null && is_wp_error($blocked) && ($blocked->get_error_data()['status'] ?? 0) === 401, 'aktive App-Sitzung: /wp/v2 wird in rest_pre_dispatch abgelehnt');
+TokenAuth::reset();
 $r = $api('GET', '/courses', [], $tokenA, ['X-Tenant-Slug' => null]);
 $check($r['status'] === 422 && isset($r['body']['errors']['X-Tenant-Slug']), 'ohne X-Tenant-Slug → 422');
 $r = $api('GET', '/courses', [], $tokenA, ['X-Tenant-Slug' => 'andere-schule']);

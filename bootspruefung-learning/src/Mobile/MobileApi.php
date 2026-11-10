@@ -33,7 +33,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.3.0';
+    public const API_VERSION = '1.3.1';
 
     public static function register(): void
     {
@@ -56,20 +56,32 @@ final class MobileApi
         }
     }
 
-    /** Anfrage an /wp-json/boatingschool/v1/… (auch ?rest_route=/boatingschool/v1/…)? */
+    /**
+     * Anfrage an /wp-json/boatingschool/v1/… (auch ?rest_route=/boatingschool/v1/…)?
+     * Wie WordPress (WP::parse_request): Ein Parameter rest_route aus POST oder GET hat Vorrang
+     * vor dem Pfad. Sonst gälte z. B. /wp-json/boatingschool/v1/x?rest_route=/wp/v2/users/me als
+     * App-Anfrage, ausgeführt würde aber /wp/v2/… mit dem Nutzer aus dem Bearer-Token.
+     */
     public static function isMobileRequest(): bool
     {
-        $route = $_GET['rest_route'] ?? null; // phpcs:ignore WordPress.Security.NonceVerification
-        if (is_string($route) && str_starts_with('/'.ltrim($route, '/'), '/'.self::NAMESPACE)) {
-            return true;
+        // phpcs:ignore WordPress.Security.NonceVerification
+        $route = array_key_exists('rest_route', $_POST) ? $_POST['rest_route'] : ($_GET['rest_route'] ?? null);
+        if ($route !== null) {
+            return is_string($route) && self::isOwnRoute('/'.ltrim(wp_unslash($route), '/'));
         }
         $path = (string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         $home = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
         if ($home !== '' && str_starts_with($path, $home)) {
             $path = substr($path, strlen($home));
         }
+        $prefix = '/'.rest_get_url_prefix();
 
-        return str_starts_with($path, '/'.rest_get_url_prefix().'/'.self::NAMESPACE.'/') || $path === '/'.rest_get_url_prefix().'/'.self::NAMESPACE;
+        return str_starts_with($path, $prefix.'/') && self::isOwnRoute(substr($path, strlen($prefix)));
+    }
+
+    private static function isOwnRoute(string $route): bool
+    {
+        return $route === '/'.self::NAMESPACE || str_starts_with($route, '/'.self::NAMESPACE.'/');
     }
 
     /** Für App-Anfragen zählt nur das Bearer-Token (Cookies/Anwendungspasswörter werden ignoriert). */
@@ -96,6 +108,11 @@ final class MobileApi
     public static function preDispatch($result, $server, WP_REST_Request $request)
     {
         if (! self::ours($request)) {
+            // Zweite Sicherung: Ein App-Token darf nie eine andere Route ausführen.
+            if (TokenAuth::current() !== null) {
+                return new WP_Error('rest_forbidden', __('Das App-Token gilt nur für die App-Schnittstelle.', 'bootspruefung-learning'), ['status' => 401]);
+            }
+
             return $result;
         }
         if ($request->get_route() !== '/'.self::NAMESPACE.'/health') {
@@ -153,9 +170,7 @@ final class MobileApi
 
     private static function ours(WP_REST_Request $request): bool
     {
-        $route = $request->get_route();
-
-        return $route === '/'.self::NAMESPACE || str_starts_with($route, '/'.self::NAMESPACE.'/');
+        return self::isOwnRoute($request->get_route());
     }
 
     public static function requireUser(): bool|WP_Error
