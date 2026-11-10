@@ -149,6 +149,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee flow.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" flow.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Navigation – automatische Prüfung, Prüfungsfragen markieren (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/navigation-check-test.php | tee navcheck.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" navcheck.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Prüfungsanmeldung (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/exam-guide-test.php | tee guide.log

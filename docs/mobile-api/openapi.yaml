@@ -960,7 +960,7 @@ paths:
         `GET /exams/{examId}` liefert `flagged` je Frage und `flagged_count`, damit die App beim
         Fortsetzen die Markierungen wiederherstellt. Ändert weder Antwort noch Bewertung.
         Nach Abgabe 409 `EXAM_ALREADY_SUBMITTED`, nach Fristende 410 `EXAM_EXPIRED`.
-        Der Web-Lernbereich zeigt Markierungen (noch) nicht an.
+        Der Web-Lernbereich zeigt und setzt dieselben Markierungen.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/ExamId'
@@ -1121,7 +1121,12 @@ paths:
       tags: [Navigation]
       operationId: answerNavigationPart
       summary: Eigene Antwort und/oder Selbsteinschätzung speichern, amtliche Lösung erhalten
-      description: Erweiterung. `self_assessment` markiert die Teilaufgabe als erledigt.
+      description: >-
+        Erweiterung. `self_assessment` markiert die Teilaufgabe als erledigt.
+        Seit 1.4.0 (Navigation): Hat die Teilaufgabe prüfbare Lösungswerte (`auto_check: true`) und ist eine
+        eigene Antwort gespeichert, enthält die Antwort `check` – die automatische Prüfung der eingegebenen
+        Werte gegen das amtliche Ergebnis (Hilfe, keine Bewertung; die Selbsteinschätzung bleibt maßgeblich
+        und wird unverändert gespeichert). Sonst ist `check` null.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/TaskId'
@@ -1157,6 +1162,12 @@ paths:
                       my_answer: {type: [string, 'null']}
                       self_assessment: {type: [string, 'null']}
                       done: {type: boolean}
+                      auto_check: {type: boolean, description: 'Seit 1.4.0: Teilaufgabe hat prüfbare Lösungswerte'}
+                      check:
+                        description: 'Seit 1.4.0: automatische Prüfung der gespeicherten eigenen Antwort; null ohne Werte oder ohne Antwort'
+                        oneOf:
+                          - {$ref: '#/components/schemas/NavigationCheck'}
+                          - {type: 'null'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -3101,6 +3112,12 @@ components:
               my_answer: {type: [string, 'null']}
               self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
               done: {type: boolean}
+              auto_check: {type: boolean, description: 'Seit 1.4.0: true = eigene Werte werden nach dem Antworten automatisch geprüft'}
+              check:
+                description: 'Seit 1.4.0: Prüfung der gespeicherten eigenen Antwort (nur wenn die Lösung aufgedeckt ist), sonst null'
+                oneOf:
+                  - {$ref: '#/components/schemas/NavigationCheck'}
+                  - {type: 'null'}
         previous_task_id: {type: [string, 'null']}
         previous_locked: {type: boolean}
         next_task_id: {type: [string, 'null']}
@@ -3113,6 +3130,39 @@ components:
       required: [data]
       properties:
         data: {$ref: '#/components/schemas/NavigationTask'}
+    # --- 1.4.0 (Navigation): automatische Prüfung der eigenen Werte -------------------------------
+    NavigationCheck:
+      type: object
+      description: >-
+        Seit 1.4.0. Automatische Prüfung der eigenen Antwort gegen die strukturierten Lösungswerte – nur
+        als Hilfe zur Selbsteinschätzung. Gelesen werden u. a. „rwK = 79°“, „079“, „0,8 sm“, „15:12“,
+        „15.12 Uhr“, „46 min“, „6 kn“ und Positionen wie „53°55,8'N 7°51,3'E“ oder „53 55.8 N 007 51.3 E“
+        (Dezimalkomma oder -punkt). Mehrere Werte werden über Beschriftungen in der Antwort zugeordnet
+        (z. B. „ST 065°, 4a 170°“), sonst in der Reihenfolge. Toleranzen: Kurs/Peilung/Winkel ±2°
+        (über 360° hinweg), Distanz ±0,2 sm, Position ±0,3' je Breite/Länge, Uhrzeit ±3 min,
+        Fahrt ±0,3 kn, Dauer ±3 min.
+      required: [status, message, values]
+      properties:
+        status:
+          type: string
+          enum: [within, deviates, unrecognized]
+          description: 'within = alle Werte im Toleranzbereich; deviates = mindestens ein Wert weicht ab oder fehlt; unrecognized = kein Wert erkannt'
+        message: {type: string, description: 'Zusammenfassung zum Anzeigen (Deutsch)'}
+        values:
+          type: array
+          items:
+            type: object
+            required: [label, quantity, given, ok, deviation, tolerance, tolerance_unit]
+            properties:
+              label: {type: string, description: 'z. B. „rwK“, „rwP Tonne "ST"“, „BV Distanz“, „Position“'}
+              quantity: {type: string, enum: [course, bearing, angle, distance, time, speed, duration, position]}
+              given: {type: [string, 'null'], description: 'Erkannter eigener Wert, formatiert (z. B. „079°“, „0,8 sm“, „15:12 Uhr“); null = nicht erkannt'}
+              ok: {type: boolean}
+              deviation: {type: [number, 'null'], description: 'Abweichung in tolerance_unit (vorzeichenbehaftet; Position: größere Abweichung von Breite/Länge)'}
+              tolerance: {type: number}
+              tolerance_unit: {type: string, enum: ['°', sm, kn, min, "'"]}
+              expected: {type: string, description: 'Amtlicher Wert, formatiert – nur wenn die Lösung ohnehin sichtbar ist'}
+    # --- Ende 1.4.0 (Navigation) ---------------------------------------------------------------------
     PraxisCard:
       type: object
       required: [id, title, locked]

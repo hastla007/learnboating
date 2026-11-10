@@ -119,6 +119,13 @@ final class LearnerController
             'permission_callback' => $auth,
             'args' => ['id' => $id, 'position' => $id, 'answer_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'default' => [], 'maxItems' => 26], 'known' => ['type' => ['boolean', 'null'], 'default' => null]],
         ]);
+        // Frage „zur Überprüfung markieren“ (nur laufende Prüfung; ändert weder Antwort noch Bewertung).
+        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/flag', [
+            'methods' => 'PUT',
+            'callback' => self::wrap([$this, 'examFlag']),
+            'permission_callback' => $auth,
+            'args' => ['id' => $id, 'position' => $id, 'flagged' => ['type' => 'boolean', 'required' => true]],
+        ]);
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/reveal', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examReveal']), 'permission_callback' => $auth, 'args' => ['id' => $id, 'position' => $id]]);
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/submit', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examSubmit']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
     }
@@ -321,6 +328,14 @@ final class LearnerController
         $this->exams->saveAnswer(get_current_user_id(), (int) $request['id'], (int) $request['position'], array_map('intval', (array) $request['answer_ids']), $request['known'] === null ? null : (bool) $request['known']);
 
         return ['saved' => true];
+    }
+
+    public function examFlag(WP_REST_Request $request): array
+    {
+        $flagged = (bool) $request['flagged'];
+        $count = $this->exams->setFlag(get_current_user_id(), (int) $request['id'], (int) $request['position'], $flagged);
+
+        return ['position' => (int) $request['position'], 'flagged' => $flagged, 'flagged_count' => $count];
     }
 
     public function examReveal(WP_REST_Request $request): array

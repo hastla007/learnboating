@@ -100,7 +100,7 @@ final class TrainerService
             throw new NotFound(__('Navigationsaufgabe nicht gefunden.', 'bootspruefung-learning'));
         }
         $questions = $this->db->get_results($this->db->prepare(
-            "SELECT nq.id, nq.question_number, nq.question_text, nq.answer_text, np.answer_text AS my_answer, np.self_assessment, np.done
+            "SELECT nq.id, nq.question_number, nq.question_text, nq.answer_text, nq.answer_values, np.answer_text AS my_answer, np.self_assessment, np.done
              FROM {$this->t('navigation_question')} nq LEFT JOIN {$this->t('navigation_progress')} np ON np.navigation_question_id = nq.id AND np.user_id = %d
              WHERE nq.task_id = %d AND nq.status <> 'source_archived' ORDER BY nq.sort_order",
             $userId,
@@ -129,6 +129,10 @@ final class TrainerService
                 'my_answer' => $q->my_answer,
                 'self_assessment' => $q->self_assessment,
                 'done' => (bool) $q->done,
+                // Automatische Prüfung (Hilfe): nur Teilaufgaben mit strukturierten Lösungswerten; Ergebnis
+                // samt Sollwerten erst, wenn das amtliche Ergebnis ohnehin sichtbar ist.
+                'auto_check' => NavigationCheck::decode($q->answer_values) !== [],
+                'check' => $q->done !== null ? NavigationCheck::check(NavigationCheck::decode($q->answer_values), $q->my_answer, true) : null,
             ], $questions),
         ];
     }
@@ -165,7 +169,17 @@ final class TrainerService
             $questionId
         ));
 
-        return ['answer' => $q->answer_text, 'self_assessment' => $assessment, 'done' => $assessment !== null, 'my_answer' => $saved ? $saved->answer_text : null];
+        $values = NavigationCheck::decode($q->answer_values ?? null);
+
+        return [
+            'answer' => $q->answer_text,
+            'self_assessment' => $assessment,
+            'done' => $assessment !== null,
+            'my_answer' => $saved ? $saved->answer_text : null,
+            // Hilfe zur Selbsteinschätzung (Web und App): die eigene Antwort gegen die Lösungswerte geprüft.
+            'auto_check' => $values !== [],
+            'check' => NavigationCheck::check($values, $saved ? $saved->answer_text : null, true),
+        ];
     }
 
     // ------------------------------------------------------------------ Praxis

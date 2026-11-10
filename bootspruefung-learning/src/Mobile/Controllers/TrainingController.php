@@ -193,6 +193,9 @@ final class TrainingController extends BaseController
             'my_answer' => $r['my_answer'],
             'self_assessment' => $r['self_assessment'],
             'done' => (bool) $r['done'],
+            // Seit 1.4.0: automatische Prüfung der eigenen Werte (Hilfe; die Selbsteinschätzung bleibt maßgeblich).
+            'auto_check' => (bool) $r['auto_check'],
+            'check' => $r['check'],
         ]);
     }
 
@@ -209,6 +212,8 @@ final class TrainingController extends BaseController
             'my_answer' => $q['my_answer'],
             'self_assessment' => $q['self_assessment'],
             'done' => (bool) $q['done'],
+            'auto_check' => (bool) $q['auto_check'],
+            'check' => $q['check'],
         ], $task['questions']);
 
         return [

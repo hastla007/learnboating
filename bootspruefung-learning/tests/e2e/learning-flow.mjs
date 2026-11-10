@@ -96,16 +96,35 @@ for (let i = 0; i < 3; i++) {
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
 }
 assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 3);
+
+step('Frage markieren');
+const flag = page.getByRole('button', { name: 'Markieren', exact: true });
+assert.equal(await flag.getAttribute('aria-pressed'), 'false');
+await flag.click();
+await page.locator('.bp-save-status', { hasText: 'Markierung gespeichert' }).waitFor();
+assert.equal(await flag.getAttribute('aria-pressed'), 'true');
+assert.equal(await page.locator('.bp-exam-nav-item.is-flagged').count(), 1);
+assert.equal(await page.locator('.bp-exam-nav-item.is-flagged').getAttribute('aria-label'), 'Frage 4, nicht beantwortet, markiert');
+await page.locator('.bp-exam-flag-count', { hasText: '1 Frage markiert' }).waitFor();
+await page.getByLabel('Nur markierte Fragen zeigen').check();
+assert.equal(await page.locator('.bp-exam-nav li:not([hidden])').count(), 1, 'Filter: nur die markierte (aktuelle) Frage');
+await page.getByLabel('Nur markierte Fragen zeigen').uncheck();
 await shot('04-pruefung');
 const examUrl = page.url();
 await page.reload();
 await page.locator('.bp-exam-nav-item.is-answered').nth(2).waitFor();
 assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 3, 'Antworten nach Neuladen erhalten');
+assert.equal(await page.locator('.bp-exam-nav-item.is-flagged').count(), 1, 'Markierung nach Neuladen erhalten');
 
 step('Abgeben');
-page.once('dialog', (d) => d.accept());
+let confirmText = '';
+page.once('dialog', (d) => { confirmText = d.message(); d.accept(); });
 await page.getByRole('button', { name: 'Prüfung abgeben' }).click();
 await page.locator('.bp-verdict').waitFor();
+assert.match(confirmText, /Du hast 1 Frage markiert\./, 'Abgabe-Dialog nennt die Markierungen');
+assert.equal(await page.locator('.bp-review-item.is-flagged').count(), 1, 'Ergebnis zeigt die markierte Frage');
+await page.locator('.bp-review-item.is-flagged .bp-badge', { hasText: 'markiert' }).waitFor();
+await page.locator('.bp-result-flagged', { hasText: 'Du hattest 1 Frage markiert.' }).waitFor();
 assert.match(await page.locator('.bp-verdict-title').innerText(), /Nicht bestanden/);
 assert.equal(await page.locator('.bp-review-item').count(), 30);
 await page.getByLabel('Nur falsch beantwortete anzeigen').check();

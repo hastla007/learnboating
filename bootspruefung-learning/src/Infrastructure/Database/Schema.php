@@ -256,6 +256,7 @@ final class Schema
   question_number int(11) NOT NULL,
   question_text longtext NOT NULL,
   answer_text longtext NOT NULL,
+  answer_values longtext NULL,
   sort_order int(11) NOT NULL DEFAULT 0,
 {$ts}
   PRIMARY KEY  (id),

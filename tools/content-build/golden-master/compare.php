@@ -273,6 +273,26 @@ foreach ($data('navigation_tasks') as $t) {
     }
 }
 $compare('navigation_task', $fix($lv, $textCorrections['navigation_task']), $pk);
+// Eigene Ergänzung answer_values (Pflegedatei, nicht in Laravel): Werte müssen im amtlichen Ergebnis der
+// Laravel-Datenbank stehen (gleiche Prüfung wie im Konverter, hier gegen die Quelle statt gegen den Snapshot).
+$laravelAnswers = [];
+$packageValues = [];
+foreach ($fix($lv, $textCorrections['navigation_task']) as $key => $task) {
+    foreach ($task['questions'] as [$number, , $answer]) {
+        $laravelAnswers[substr($key, strpos($key, '/') + 1).sprintf('-%02d', $number)] = (string) $answer;
+    }
+}
+foreach ($data('navigation_tasks') as $t) {
+    foreach ($t['questions'] as $x) {
+        if (isset($x['answer_values'])) {
+            $packageValues[$x['source_id']] = $x['answer_values'];
+        }
+    }
+}
+foreach (ContentBuild\NavigationAnswerValues::validate($packageValues, $laravelAnswers) as $problem) {
+    $diffs[] = $problem;
+}
+$navigationValueParts = count($packageValues);
 
 // Praxistrainer
 $lv = [];
@@ -480,6 +500,7 @@ if ($laravel) {
 $manifest = json_decode((string) file_get_contents($package.'/manifest.json'), true);
 printf("Paket %s gegen Laravel-Datenbank\n", $manifest['package_id']);
 printf("Bewusste Abweichung: %d freie Kartenaufgaben (chart_task) nur im Paket.\n", count($chartTasks));
+printf("Eigene Ergänzung: answer_values für %d Navigations-Teilaufgaben (gegen das amtliche Ergebnis geprüft).\n", $navigationValueParts);
 if ($diffs === []) {
     echo "Keine Abweichungen.\n";
     exit(0);
