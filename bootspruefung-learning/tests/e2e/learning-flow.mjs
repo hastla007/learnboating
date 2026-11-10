@@ -99,6 +99,17 @@ assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 3);
 
 step('Frage markieren');
 const flag = page.getByRole('button', { name: 'Markieren', exact: true });
+try {
+  await flag.waitFor({ timeout: 10000 });
+} catch (e) {
+  // Diagnose für die CI: was zeigt die Prüfungsseite an dieser Stelle?
+  console.log('DIAG url', page.url());
+  console.log('DIAG errors', JSON.stringify(errors));
+  console.log('DIAG meta', JSON.stringify(await page.locator('.bp-question-meta').allInnerTexts()));
+  console.log('DIAG flagbuttons', await page.locator('.bp-exam-flag').count(), JSON.stringify(await page.locator('.bp-exam-flag').evaluateAll((n) => n.map((x) => [x.outerHTML, getComputedStyle(x).display, getComputedStyle(x).visibility]))));
+  console.log('DIAG html', (await page.locator('.bp-app').first().innerHTML().catch(() => '')).slice(0, 4000));
+  throw e;
+}
 assert.equal(await flag.getAttribute('aria-pressed'), 'false');
 await flag.click();
 await page.locator('.bp-save-status', { hasText: 'Markierung gespeichert' }).waitFor();
