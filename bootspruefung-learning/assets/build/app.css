@@ -551,9 +551,9 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-exam-legend span:nth-of-type(3) { margin-left: 0.6rem; }
 .bp-exam-legend span.is-flagged { border-color: var(--bp-warn); box-shadow: inset 0 -3px 0 var(--bp-warn); }
 .bp-app .bp-question-meta .bp-exam-flag { margin-left: auto; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
-.bp-exam-flag::before { content: "⚑ "; content: "⚑ " / ""; opacity: 0.45; }
+.bp-exam-flag-icon { margin-right: 0.35em; opacity: 0.45; }
 .bp-exam-flag.is-flagged { border-color: var(--bp-warn); color: var(--bp-warn); background: color-mix(in srgb, var(--bp-warn) 10%, transparent); font-weight: 700; }
-.bp-exam-flag.is-flagged::before { opacity: 1; }
+.bp-exam-flag.is-flagged .bp-exam-flag-icon { opacity: 1; }
 .bp-app .bp-exam-nav-item.is-flagged { position: relative; border-color: var(--bp-warn); box-shadow: inset 0 -4px 0 var(--bp-warn); }
 .bp-app .bp-exam-nav-item.is-flagged::after { content: "⚑"; position: absolute; top: 1px; right: 3px; font-size: 0.65rem; color: var(--bp-warn); }
 .bp-app .bp-exam-nav-item.is-current.is-flagged::after { color: #fff; }

@@ -3697,7 +3697,7 @@
 		}
 
 		function flagButton(q) {
-			var b = el('button', { type: 'button', class: 'bp-button bp-exam-flag' + (q.flagged ? ' is-flagged' : ''), 'aria-pressed': q.flagged ? 'true' : 'false', title: t('exam_flag_hint'), text: t('exam_flag') });
+			var b = el('button', { type: 'button', class: 'bp-button bp-exam-flag' + (q.flagged ? ' is-flagged' : ''), 'aria-pressed': q.flagged ? 'true' : 'false', title: t('exam_flag_hint') }, [el('span', { class: 'bp-exam-flag-icon', 'aria-hidden': 'true', text: '⚑' }), t('exam_flag')]);
 			b.addEventListener('click', function () {
 				if (isBusy(b) || submitting) { return; }
 				setBusy(b, true);
