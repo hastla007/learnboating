@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.8.0
+  version: 1.9.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -574,6 +574,10 @@ paths:
       description: >-
         Alle veröffentlichten Kurse des Shops – auch gesperrte, damit die App sie mit Shop-Link
         anzeigen kann. Zugang und Teilumfang entscheidet derselbe AccessService wie im Web.
+        Seit 1.9.0: Kurse, die ein besessener Kurs schon abdeckt, bleiben in der Liste und sind mit
+        `relation.hidden = true` markiert (nicht weggelassen, damit Deep-Links und Kursdetails
+        funktionieren); die App blendet sie in „Weitere Kurse“ aus. Empfohlene Kurse
+        (`relation.recommended`) zeigt die App oben mit „Empfohlen“ und „Passt zu deinem Kurs …“.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/Page'
@@ -2389,6 +2393,49 @@ components:
           type: object
           description: Fähigkeit → Limit im Teilumfang (z. B. smarttrainer = Fragen je Modul, exam = Bögen)
           additionalProperties: {type: integer}
+        expires_soon:
+          type: boolean
+          description: >-
+            Seit 1.9.0. Der Zugang zum Fragenkatalog endet in höchstens N Tagen (Admin-Einstellung
+            „Tage vorher“, Standard 14) und es gibt keinen späteren oder unbefristeten Zugang
+            (z. B. Verlängerung). Kostenloser Teilumfang: immer false. Die App zeigt dann „Dein Zugang
+            zu {Kurs} endet am {Datum}. Dein Lernstand bleibt erhalten.“ mit „Jetzt verlängern“.
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+          description: Seit 1.9.0. Ende des Fragenkatalog-Zugangs, nur wenn expires_soon (sonst null).
+        renew_url:
+          type: [string, 'null']
+          format: uri
+          description: >-
+            Seit 1.9.0. Nur wenn expires_soon: erstes passendes Shop-Angebot für den Fragenkatalog,
+            ohne Shop die Kursseite im Web-Lernbereich. Im Systembrowser öffnen.
+    CourseRelation:
+      type: object
+      required: [hidden, recommended, recommended_for]
+      description: >-
+        Seit 1.9.0. Empfehlung und Ausblenden von Doppeltem. Grundlage sind die besessenen Kurse
+        (gültiger Zugang zum Fragenkatalog durch Kauf, manuell oder Gruppe; der kostenlose
+        Teilumfang zählt nicht) und eine feste Tabelle (Server: CourseRelations, Filter
+        `bootspruefung_course_relations`). Kurse mit vollem Fragenkatalog sind nie ausgeblendet oder empfohlen.
+      properties:
+        hidden:
+          type: boolean
+          description: >-
+            Nicht freigeschaltet und durch einen besessenen Kurs schon abgedeckt (z. B. SBF See & Binnen
+            für Besitzer von SBF Binnen). Nicht mehr anbieten; der Kurs bleibt in der Liste und über seine ID erreichbar.
+        recommended:
+          type: boolean
+          description: Passende Ergänzung zu einem besessenen Kurs (nie zusammen mit hidden).
+        recommended_for:
+          type: array
+          description: Besessene Kurse, die die Empfehlung auslösen (für „Passt zu deinem Kurs …“).
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: {type: string}
+              name: {type: string}
     FeatureAccess:
       type: object
       required: [available, full]
@@ -2431,6 +2478,7 @@ components:
           type: [string, 'null']
           format: uri
           description: Passendstes WooCommerce-Angebot (günstigstes Produkt mit dem Hauptbereich), nur ohne Vollzugang.
+        relation: {$ref: '#/components/schemas/CourseRelation'}
     CourseListResponse:
       type: object
       required: [data, meta]

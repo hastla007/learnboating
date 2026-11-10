@@ -33,6 +33,8 @@ Capabilities::removeFromAllRoles();
 delete_option(Settings::OPTION);
 // Synchronisierte App-Einstellungen (Nutzer-Meta, GET/PUT /me/settings).
 delete_metadata('user', 0, 'bp_app_settings', '', true);
+// Merker der Ablauf-Erinnerungen (je Kurs und Ablaufdatum).
+delete_metadata('user', 0, \Bootspruefung\Learning\Commerce\ExpiryReminder::META, '', true);
 
 // Eigene Optionen, Zwischenspeicher und Tipps.
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'bp\\_learning\\_%' OR option_name LIKE '\\_transient\\_bp\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bp\\_%'");
@@ -40,6 +42,7 @@ foreach (get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE,
     wp_delete_post((int) $tipId, true);
 }
 wp_clear_scheduled_hook('bp_learning_hourly');
+wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK);
 // Geplante Erzeugung von App-Datenexporten (WP-Cron mit Argumenten bzw. Action Scheduler).
 wp_unschedule_hook('bp_mobile_export_generate');
 if (function_exists('as_unschedule_all_actions')) {

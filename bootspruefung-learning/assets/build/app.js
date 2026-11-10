@@ -418,6 +418,12 @@
 			c.trial ? el('span', { class: 'bp-cc-trial', text: t('course_trial') }) : null
 		]);
 		var body = [el('h3', { class: 'bp-cc-title' }, [link(c.slug + '/', c.name)])];
+		// Empfehlung: passt zu einem besessenen Kurs (Server: CourseRelations).
+		var rec = c.recommended_for && c.recommended_for.length ? c.recommended_for : null;
+		if (rec) {
+			body.unshift(el('p', { class: 'bp-cc-rec' }, [badge(t('course_recommended'), 'ok')]));
+			body.push(el('p', { class: 'bp-cc-rec-note', text: t('course_recommended_for', { name: rec.join(', ') }) }));
+		}
 		if (c.progress) {
 			var started = c.progress.mastered + c.progress.learning + c.progress.unsure > 0;
 			if (c.trial) { body.push(el('p', { class: 'bp-cc-trial-note', text: t('course_trial_note') })); }
@@ -430,14 +436,30 @@
 			body.push(el('p', { class: 'bp-muted bp-cc-locked', text: t('locked_short') }));
 			body = body.concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : []);
 		}
-		return el('li', { class: 'bp-card bp-course-card' + (c.progress ? '' : ' is-locked') }, [media, el('div', { class: 'bp-cc-body' }, body)]);
+		return el('li', { class: 'bp-card bp-course-card' + (c.progress ? '' : ' is-locked') + (rec ? ' is-recommended' : '') }, [media, el('div', { class: 'bp-cc-body' }, body)]);
+	}
+
+	// Hinweis je Kurs, dessen Zugang bald endet (ohne Verlängerung).
+	function expiryNotice(c) {
+		return el('div', { class: 'bp-infobox bp-expiry' }, [
+			el('span', { class: 'bp-ico bp-ico-timer', 'aria-hidden': 'true' }),
+			el('p', {}, [
+				t('expiry_notice', { name: c.name, date: fmtDate(c.expires_at) }) + ' ',
+				c.renew_url ? el('a', { href: c.renew_url, text: t('expiry_renew') }) : null
+			])
+		]);
 	}
 
 	function viewOverview() {
 		return api('GET', 'me/courses').then(function (courses) {
-			var mine = courses.filter(function (c) { return !!c.progress; });
+			// Ausgeblendet = nicht freigeschaltet und durch einen eigenen Kurs schon abgedeckt (bleibt per Link erreichbar).
+			var visible = courses.filter(function (c) { return !c.hidden; });
+			var mine = visible.filter(function (c) { return !!c.progress; });
 			var trials = mine.filter(function (c) { return c.trial; }).length;
-			var others = courses.filter(function (c) { return !c.progress; });
+			var isRec = function (c) { return !!(c.recommended_for && c.recommended_for.length); };
+			var locked = visible.filter(function (c) { return !c.progress; });
+			// Empfohlene zuerst, sonst Reihenfolge des Katalogs.
+			var others = locked.filter(isRec).concat(locked.filter(function (c) { return !isRec(c); }));
 			var focus = null;
 			mine.forEach(function (c) {
 				var touched = c.progress.mastered + c.progress.learning + c.progress.unsure;
@@ -460,7 +482,7 @@
 					el('p', {}, [link(focus.c.slug + '/lernen/', t('dash_continue'), 'bp-button bp-button-signal')])
 				]) : null
 			]);
-			var nodes = [hero];
+			var nodes = [hero].concat(courses.filter(function (c) { return c.expires_soon; }).map(expiryNotice));
 			[['full', t('dash_group_full')], ['combo', t('dash_group_combo')], ['addon', t('dash_group_addon')]].forEach(function (g) {
 				var list = mine.filter(function (c) { return c.type === g[0]; });
 				if (list.length) {
@@ -474,7 +496,7 @@
 			if (others.length) {
 				nodes.push(el('section', { class: 'bp-section bp-dash-group bp-dash-more' }, [el('h2', { text: mine.length ? t('dash_more_courses') : t('dash_all_courses') }), el('p', { class: 'bp-muted', text: t('dash_more_intro') }), el('ul', { class: 'bp-grid bp-cc-grid' }, others.map(courseCard))]));
 			}
-			if (!courses.length) {
+			if (!visible.length) {
 				nodes.push(el('p', { text: t('no_courses') }));
 			}
 			nodes.push(el('ul', { class: 'bp-link-cards' }, [

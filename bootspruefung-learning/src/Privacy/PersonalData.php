@@ -233,6 +233,8 @@ final class PersonalData
             }
             // Synchronisierte App-Einstellungen (Nutzer-Meta).
             $removed = \Bootspruefung\Learning\Mobile\AppSettings::delete((int) $user->ID) || $removed;
+            // Merker der Ablauf-Erinnerungen (Nutzer-Meta).
+            $removed = \Bootspruefung\Learning\Commerce\ExpiryReminder::forget((int) $user->ID) || $removed;
             // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
             $members = self::eraseGroupMembers((int) $user->ID, $email);
             if ($members === false) {

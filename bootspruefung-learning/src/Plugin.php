@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.12.3';
+    public const VERSION = '0.13.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     private static ?self $instance = null;
@@ -79,6 +79,7 @@ final class Plugin
         if (! wp_next_scheduled('bp_learning_hourly')) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'bp_learning_hourly');
         }
+        \Bootspruefung\Learning\Commerce\ExpiryReminder::schedule();
         global $wpdb;
         try {
             (new Migrator($wpdb))->migrate();
@@ -91,6 +92,7 @@ final class Plugin
     {
         // Bewusst keine Daten- oder Tabellenlöschung (Kap. 8: sichere Deaktivierung).
         wp_clear_scheduled_hook('bp_learning_hourly');
+        wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK);
         flush_rewrite_rules(false);
     }
 
@@ -113,7 +115,10 @@ final class Plugin
             global $wpdb;
             (new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->expireDue();
             (new \Bootspruefung\Learning\Commerce\GroupService($wpdb))->expireInvites();
+            // Nach einem Update ohne erneute Aktivierung den täglichen Cron nachträglich planen.
+            \Bootspruefung\Learning\Commerce\ExpiryReminder::schedule();
         });
+        add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
         PersonalData::register();
         \Bootspruefung\Learning\Security\Hardening::register();
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();

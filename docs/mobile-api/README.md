@@ -604,6 +604,27 @@ beibehalten, wo es passt. Abweichungen:
 
 ## 8. Änderungsprotokoll
 
+### 1.9.0 (additiv)
+
+- **Kursempfehlungen und Ausblenden von Doppeltem:** `relation` in jedem `CourseSummary`
+  (`GET /courses`, `GET /courses/{courseId}`, `course` in `/overview`) mit `hidden`, `recommended` und
+  `recommended_for` (`[{id, name}]` der besessenen Kurse, die den Vorschlag auslösen). „Besessen“ =
+  gültiger Zugang zum Fragenkatalog durch Kauf, manuell oder Gruppe; der kostenlose Teilumfang zählt
+  nicht. Grundlage ist dieselbe Tabelle wie im Web (`Commerce\CourseRelations`, Filter
+  `bootspruefung_course_relations`), z. B. Besitzer von SBF Binnen: SBF See & Binnen ausgeblendet,
+  Ergänzung Binnen → See empfohlen; UBI-Besitzer: SRC empfohlen.
+  **Entscheidung:** Ausgeblendete Kurse bleiben in der Liste und werden nur markiert, damit Deep-Links,
+  Kursdetails und eine laufende Anzeige weiter funktionieren. Die App blendet sie unter „Weitere Kurse“
+  aus und zeigt empfohlene oben mit „Empfohlen“ und „Passt zu deinem Kurs {name}“.
+- **Zugang endet bald:** im Zugangs-Objekt `access` zusätzlich `expires_soon`, `expires_at` (Ende des
+  Fragenkatalog-Zugangs, nur wenn bald) und `renew_url` (erstes passendes Shop-Angebot, ohne Shop die
+  Kursseite im Web). `expires_soon` ist true, wenn der Zugang in höchstens N Tagen endet (Admin
+  „Tage vorher“, Standard 14) und kein späterer oder unbefristeter Zugang besteht. `valid_until` bleibt
+  unverändert (spätestes Ende aller Bereiche). Anzeige wie im Web: „Dein Zugang zu {Kurs} endet am
+  {Datum}. Dein Lernstand bleibt erhalten.“ mit „Jetzt verlängern“.
+- Server (nicht App-sichtbar): tägliche Erinnerungsmail vor Ablauf (WP-Cron `bp_learning_daily`,
+  abschaltbar unter Bootsprüfung → Einstellungen). Keine Datenbankänderung, keine neuen Routen.
+
 ### 1.8.0 (additiv)
 
 - **Rechtstexte:** `GET /health` (ohne Anmeldung) liefert `legal` mit `privacy_policy`, `imprint`,

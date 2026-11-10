@@ -321,6 +321,38 @@ $detail = $api('GET', "/courses/{$courseId}", [], $tokenA);
 $check($detail['status'] === 200 && $detail['body']['data']['modules_count'] > 0 && $detail['body']['data']['exam_options_count'] > 0, 'Kursdetails mit Modulen und Prüfungsoptionen');
 $detailByCode = $api('GET', '/courses/'.strtolower($courseCode), [], $tokenA);
 $check($detailByCode['status'] === 200 && $detailByCode['body']['data']['id'] === $courseId, 'Kurs auch über den Kurscode');
+
+echo "Kursempfehlungen und Ablauf (1.9.0)\n";
+$byCode = [];
+foreach ($content->courses() as $c) {
+    $byCode[$c->code] = $c;
+}
+$listByCode = array_column($list['body']['data'], null, 'code');
+$check(isset($mine['relation']) && $mine['relation'] === ['hidden' => false, 'recommended' => false, 'recommended_for' => []] && $mine['access']['expires_soon'] === false && $mine['access']['renew_url'] === null, 'eigener Kurs: relation neutral, expires_soon false, renew_url null');
+if ($courseCode === 'SBF-SEE') {
+    $combo = $listByCode['SBF-SEE-BIN'] ?? null;
+    $addon = $listByCode['ADD-SEE-TO-BIN'] ?? null;
+    $check($combo !== null && $combo['relation']['hidden'] === true && $combo['relation']['recommended'] === false, 'SBF-See-Besitzer: Kombi markiert (hidden), bleibt in der Liste');
+    $check($addon !== null && $addon['relation']['recommended'] === true && $addon['relation']['recommended_for'] === [['id' => $courseId, 'name' => (string) $byCode['SBF-SEE']->name]], 'Ergänzung See → Binnen empfohlen mit id und Name des auslösenden Kurses');
+    $r = $api('GET', '/courses/'.$byCode['SBF-SEE-BIN']->id, [], $tokenA);
+    $check($r['status'] === 200 && $r['body']['data']['relation']['hidden'] === true, 'ausgeblendeter Kurs per Deep-Link weiter abrufbar (Kursdetails mit relation)');
+}
+$ubiUntil = gmdate('Y-m-d H:i:s', time() + 5 * DAY_IN_SECONDS);
+$ubiIds = $entitlements->grantManual($alice, 'UBI', ['question_bank'], $ubiUntil, 'App-Test Ablauf');
+$list2 = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code');
+$ubi = $list2['UBI'] ?? null;
+$check($ubi !== null && $ubi['access']['expires_soon'] === true && $ubi['access']['expires_at'] === gmdate('Y-m-d\TH:i:s\Z', strtotime($ubiUntil.' UTC')) && is_string($ubi['access']['renew_url']) && $ubi['access']['renew_url'] !== '', 'Zugang endet in 5 Tagen: expires_soon, expires_at, renew_url');
+$check(($list2['SRC']['relation']['recommended_for'] ?? null) === [['id' => (string) $byCode['UBI']->id, 'name' => (string) $byCode['UBI']->name]] && $list2['SRC-UBI']['relation']['hidden'] === true, 'UBI-Besitzer: SRC empfohlen, SRC & UBI ausgeblendet');
+$entitlements->grantManual($alice, 'UBI', ['question_bank'], null, 'App-Test unbefristet');
+$ubi = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code')['UBI'] ?? null;
+$check($ubi !== null && $ubi['access']['expires_soon'] === false && $ubi['access']['renew_url'] === null, 'unbefristeter Zugang: kein Ablaufhinweis');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d AND course_code = 'UBI'", $alice));
+// Kostenloser Teilumfang zählt nicht als Besitz.
+$wpdb->insert($p.'access_rule', ['course_code' => 'UBI', 'feature_code' => 'question_bank', 'access_type' => 'free_limited', 'limit_type' => 'questions_per_module', 'limit_value' => 3, 'created_at' => current_time('mysql', true), 'updated_at' => current_time('mysql', true)]);
+$trialRule = (int) $wpdb->insert_id;
+$list3 = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code');
+$check(($list3['UBI']['access']['trial'] ?? false) === true && $list3['UBI']['access']['expires_soon'] === false && $list3['SRC']['relation']['recommended'] === false && $list3['SRC-UBI']['relation']['hidden'] === false, 'Teilumfang UBI: keine Empfehlung, nichts ausgeblendet, kein Ablaufhinweis');
+$wpdb->delete($p.'access_rule', ['id' => $trialRule]);
 $ov = $api('GET', "/courses/{$courseId}/overview", [], $tokenA);
 $check($ov['status'] === 200 && count($ov['body']['data']['modules']) > 0 && $ov['body']['data']['continue_learning']['mode'] === 'smarttrainer', 'Übersicht mit Modulen und Weiterlernen');
 $cl = $ov['body']['data']['continue_learning'];

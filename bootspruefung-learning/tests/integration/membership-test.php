@@ -641,6 +641,120 @@ $check($repoC->examRule($comboId)['live'] && \Bootspruefung\Learning\Content\Rig
 $wpdb->delete($p.'override', ['reason' => 'Test-Regelfreigabe']);
 wp_cache_flush_group('bootspruefung');
 $check(! $repoC->examRule($comboId)['live'], 'Testfreigabe zurückgenommen');
+
+echo "Kursempfehlungen und Ausblenden (Web-REST /me/courses)\n";
+$relUsers = ['bin' => $user('bp_rel_binnen'), 'combo' => $user('bp_rel_kombi'), 'ubi' => $user('bp_rel_ubi'), 'trial' => $user('bp_rel_trial')];
+$expUsers = ['a' => $user('bp_exp_a'), 'b' => $user('bp_exp_b'), 'later' => $user('bp_exp_later'), 'open' => $user('bp_exp_open'), 'far' => $user('bp_exp_far')];
+$relAll = implode(',', array_merge($relUsers, $expUsers));
+$wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$relAll})");
+foreach (array_merge($relUsers, $expUsers) as $uid) {
+    delete_user_meta($uid, \Bootspruefung\Learning\Commerce\ExpiryReminder::META);
+}
+$names = [];
+foreach ($content->courses() as $c) {
+    $names[$c->code] = $c->name;
+}
+$meCourses = static function (int $uid): array {
+    wp_set_current_user($uid);
+    $res = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/me/courses'));
+    wp_set_current_user(1);
+
+    return $res->get_status() === 200 ? array_column((array) $res->get_data(), null, 'code') : [];
+};
+$entitlements->grantManual($relUsers['bin'], 'SBF-BIN-MOTOR', ['question_bank', 'exam_simulation'], null, 'Test Empfehlung');
+$entitlements->grantManual($relUsers['combo'], 'SBF-SEE-BIN', ['question_bank'], null, 'Test Empfehlung');
+$entitlements->grantManual($relUsers['ubi'], 'UBI', ['question_bank'], null, 'Test Empfehlung');
+$c = $meCourses($relUsers['bin']);
+$check(isset($c['SBF-SEE-BIN'], $c['ADD-BIN-TO-SEE']) && array_key_exists('hidden', $c['SBF-SEE']) && array_key_exists('recommended_for', $c['SBF-SEE']), 'Kursliste enthält hidden und recommended_for');
+$check($c['SBF-SEE-BIN']['hidden'] === true && $c['ADD-SEE-TO-BIN']['hidden'] === true && $c['SBF-SEE-BIN']['recommended_for'] === [], 'Binnen-Besitzer: SBF See & Binnen und Ergänzung See → Binnen ausgeblendet');
+$check($c['ADD-BIN-TO-SEE']['hidden'] === false && $c['ADD-BIN-TO-SEE']['recommended_for'] === [$names['SBF-BIN-MOTOR']] && $c['ADD-BIN-SEGEL']['recommended_for'] === [$names['SBF-BIN-MOTOR']], 'Binnen-Besitzer: Ergänzung Binnen → See und Segeln empfohlen (Name des Kurses)');
+$check($c['SBF-BIN-MOTOR']['hidden'] === false && $c['SBF-BIN-MOTOR']['recommended_for'] === [] && $c['SBF-SEE']['hidden'] === false && $c['SBF-SEE']['recommended_for'] === [], 'eigener Kurs und unbeteiligte Kurse unverändert');
+$c = $meCourses($relUsers['trial']);
+$check(($c['SBF-SEE']['trial'] ?? false) === true && $c['SBF-SEE-BIN']['hidden'] === false && $c['ADD-BIN-TO-SEE']['hidden'] === false && $c['ADD-SEE-TO-BIN']['recommended_for'] === [], 'kostenloser Teilumfang zählt nicht als Besitz (nichts ausgeblendet, nichts empfohlen)');
+$c = $meCourses($relUsers['combo']);
+$check($c['SBF-SEE']['hidden'] === true && $c['SBF-BIN-MOTOR']['hidden'] === true && $c['ADD-SEE-TO-BIN']['hidden'] === true && $c['ADD-BIN-TO-SEE']['hidden'] === true, 'Kombi-Besitzer: Einzelkurse und Ergänzungen ausgeblendet (auch im Teilumfang)');
+$check($c['ADD-BIN-SEGEL']['recommended_for'] === [$names['SBF-SEE-BIN']] && $c['SBF-SEE-BIN']['hidden'] === false, 'Kombi-Besitzer: Ergänzung Segeln empfohlen');
+$c = $meCourses($relUsers['ubi']);
+$check($c['SRC']['recommended_for'] === [$names['UBI']] && $c['SRC']['hidden'] === false && $c['SRC-UBI']['hidden'] === true && $c['ADD-UBI-TO-SRC']['hidden'] === true, 'UBI-Besitzer: SRC empfohlen, Kombi und Ergänzung ausgeblendet');
+$groupMember = $students[0];
+$check($access->full($groupMember, 'SBF-BIN-MOTOR', 'question_bank') && in_array('SBF-BIN-MOTOR', \Bootspruefung\Learning\Commerce\CourseRelations::ownedCourses($groupMember), true)
+    && \Bootspruefung\Learning\Commerce\CourseRelations::forUser($groupMember, ['SBF-SEE-BIN'])['SBF-SEE-BIN']['hidden'] === true, 'Zugang per Gruppe zählt als Besitz');
+$queries = $wpdb->num_queries;
+$rel = \Bootspruefung\Learning\Commerce\CourseRelations::forUser($relUsers['bin'], array_keys($names));
+$check($wpdb->num_queries - $queries === 1 && count($rel) === count($names), 'eine Datenbankabfrage für alle Kurse');
+$noRules = static fn (): array => [];
+add_filter('bootspruefung_course_relations', $noRules);
+$check(\Bootspruefung\Learning\Commerce\CourseRelations::forUser($relUsers['bin'], ['SBF-SEE-BIN'])['SBF-SEE-BIN']['hidden'] === false, 'Filter bootspruefung_course_relations ändert die Tabelle');
+remove_filter('bootspruefung_course_relations', $noRules);
+
+echo "Ablauf-Erinnerung\n";
+$ER = \Bootspruefung\Learning\Commerce\ExpiryReminder::class;
+$settingsNow = Settings::all();
+update_option(Settings::OPTION, array_merge($settingsNow, ['expiry_reminder_enabled' => true, 'expiry_reminder_days' => 14]));
+$in = static fn (int $days): string => gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS);
+$untilA = $in(5);
+$idsA = $entitlements->grantManual($expUsers['a'], 'SBF-SEE', ['question_bank', 'exam_simulation'], $untilA, 'Test Ablauf');
+$entitlements->grantManual($expUsers['b'], 'SRC', ['question_bank'], $in(3), 'Test Ablauf');
+$entitlements->grantManual($expUsers['b'], 'UBI', ['question_bank'], $in(10), 'Test Ablauf');
+$entitlements->grantManual($expUsers['later'], 'SBF-BIN-MOTOR', ['question_bank'], $in(4), 'Test Ablauf');
+$next = $entitlements->grantManual($expUsers['later'], 'SBF-BIN-MOTOR', ['question_bank'], $in(369), 'Verlängerung');
+$wpdb->update($p.'entitlement', ['valid_from' => $in(4)], ['id' => $next[0]]); // beginnt nach Ablauf
+$entitlements->grantManual($expUsers['open'], 'SRC', ['question_bank'], $in(2), 'Test Ablauf');
+$entitlements->grantManual($expUsers['open'], 'SRC', ['question_bank'], null, 'unbefristet');
+$entitlements->grantManual($expUsers['far'], 'SRC', ['question_bank'], $in(30), 'Test Ablauf');
+$expiryMails = [];
+$catch = static function ($null, $atts) use (&$expiryMails) {
+    $expiryMails[] = $atts;
+
+    return true;
+};
+add_filter('pre_wp_mail', $catch, 5, 2);
+$to = static function (int $uid) use (&$expiryMails): array {
+    $email = get_userdata($uid)->user_email;
+
+    return array_values(array_filter($expiryMails, static fn ($m) => $m['to'] === $email || $m['to'] === [$email]));
+};
+$check(has_action($ER::HOOK, [$ER, 'run']) !== false, 'täglicher Cron bp_learning_daily ist verbunden');
+$ER::run();
+$mailA = $to($expUsers['a']);
+$check(count($mailA) === 1 && str_contains($mailA[0]['subject'], $names['SBF-SEE']) && str_contains($mailA[0]['message'], wp_date('d.m.Y', strtotime($untilA.' UTC')))
+    && str_contains($mailA[0]['message'], 'Dein Lernstand bleibt erhalten.') && str_contains($mailA[0]['message'], \Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl('SBF-SEE')), 'Erinnerung mit Kursname, deutschem Datum, Lernstand-Hinweis und Link zum Verlängern');
+$mailB = $to($expUsers['b']);
+$check(count($mailB) === 1 && str_contains($mailB[0]['message'], $names['SRC']) && str_contains($mailB[0]['message'], $names['UBI']), 'zwei Kurse eines Nutzers in einer Mail gebündelt');
+$check($to($expUsers['later']) === [] && $to($expUsers['open']) === [], 'keine Erinnerung bei späterem (Verlängerung) oder unbefristetem Zugang');
+$check($to($relUsers['trial']) === [] && $to($expUsers['far']) === [], 'keine Erinnerung im kostenlosen Teilumfang und außerhalb des Fensters');
+$check(array_key_exists('SBF-SEE|'.$untilA, (array) get_user_meta($expUsers['a'], $ER::META, true)), 'gemerkt je Kurs und Ablaufdatum (Nutzer-Meta)');
+$ER::run();
+$check(count($to($expUsers['a'])) === 1 && count($to($expUsers['b'])) === 1, 'nicht doppelt beim nächsten Lauf');
+$untilA2 = $in(8);
+$entitlements->extend($idsA[0], $untilA2, 'Verlängert');
+$ER::run();
+$check(count($to($expUsers['a'])) === 2, 'neues Ablaufdatum (Verlängerung) erinnert erneut');
+$c = $meCourses($expUsers['a']);
+$check($c['SBF-SEE']['expires_soon'] === true && $c['SBF-SEE']['expires_at'] === $untilA2 && is_string($c['SBF-SEE']['renew_url']) && $c['SRC']['expires_soon'] === false && $c['SRC']['renew_url'] === null, 'Kursliste: expires_soon, expires_at und renew_url');
+$check($meCourses($expUsers['later'])['SBF-BIN-MOTOR']['expires_soon'] === false && $meCourses($relUsers['trial'])['SBF-SEE']['expires_soon'] === false, 'kein Hinweis bei Verlängerung oder Teilumfang');
+$before = count($expiryMails);
+$entitlements->extend($idsA[0], $in(6), 'Test aus');
+update_option(Settings::OPTION, array_merge(Settings::all(), ['expiry_reminder_enabled' => false]));
+$check($ER::run() === 0 && count($expiryMails) === $before, 'abgeschaltet: keine Mail');
+$check(Settings::sanitize([])['expiry_reminder_enabled'] === true && Settings::sanitize([])['expiry_reminder_days'] === 14 && Settings::sanitize(['expiry_reminder_enabled' => '0', 'expiry_reminder_days' => '500'])['expiry_reminder_enabled'] === false
+    && Settings::sanitize(['expiry_reminder_days' => '500'])['expiry_reminder_days'] === 90, 'Einstellungen: Standard an und 14 Tage, aus speicherbar, höchstens 90 Tage');
+update_option(Settings::OPTION, $settingsNow);
+remove_filter('pre_wp_mail', $catch, 5);
+$hourly = wp_next_scheduled('bp_learning_hourly');
+wp_clear_scheduled_hook($ER::HOOK);
+$ER::schedule();
+$scheduled = wp_next_scheduled($ER::HOOK);
+\Bootspruefung\Learning\Plugin::deactivate();
+$check($scheduled !== false && wp_get_schedule($ER::HOOK) === false, 'Cron geplant (täglich) und beim Deaktivieren entfernt');
+if ($hourly !== false) {
+    wp_schedule_event($hourly, 'hourly', 'bp_learning_hourly');
+}
+$ER::schedule();
+$wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$relAll})");
+foreach (array_merge($relUsers, $expUsers) as $uid) {
+    delete_user_meta($uid, $ER::META);
+}
 remove_filter('pre_wp_mail', $capture, 10);
 
 // Aufräumen.

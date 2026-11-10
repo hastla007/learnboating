@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Mapper;
 
+use Bootspruefung\Learning\Commerce\CourseRelations;
 use Bootspruefung\Learning\Commerce\EntitlementPlanner;
+use Bootspruefung\Learning\Commerce\ExpiryReminder;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade;
+use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\LearningService;
 
@@ -40,6 +43,12 @@ final class CourseMapper
     private array $scopes = [];
     /** @var array<int,list<object>> user_id => Zugänge */
     private array $entitlements = [];
+    /** @var array<int,array<string,array{hidden:bool,recommended_for:list<string>}>> user_id => Kurscode => Beziehung */
+    private array $relations = [];
+    /** @var array<int,array<string,string>> user_id => Kurscode => Ende des Fragenkatalog-Zugangs (bald) */
+    private array $expiring = [];
+    /** @var array<string,object>|null Kurscode => veröffentlichter Kurs */
+    private ?array $coursesByCode = null;
 
     public function __construct(
         private readonly AccessService $access,
@@ -161,6 +170,9 @@ final class CourseMapper
             $until = $ends === [] ? null : max($ends);
         }
 
+        // Bald endender Zugang zum Fragenkatalog ohne Verlängerung (wie Banner im Web und Erinnerungsmail).
+        $expiresAt = ($scopes[AccessService::QUESTION_BANK]['full'] ?? false) ? ($this->expiringFor($userId)[(string) $course->code] ?? null) : null;
+
         return [
             'status' => $status,
             'valid_from' => self::iso($from),
@@ -168,7 +180,52 @@ final class CourseMapper
             'trial' => $limited && ! $full,
             'purchased' => $valid !== [],
             'limits' => (object) $limits,
+            'expires_soon' => $expiresAt !== null,
+            'expires_at' => self::iso($expiresAt),
+            'renew_url' => $expiresAt !== null ? ExpiryReminder::renewUrl((string) $course->code) : null,
         ];
+    }
+
+    /** @return array<string,string> Kurscode => Ende (eine Abfrage je Nutzer) */
+    private function expiringFor(int $userId): array
+    {
+        return $this->expiring[$userId] ??= (ExpiryReminder::expiring($userId)[$userId] ?? []);
+    }
+
+    /** @return array<string,object> */
+    private function coursesByCode(): array
+    {
+        if ($this->coursesByCode === null) {
+            $this->coursesByCode = [];
+            foreach ((new ContentRepository())->courses() as $c) {
+                $this->coursesByCode[(string) $c->code] = $c;
+            }
+        }
+
+        return $this->coursesByCode;
+    }
+
+    /**
+     * Empfehlung/Ausblenden (CourseRelations, eine Abfrage je Nutzer). Kurse mit vollem Fragenkatalog
+     * sind nie ausgeblendet oder empfohlen. Ausgeblendete Kurse bleiben in der Liste (Deep-Links).
+     * @return array{hidden:bool,recommended:bool,recommended_for:list<array{id:string,name:string}>}
+     */
+    public function relation(int $userId, object $course): array
+    {
+        $this->relations[$userId] ??= CourseRelations::forUser($userId, array_keys($this->coursesByCode()));
+        $rel = $this->relations[$userId][(string) $course->code] ?? ['hidden' => false, 'recommended_for' => []];
+        if ($this->scopes($userId, $course)[AccessService::QUESTION_BANK]['full'] ?? false) {
+            $rel = ['hidden' => false, 'recommended_for' => []];
+        }
+        $by = $this->coursesByCode();
+        $for = [];
+        foreach ($rel['recommended_for'] as $code) {
+            if (isset($by[$code])) {
+                $for[] = ['id' => (string) $by[$code]->id, 'name' => (string) $by[$code]->name];
+            }
+        }
+
+        return ['hidden' => $rel['hidden'], 'recommended' => $for !== [], 'recommended_for' => $for];
     }
 
     /** @return array<string,array<string,mixed>> Fähigkeit => Zugriff */
@@ -255,6 +312,7 @@ final class CourseMapper
             'capabilities' => $this->capabilities($course),
             'features' => $this->features($userId, $course),
             'webshop_url' => $this->webshopUrl($userId, $course, $access),
+            'relation' => $this->relation($userId, $course),
         ];
     }
 

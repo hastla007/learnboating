@@ -24,6 +24,9 @@ final class Settings
         // Preisangabe (PAngV): Hinweis an allen Preisen, Kasse und E-Mails; z. B. „inkl. MwSt.“
         // oder bei Kleinunternehmern „gem. § 19 UStG ohne MwSt.“ (Festlegung 07.11.2026).
         'price_note' => 'inkl. MwSt.',
+        // Erinnerung per E-Mail vor Ablauf eines Zugangs zum Fragenkatalog (Festlegung 10.11.2026).
+        'expiry_reminder_enabled' => true,
+        'expiry_reminder_days' => 14,
     ];
 
     /** @return array<string,mixed> */
@@ -70,6 +73,9 @@ final class Settings
             'radio_voice_output' => in_array($input['radio_voice_output'] ?? '', ['browser', 'recording', 'off'], true) ? $input['radio_voice_output'] : 'browser',
             'exam_guide_enabled' => ! empty($input['exam_guide_enabled']),
             'price_note' => mb_substr(trim(sanitize_text_field((string) ($input['price_note'] ?? self::DEFAULTS['price_note']))), 0, 80),
+            // Formular sendet „0“ vor der Checkbox; fehlt der Schlüssel ganz, gilt der Standard (an).
+            'expiry_reminder_enabled' => array_key_exists('expiry_reminder_enabled', $input) ? ! empty($input['expiry_reminder_enabled']) : self::DEFAULTS['expiry_reminder_enabled'],
+            'expiry_reminder_days' => isset($input['expiry_reminder_days']) && (int) $input['expiry_reminder_days'] > 0 ? min(90, (int) $input['expiry_reminder_days']) : self::DEFAULTS['expiry_reminder_days'],
             'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' ? mb_substr($brand, 0, 60) : self::DEFAULTS['brand_name'],
         ];
     }

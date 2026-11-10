@@ -2,7 +2,7 @@
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.12.3
+Stable tag: 0.13.0
 WC requires at least: 8.0
 WC tested up to: 11.3
 
@@ -32,5 +32,6 @@ Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 * Zugang: kostenlose Bereiche, manuelle Freigaben (mit Begründung) und Shop-Freischaltungen; solange der Shop nicht live ist, wahlweise alle angemeldeten Nutzer
 * Datenbankschema mit InnoDB und Fremdschlüsseln, Migration bei Aktivierung/Update, Datenschutz-Export/-Löschung, sichere Deinstallation
 * Shortcode [bootspruefung] für einen Einstiegslink
+* Kursübersicht: passende Ergänzungen als „Empfohlen“, bereits abgedeckte Kurse ausgeblendet (Tabelle `CourseRelations`, Filter `bootspruefung_course_relations`); Hinweis und tägliche E-Mail-Erinnerung vor Ablauf eines Zugangs (abschaltbar, Tage einstellbar)
 
 Noch offen: Content-Freigabe und Go-live (Schritt 10).

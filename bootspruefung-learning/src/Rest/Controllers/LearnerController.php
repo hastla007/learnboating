@@ -134,12 +134,28 @@ final class LearnerController
     {
         $user = get_current_user_id();
         $out = [];
-        foreach ($this->content->courses() as $course) {
+        $courses = $this->content->courses();
+        $names = [];
+        $scopesBy = [];
+        $unlocked = [];
+        foreach ($courses as $course) {
+            $names[$course->code] = $course->name;
             // Zugriff einmal je Kurs ermitteln (features/limits daraus statt zweimal scopes()).
-            $scopes = $this->access->scopes($user, $course->code);
+            $scopesBy[$course->code] = $this->access->scopes($user, $course->code);
+            if ($scopesBy[$course->code][AccessService::QUESTION_BANK]['full']) {
+                $unlocked[] = (string) $course->code;
+            }
+        }
+        // Empfehlungen/Ausblenden (eine Abfrage) und bald endende Zugänge (eine Abfrage).
+        $relations = \Bootspruefung\Learning\Commerce\CourseRelations::forUser($user, array_keys($names), $unlocked);
+        $expiring = \Bootspruefung\Learning\Commerce\ExpiryReminder::expiring($user)[$user] ?? [];
+        foreach ($courses as $course) {
+            $scopes = $scopesBy[$course->code];
             $features = self::features($scopes);
             // Kostenloser Teilumfang (Schnupper-Paket): Fragen nur begrenzt, kein Vollzugang.
             $trial = $features[AccessService::QUESTION_BANK] && isset(self::limits($scopes)[AccessService::QUESTION_BANK]);
+            $relation = $relations[$course->code] ?? ['hidden' => false, 'recommended_for' => []];
+            $expiresAt = $expiring[$course->code] ?? null;
             $out[] = [
                 'code' => $course->code,
                 'trial' => $trial,
@@ -150,6 +166,14 @@ final class LearnerController
                 // Nur die Gesamtsumme (ohne Module/Themen wie in courseProgress()).
                 'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseTotal($user, $course) : null,
                 'shop' => in_array(true, $features, true) && ! $trial ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
+                // Nicht freigeschaltet und durch einen besessenen Kurs abgedeckt → nicht mehr anbieten.
+                'hidden' => $relation['hidden'],
+                // Namen der besessenen Kurse, zu denen dieser Kurs passt (leer = keine Empfehlung).
+                'recommended_for' => array_map(static fn ($code) => (string) ($names[$code] ?? $code), $relation['recommended_for']),
+                // Zugang zum Fragenkatalog endet bald (ohne Verlängerung): Ende (UTC) und Link zum Verlängern.
+                'expires_at' => $expiresAt,
+                'expires_soon' => $expiresAt !== null,
+                'renew_url' => $expiresAt !== null ? \Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl((string) $course->code) : null,
             ];
         }
 

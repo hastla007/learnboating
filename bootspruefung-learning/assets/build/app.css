@@ -1459,3 +1459,12 @@ body.admin-bar .bp-app * { scroll-margin-top: calc(32px + 1rem); }
 .bp-exam-reduced { margin-top: 0.6rem; }
 .bp-app .bp-part.is-empty { opacity: 0.85; }
 .bp-nav-locked-note { margin: 0.4rem 0 0; font-size: 0.9rem; }
+
+/* 0.13.0: Empfohlene Kurse unter „Weitere Kurse“ und Hinweis vor Ablauf eines Zugangs */
+.bp-cc-rec { margin: 0 0 0.45rem; position: relative; z-index: 1; }
+.bp-cc-rec .bp-badge { background: var(--bp-surface); }
+.bp-cc-rec-note { margin: 0 0 0.5rem; font-size: 0.88rem; color: var(--bp-ok); font-weight: 600; }
+.bp-course-card.is-recommended { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bp-ok) 55%, transparent), var(--bp-shadow); }
+.bp-course-card.is-recommended:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bp-ok) 55%, transparent), 0 16px 36px rgba(7,27,46,0.1); }
+.bp-expiry { align-items: center; }
+.bp-expiry a { font-weight: 700; white-space: nowrap; }

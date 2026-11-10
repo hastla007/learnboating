@@ -202,6 +202,21 @@ final class Menu
             esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
             esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und alle Prüfungsausschüsse. Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
         );
+        printf(
+            '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[expiry_reminder_enabled]" value="0"><label><input type="checkbox" name="%2$s[expiry_reminder_enabled]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',
+            esc_html__('Ablauf-Erinnerung per E-Mail', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            checked(! empty($settings['expiry_reminder_enabled']), true, false),
+            esc_html__('Lernende vor dem Ende ihres Zugangs erinnern', 'bootspruefung-learning'),
+            esc_html__('Eine E-Mail je Kurs und Ablaufdatum (mehrere Kurse in einer Mail), mit Link zum Verlängern. Keine Erinnerung, wenn schon eine Verlängerung oder ein unbefristeter Zugang besteht. Im Lernbereich erscheint zusätzlich ein Hinweis. Wirkt nur, wenn „Zugang ohne Shop“ auf „Nur kostenlose Regeln und Freischaltungen“ steht.', 'bootspruefung-learning')
+        );
+        printf(
+            '<tr><th scope="row"><label for="bp-expiry-days">%s</label></th><td><input type="number" class="small-text" id="bp-expiry-days" name="%s[expiry_reminder_days]" value="%d" min="1" max="90"> %s</td></tr>',
+            esc_html__('Tage vorher', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            (int) $settings['expiry_reminder_days'],
+            esc_html__('Tage vor dem Ablauf', 'bootspruefung-learning')
+        );
         echo '</tbody></table>';
         submit_button();
         echo '</form>';
