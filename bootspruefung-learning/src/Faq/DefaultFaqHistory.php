@@ -7,7 +7,12 @@ namespace Bootspruefung\Learning\Faq;
 /**
  * Frühere Standardstände der FAQs (Prüfsumme => Status beim Import), je FAQ-Nummer. Damit erkennt
  * FaqImporter::updateDefaults() unveränderte FAQs auch auf Installationen, die vor der Prüfsumme
- * _bp_faq_default_hash importiert wurden (Datenstand 1, Text wie DefaultFaqs vom 10.11.2026).
+ * _bp_faq_default_hash importiert wurden, und unveränderte FAQs früherer Stände beim Wechsel auf einen neuen.
+ *
+ * Stände: Datenstand 1 und 2 (VERSION '1'/'2', Text wie DefaultFaqs vom 10.11.2026 vor der Inhaltsmoderation) haben
+ * dieselben Texte – die Prüfsumme je Nummer gilt für beide. Zusätzlich die Zwischenstände von FAQ 22 (vor „Link auf
+ * die AGB direkt im Satz“) und FAQ 85 (vor „Simulator im Kombikurs präzisiert“). FAQ 13 bleibt eingetragen, damit sie
+ * als entfernte Standard-FAQ (DefaultFaqs::REMOVED) unverändert erkannt wird.
  *
  * Nur ergänzen, nie entfernen: Wer einen Text in DefaultFaqs ändert, hängt vorher den bisherigen Stand an
  * (FaqImporter::hash(Frage, FaqImporter::content(FAQ)) => FaqImporter::statusFor(FAQ)).
@@ -37,7 +42,7 @@ final class DefaultFaqHistory
         19 => ['8cbb7f2caba73c15a97de01a772bdf89' => 'draft'],
         20 => ['0f6b8e0eeb687f585b8ed49e386d738f' => 'draft'],
         21 => ['546266d9dbf39279f78734f89de77e10' => 'draft'],
-        22 => ['2eaf2c5ef33fa84615bb0b933ebb3dac' => 'publish'],
+        22 => ['2eaf2c5ef33fa84615bb0b933ebb3dac' => 'publish', 'b08bc3c3cdc5e9d809458e44b669d801' => 'publish'],
         23 => ['24b92e2ca88a425ba80fb4ebdeaf00a1' => 'draft'],
         24 => ['e89cdf4d4d192a6be80527da538f2a4c' => 'publish'],
         25 => ['437aecfec47ac3dc071713e19372554e' => 'publish'],
@@ -100,7 +105,7 @@ final class DefaultFaqHistory
         82 => ['dcdb5182e8722c8a36de7c4b30e94490' => 'publish'],
         83 => ['ad877b21190d040f7b1ed8215da5dcaa' => 'publish'],
         84 => ['c10d13b2359c4868f1e4687996d073cb' => 'publish'],
-        85 => ['cbfb403705a7d0582f63bedc6bed2efb' => 'publish'],
+        85 => ['cbfb403705a7d0582f63bedc6bed2efb' => 'publish', '622df6fc36809c72e885a97991bd7a7c' => 'publish'],
         86 => ['124c515cd271fdee14c5b80f66d64ce3' => 'publish'],
         87 => ['e127ae09e0f130d5f66c96096bc12578' => 'publish'],
         88 => ['016e006c64afb02f4841f6413727f7a8' => 'publish'],

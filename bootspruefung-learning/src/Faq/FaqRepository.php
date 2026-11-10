@@ -9,7 +9,7 @@ namespace Bootspruefung\Learning\Faq;
  *
  * Zwischenspeicher: Objekt-Cache-Gruppe „bp_faq“ mit last_changed-Schlüssel; Faq leert ihn beim
  * Speichern, Löschen, Umsortieren usw. Gespeichert wird die gefilterte Antwort mit Platzhaltern
- * ({{agb}}); ersetzt werden sie erst beim Abruf, damit z. B. ein neuer AGB-Link sofort wirkt.
+ * ({{agb}}, {{link:/pfad/|Text}}); ersetzt werden sie erst beim Abruf, damit z. B. ein neuer AGB-Link sofort wirkt.
  */
 final class FaqRepository
 {
@@ -37,7 +37,7 @@ final class FaqRepository
             if ($sub !== '' && $row['subcategory'] !== $sub) {
                 continue;
             }
-            $row['answer_html'] = strtr($row['answer_html'], $tokens);
+            $row['answer_html'] = self::links(strtr($row['answer_html'], $tokens));
             $out[] = array_intersect_key($row, array_flip(self::FIELDS));
         }
 
@@ -66,7 +66,24 @@ final class FaqRepository
     /** Antwort-HTML wie beim Ausgeben: Blöcke rendern, Platzhalter ersetzen, wp_kses_post. */
     public static function renderAnswer(string $content): string
     {
-        return strtr(self::filterAnswer($content), self::tokens());
+        return self::links(strtr(self::filterAnswer($content), self::tokens()));
+    }
+
+    /**
+     * {{link:/pfad/|Text}} → Link auf eine Seite dieser Website (home_url, auch bei Installation im Unterordner).
+     * Der Text ist bereits maskiert (Import bzw. wp_kses_post). Nur Pfade mit „/“ am Anfang.
+     */
+    public static function links(string $html): string
+    {
+        if (! str_contains($html, '{{link:')) {
+            return $html;
+        }
+
+        return (string) preg_replace_callback(
+            '#\{\{link:(/[a-z0-9/._\-]*(?:\#[a-z0-9_\-]+)?)\|([^{}]+)\}\}#i',
+            static fn (array $m): string => '<a href="'.esc_url(home_url($m[1])).'">'.$m[2].'</a>',
+            $html
+        );
     }
 
     /** Ersetzungen für Platzhalter in Antworten. {{agb}} = Link auf die WooCommerce-AGB-Seite, sonst nur „AGB“. @return array<string,string> */

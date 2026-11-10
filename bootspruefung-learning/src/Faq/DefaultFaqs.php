@@ -9,11 +9,36 @@ namespace Bootspruefung\Learning\Faq;
  *
  * Aufbau: Rubrik (oberste Kategorie, Schlüssel = Kurscode bzw. „allgemein“) → Unterkategorie → FAQ.
  * ref = Nummer aus der Datei, theme = ★ (auch im Theme), note = Redaktionshinweis (nur im Admin).
- * {{agb}} wird beim Ausgeben zum Link auf die AGB-Seite (FaqRepository::replaceTokens).
- * Reihenfolge der Einträge = Reihenfolge in der Datei. Nur lesen – Änderungen macht der Betreiber im Admin.
+ * {{agb}} wird beim Ausgeben zum Link auf die AGB-Seite, {{link:/pfad/|Text}} zum Link auf eine Seite der Website
+ * (FaqRepository::tokens). Antworten mit Zeilenumbrüchen: Absätze (Leerzeile), Listen („- “), **fett**
+ * (FaqImporter::content). Reihenfolge der Einträge = Reihenfolge in der Datei. Nur lesen – Änderungen macht der
+ * Betreiber im Admin.
+ *
+ * Datenstand 3 (10.11.2026): Korrekturen der Inhaltsmoderation (content/src/_moderation/_faq-aenderungen-1/-2.md),
+ * neue FAQs 93–99, FAQ 13 entfernt. Frühere Texte: DefaultFaqHistory.
  */
 final class DefaultFaqs
 {
+    /**
+     * Mit einem späteren Datenstand hinzugekommene FAQs (Datenstand => Nummern). Bestehende Installationen bekommen
+     * sie beim Update automatisch (FaqImporter::maybeImport); früher vorhandene, vom Betreiber gelöschte FAQs nicht.
+     *
+     * @var array<string,list<int>>
+     */
+    public const ADDED = [
+        '3' => [93, 94, 95, 96, 97, 98, 99],
+    ];
+
+    /**
+     * Aus den Standards entfernte FAQs (Nummer => Grund). Auf bestehenden Installationen legt
+     * FaqImporter::updateDefaults() sie in den Papierkorb, wenn sie unverändert sind.
+     *
+     * @var array<int,string>
+     */
+    public const REMOVED = [
+        13 => 'Wie buche ich eine Praxisstunde? – Praxisstunden bietet die Plattform nicht an (beantwortet durch FAQ 12).',
+    ];
+
     /** @var list<array{key:string,name:string,slug:string,subcategories:list<array{name:string,slug:string,faqs:list<array{ref:int,theme:bool,question:string,answer:string,note:?string}>}>}> */
     public const RUBRICS = [
         [
@@ -21,29 +46,35 @@ final class DefaultFaqs
             'subcategories' => [
                 ['name' => 'Scheinwahl und Geltungsbereich', 'slug' => 'allgemein-scheinwahl-und-geltungsbereich', 'faqs' => [
                     ['ref' => 1, 'theme' => false, 'question' => 'Welchen Bootsführerschein brauche ich?',
-                        'answer' => 'Das hängt davon ab, wo du fahren möchtest und welches Boot du führen willst. Für Binnengewässer und Seeschifffahrtsstraßen gelten unterschiedliche Regelungen. Beschreibe uns dein Vorhaben – wir helfen dir, den passenden Schein zu finden.',
+                        'answer' => 'Das hängt davon ab, wo und womit du fahren willst. Für Motorboote mit mehr als 11,03 kW (15 PS) brauchst du auf Seeschifffahrtsstraßen den SBF See und auf Binnenschifffahrtsstraßen den SBF Binnen. Für Elektromotoren liegt die Grenze derzeit bei 7,5 kW. Unter Segel ist der SBF Binnen nur auf bestimmten Revieren vorgeschrieben; auf See brauchst du zum Segeln keinen Schein. Mehr dazu: {{link:/sportbootfuehrerschein/|Sportbootführerschein im Überblick}}.',
                         'note' => null],
                     ['ref' => 2, 'theme' => false, 'question' => 'Was ist der Unterschied zwischen SBF Binnen und SBF See?',
-                        'answer' => 'Der SBF Binnen gilt für bestimmte Binnengewässer, der SBF See für Seeschifffahrtsstraßen. Welcher Schein für deine geplante Fahrt nötig ist, hängt auch vom Gewässer und vom Boot ab.',
+                        'answer' => 'Der SBF Binnen gilt auf Binnenschifffahrtsstraßen, unter Antriebsmaschine, unter Segel oder beides. Der SBF See gilt auf Seeschifffahrtsstraßen und nur für Boote mit Antriebsmaschine. Jeder Schein gilt nur für den eingetragenen Geltungsbereich. Wer beide Bereiche befahren will, braucht beide Scheine. Mehr dazu: {{link:/sportbootfuehrerschein/#vergleich|SBF See und Binnen im Vergleich}}.',
                         'note' => null],
                     ['ref' => 3, 'theme' => false, 'question' => 'Kann ich mit meinem Bootsführerschein auch im Ausland fahren?',
-                        'answer' => 'Das richtet sich nach dem jeweiligen Land und Gewässer. Informiere dich vor der Fahrt über die örtlichen Vorschriften und darüber, ob dein Führerschein dort anerkannt wird.',
+                        'answer' => 'Das entscheidet jedes Land selbst. Der deutsche SBF wird als internationales Zertifikat nach der UNECE-Resolution Nr. 40 ausgestellt. Das kann die Anerkennung erleichtern, aber nicht alle Staaten wenden die Resolution an. Manche Länder erkennen ausländische Scheine nur bei Personen an, die im Ausstellerland wohnen, zum Beispiel Österreich und die Schweiz. Frag vor Reise oder Charter bei der Behörde des Ziellandes und beim Vercharterer nach. Mehr dazu: {{link:/bootsfuehrerschein-ausland-anerkennung/|Bootsführerschein im Ausland}}.',
                         'note' => null],
+                    ['ref' => 93, 'theme' => false, 'question' => 'Brauche ich für mein Boot überhaupt einen Führerschein?',
+                        'answer' => 'Nicht immer. Auf den meisten Binnen- und Seeschifffahrtsstraßen darfst du Motorboote bis 11,03 kW (15 PS) ohne Führerschein fahren, bei Elektromotoren derzeit bis 7,5 kW. Segeln auf See ist fahrerlaubnisfrei. Auch ohne Schein gilt binnen für Motorboote ein Mindestalter von 16 Jahren. Auf dem Bodensee und dem Rhein gelten eigene Regeln. Mehr dazu: {{link:/sportbootfuehrerschein/#fuehrerscheinfrei|Wann du keinen Bootsführerschein brauchst}}.',
+                        'note' => null],
+                    ['ref' => 98, 'theme' => false, 'question' => 'Ich wohne in Österreich oder der Schweiz – lohnt sich ein deutscher SBF?',
+                        'answer' => 'Für Gewässer in deinem Wohnland oft nicht. In Österreich gelten ausländische Scheine vor allem für Gäste mit Wohnsitz im Ausland, und ein Befähigungsausweis ist schon ab 4,4 kW nötig. In der Schweiz brauchst du nach zwölf Monaten Wohnsitz einen Schweizer Ausweis. Für deutsche Gewässer kann der deutsche SBF trotzdem sinnvoll sein. Kläre das vor dem Kurskauf mit der zuständigen Behörde. Mehr dazu: {{link:/deutscher-bootsfuehrerschein-oesterreich/|Wohnsitz in Österreich}} und {{link:/deutscher-bootsfuehrerschein-schweiz/|in der Schweiz}}.',
+                        'note' => 'erst veröffentlichen, wenn die Seiten „Wohnsitz in Österreich“ und „Wohnsitz in der Schweiz“ live sind (sonst Links weglassen).'],
                 ]],
                 ['name' => 'Voraussetzungen', 'slug' => 'allgemein-voraussetzungen', 'faqs' => [
                     ['ref' => 4, 'theme' => false, 'question' => 'Welche Voraussetzungen muss ich für einen Bootsführerschein erfüllen?',
-                        'answer' => 'Die Voraussetzungen hängen vom angestrebten Schein ab. Dazu können ein Mindestalter, ein ärztlicher Eignungsnachweis und eine bestandene Prüfung gehören. Prüfe die jeweils geltenden Bedingungen vor der Anmeldung.',
+                        'answer' => "Für den Sportbootführerschein brauchst du:\n\n- das Mindestalter (16 Jahre unter Antriebsmaschine, 14 Jahre für den SBF Binnen unter Segel);\n- einen ärztlichen Tauglichkeitsnachweis, der bei Antragstellung höchstens zwölf Monate alt ist;\n- ab 18 Jahren einen Zuverlässigkeitsnachweis, also eine Kopie deines Kfz-Führerscheins oder ein Führungszeugnis;\n- eine bestandene Prüfung in Theorie und Praxis.\n\nMehr dazu: {{link:/mindestalter-bootsfuehrerschein/|Mindestalter}} und {{link:/aerztliches-attest-bootsfuehrerschein/|ärztliches Attest}}.",
                         'note' => null],
                     ['ref' => 5, 'theme' => false, 'question' => 'Wie alt muss ich für den Sportbootführerschein sein?',
-                        'answer' => 'Das Mindestalter hängt von Schein und Antriebsart ab. Für viele Prüfungen gilt ein Mindestalter von 16 Jahren; für bestimmte Segelberechtigungen auf Binnengewässern kann ein niedrigeres Alter gelten. Prüfe die Vorgaben für deinen konkreten Prüfungsgang.',
+                        'answer' => 'Unter Antriebsmaschine, also für den SBF See und den SBF Binnen unter Motor, gilt ein Mindestalter von 16 Jahren. Für den SBF Binnen unter Segel sind es 14 Jahre. Minderjährige brauchen die Zustimmung ihrer gesetzlichen Vertretung. Ob du schon kurz vor deinem Geburtstag zur Prüfung antreten kannst, sagt dir dein Prüfungsausschuss. Mehr dazu: {{link:/mindestalter-bootsfuehrerschein/|Mindestalter}}.',
                         'note' => null],
                     ['ref' => 6, 'theme' => false, 'question' => 'Brauche ich Vorkenntnisse, bevor ich mit dem Kurs beginne?',
-                        'answer' => 'In der Regel kannst du ohne Vorkenntnisse starten. Im Kurs werden die Grundlagen Schritt für Schritt erklärt. Für einzelne Scheine oder Prüfungsteile können besondere Voraussetzungen gelten.',
+                        'answer' => 'In der Regel kannst du ohne Vorkenntnisse starten. Der Kurs erklärt die Grundlagen Schritt für Schritt. Für den FKN brauchst du allerdings einen Sportbootführerschein, oder du legst die SBF-Prüfung gleichzeitig ab.',
                         'note' => null],
                 ]],
                 ['name' => 'Lernen', 'slug' => 'allgemein-lernen', 'faqs' => [
                     ['ref' => 7, 'theme' => false, 'question' => 'Kann ich mich online auf die Prüfung vorbereiten?',
-                        'answer' => 'Ja. Mit einem Onlinekurs kannst du den Theorieteil flexibel und im eigenen Tempo lernen. Ob Praxisstunden oder einzelne Termine vor Ort dazugehören, hängt vom gebuchten Kurs ab.',
+                        'answer' => 'Ja. Mit unseren Onlinekursen lernst du die Theorie flexibel und im eigenen Tempo. Dazu gehören alle Prüfungsfragen im Smarttrainer, die Prüfungssimulation und Praxiskarten, beim SBF See außerdem die Navigationsaufgaben. Fahrstunden auf dem Wasser gehören zu keinem Kurs; die bekommst du bei einer Bootsschule. Die amtliche Prüfung legst du vor Ort bei einem Prüfungsausschuss ab.',
                         'note' => null],
                     ['ref' => 8, 'theme' => false, 'question' => 'Wie lange dauert die Vorbereitung auf die Prüfung?',
                         'answer' => 'Das ist individuell und hängt vom Schein, deinem Vorwissen und deiner Lernzeit ab. Plane genügend Zeit ein, um die Theorie zu verstehen und Fragen regelmäßig zu wiederholen.',
@@ -51,77 +82,89 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Kursinhalt und Leistungen', 'slug' => 'allgemein-kursinhalt-und-leistungen', 'faqs' => [
                     ['ref' => 9, 'theme' => false, 'question' => 'Was ist im Kurspreis enthalten?',
-                        'answer' => 'Das hängt vom gebuchten Angebot ab. Typische Bestandteile können Lernmaterialien, ein Fragentrainer oder Praxiseinheiten sein. Die konkreten Leistungen findest du in der Kursbeschreibung.',
-                        'note' => 'enthaltene Leistungen und Ausschlüsse ergänzen.'],
+                        'answer' => 'Je nach Kurs: alle Prüfungsfragen im Smarttrainer, die Prüfungssimulation und Praxiskarten. Beim SBF See kommen die Navigationsaufgaben dazu, bei den Funkkursen das Funktraining. In der Stufe „Komplett“ und in den Kombis ist der Videokurs enthalten. Nicht enthalten sind die amtliche Prüfung und ihre Gebühr, Fahrstunden, die Übungskarte D49 und das ärztliche Attest. Was ein Kurs genau umfasst, steht auf seiner Kursseite.',
+                        'note' => null],
+                    ['ref' => 95, 'theme' => false, 'question' => 'Was ist der Unterschied zwischen „Theorie“ und „Komplett mit Videokurs“?',
+                        'answer' => 'Beide Stufen enthalten alle Prüfungsfragen im Smarttrainer, die Prüfungssimulation und die Trainer des Kurses. „Komplett“ enthält zusätzlich den Videokurs. Du kannst auch mit „Theorie“ starten und den Videokurs später als Upgrade dazubuchen. Die erste Video-Lektion ist in jedem Kurs kostenlos.',
+                        'note' => null],
+                    ['ref' => 96, 'theme' => false, 'question' => 'Ich habe schon einen Schein – muss ich den ganzen Kurs kaufen?',
+                        'answer' => 'Nein. Für Inhaber eines Scheins gibt es Ergänzungskurse mit nur den zusätzlichen Inhalten: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI und FKN → SKN. Hast du einen Kurs schon gekauft, schlagen wir dir im Lernbereich und im Warenkorb die passende Ergänzung vor.',
+                        'note' => null],
                 ]],
                 ['name' => 'Lernmaterial', 'slug' => 'allgemein-lernmaterial', 'faqs' => [
-                    ['ref' => 11, 'theme' => false, 'question' => 'Gibt es einen Lernmittel-Shop?',
-                        'answer' => 'Zusätzliche Lernmaterialien findest du im Lernmittel-Shop: [Link zum Shop].',
-                        'note' => 'Antwort und Frage entfernen, falls kein Shop angeboten wird.'],
+                    ['ref' => 11, 'theme' => false, 'question' => 'Gibt es gedruckte Lernmaterialien?',
+                        'answer' => 'Nein. Alle unsere Kurse sind digital und laufen im Browser, es gibt keine Versandkosten. Für die Navigationsaufgaben zum SBF See brauchst du die gedruckte Übungsseekarte D49. Die besorgst du dir selbst.',
+                        'note' => null],
                 ]],
                 ['name' => 'Lernplattform und Zugang', 'slug' => 'allgemein-lernplattform-und-zugang', 'faqs' => [
                     ['ref' => 10, 'theme' => true, 'question' => 'Wie lange habe ich Zugriff auf die Lernplattform?',
-                        'answer' => 'Je nach Kurs gilt der Zugang 12 oder 6 Monate ab Zahlungseingang. Pässe laufen 30 oder 90 Tage; Zugänge zum Funkgerät-Simulator 14 Tage, 3 oder 12 Monate. Die genaue Laufzeit steht beim jeweiligen Produkt. Wenn du denselben Kurs erneut kaufst, verlängert sich dein Zugang.',
+                        'answer' => 'Sportbootführerscheine, Funkzeugnisse, Kombis, das Kapitäns-Bundle und Gruppenpakete laufen 12 Monate ab Zahlungseingang, SKN, FKN und Ergänzungskurse 6 Monate. Pässe laufen 30 oder 90 Tage, Simulator-Zugänge 14 Tage, 3 oder 12 Monate. Das Video-Upgrade läuft bis zum Ende deines Theoriezugangs. Bei Gruppenpaketen endet die Laufzeit für alle gleichzeitig. Kaufst du denselben Kurs erneut, schließt die neue Laufzeit an.',
                         'note' => null],
                     ['ref' => 88, 'theme' => true, 'question' => 'Kann ich den Kurs vor dem Kauf ausprobieren?',
-                        'answer' => 'Ja. Mit einem kostenlosen Kundenkonto kannst du in jedem Kurs ausgewählte Inhalte testen, zum Beispiel einige Fragen je Thema und einen Prüfungsbogen.',
+                        'answer' => "Ja. Mit einem kostenlosen Kundenkonto testest du in jedem Kurs:\n\n- 10 Fragen je Modul;\n- einen Prüfungsbogen;\n- die erste Video-Lektion;\n- die erste Navigationsaufgabe;\n- die erste Praxiskarte.\n\nBei den Funkkursen kannst du die Testversion des Funkgerät-Simulators ausprobieren. Die Zufallsprüfung gehört zum gekauften Kurs.",
                         'note' => null],
                     ['ref' => 89, 'theme' => true, 'question' => 'Brauche ich eine App, um zu lernen?',
-                        'answer' => 'Nein. Du lernst im Browser am Rechner, Tablet oder Smartphone. Dein Fortschritt wird in deinem Konto gespeichert.',
+                        'answer' => 'Nein. Du lernst direkt im Browser, am Rechner, Tablet oder Smartphone, ohne Installation. Dein Fortschritt wird in deinem Konto gespeichert. Eine App für iOS und Android ist in Vorbereitung. Sie nutzt dasselbe Konto und denselben Lernstand.',
                         'note' => null],
                     ['ref' => 90, 'theme' => true, 'question' => 'Wann kann ich nach dem Kauf loslegen?',
                         'answer' => 'Sobald die Zahlung eingegangen ist, wird dein Zugang automatisch freigeschaltet. Bei Überweisung kann es bis zum Zahlungseingang dauern.',
                         'note' => null],
+                    ['ref' => 97, 'theme' => false, 'question' => 'Erinnert ihr mich, bevor mein Zugang abläuft?',
+                        'answer' => 'Ja. 14 Tage vor Ablauf bekommst du eine E-Mail, und in deinem Lernbereich erscheint ein Hinweis mit „Jetzt verlängern“. Kaufst du denselben Kurs erneut, verlängert sich dein Zugang.',
+                        'note' => null],
                 ]],
                 ['name' => 'Prüfung und Prüfungsablauf', 'slug' => 'allgemein-pruefung-und-pruefungsablauf', 'faqs' => [
                     ['ref' => 12, 'theme' => false, 'question' => 'Wo findet die praktische Ausbildung statt?',
-                        'answer' => 'Die Praxisausbildung findet an den angebotenen Standorten statt. Welche Orte verfügbar sind, siehst du in der Standortübersicht. [Link zu den Standorten ergänzen.]',
-                        'note' => null],
-                    ['ref' => 13, 'theme' => false, 'question' => 'Wie buche ich eine Praxisstunde?',
-                        'answer' => 'Wähle einen verfügbaren Standort und Termin über [Buchungsweg ergänzen]. Wenn du Unterstützung brauchst, hilft dir unser Team unter [Kontakt ergänzen] weiter.',
+                        'answer' => 'Fahrstunden auf dem Wasser bieten wir nicht an. Praxis bekommst du bei einer Bootsschule. Eine Ausbildung ist keine Zulassungsvoraussetzung. Für die praktische Prüfung brauchst du aber Fahrpraxis und ein geeignetes Prüfungsboot. Mehr dazu: {{link:/bootsfuehrerschein-standorte/|Praxis und Prüfung vor Ort planen}}.',
                         'note' => null],
                     ['ref' => 14, 'theme' => false, 'question' => 'Wo lege ich die amtliche Prüfung ab?',
-                        'answer' => 'Die Prüfung findet bei einem zuständigen Prüfungsausschuss statt. Welche Termine und Orte verfügbar sind, hängt vom Ausschuss ab. [Prüfungsanmeldung und zuständige Stellen ergänzen.]',
+                        'answer' => 'Bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl. Eine Zuständigkeit nach Wohnort gibt es nicht. Termine und Orte findest du auf sportbootfuehrerscheine.org. Für den SBF muss dein Antrag mit allen Unterlagen spätestens eine Woche vor dem Termin vorliegen, manche Ausschüsse verlangen mehr Vorlauf. Für SRC und UBI sind es 14 Tage.',
                         'note' => null],
                     ['ref' => 15, 'theme' => false, 'question' => 'Kann ich die amtliche Prüfung online ablegen?',
-                        'answer' => 'Die Theorie kannst du online lernen. Die amtliche Prüfung selbst findet nach den geltenden Vorgaben des zuständigen Prüfungsausschusses statt. Informiere dich bei der Anmeldung über Prüfungsort und Ablauf.',
+                        'answer' => 'Nein. Online lernst du die Theorie. Die amtliche Prüfung – Theorie und Praxis – legst du vor Ort bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl ab.',
                         'note' => null],
                     ['ref' => 16, 'theme' => false, 'question' => 'Was passiert, wenn ich die Prüfung nicht bestehe?',
-                        'answer' => 'Du kannst dich über eine Wiederholungsprüfung informieren und dich erneut vorbereiten. Ob zusätzliche Prüfungsgebühren anfallen und welche Teile wiederholt werden müssen, richtet sich nach den Vorgaben des Prüfungsausschusses.',
+                        'answer' => 'Dann kannst du die Prüfung wiederholen. Beim Sportbootführerschein werden Theorie und Praxis getrennt bewertet; einen nicht bestandenen Teil legst du erneut ab. Welche Fristen gelten und welche Gebühren dafür anfallen, sagt dir dein Prüfungsausschuss. Im Kurs hilft dir die Auswertung der Prüfungssimulation, gezielt die Fehler zu wiederholen.',
                         'note' => null],
                     ['ref' => 17, 'theme' => false, 'question' => 'Wann bekomme ich meinen Bootsführerschein?',
-                        'answer' => 'Nach bestandener Prüfung wird der Führerschein von der zuständigen Stelle ausgestellt und zugeschickt. Die Bearbeitungszeit kann variieren. Für Informationen zu vorläufigen Nachweisen wende dich an den Prüfungsausschuss.',
+                        'answer' => 'Nach bestandener Prüfung erteilt der Prüfungsausschuss den Führerschein. Die Karte wird dir zugeschickt. Wie lange das dauert und ob du vorher einen Nachweis bekommst, sagt dir dein Prüfungsausschuss.',
                         'note' => null],
                     ['ref' => 18, 'theme' => false, 'question' => 'Wie lange ist mein Bootsführerschein gültig?',
-                        'answer' => 'Die Gültigkeit richtet sich nach der Art des Führerscheins und den geltenden Vorschriften. Prüfe die Angaben auf deinem Dokument und informiere dich bei der zuständigen Behörde, wenn du Fragen zu deinem konkreten Schein hast.',
+                        'answer' => 'Der Sportbootführerschein ist unbefristet gültig. Er kann entzogen werden, wenn die Eignung oder Zuverlässigkeit fehlt. Eine Reform ist angekündigt. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Mehr dazu: {{link:/sportbootfuehrerschein/|Sportbootführerschein im Überblick}}.',
                         'note' => null],
                     ['ref' => 20, 'theme' => false, 'question' => 'Sind die Prüfungsgebühren im Kurspreis enthalten?',
-                        'answer' => 'Das hängt vom Angebot ab. Prüfe die Kursbeschreibung und deine Buchungsübersicht, um zu sehen, welche Kosten enthalten sind.',
-                        'note' => 'konkrete Regelung ergänzen.'],
+                        'answer' => 'Nein. Die Prüfungsgebühr zahlst du direkt an den Prüfungsausschuss. In keinem unserer Kurse ist sie enthalten.',
+                        'note' => null],
                     ['ref' => 92, 'theme' => true, 'question' => 'Ist die amtliche Prüfung im Kurs enthalten?',
-                        'answer' => 'Nein. Der Kurs bereitet dich online vor. Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab; Anmeldung, Termin und Prüfungsgebühr laufen direkt über den Ausschuss.',
+                        'answer' => 'Nein. Der Kurs bereitet dich online vor. Die amtliche Prüfung legst du bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl ab; Anmeldung, Termin und Prüfungsgebühr laufen direkt über den Ausschuss.',
+                        'note' => null],
+                    ['ref' => 94, 'theme' => false, 'question' => 'Gilt mein Bootsführerschein nach der angekündigten Reform weiter?',
+                        'answer' => 'Das Bundesverkehrsministerium hat 2025 angekündigt, den amtlichen Sportbootführerschein durch anerkannte Scheine der Verbände zu ersetzen. Ob und wann das in Kraft tritt, stand am 10.11.2026 noch nicht fest. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Den aktuellen Stand findest du beim Bundesverkehrsministerium.',
                         'note' => null],
                 ]],
                 ['name' => 'Kosten, Gutscheine und Garantien', 'slug' => 'allgemein-kosten-gutscheine-und-garantien', 'faqs' => [
                     ['ref' => 19, 'theme' => false, 'question' => 'Was kostet der Kurs?',
-                        'answer' => 'Der Kurspreis hängt vom gewählten Schein und den enthaltenen Leistungen ab. Die aktuellen Preise findest du hier: [Link zur Preisseite]. Prüfungsgebühren können zusätzlich anfallen; sie werden von der zuständigen Stelle festgelegt.',
+                        'answer' => 'Den aktuellen Preis siehst du bei jedem Kurs auf der Kursseite und im Shop. Du zahlst einmal, ohne Abo. Die amtliche Prüfungsgebühr kommt hinzu. Sie ist bundesweit festgelegt und geht direkt an den Prüfungsausschuss. Mehr dazu: {{link:/bootsfuehrerschein-kosten/|Kosten des Bootsführerscheins}}.',
                         'note' => null],
-                    ['ref' => 21, 'theme' => false, 'question' => 'Kann ich einen Kurs verschenken?',
-                        'answer' => 'Wenn Gutscheine angeboten werden, kannst du einen Kurs als Geschenk erwerben. Informationen findest du hier: [Link zur Gutscheinseite].',
-                        'note' => 'Bestellweg bestätigen oder Frage entfernen.'],
+                    ['ref' => 21, 'theme' => false, 'question' => 'Kann ich einen Kurs verschenken oder für jemand anderen kaufen?',
+                        'answer' => 'Gutscheine bieten wir derzeit nicht an. Ein Kurs gehört immer zu dem Kundenkonto, mit dem er gekauft wurde, und ist nicht übertragbar. Wollt ihr gemeinsam lernen, kann eine Person ein Gruppenpaket für SBF See, SBF Binnen, die Kombi oder Funk kaufen und die andere einladen. Jede Person lernt dann mit eigenem Konto.',
+                        'note' => null],
                     ['ref' => 22, 'theme' => true, 'question' => 'Gibt es eine Geld-zurück- oder Bestehensgarantie?',
-                        'answer' => 'Für Einzelkurse, Pakete und Pässe gilt die Geld-zurück-Garantie innerhalb von 14 Tagen ab Zahlungseingang, wenn du weniger als 20 % der gekauften Inhalte genutzt hast. Gezählt werden seit der Zahlung beantwortete Prüfungsfragen der gekauften Kurse (im Smarttrainer und in den Quizfragen der Video-Lektionen) sowie abgeschlossene Video-Lektionen, die du in diesem Zeitraum aufgerufen hast. Die Erstattung beantragst du in deinem Konto unter „Mein Lernen“; sie erfolgt über die ursprüngliche Zahlungsart, und der Zugang zu den erstatteten Kursen endet. Die Garantie gilt nicht für Gruppenpakete oder Funkgerät-Simulator-Zugänge und zusätzlich zum gesetzlichen Widerrufsrecht. Alle Bedingungen stehen in den {{agb}}.',
+                        'answer' => "Eine Bestehensgarantie gibt es nicht: Die Prüfung nimmt ein Prüfungsausschuss des DSV oder DMYV ab, und dein Ergebnis hängt von deiner Vorbereitung ab. Zusätzlich zu deinen gesetzlichen Rechten geben wir dir freiwillig eine Geld-zurück-Garantie:\n\n- **Frist:** 14 Tage ab Zahlungseingang, auf die Minute genau. Das Fristende siehst du unter „Mein Lernen“.\n- **Bedingung:** Du hast seit dem Zahlungseingang weniger als 20 % der gekauften Inhalte genutzt. Gezählt werden die seit dem Zahlungseingang beantworteten Prüfungsfragen der gekauften Kurse (im Smarttrainer oder in den Quizfragen der Video-Lektionen, jede Frage einmal) und die abgeschlossenen Video-Lektionen. Bei der Theorie-Stufe zählen nur Fragen, beim Video-Upgrade nur Lektionen, bei Komplett, Kombis, Bundle und Pässen beides. Mehrere Produkte einer Bestellung werden zusammen berechnet.\n- **Gilt für:** Einzelkurse (Theorie und Komplett), Video-Upgrades, Ergänzungskurse, Kombikurse, das Kapitäns-Bundle und die Pässe – auch soweit sie den Funkgerät-Simulator enthalten.\n- **Gilt nicht für:** Gruppenpakete, eigenständige Zugänge zum Funkgerät-Simulator (Simulator-Pässe und Simulator-Upgrade) und bereits ganz oder teilweise erstattete Produkte.\n- **So geht’s:** Unter „Mein Lernen“ auf „Geld zurück anfordern“ klicken; eine Anfrage je Bestellung, Bestätigung per E-Mail. Wir erstatten den gezahlten Preis der Produkte mit Garantie über deine ursprüngliche Zahlungsart. Produkte ohne Garantie bleiben nutzbar; der Zugang zu den erstatteten Kursen endet.\n- **Widerrufsrecht:** Die Garantie ist kein Widerrufsrecht. Bei digitalen Kursen erlischt das Widerrufsrecht, sobald dein Zugang nach deiner Zustimmung in der Kasse freigeschaltet ist.\n\nAlle Bedingungen: {{link:/geld-zurueck-garantie-bootsfuehrerschein/|Geld-zurück-Garantie}} und {{agb}}.",
+                        'note' => null],
+                    ['ref' => 99, 'theme' => false, 'question' => 'Gibt es Rabatte oder Ermäßigungen?',
+                        'answer' => 'Rabattcodes und Ermäßigungen für bestimmte Personengruppen bieten wir derzeit nicht an. Sparen kannst du mit dem passenden Paket: Kombikurse, Kapitäns-Bundle, Pässe, Ergänzungskurse für Inhaber eines Scheins und Gruppenpakete. Die Ersparnis bei Kombis berechnet der Shop aus den aktuellen Einzelpreisen. Mehr dazu: {{link:/bootsfuehrerschein-rabatte/|Preise und Kombiangebote}}.',
                         'note' => null],
                 ]],
                 ['name' => 'Gruppenangebote', 'slug' => 'allgemein-gruppenangebote', 'faqs' => [
                     ['ref' => 91, 'theme' => true, 'question' => 'Wie funktionieren Gruppenpakete?',
-                        'answer' => 'Eine Person kauft das Paket und lädt die Teilnehmenden per Link oder E-Mail ein. Jede Person lernt mit einem eigenen Konto. Die Plätze verwaltest du unter „Meine Gruppen“.',
+                        'answer' => 'Eine Person kauft das Paket mit 2 bis 50 Plätzen und lädt die Teilnehmenden per Link oder E-Mail ein; ein Platz kann auch für sie selbst sein. Jede Person lernt mit eigenem Konto und eigenem Fortschritt. Den Lernstand der anderen sieht niemand. Die Laufzeit von 12 Monaten beginnt mit der Zahlung und endet für alle gleichzeitig. Für Gruppenpakete gilt die Geld-zurück-Garantie nicht. Mehr dazu: {{link:/bootsfuehrerschein-gruppenangebote/|Gruppenangebote}}.',
                         'note' => null],
                 ]],
                 ['name' => 'Kontakt und Support', 'slug' => 'allgemein-kontakt-und-support', 'faqs' => [
                     ['ref' => 23, 'theme' => false, 'question' => 'Wie erreiche ich euch bei weiteren Fragen?',
-                        'answer' => 'Schreib uns an [E-Mail-Adresse], ruf uns unter [Telefonnummer] an oder nutze [Kontaktformular, Chat oder WhatsApp]. Wir helfen dir bei Fragen zur Kurswahl, Anmeldung und Vorbereitung weiter.',
-                        'note' => null],
+                        'answer' => 'Alle Kontaktwege findest du auf unserer {{link:/kontakt/|Kontaktseite}}. Nenne am besten den Kurs und, bei Fragen zu einer Bestellung, die Bestellnummer. Fragen zu Prüfungsterminen und Gebühren beantwortet dein Prüfungsausschuss.',
+                        'note' => 'erst veröffentlichen, wenn die Kontaktseite mit den Betreiberangaben live ist.'],
                 ]],
             ],
         ],
@@ -130,7 +173,7 @@ final class DefaultFaqs
             'subcategories' => [
                 ['name' => 'Kursinhalt', 'slug' => 'sbf-see-kursinhalt', 'faqs' => [
                     ['ref' => 24, 'theme' => true, 'question' => 'Was lerne ich im SBF-See-Kurs?',
-                        'answer' => 'Du übst die im Kurs enthaltenen Prüfungsfragen, Navigationsaufgaben und Inhalte für die Prüfungssimulation. Dazu kommen Praxiskarten zur Vorbereitung auf den praktischen Teil.',
+                        'answer' => 'Du übst alle Prüfungsfragen des SBF See im Smarttrainer und simulierst die Prüfung mit Zeitlimit. Bei den Navigationsaufgaben werden deine Werte automatisch geprüft. Praxiskarten bereiten dich auf die praktische Prüfung vor. In der Stufe „Komplett“ kommt der Videokurs dazu.',
                         'note' => null],
                     ['ref' => 30, 'theme' => true, 'question' => 'Ist eine praktische Ausbildung auf dem Boot im Onlinekurs enthalten?',
                         'answer' => 'Der Kurs bereitet dich online auf die Theorie und die Prüfungsinhalte vor. Praxiskarten unterstützen dich beim Lernen; tatsächliche Fahrstunden auf dem Wasser sind nicht Bestandteil des Onlinekurses.',
@@ -138,7 +181,7 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Lernen', 'slug' => 'sbf-see-lernen', 'faqs' => [
                     ['ref' => 27, 'theme' => false, 'question' => 'Wie gehe ich bei Navigationsaufgaben am besten vor?',
-                        'answer' => 'Lies zuerst die Angaben genau, markiere die relevanten Informationen auf der Karte und prüfe dein Ergebnis anschließend mit der Musterlösung.',
+                        'answer' => 'Lies zuerst die Angaben genau, markiere die relevanten Informationen auf der Karte und rechne Schritt für Schritt. Im Kurs werden deine Werte automatisch geprüft, danach vergleichst du deinen Weg mit der Musterlösung.',
                         'note' => null],
                     ['ref' => 28, 'theme' => false, 'question' => 'Was mache ich, wenn ich eine Prüfungsfrage falsch beantworte?',
                         'answer' => 'Schau dir die Erklärung zur Frage an und überlege, welcher Gedanke dich zur falschen Antwort geführt hat. Wiederhole die Frage später noch einmal, statt nur die richtige Antwort auswendig zu lernen.',
@@ -149,7 +192,7 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Lernmaterial', 'slug' => 'sbf-see-lernmaterial', 'faqs' => [
                     ['ref' => 25, 'theme' => true, 'question' => 'Brauche ich für die Navigationsaufgaben eine Seekarte?',
-                        'answer' => 'Ja. Für die Aufgaben wird die gedruckte Übungskarte D49 benötigt. Die Aufgaben enthalten Musterlösungen und eine Selbsteinschätzung.',
+                        'answer' => 'Ja. Für die Navigationsaufgaben brauchst du die gedruckte Übungsseekarte D49 sowie Kursdreieck und Zirkel. Die Karte besorgst du dir selbst, wir verkaufen sie nicht. Im Kurs werden deine Werte automatisch geprüft, du siehst die Musterlösung und kannst dich selbst einschätzen.',
                         'note' => null],
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'sbf-see-pruefung', 'faqs' => [
@@ -157,7 +200,7 @@ final class DefaultFaqs
                         'answer' => 'Ja. Die Prüfungssimulation übt den Ablauf mit Zeitlimit und anschließender Auswertung.',
                         'note' => null],
                     ['ref' => 31, 'theme' => false, 'question' => 'Gilt meine Kursbuchung auch als Anmeldung zur SBF-See-Prüfung?',
-                        'answer' => 'Nein. Die Kursbuchung gibt dir Zugang zur Vorbereitung. Für die amtliche Prüfung meldest du dich separat beim zuständigen Prüfungsausschuss an.',
+                        'answer' => 'Nein. Die Kursbuchung gibt dir Zugang zur Vorbereitung. Für die amtliche Prüfung meldest du dich separat bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl an.',
                         'note' => null],
                 ]],
             ],
@@ -191,10 +234,10 @@ final class DefaultFaqs
                         'answer' => 'Ja. Du kannst mit Zeitlimit üben und erhältst nach dem Durchgang eine Auswertung.',
                         'note' => null],
                     ['ref' => 38, 'theme' => false, 'question' => 'Welche Unterlagen muss ich zur SBF-Binnen-Prüfung mitbringen?',
-                        'answer' => 'Die benötigten Unterlagen hängen von deinem Prüfungstermin und dem zuständigen Ausschuss ab. Verwende die Checkliste zur Prüfungsanmeldung und prüfe die Vorgaben direkt vor dem Termin noch einmal.',
+                        'answer' => "Zur Anmeldung brauchst du:\n\n- den unterschriebenen Antrag;\n- ein Passbild;\n- den ärztlichen Tauglichkeitsnachweis (höchstens zwölf Monate alt);\n- ab 18 Jahren eine Kopie deines Kfz-Führerscheins oder ein Führungszeugnis;\n- als Minderjährige oder Minderjähriger die Zustimmung deiner Eltern.\n\nAm Prüfungstag bringst du deinen Ausweis und deinen Führerschein im Original mit. Ob dein Prüfungsausschuss weitere Unterlagen verlangt, erfährst du dort.",
                         'note' => null],
                     ['ref' => 39, 'theme' => false, 'question' => 'Kann ich einzelne Prüfungsteile an verschiedenen Tagen ablegen?',
-                        'answer' => 'Das hängt vom Prüfungsablauf und den Vorgaben des zuständigen Ausschusses ab. Kläre bei der Anmeldung, welche Prüfungsteile für deinen Termin vorgesehen sind.',
+                        'answer' => 'Das ist möglich. Theorie und Praxis können am selben Tag oder an verschiedenen Tagen stattfinden; das legt dein Prüfungsausschuss fest. Kläre bei der Anmeldung, welche Prüfungsteile für deinen Termin vorgesehen sind.',
                         'note' => null],
                 ]],
             ],
@@ -225,7 +268,7 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'sbf-bin-segel-pruefung', 'faqs' => [
                     ['ref' => 45, 'theme' => false, 'question' => 'Ist die Segelprüfung ein eigener Prüfungsteil?',
-                        'answer' => 'Der Segelteil wird zusätzlich zum Binnenstoff behandelt. Wie die Prüfungsteile organisiert und terminiert werden, kann vom Prüfungsausschuss abhängen.',
+                        'answer' => 'Teilweise. Im Fragebogen kommen zu den Basis- und Binnen-Fragen 7 Segelfragen dazu, und die praktische Prüfung findet unter Segel statt. Hast du den SBF Binnen unter Antriebsmaschine schon, legst du nur die Segelfragen und eine praktische Prüfung unter Segel ab. Dafür gibt es den Ergänzungskurs Binnen → Segeln.',
                         'note' => null],
                 ]],
             ],
@@ -254,8 +297,8 @@ final class DefaultFaqs
                         'answer' => 'Ja. Die englischen Funktexte werden mit einer Auswertung geübt, damit du deine Eingaben nachvollziehen kannst.',
                         'note' => null],
                     ['ref' => 51, 'theme' => true, 'question' => 'Gibt es im SRC-Kurs einen Funkgerät-Simulator?',
-                        'answer' => 'Du kannst den Funkgerät-Simulator testen. Der vollständige Zugang ist als Upgrade verfügbar; die enthaltene Version hängt vom gewählten Angebot ab.',
-                        'note' => 'tatsächliche Angebotsstufen bestätigen.'],
+                        'answer' => "Im SRC-Kurs ist die kostenlose Testversion enthalten: Gerät einschalten, Kanäle wählen und einen Routineanruf üben. Die Vollversion mit Notalarm, Prüfungsmodus und freiem Üben bekommst du auf zwei Wegen:\n\n- beim Kauf eines Funkkurses als Upgrade in der Kasse;\n- als eigenen Simulator-Zugang für 14 Tage, 3 oder 12 Monate.\n\nIm Kapitäns-Bundle und in den Pässen ist die Vollversion schon enthalten.",
+                        'note' => null],
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'src-pruefung', 'faqs' => [
                     ['ref' => 52, 'theme' => false, 'question' => 'Welches Funkgerät wird in meiner praktischen SRC-Prüfung verwendet?',
@@ -296,7 +339,7 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'ubi-pruefung', 'faqs' => [
                     ['ref' => 60, 'theme' => false, 'question' => 'Was mache ich, wenn sich der UBI-Fragenkatalog vor meinem Prüfungstermin ändert?',
-                        'answer' => 'Prüfe, welcher Fragenstand für deinen Prüfungstermin gilt. Vergleiche den Kursstand mit den aktuellen Informationen des zuständigen Prüfungsausschusses und wiederhole gegebenenfalls geänderte Inhalte.',
+                        'answer' => 'Prüfe, welcher Fragenstand für deinen Prüfungstermin gilt. Vergleiche den Kursstand mit den aktuellen Informationen deines Prüfungsausschusses und wiederhole gegebenenfalls geänderte Inhalte.',
                         'note' => null],
                 ]],
             ],
@@ -380,13 +423,13 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'sbf-see-bin-pruefung', 'faqs' => [
                     ['ref' => 75, 'theme' => true, 'question' => 'Muss ich beide Prüfungen gleichzeitig ablegen?',
-                        'answer' => 'Der Kombikurs bündelt die Lerninhalte. Prüfungstermine und Anmeldung organisierst du entsprechend den Vorgaben der zuständigen Prüfungsausschüsse.',
+                        'answer' => 'Nein. Du kannst SBF See und SBF Binnen zusammen oder nacheinander ablegen. Bei einer gemeinsamen Prüfung beantwortest du die Basisfragen nur einmal. Den Termin stimmst du mit deinem Prüfungsausschuss ab.',
                         'note' => null],
                     ['ref' => 76, 'theme' => false, 'question' => 'Kann ich die Prüfungen für den Kombikurs an unterschiedlichen Terminen ablegen?',
-                        'answer' => 'Die Prüfungstermine planst du nach den Vorgaben der jeweiligen Prüfungsausschüsse. Frag dort nach, ob getrennte Termine möglich sind.',
+                        'answer' => 'Die Prüfungstermine planst du mit deinem Prüfungsausschuss. Frag dort nach, ob getrennte Termine möglich sind.',
                         'note' => null],
                     ['ref' => 77, 'theme' => false, 'question' => 'Was gilt, wenn ich bei einem Kombikurs nur eine Prüfung bestehe?',
-                        'answer' => 'Die Folgen hängen von den Prüfungsregeln und der Art des Kurses ab. Erkundige dich beim Prüfungsausschuss, ob ein bestandener Teil angerechnet wird und bis wann ein nicht bestandener Teil wiederholt werden muss.',
+                        'answer' => 'SBF See und SBF Binnen werden getrennt erteilt. Bestehst du nur eine Prüfung, bekommst du diesen Schein und kannst die andere wiederholen. Ob ein bestandener Teil angerechnet wird und bis wann du wiederholen musst, sagt dir dein Prüfungsausschuss.',
                         'note' => null],
                 ]],
             ],
@@ -396,7 +439,7 @@ final class DefaultFaqs
             'subcategories' => [
                 ['name' => 'Kursinhalt', 'slug' => 'kapitaen-kursinhalt', 'faqs' => [
                     ['ref' => 78, 'theme' => true, 'question' => 'Welche Kurse gehören zum Kapitäns-Bundle?',
-                        'answer' => 'Das Bundle bündelt die Vorbereitung auf SBF See, SBF Binnen, SRC und UBI. Die jeweiligen Fragen und Lernbereiche sind im Paket enthalten.',
+                        'answer' => 'Das Bundle bündelt die Vorbereitung auf SBF See, SBF Binnen, SRC und UBI. Die jeweiligen Fragen und Lernbereiche sind im Paket enthalten. Die Vollversion des Funkgerät-Simulators ist enthalten.',
                         'note' => null],
                 ]],
                 ['name' => 'Lernen', 'slug' => 'kapitaen-lernen', 'faqs' => [
@@ -412,7 +455,7 @@ final class DefaultFaqs
                 ]],
                 ['name' => 'Prüfung', 'slug' => 'kapitaen-pruefung', 'faqs' => [
                     ['ref' => 79, 'theme' => true, 'question' => 'Sind amtliche Prüfungen im Kapitäns-Bundle enthalten?',
-                        'answer' => 'Das Bundle umfasst Lerninhalte und Prüfungsvorbereitung. Die amtlichen Prüfungen legst du beim zuständigen Prüfungsausschuss ab; Gebühren und Anmeldung sind separat zu klären.',
+                        'answer' => 'Nein. Das Bundle umfasst Lerninhalte und Prüfungsvorbereitung für SBF See, SBF Binnen, SRC und UBI. Die amtlichen Prüfungen legst du bei einem Prüfungsausschuss deiner Wahl ab; Anmeldung, Termin und Gebühr laufen direkt über den Ausschuss.',
                         'note' => null],
                 ]],
             ],

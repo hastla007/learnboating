@@ -272,8 +272,8 @@ function kurswasser_course_faqs_fallback(): array
         'sbf-see' => [
             'title' => 'Fragen zum SBF See',
             'items' => [
-                ['question' => 'Was lerne ich im SBF-See-Kurs?', 'answer' => 'Du übst die im Kurs enthaltenen Prüfungsfragen, Navigationsaufgaben und Inhalte für die Prüfungssimulation. Dazu kommen Praxiskarten zur Vorbereitung auf den praktischen Teil.'],
-                ['question' => 'Brauche ich für die Navigationsaufgaben eine Seekarte?', 'answer' => 'Ja. Für die Aufgaben wird die gedruckte Übungskarte D49 benötigt. Die Aufgaben enthalten Musterlösungen und eine Selbsteinschätzung.'],
+                ['question' => 'Was lerne ich im SBF-See-Kurs?', 'answer' => 'Du übst alle Prüfungsfragen des SBF See im Smarttrainer und simulierst die Prüfung mit Zeitlimit. Bei den Navigationsaufgaben werden deine Werte automatisch geprüft. Praxiskarten bereiten dich auf die praktische Prüfung vor. In der Stufe „Komplett“ kommt der Videokurs dazu.'],
+                ['question' => 'Brauche ich für die Navigationsaufgaben eine Seekarte?', 'answer' => 'Ja. Für die Navigationsaufgaben brauchst du die gedruckte Übungsseekarte D49 sowie Kursdreieck und Zirkel. Die Karte besorgst du dir selbst, wir verkaufen sie nicht. Im Kurs werden deine Werte automatisch geprüft, du siehst die Musterlösung und kannst dich selbst einschätzen.'],
                 ['question' => 'Ist die praktische Ausbildung auf dem Boot im Onlinekurs enthalten?', 'answer' => 'Der Kurs bereitet dich online auf die Theorie und die Prüfungsinhalte vor. Praxiskarten unterstützen dich beim Lernen; tatsächliche Fahrstunden auf dem Wasser sind nicht Bestandteil des Onlinekurses.'],
                 ['question' => 'Kann ich die Prüfung mit dem Kurs simulieren?', 'answer' => 'Ja. Die Prüfungssimulation übt den Ablauf mit Zeitlimit und anschließender Auswertung.'],
             ],
@@ -300,7 +300,7 @@ function kurswasser_course_faqs_fallback(): array
             'items' => [
                 ['question' => 'Was lerne ich im SRC-Kurs?', 'answer' => 'Der Kurs behandelt die Prüfungsfragen zum Seefunkzeugnis SRC. Zusätzlich übst du englische Funktexte, Vokabeln und das Buchstabieralphabet.'],
                 ['question' => 'Kann ich Funktexte für die Prüfung üben?', 'answer' => 'Ja. Die englischen Funktexte werden mit einer Auswertung geübt, damit du deine Eingaben nachvollziehen kannst.'],
-                ['question' => 'Gibt es einen Funkgerät-Simulator?', 'answer' => 'Du kannst den Funkgerät-Simulator testen. Der vollständige Zugang ist als Upgrade verfügbar; die enthaltene Version hängt vom gewählten Angebot ab.'],
+                ['question' => 'Gibt es im SRC-Kurs einen Funkgerät-Simulator?', 'answer_html' => '<p>'.esc_html('Im SRC-Kurs ist die kostenlose Testversion enthalten: Gerät einschalten, Kanäle wählen und einen Routineanruf üben. Die Vollversion mit Notalarm, Prüfungsmodus und freiem Üben bekommst du auf zwei Wegen:').'</p><ul class="wp-block-list"><li>'.esc_html('beim Kauf eines Funkkurses als Upgrade in der Kasse;').'</li><li>'.esc_html('als eigenen Simulator-Zugang für 14 Tage, 3 oder 12 Monate.').'</li></ul><p>'.esc_html('Im Kapitäns-Bundle und in den Pässen ist die Vollversion schon enthalten.').'</p>'],
                 ['question' => 'Was ist der Unterschied zwischen SRC und UBI?', 'answer' => 'Das SRC ist das Funkzeugnis für den Seefunk. Das UBI behandelt den Binnenfunk. Für beide Zeugnisse gibt es eigene Lerninhalte und Prüfungsvorbereitungen.'],
             ],
         ],
@@ -334,15 +334,15 @@ function kurswasser_course_faqs_fallback(): array
             'items' => [
                 ['question' => 'Welche Scheine umfasst der Kombikurs?', 'answer' => 'Der Kombikurs verbindet die Vorbereitung auf den SBF See und den SBF Binnen. Die Lerninhalte beider Scheine sind im Kurs zusammengeführt.'],
                 ['question' => 'Sind die Fragen für beide Scheine enthalten?', 'answer' => 'Ja. Du kannst die im Kurs enthaltenen Fragen für See und Binnen üben. Zusätzlich umfasst die Vorbereitung Navigationsaufgaben, Praxiskarten und Prüfungssimulationen.'],
-                ['question' => 'Muss ich beide Prüfungen gleichzeitig ablegen?', 'answer' => 'Der Kombikurs bündelt die Lerninhalte. Prüfungstermine und Anmeldung organisierst du entsprechend den Vorgaben des zuständigen Prüfungsausschusses.'],
+                ['question' => 'Muss ich beide Prüfungen gleichzeitig ablegen?', 'answer' => 'Nein. Du kannst SBF See und SBF Binnen zusammen oder nacheinander ablegen. Bei einer gemeinsamen Prüfung beantwortest du die Basisfragen nur einmal. Den Termin stimmst du mit deinem Prüfungsausschuss ab.'],
             ],
         ],
         'kapitaen' => [
             'title' => 'Fragen zum Kapitäns-Bundle',
             'items' => [
-                ['question' => 'Welche Kurse gehören zum Kapitäns-Bundle?', 'answer' => 'Das Bundle bündelt die Vorbereitung auf SBF See, SBF Binnen, SRC und UBI. Die jeweiligen Fragen und Lernbereiche sind im Paket enthalten.'],
+                ['question' => 'Welche Kurse gehören zum Kapitäns-Bundle?', 'answer' => 'Das Bundle bündelt die Vorbereitung auf SBF See, SBF Binnen, SRC und UBI. Die jeweiligen Fragen und Lernbereiche sind im Paket enthalten. Die Vollversion des Funkgerät-Simulators ist enthalten.'],
                 ['question' => 'Kann ich die Scheine in meinem eigenen Tempo lernen?', 'answer' => 'Ja. Du lernst online und kannst zwischen den Themen und Kursbereichen wechseln. Dein Lernfortschritt wird in deinem Konto gespeichert.'],
-                ['question' => 'Sind amtliche Prüfungen im Bundle enthalten?', 'answer' => 'Das Bundle umfasst Lerninhalte und Prüfungsvorbereitung. Die amtlichen Prüfungen legst du beim zuständigen Prüfungsausschuss ab; Gebühren und Anmeldung sind separat zu klären.'],
+                ['question' => 'Sind amtliche Prüfungen im Kapitäns-Bundle enthalten?', 'answer' => 'Nein. Das Bundle umfasst Lerninhalte und Prüfungsvorbereitung für SBF See, SBF Binnen, SRC und UBI. Die amtlichen Prüfungen legst du bei einem Prüfungsausschuss deiner Wahl ab; Anmeldung, Termin und Gebühr laufen direkt über den Ausschuss.'],
             ],
         ],
         'funk-kombi' => [
