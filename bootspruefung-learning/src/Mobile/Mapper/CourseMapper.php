@@ -207,15 +207,18 @@ final class CourseMapper
 
     /**
      * Empfehlung/Ausblenden (CourseRelations, eine Abfrage je Nutzer). Kurse mit vollem Fragenkatalog
-     * sind nie ausgeblendet oder empfohlen. Ausgeblendete Kurse bleiben in der Liste (Deep-Links).
+     * sind nie ausgeblendet oder empfohlen, Testkurse (kostenloser Teilumfang) nie ausgeblendet. Ausgeblendete Kurse bleiben in der Liste (Deep-Links).
      * @return array{hidden:bool,recommended:bool,recommended_for:list<array{id:string,name:string}>}
      */
     public function relation(int $userId, object $course): array
     {
         $this->relations[$userId] ??= CourseRelations::forUser($userId, array_keys($this->coursesByCode()));
         $rel = $this->relations[$userId][(string) $course->code] ?? ['hidden' => false, 'recommended_for' => []];
-        if ($this->scopes($userId, $course)[AccessService::QUESTION_BANK]['full'] ?? false) {
+        $bank = $this->scopes($userId, $course)[AccessService::QUESTION_BANK] ?? ['full' => false, 'limit' => null];
+        if ($bank['full'] ?? false) {
             $rel = ['hidden' => false, 'recommended_for' => []];
+        } elseif ((int) ($bank['limit'] ?? 0) > 0) {
+            $rel['hidden'] = false; // Testkurse (kostenloser Teilumfang) bleiben sichtbar (Festlegung 10.11.2026).
         }
         $by = $this->coursesByCode();
         $for = [];

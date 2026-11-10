@@ -612,7 +612,8 @@ beibehalten, wo es passt. Abweichungen:
   gültiger Zugang zum Fragenkatalog durch Kauf, manuell oder Gruppe; der kostenlose Teilumfang zählt
   nicht. Grundlage ist dieselbe Tabelle wie im Web (`Commerce\CourseRelations`, Filter
   `bootspruefung_course_relations`), z. B. Besitzer von SBF Binnen: SBF See & Binnen ausgeblendet,
-  Ergänzung Binnen → See empfohlen; UBI-Besitzer: SRC empfohlen.
+  Ergänzung Binnen → See empfohlen; UBI-Besitzer: SRC empfohlen. Testkurse (kostenloser Teilumfang)
+  werden nie ausgeblendet (Festlegung 10.11.2026), eine Empfehlung dürfen sie tragen.
   **Entscheidung:** Ausgeblendete Kurse bleiben in der Liste und werden nur markiert, damit Deep-Links,
   Kursdetails und eine laufende Anzeige weiter funktionieren. Die App blendet sie unter „Weitere Kurse“
   aus und zeigt empfohlene oben mit „Empfohlen“ und „Passt zu deinem Kurs {name}“.

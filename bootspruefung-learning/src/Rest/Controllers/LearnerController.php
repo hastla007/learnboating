@@ -167,7 +167,8 @@ final class LearnerController
                 'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseTotal($user, $course) : null,
                 'shop' => in_array(true, $features, true) && ! $trial ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
                 // Nicht freigeschaltet und durch einen besessenen Kurs abgedeckt → nicht mehr anbieten.
-                'hidden' => $relation['hidden'],
+                // Testkurse (kostenloser Teilumfang) bleiben sichtbar (Festlegung 10.11.2026).
+                'hidden' => $relation['hidden'] && ! $trial,
                 // Namen der besessenen Kurse, zu denen dieser Kurs passt (leer = keine Empfehlung).
                 'recommended_for' => array_map(static fn ($code) => (string) ($names[$code] ?? $code), $relation['recommended_for']),
                 // Zugang zum Fragenkatalog endet bald (ohne Verlängerung): Ende (UTC) und Link zum Verlängern.

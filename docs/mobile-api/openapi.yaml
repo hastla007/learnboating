@@ -2424,6 +2424,7 @@ components:
           description: >-
             Nicht freigeschaltet und durch einen besessenen Kurs schon abgedeckt (z. B. SBF See & Binnen
             für Besitzer von SBF Binnen). Nicht mehr anbieten; der Kurs bleibt in der Liste und über seine ID erreichbar.
+            Testkurse (kostenloser Teilumfang, access.trial) sind nie ausgeblendet.
         recommended:
           type: boolean
           description: Passende Ergänzung zu einem besessenen Kurs (nie zusammen mit hidden).
