@@ -45,7 +45,7 @@ final class MoneyBack
      * gezählt ab $since (UTC, Y-m-d H:i:s).
      *
      * @param list<string> $courses
-     * @return array{percent:float,done:int,total:int}
+     * @return array{percent:float,exact:float,done:int,total:int}
      */
     public static function progress(int $userId, array $courses, string $since, bool $questions = true, bool $lessons = true): array
     {
@@ -78,7 +78,16 @@ final class MoneyBack
         $total = $qTotal + $lTotal;
         $done = $qDone + $lDone;
 
-        return ['percent' => $total > 0 ? round($done * 100 / $total, 1) : 0.0, 'done' => $done, 'total' => $total];
+        // percent: gerundet für die Anzeige; exact: ungerundet für den Vergleich mit der Grenze („weniger als 20 %“).
+        $exact = $total > 0 ? $done * 100 / $total : 0.0;
+
+        return ['percent' => round($exact, 1), 'exact' => $exact, 'done' => $done, 'total' => $total];
+    }
+
+    /** Grenze erreicht? Vergleich mit dem ungerundeten Wert: 19,95 % ist „weniger als 20 %“. @param array{percent:float,exact?:float} $measured */
+    public static function limitReached(array $measured, float $max): bool
+    {
+        return (float) ($measured['exact'] ?? $measured['percent']) >= $max;
     }
 
     /**
@@ -131,7 +140,8 @@ final class MoneyBack
             return ['reason' => $refunded || $order['status'] === 'refunded' ? 'refunded' : 'not_paid'] + $base;
         }
         $deadline = gmdate('Y-m-d H:i:s', strtotime($order['date_paid'].' UTC') + $policy['days'] * DAY_IN_SECONDS);
-        $progress = self::progress($order['user_id'], $courses, $order['date_paid'], $countQuestions, $countLessons || ! $countQuestions)['percent'];
+        $measured = self::progress($order['user_id'], $courses, $order['date_paid'], $countQuestions, $countLessons || ! $countQuestions);
+        $progress = $measured['percent'];
         $base = ['deadline' => $deadline, 'progress' => $progress] + $base;
         if ($refunded) {
             return ['reason' => 'refunded'] + $base;
@@ -142,7 +152,7 @@ final class MoneyBack
         if (strtotime($now.' UTC') > strtotime($deadline.' UTC')) {
             return ['reason' => 'expired'] + $base;
         }
-        if ($progress >= $policy['max_progress']) {
+        if (self::limitReached($measured, (float) $policy['max_progress'])) {
             return ['reason' => 'too_much_progress'] + $base;
         }
 

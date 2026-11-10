@@ -554,6 +554,8 @@ $expect = round(10 * 100 / count($qids), 1); // Produkt nur mit Fragenkatalog: L
 $check($st['applies'] && $st['eligible'] && abs($st['progress'] - $expect) < 0.01, "berechtigt: {$st['progress']} % seit Kauf gelernt (nur gekaufte Inhalte, vor dem Kauf zählt nicht)");
 $answer(array_slice($qids, 50, (int) ceil(count($qids) * 0.2)), gmdate('Y-m-d H:i:s'));
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'ab 20 % gelernt: keine Garantie mehr');
+$MB = \Bootspruefung\Learning\Commerce\MoneyBack::class;
+$check(! $MB::limitReached(['percent' => 20.0, 'exact' => 19.95], 20.0) && $MB::limitReached(['percent' => 20.0, 'exact' => 20.0], 20.0) && $MB::limitReached(['percent' => 20.1], 20.0), 'Garantiegrenze: 19,95 % gilt als weniger als 20 % (ungerundet verglichen)');
 $wpdb->delete($p.'progress', ['user_id' => $mbUser]);
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['date_paid' => gmdate('Y-m-d H:i:s', time() - 15 * DAY_IN_SECONDS)] + $mbOrder)['reason'] === 'expired', 'nach 14 Tagen: Frist abgelaufen');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $paid, 'progress' => 1.0])['reason'] === 'requested', 'Anfrage gestellt: kein zweiter Antrag');
