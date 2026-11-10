@@ -63,6 +63,7 @@ final class Problem
         'WEB_SESSION_NOT_ALLOWED' => 'Webansicht-Anmeldung nicht erlaubt',
         'MOBILE_API_DISABLED' => 'App vorübergehend nicht verfügbar',
         'HTTPS_REQUIRED' => 'HTTPS erforderlich',
+        'APP_UPDATE_REQUIRED' => 'Update erforderlich',
         'METHOD_NOT_ALLOWED' => 'Methode nicht erlaubt',
         'INTERNAL_ERROR' => 'Serverfehler',
     ];

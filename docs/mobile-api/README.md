@@ -428,6 +428,7 @@ Fehlerobjekt (`application/problem+json`):
 | `RATE_LIMITED` | 429 | Zu viele Anfragen, `retry_after` beachten |
 | `MOBILE_API_DISABLED` | 503 | App vom Shop abgeschaltet → Wartungshinweis |
 | `HTTPS_REQUIRED` | 403 | Anfrage ohne TLS |
+| `APP_UPDATE_REQUIRED` | 426 | App-Version unter der Mindestversion der Plattform (`details.min_app_version`); App zeigt „Bitte aktualisieren“ mit Link in den Store |
 | `METHOD_NOT_ALLOWED` | 405 | Falsche HTTP-Methode |
 | `INTERNAL_ERROR` | 500 | Serverfehler → später erneut versuchen |
 
@@ -602,6 +603,19 @@ beibehalten, wo es passt. Abweichungen:
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.8.0 (additiv)
+
+- **Rechtstexte:** `GET /health` (ohne Anmeldung) liefert `legal` mit `privacy_policy`, `imprint`,
+  `terms`, `withdrawal_policy`, `withdrawal_function` (Widerrufsbutton) und `contact`; dieselben Links
+  stehen zusätzlich in `GET /me` (`links`). Nur veröffentlichte Seiten, sonst `null`. Anpassbar über den
+  Filter `bootspruefung_mobile_legal_links`.
+- **Pflicht-Update:** Mindestversion je Plattform unter „Bootsprüfung → Mobile App“. `GET /health` nennt
+  sie (`min_app_version.ios/android`). Die App schickt ihre Version im Header
+  `X-Boatingschool-App-Version` und die Plattform in `X-Boatingschool-Platform` (`ios`/`android`);
+  ohne Header gelten die Angaben der Sitzung bzw. beim Login die aus dem Body. Liegt die Version
+  darunter, antworten alle Endpunkte außer `/health` mit 426 `APP_UPDATE_REQUIRED`
+  (`details.min_app_version`). Ohne Versionsangabe wird nichts blockiert.
 
 ### 1.7.0 (additiv)
 

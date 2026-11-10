@@ -167,6 +167,44 @@ echo "Profil, Tenant, Bearer nur für diesen Namespace\n";
 $me = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null]);
 $check($me['status'] === 200 && $me['body']['data']['user']['id'] === (string) $alice && ($me['body']['data']['memberships'][0]['tenant_name'] ?? '') === Settings::brand(), 'GET /me mit Marke aus den Einstellungen');
 $check(array_key_exists('primary_color', $me['body']['data']['memberships'][0]['branding']), 'Branding im Profil');
+
+echo "Rechtstexte und Pflicht-Update (1.8.0)\n";
+$createdPages = [];
+$imprint = get_page_by_path('impressum', OBJECT, 'page');
+if (! $imprint instanceof WP_Post || $imprint->post_status !== 'publish') {
+    $createdPages[] = $imprintId = (int) wp_insert_post(['post_type' => 'page', 'post_name' => 'impressum', 'post_title' => 'Impressum', 'post_status' => 'publish', 'post_content' => 'Test']);
+    $imprint = get_post($imprintId);
+}
+$draftWithdrawal = null;
+if (! get_page_by_path('widerruf', OBJECT, 'page')) {
+    $createdPages[] = $draftWithdrawal = (int) wp_insert_post(['post_type' => 'page', 'post_name' => 'widerruf', 'post_title' => 'Widerrufsbelehrung', 'post_status' => 'draft', 'post_content' => 'Entwurf']);
+}
+$h = $api('GET', '/health');
+$legal = $h['body']['data']['legal'] ?? [];
+$check(array_keys($legal) === ['privacy_policy', 'imprint', 'terms', 'withdrawal_policy', 'withdrawal_function', 'contact'] && $legal['imprint'] === get_permalink($imprint), '/health ohne Anmeldung: Rechtstexte-Links (Impressum = veröffentlichte Seite)');
+if ($draftWithdrawal !== null) {
+    $check($legal['withdrawal_policy'] === null, 'Seite im Entwurf wird nicht verlinkt');
+}
+$check(($h['body']['data']['min_app_version'] ?? null) === ['ios' => null, 'android' => null], '/health: ohne Vorgabe keine Mindestversion');
+$meLinks = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null])['body']['data']['memberships'][0]['links'] ?? [];
+$check(($meLinks['imprint'] ?? null) === $legal['imprint'] && array_key_exists('terms', $meLinks), '/me: Links enthalten die Rechtstexte');
+$mobileBefore = MobileSettings::all();
+MobileSettings::save(array_merge($mobileBefore, ['min_app_version_ios' => '2.0.0', 'min_app_version_android' => '1.x']));
+$check(MobileSettings::minAppVersion('ios') === '2.0.0' && MobileSettings::minAppVersion('android') === null, 'Mindestversion gespeichert, ungültige Angabe verworfen');
+$r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 426 && $code($r) === 'APP_UPDATE_REQUIRED' && ($r['body']['details']['min_app_version'] ?? '') === '2.0.0' && ($r['body']['details']['app_version'] ?? '') === '1.0.0', 'Sitzung mit App 1.0.0 (iOS) unter Mindestversion → 426 APP_UPDATE_REQUIRED');
+$r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null, 'X-Boatingschool-App-Version' => '2.1.0', 'X-Boatingschool-Platform' => 'ios']);
+$check($r['status'] === 200, 'Header mit neuerer Version → erlaubt');
+$r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null, 'X-Boatingschool-App-Version' => '0.1', 'X-Boatingschool-Platform' => 'android']);
+$check($r['status'] === 200, 'Android ohne Mindestversion → erlaubt');
+$r = $login('mobile_kundin_a', $passA, 'Altes Gerät');
+$check($r['status'] === 426 && $code($r) === 'APP_UPDATE_REQUIRED', 'Anmeldung mit veralteter App → 426');
+$h = $api('GET', '/health', [], null, ['X-Boatingschool-App-Version' => '1.0.0', 'X-Boatingschool-Platform' => 'ios']);
+$check($h['status'] === 200 && $h['body']['data']['min_app_version']['ios'] === '2.0.0', '/health bleibt erreichbar und nennt die Mindestversion');
+MobileSettings::save($mobileBefore);
+foreach ($createdPages as $pid) {
+    wp_delete_post($pid, true);
+}
 $r = $api('GET', '/me');
 $check($r['status'] === 401 && $code($r) === 'UNAUTHENTICATED', 'ohne Token → 401');
 $r = $api('GET', '/me', [], 'bpa_'.str_repeat('x', 60));

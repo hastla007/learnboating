@@ -68,7 +68,41 @@ final class AccountController extends BaseController
             'shop' => $shop !== '' ? $shop : null,
             'account' => function_exists('wc_get_page_permalink') && Integration::active() ? (string) wc_get_page_permalink('myaccount') : null,
             'privacy_policy' => $privacy !== '' ? $privacy : null,
+        ] + self::legalLinks();
+    }
+
+    /**
+     * Rechtstexte für die App (auch ohne Anmeldung über /health): nur veröffentlichte Seiten.
+     * Datenschutz aus den WordPress-Einstellungen, AGB aus WooCommerce bzw. Seite „agb“, sonst
+     * die Seiten mit den Slugs impressum, widerruf, kontakt (wie das Theme sie anlegt).
+     * @return array<string,?string>
+     */
+    public static function legalLinks(): array
+    {
+        $page = static function (string $slug): ?string {
+            $p = get_page_by_path($slug, OBJECT, 'page');
+
+            return $p instanceof \WP_Post && $p->post_status === 'publish' ? (string) get_permalink($p) : null;
+        };
+        $terms = null;
+        $termsId = (int) get_option('woocommerce_terms_page_id');
+        if ($termsId > 0 && get_post_status($termsId) === 'publish') {
+            $terms = (string) get_permalink($termsId);
+        }
+        $privacy = (string) get_privacy_policy_url();
+        $withdrawal = $page('widerruf');
+        $links = [
+            'privacy_policy' => $privacy !== '' ? $privacy : $page('datenschutz'),
+            'imprint' => $page('impressum'),
+            'terms' => $terms ?? $page('agb'),
+            'withdrawal_policy' => $withdrawal,
+            // Widerrufsbutton (§ 356a BGB): feste Adresse, leitet zum Formular bzw. zur Belehrung weiter.
+            'withdrawal_function' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::active() || $withdrawal !== null ? home_url('/'.\Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::SLUG.'/') : null,
+            'contact' => $page('kontakt'),
         ];
+
+        /** Filter: Rechtstexte-Links der App anpassen (z. B. andere Seiten). */
+        return (array) apply_filters('bootspruefung_mobile_legal_links', $links);
     }
 
     public function me(): WP_REST_Response

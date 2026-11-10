@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.7.0
+  version: 1.8.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -77,6 +77,26 @@ paths:
                       authorization_header_received: {type: boolean}
                       https: {type: boolean}
                       server_time: {type: string, format: date-time}
+                      legal:
+                        description: >-
+                          Seit 1.8.0: Rechtstexte zum Öffnen im Systembrowser, ohne Anmeldung (z. B. auf dem
+                          Anmeldebildschirm). Nur veröffentlichte Seiten, sonst null.
+                        type: object
+                        properties:
+                          privacy_policy: {type: [string, 'null'], format: uri}
+                          imprint: {type: [string, 'null'], format: uri}
+                          terms: {type: [string, 'null'], format: uri}
+                          withdrawal_policy: {type: [string, 'null'], format: uri}
+                          withdrawal_function: {type: [string, 'null'], format: uri, description: 'Widerrufsbutton nach § 356a BGB'}
+                          contact: {type: [string, 'null'], format: uri}
+                      min_app_version:
+                        description: >-
+                          Seit 1.8.0: Mindestversion je Plattform (Admin-Einstellung); null = keine Vorgabe. Liegt die
+                          App darunter, antworten alle anderen Endpunkte mit 426 APP_UPDATE_REQUIRED.
+                        type: object
+                        properties:
+                          ios: {type: [string, 'null']}
+                          android: {type: [string, 'null']}
   /auth/login:
     post:
       tags: [Auth]
@@ -2173,7 +2193,7 @@ components:
         message: {type: string, description: 'Gleich detail (Erweiterung, für einfache Clients)'}
         code:
           type: string
-          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, GROUP_NOT_ACTIVE, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
+          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, GROUP_NOT_ACTIVE, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, APP_UPDATE_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
         request_id: {type: string}
         errors:
           type: object
@@ -2252,6 +2272,11 @@ components:
             shop: {type: [string, 'null'], format: uri}
             account: {type: [string, 'null'], format: uri}
             privacy_policy: {type: [string, 'null'], format: uri}
+            imprint: {type: [string, 'null'], format: uri, description: seit 1.8.0}
+            terms: {type: [string, 'null'], format: uri, description: seit 1.8.0}
+            withdrawal_policy: {type: [string, 'null'], format: uri, description: seit 1.8.0}
+            withdrawal_function: {type: [string, 'null'], format: uri, description: 'seit 1.8.0, Widerrufsbutton (§ 356a BGB)'}
+            contact: {type: [string, 'null'], format: uri, description: seit 1.8.0}
     Branding:
       type: object
       properties:

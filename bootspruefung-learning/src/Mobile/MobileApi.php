@@ -35,7 +35,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.7.0';
+    public const API_VERSION = '1.8.0';
 
     public static function register(): void
     {
@@ -126,9 +126,40 @@ final class MobileApi
             if (self::httpsRequired()) {
                 return Problem::response('HTTPS_REQUIRED', __('Die App-Schnittstelle ist nur über HTTPS erreichbar.', 'bootspruefung-learning'), 403);
             }
+            $update = self::updateRequired($request);
+            if ($update !== null) {
+                return $update;
+            }
         }
 
         return $result;
+    }
+
+    /**
+     * Pflicht-Update: Schickt die App ihre Version (Header X-Boatingschool-App-Version und
+     * X-Boatingschool-Platform: ios|android; sonst Werte der aktuellen Sitzung bzw. beim Login aus dem
+     * Body) und liegt sie unter der Mindestversion der Plattform, antwortet die API mit 426.
+     * Ohne Versionsangabe wird nichts blockiert. /health bleibt immer erreichbar.
+     */
+    private static function updateRequired(WP_REST_Request $request): ?WP_REST_Response
+    {
+        $platform = strtolower(trim((string) $request->get_header('x-boatingschool-platform')));
+        $version = trim((string) $request->get_header('x-boatingschool-app-version'));
+        if ($version === '' || $platform === '') {
+            wp_get_current_user(); // Bearer-Token auflösen, falls noch nicht geschehen
+            $session = TokenAuth::current();
+            $platform = $platform !== '' ? $platform : strtolower((string) ($session->device_platform ?? $request->get_param('device_platform') ?? ''));
+            $version = $version !== '' ? $version : (string) ($session->app_version ?? $request->get_param('app_version') ?? '');
+        }
+        if (! in_array($platform, ['ios', 'android'], true) || $version === '') {
+            return null;
+        }
+        $min = MobileSettings::minAppVersion($platform);
+        if ($min === null || preg_match(MobileSettings::VERSION_PATTERN, $version) !== 1 || version_compare($version, $min, '>=')) {
+            return null;
+        }
+
+        return Problem::response('APP_UPDATE_REQUIRED', __('Bitte aktualisiere die App, um weiterzulernen.', 'bootspruefung-learning'), 426, ['details' => ['platform' => $platform, 'app_version' => $version, 'min_app_version' => $min]]);
     }
 
     /**
@@ -408,6 +439,9 @@ final class MobileApi
             'authorization_header_received' => TokenAuth::authorizationHeader() !== '',
             'https' => is_ssl() || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https',
             'server_time' => gmdate('Y-m-d\TH:i:s\Z'),
+            // Ohne Anmeldung nutzbar (z. B. Links auf dem Anmeldebildschirm, Pflicht-Update vor dem Login).
+            'legal' => Controllers\AccountController::legalLinks(),
+            'min_app_version' => ['ios' => MobileSettings::minAppVersion('ios'), 'android' => MobileSettings::minAppVersion('android')],
         ]], 200);
     }
 }

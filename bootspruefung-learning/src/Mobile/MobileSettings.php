@@ -27,7 +27,13 @@ final class MobileSettings
         'ios_app_ids' => '',
         'android_package' => '',
         'android_cert_fingerprints' => '',
+        // Mindestversion der App je Plattform (z. B. 1.4.0); ältere Versionen bekommen 426 APP_UPDATE_REQUIRED. Leer = keine.
+        'min_app_version_ios' => '',
+        'min_app_version_android' => '',
     ];
+
+    /** Versionsnummer wie 1.4 oder 1.4.0 (höchstens vier Teile). */
+    public const VERSION_PATTERN = '/^\d{1,4}(\.\d{1,4}){0,3}$/';
 
     /** iOS-App-ID: TEAMID (10 Zeichen) + Bundle-ID, z. B. ABCDE12345.at.example.boot */
     public const IOS_APP_ID_PATTERN = '/^[A-Z0-9]{10}\.[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/';
@@ -165,8 +171,25 @@ final class MobileSettings
             'web_session_enabled' => array_key_exists('web_session_enabled', $input) ? ! empty($input['web_session_enabled']) : true,
             'ios_app_ids' => implode("\n", array_slice(self::lines((string) ($input['ios_app_ids'] ?? ''), static fn (string $v) => preg_match(self::IOS_APP_ID_PATTERN, $v) === 1), 0, 20)),
             'android_package' => preg_match(self::ANDROID_PACKAGE_PATTERN, $package) === 1 ? $package : '',
+            'min_app_version_ios' => self::version((string) ($input['min_app_version_ios'] ?? '')),
+            'min_app_version_android' => self::version((string) ($input['min_app_version_android'] ?? '')),
             'android_cert_fingerprints' => implode("\n", array_slice(array_values(array_unique(array_filter(array_map([self::class, 'normalizeFingerprint'], preg_split('/[\s,]+/', (string) ($input['android_cert_fingerprints'] ?? '')) ?: [])))), 0, 20)),
         ];
+    }
+
+    /** Mindestversion der App für ios|android oder null (keine Vorgabe). */
+    public static function minAppVersion(string $platform): ?string
+    {
+        $v = (string) (self::all()['min_app_version_'.$platform] ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    private static function version(string $value): string
+    {
+        $value = trim($value);
+
+        return preg_match(self::VERSION_PATTERN, $value) === 1 ? $value : '';
     }
 
     /** @param array<string,mixed> $values */
