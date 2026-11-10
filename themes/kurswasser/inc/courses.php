@@ -208,8 +208,54 @@ function kurswasser_course_facts(array $def, int $max = 3): array
 }
 
 
-/** Kursbezogene FAQ-Kategorien: eigene Fragen und Antworten je Kursseite. */
+/** Kursseite → Rubrik-Schlüssel der FAQ im Lern-Plugin (Kapitäns-Bundle ist ein Produkt, kein Kurs). */
+function kurswasser_faq_rubrics(): array
+{
+    return [
+        'sbf-see' => 'SBF-SEE', 'sbf-binnen' => 'SBF-BIN-MOTOR', 'sbf-binnen-segel' => 'SBF-BIN-SEGEL', 'src' => 'SRC', 'ubi' => 'UBI',
+        'skn' => 'SKN', 'fkn' => 'FKN', 'sbf-kombi' => 'SBF-SEE-BIN', 'kapitaen' => 'KAPITAEN', 'funk-kombi' => 'SRC-UBI',
+    ];
+}
+
+/**
+ * ★-FAQs einer Rubrik aus dem Lern-Plugin (Bootsprüfung › FAQ, „Im Theme anzeigen“).
+ * Leer, wenn das Plugin fehlt oder keine ★-FAQ veröffentlicht ist – dann gelten die festen Texte.
+ *
+ * @return list<array{question:string,answer_html:string}> answer_html ist vom Plugin bereits gefiltert
+ */
+function kurswasser_plugin_faqs(string $rubric): array
+{
+    if (! function_exists('bootspruefung_faqs')) {
+        return [];
+    }
+
+    return array_map(static fn (array $faq): array => ['question' => (string) $faq['question'], 'answer_html' => (string) $faq['answer_html']], bootspruefung_faqs(['rubric' => $rubric, 'theme_only' => true]));
+}
+
+/** Allgemeine FAQ (Muster „kurswasser/faq“): ★-FAQs der Rubrik „allgemein“, leer = statisches Muster. */
+function kurswasser_general_faqs(): array
+{
+    return kurswasser_plugin_faqs('allgemein');
+}
+
+/**
+ * Kursbezogene FAQ-Kategorien: Titel je Kursseite, Fragen aus dem Lern-Plugin (★ der passenden Rubrik).
+ * Die fest eingetragenen Fragen sind der Rückfall, wenn das Plugin fehlt oder nichts liefert.
+ */
 function kurswasser_course_faqs(): array
+{
+    $faqs = kurswasser_course_faqs_fallback();
+    foreach (kurswasser_faq_rubrics() as $slug => $rubric) {
+        if (isset($faqs[$slug]) && ($items = kurswasser_plugin_faqs($rubric)) !== []) {
+            $faqs[$slug]['items'] = $items;
+        }
+    }
+
+    return $faqs;
+}
+
+/** Rückfall: fest eingetragene Fragen und Antworten je Kursseite (Text, ohne HTML). */
+function kurswasser_course_faqs_fallback(): array
 {
     return [
         'sbf-see' => [
@@ -309,7 +355,9 @@ function kurswasser_course_faq(string $slug): string
 
     $html = '<section class="kw-section kw-faq kw-course-faq" aria-labelledby="kw-course-faq-title"><div class="kw-section-head"><p class="kw-eyebrow">'.esc_html__('Fragen & Antworten', 'kurswasser').'</p><h2 id="kw-course-faq-title">'.esc_html($faq['title']).'</h2></div>';
     foreach ($faq['items'] as $item) {
-        $html .= '<details class="wp-block-details"><summary>'.esc_html($item['question']).'</summary><p>'.esc_html($item['answer']).'</p></details>';
+        // Plugin: answer_html (bereits per wp_kses_post gefiltert); Rückfall: reiner Text.
+        $answer = isset($item['answer_html']) ? $item['answer_html'] : '<p>'.esc_html($item['answer']).'</p>';
+        $html .= '<details class="wp-block-details"><summary>'.esc_html($item['question']).'</summary>'.$answer.'</details>';
     }
 
     return $html.'</section>';

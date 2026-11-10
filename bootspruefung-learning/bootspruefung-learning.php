@@ -37,6 +37,7 @@ if (is_file(__DIR__.'/vendor/autoload.php')) {
     require_once __DIR__.'/src/Infrastructure/Autoloader.php';
     \Bootspruefung\Learning\Infrastructure\Autoloader::register(__DIR__.'/src');
 }
+require_once __DIR__.'/src/functions.php';
 
 register_activation_hook(__FILE__, [\Bootspruefung\Learning\Plugin::class, 'activate']);
 register_deactivation_hook(__FILE__, [\Bootspruefung\Learning\Plugin::class, 'deactivate']);

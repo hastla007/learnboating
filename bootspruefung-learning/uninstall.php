@@ -41,6 +41,20 @@ $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'bp\\_learning
 foreach (get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids']) as $tipId) {
     wp_delete_post((int) $tipId, true);
 }
+// FAQ: Beiträge (samt Meta und Revisionen), Rubriken/Unterkategorien (samt Term-Meta) und Zwischenspeicher.
+// Die Seite „Häufige Fragen“ bleibt als normale Seite des Betreibers erhalten.
+\Bootspruefung\Learning\Faq\Faq::registerTypes();
+$faqStatuses = array_values(array_diff(array_keys(get_post_stati()), ['auto-draft']));
+foreach (get_posts(['post_type' => \Bootspruefung\Learning\Faq\Faq::POST_TYPE, 'post_status' => $faqStatuses, 'numberposts' => -1, 'fields' => 'ids']) as $faqId) {
+    wp_delete_post((int) $faqId, true);
+}
+$faqTerms = get_terms(['taxonomy' => \Bootspruefung\Learning\Faq\Faq::TAXONOMY, 'hide_empty' => false, 'fields' => 'ids']);
+foreach (is_array($faqTerms) ? $faqTerms : [] as $faqTermId) {
+    wp_delete_term((int) $faqTermId, \Bootspruefung\Learning\Faq\Faq::TAXONOMY);
+}
+if (function_exists('wp_cache_flush_group') && wp_cache_supports('flush_group')) {
+    wp_cache_flush_group(\Bootspruefung\Learning\Faq\Faq::CACHE_GROUP);
+}
 wp_clear_scheduled_hook('bp_learning_hourly');
 wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK);
 // Geplante Erzeugung von App-Datenexporten (WP-Cron mit Argumenten bzw. Action Scheduler).

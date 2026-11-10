@@ -27,6 +27,12 @@ Seiten (`/impressum/` usw.).
 `hero`, `usp`, `courses`, `features`, `steps`, `popular`, `groups`, `guarantee`, `faq`, `cta` –
 einzeln auf jeder Seite einsetzbar.
 
+FAQ: Das Muster `faq` und die Kurs-FAQ (`kurswasser_course_faq()`) zeigen die ★-FAQs aus dem Lern-Plugin
+(Bootsprüfung › FAQ, „Im Theme anzeigen“) – `faq` die Rubrik „allgemein“, jede Kursseite die Rubrik ihres
+Scheins (`kurswasser_faq_rubrics()`). Ohne Plugin oder ohne ★-FAQ gelten die festen Texte im Theme.
+Das Muster wird je Seitenaufruf ausgewertet; wird es in eine Seite oder eine im Website-Editor angepasste
+Vorlage eingefügt, steht dort aber der Stand zum Zeitpunkt des Einfügens.
+
 Inhaltliche Regel: Aussagen beschreiben nur Funktionen, die es im Plugin gibt, und die
 Festlegungen des Betreibers (Laufzeiten, Geld-zurück-Garantie, Gruppenpakete). Keine Gebühren,
 Fristen oder Prüfungsvorschriften – dafür wird auf den Prüfungsausschuss verwiesen.

@@ -30,6 +30,7 @@ final class Menu
         (new AccessPages())->register();
         (new PricePage())->register();
         (new ExamGuidePages())->register();
+        (new FaqAdmin())->register();
     }
 
     public function addPages(): void
@@ -50,6 +51,9 @@ final class Menu
             [AccessPages::SLUG, __('Zugänge', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'render']],
             [AccessPages::GROUP_SLUG, __('Gruppenlizenzen', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderGroups']],
             [ExamGuidePages::SLUG, __('Prüfungsanmeldung', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, [new ExamGuidePages(), 'render']],
+            // FAQ: eigener Beitragstyp (Liste, Bearbeiten im Block-Editor) und Kategorien (Rubriken › Unterkategorien).
+            [FaqAdmin::LIST_URL, __('FAQ', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
+            [FaqAdmin::TERMS_URL, __('FAQ-Kategorien', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [PricePage::SLUG, __('Preise', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PricePage(), 'render']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],

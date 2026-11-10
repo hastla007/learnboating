@@ -86,6 +86,9 @@ final class Plugin
         } catch (\RuntimeException $e) {
             wp_die(esc_html($e->getMessage()));
         }
+        // Standard-FAQs anlegen, solange es noch keine FAQ gibt (danach wie Migrationen per Datenstand).
+        \Bootspruefung\Learning\Faq\Faq::registerTypes();
+        \Bootspruefung\Learning\Faq\FaqImporter::maybeImport();
     }
 
     public static function deactivate(): void
@@ -125,6 +128,7 @@ final class Plugin
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
         (new \Bootspruefung\Learning\Gate\Charts())->register();
         (new \Bootspruefung\Learning\Tips\Tips())->register();
+        (new \Bootspruefung\Learning\Faq\Faq())->register();
         (new \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks())->register();
 
         if (defined('WP_CLI') && WP_CLI) {

@@ -4,10 +4,22 @@
  * Slug: kurswasser/faq
  * Categories: kurswasser
  * Inserter: yes
+ *
+ * Fragen: die ★-FAQs der Rubrik „Allgemeine Fragen“ aus dem Lern-Plugin (Bootsprüfung › FAQ).
+ * WordPress wertet diese Datei erst aus, wenn das Muster gebraucht wird (je Seitenaufruf), daher
+ * sind Änderungen im Admin sofort sichtbar. Ohne Plugin bzw. ohne ★-FAQ gilt der feste Text unten.
+ * Variablen mit Präfix: die Datei läuft im Gültigkeitsbereich der Muster-Registry.
  */
+
+$kurswasser_faq_items = function_exists('kurswasser_general_faqs') ? kurswasser_general_faqs() : [];
 ?>
 <!-- wp:group {"tagName":"section","align":"wide","anchor":"faq","className":"kw-section kw-faq","layout":{"type":"constrained","contentSize":"820px"}} -->
 <section id="faq" class="wp-block-group alignwide kw-section kw-faq"><!-- wp:group {"className":"kw-section-head has-text-align-center","layout":{"type":"default"}} --><div class="wp-block-group kw-section-head has-text-align-center"><!-- wp:paragraph {"align":"center","className":"kw-eyebrow"} --><p class="has-text-align-center kw-eyebrow">Häufige Fragen</p><!-- /wp:paragraph --><!-- wp:heading {"textAlign":"center"} --><h2 class="wp-block-heading has-text-align-center">Gut zu wissen</h2><!-- /wp:heading --></div><!-- /wp:group -->
+<?php if ($kurswasser_faq_items !== []) : ?>
+<?php foreach ($kurswasser_faq_items as $kurswasser_faq_item) : ?>
+<!-- wp:details --><details class="wp-block-details"><summary><?php echo esc_html($kurswasser_faq_item['question']); ?></summary><!-- wp:html --><?php echo $kurswasser_faq_item['answer_html']; // phpcs:ignore WordPress.Security.EscapeOutput -- vom Plugin per wp_kses_post gefiltert ?><!-- /wp:html --></details><!-- /wp:details -->
+<?php endforeach; ?>
+<?php else : ?>
 <!-- wp:details --><details class="wp-block-details"><summary>Wie lange habe ich Zugang?</summary><!-- wp:paragraph --><p>Je nach Kurs 12 oder 6 Monate ab Zahlungseingang, die Pässe 30 bzw. 90 Tage, Zugänge zum Funkgerät-Simulator 14 Tage, 3 oder 12 Monate. Die Laufzeit steht bei jedem Produkt. Kaufst du denselben Kurs erneut, verlängert sich dein Zugang.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
 <!-- wp:details --><details class="wp-block-details"><summary>Kann ich vorher ausprobieren?</summary><!-- wp:paragraph --><p>Ja. Mit einem kostenlosen Kundenkonto kannst du in jedem Kurs ausgewählte Inhalte testen, zum Beispiel einige Fragen je Thema und einen Prüfungsbogen.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
 <!-- wp:details --><details class="wp-block-details"><summary>Ist die Prüfung bei euch dabei?</summary><!-- wp:paragraph --><p>Nein. Wir bereiten dich online vor. Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab; Anmeldung, Termin und Prüfungsgebühr laufen direkt über den Ausschuss.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
@@ -15,5 +27,6 @@
 <!-- wp:details --><details class="wp-block-details"><summary>Brauche ich eine App?</summary><!-- wp:paragraph --><p>Nein. Du lernst im Browser – am Rechner, Tablet oder Smartphone. Dein Fortschritt wird in deinem Konto gespeichert.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
 <!-- wp:details --><details class="wp-block-details"><summary>Wie funktionieren Gruppenpakete?</summary><!-- wp:paragraph --><p>Eine Person kauft das Paket und lädt die Teilnehmenden per Link oder E-Mail ein. Jede Person lernt mit eigenem Konto. Die Plätze verwaltest du unter „Meine Gruppen“.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
 <!-- wp:details --><details class="wp-block-details"><summary>Wann kann ich nach dem Kauf loslegen?</summary><!-- wp:paragraph --><p>Sobald die Zahlung eingegangen ist, wird dein Zugang automatisch freigeschaltet. Bei Überweisung dauert das bis zum Zahlungseingang.</p><!-- /wp:paragraph --></details><!-- /wp:details -->
+<?php endif; ?>
 </section>
 <!-- /wp:group -->
