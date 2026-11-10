@@ -232,5 +232,89 @@ class Validation(unittest.TestCase):
         self.assertTrue((out / 'pages' / '07-test-a.html').is_file() and (out / 'pages.php').is_file())
 
 
+
+class ModerationForms(unittest.TestCase):
+    """Formen aus der Inhaltsmoderation, die der Konverter seit dem 10.11.2026 versteht."""
+
+    def build(self, body: str, head: str = '') -> tuple[dict, cb.Issues]:
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / '07-test-a.md').write_text(PAGE_A.replace('schema: Article\n', 'schema: Article\n' + head) + textwrap.dedent(body), encoding='utf-8')
+            issues = cb.Issues()
+            pages = cb.build(d, issues)
+        finally:
+            shutil.rmtree(d)
+        self.assertEqual(issues.errors, [])
+        return pages[0], issues
+
+    def test_cards_from_list(self) -> None:
+        pg, _ = self.build("""\
+            ### [B5 Karten] Drei Wege
+            - **Zuerst Binnen** (Symbol wheel, Tag „Flüsse“): Text eins. [SBF Binnen](/kurse/sbf-binnen/)
+            - **Prüfung** (exam): Text zwei – Tag „Alle Kurse“
+            - **Ohne Symbol:** Text drei
+            """)
+        html = pg['html']
+        self.assertEqual(html.count('<div class="kw-feature">'), 3)
+        self.assertIn('kw-icon-wheel', html)
+        self.assertIn('<h3>Zuerst Binnen</h3><p>Text eins. <a href="/kurse/sbf-binnen/">SBF Binnen</a></p><span class="kw-feature-tag">Flüsse</span>', html)
+        self.assertIn('<h3>Prüfung</h3><p>Text zwei</p><span class="kw-feature-tag">Alle Kurse</span>', html)
+        self.assertIn('<h3>Ohne Symbol</h3><p>Text drei</p>', html)
+
+    def test_link_items_symbol_and_photo(self) -> None:
+        pg, _ = self.build("""\
+            ### [B8 Weiterlesen] Weiter
+            - [Eins](/eins/) (Symbol compass): Satz eins.
+            - [Zwei](/zwei/) (Symbol cart) – Satz zwei.
+            - [Drei](/drei/) – Satz drei.
+
+            ### [B8 Kacheln] Kacheln
+            - [Kachel](/k/) – Text {foto=pakete}
+            - [Kachel 2](/k2/) – Text (Foto `sbf-see`)
+            """)
+        html = pg['html']
+        self.assertIn('kw-icon-compass" aria-hidden="true"></span></span><h3><a href="/eins/">Eins</a></h3><p>Satz eins.</p>', html)
+        self.assertIn('kw-icon-cart', html)
+        self.assertIn("courses/pakete-sm.webp", html)
+        self.assertIn("courses/sbf-see-sm.webp", html)
+        self.assertNotIn('(Symbol', html)
+        self.assertNotIn('(Foto', html)
+
+    def test_hero_note_steps_plain_and_stand_link(self) -> None:
+        pg, _ = self.build("""\
+            ### [B4 schlicht] So geht’s
+            1. **Öffnen.** Text eins.
+            2. **Klicken.** Text zwei.
+
+            Danach noch ein Satz.
+
+            ### [B6] Quellen
+            - [Q](https://example.org/)
+
+            Stand: 10.11.2026. Mehr im [Überblick](/ueberblick/).
+            """, head='hero_note: "Garantiegeber: [[Betreiber: Anschrift]]"\n')
+        html = pg['html']
+        self.assertIn('note="Garantiegeber: &#91;&#91;Betreiber: Anschrift&#93;&#93;"', html)
+        self.assertTrue(cb.has_placeholder(html))
+        self.assertIn('<ol class="kw-exam-parts"><li><h3>Öffnen</h3><p>Text eins.</p></li>', html)
+        self.assertNotIn('kw-mist', html)
+        self.assertLess(html.index('kw-exam-parts'), html.index('Danach noch ein Satz.'))
+        self.assertIn('Stand: 10.11.2026. Mehr im <a href="/ueberblick/">Überblick</a>.', html)
+        self.assertEqual(pg['reviewed'], '2026-11-10')
+
+    def test_placeholder_targets(self) -> None:
+        pg, issues = self.build("""\
+            ### [B10 CTA] Mitmachen
+            Bewirb dich mit einem Link.
+            Button: Jetzt bewerben | [[Betreiber: Bewerbungsweg]]
+            Button: Partner werden | /partnerprogramm/
+            """)
+        self.assertIn('href="[[Betreiber: Bewerbungsweg]]"', pg['html'])
+        self.assertIn('>Bewirb dich mit einem Link.</p>', pg['html'])  # Schlüsselzeilen direkt unter dem Absatz
+        self.assertNotIn('Button:', pg['html'])
+        self.assertIn('href="/partnerprogramm/">Partner werden</a>', pg['html'])
+        self.assertTrue(any('Ziel ist ein Platzhalter' in w for w in issues.warnings))
+
+
 if __name__ == '__main__':
     unittest.main()

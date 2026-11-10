@@ -39,6 +39,7 @@ Format einer Seite (siehe ``content/rahmen.md``):
       - wheel | 16 Jahre | unter Motor
     hero_nav:                          (optional, Sprungnavigation: #anker | Label)
       - #motor | Motor
+    hero_note: Mit kostenlosem Konto.  (optional, kurze Zeile unter den Buttons)
     replaces: legal/kontakt            (optional; Slugs der Rechtstexte werden automatisch erkannt)
     open_items:
       - …
@@ -50,9 +51,10 @@ Format einer Seite (siehe ``content/rahmen.md``):
 
 Abschnittstypen (Code oder Name, Variante nach dem Code): B1 Einleitung/Seitenkopf, B2 Fließtext,
 B3 Hinweis (Wichtig | Gut zu wissen | <Label> = Karte, Hinweis = Fußnote, Offen = Platzhalter),
-B4 Schritte (Standard: Nebelband mit Einleitung; „dunkel“ = Band wie Muster steps), B5 Fakten |
-Vergleich | Karten, B6 Quellen, B7 Kurse/Angebote (Shortcodes, „Muster: courses“), B8 Weiterlesen |
-Kacheln, B9 FAQ (Shortcode-Zeile oder „Muster: faq“), B10 CTA | Garantie.
+B4 Schritte (Standard: Nebelband mit Einleitung; „dunkel“ = Band wie Muster steps; „schlicht“ = ohne Band), B5 Fakten |
+Vergleich | Karten (####-Karten oder Liste „- **Titel** (Symbol x): Text“), B6 Quellen, B7 Kurse/Angebote (Shortcodes, „Muster: courses“), B8 Weiterlesen |
+Kacheln, B9 FAQ (Shortcode-Zeile oder „Muster: faq“), B10 CTA | Garantie. Einträge in [B8]: „- [Titel](/ziel/) – Satz {symbol}“; statt „{…}“ auch „(Symbol x)“
+bzw. „(Foto x)“ hinter dem Link.
 
 Im Text: Absätze, Listen (- / 1.), ``- [x]`` bzw. ``✓`` = Häkchenliste, **fett**, *kursiv*, [Links](/ziel/),
 ``#### Unterüberschrift``, ``> Zitat`` (letzte Zeile ``— Quelle`` = cite), Shortcode-Zeilen
@@ -162,8 +164,17 @@ def norm_url(url: str) -> str:
     return url
 
 
+PLACEHOLDER = '[[Betreiber:'
+
+
 def url_ok(url: str) -> bool:
-    return bool(re.match(r'^(/|#|https?://|mailto:|tel:)', url))
+    """Erlaubte Linkziele; ein Platzhalter „[[Betreiber: …]]“ (auch nach mailto:) macht die Seite zum Entwurf."""
+    return bool(re.match(r'^(/|#|https?://|mailto:|tel:|\[\[Betreiber:)', url))
+
+
+def has_placeholder(text: str) -> bool:
+    """[[Betreiber: …]] im Text oder maskiert in Shortcode-Attributen (&#91;&#91;Betreiber:)."""
+    return PLACEHOLDER in text or '&#91;&#91;Betreiber:' in text
 
 
 LINK = re.compile(r'\[((?:[^\[\]]|\[[^\[\]]*\])+)\]\(([^()\s]+(?:\([^()\s]*\))?[^()\s]*)\)')
@@ -413,6 +424,9 @@ def parse_blocks(lines: list[tuple[int, str]], ctx: Ctx) -> list[Block]:
             nxt = lines[i][1].strip()
             if not nxt or nxt.startswith((':::', '#', '>', '|')) or LIST_ITEM.match(lines[i][1].rstrip()) or SHORTCODE_LINE.match(nxt):
                 break
+            kvn = re.match(r'^([A-Za-zÄÖÜäöüß]+):\s', nxt)
+            if kvn and kvn.group(1).lower() in KV_KEYS:
+                break  # Schlüsselzeile (Button:, Stand: …) direkt unter einem Absatz
             para.append(nxt)
             i += 1
         blocks.append(Block('p', no, text=' '.join(para)))
@@ -434,6 +448,8 @@ def split_target(spec: str, ctx: Ctx, line: int, what: str) -> tuple[str, str] |
     target = norm_url(target)
     if re.match(r'^[a-z0-9-]+(#[a-z0-9-]+)?$', target):
         target = '#kw:' + target
+    if target.startswith(PLACEHOLDER):
+        ctx.warn(line, f'{what}: Ziel ist ein Platzhalter „{target}“ – Seite bleibt Entwurf')
     if not label or not url_ok(target):
         ctx.err(line, f'{what}: ungültiges Ziel „{target}“ (interne URL /…/, #anker, #kw:ziel oder https://…)')
         return None
@@ -470,7 +486,7 @@ def render_generic(blocks: list[Block], ctx: Ctx, h3_level: int = 3) -> str:
             out.append(html_block(facts_html_from_table(b, ctx)))
         elif b.kind == 'kv':
             if b.key == 'stand':
-                out.append(p_block(esc('Stand: ' + b.text), 'kw-exam-note'))
+                out.append(p_block('Stand: ' + inline(b.text), 'kw-exam-note'))
                 remember_stand(b.text, ctx)
             elif b.key == 'button':
                 t = split_target(b.text, ctx, b.line, 'Button')
@@ -664,7 +680,7 @@ def step_items(blocks: list[Block], ctx: Ctx, line: int) -> tuple[list[tuple[str
             t = it['text']
             m = re.match(r'^\*\*(.+?)\*\*\s*[:–—-]?\s*(.*)$', t) or re.match(r'^([^:–—]{2,60})\s*[:–—]\s+(.*)$', t)
             if m:
-                steps.append((m.group(1).strip().rstrip(':'), m.group(2).strip()))
+                steps.append((m.group(1).strip().rstrip(':.').rstrip(), m.group(2).strip()))
             else:
                 steps.append((t, ''))
                 ctx.warn(it.get('line', line), 'Schritt ohne Titel – „**Titel** – Text“ empfohlen')
@@ -699,6 +715,11 @@ def r_b4(sec: Section, ctx: Ctx) -> str:
     if ctx.page_type == 'B':
         inner = (h_block(inline(heading), 2, sec.anchor) + '\n' if heading else '') + render_generic(rest, ctx)
         return inner + '\n' + html_block(ol)
+    if sec.variant.lower() in ('schlicht', 'ohne band', 'weiß', 'weiss'):
+        # Schritte in der weißen Lesespalte (ohne Nebelband), Text danach unter der Liste.
+        inner = (h_block(inline(heading)) + '\n' if heading else '') + html_block(ol)
+        inner += ('\n' + render_generic(rest, ctx)) if rest else ''
+        return text_shell(inner, ctx, anchor)
     if sec.variant.lower() in ('dunkel', 'dark', 'steps') and not rest:
         head = (p_block(esc(eyebrow), 'kw-eyebrow') if eyebrow else '') + (h_block(inline(heading)) if heading else '')
         steps_html = ''.join(f'<div class="kw-step"><h3>{inline(t)}</h3><p>{inline(x)}</p></div>' for t, x in steps)
@@ -832,11 +853,40 @@ def check_icon(icon: str, ctx: Ctx, line: int, default: str) -> str:
     return icon
 
 
+CARD_ITEM = re.compile(r'^\*\*(.+?)\*\*\s*(?:\((?:Symbol\s+)?`?([a-z]+)`?(?:,\s*Tag\s*[„"]([^“"]+)[“"])?\))?\s*[:–—-]?\s*(.*)$')
+
+
+def list_cards(blocks: list[Block]) -> tuple[list[Block], list[tuple[Block, list[Block]]]]:
+    """Karten aus Listeneinträgen „- **Titel** (Symbol x): Text“ (statt ####-Abschnitten)."""
+    pre: list[Block] = []
+    subs: list[tuple[Block, list[Block]]] = []
+    for b in blocks:
+        if b.kind == 'ul' and b.items and all(CARD_ITEM.match(it['text']) for it in b.items):
+            for it in b.items:
+                m = CARD_ITEM.match(it['text'])
+                text = m.group(4).strip()
+                tag = m.group(3) or ''
+                tm = re.search(r'\s*[–—-]\s*Tag\s*[„"]([^“"]+)[“"]\s*$', text)
+                if tm:
+                    text, tag = text[:tm.start()].strip(), tm.group(1)
+                body = [Block('p', it.get('line', b.line), text=text)] if text else []
+                if tag:
+                    body.append(Block('kv', it.get('line', b.line), key='tag', text=tag))
+                if m.group(2):
+                    body.append(Block('kv', it.get('line', b.line), key='icon', text=m.group(2)))
+                subs.append((Block('h4', it.get('line', b.line), text=m.group(1).strip().rstrip(':')), body))
+        else:
+            pre.append(b)
+    return pre, subs
+
+
 def b5_cards(sec: Section, blocks: list[Block], ctx: Ctx, defaults: tuple[str, ...] = ('anchor', 'compass', 'sail', 'wheel', 'smart', 'exam')) -> str:
     eyebrow, heading = head_parts(sec, blocks, ctx)
     pre, subs = subsections(blocks)
     if not subs:
-        ctx.err(sec.line, '[B5 Karten] braucht ####-Karten (Titel, „Symbol:“, „Tag:“, Text)')
+        pre, subs = list_cards(pre)
+    if not subs:
+        ctx.err(sec.line, '[B5 Karten] braucht ####-Karten (Titel, „Symbol:“, „Tag:“, Text) oder eine Liste „- **Titel** (Symbol x): Text“')
     cards = []
     for n, (h, body) in enumerate(subs):
         icon = check_icon((take_kv(body, 'icon') or [Block('kv', 0)])[0].text, ctx, h.line, defaults[n % len(defaults)])
@@ -916,6 +966,9 @@ def parse_link_item(text: str, ctx: Ctx, line: int) -> tuple[str, str, str, dict
             elif part.strip():
                 opts['icon'] = part.strip()
         text = text[:m.start()]
+    for pm in list(re.finditer(r'\s*\((Symbol|Foto)\s+`?([a-z0-9-]+)`?\)', text)):
+        opts['icon' if pm.group(1) == 'Symbol' else 'foto'] = pm.group(2)
+    text = re.sub(r'\s*\((?:Symbol|Foto)\s+`?[a-z0-9-]+`?\)', '', text)
     lm = re.match(r'^\[([^\]]+)\]\(([^)]+)\)\s*(?:[–—:-]\s*)?(.*)$', text.strip())
     if not lm:
         ctx.err(line, f'Eintrag „{text}“: „[Titel](/ziel/) – Satz“ erwartet')
@@ -1237,7 +1290,7 @@ def build_page(path: Path, issues: Issues) -> dict | None:
     if ctx.schema == 'FAQPage' and '[bootspruefung_faq' not in body_html:
         issues.warnings.append(f'{file}:{line_of("schema")}: schema FAQPage ohne [bootspruefung_faq]')
     status = str(fm.get('status', ''))
-    if status == 'publish' and ('[[Betreiber:' in body_html or '[[Betreiber:' in title):
+    if status == 'publish' and (has_placeholder(body_html) or PLACEHOLDER in title):
         issues.warnings.append(f'{file}:{line_of("status")}: enthält [[Betreiber: …]] – wird als Entwurf angelegt')
     if status == 'publish' and ctx.meta.get('has_placeholder_box'):
         issues.warnings.append(f'{file}:{line_of("status")}: enthält einen „Offen“-Kasten (kw-placeholder) – wird als Entwurf angelegt')
@@ -1288,6 +1341,8 @@ def hero_shortcode(fm: dict, ctx: Ctx) -> str:
     for key, name in (('cta_primary', 'primary'), ('cta_secondary', 'secondary')):
         if ctx.meta.get(key):
             attrs.append((name, f'{ctx.meta[key][0]}|{ctx.meta[key][1]}'))
+    if str(fm.get('hero_note', '') or '').strip():
+        attrs.append(('note', str(fm['hero_note']).strip()))
     photo = ctx.meta.get('hero_photo', '')
     if photo:
         if photo not in PHOTOS:
@@ -1472,7 +1527,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     for pg in pages:
         state = pg['status']
-        if '[[Betreiber:' in pg['html'] or 'kw-placeholder' in pg['html']:
+        if has_placeholder(pg['html']) or 'kw-placeholder' in pg['html']:
             state += ' → draft'
         print(f'{pg["nr"]:>3}  {pg["type"]}  {state:<16} /{pg["path"]}/  {pg["file"]}')
     if not args.check:
