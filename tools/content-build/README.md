@@ -28,6 +28,22 @@ Funkpraxis-Szenarien und Funksprüche der Gerätesimulation erzeugt der Generato
 `App\Support\FunkPraxis` der Quelle; er ist reines PHP ohne Framework-Abhängigkeit und wird
 unverändert aus dem Snapshot geladen (`scenario()`), damit die Ausgabe identisch bleibt.
 
+## Lösungswerte der Navigationsaufgaben (eigene Pflegedatei)
+
+`data/navigation_answer_values.json` enthält je Teilaufgabe (`NAV-01-01` …) die prüfbaren Werte des
+amtlichen Ergebnisses: `label`, `quantity` (`course`, `bearing`, `angle`, `distance`, `time`, `speed`,
+`duration`, `position`), `value`, `unit`, `tolerance`, optional `aliases`. Sie ist **nicht** Teil der Quelle
+(Snapshot und Quellrepo bleiben unverändert); der Konverter übernimmt sie als optionales `answer_values`
+(Schema 1.4) und bricht ab, wenn eine ID fehlt, Größe/Einheit/Toleranz nicht zusammenpassen oder ein Wert
+nicht im angezeigten amtlichen Ergebnis steht (so folgen die Werte auch Berichtigungen wie NAV-01-02).
+Toleranzen (Festlegung): Kurs/Peilung/Winkel ±2°, Distanz ±0,2 sm, Position ±0,3', Uhrzeit ±3 min,
+Fahrt ±0,3 kn, Dauer ±3 min. Teilaufgaben „Siehe Karte“ und Beschreibungen haben keine Werte.
+
+```bash
+php tools/content-build/bin/navigation-values.php review   # Prüftabelle Overlay ↔ amtliches Ergebnis
+php tools/content-build/bin/navigation-values.php draft    # Entwurf des Parsers (nur zum Vergleich)
+```
+
 Noch nicht konvertiert (siehe `not_converted` im Manifest): Bootsschul-Betriebsfunktionen.
 
 ## Tests
@@ -61,6 +77,7 @@ BS_DSN="pgsql:host=127.0.0.1;dbname=boatingschool" BS_USER=boatingschool BS_PASS
 Mit `BS_LARAVEL_DIR=<Laravel-Kopie>` werden zusätzlich Funktexte und Vokabeln gegen
 `App\Support\FunkTraining` verglichen.
 
-Ergebnis für Commit `136a243`: keine Abweichungen außer den 15 `chart_task` (inkl. 90
+Die eigene Ergänzung `answer_values` (Navigation) prüft der Abgleich gegen das amtliche Ergebnis der
+Laravel-Datenbank. Ergebnis für Commit `136a243`: keine Abweichungen außer den 15 `chart_task` (inkl. 90
 Videokapiteln, 449 Lektionen, 1.349 Quizzuordnungen, 43 Funktexten, 410 Vokabeln).
 Die CI führt diesen Abgleich automatisch aus (`.github/workflows/ci.yml`).

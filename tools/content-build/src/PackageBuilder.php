@@ -25,7 +25,7 @@ final class PackageBuilder
     use Concerns\BuildsExamRegistration;
 
     public const CONVERTER_VERSION = '0.3.0';
-    public const SCHEMA_VERSION = '1.3.0';
+    public const SCHEMA_VERSION = '1.4.0';
 
     private const XLSX_MODULE_MAP = [
         'Basis' => 'SBF_BASIS',
@@ -93,7 +93,10 @@ final class PackageBuilder
     /** @var array<string,list<array<string,mixed>>> course_code => Praxiskarten */
     private array $praxis = [];
 
-    public function __construct(private readonly string $snapshotDir, private readonly Report $report)
+    /** Eigene Pflegedatei mit strukturierten Lösungswerten der Navigationsaufgaben (nicht Teil der Quelle). */
+    public const NAVIGATION_VALUES_FILE = __DIR__.'/../data/navigation_answer_values.json';
+
+    public function __construct(private readonly string $snapshotDir, private readonly Report $report, private readonly string $navigationValuesFile = self::NAVIGATION_VALUES_FILE)
     {
         $this->data = rtrim($snapshotDir, '/').'/database/data';
         if (! is_dir($this->data)) {
@@ -798,8 +801,36 @@ final class PackageBuilder
             ];
         }
         ksort($tasks);
+        $this->mergeNavigationValues($tasks);
 
         return array_values(array_map(fn ($t) => $this->finalize($t), $tasks));
+    }
+
+    /**
+     * Ergänzt `answer_values` (optional) aus der eigenen Pflegedatei; jede ID muss existieren und jeder Wert
+     * im angezeigten amtlichen Ergebnis stehen (siehe NavigationAnswerValues::validate()).
+     * @param array<string,array<string,mixed>> $tasks
+     */
+    private function mergeNavigationValues(array &$tasks): void
+    {
+        $overlay = NavigationAnswerValues::load($this->navigationValuesFile);
+        $answers = [];
+        foreach ($tasks as $task) {
+            foreach ($task['questions'] as $q) {
+                $answers[$q['source_id']] = $q['answer_text'];
+            }
+        }
+        $errors = NavigationAnswerValues::validate($overlay, $answers);
+        if ($errors !== []) {
+            throw new RuntimeException("Pflegedatei navigation_answer_values.json ungültig:\n  ".implode("\n  ", $errors));
+        }
+        foreach ($tasks as $taskId => $task) {
+            foreach ($task['questions'] as $i => $q) {
+                if (isset($overlay[$q['source_id']])) {
+                    $tasks[$taskId]['questions'][$i] = array_slice($q, 0, 4, true) + ['answer_values' => $overlay[$q['source_id']]] + $q;
+                }
+            }
+        }
     }
 
     private function importPraxis(): void

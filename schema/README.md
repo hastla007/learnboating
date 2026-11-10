@@ -36,7 +36,7 @@ Das ZIP `<package_id>.zip` enthält dieselbe Struktur.
   `NAV-01-01`; Medien: `elwis/<datei>`, `praxistrainer/<datei>`.
 - **Hash:** Jeder Datensatz trägt `hash` = `sha256:` + SHA-256 seines JSON ohne das Feld
   `hash`. Gleicher Hash → unverändert; anderer Hash → neue Revision bzw. Update.
-- **Versionen:** 1.0 ohne Video/Funk; 1.1 ergänzt `video_modules`, `radio_texts`, `radio_vocabulary`; 1.2 ergänzt `radio_practice`, `device_simulation`; 1.3 ergänzt `exam_committees`, `exam_guides`. Das Plugin liest beide (fehlende Dateien eines 1.0-Pakets gelten als leer).
+- **Versionen:** 1.0 ohne Video/Funk; 1.1 ergänzt `video_modules`, `radio_texts`, `radio_vocabulary`; 1.2 ergänzt `radio_practice`, `device_simulation`; 1.3 ergänzt `exam_committees`, `exam_guides`; 1.4 ergänzt optional `answer_values` je Navigations-Teilaufgabe (prüfbare Lösungswerte aus `tools/content-build/data/navigation_answer_values.json`). Das Plugin liest beide (fehlende Dateien eines 1.0-Pakets gelten als leer).
 - **Video/Funk-IDs:** Lektionen `<Kurs>::<Kapitel>::<Lektion>`, Funktexte `TXT-SRC-01`, `UBI-AUF-01`, `UBI-ABG-01`, Vokabeln `VOC-SRC-<hash>`, `VOC-UBI-<Buchstabe>` – die Fortschrittsschlüssel der Quelle.
 - **Paket-ID:** `boatingschool-<commit7>-<content12>`; identischer Inhalt ergibt dieselbe ID.
 - **Fragen:** Das Paket liefert je Frage den aktuellen Stand. Revisionen entstehen erst

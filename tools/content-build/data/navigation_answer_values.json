@@ -1,0 +1,256 @@
+{
+  "description": "Strukturierte Lösungswerte der Navigationsaufgaben (eigene Pflegedatei, nicht aus der Quelle). Schlüssel: Teilaufgaben-ID; je Wert label, quantity (course|bearing|angle|distance|time|speed|duration|position), value, unit, tolerance, optional aliases (weitere Schreibweisen für die Zuordnung). Werte folgen dem angezeigten (ggf. berichtigten) amtlichen Ergebnis, z. B. NAV-01-02 MgK = 074° nach Verkehrsblatt vom 15.01.2013. Teilaufgaben ohne eindeutig prüfbaren Wert („Siehe Karte“, Beschreibungen) fehlen bewusst. Entwurf: bin/navigation-values.php draft, von Hand geprüft; Prüftabelle: bin/navigation-values.php review.",
+  "values": {
+    "NAV-01-01": [
+      {"label": "rwK", "quantity": "course", "value": 79, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-01-02": [
+      {"label": "MgK", "quantity": "course", "value": 74, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-01-03": [
+      {"label": "Distanz", "quantity": "distance", "value": 6.1, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-01-04": [
+      {"label": "Dauer", "quantity": "duration", "value": 46, "unit": "min", "tolerance": 3}
+    ],
+    "NAV-01-05": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 55.8, "hemisphere": "N"}, "lon": {"deg": 7, "min": 51.3, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-01-06": [
+      {"label": "rwP Leuchttonne \"4a\"", "quantity": "bearing", "value": 170, "unit": "°", "tolerance": 2},
+      {"label": "rwP Leuchttonne \"ST\"", "quantity": "bearing", "value": 65, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-01-08": [
+      {"label": "BV Richtung", "quantity": "angle", "value": 103, "unit": "°", "tolerance": 2},
+      {"label": "BV Distanz", "quantity": "distance", "value": 0.8, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-02-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 54, "min": 9.0, "hemisphere": "N"}, "lon": {"deg": 7, "min": 53.5, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-02-03": [
+      {"label": "rwK", "quantity": "course", "value": 120, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-02-06": [
+      {"label": "Dauer", "quantity": "duration", "value": 67, "unit": "min", "tolerance": 3}
+    ],
+    "NAV-02-07": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 54, "min": 4.5, "hemisphere": "N"}, "lon": {"deg": 8, "min": 6.7, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-02-08": [
+      {"label": "rwP", "quantity": "bearing", "value": 147, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-02-09": [
+      {"label": "BV Richtung", "quantity": "angle", "value": 7, "unit": "°", "tolerance": 2},
+      {"label": "BV Distanz", "quantity": "distance", "value": 1.6, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-03-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 52.4, "hemisphere": "N"}, "lon": {"deg": 7, "min": 44.0, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-03-03": [
+      {"label": "rwK", "quantity": "course", "value": 240, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-03-04": [
+      {"label": "MgK", "quantity": "course", "value": 242, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-03-05": [
+      {"label": "Uhrzeit", "quantity": "time", "value": "15:12", "unit": "Uhr", "tolerance": 3}
+    ],
+    "NAV-03-07": [
+      {"label": "rwP Tonne \"TG15\"", "quantity": "bearing", "value": 290, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"TG17/Weser1\"", "quantity": "bearing", "value": 345, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Accumer Ee\"", "quantity": "bearing", "value": 232, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-04-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 47.2, "hemisphere": "N"}, "lon": {"deg": 7, "min": 29.1, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-04-03": [
+      {"label": "rwK", "quantity": "course", "value": 81, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-04-04": [
+      {"label": "MgK", "quantity": "course", "value": 74, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-04-06": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 48.2, "hemisphere": "N"}, "lon": {"deg": 7, "min": 39.2, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-04-08": [
+      {"label": "rwP Kirche", "quantity": "bearing", "value": 115, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Otzumer Balje\"", "quantity": "bearing", "value": 35, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-05-01": [
+      {"label": "rwP Wasserturm Langeoog", "quantity": "bearing", "value": 221, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Otzumer Balje\"", "quantity": "bearing", "value": 127, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-05-03": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 49.7, "hemisphere": "N"}, "lon": {"deg": 7, "min": 35.8, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-05-05": [
+      {"label": "rwK", "quantity": "course", "value": 61, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-05-06": [
+      {"label": "MgK", "quantity": "course", "value": 63, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-05-07": [
+      {"label": "Uhrzeit", "quantity": "time", "value": "14:30", "unit": "Uhr", "tolerance": 3}
+    ],
+    "NAV-05-09": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 50.2, "hemisphere": "N"}, "lon": {"deg": 7, "min": 37.4, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-06-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 55.3, "hemisphere": "N"}, "lon": {"deg": 7, "min": 58.8, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-06-03": [
+      {"label": "rwK", "quantity": "course", "value": 59, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-06-04": [
+      {"label": "MgK", "quantity": "course", "value": 60, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-06-06": [
+      {"label": "rwP Leuchtturm \"Alte Weser\"", "quantity": "bearing", "value": 159, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Westertill-N\"", "quantity": "bearing", "value": 55, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-06-08": [
+      {"label": "FüG", "quantity": "speed", "value": 6.0, "unit": "kn", "tolerance": 0.3}
+    ],
+    "NAV-07-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 54, "min": 3.5, "hemisphere": "N"}, "lon": {"deg": 8, "min": 6.9, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-07-03": [
+      {"label": "rwK", "quantity": "course", "value": 216, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-07-05": [
+      {"label": "Uhrzeit", "quantity": "time", "value": "11:57", "unit": "Uhr", "tolerance": 3}
+    ],
+    "NAV-07-07": [
+      {"label": "rwP Tonne \"ST\"", "quantity": "bearing", "value": 241, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"A2\"", "quantity": "bearing", "value": 151, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-07-09": [
+      {"label": "BV Richtung", "quantity": "angle", "value": 273, "unit": "°", "tolerance": 2},
+      {"label": "BV Distanz", "quantity": "distance", "value": 1.1, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-08-02": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 54, "min": 7.0, "hemisphere": "N"}, "lon": {"deg": 7, "min": 41.0, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-08-05": [
+      {"label": "Distanz", "quantity": "distance", "value": 3.8, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-08-06": [
+      {"label": "MgK", "quantity": "course", "value": 229, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-08-07": [
+      {"label": "rwK", "quantity": "course", "value": 242, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-08-08": [
+      {"label": "Dauer", "quantity": "duration", "value": 20, "unit": "min", "tolerance": 3}
+    ],
+    "NAV-09-01": [
+      {"label": "Uhrzeit", "quantity": "time", "value": "13:00", "unit": "Uhr", "tolerance": 3}
+    ],
+    "NAV-09-02": [
+      {"label": "MgK", "quantity": "course", "value": 202, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-09-06": [
+      {"label": "rwP Leuchtturm \"Neuwerk\"", "quantity": "bearing", "value": 96, "unit": "°", "tolerance": 2},
+      {"label": "rwP Leuchtturm \"Alte Weser\"", "quantity": "bearing", "value": 205, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-09-08": [
+      {"label": "Distanz", "quantity": "distance", "value": 4.6, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-09-09": [
+      {"label": "FüG", "quantity": "speed", "value": 4.6, "unit": "kn", "tolerance": 0.3}
+    ],
+    "NAV-10-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 52.6, "hemisphere": "N"}, "lon": {"deg": 8, "min": 6.4, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-10-04": [
+      {"label": "rwK", "quantity": "course", "value": 301, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-10-05": [
+      {"label": "MgK", "quantity": "course", "value": 304, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-10-06": [
+      {"label": "FüG", "quantity": "speed", "value": 12.0, "unit": "kn", "tolerance": 0.3}
+    ],
+    "NAV-10-08": [
+      {"label": "rwP Tonne \"Nordergründe-N\"", "quantity": "bearing", "value": 112, "unit": "°", "tolerance": 2, "aliases": ["NGN"]},
+      {"label": "rwP Tonne \"ST\"", "quantity": "bearing", "value": 227, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-11-03": [
+      {"label": "rwK", "quantity": "course", "value": 148, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-11-05": [
+      {"label": "MgK", "quantity": "course", "value": 152, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-11-07": [
+      {"label": "Uhrzeit", "quantity": "time", "value": "09:37", "unit": "Uhr", "tolerance": 3}
+    ],
+    "NAV-11-08": [
+      {"label": "rwP Leuchtturm \"Alte Weser\"", "quantity": "bearing", "value": 12, "unit": "°", "tolerance": 2},
+      {"label": "rwP Leuchtturm \"Tegeler Plate\"", "quantity": "bearing", "value": 103, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-12-01": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 50.0, "hemisphere": "N"}, "lon": {"deg": 7, "min": 53.4, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-12-03": [
+      {"label": "rwK", "quantity": "course", "value": 7, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-12-04": [
+      {"label": "MgK", "quantity": "course", "value": 9, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-12-06": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 54.0, "hemisphere": "N"}, "lon": {"deg": 7, "min": 54.3, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-12-08": [
+      {"label": "BV Richtung", "quantity": "angle", "value": 296, "unit": "°", "tolerance": 2},
+      {"label": "BV Distanz", "quantity": "distance", "value": 0.7, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-13-01": [
+      {"label": "rwP Tonne \"Helgoland-O\"", "quantity": "bearing", "value": 285, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Düne-S\"", "quantity": "bearing", "value": 9, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-13-03": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 54, "min": 8.6, "hemisphere": "N"}, "lon": {"deg": 7, "min": 55.7, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-13-06": [
+      {"label": "rwK", "quantity": "course", "value": 182, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-13-07": [
+      {"label": "MgK", "quantity": "course", "value": 177, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-13-08": [
+      {"label": "FüG", "quantity": "speed", "value": 7.5, "unit": "kn", "tolerance": 0.3}
+    ],
+    "NAV-14-03": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 58.4, "hemisphere": "N"}, "lon": {"deg": 8, "min": 28.2, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-14-05": [
+      {"label": "rwK", "quantity": "course", "value": 38, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-14-06": [
+      {"label": "MgK", "quantity": "course", "value": 33, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-14-07": [
+      {"label": "Distanz", "quantity": "distance", "value": 3.6, "unit": "sm", "tolerance": 0.2}
+    ],
+    "NAV-14-08": [
+      {"label": "rwP Tonne \"Süderpiep\"", "quantity": "bearing", "value": 22, "unit": "°", "tolerance": 2},
+      {"label": "rwP Tonne \"Norderelbe\"", "quantity": "bearing", "value": 100, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-15-01": [
+      {"label": "rwP Leuchtturm \"Alte Weser\"", "quantity": "bearing", "value": 180, "unit": "°", "tolerance": 2},
+      {"label": "rwP Leuchtturm \"Neuwerk\"", "quantity": "bearing", "value": 90, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-15-03": [
+      {"label": "Position", "quantity": "position", "value": {"lat": {"deg": 53, "min": 54.9, "hemisphere": "N"}, "lon": {"deg": 8, "min": 7.6, "hemisphere": "E"}}, "unit": "'", "tolerance": 0.3}
+    ],
+    "NAV-15-04": [
+      {"label": "rwK", "quantity": "course", "value": 37, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-15-05": [
+      {"label": "MgK", "quantity": "course", "value": 39, "unit": "°", "tolerance": 2}
+    ],
+    "NAV-15-06": [
+      {"label": "Distanz", "quantity": "distance", "value": 5.4, "unit": "sm", "tolerance": 0.2}
+    ]
+  }
+}

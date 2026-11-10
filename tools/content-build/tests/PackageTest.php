@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ContentBuild\Tests;
 
 use ContentBuild\Json;
+use ContentBuild\NavigationAnswerValues;
 use ContentBuild\PackageBuilder;
 use ContentBuild\PackageWriter;
 use ContentBuild\Report;
@@ -279,5 +280,76 @@ final class PackageTest extends TestCase
         self::assertSame(['UBI'], array_column($courses['UBI']['modules'], 'module_code'));
         $modules = array_column(self::data('modules'), null, 'code');
         self::assertCount(79, $modules['UBI_ERG']['questions']);
+    }
+
+    public function testNavigationAnswerValuesFollowOfficialResults(): void
+    {
+        $parts = [];
+        foreach (self::data('navigation_tasks') as $task) {
+            foreach ($task['questions'] as $q) {
+                $parts[$q['source_id']] = $q;
+            }
+        }
+        $withValues = array_filter($parts, static fn ($q) => isset($q['answer_values']));
+        self::assertCount(78, $withValues, 'Teilaufgaben mit prüfbaren Werten (Prüftabelle: bin/navigation-values.php review)');
+        $byQuantity = [];
+        foreach ($withValues as $q) {
+            foreach ($q['answer_values'] as $v) {
+                $byQuantity[$v['quantity']] = ($byQuantity[$v['quantity']] ?? 0) + 1;
+            }
+        }
+        ksort($byQuantity);
+        self::assertSame(['angle' => 4, 'bearing' => 26, 'course' => 27, 'distance' => 9, 'duration' => 3, 'position' => 17, 'speed' => 4, 'time' => 5], $byQuantity);
+        // Berichtigung (Verkehrsblatt 15.01.2013): angezeigter MgK 074°.
+        self::assertSame(74, $parts['NAV-01-02']['answer_values'][0]['value']);
+        self::assertSame(['BV Richtung', 'BV Distanz'], array_column($parts['NAV-01-08']['answer_values'], 'label'));
+        self::assertSame([103, 0.8], array_column($parts['NAV-01-08']['answer_values'], 'value'));
+        self::assertSame(['lat' => ['deg' => 53, 'min' => 55.8, 'hemisphere' => 'N'], 'lon' => ['deg' => 7, 'min' => 51.3, 'hemisphere' => 'E']], $parts['NAV-01-05']['answer_values'][0]['value']);
+        self::assertSame('15:12', $parts['NAV-03-05']['answer_values'][0]['value']);
+        self::assertArrayNotHasKey('answer_values', $parts['NAV-01-07'], '„Siehe Karte“ ohne Werte');
+        self::assertArrayNotHasKey('answer_values', $parts['NAV-01-09'], 'Beschreibung ohne Werte');
+        // Feldreihenfolge: answer_values direkt nach answer_text.
+        self::assertSame(['source_id', 'question_number', 'question_text', 'answer_text', 'answer_values', 'sort_order'], array_keys($parts['NAV-01-01']));
+    }
+
+    public function testNavigationAnswerValuesValidation(): void
+    {
+        $answers = ['NAV-01-01' => 'rwk = 079°', 'NAV-01-05' => "53° 55,8' N 007° 51,3' E", 'NAV-03-05' => '15:12 Uhr'];
+        $ok = ['label' => 'rwK', 'quantity' => 'course', 'value' => 79, 'unit' => '°', 'tolerance' => 2];
+        self::assertSame([], NavigationAnswerValues::validate(['NAV-01-01' => [$ok]], $answers));
+        $errors = NavigationAnswerValues::validate([
+            'NAV-99-01' => [$ok],
+            'NAV-01-01' => [
+                ['unit' => 'sm'] + $ok,
+                ['value' => 80] + $ok,
+                ['tolerance' => 5] + $ok,
+                ['quantity' => 'depth'] + $ok,
+                $ok + ['extra' => 1],
+            ],
+            'NAV-01-05' => [['label' => 'Position', 'quantity' => 'position', 'value' => ['lat' => ['deg' => 53, 'min' => 55.9, 'hemisphere' => 'N'], 'lon' => ['deg' => 7, 'min' => 51.3, 'hemisphere' => 'E']], 'unit' => "'", 'tolerance' => 0.3]],
+            'NAV-03-05' => [['label' => 'Uhrzeit', 'quantity' => 'time', 'value' => '15:21', 'unit' => 'Uhr', 'tolerance' => 3]],
+        ], $answers);
+        self::assertCount(8, $errors, implode("\n", $errors));
+        self::assertStringContainsString('NAV-99-01: Teilaufgabe gibt es nicht', $errors[0]);
+        self::assertStringContainsString('Einheit „sm“ passt nicht zu course', $errors[1]);
+        self::assertStringContainsString('Wert 80 steht nicht im amtlichen Ergebnis', $errors[2]);
+        self::assertStringContainsString('Toleranz muss 2 sein', $errors[3]);
+        self::assertStringContainsString('unbekannte Größe depth', $errors[4]);
+        self::assertStringContainsString('Felder label', $errors[5]);
+        self::assertStringContainsString('Position lat steht so nicht', $errors[6]);
+        self::assertStringContainsString('Uhrzeit 15:21 steht nicht', $errors[7]);
+    }
+
+    public function testInvalidNavigationOverlayStopsTheBuild(): void
+    {
+        $file = sys_get_temp_dir().'/nav-values-'.getmypid().'.json';
+        file_put_contents($file, json_encode(['values' => ['NAV-01-01' => [['label' => 'rwK', 'quantity' => 'course', 'value' => 80, 'unit' => '°', 'tolerance' => 2]]]]));
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessageMatches('/navigation_answer_values\.json ungültig.*Wert 80/s');
+            (new PackageBuilder(self::$root.'/content-source/boatingschool', new Report(), $file))->build();
+        } finally {
+            unlink($file);
+        }
     }
 }
