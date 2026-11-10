@@ -207,6 +207,114 @@ function kurswasser_course_facts(array $def, int $max = 3): array
     return array_slice($facts, 0, $max);
 }
 
+
+/** Kursbezogene FAQ-Kategorien: eigene Fragen und Antworten je Kursseite. */
+function kurswasser_course_faqs(): array
+{
+    return [
+        'sbf-see' => [
+            'title' => 'Fragen zum SBF See',
+            'items' => [
+                ['question' => 'Was lerne ich im SBF-See-Kurs?', 'answer' => 'Du übst die im Kurs enthaltenen Prüfungsfragen, Navigationsaufgaben und Inhalte für die Prüfungssimulation. Dazu kommen Praxiskarten zur Vorbereitung auf den praktischen Teil.'],
+                ['question' => 'Brauche ich für die Navigationsaufgaben eine Seekarte?', 'answer' => 'Ja. Für die Aufgaben wird die gedruckte Übungskarte D49 benötigt. Die Aufgaben enthalten Musterlösungen und eine Selbsteinschätzung.'],
+                ['question' => 'Ist die praktische Ausbildung auf dem Boot im Onlinekurs enthalten?', 'answer' => 'Der Kurs bereitet dich online auf die Theorie und die Prüfungsinhalte vor. Praxiskarten unterstützen dich beim Lernen; tatsächliche Fahrstunden auf dem Wasser sind nicht Bestandteil des Onlinekurses.'],
+                ['question' => 'Kann ich die Prüfung mit dem Kurs simulieren?', 'answer' => 'Ja. Die Prüfungssimulation übt den Ablauf mit Zeitlimit und anschließender Auswertung.'],
+            ],
+        ],
+        'sbf-binnen' => [
+            'title' => 'Fragen zum SBF Binnen',
+            'items' => [
+                ['question' => 'Welche Inhalte deckt der Binnenkurs ab?', 'answer' => 'Der Kurs behandelt den SBF Binnen unter Antriebsmaschine. Du übst die Fragen im Smarttrainer und vertiefst Zeichen, Lichter und Manöver mit Praxiskarten.'],
+                ['question' => 'Ist der Segelteil im Binnenkurs enthalten?', 'answer' => 'Der hier beschriebene Kurs bereitet auf den SBF Binnen unter Antriebsmaschine vor. Für die zusätzlichen Segelfragen und Segelmanöver gibt es einen eigenen Kurs für den SBF Binnen unter Segel.'],
+                ['question' => 'Gibt es eine Prüfungssimulation?', 'answer' => 'Ja. Du kannst mit Zeitlimit üben und erhältst nach dem Durchgang eine Auswertung.'],
+                ['question' => 'Enthält der Onlinekurs Fahrstunden?', 'answer' => 'Nein. Der Kurs ist für die Onlinevorbereitung gedacht. Praxiskarten helfen dir beim Wiederholen der praktischen Inhalte; Fahrstunden auf dem Wasser sind separat zu organisieren.'],
+            ],
+        ],
+        'sbf-binnen-segel' => [
+            'title' => 'Fragen zum SBF Binnen unter Segel',
+            'items' => [
+                ['question' => 'Was kommt im Segelkurs zusätzlich dazu?', 'answer' => 'Der Kurs verbindet die Binnenfragen mit den zusätzlichen Segelfragen. Außerdem übst du Segelmanöver sowie Themen wie Wind und Trimm.'],
+                ['question' => 'Kann ich die Segelfragen gezielt wiederholen?', 'answer' => 'Ja. Die Fragen lassen sich im Smarttrainer üben und gezielt wiederholen.'],
+                ['question' => 'Wie bereite ich mich auf den praktischen Segelteil vor?', 'answer' => 'Praxiskarten helfen dir, Manöver und wichtige Abläufe zu wiederholen. Die praktische Ausbildung auf dem Wasser ist nicht Teil des Onlinekurses.'],
+            ],
+        ],
+        'src' => [
+            'title' => 'Fragen zum SRC',
+            'items' => [
+                ['question' => 'Was lerne ich im SRC-Kurs?', 'answer' => 'Der Kurs behandelt die Prüfungsfragen zum Seefunkzeugnis SRC. Zusätzlich übst du englische Funktexte, Vokabeln und das Buchstabieralphabet.'],
+                ['question' => 'Kann ich Funktexte für die Prüfung üben?', 'answer' => 'Ja. Die englischen Funktexte werden mit einer Auswertung geübt, damit du deine Eingaben nachvollziehen kannst.'],
+                ['question' => 'Gibt es einen Funkgerät-Simulator?', 'answer' => 'Du kannst den Funkgerät-Simulator testen. Der vollständige Zugang ist als Upgrade verfügbar; die enthaltene Version hängt vom gewählten Angebot ab.'],
+                ['question' => 'Was ist der Unterschied zwischen SRC und UBI?', 'answer' => 'Das SRC ist das Funkzeugnis für den Seefunk. Das UBI behandelt den Binnenfunk. Für beide Zeugnisse gibt es eigene Lerninhalte und Prüfungsvorbereitungen.'],
+            ],
+        ],
+        'ubi' => [
+            'title' => 'Fragen zum UBI',
+            'items' => [
+                ['question' => 'Was lerne ich im UBI-Kurs?', 'answer' => 'Der Kurs bereitet auf das UKW-Sprechfunkzeugnis für den Binnenfunk vor. Er umfasst Prüfungsfragen, Funktexte und Praxisszenarien.'],
+                ['question' => 'Kann ich Textaufnahme und Textabgabe üben?', 'answer' => 'Ja. Der Kurs enthält Übungen zu Funktexten für die Textaufnahme und Textabgabe.'],
+                ['question' => 'Ist das UBI dasselbe wie das SRC?', 'answer' => 'Nein. Das UBI bezieht sich auf den Binnenfunk, das SRC auf den Seefunk. Die Prüfungsinhalte unterscheiden sich entsprechend.'],
+                ['question' => 'Gibt es eine Prüfungssimulation?', 'answer' => 'Ja. Mit der Simulation kannst du die Vorbereitung unter Zeitvorgabe üben und deine Antworten anschließend auswerten.'],
+            ],
+        ],
+        'skn' => [
+            'title' => 'Fragen zum SKN',
+            'items' => [
+                ['question' => 'Worum geht es im SKN-Kurs?', 'answer' => 'Der Kurs bereitet auf den Sachkundenachweis für Seenotsignalmittel vor. Du übst Fragen und wiederholst den Umgang mit Signalmitteln anhand von Praxiskarten.'],
+                ['question' => 'Was trainieren die Praxiskarten?', 'answer' => 'Die Praxiskarten unterstützen dich beim Erkennen und bei der sicheren Handhabung der behandelten Seenotsignalmittel.'],
+                ['question' => 'Kann ich meine Prüfungsvorbereitung überprüfen?', 'answer' => 'Ja. Der Smarttrainer hilft dir, Fragen zu wiederholen und unsichere Themen erneut zu üben.'],
+            ],
+        ],
+        'fkn' => [
+            'title' => 'Fragen zum FKN',
+            'items' => [
+                ['question' => 'Was behandelt der FKN-Kurs?', 'answer' => 'Der Kurs bereitet auf den Fachkundenachweis für Seenotsignalmittel vor. Er umfasst Prüfungsfragen, Praxiskarten und eine Prüfungssimulation.'],
+                ['question' => 'Wie kann ich die Handhabung wiederholen?', 'answer' => 'Mit den Praxiskarten kannst du das Erkennen und die Handhabung der behandelten Signalmittel wiederholen.'],
+                ['question' => 'Kann ich einzelne Fragen mehrfach üben?', 'answer' => 'Ja. Im Smarttrainer kannst du Fragen wiederholen und dich erneut mit Themen beschäftigen, bei denen du noch unsicher bist.'],
+            ],
+        ],
+        'sbf-kombi' => [
+            'title' => 'Fragen zum Kombikurs SBF See & Binnen',
+            'items' => [
+                ['question' => 'Welche Scheine umfasst der Kombikurs?', 'answer' => 'Der Kombikurs verbindet die Vorbereitung auf den SBF See und den SBF Binnen. Die Lerninhalte beider Scheine sind im Kurs zusammengeführt.'],
+                ['question' => 'Sind die Fragen für beide Scheine enthalten?', 'answer' => 'Ja. Du kannst die im Kurs enthaltenen Fragen für See und Binnen üben. Zusätzlich umfasst die Vorbereitung Navigationsaufgaben, Praxiskarten und Prüfungssimulationen.'],
+                ['question' => 'Muss ich beide Prüfungen gleichzeitig ablegen?', 'answer' => 'Der Kombikurs bündelt die Lerninhalte. Prüfungstermine und Anmeldung organisierst du entsprechend den Vorgaben des zuständigen Prüfungsausschusses.'],
+            ],
+        ],
+        'kapitaen' => [
+            'title' => 'Fragen zum Kapitäns-Bundle',
+            'items' => [
+                ['question' => 'Welche Kurse gehören zum Kapitäns-Bundle?', 'answer' => 'Das Bundle bündelt die Vorbereitung auf SBF See, SBF Binnen, SRC und UBI. Die jeweiligen Fragen und Lernbereiche sind im Paket enthalten.'],
+                ['question' => 'Kann ich die Scheine in meinem eigenen Tempo lernen?', 'answer' => 'Ja. Du lernst online und kannst zwischen den Themen und Kursbereichen wechseln. Dein Lernfortschritt wird in deinem Konto gespeichert.'],
+                ['question' => 'Sind amtliche Prüfungen im Bundle enthalten?', 'answer' => 'Das Bundle umfasst Lerninhalte und Prüfungsvorbereitung. Die amtlichen Prüfungen legst du beim zuständigen Prüfungsausschuss ab; Gebühren und Anmeldung sind separat zu klären.'],
+            ],
+        ],
+        'funk-kombi' => [
+            'title' => 'Fragen zum Kombikurs SRC & UBI',
+            'items' => [
+                ['question' => 'Welche Funkzeugnisse umfasst der Kombikurs?', 'answer' => 'Der Kurs verbindet die Vorbereitung auf SRC für den Seefunk und UBI für den Binnenfunk.'],
+                ['question' => 'Welche Funkübungen sind enthalten?', 'answer' => 'Je nach Funkzeugnis übst du englische oder deutsche Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien.'],
+                ['question' => 'Ist der Funkgerät-Simulator im Kombikurs enthalten?', 'answer' => 'Der Simulator kann getestet werden. Ob die Vollversion enthalten ist oder als Upgrade gebucht wird, richtet sich nach der gewählten Angebotsstufe.'],
+            ],
+        ],
+    ];
+}
+
+/** Gibt die FAQ-Kategorie des jeweiligen Kurses als native Akkordeons aus. */
+function kurswasser_course_faq(string $slug): string
+{
+    $faq = kurswasser_course_faqs()[$slug] ?? null;
+    if ($faq === null || empty($faq['items'])) {
+        return '';
+    }
+
+    $html = '<section class="kw-section kw-faq kw-course-faq" aria-labelledby="kw-course-faq-title"><div class="kw-section-head"><p class="kw-eyebrow">'.esc_html__('Fragen & Antworten', 'kurswasser').'</p><h2 id="kw-course-faq-title">'.esc_html($faq['title']).'</h2></div>';
+    foreach ($faq['items'] as $item) {
+        $html .= '<details class="wp-block-details"><summary>'.esc_html($item['question']).'</summary><p>'.esc_html($item['answer']).'</p></details>';
+    }
+
+    return $html.'</section>';
+}
+
 /* ------------------------------------------------------------------ Kacheln (Startseite) */
 
 add_shortcode('kurswasser_course_tiles', static function ($atts): string {
@@ -286,6 +394,8 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $html .= kurswasser_offer_cards($def['offers'], $def['featured'], $def['compare'], $def['compare'] !== [] ? __('Unsere Empfehlung', 'kurswasser') : __('Dein Kurs', 'kurswasser'));
     $html .= kurswasser_offer_trust().'</section>';
     $html .= kurswasser_sim_section($def);
+
+    $html .= kurswasser_course_faq($slug);
 
     return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/guarantee"} /--><!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
 });
