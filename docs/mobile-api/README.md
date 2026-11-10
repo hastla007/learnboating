@@ -32,7 +32,8 @@ src/Mobile/
 │                            (bp_mobile_web_code), ?bp_app_login=…
 ├── AppSettings.php          Synchronisierte App-Einstellungen (Nutzer-Meta bp_app_settings, Version)
 ├── AppLinks.php             Universal Links/App Links: /.well-known/…, /app/passwort/, /app/konto-loeschen/,
-│                            Links in Reset- und Löschbestätigungs-Mail
+│                            Links in Reset- und Löschbestätigungs-Mail, seit 1.7.0 Einladungslinks
+│                            /bootsscheine/gruppe/<token>/ in der apple-app-site-association
 ├── Idempotency.php          Idempotency-Key je Nutzer/Vorgang (bp_mobile_idempotency), Übernahme verwaister Einträge
 ├── RateLimiter.php          Atomare Zähler (bp_mobile_rate_limit) und Client-IP hinter eingetragenen Proxys
 ├── Problem.php, ApiException.php   einheitliches Fehlerobjekt
@@ -40,8 +41,8 @@ src/Mobile/
 │                            Webansicht-Anmeldung, iOS-/Android-App-Kennungen)
 ├── Admin/MobileAdminPage.php  Bootsprüfung → Mobile App
 ├── Controllers/             Auth (inkl. Web-Sitzung), Account, Settings, Course (inkl. Prüfungsanmeldung), Learning, Exam,
-│                            Training (Video/Navigation/Praxis), Radio (Funktraining), Coupon, Privacy,
-│                            File – je ein dünner Adapter auf die Services
+│                            Training (Video/Navigation/Praxis), Radio (Funktraining), Coupon, Group (Gruppenlizenzen),
+│                            Tips, Privacy, File – je ein dünner Adapter auf die Services
 └── Mapper/                  Course-, Question-, Media-Mapper (Service-Ergebnis → Vertragsformat)
 ```
 
@@ -73,7 +74,7 @@ entfernt).
 | `GET /courses`, `GET /courses/{id}` | `ContentRepository::courses`, `AccessService::scopes`, `LearningService::courseTotal`, `ExamService::overview`, `TrainerController::summary`, `Integration::offers`, `VideoUpgrade::offerFor`, `DownloadService`, `SectionFiles`, `Charts`, `DeviceSimService::available/premium` (`device_simulator`), `ExamGuideService::pagesFor` (`exam_registration`) |
 | `GET /courses/{id}/exam-registration` | `ExamGuideService` (`enabled`, `payload` = Anleitungen + `committees`) wie `ExamGuideController` |
 | `GET /courses/{id}/overview`, `/modules`, `/progress` | `LearningService::courseProgress` (Module, Themen, Drip, Teilumfang) |
-| `GET /courses/{id}/trainer/next` | `LearningService::next` (+ `CollectionService::questionIds`, `ExamService::wrongQuestionIds`) |
+| `GET /courses/{id}/trainer/next` | `LearningService::next` (+ `CollectionService::questionIds`, `ExamService::wrongQuestionIds`); `mode=question` (1.7.0): `LearningService::next` mit Fragenauswahl `[question_id]`, Sperrgrund aus `LearningService::moduleGates`/`allowedQuestions`/`blockedByRunningExam` |
 | `POST /courses/{id}/trainer/reveal` | `LearningService::reveal` |
 | `POST /courses/{id}/attempts`, `GET …/attempts/{id}` | `QuestionPresenter::verify`, `LearningService::answer` |
 | `…/favorites`, `…/favorite-collections`, `…/mistakes` | `CollectionService` (`overview`, `assign`, `create`, `rename`, `delete`), `LearningService::setFavorite`; `saved_at`/`assigned_at` aus `bp_favorite.created_at` / `bp_favorite_collection_item.created_at` |
@@ -87,13 +88,19 @@ entfernt).
 | `GET /courses/{id}/radio/vocabulary`, `POST …/vocabulary/{cardId}/answers` | `RadioService` (`vocabulary`, `vocabularyAnswer`) |
 | `GET /courses/{id}/radio/practice[/{scenarioId}]`, `POST …/evaluate`, `PUT …/done` | `RadioPracticeService` (`overview`, `show`, `evaluate`, `setDone`) |
 | `GET /courses/{id}/radio/samples` | `RadioPracticeService::samples` |
-| `POST /coupons/redeem` | `GroupService::join` (Beitrittscodes von Gruppenlizenzen) |
+| `POST /coupons/redeem` | `GroupService::join` (Beitrittscodes `g…` und persönliche Einladungen `i…` von Gruppenlizenzen, wie Web `groups/join`) |
+| `GET /groups/join/{token}` (1.7.0) | `GroupService::describeToken`, `GroupService::resolve` (Vorschau wie Web `GET groups/join/{token}`) |
+| `GET /me/groups`, `GET /me/groups/{id}` (1.7.0) | `GroupService::forOwner`, `find`, `membersOf`, `freeSeats`, `inviteBudget`, `inviteCutoff`/`inviteExpiresAt`, `joinUrl` (wie Web `GET me/groups`) |
+| `POST /me/groups/{id}/invites` (1.7.0) | `GroupService::invite` (gleiche Prüfung, Tageslimit, Einladungsmail wie Web `me/groups/{id}/invite`) |
+| `DELETE /me/groups/{id}/members/{memberId}` (1.7.0) | `GroupService::removeMember` (wie Web) |
+| `POST /me/groups/{id}/join-code` (1.7.0) | `GroupService::regenerateToken` (wie Web `me/groups/{id}/token`) |
+| `GET /tips` (1.7.0) | `Tips::groups` (gleiche Daten wie Web `GET tips` = `Tips::payload`) |
 | `POST /profile/export`, `GET /profile/export/{id}[/download]` | asynchron: Action Scheduler (`as_enqueue_async_action`) bzw. `wp_schedule_single_event`, Hook `bp_mobile_export_generate` → `PrivacyController::generate`; alle WordPress-Datenexporte (`PersonalData` des Plugins, WordPress-Konto, WooCommerce) |
 | `POST /me/deletion-request` | `wp_create_user_request()`, `wp_send_user_request()` (mit App-Kennungen: Link über `AppLinks`) |
 | `POST /me/deletion-request/confirm` | `wp_validate_user_request_key()`, Aktion `user_request_action_confirmed` (wie `wp-login.php?action=confirmaction`) |
 | `GET /files/{id}` | `ProtectedFiles::requirement`, `DownloadService::allowed`, Range (`FileController::parseRange`) |
 | `GET /health` | – (Server-Prüfung) |
-| außerhalb der API: `/.well-known/apple-app-site-association`, `/.well-known/assetlinks.json`, `/app/passwort/`, `/app/konto-loeschen/` | `AppLinks` (früher `parse_request`-Handler) |
+| außerhalb der API: `/.well-known/apple-app-site-association`, `/.well-known/assetlinks.json`, `/app/passwort/`, `/app/konto-loeschen/` | `AppLinks` (früher `parse_request`-Handler); `/bootsscheine/gruppe/<token>/` steht seit 1.7.0 nur in der `apple-app-site-association`, die Seite selbst bleibt der Web-Lernbereich (`Frontend\Router`) |
 
 ---
 
@@ -116,7 +123,9 @@ entfernt).
      Signaturzertifikats (je Zeile `AA:BB:…`, 32 Bytes; bei Play App Signing der Schlüssel aus der Play
      Console „App-Integrität → App-Signatur“, ggf. zusätzlich Upload-/Testschlüssel). Alle Werte liefert das
      App-Team. Ungültige Einträge werden beim Speichern verworfen. Seit 1.4.0 gilt das auch für den
-     Bestätigungslink der Kontolöschung (`/app/konto-loeschen/`).
+     Bestätigungslink der Kontolöschung (`/app/konto-loeschen/`), seit 1.7.0 für Einladungs- und
+     Beitrittslinks von Gruppenlizenzen (`/bootsscheine/gruppe/<token>/`, ohne App wie bisher die
+     Web-Seite „Gruppe beitreten“).
    - *Server prüfen*: testet, ob der Authorization-Header bei PHP ankommt.
    - *App-Sitzungen eines Kunden widerrufen* (E-Mail oder Benutzername).
 3. Kunden brauchen kein neues Konto: Anmeldung mit dem Shop-Konto. Käufe im Shop schalten wie im Web automatisch frei.
@@ -179,8 +188,9 @@ entfernt).
 2. **Anmelden:** `POST /auth/login` mit `email` (oder Benutzername), `password`, `device_name`,
    `device_platform`, `app_version`. Antwort: Token-Paar, `user`, `memberships`. Tokens nur im
    Keychain/Keystore speichern. Es gibt genau eine Mitgliedschaft (ein Shop = eine Bootsschule).
-3. **Jede weitere Anfrage:** `Authorization: Bearer <access_token>` und – außer bei `/auth/*`, `/me*`,
-   `/files/*`, Export-Download – `X-Tenant-Slug: <memberships[0].tenant_slug>`.
+3. **Jede weitere Anfrage:** `Authorization: Bearer <access_token>` und – außer bei `/auth/*`, `/me*`
+   (auch `/me/groups*`), `/files/*`, Export-Download – `X-Tenant-Slug: <memberships[0].tenant_slug>`
+   (also auch bei `/tips` und `/groups/join/{token}`).
 4. **401 `UNAUTHENTICATED`:** genau einmal `POST /auth/refresh`, danach Anfrage wiederholen. Refresh
    **serialisieren** (nur ein Aufruf gleichzeitig) und neue Tokens **sofort** im Keychain/Keystore
    speichern. **Antwort verloren (Timeout, Funkloch, seit 1.4.0):** denselben Refresh-Aufruf mit dem
@@ -198,7 +208,8 @@ entfernt).
    Antwort: `POST /courses/{id}/attempts` mit `answer_token`, `selected_answer_ids` und Header
    `Idempotency-Key` (UUID, pro Antwort neu, bei Netzwiederholung gleich). Offene Fragen
    (`answer_selection: open`): erst `POST …/trainer/reveal`, dann `known: true|false` senden.
-   204 bei `next` = im Modus nichts übrig. Korrektheit nie lokal ableiten.
+   204 bei `next` = im Modus nichts übrig. Korrektheit nie lokal ableiten. Eine **bestimmte Frage**
+   üben (seit 1.7.0): `trainer/next?mode=question&question_id=…` (siehe 20).
 7. **Prüfung:** `GET /courses/{id}/exams` → `POST /courses/{id}/exams` (`paper_id` oder ohne für die
    Zufallssimulation; laufende Prüfung wird fortgesetzt) → `PUT /exams/{examId}/answers/{position}`
    je Frage (`questions[].id` ist die Position) → `POST /exams/{examId}/submit`. Timer nach
@@ -302,6 +313,59 @@ entfernt).
     bestätigt (die Bootsschule bearbeitet den Antrag); 422 `DELETION_CONFIRMATION_INVALID` =
     ungültig, abgelaufen (24 h) oder schon bestätigt → ggf. neu beantragen. Ohne App öffnet der
     Browser die Adresse und die Website leitet auf die WordPress-Bestätigung weiter.
+17. **Tipps & Tricks (seit 1.7.0):** `GET /tips` (mit `X-Tenant-Slug`, ohne Kurszugang) liefert dieselben
+    Tipps wie `/bootsscheine/tipps/`: `data[]` = Kategorien (`id` – null für „Allgemein“ –, `slug`,
+    `name`) mit `tips[]` (`id`, `title`, `html`, `text`, `links`). `html` ist WordPress-Beitrags-HTML
+    nach `wp_kses_post` (wie im Web: `p`, `br`, `strong`, `em`, `a`, Listen, Zwischenüberschriften,
+    ggf. Bilder/Tabellen; relative Links sind absolut). Ohne HTML-Darstellung `text` anzeigen
+    (Absätze durch Leerzeile, Listenpunkte „• “) und `links` als Schaltflächen. Links auf die Website
+    im Systembrowser öffnen (bzw. als App-Link, falls die App den Pfad behandelt). Reihenfolge der
+    Kategorien und Tipps nicht umsortieren.
+18. **Gruppen verwalten (seit 1.7.0, nur für die besitzende Person einer Gruppenlizenz – wie im Web):**
+    `GET /me/groups` (Liste, `meta.seats_total/seats_used`; leer = keine eigene Gruppe, dann den
+    Menüpunkt ausblenden), `GET /me/groups/{groupId}`. Je Gruppe: `status` (`active`, `suspended`,
+    `revoked`), `valid_until`, `seats` (`total`, `used` = aktive Mitglieder + offene Einladungen,
+    `free`), `scopes` (Kurs-ID, Fähigkeit), `join_code`/`join_url` (nur bei aktiver Gruppe; zum Teilen,
+    z. B. Share-Sheet), `invites_remaining_today`, `members[]` mit `status` `active` | `invited` |
+    `expired` (Einladung nach 30 Tagen nicht angenommen, belegt keinen Platz), `invite_expires_at`,
+    `is_me`, `removable`. **Einladen:** `POST /me/groups/{groupId}/invites` mit `{"emails": [...]}`
+    (bis 200) bzw. `{"email": "…"}` und optional `Idempotency-Key`; Antwort `invited`, `skipped`
+    (ungültig, schon eingeladen, keine Plätze, Tageslimit – wie im Web ohne Einzelgrund) und die
+    aktualisierte `group`. Die Mail mit persönlichem Link verschickt der Server (wie im Web).
+    **Platz freigeben:** `DELETE /me/groups/{groupId}/members/{memberId}` (optional `reason`) –
+    Rückfrage in der App („Zugang von … wirklich beenden?“); widerruft die Platz-Zugänge sofort.
+    **Neuer Link:** `POST /me/groups/{groupId}/join-code` – der alte Link/Code ist sofort ungültig
+    (Rückfrage!), persönliche Einladungen bleiben gültig. Ausgesetzte/widerrufene Gruppe → Einladen
+    und neuer Link 409 `GROUP_NOT_ACTIVE`. Fremde Gruppen → 404.
+19. **Einladungslink öffnet die App (seit 1.7.0, wenn der Shop App-Kennungen eingetragen hat):**
+    Einladungsmails und geteilte Beitrittslinks lauten `https://<shop>/bootsscheine/gruppe/<token>/`
+    (`token` = `g` + 32 Hex für den Gruppenlink, `i` + 32 Hex für eine persönliche Einladung). Der Pfad
+    steht in der `apple-app-site-association` (`/bootsscheine/gruppe/*`); Android: Intent-Filter
+    zusätzlich mit `pathPrefix /bootsscheine/gruppe/` (`assetlinks.json` gilt fürs ganze Paket,
+    dort ändert sich nichts). Ablauf in der App:
+    1. Token aus dem Pfad lesen (Regex `/gruppe/([gi][0-9a-f]{32})/?`).
+    2. **Nicht angemeldet:** Token merken (nur im Speicher bzw. sicherem Speicher, nicht protokollieren),
+       Anmeldung bzw. Registrierung zeigen (Registrierung über die Website im Systembrowser – danach
+       anmelden), danach mit dem gemerkten Token weiter.
+    3. `GET /groups/join/{token}` → Vorschau (Name, verwaltende Person, Kurse, `free_seats`,
+       `personal`, `already_member`, `joinable`). 422 `COUPON_INVALID` = ungültig, abgelaufen, bereits
+       angenommen oder ersetzt → Hinweis „Bitte neuen Link anfordern“.
+    4. „Beitreten“ (nur bei `joinable`) → `POST /coupons/redeem` mit `{"code": "<token>"}` (der ganze
+       Link geht auch) und `Idempotency-Key` → 200 mit `courses` → Kursliste neu laden.
+       Schon Mitglied → ebenfalls 200.
+    Ohne App bzw. ohne Eintrag öffnet der Browser die Seite des Web-Lernbereichs („Gruppe beitreten“)
+    wie bisher – der Pfad wird vom Server nicht umgeleitet. Hinweis: Eine persönliche Einladung ist an
+    keine E-Mail-Adresse gebunden (wie im Web) – wer den Link hat, kann sie annehmen.
+20. **Bestimmte Frage gezielt üben (seit 1.7.0):** `GET /courses/{id}/trainer/next?mode=question&question_id=<id>`
+    – z. B. „Diese Frage üben“ in Favoriten, Fehlerliste oder Prüfungsauswertung (`question_id` wie
+    `question.id` bzw. `question_id` dort). Antwort wie jede `trainer/next`-Antwort (`mode: question`,
+    frisches `answer_token`); antworten wie gewohnt über `POST /courses/{id}/attempts` – zählt in
+    denselben Lernstand (Serie, Fortschritt, Fehlerliste) wie Web und Smarttrainer. Die Frage kommt
+    auch direkt nach einer Antwort erneut (für „Nochmal“). Fehler: 404 = nicht im Kurs bzw. nicht
+    (mehr) verfügbar; 403 `CONTENT_LOCKED` mit `details.reason` = `partial_access` (außerhalb des
+    kostenlosen Teilumfangs, `details.webshop_url`), `scheduled_release` (`details.unlock_at`) oder
+    `running_exam` (erst Prüfung abgeben); 403 `ENTITLEMENT_*` ohne Smarttrainer-Zugang. Bewusst
+    eigener Modus (statt `question_id` an jedem Modus): `question_id` ohne `mode=question` → 422.
 
 **Prüfung – Markieren (seit 1.3.0):** `PUT /exams/{examId}/answers/{position}/flag` mit
 `{"flagged": true|false}` (auch `marked_for_review` beim Antworten). `GET /exams/{examId}` liefert
@@ -352,6 +416,7 @@ Fehlerobjekt (`application/problem+json`):
 | `EXAM_ANSWER_LOCKED` | 409 | Offene Prüfungsfrage: erst Musterantwort aufdecken |
 | `COUPON_INVALID` | 422 | Code unbekannt/ungültig (Hinweis: Shop-Käufe brauchen keinen Code) |
 | `COUPON_NOT_SUPPORTED` | 422 | WooCommerce-Gutschein (nur beim Kauf im Shop einlösbar) |
+| `GROUP_NOT_ACTIVE` | 409 | Gruppe ausgesetzt/widerrufen: Einladen und neuer Beitrittslink nicht möglich (seit 1.7.0) |
 | `EXPORT_EXPIRED` | 410 | Export abgelaufen → neu anfordern |
 | `EXPORT_NOT_READY` | 409 | Export wird noch erstellt → Status abfragen, `retry_after` beachten (seit 1.4.0) |
 | `EXPORT_FAILED` | 410 | Erstellung fehlgeschlagen → neu anfordern (seit 1.4.0) |
@@ -371,7 +436,9 @@ Limits (seit 1.4.0 atomare Zähler in `bp_mobile_rate_limit`, Fenster ab dem ers
 zurück); Passwort vergessen 10/IP, 3/E-Mail pro Stunde; Refresh 120/IP in 15 Min.; Antworten 60/Min.
 (wie Web); Codes 10/Std. (Wiederholungen mit gleichem Idempotency-Key zählen nicht); Export und
 Löschantrag 5/Tag; Löschbestätigung 20/IP und 10/Antrag pro Stunde; Web-Anmeldecodes 20 je Konto in
-15 Min.
+15 Min.; seit 1.7.0 Gruppen-Einladungen 20 Vorgänge je Konto und Stunde (Wiederholungen mit gleichem
+Idempotency-Key zählen nicht; zusätzlich wie im Web höchstens 20 Einladungen je Gruppe in 24 h, bei
+großen Gruppen 2 × Plätze – darüber `skipped`), Vorschau von Einladungslinks 60 je Konto und Stunde.
 
 Fachfehler der Services (Prüfung beendet/abgelaufen, Musterantwort fehlt, kein Regelwerk, Start läuft,
 zu viele Antworten, Frage-Token abgelaufen) bildet die API seit 1.4.0 über stabile Codes ab
@@ -427,15 +494,16 @@ beibehalten, wo es passt. Abweichungen:
 | Prüfung nach Zugangsende | – | Abgabe und Ergebnis möglich, weitere Antworten 403 `CONTENT_LOCKED`, kein Neustart (wie Web, gleicher Service) | Bereits Gearbeitetes nicht verlieren, aber keine weitere Nutzung ohne Zugang |
 | Webansicht-Anmeldung | – | seit 1.4.0 nur mit Prüfwert-Header der App-WebView, kein Kontowechsel bei anderer bestehender Anmeldung | Schutz vor Login-CSRF über weitergeleitete Einmal-Links |
 | Idempotency-Key | bei allen POST Pflicht | Pflicht bei `attempts`; optional (aber unterstützt) bei Sammlung, Prüfungsstart, Code, Export | übrige Vorgänge sind ohnehin wiederholbar |
-| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0) |
+| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm`, `/tips`, `/me/groups…`, `/groups/join/{token}` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0, 1.7.0) |
+| Gruppenlizenzen | – | Verwalten nur durch die besitzende Person (wie Web-Lernbereich); Personal mit `manage_bp_entitlements` verwaltet im Backend, nicht über die App; Einladen/neuer Link nur bei aktiver Gruppe (409 statt still wie im Web-REST) | Gleiche Rechte wie die Web-Oberfläche; keine Mails aus ausgesetzten Gruppen |
 | Fehlerobjekt | RFC 9457 | gleiches Format, `type` als URN, zusätzlich `message`, `details`, `retry_after` | einheitlich und einfach auswertbar |
 
 ---
 
 ## 6. Tests
 
-- **Integration:** `tests/integration/mobile-api-test.php` (rund 320 Prüfungen, mit WooCommerce
-  324): Login/Refresh/Rotation/Wiederverwendung/verlorene Refresh-Antwort/Logout, Sitzungen,
+- **Integration:** `tests/integration/mobile-api-test.php` (412 Prüfungen, mit WooCommerce
+  416): Login/Refresh/Rotation/Wiederverwendung/verlorene Refresh-Antwort/Logout, Sitzungen,
   Passwort-Reset und -Änderung, Rate-Limit (E-Mail+IP, E-Mail, IP, kein Aussperren fremder Konten,
   Rücksetzen nach Erfolg, atomarer Zähler, eingetragene Proxys/Filter, gefälschtes X-Forwarded-For),
   verwaiste Idempotenz-Einträge, Fehlercodes statt Meldungstexten, Prüfung nach Zugangsende,
@@ -446,7 +514,12 @@ beibehalten, wo es passt. Abweichungen:
   gleichem Lernstand wie im Web, Idempotenz, Favoriten/Sammlungen inkl. Sortierung und Nulldatum,
   Prüfung Start → Antwort → Abgabe → Ergebnis, Video, Navigation, Funktraining (Texte, Vokabeln,
   Funkpraxis, Teilumfang), Simulator-Link, Prüfungsanmeldung, Codes, Export, Löschantrag, fremde
-  Daten (IDOR), Abschalten, Markieren in Prüfungen, Sitzungsübergabe App → Web (offene Weiterleitung,
+  Daten (IDOR), Abschalten, Markieren in Prüfungen, seit 1.7.0 Tipps (gleich wie Web, Text/Links),
+  Gruppen verwalten (nur Besitzer, Einladen mit Prüfung/Platz-/Tages-/Rate-Limit/Idempotenz, Mail,
+  Ablauf `expired`, Platz freigeben, neuer Code macht alten ungültig, ausgesetzte Gruppe, Abgleich mit
+  der Web-Ausgabe), Einladungslink als App-Link (Vorschau, Einlösen mit `i…`-Link, AASA nur mit
+  Einträgen, Browser-Pfad unverändert), gezieltes Üben einer Frage (Lernstand, unbekannt/fremd,
+  Teilumfang, Freigabe, laufende Prüfung), Sitzungsübergabe App → Web (offene Weiterleitung,
   Wiederverwendung, Ablauf, Widerruf, Passwortänderung, Admin/Redaktion, Limit, Prüfwert-Header,
   kein Kontowechsel), App-Einstellungen
   (Größe, Tiefe, Schlüssel, Versionskonflikt, Export/Löschung), Universal/App Links (`.well-known` mit
@@ -508,9 +581,54 @@ beibehalten, wo es passt. Abweichungen:
     der Pflegedatei `tools/content-build/data/navigation_answer_values.json`; die Selbsteinschätzung
     bleibt maßgeblich.
 
+12. **Gruppen in der App (seit 1.7.0):** Verwaltet wird wie im Web nur von der besitzenden Person.
+    Offen: Sollen Mitglieder ihre Gruppe (Name, verwaltende Person, Laufzeit) in der App sehen bzw.
+    selbst austreten können? Das Web bietet beides nicht. Ebenfalls offen: Umbenennen der Gruppe
+    (Web: `PUT me/groups/{id}`) ist bewusst nicht in der App – bei Bedarf ergänzen. Einzelgründe für
+    übersprungene Einladungen gibt der Service nicht zurück (Web zeigt nur die Liste); bei Bedarf im
+    `GroupService` ergänzen (dann für Web und App).
+13. **Einladungslink in der App (seit 1.7.0):** Die Registrierung neuer Konten bleibt auf der Website
+    (die App merkt sich den Token, bis angemeldet ist). Persönliche Einladungen sind – wie im Web – an
+    keine E-Mail-Adresse gebunden; soll das Annehmen nur mit dem eingeladenen Konto möglich sein, wäre
+    das eine Änderung für Web und App. Für Android muss der Intent-Filter `pathPrefix
+    /bootsscheine/gruppe/` enthalten; ändert der Shop den Lernbereichs-Pfad (Filter
+    `bootspruefung_base_path`), ändern sich Link und `apple-app-site-association` mit, die App-Konfiguration
+    muss nachgezogen werden.
+14. **Tipps (seit 1.7.0):** Die App bekommt das redaktionelle HTML; eingebettete Medien (Videos, iframes)
+    lässt `wp_kses_post` nicht durch. Sollen Tipps künftig gezielt auf App-Bildschirme verlinken (z. B.
+    „Smarttrainer öffnen“), braucht es eine Linkkonvention (z. B. Web-Pfade, die die App als App-Link
+    erkennt).
+
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.7.0 (additiv)
+
+- **Neu: Tipps & Tricks** `GET /tips` (Tenant-Header, ohne Kurszugang): dieselben Tipps wie
+  `/bootsscheine/tipps/` – Kategorien (`id`, `slug`, `name`) mit Tipps (`id`, `title`, `html` nach
+  `wp_kses_post`, relative Links absolut, `text` ohne HTML, `links`).
+- **Neu: Gruppen verwalten** (wie „Meine Gruppen“ im Web, nur die besitzende Person, ohne Tenant):
+  `GET /me/groups`, `GET /me/groups/{groupId}` (Plätze `total/used/free`, Umfang, `join_code`/`join_url`,
+  `invites_remaining_today`, Mitglieder mit `active`/`invited`/`expired` und `invite_expires_at`),
+  `POST /me/groups/{groupId}/invites` (gleiche Prüfung, Platz- und Tageslimit und Einladungsmail wie im
+  Web; `invited`/`skipped`; Idempotency-Key; 20 Vorgänge je Stunde),
+  `DELETE /me/groups/{groupId}/members/{memberId}` (Platz freigeben, optional `reason`),
+  `POST /me/groups/{groupId}/join-code` (neuer Beitrittscode, alter sofort ungültig). Fremde Gruppen 404.
+- **Neu: Einladungslink als App-Link:** `/bootsscheine/gruppe/*` in der `apple-app-site-association`
+  (nur mit eingetragenen iOS-App-IDs); Android-Intent-Filter um `pathPrefix /bootsscheine/gruppe/`
+  ergänzen. Vorschau `GET /groups/join/{token}` (wie die Web-Seite „Gruppe beitreten“), Beitritt wie
+  bisher über `POST /coupons/redeem` (nimmt `g…`, `i…` und den ganzen Link, wie Web `groups/join`).
+  Ohne App bleibt der Link die Web-Seite.
+- **Neu: Bestimmte Frage gezielt üben:** `GET /courses/{courseId}/trainer/next?mode=question&question_id=…`
+  – Frage mit normalem `answer_token`, Antwort zählt in den Lernstand; 404 außerhalb des Kurses,
+  403 `CONTENT_LOCKED` mit `details.reason` (`partial_access`, `scheduled_release` + `unlock_at`,
+  `running_exam`). `question_id` nur mit `mode=question` (sonst 422).
+- Neuer Fehlercode `GROUP_NOT_ACTIVE` (409). Neue Tags `Groups`, `Tips`.
+- Server: `GroupService::inviteBudget` (Tageslimit, bisher inline in `invite`) und
+  `GroupService::resolve` (öffentlich für die Vorschau), `Tips::groups` (Kategorien mit Begriff;
+  `Tips::payload` liefert unverändert `name`/`tips`). Web-Verhalten und Web-Ausgaben unverändert.
+  Keine Datenbankänderung.
 
 ### 1.6.0 (additiv)
 

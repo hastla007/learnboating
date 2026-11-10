@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.6.0
+  version: 1.7.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -40,6 +40,8 @@ tags:
   - name: Radio
   - name: ExamRegistration
   - name: Coupons
+  - name: Groups
+  - name: Tips
   - name: Privacy
   - name: Files
   - name: System
@@ -419,6 +421,131 @@ paths:
               schema: {$ref: '#/components/schemas/DeletionRequestResponse'}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
+  /me/groups:
+    get:
+      tags: [Groups]
+      operationId: listMyGroups
+      summary: Eigene Gruppenlizenzen (Verwaltung)
+      description: >-
+        Erweiterung (1.7.0), wie „Meine Gruppen“ im Web (`GroupService::forOwner`): alle Gruppen, die
+        dem Konto gehören (Käufer:in der Gruppenlizenz), mit Plätzen, Umfang, Beitrittscode/-link und
+        Mitgliedern samt offenen und abgelaufenen Einladungen. Ohne Tenant (wie alle `/me*`).
+        Gruppen, in denen das Konto nur Mitglied ist, erscheinen nicht (auch im Web nicht) – deren
+        Zugänge stehen in `/courses`. Leere Liste = keine eigene Gruppe.
+      responses:
+        '200':
+          description: Eigene Gruppen (neueste zuerst)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupListResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}:
+    get:
+      tags: [Groups]
+      operationId: getMyGroup
+      summary: Eine eigene Gruppenlizenz
+      description: Erweiterung (1.7.0). Fremde oder unbekannte Gruppe → 404 (keine Auskunft, ob es sie gibt).
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: Gruppe
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/invites:
+    post:
+      tags: [Groups]
+      operationId: inviteToMyGroup
+      summary: Personen per E-Mail einladen
+      description: >-
+        Erweiterung (1.7.0), wie „Einladen“ im Web (`GroupService::invite`, gleiche Einladungsmail mit
+        persönlichem Link `…/gruppe/i<32 Hex>/`, 30 Tage gültig). `emails` (bis 200) und/oder `email`;
+        Adressen werden getrimmt, klein geschrieben und zusammengefasst. Wie im Web werden Adressen
+        **übersprungen** (`skipped`, kein Fehler), wenn sie ungültig sind, bereits eingeladen/Mitglied
+        sind, keine Plätze mehr frei sind oder das Tageslimit der Gruppe erreicht ist
+        (`invites_remaining_today`: 20 je Gruppe und 24 h, bei großen Gruppen 2 × Plätze). Ohne
+        Adresse → 422. Gruppe nicht aktiv → 409 `GROUP_NOT_ACTIVE`. Limit je Konto: 20 Einladungsvorgänge
+        pro Stunde (429). Idempotency-Key wird vor dem Limit geprüft (Wiederholung = gespeicherte
+        Antwort, keine zweite Mail).
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GroupInviteRequest'}
+      responses:
+        '200':
+          description: Ergebnis (auch wenn alle Adressen übersprungen wurden)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupInviteResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/members/{memberId}:
+    delete:
+      tags: [Groups]
+      operationId: removeGroupMember
+      summary: Platz freigeben (Mitglied entfernen bzw. Einladung zurückziehen)
+      description: >-
+        Erweiterung (1.7.0), wie „Platz freigeben“ im Web (`GroupService::removeMember`): Die
+        Platz-Zugänge des Mitglieds werden widerrufen (Grund `reason`, sonst
+        `group_member_removed`), offene Einladungen verlieren Link und E-Mail-Adresse sofort. Auch der
+        eigene Platz der besitzenden Person kann freigegeben werden (wie im Web). Unbekanntes, bereits
+        entferntes oder gruppenfremdes Mitglied → 404. `reason` als JSON-Body oder Query-Parameter.
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+        - $ref: '#/components/parameters/MemberId'
+        - in: query
+          name: reason
+          required: false
+          schema: {type: string, maxLength: 190}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: [string, 'null'], maxLength: 190, description: 'Grund (z. B. „Kurs abgebrochen“), wird am widerrufenen Zugang gespeichert'}
+      responses:
+        '200':
+          description: Gruppe nach dem Freigeben
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/join-code:
+    post:
+      tags: [Groups]
+      operationId: regenerateGroupJoinCode
+      summary: Neuen Beitrittscode/-link erzeugen
+      description: >-
+        Erweiterung (1.7.0), wie „Neuer Link“ im Web (`GroupService::regenerateToken`): neuer
+        Gruppen-Beitrittscode `g<32 Hex>`; der alte Code/Link ist sofort ungültig (Einlösen und
+        Vorschau → 422 `COUPON_INVALID`). Persönliche Einladungen bleiben gültig. Mit
+        Idempotency-Key liefert eine Wiederholung denselben neuen Code (kein weiterer Wechsel).
+        Gruppe nicht aktiv → 409 `GROUP_NOT_ACTIVE`.
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Gruppe mit neuem `join_code`/`join_url`
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /courses:
     get:
       tags: [Courses]
@@ -549,12 +676,25 @@ paths:
         außerhalb des kostenlosen Teilumfangs werden nicht ausgeliefert.
         204 = im gewählten Modus ist keine Frage übrig.
         Abweichung: keine „3 Versuche, dann erledigt“-Regel – maßgeblich ist die Serie.
+
+
+        **Bestimmte Frage gezielt üben (seit 1.7.0):** `mode=question&question_id=<Frage-ID>`
+        (z. B. aus Favoriten, Fehlerliste oder Prüfungsauswertung) liefert genau diese Frage mit
+        frischem `answer_token` – dieselbe Auslieferung wie im Smarttrainer (`LearningService::next`
+        mit der Fragenauswahl [question_id]); die Antwort über `POST /courses/{courseId}/attempts`
+        zählt in denselben Lernstand. Gleiche Freigaberegeln: Frage gehört nicht zum Kurs bzw. ist
+        nicht auslieferbar → 404; außerhalb des kostenlosen Teilumfangs (`details.reason:
+        partial_access`, `details.webshop_url`), in einem Modul mit zeitgesteuerter Freigabe
+        (`scheduled_release`, `details.unlock_at`) oder Teil einer laufenden Prüfung (`running_exam`)
+        → 403 `CONTENT_LOCKED`; ohne Smarttrainer-Zugang wie gewohnt 403 `ENTITLEMENT_*`. Die Frage
+        kommt auch direkt nach einer Antwort wieder (kein Abstand wie im Smarttrainer). `question_id`
+        ohne `mode=question` → 422. `remaining` ist null.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/CourseId'
         - in: query
           name: mode
-          schema: {type: string, enum: [smarttrainer, new, wrong, topic, module, favorites, collection, exam_mistakes], default: smarttrainer}
+          schema: {type: string, enum: [smarttrainer, new, wrong, topic, module, favorites, collection, exam_mistakes, question], default: smarttrainer}
         - in: query
           name: module_id
           description: Pflicht bei mode=module, optional sonst (eingrenzen).
@@ -570,6 +710,10 @@ paths:
         - in: query
           name: exam_id
           description: Pflicht bei mode=exam_mistakes (falsch beantwortete Fragen einer abgegebenen Prüfung).
+          schema: {type: string}
+        - in: query
+          name: question_id
+          description: Pflicht bei mode=question (seit 1.7.0), nur dort erlaubt. Frage-ID wie `question.id`.
           schema: {type: string}
       responses:
         '200':
@@ -1703,6 +1847,31 @@ paths:
                                     text: {type: string}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /tips:
+    get:
+      tags: [Tips]
+      operationId: listTips
+      summary: Tipps & Tricks
+      description: >-
+        Erweiterung (1.7.0). Dieselben veröffentlichten Tipps wie im Web (`/bootsscheine/tipps/`,
+        `GET bootspruefung/v1/tips`, `Tips::groups`): Kategorien in derselben Reihenfolge, je Tipp
+        Titel und HTML. Kein Kurszugang nötig (angemeldet genügt), Tenant-Header wie bei `/courses`.
+        `html` ist Beitrags-HTML von WordPress, bereinigt mit `wp_kses_post` (wie im Web); zu erwarten
+        sind `p`, `br`, `strong`/`b`, `em`/`i`, `a`, `ul`/`ol`/`li`, `h2`–`h4`, `blockquote`, ggf.
+        `img`/`figure`/`table`. Relative Links und Bilder sind absolut gemacht. Für Clients ohne
+        HTML-Darstellung gibt es `text` (Absätze durch Leerzeile, Listenpunkte „• “) und `links`
+        (alle Links des Tipps, z. B. auf Kurse – im Systembrowser bzw. per App-Link öffnen).
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Kategorien mit Tipps (leer, wenn keine veröffentlicht sind)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TipsResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /coupons/redeem:
     post:
       tags: [Coupons]
@@ -1714,6 +1883,10 @@ paths:
         Gruppenlizenzen (`g…`/`i…` mit 32 Hex-Zeichen oder der ganze Link `…/gruppe/<code>/`).
         WooCommerce-Gutscheine sind Rabatte für den Kauf: 422 `COUPON_NOT_SUPPORTED`.
         Unbekannte Codes: 422 `COUPON_INVALID` mit Hinweis auf die automatische Freischaltung.
+        Seit 1.7.0 öffnet der Einladungslink `https://<shop>/bootsscheine/gruppe/<token>/` die App
+        (App-Link); die App zeigt die Vorschau (`GET /groups/join/{token}`) und löst hier ein –
+        Gruppencodes `g…` und persönliche Einladungen `i…` genau wie die Web-Seite
+        (`GroupService::join`); erneutes Einlösen als Mitglied liefert 200.
         Limit: 10 Versuche je Stunde. Seit 1.4.0 wird der Idempotency-Key vor dem Limit geprüft:
         Eine Wiederholung mit demselben Key liefert die gespeicherte Antwort, ohne einen Versuch zu
         verbrauchen.
@@ -1735,6 +1908,31 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CouponRedemptionResponse'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /groups/join/{token}:
+    get:
+      tags: [Groups]
+      operationId: previewGroupJoin
+      summary: Vorschau eines Einladungs-/Beitrittslinks
+      description: >-
+        Erweiterung (1.7.0), wie die Web-Seite „Gruppe beitreten“ (`GET bootspruefung/v1/groups/join/{token}`,
+        `GroupService::describeToken`): Gruppenname, verwaltende Person, Umfang, freie Plätze, ob es
+        ein persönlicher Link ist und ob ein Beitritt möglich ist. Ändert nichts. Beitreten danach mit
+        `POST /coupons/redeem` und demselben Token (oder dem ganzen Link). `token` = `g…`
+        (Gruppen-Beitrittscode) bzw. `i…` (persönliche Einladung) mit 32 Hex-Zeichen, wie er im
+        App-Link `https://<shop>/bootsscheine/gruppe/<token>/` steht. Unbekannt, abgelaufen, schon
+        angenommen oder nach „Neuer Link“ ersetzt → 422 `COUPON_INVALID`. Limit: 60 je Stunde.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/JoinToken'
+      responses:
+        '200':
+          description: Vorschau
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GroupJoinPreviewResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
   /profile/export:
@@ -1930,6 +2128,23 @@ components:
       required: true
       description: Quell-ID des Funkpraxis-Szenarios, z. B. SRC-01
       schema: {type: string, pattern: '^[A-Za-z0-9-]{1,64}$'}
+    GroupId:
+      in: path
+      name: groupId
+      required: true
+      schema: {type: string}
+    MemberId:
+      in: path
+      name: memberId
+      required: true
+      description: '`members[].id` der Gruppe (Mitglied oder Einladung)'
+      schema: {type: string}
+    JoinToken:
+      in: path
+      name: token
+      required: true
+      description: Beitrittscode `g…` oder persönliche Einladung `i…` (32 Hex-Zeichen) aus dem Link `…/gruppe/<token>/`
+      schema: {type: string, pattern: '^[A-Za-z0-9]{1,64}$'}
     SessionId:
       in: path
       name: sessionId
@@ -1958,7 +2173,7 @@ components:
         message: {type: string, description: 'Gleich detail (Erweiterung, für einfache Clients)'}
         code:
           type: string
-          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
+          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, GROUP_NOT_ACTIVE, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
         request_id: {type: string}
         errors:
           type: object
@@ -3255,6 +3470,155 @@ components:
                   code: {type: string}
                   name: {type: string}
             entitlement: {$ref: '#/components/schemas/Entitlement'}
+    TipLink:
+      type: object
+      required: [url, text]
+      properties:
+        url: {type: string, description: 'Absolute Adresse (https://…, mailto:, tel:)'}
+        text: {type: string}
+    Tip:
+      type: object
+      required: [id, title, html, text, links]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        html: {type: string, description: 'Beitrags-HTML wie im Web (wp_kses_post), relative Links absolut'}
+        text: {type: string, description: 'Reiner Text (Absätze durch Leerzeile, Listenpunkte „• “)'}
+        links:
+          type: array
+          items: {$ref: '#/components/schemas/TipLink'}
+    TipGroup:
+      type: object
+      required: [id, slug, name, tips]
+      properties:
+        id: {type: [string, 'null'], description: 'ID der Tipp-Kategorie; null = „Allgemein“ (Tipps ohne Kategorie)'}
+        slug: {type: string}
+        name: {type: string}
+        tips:
+          type: array
+          items: {$ref: '#/components/schemas/Tip'}
+    TipsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/TipGroup'}
+        meta:
+          type: object
+          required: [groups, tips]
+          properties:
+            groups: {type: integer}
+            tips: {type: integer}
+    GroupScope:
+      type: object
+      required: [course_id, course_code, course_name, feature, capability, feature_label]
+      properties:
+        course_id: {type: [string, 'null'], description: 'Kurs-ID (null, wenn der Kurs nicht veröffentlicht ist)'}
+        course_code: {type: string}
+        course_name: {type: string}
+        feature: {type: string, description: 'Bereich im Plugin (z. B. question_bank, exam_simulation, all)'}
+        capability: {type: [string, 'null'], description: 'Fähigkeit der App (smarttrainer, exam, video, navigation, praxis, funk) oder null'}
+        feature_label: {type: string}
+    GroupMember:
+      type: object
+      required: [id, user_id, name, email, status, is_me, joined_at, invited_at, invite_expires_at, removable]
+      properties:
+        id: {type: string}
+        user_id: {type: [string, 'null'], description: 'null bei offener/abgelaufener Einladung'}
+        name: {type: [string, 'null']}
+        email: {type: [string, 'null']}
+        status: {type: string, enum: [active, invited, expired], description: 'expired = Einladung nicht innerhalb von 30 Tagen angenommen (belegt keinen Platz)'}
+        is_me: {type: boolean}
+        joined_at: {type: [string, 'null'], format: date-time}
+        invited_at: {type: [string, 'null'], format: date-time}
+        invite_expires_at: {type: [string, 'null'], format: date-time, description: 'bei invited/expired'}
+        removable: {type: boolean, description: '„Platz freigeben“ anbieten (wie im Web: nur active und invited)'}
+    Group:
+      type: object
+      required: [id, name, status, valid_until, seats, scopes, join_code, join_url, invites_remaining_today, invite_valid_days, members]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        status: {type: string, enum: [active, suspended, revoked]}
+        valid_until: {type: [string, 'null'], format: date-time}
+        seats:
+          type: object
+          required: [total, used, free]
+          properties:
+            total: {type: integer}
+            used: {type: integer, description: 'aktive Mitglieder + offene, nicht abgelaufene Einladungen'}
+            free: {type: integer}
+        scopes:
+          type: array
+          items: {$ref: '#/components/schemas/GroupScope'}
+        join_code: {type: [string, 'null'], description: 'Gruppen-Beitrittscode g…; null, wenn die Gruppe nicht aktiv ist'}
+        join_url: {type: [string, 'null'], description: 'Beitrittslink …/bootsscheine/gruppe/<join_code>/ (App-Link); null, wenn nicht aktiv'}
+        invites_remaining_today: {type: integer, description: 'Einladungen, die in den letzten 24 h noch möglich sind'}
+        invite_valid_days: {type: integer, description: 'Gültigkeit persönlicher Einladungen in Tagen (30)'}
+        members:
+          type: array
+          items: {$ref: '#/components/schemas/GroupMember'}
+    GroupResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/Group'}
+    GroupListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Group'}
+        meta:
+          type: object
+          required: [groups, seats_total, seats_used]
+          properties:
+            groups: {type: integer}
+            seats_total: {type: integer}
+            seats_used: {type: integer}
+    GroupInviteRequest:
+      type: object
+      properties:
+        emails:
+          type: [array, 'null']
+          maxItems: 200
+          items: {type: string, maxLength: 190}
+        email: {type: [string, 'null'], maxLength: 190}
+    GroupInviteResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [invited, skipped, group]
+          properties:
+            invited: {type: integer}
+            skipped:
+              type: array
+              description: Übersprungene Adressen (ungültig, schon eingeladen/Mitglied, keine Plätze frei, Tageslimit)
+              items: {type: string}
+            group: {$ref: '#/components/schemas/Group'}
+    GroupJoinPreviewResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [name, owner_name, personal, status, valid_until, free_seats, already_member, joinable, scopes]
+          properties:
+            name: {type: string}
+            owner_name: {type: [string, 'null'], description: 'Anzeigename der verwaltenden Person'}
+            personal: {type: boolean, description: 'persönliche Einladung (i…) statt Gruppenlink (g…)'}
+            status: {type: string, enum: [active, suspended, revoked]}
+            valid_until: {type: [string, 'null'], format: date-time}
+            free_seats: {type: integer, description: 'bei persönlicher Einladung inklusive des reservierten Platzes'}
+            already_member: {type: boolean}
+            joinable: {type: boolean, description: '„Beitreten“ anbieten (aktiv, nicht abgelaufen, Platz frei – oder schon Mitglied)'}
+            scopes:
+              type: array
+              items: {$ref: '#/components/schemas/GroupScope'}
     ExportStatusResponse:
       type: object
       required: [data]

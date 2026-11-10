@@ -181,12 +181,7 @@ final class GroupService
     public function invite(int $groupId, int $actorId, array $emails): array
     {
         $group = $this->managed($groupId, $actorId);
-        // Schutz vor Missbrauch als Mail-Relay: höchstens INVITE_LIMIT Einladungen je Gruppe und Tag.
-        $sentToday = (int) $this->db->get_var($this->db->prepare(
-            "SELECT COUNT(*) FROM {$this->members} WHERE group_id = %d AND invited_at >= %s",
-            $groupId, gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS)
-        ));
-        $budget = max(0, max(self::INVITE_LIMIT, 2 * (int) $group->seats) - $sentToday);
+        $budget = $this->inviteBudget($group);
         $inviter = $this->inviterName($group, $actorId);
         $invited = 0;
         $skipped = [];
@@ -210,6 +205,29 @@ final class GroupService
         AuditLog::record('group_invited', 'group', (string) $groupId, null, ['count' => $invited, 'skipped' => count($skipped)]);
 
         return ['invited' => $invited, 'skipped' => $skipped];
+    }
+
+    /**
+     * Schutz vor Missbrauch als Mail-Relay: höchstens INVITE_LIMIT Einladungen je Gruppe und Tag
+     * (bei großen Gruppen 2 × Plätze). @return int heute noch mögliche Einladungen
+     */
+    public function inviteBudget(object $group): int
+    {
+        $sentToday = (int) $this->db->get_var($this->db->prepare(
+            "SELECT COUNT(*) FROM {$this->members} WHERE group_id = %d AND invited_at >= %s",
+            (int) $group->id, gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS)
+        ));
+
+        return max(0, max(self::INVITE_LIMIT, 2 * (int) $group->seats) - $sentToday);
+    }
+
+    /**
+     * Gruppe und ggf. persönliche Einladung zu einem Beitrittslink (für Vorschauen, z. B. der App).
+     * @return array{0:?object,1:?object} [Gruppe, persönliche Einladung]
+     */
+    public function resolve(string $token): array
+    {
+        return $this->resolveToken($token);
     }
 
     /** Infos zum Beitrittslink (Gruppen- oder persönlicher Token). @return array<string,mixed>|null */

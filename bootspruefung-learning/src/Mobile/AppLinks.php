@@ -19,6 +19,10 @@ namespace Bootspruefung\Learning\Mobile;
  *   Bestätigungslink auf /app/konto-loeschen/?request_id=…&confirm_key=… (Filter
  *   user_request_action_email_content nur während dieses Aufrufs). Ohne App leitet die Website auf die
  *   normale WordPress-Bestätigung (wp-login.php?action=confirmaction&…) weiter.
+ * - Einladungs-/Beitrittslinks von Gruppenlizenzen (seit 1.7.0): /bootsscheine/gruppe/<token>/
+ *   (GroupService::joinUrl) steht in der apple-app-site-association; die App löst den Token über
+ *   POST /coupons/redeem ein. Ohne App bleibt es die normale Seite des Lernbereichs (hier keine
+ *   Weiterleitung, der Pfad wird nicht angefasst).
  */
 final class AppLinks
 {
@@ -69,6 +73,12 @@ final class AppLinks
         return home_url('/'.self::DELETION_PATH.'/');
     }
 
+    /** Pfad-Muster der Einladungslinks von Gruppenlizenzen ab Domain (Lernbereich, z. B. /bootsscheine/gruppe/*). */
+    public static function groupJoinPathPattern(): string
+    {
+        return rtrim((string) wp_parse_url(\Bootspruefung\Learning\Frontend\Router::url('gruppe'), PHP_URL_PATH), '/').'/*';
+    }
+
     /**
      * Antwort für eine der beiden /.well-known-Dateien: 200 mit JSON, wenn eingetragen, sonst 404;
      * null bei anderen Adressen (WordPress macht weiter).
@@ -99,6 +109,7 @@ final class AppLinks
                         'components' => [
                             ['/' => self::resetPathPattern(), 'comment' => 'Passwort zurücksetzen in der App'],
                             ['/' => self::deletionPathPattern(), 'comment' => 'Kontolöschung in der App bestätigen'],
+                            ['/' => self::groupJoinPathPattern(), 'comment' => 'Einladung in eine Gruppenlizenz in der App annehmen'],
                         ],
                     ]],
                 ],

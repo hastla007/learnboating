@@ -51,6 +51,7 @@ final class Problem
         'EXAM_ANSWER_LOCKED' => 'Antwort gesperrt',
         'COUPON_INVALID' => 'Code ungültig',
         'COUPON_NOT_SUPPORTED' => 'Kein Zugangscode',
+        'GROUP_NOT_ACTIVE' => 'Gruppe nicht aktiv',
         'RATE_LIMITED' => 'Zu viele Anfragen',
         'EXPORT_EXPIRED' => 'Export abgelaufen',
         'EXPORT_NOT_READY' => 'Export wird erstellt',

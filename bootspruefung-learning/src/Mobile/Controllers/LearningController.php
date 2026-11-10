@@ -25,7 +25,7 @@ final class LearningController extends BaseController
 
     private const MODES = [
         'smarttrainer' => 'smart', 'new' => 'new', 'wrong' => 'wrong', 'favorites' => 'favorites',
-        'topic' => 'smart', 'module' => 'smart', 'collection' => 'smart', 'exam_mistakes' => 'smart',
+        'topic' => 'smart', 'module' => 'smart', 'collection' => 'smart', 'exam_mistakes' => 'smart', 'question' => 'smart',
     ];
 
     public function next(WP_REST_Request $request): WP_REST_Response
@@ -34,6 +34,13 @@ final class LearningController extends BaseController
         $course = $this->course($request);
         $this->requireFeature($course, AccessService::QUESTION_BANK);
         $mode = (string) ($request['mode'] ?: 'smarttrainer');
+        $questionParam = $request['question_id'] !== null && (string) $request['question_id'] !== '' ? (string) $request['question_id'] : null;
+        if ($mode === 'question') {
+            return $this->questionPayload($this->specificQuestion($user, $course, $questionParam), $mode);
+        }
+        if ($questionParam !== null) {
+            throw ApiException::validation(['question_id' => [__('question_id gilt nur zusammen mit mode=question.', 'bootspruefung-learning')]]);
+        }
         $moduleId = $request['module_id'] !== null && $request['module_id'] !== '' ? (int) $request['module_id'] : null;
         $topic = $request['topic'] !== null && trim((string) $request['topic']) !== '' ? trim((string) $request['topic']) : null;
         if ($mode === 'topic' && $topic === null) {
@@ -62,6 +69,12 @@ final class LearningController extends BaseController
             return $this->noContent();
         }
 
+        return $this->questionPayload($q, $mode);
+    }
+
+    /** @param array<string,mixed> $q Ergebnis von LearningService::next */
+    private function questionPayload(array $q, string $mode): WP_REST_Response
+    {
         return $this->ok([
             'question' => QuestionMapper::question($q),
             'answer_token' => (string) $q['token'],
@@ -72,6 +85,47 @@ final class LearningController extends BaseController
             'progress' => QuestionMapper::progress($q['progress'] ?? null),
             'remaining' => $q['remaining'] ?? null,
         ]);
+    }
+
+    /**
+     * Eine bestimmte Frage gezielt üben (seit 1.7.0, mode=question): dieselbe Auslieferung wie der
+     * Smarttrainer – LearningService::next mit der Fragenauswahl [question_id] (wie Sammlungen) –,
+     * also derselbe Freigabeumfang (Teilumfang je Modul, zeitgesteuerte Freigabe, Sperre laufender
+     * Prüfungsfragen) und ein normales answer_token (Antwort zählt in denselben Lernstand).
+     * Liefert der Service nichts, wird nur der Grund ermittelt: nicht im Kurs → 404, sonst 403 CONTENT_LOCKED.
+     * @return array<string,mixed>
+     */
+    private function specificQuestion(int $user, object $course, ?string $raw): array
+    {
+        if ($raw === null) {
+            throw ApiException::validation(['question_id' => [__('Bitte gib die Frage an (question_id).', 'bootspruefung-learning')]]);
+        }
+        $questionId = ctype_digit($raw) ? (int) $raw : 0;
+        $gates = $this->learning->moduleGates($user, $course);
+        $rows = $questionId > 0 ? array_values(array_filter($this->content->questionsForModules(array_keys($gates)), static fn ($row) => (int) $row->question_id === $questionId)) : [];
+        if ($rows === []) {
+            throw ApiException::notFound(__('Diese Frage gehört nicht zu diesem Kurs oder ist derzeit nicht verfügbar.', 'bootspruefung-learning'));
+        }
+        $q = $this->learning->next($user, $course, null, 'smart', null, [$questionId]);
+        if ($q !== null) {
+            return $q;
+        }
+        $details = ['course_id' => (string) $course->id, 'question_id' => (string) $questionId];
+        $open = array_values(array_filter($rows, static fn ($row) => ! ($gates[(int) $row->module_id]['locked'] ?? false)));
+        if ($open === []) {
+            $unlock = min(array_map(static fn ($row) => (string) $gates[(int) $row->module_id]['unlock_at'], $rows));
+            throw new ApiException('CONTENT_LOCKED', sprintf(__('Dieses Modul wird am %s freigeschaltet.', 'bootspruefung-learning'), wp_date(get_option('date_format'), strtotime($unlock.' UTC'))), 403, ['details' => $details + [
+                'reason' => 'scheduled_release', 'module_id' => (string) $rows[0]->module_id, 'unlock_at' => TokenAuth::iso($unlock),
+            ]]);
+        }
+        $allowed = $this->learning->allowedQuestions($user, $course, array_keys($gates), $gates);
+        if (! isset($allowed[$questionId])) {
+            $offers = $this->courses->offers($user, $course);
+            throw new ApiException('CONTENT_LOCKED', __('Diese Frage gehört nicht zum freigeschalteten Umfang deines Zugangs.', 'bootspruefung-learning'), 403, ['details' => $details + [
+                'reason' => 'partial_access', 'module_id' => (string) $open[0]->module_id, 'webshop_url' => $offers['smarttrainer'][0]['url'] ?? null,
+            ]]);
+        }
+        throw new ApiException('CONTENT_LOCKED', __('Diese Frage gehört zu deiner laufenden Prüfung. Gib die Prüfung zuerst ab.', 'bootspruefung-learning'), 403, ['details' => $details + ['reason' => 'running_exam']]);
     }
 
     /** Musterantwort einer offenen Frage (vor der Selbsteinschätzung „gewusst/nicht gewusst“). */

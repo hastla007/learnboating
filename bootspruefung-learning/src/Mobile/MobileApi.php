@@ -11,10 +11,12 @@ use Bootspruefung\Learning\Mobile\Controllers\CouponController;
 use Bootspruefung\Learning\Mobile\Controllers\CourseController;
 use Bootspruefung\Learning\Mobile\Controllers\ExamController;
 use Bootspruefung\Learning\Mobile\Controllers\FileController;
+use Bootspruefung\Learning\Mobile\Controllers\GroupController;
 use Bootspruefung\Learning\Mobile\Controllers\LearningController;
 use Bootspruefung\Learning\Mobile\Controllers\PrivacyController;
 use Bootspruefung\Learning\Mobile\Controllers\RadioController;
 use Bootspruefung\Learning\Mobile\Controllers\SettingsController;
+use Bootspruefung\Learning\Mobile\Controllers\TipsController;
 use Bootspruefung\Learning\Mobile\Controllers\TrainingController;
 use Bootspruefung\Learning\Plugin;
 use WP_Error;
@@ -33,7 +35,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.6.0';
+    public const API_VERSION = '1.7.0';
 
     public static function register(): void
     {
@@ -262,6 +264,15 @@ final class MobileApi
         self::route('/auth/web-session', 'POST', [AuthController::class, 'webSession'], true, false, ['redirect' => $string(400, true)]);
         self::route('/files/'.sprintf($id, 'fileId'), 'GET', [FileController::class, 'download'], true, false);
         self::route('/profile/export/(?P<exportId>[0-9a-f]{32})/download', 'GET', [PrivacyController::class, 'download'], true, false);
+        // Gruppenlizenzen verwalten (seit 1.7.0, wie „Meine Gruppen“ im Web; nur die besitzende Person)
+        $group = '/me/groups/'.sprintf($id, 'groupId');
+        self::route('/me/groups', 'GET', [GroupController::class, 'list'], true, false);
+        self::route($group, 'GET', [GroupController::class, 'show'], true, false);
+        self::route($group.'/invites', 'POST', [GroupController::class, 'invite'], true, false, [
+            'emails' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 190], 'maxItems' => 200, 'default' => null], 'email' => $nullableString(190),
+        ]);
+        self::route($group.'/members/'.sprintf($id, 'memberId'), 'DELETE', [GroupController::class, 'removeMember'], true, false, ['reason' => $nullableString(190)]);
+        self::route($group.'/join-code', 'POST', [GroupController::class, 'regenerateJoinCode'], true, false);
 
         // Kurse
         self::route('/courses', 'GET', [CourseController::class, 'list'], true, true, $page);
@@ -273,8 +284,8 @@ final class MobileApi
 
         // Lernen
         self::route($course.'/trainer/next', 'GET', [LearningController::class, 'next'], true, true, [
-            'mode' => ['type' => 'string', 'enum' => ['smarttrainer', 'new', 'wrong', 'topic', 'module', 'favorites', 'collection', 'exam_mistakes'], 'default' => 'smarttrainer'],
-            'module_id' => $idValue, 'topic' => $nullableString(190), 'collection_id' => $idValue, 'exam_id' => $idValue,
+            'mode' => ['type' => 'string', 'enum' => ['smarttrainer', 'new', 'wrong', 'topic', 'module', 'favorites', 'collection', 'exam_mistakes', 'question'], 'default' => 'smarttrainer'],
+            'module_id' => $idValue, 'topic' => $nullableString(190), 'collection_id' => $idValue, 'exam_id' => $idValue, 'question_id' => $idValue,
         ]);
         self::route($course.'/trainer/reveal', 'POST', [LearningController::class, 'reveal'], true, true, ['answer_token' => $string(2000, true)]);
         self::route($course.'/attempts', 'POST', [LearningController::class, 'attempt'], true, true, [
@@ -356,8 +367,13 @@ final class MobileApi
         self::route($course.'/radio/practice/'.$key('scenarioId').'/done', 'PUT', [RadioController::class, 'practiceDone'], true, true, $done);
         self::route($course.'/radio/samples', 'GET', [RadioController::class, 'samples']);
 
+        // Tipps & Tricks (seit 1.7.0, wie /bootsscheine/tipps/)
+        self::route('/tips', 'GET', [TipsController::class, 'list']);
+
         // Codes und Datenschutz
         self::route('/coupons/redeem', 'POST', [CouponController::class, 'redeem'], true, true, ['code' => $string(300, true)]);
+        // Vorschau eines Einladungslinks (seit 1.7.0, wie GET bootspruefung/v1/groups/join/{token}); Beitritt über /coupons/redeem
+        self::route('/groups/join/(?P<token>[A-Za-z0-9]{1,64})', 'GET', [GroupController::class, 'joinPreview']);
         self::route('/profile/export', 'POST', [PrivacyController::class, 'requestExport']);
         self::route('/profile/export/(?P<exportId>[0-9a-f]{32})', 'GET', [PrivacyController::class, 'export']);
     }

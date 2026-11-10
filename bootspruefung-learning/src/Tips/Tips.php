@@ -74,17 +74,28 @@ final class Tips
     /** @return list<array{name:string,tips:list<array{id:int,title:string,html:string}>}> */
     public static function payload(): array
     {
+        return array_map(static fn ($g) => ['name' => $g['name'], 'tips' => $g['tips']], self::groups());
+    }
+
+    /**
+     * Veröffentlichte Tipps nach Kategorie (Reihenfolge wie im Web), zusätzlich mit der Kategorie
+     * (null = „Allgemein“, ohne Kategorie) – für die App-Schnittstelle.
+     *
+     * @return list<array{term:?\WP_Term,name:string,order:int,tips:list<array{id:int,title:string,html:string}>}>
+     */
+    public static function groups(): array
+    {
         $posts = get_posts(['post_type' => self::POST_TYPE, 'post_status' => 'publish', 'numberposts' => 500, 'orderby' => ['menu_order' => 'ASC', 'title' => 'ASC']]);
         $groups = [];
         foreach ($posts as $post) {
             $terms = get_the_terms($post, self::TAXONOMY);
             $term = is_array($terms) && $terms !== [] ? $terms[0] : null;
             $key = $term ? $term->name : __('Allgemein', 'bootspruefung-learning');
-            $groups[$key] ??= ['name' => $key, 'order' => (int) $post->menu_order, 'tips' => []];
+            $groups[$key] ??= ['term' => $term, 'name' => $key, 'order' => (int) $post->menu_order, 'tips' => []];
             $groups[$key]['tips'][] = ['id' => (int) $post->ID, 'title' => get_the_title($post), 'html' => wp_kses_post(wpautop(do_blocks((string) $post->post_content)))];
         }
         usort($groups, static fn ($a, $b) => $a['order'] <=> $b['order']);
 
-        return array_map(static fn ($g) => ['name' => $g['name'], 'tips' => $g['tips']], array_values($groups));
+        return array_values($groups);
     }
 }

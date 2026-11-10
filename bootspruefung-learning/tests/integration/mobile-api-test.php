@@ -17,7 +17,9 @@ declare(strict_types=1);
  * Rate-Limits je E-Mail+IP/E-Mail/IP ohne automatisch vertraute Proxys, verwaiste Idempotenz-
  * Einträge, Fehlercodes statt Meldungstexten, asynchroner Datenexport, Range/Content-Disposition,
  * Code-Einlösung (Idempotenz vor Rate-Limit), Kontolöschung über App-Link und Bestätigung in der App,
- * Prüfung nach Zugangsende.
+ * Prüfung nach Zugangsende. Seit 1.7.0: Tipps & Tricks, Gruppen verwalten (nur Besitzer, Einladen,
+ * Platz freigeben, neuer Beitrittscode), Einladungslink als App-Link (Vorschau, Einlösen, AASA) und
+ * gezieltes Üben einer bestimmten Frage (mode=question).
  *
  *   WP_DIR=/pfad/zu/wordpress php tests/integration/mobile-api-test.php
  *
@@ -1000,6 +1002,315 @@ $check($FC::parseRange('bytes=0-99', 1000) === [0, 99] && $FC::parseRange('bytes
 $check($FC::parseRange('bytes=1000-', 1000) === false && $FC::parseRange('bytes=5-2', 1000) === false && $FC::parseRange('bytes=0-1,5-6', 1000) === false && $FC::parseRange('bytes=abc', 1000) === false && $FC::parseRange('bytes=-0', 1000) === false && $FC::parseRange('bytes=0-0', 0) === false, 'Range: nicht erfüllbar, verkehrt, mehrere Bereiche, Unsinn → 416');
 $check($FC::contentDisposition('inline', 'Seekarte Übung "Nord".pdf') === 'inline; filename="Seekarte_Ubung_Nord_.pdf"; filename*=UTF-8\'\'Seekarte%20%C3%9Cbung%20%22Nord%22.pdf', 'Content-Disposition mit ASCII-Ersatz und filename*=UTF-8');
 $check(! str_contains($FC::contentDisposition('attachment', "a\r\nX-Evil: 1.pdf"), "\n"), 'Content-Disposition ohne Zeilenumbrüche (Header-Injection)');
+
+echo "Tipps & Tricks (1.7.0)\n";
+$r = $api('GET', '/tips', [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 422 && isset($r['body']['errors']['X-Tenant-Slug']), 'Tipps ohne X-Tenant-Slug → 422 (wie Kursliste)');
+$check($api('GET', '/tips')['status'] === 401, 'Tipps ohne Anmeldung → 401');
+$tipTerm = wp_insert_term('App-Test Tipps', \Bootspruefung\Learning\Tips\Tips::TAXONOMY);
+$tipTermId = is_wp_error($tipTerm) ? 0 : (int) $tipTerm['term_id'];
+$tipPost = (int) wp_insert_post(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'publish', 'post_title' => 'Link & Liste', 'post_content' => "Erster Absatz mit <a href=\"/bootsscheine/\">Lernbereich</a>.\n\n<ul><li>Punkt eins</li><li>Punkt zwei</li></ul>", 'menu_order' => 9999]);
+wp_set_object_terms($tipPost, [$tipTermId], \Bootspruefung\Learning\Tips\Tips::TAXONOMY);
+$webTips = \Bootspruefung\Learning\Tips\Tips::payload();
+$r = $api('GET', '/tips', [], $tokenA);
+$appTips = $r['body']['data'] ?? [];
+$check($r['status'] === 200 && array_column($appTips, 'name') === array_column($webTips, 'name') && array_map(static fn ($g) => array_column($g['tips'], 'title'), $appTips) === array_map(static fn ($g) => array_map(static fn ($t) => html_entity_decode($t['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'), $g['tips']), $webTips), 'GET /tips: gleiche Kategorien, Reihenfolge und Tipps wie im Web (GET bootspruefung/v1/tips)');
+$check(($r['body']['meta']['groups'] ?? -1) === count($webTips) && ($r['body']['meta']['tips'] ?? -1) === array_sum(array_map(static fn ($g) => count($g['tips']), $webTips)), 'meta: Anzahl Kategorien und Tipps');
+$plainSame = true;
+foreach ($webTips as $gi => $g) {
+    foreach ($g['tips'] as $ti => $t) {
+        $a = $appTips[$gi]['tips'][$ti] ?? [];
+        if (! str_contains($t['html'], 'href="/') && ($a['html'] ?? null) !== $t['html']) {
+            $plainSame = false;
+        }
+        if (($a['id'] ?? '') !== (string) $t['id'] || str_contains((string) ($a['text'] ?? '<'), '<') || trim((string) ($a['text'] ?? '')) === '') {
+            $plainSame = false;
+        }
+    }
+}
+$check($plainSame, 'je Tipp: id, HTML wie im Web (wp_kses_post), reiner Text ohne Tags');
+$tipMine = array_values(array_filter($appTips, static fn ($g) => $g['name'] === 'App-Test Tipps'))[0] ?? null;
+$mt = $tipMine['tips'][0] ?? [];
+$check($tipMine !== null && $tipMine['id'] === (string) $tipTermId && $tipMine['slug'] === get_term($tipTermId)->slug && $mt['title'] === 'Link & Liste', 'Kategorie mit id und slug (Tipp-Kategorie)');
+$check(str_contains((string) ($mt['html'] ?? ''), 'href="'.home_url('/bootsscheine/').'"') && ($mt['links'] ?? []) === [['url' => home_url('/bootsscheine/'), 'text' => 'Lernbereich']], 'relative Links werden absolut (HTML und links[])');
+$check(($mt['text'] ?? '') === "Erster Absatz mit Lernbereich.\n\n• Punkt eins\n• Punkt zwei", 'reiner Text: Absätze und Listenpunkte');
+$general = array_values(array_filter($appTips, static fn ($g) => $g['id'] === null));
+$check($general === [] || $general[0]['slug'] === sanitize_title($general[0]['name']), 'Tipps ohne Kategorie: id null, slug aus dem Namen');
+wp_delete_post($tipPost, true);
+wp_delete_term($tipTermId, \Bootspruefung\Learning\Tips\Tips::TAXONOMY);
+$check(\Bootspruefung\Learning\Tips\Tips::payload() === array_values(array_filter($webTips, static fn ($g) => $g['name'] !== 'App-Test Tipps')), 'Web-Ausgabe von /tips unverändert (nur name und tips)');
+
+echo "Gruppen verwalten (1.7.0)\n";
+$gs = new \Bootspruefung\Learning\Commerce\GroupService($wpdb);
+$mkGroup = static function (int $owner, string $name, int $seats) use ($wpdb, $p, $courseCode): array {
+    $token = 'g'.bin2hex(random_bytes(16));
+    $now = gmdate('Y-m-d H:i:s');
+    $wpdb->insert($p.'learning_group', ['owner_user_id' => $owner, 'name' => $name, 'scopes' => wp_json_encode([['course' => $courseCode, 'feature' => 'question_bank']]), 'seats' => $seats, 'status' => 'active', 'join_token' => $token, 'valid_until' => gmdate('Y-m-d H:i:s', time() + 200 * DAY_IN_SECONDS), 'created_at' => $now, 'updated_at' => $now]);
+
+    return [(int) $wpdb->insert_id, $token];
+};
+[$gA, $joinA] = $mkGroup($alice, 'App-Gruppe Alice', 3);
+[$gB, $joinB] = $mkGroup($bob, 'App-Gruppe Bob', 2);
+$groupMails = [];
+$captureGroup = static function ($return, $atts) use (&$groupMails) {
+    $groupMails[] = ['to' => is_array($atts['to'] ?? null) ? implode(',', $atts['to']) : (string) ($atts['to'] ?? ''), 'message' => (string) ($atts['message'] ?? '')];
+
+    return true;
+};
+add_filter('pre_wp_mail', $captureGroup, 10, 2);
+$r = $api('GET', '/me/groups', [], $tokenA, ['X-Tenant-Slug' => null]);
+$ga = array_values(array_filter($r['body']['data'] ?? [], static fn ($g) => $g['id'] === (string) $gA))[0] ?? null;
+$check($r['status'] === 200 && $ga !== null && ! in_array((string) $gB, array_column($r['body']['data'], 'id'), true), 'GET /me/groups (ohne Tenant wie /me*): nur eigene Gruppen');
+$check($ga !== null && $ga['seats'] === ['total' => 3, 'used' => 0, 'free' => 3] && $ga['join_code'] === $joinA && $ga['join_url'] === \Bootspruefung\Learning\Commerce\GroupService::joinUrl($joinA) && $ga['members'] === [] && $ga['invite_valid_days'] === 30, 'Plätze, Beitrittscode und -link (wie im Web)');
+$check($ga !== null && ($ga['scopes'][0] ?? []) === ['course_id' => $courseId, 'course_code' => $courseCode, 'course_name' => \Bootspruefung\Learning\Commerce\Labels::course($courseCode), 'feature' => 'question_bank', 'capability' => 'smarttrainer', 'feature_label' => \Bootspruefung\Learning\Commerce\Labels::feature('question_bank')] && $ga['valid_until'] !== null && str_ends_with($ga['valid_until'], 'Z'), 'Umfang mit Kurs-ID und Fähigkeit, Laufzeit (UTC)');
+$check(($r['body']['meta']['groups'] ?? 0) >= 1 && isset($r['body']['meta']['seats_total'], $r['body']['meta']['seats_used']), 'meta: Gruppen und Plätze gesamt');
+$check($api('GET', '/me/groups')['status'] === 401, 'ohne Anmeldung → 401');
+$r = $api('GET', "/me/groups/{$gA}", [], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && $r['body']['data']['id'] === (string) $gA, 'GET /me/groups/{id}');
+$check($api('GET', "/me/groups/{$gB}", [], $tokenA)['status'] === 404 && $api('GET', '/me/groups/999999', [], $tokenA)['status'] === 404, 'fremde bzw. unbekannte Gruppe → 404');
+$r = $api('POST', "/me/groups/{$gB}/invites", ['emails' => ['x@example.test']], $tokenA);
+$check($r['status'] === 404 && $groupMails === [] && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}learning_group_member WHERE group_id = %d", $gB)) === 0, 'in fremde Gruppe einladen → 404, keine Mail');
+$check($api('POST', "/me/groups/{$gB}/join-code", [], $tokenA)['status'] === 404 && $wpdb->get_var($wpdb->prepare("SELECT join_token FROM {$p}learning_group WHERE id = %d", $gB)) === $joinB, 'fremden Beitrittslink erneuern → 404, Link unverändert');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => []], $tokenA);
+$check($r['status'] === 422 && isset($r['body']['errors']['emails']), 'Einladen ohne Adresse → 422');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => array_fill(0, 201, 'a@example.test')], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'VALIDATION_FAILED', 'mehr als 200 Adressen → 422 (wie Web)');
+$ikey = $uuid();
+$inv = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['eins@example.test', 'kaputt', ' EINS@example.test ']], $tokenA, ['Idempotency-Key' => $ikey]);
+$invMember = array_values(array_filter($inv['body']['data']['group']['members'] ?? [], static fn ($m) => $m['email'] === 'eins@example.test'))[0] ?? null;
+$check($inv['status'] === 200 && $inv['body']['data']['invited'] === 1 && $inv['body']['data']['skipped'] === ['kaputt'] && $invMember !== null && $invMember['status'] === 'invited' && $invMember['removable'] === true, 'Einladung: gültige Adresse eingeladen, ungültige übersprungen, doppelte zusammengefasst');
+$check($invMember !== null && strtotime($invMember['invite_expires_at']) - strtotime($invMember['invited_at']) === 30 * DAY_IN_SECONDS && $inv['body']['data']['group']['seats'] === ['total' => 3, 'used' => 1, 'free' => 2], 'offene Einladung: Ablauf nach 30 Tagen, belegt einen Platz');
+$personal = (string) $wpdb->get_var($wpdb->prepare("SELECT invite_token FROM {$p}learning_group_member WHERE group_id = %d AND email = %s", $gA, 'eins@example.test'));
+$check(count($groupMails) === 1 && $groupMails[0]['to'] === 'eins@example.test' && str_contains($groupMails[0]['message'], \Bootspruefung\Learning\Commerce\GroupService::joinUrl($personal)) && str_starts_with($personal, 'i'), 'Einladungsmail wie im Web mit persönlichem Link …/gruppe/i…/');
+$again = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['eins@example.test', 'kaputt']], $tokenA, ['Idempotency-Key' => $ikey]);
+$check($again['status'] === 200 && $again['body'] === $inv['body'] && count($groupMails) === 1, 'Wiederholung mit gleichem Idempotency-Key: gespeicherte Antwort, keine zweite Mail');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['andere@example.test']], $tokenA, ['Idempotency-Key' => $ikey]);
+$check($r['status'] === 409 && $code($r) === 'IDEMPOTENCY_KEY_REUSED', 'gleicher Key, andere Adressen → 409');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['email' => 'eins@example.test'], $tokenA);
+$check($r['status'] === 200 && $r['body']['data']['invited'] === 0 && $r['body']['data']['skipped'] === ['eins@example.test'], 'schon eingeladen (Feld email) → übersprungen');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['zwei@example.test', 'drei@example.test', 'vier@example.test']], $tokenA);
+$check($r['status'] === 200 && $r['body']['data']['invited'] === 2 && $r['body']['data']['skipped'] === ['vier@example.test'] && $r['body']['data']['group']['seats']['free'] === 0, 'Platzgrenze: mehr Einladungen als freie Plätze → Rest übersprungen');
+$wpdb->query($wpdb->prepare("UPDATE {$p}learning_group_member SET invited_at = %s WHERE group_id = %d AND email = %s", gmdate('Y-m-d H:i:s', time() - 31 * DAY_IN_SECONDS), $gA, 'zwei@example.test'));
+$r = $api('GET', "/me/groups/{$gA}", [], $tokenA);
+$zwei = array_values(array_filter($r['body']['data']['members'], static fn ($m) => $m['email'] === 'zwei@example.test'))[0] ?? null;
+$check($zwei !== null && $zwei['status'] === 'expired' && $zwei['removable'] === false && strtotime($zwei['invite_expires_at']) < time() && $r['body']['data']['seats'] === ['total' => 3, 'used' => 2, 'free' => 1], 'abgelaufene Einladung: Status expired (auch vor dem Cron), belegt keinen Platz');
+$check($r['body']['data']['invites_remaining_today'] === $gs->inviteBudget($gs->find($gA)) && $r['body']['data']['invites_remaining_today'] === \Bootspruefung\Learning\Commerce\GroupService::INVITE_LIMIT - 2, 'invites_remaining_today = Tageslimit des GroupService');
+// Tageslimit (Schutz vor Mail-Relay): wie im Web werden Adressen über dem Limit übersprungen.
+$filler = [];
+for ($i = 0; $i < 18; $i++) {
+    $wpdb->insert($p.'learning_group_member', ['group_id' => $gA, 'email' => null, 'status' => 'removed', 'invited_at' => gmdate('Y-m-d H:i:s'), 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')]);
+    $filler[] = (int) $wpdb->insert_id;
+}
+$mailsBefore = count($groupMails);
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['fuenf@example.test']], $tokenA);
+$check($r['status'] === 200 && $r['body']['data']['invited'] === 0 && $r['body']['data']['skipped'] === ['fuenf@example.test'] && $r['body']['data']['group']['invites_remaining_today'] === 0 && count($groupMails) === $mailsBefore, 'Tageslimit erreicht: übersprungen, keine Mail (wie Web)');
+$wpdb->query('DELETE FROM '.$p.'learning_group_member WHERE id IN ('.implode(',', $filler).')');
+// Rate-Limit je Konto: 20 Einladungsvorgänge pro Stunde; Wiederholung mit altem Key bleibt möglich.
+for ($i = 0; $i < 20; $i++) {
+    \Bootspruefung\Learning\Mobile\RateLimiter::increment('group-invite|'.$alice, HOUR_IN_SECONDS);
+}
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['sechs@example.test']], $tokenA);
+$check($r['status'] === 429 && $code($r) === 'RATE_LIMITED' && ($r['body']['retry_after'] ?? 0) > 0, 'zu viele Einladungsvorgänge → 429 RATE_LIMITED');
+$check($api('POST', "/me/groups/{$gA}/invites", ['emails' => ['eins@example.test', 'kaputt']], $tokenA, ['Idempotency-Key' => $ikey])['status'] === 200, 'gespeicherte Antwort trotz Limit (Idempotenz vor Limit)');
+\Bootspruefung\Learning\Mobile\RateLimiter::clear('group-invite|'.$alice);
+
+echo "Einladungslink als App-Link (1.7.0)\n";
+$erin = $customer('mobile_gruppe_e', 'Mobil-Passwort-654!');
+$tokE = (string) ($login('mobile_gruppe_e@example.test', 'Mobil-Passwort-654!')['body']['data']['access_token'] ?? '');
+$check((new AccessService())->limit($erin, $courseCode, AccessService::QUESTION_BANK) !== null, 'neues Konto ohne vollen Zugang');
+$pv = $api('GET', '/groups/join/'.$personal, [], $tokE);
+$check($pv['status'] === 200 && $pv['body']['data']['name'] === 'App-Gruppe Alice' && $pv['body']['data']['personal'] === true && $pv['body']['data']['joinable'] === true && $pv['body']['data']['already_member'] === false && $pv['body']['data']['scopes'][0]['course_id'] === $courseId, 'Vorschau des persönlichen Einladungslinks (wie Web groups/join/{token})');
+$check($api('GET', '/groups/join/'.$personal, [], $tokE, ['X-Tenant-Slug' => null])['status'] === 422, 'Vorschau braucht X-Tenant-Slug (wie /coupons/redeem)');
+$r = $api('GET', '/groups/join/g'.str_repeat('0', 32), [], $tokE);
+$check($r['status'] === 422 && $code($r) === 'COUPON_INVALID' && $api('GET', '/groups/join/kaputt', [], $tokE)['status'] === 422, 'unbekannter bzw. kaputter Link → 422 COUPON_INVALID');
+$r = $api('POST', '/coupons/redeem', ['code' => \Bootspruefung\Learning\Commerce\GroupService::joinUrl($personal)], $tokE);
+$joined = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE group_id = %d AND user_id = %d", $gA, $erin));
+$check($r['status'] === 200 && $r['body']['data']['kind'] === 'group_license' && $r['body']['data']['group_name'] === 'App-Gruppe Alice' && $joined && $joined->status === 'active' && $joined->email === 'eins@example.test' && $joined->invite_token === null, 'App-Link (ganzer Einladungslink i…) über POST /coupons/redeem eingelöst – wie Web groups/join');
+$check((new AccessService())->can($erin, $courseCode, AccessService::QUESTION_BANK) && (new AccessService())->limit($erin, $courseCode, AccessService::QUESTION_BANK) === null, 'Platz-Zugang freigeschaltet');
+$r = $api('GET', '/groups/join/'.$personal, [], $tokE);
+$check($r['status'] === 422 && $code($r) === 'COUPON_INVALID', 'persönlicher Link nach dem Annehmen ungültig');
+$pv = $api('GET', '/groups/join/'.$joinA, [], $tokE);
+$check($pv['status'] === 200 && $pv['body']['data']['personal'] === false && $pv['body']['data']['already_member'] === true, 'Gruppenlink: Vorschau erkennt bestehende Mitgliedschaft');
+$r = $api('GET', "/me/groups/{$gA}", [], $tokE);
+$check($r['status'] === 404, 'Mitglied sieht die Gruppe nicht in der Verwaltung (wie Web: nur Besitzer)');
+$r = $api('GET', "/me/groups/{$gA}", [], $tokenA);
+$erinM = array_values(array_filter($r['body']['data']['members'], static fn ($m) => $m['user_id'] === (string) $erin))[0] ?? null;
+$check($erinM !== null && $erinM['status'] === 'active' && $erinM['name'] === 'Kunde mobile_gruppe_e' && $erinM['joined_at'] !== null && $erinM['invite_expires_at'] === null && $erinM['is_me'] === false, 'Besitzerin sieht das neue Mitglied (aktiv, Name, Beitritt)');
+wp_set_current_user($alice);
+$webMine = (new \Bootspruefung\Learning\Rest\Controllers\GroupController())->mine();
+wp_set_current_user(0);
+$webA = array_values(array_filter($webMine, static fn ($g) => $g['id'] === $gA))[0] ?? null;
+$check($webA !== null && array_map('strval', array_column($webA['members'], 'id')) === array_column($r['body']['data']['members'], 'id') && array_column($webA['members'], 'status') === array_column($r['body']['data']['members'], 'status') && $webA['free_seats'] === $r['body']['data']['seats']['free'], 'gleiche Mitglieder, Status und freie Plätze wie im Web (GET /me/groups)');
+// App-Link-Datei
+$check(! AppLinks::configured() && AppLinks::wellKnown('/.well-known/apple-app-site-association')['status'] === 404, 'ohne App-Kennungen: keine apple-app-site-association (404)');
+MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => 'ABCDE12345.at.example.bootsschule']));
+$aj = json_decode((string) (AppLinks::wellKnown('/.well-known/apple-app-site-association')['body'] ?? ''), true);
+$paths = array_column($aj['applinks']['details'][0]['components'] ?? [], '/');
+$joinPath = (string) wp_parse_url(\Bootspruefung\Learning\Commerce\GroupService::joinUrl($personal), PHP_URL_PATH);
+$check(in_array(AppLinks::groupJoinPathPattern(), $paths, true) && AppLinks::groupJoinPathPattern() === '/'.\Bootspruefung\Learning\Frontend\Router::base().'/gruppe/*' && fnmatch(AppLinks::groupJoinPathPattern(), $joinPath) && in_array(AppLinks::resetPathPattern(), $paths, true) && in_array(AppLinks::deletionPathPattern(), $paths, true), 'apple-app-site-association enthält /bootsscheine/gruppe/* (passt auf den Einladungslink), bisherige Pfade bleiben');
+MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => '']));
+$check(AppLinks::wellKnown($joinPath) === null, 'Browser ohne App: Einladungslink wird von AppLinks nicht abgefangen');
+// Browser ohne App: der Pfad bleibt die Seite des Lernbereichs (Rewrite → bp_app, bp_path=gruppe/<token>).
+global $wp_rewrite;
+$permalinkBefore = (string) get_option('permalink_structure');
+$wp_rewrite->set_permalink_structure('/%postname%/');
+$wp_rewrite->flush_rules(false);
+$_SERVER['REQUEST_URI'] = $joinPath;
+$wpParse = new WP();
+$wpParse->parse_request();
+$check((string) ($wpParse->query_vars['bp_app'] ?? '') === '1' && ($wpParse->query_vars['bp_path'] ?? '') === 'gruppe/'.$personal, 'Einladungslink im Browser: Seite des Lernbereichs (Weg „gruppe/<token>“ wie bisher)');
+$wp_rewrite->set_permalink_structure($permalinkBefore);
+$wp_rewrite->flush_rules(false);
+$_SERVER['REQUEST_URI'] = '/';
+
+echo "Gruppen: Platz freigeben, Beitrittslink erneuern (1.7.0)\n";
+$r = $api('DELETE', "/me/groups/{$gA}/members/{$erinM['id']}", [], $tokenB);
+$check($r['status'] === 404 && $wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}learning_group_member WHERE id = %d", (int) $erinM['id'])) === 'active', 'fremde Person gibt keinen Platz frei → 404');
+$wpdb->insert($p.'learning_group_member', ['group_id' => $gB, 'email' => 'b1@example.test', 'status' => 'invited', 'invite_token' => 'i'.bin2hex(random_bytes(16)), 'invited_at' => gmdate('Y-m-d H:i:s'), 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')]);
+$bobMember = (int) $wpdb->insert_id;
+$r = $api('DELETE', "/me/groups/{$gA}/members/{$bobMember}", [], $tokenA);
+$check($r['status'] === 404 && $wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}learning_group_member WHERE id = %d", $bobMember)) === 'invited', 'Mitglied einer anderen Gruppe über die eigene Gruppe → 404');
+$check($api('DELETE', "/me/groups/{$gA}/members/999999", [], $tokenA)['status'] === 404, 'unbekanntes Mitglied → 404');
+$r = $api('DELETE', "/me/groups/{$gA}/members/{$erinM['id']}", ['reason' => 'Kurs abgebrochen'], $tokenA, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && ! in_array($erinM['id'], array_column($r['body']['data']['members'], 'id'), true) && (new AccessService())->limit($erin, $courseCode, AccessService::QUESTION_BANK) !== null, 'Platz freigegeben: Mitglied entfernt, Platz-Zugang widerrufen (GroupService::removeMember)');
+$check($wpdb->get_var($wpdb->prepare("SELECT reason FROM {$p}entitlement WHERE reference_key = %s LIMIT 1", \Bootspruefung\Learning\Commerce\GroupService::reference($gA, (int) $erinM['id']))) === 'Kurs abgebrochen' && $wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}entitlement WHERE reference_key = %s LIMIT 1", \Bootspruefung\Learning\Commerce\GroupService::reference($gA, (int) $erinM['id']))) === 'revoked', 'Grund wird wie im Web am Zugang gespeichert');
+$check($api('DELETE', "/me/groups/{$gA}/members/{$erinM['id']}", [], $tokenA)['status'] === 404, 'bereits entfernt → 404');
+$drei = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}learning_group_member WHERE group_id = %d AND email = %s", $gA, 'drei@example.test'));
+$r = $api('DELETE', "/me/groups/{$gA}/members/{$drei}", [], $tokenA);
+$check($r['status'] === 200 && $wpdb->get_var($wpdb->prepare("SELECT email FROM {$p}learning_group_member WHERE id = %d", $drei)) === null, 'offene Einladung zurückgezogen (Adresse sofort gelöscht, wie Web)');
+// Besitzerin tritt der eigenen Gruppe bei und gibt den eigenen Platz frei – im Web ebenso erlaubt.
+$api('POST', '/coupons/redeem', ['code' => $joinA], $tokenA);
+$selfM = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}learning_group_member WHERE group_id = %d AND user_id = %d AND status = 'active'", $gA, $alice));
+$r = $api('GET', "/me/groups/{$gA}", [], $tokenA);
+$selfRow = array_values(array_filter($r['body']['data']['members'], static fn ($m) => $m['id'] === (string) $selfM))[0] ?? null;
+$r = $api('DELETE', "/me/groups/{$gA}/members/{$selfM}", [], $tokenA);
+$check($selfM > 0 && $selfRow !== null && $selfRow['is_me'] === true && $r['status'] === 200, 'eigener Platz der Besitzerin: is_me, freigeben erlaubt (wie Web)');
+$ckey = $uuid();
+$nc = $api('POST', "/me/groups/{$gA}/join-code", [], $tokenA, ['Idempotency-Key' => $ckey, 'X-Tenant-Slug' => null]);
+$newJoin = (string) ($nc['body']['data']['join_code'] ?? '');
+$check($nc['status'] === 200 && preg_match('/^g[0-9a-f]{32}$/', $newJoin) === 1 && $newJoin !== $joinA && $wpdb->get_var($wpdb->prepare("SELECT join_token FROM {$p}learning_group WHERE id = %d", $gA)) === $newJoin && $nc['body']['data']['join_url'] === \Bootspruefung\Learning\Commerce\GroupService::joinUrl($newJoin), 'neuer Beitrittscode (GroupService::regenerateToken)');
+$nc2 = $api('POST', "/me/groups/{$gA}/join-code", [], $tokenA, ['Idempotency-Key' => $ckey]);
+$check($nc2['status'] === 200 && $nc2['body']['data']['join_code'] === $newJoin, 'Wiederholung mit gleichem Key erzeugt keinen weiteren Code');
+$r = $api('POST', '/coupons/redeem', ['code' => $joinA], $tokenB);
+$check($r['status'] === 422 && $code($r) === 'COUPON_INVALID' && $api('GET', '/groups/join/'.$joinA, [], $tokenB)['status'] === 422, 'alter Beitrittscode ungültig (Einlösen und Vorschau)');
+$check($api('GET', '/groups/join/'.$newJoin, [], $tokenB)['status'] === 200, 'neuer Beitrittscode gültig');
+$wpdb->update($p.'learning_group', ['status' => 'suspended'], ['id' => $gA]);
+$r = $api('GET', "/me/groups/{$gA}", [], $tokenA);
+$check($r['body']['data']['status'] === 'suspended' && $r['body']['data']['join_code'] === null && $r['body']['data']['join_url'] === null && $r['body']['data']['invites_remaining_today'] === 0, 'ausgesetzte Gruppe: kein Beitrittslink (wie Web)');
+$r = $api('POST', "/me/groups/{$gA}/invites", ['emails' => ['sieben@example.test']], $tokenA);
+$r2 = $api('POST', "/me/groups/{$gA}/join-code", [], $tokenA);
+$check($r['status'] === 409 && $code($r) === 'GROUP_NOT_ACTIVE' && $r2['status'] === 409 && $code($r2) === 'GROUP_NOT_ACTIVE' && $wpdb->get_var($wpdb->prepare("SELECT join_token FROM {$p}learning_group WHERE id = %d", $gA)) === $newJoin, 'ausgesetzte Gruppe: Einladen und neuer Link → 409 GROUP_NOT_ACTIVE');
+$pv = $api('GET', '/groups/join/'.$newJoin, [], $tokenB);
+$check($pv['status'] === 200 && $pv['body']['data']['joinable'] === false && $pv['body']['data']['status'] === 'suspended', 'Vorschau: ausgesetzte Gruppe nicht beitretbar');
+remove_filter('pre_wp_mail', $captureGroup, 10);
+foreach ([$gA, $gB] as $gid) {
+    $wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE reference_key LIKE %s", 'group:'.$gid.':%'));
+    $wpdb->query($wpdb->prepare("DELETE FROM {$p}learning_group_member WHERE group_id = %d", $gid));
+    $wpdb->delete($p.'learning_group', ['id' => $gid]);
+}
+wp_delete_user($erin);
+
+echo "Bestimmte Frage gezielt üben (1.7.0)\n";
+$modsAll = $content->modules((int) $courseRow->id);
+$courseQs = [];
+foreach ($content->questionsForModules(array_map(static fn ($m) => (int) $m->id, $modsAll)) as $qrow) {
+    $courseQs[(int) $qrow->question_id] ??= $qrow;
+}
+$fresh = null;
+foreach ($courseQs as $qid => $qrow) {
+    if (! $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}progress WHERE user_id = %d AND question_id = %d", $alice, $qid)) && ! in_array($qid, LearningService::blockedByRunningExam($alice), true)) {
+        $fresh = $qid;
+        break;
+    }
+}
+$r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question", [], $tokenA);
+$check($r['status'] === 422 && isset($r['body']['errors']['question_id']), 'mode=question ohne question_id → 422');
+$r = $api('GET', "/courses/{$courseId}/trainer/next?question_id={$fresh}", [], $tokenA);
+$check($r['status'] === 422 && isset($r['body']['errors']['question_id']), 'question_id ohne mode=question → 422 (keine stille Umdeutung)');
+$check($api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id=999999999", [], $tokenA)['status'] === 404 && $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id=abc", [], $tokenA)['status'] === 404, 'unbekannte Frage → 404');
+$foreign = 0;
+foreach ($content->courses() as $oc) {
+    foreach ($foreign === 0 && (int) $oc->id !== (int) $courseRow->id ? $content->questionsForModules(array_map(static fn ($m) => (int) $m->id, $content->modules((int) $oc->id))) : [] as $qrow) {
+        if (! isset($courseQs[(int) $qrow->question_id])) {
+            $foreign = (int) $qrow->question_id;
+            break;
+        }
+    }
+}
+$check($foreign > 0, 'Testvoraussetzung: Frage, die nur in anderen Kursen vorkommt');
+if ($foreign > 0) {
+    $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$foreign}", [], $tokenA);
+    $check($r['status'] === 404 && $code($r) === 'RESOURCE_NOT_FOUND', 'Frage eines anderen Kurses → 404');
+}
+$attemptsBefore = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}attempt WHERE user_id = %d AND question_id = %d", $alice, (int) $fresh));
+$qq = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$fresh}", [], $tokenA);
+$qd = $qq['body']['data'] ?? [];
+$check($fresh !== null && $qq['status'] === 200 && $qd['question']['id'] === (string) $fresh && $qd['mode'] === 'question' && is_string($qd['answer_token']) && $qd['answer_token_expires_in'] === QuestionPresenter::TTL && ! str_contains((string) wp_json_encode($qd), 'is_correct'), 'mode=question: genau diese Frage mit answer_token (wie trainer/next)');
+$qOpen = ($qd['question']['answer_selection'] ?? '') === 'open';
+if ($qOpen) {
+    $api('POST', "/courses/{$courseId}/trainer/reveal", ['answer_token' => $qd['answer_token']], $tokenA);
+}
+$qa = $api('POST', "/courses/{$courseId}/attempts", ['answer_token' => $qd['answer_token'], 'question_id' => (string) $fresh, 'selected_answer_ids' => $qOpen ? [] : [$qd['question']['answers'][0]['id']], 'known' => $qOpen ? true : null, 'mode' => 'question'], $tokenA, ['Idempotency-Key' => $uuid()]);
+$qp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}progress WHERE user_id = %d AND question_id = %d", $alice, (int) $fresh));
+$check($qa['status'] === 201 && $qa['body']['data']['question_id'] === (string) $fresh && $qp && (int) $qp->attempts === 1 && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}attempt WHERE user_id = %d AND question_id = %d", $alice, (int) $fresh)) === $attemptsBefore + 1 && $qp->learn_status === $qa['body']['data']['learning_status'], 'Antwort mit diesem Token zählt in denselben Lernstand (bp_attempt, bp_progress)');
+$qq2 = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$fresh}", [], $tokenA);
+$check($qq2['status'] === 200 && $qq2['body']['data']['question']['id'] === (string) $fresh && $qq2['body']['data']['answer_token'] !== $qd['answer_token'] && $qq2['body']['data']['progress']['attempts'] === 1, 'gleiche Frage direkt wieder abrufbar (neues Token, aktueller Fortschritt)');
+// Teilumfang: Konto ohne Kauf, kostenlos die erste Frage je Modul.
+$frida = $customer('mobile_frei_f', 'Mobil-Passwort-777!');
+$tokF = (string) ($login('mobile_frei_f@example.test', 'Mobil-Passwort-777!')['body']['data']['access_token'] ?? '');
+$wpdb->insert($p.'access_rule', ['course_code' => $courseCode, 'feature_code' => 'question_bank', 'access_type' => 'free_limited', 'limit_type' => AccessService::LIMIT_TYPES['question_bank'], 'limit_value' => 1, 'created_at' => current_time('mysql', true), 'updated_at' => current_time('mysql', true)]);
+$freeRule = (int) $wpdb->insert_id;
+$firstMod = (int) $modsAll[0]->id;
+$modQs = array_values(array_map(static fn ($r) => (int) $r->question_id, $content->questionsForModules([$firstMod])));
+$allowedF = $learning->allowedQuestions($frida, $courseRow, array_map(static fn ($m) => (int) $m->id, $modsAll));
+$lockedF = null;
+foreach ($modQs as $qid) {
+    if (! isset($allowedF[$qid])) {
+        $lockedF = $qid;
+        break;
+    }
+}
+$r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$modQs[0]}", [], $tokF);
+$check($r['status'] === 200 && $r['body']['data']['question']['id'] === (string) $modQs[0], 'Teilumfang: freigegebene Frage gezielt übbar');
+if ($lockedF !== null) {
+    $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$lockedF}", [], $tokF);
+    $check($r['status'] === 403 && $code($r) === 'CONTENT_LOCKED' && ($r['body']['details']['reason'] ?? '') === 'partial_access' && ($r['body']['details']['question_id'] ?? '') === (string) $lockedF && array_key_exists('webshop_url', $r['body']['details']), 'Teilumfang: weitere Frage des Moduls → 403 CONTENT_LOCKED (partial_access)');
+}
+$wpdb->delete($p.'access_rule', ['id' => $freeRule]);
+$r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$modQs[0]}", [], $tokF);
+$check($r['status'] === 403 && $code($r) === 'ENTITLEMENT_REQUIRED', 'ohne Zugang → 403 ENTITLEMENT_REQUIRED (wie trainer/next)');
+wp_delete_user($frida);
+// Zeitgesteuerte Freigabe: Modul erst 30 Tage nach Zugangsbeginn.
+$wpdb->insert($p.'access_rule', ['course_code' => $courseCode, 'feature_code' => 'question_bank', 'module_code' => (string) $modsAll[0]->code, 'access_type' => 'drip', 'limit_type' => 'days_after_start', 'limit_value' => 30, 'created_at' => current_time('mysql', true), 'updated_at' => current_time('mysql', true)]);
+$dripRule = (int) $wpdb->insert_id;
+$onlyFirst = null;
+$otherModQs = [];
+foreach (array_slice($modsAll, 1) as $m) {
+    foreach ($content->questionsForModules([(int) $m->id]) as $qrow) {
+        $otherModQs[(int) $qrow->question_id] = true;
+    }
+}
+foreach ($modQs as $qid) {
+    if (! isset($otherModQs[$qid])) {
+        $onlyFirst = $qid;
+        break;
+    }
+}
+if ($onlyFirst !== null) {
+    $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$onlyFirst}", [], $tokenB);
+    $check($r['status'] === 403 && $code($r) === 'CONTENT_LOCKED' && ($r['body']['details']['reason'] ?? '') === 'scheduled_release' && ($r['body']['details']['module_id'] ?? '') === (string) $firstMod && strtotime((string) $r['body']['details']['unlock_at']) > time() && str_contains($r['body']['detail'], 'freigeschaltet'), 'zeitgesteuerte Freigabe: Frage im gesperrten Modul → 403 CONTENT_LOCKED (scheduled_release, unlock_at)');
+}
+$wpdb->delete($p.'access_rule', ['id' => $dripRule]);
+// Frage einer laufenden Prüfung: im Lernmodus gesperrt (wie trainer/next).
+$runExam = $api('POST', "/courses/{$courseId}/exams", ['paper_id' => $paper['id']], $tokenB);
+$runId = (int) ($runExam['body']['data']['exam_id'] ?? 0);
+$inExam = (int) $wpdb->get_var($wpdb->prepare("SELECT question_id FROM {$p}exam_session_question WHERE session_id = %d ORDER BY position LIMIT 1", $runId));
+if ($runId > 0 && $inExam > 0 && isset($courseQs[$inExam])) {
+    $r = $api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$inExam}", [], $tokenB);
+    $check($r['status'] === 403 && $code($r) === 'CONTENT_LOCKED' && ($r['body']['details']['reason'] ?? '') === 'running_exam', 'Frage der laufenden Prüfung → 403 CONTENT_LOCKED (running_exam)');
+    $api('POST', "/exams/{$runId}/submit", [], $tokenB);
+    $check($api('GET', "/courses/{$courseId}/trainer/next?mode=question&question_id={$inExam}", [], $tokenB)['status'] === 200, 'nach der Abgabe wieder übbar');
+}
 
 echo "Datenexport und Löschantrag\n";
 $scheduled = static function (string $id): bool {
