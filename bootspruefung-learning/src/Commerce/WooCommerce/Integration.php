@@ -115,6 +115,7 @@ final class Integration
         (new MoneyBackWoo())->register();
         (new SimUpgrade())->register();
         (new VideoUpgrade())->register();
+        (new CartRelationHint())->register();
         (new PriceNote())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();

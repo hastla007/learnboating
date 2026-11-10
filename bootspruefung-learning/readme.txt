@@ -32,6 +32,6 @@ Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 * Zugang: kostenlose Bereiche, manuelle Freigaben (mit Begründung) und Shop-Freischaltungen; solange der Shop nicht live ist, wahlweise alle angemeldeten Nutzer
 * Datenbankschema mit InnoDB und Fremdschlüsseln, Migration bei Aktivierung/Update, Datenschutz-Export/-Löschung, sichere Deinstallation
 * Shortcode [bootspruefung] für einen Einstiegslink
-* Kursübersicht: passende Ergänzungen als „Empfohlen“, bereits abgedeckte Kurse ausgeblendet (Tabelle `CourseRelations`, Filter `bootspruefung_course_relations`); Hinweis und tägliche E-Mail-Erinnerung vor Ablauf eines Zugangs (abschaltbar, Tage einstellbar)
+* Kursübersicht: passende Ergänzungen als „Empfohlen“, bereits abgedeckte Kurse ausgeblendet (Tabelle `CourseRelations`, Filter `bootspruefung_course_relations`); Hinweis und tägliche E-Mail-Erinnerung vor Ablauf eines Zugangs (abschaltbar, Tage einstellbar); Warenkorb und Kasse (klassisch und Block) weisen angemeldete Kunden auf Kurse hin, die ein besessener Kurs schon abdeckt, und bieten die günstigere Alternative mit Tausch-Knopf an, z. B. Ergänzung Binnen → See statt Kombi (`CartRelationHint`, Filter `bootspruefung_cart_relation_hint`)
 
 Noch offen: Content-Freigabe und Go-live (Schritt 10).
