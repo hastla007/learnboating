@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Faq;
 
 /**
- * Shortcode [bootspruefung_faq rubric="" theme_only="0" subcategory="" title="" search="1"].
+ * Shortcode [bootspruefung_faq rubric="" theme_only="0" subcategory="" title="" search="1" schema="1"].
  *
  * Ohne Attribute: ganze FAQ-Sektion mit Rubrik-Navigation (Anker), je Rubrik eine Überschrift,
  * Unterkategorien als Zwischenüberschriften und die FAQs als native <details>. Optional eine
  * Suchzeile (kleines Inline-JS, ohne JS bleibt sie ausgeblendet und alles sichtbar) und JSON-LD
- * „FAQPage“ mit den ausgegebenen FAQs. Mit dem Theme Kurswasser übernimmt es dessen FAQ-Optik.
+ * „FAQPage“ mit den ausgegebenen FAQs – schema="0" schaltet es ab (FAQ-Auszüge auf anderen Seiten; das
+ * Markup gehört nur auf die FAQ-Seite). Mit dem Theme Kurswasser übernimmt es dessen FAQ-Optik.
  */
 final class FaqShortcode
 {
@@ -21,7 +22,7 @@ final class FaqShortcode
     /** @param array<string,string>|string $atts */
     public static function render($atts = []): string
     {
-        $atts = shortcode_atts(['rubric' => '', 'theme_only' => '0', 'subcategory' => '', 'title' => '', 'search' => '1'], (array) $atts, 'bootspruefung_faq');
+        $atts = shortcode_atts(['rubric' => '', 'theme_only' => '0', 'subcategory' => '', 'title' => '', 'search' => '1', 'schema' => '1'], (array) $atts, 'bootspruefung_faq');
         $faqs = FaqRepository::query(['rubric' => (string) $atts['rubric'], 'theme_only' => $atts['theme_only'], 'subcategory' => (string) $atts['subcategory']]);
         if ($faqs === []) {
             return '';
@@ -88,7 +89,9 @@ final class FaqShortcode
         if ($search) {
             $html .= '<p class="bp-faq-empty" hidden>'.esc_html__('Keine passende Frage gefunden.', 'bootspruefung-learning').'</p>';
         }
-        $html .= self::jsonLd($faqs);
+        if (filter_var($atts['schema'], FILTER_VALIDATE_BOOLEAN)) {
+            $html .= self::jsonLd($faqs);
+        }
         $html .= '</section>';
         if ($search && ! self::$scriptPrinted) {
             self::$scriptPrinted = true;

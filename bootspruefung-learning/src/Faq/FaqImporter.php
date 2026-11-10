@@ -12,12 +12,22 @@ namespace Bootspruefung\Learning\Faq;
  * über den Rubrik-Schlüssel bzw. den Slug wiedergefunden, ihre Merkmale nur ergänzt, nie überschrieben.
  *
  * Automatisch wie die Datenbank-Migration (Migrator): bei Aktivierung und nach einem Update, sobald
- * der Datenstand (VERSION) nicht zur gespeicherten Option passt – dann aber nur, wenn es noch keine
- * einzige FAQ gibt. Fehlende einzelne FAQs ergänzt der Knopf im Admin.
+ * der Datenstand (VERSION) nicht zur gespeicherten Option passt. Gibt es noch keine einzige FAQ, werden
+ * alle angelegt; sonst werden nur unveränderte Standard-FAQs auf den neuen Text gebracht (updateDefaults).
+ * Fehlende einzelne FAQs ergänzt der Knopf im Admin.
+ *
+ * „Unverändert“: Prüfsumme über Frage und Antwort (Leerraum und Entities normalisiert) entspricht dem
+ * zuletzt eingespielten Standardstand – gemerkt in _bp_faq_default_hash, für FAQs aus Datenstand 1 ohne
+ * dieses Feld über DefaultFaqHistory. Vom Betreiber geänderte FAQs werden nie überschrieben.
+ * Ändert sich ein Text in DefaultFaqs: VERSION erhöhen.
  */
 final class FaqImporter
 {
-    public const VERSION = '1';
+    public const VERSION = '2';
+    /** Prüfsumme des zuletzt eingespielten Standardstands (Frage + Antwort, wie gespeichert). */
+    public const META_DEFAULT_HASH = '_bp_faq_default_hash';
+    /** Status, den der Import bzw. die Aktualisierung zuletzt gesetzt hat. */
+    public const META_DEFAULT_STATUS = '_bp_faq_default_status';
     public const OPTION_VERSION = 'bp_learning_faq_version';
     private const OPTION_LOCK = 'bp_learning_faq_import_lock';
     private const LOCK_TTL = 300;
@@ -38,6 +48,8 @@ final class FaqImporter
         try {
             if (! self::hasAny()) {
                 self::import();
+            } else {
+                self::updateDefaults();
             }
             update_option(self::OPTION_VERSION, self::VERSION, true);
         } finally {
@@ -85,7 +97,7 @@ final class FaqImporter
                         continue;
                     }
                     $status = self::statusFor($faq);
-                    $meta = [Faq::META_REF => (int) $faq['ref'], Faq::META_THEME => $faq['theme'] ? '1' : '0'];
+                    $meta = [Faq::META_REF => (int) $faq['ref'], Faq::META_THEME => $faq['theme'] ? '1' : '0', self::META_DEFAULT_STATUS => $status];
                     if (! empty($faq['note'])) {
                         $meta[Faq::META_NOTE] = $faq['note'];
                     }
@@ -93,7 +105,7 @@ final class FaqImporter
                         'post_type' => Faq::POST_TYPE,
                         'post_status' => $status,
                         'post_title' => $faq['question'],
-                        'post_content' => "<!-- wp:paragraph -->\n<p>".htmlspecialchars($faq['answer'], ENT_NOQUOTES, 'UTF-8')."</p>\n<!-- /wp:paragraph -->",
+                        'post_content' => self::content($faq),
                         'menu_order' => $f + 1,
                         'comment_status' => 'closed',
                         'ping_status' => 'closed',
@@ -103,6 +115,7 @@ final class FaqImporter
                         continue;
                     }
                     wp_set_object_terms((int) $id, [$subId ?: $rubricId], Faq::TAXONOMY);
+                    self::rememberDefault((int) $id);
                     $existing[$faq['ref']] = true;
                     $stats['created']++;
                     if ($status === 'draft') {
@@ -110,6 +123,102 @@ final class FaqImporter
                     }
                 }
             }
+        }
+        FaqRepository::flush();
+
+        return $stats;
+    }
+
+    /** Gespeicherter Inhalt einer Standard-FAQ (ein Absatz-Block). @param array{answer:string} $faq */
+    public static function content(array $faq): string
+    {
+        return "<!-- wp:paragraph -->\n<p>".htmlspecialchars((string) $faq['answer'], ENT_NOQUOTES, 'UTF-8')."</p>\n<!-- /wp:paragraph -->";
+    }
+
+    /** Prüfsumme über Frage und Antwort; Leerraum und Entities normalisiert (kses, Editor). */
+    public static function hash(string $question, string $content): string
+    {
+        $norm = static fn (string $s): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+        return md5($norm($question)."\n".$norm($content));
+    }
+
+    /** Prüfsumme des gespeicherten Stands als „unveränderter Standard“ merken. */
+    private static function rememberDefault(int $id): void
+    {
+        clean_post_cache($id);
+        $post = get_post($id);
+        if ($post instanceof \WP_Post) {
+            update_post_meta($id, self::META_DEFAULT_HASH, self::hash($post->post_title, $post->post_content));
+        }
+    }
+
+    /**
+     * Unveränderte Standard-FAQs auf den aktuellen Text aus DefaultFaqs bringen (Frage, Antwort, Redaktions-
+     * hinweis; Status nur, wenn der Betreiber ihn nicht geändert hat). Vom Betreiber geänderte FAQs, FAQs im
+     * Papierkorb und eigene FAQs ohne Nummer bleiben unberührt. ★ (Im Theme anzeigen) bleibt Sache des Betreibers.
+     *
+     * @param list<array<string,mixed>>|null $rubrics Standarddaten (Tests); null = DefaultFaqs::RUBRICS
+     * @return array{updated:list<int>,kept:list<int>,current:int}
+     */
+    public static function updateDefaults(?array $rubrics = null): array
+    {
+        Faq::registerTypes();
+        $defaults = [];
+        foreach ($rubrics ?? DefaultFaqs::RUBRICS as $rubric) {
+            foreach ($rubric['subcategories'] as $sub) {
+                foreach ($sub['faqs'] as $faq) {
+                    $defaults[(int) $faq['ref']] = $faq;
+                }
+            }
+        }
+        $stats = ['updated' => [], 'kept' => [], 'current' => 0];
+        $posts = get_posts(['post_type' => Faq::POST_TYPE, 'post_status' => ['publish', 'draft', 'pending', 'private', 'future'], 'numberposts' => -1,
+            'meta_key' => Faq::META_REF, 'orderby' => 'ID', 'order' => 'ASC', 'suppress_filters' => true]);
+        foreach ($posts as $post) {
+            $ref = (int) get_post_meta($post->ID, Faq::META_REF, true);
+            $faq = $defaults[$ref] ?? null;
+            if ($faq === null) {
+                continue;
+            }
+            $current = self::hash($post->post_title, $post->post_content);
+            $wanted = self::hash((string) $faq['question'], self::content($faq));
+            $stored = (string) get_post_meta($post->ID, self::META_DEFAULT_HASH, true);
+            $recordedStatus = (string) get_post_meta($post->ID, self::META_DEFAULT_STATUS, true);
+            if ($stored === '') {
+                // Datenstand 1 (ohne Prüfsumme): bekannte frühere Standardstände je Nummer.
+                $history = DefaultFaqHistory::HASHES[$ref] ?? [];
+                $known = isset($history[$current]) ? [$current] : [];
+                if ($recordedStatus === '' && isset($history[$current])) {
+                    $recordedStatus = $history[$current];
+                }
+            } else {
+                $known = [$stored];
+            }
+            if ($current === $wanted) {
+                $stats['current']++;
+                if ($stored !== $current) {
+                    // Entspricht dem aktuellen Standard: Prüfsumme (und den Status des Imports) nachtragen.
+                    update_post_meta($post->ID, self::META_DEFAULT_HASH, $current);
+                    if ((string) get_post_meta($post->ID, self::META_DEFAULT_STATUS, true) === '') {
+                        update_post_meta($post->ID, self::META_DEFAULT_STATUS, $recordedStatus !== '' ? $recordedStatus : self::statusFor($faq));
+                    }
+                }
+                continue;
+            }
+            if (! in_array($current, $known, true)) {
+                $stats['kept'][] = $ref;
+                continue;
+            }
+            $status = $recordedStatus !== '' && $recordedStatus !== $post->post_status ? $post->post_status : self::statusFor($faq);
+            $id = wp_update_post(wp_slash(['ID' => $post->ID, 'post_title' => (string) $faq['question'], 'post_content' => self::content($faq), 'post_status' => $status]), true);
+            if (is_wp_error($id) || ! $id) {
+                continue;
+            }
+            empty($faq['note']) ? delete_post_meta($post->ID, Faq::META_NOTE) : update_post_meta($post->ID, Faq::META_NOTE, (string) $faq['note']);
+            update_post_meta($post->ID, self::META_DEFAULT_STATUS, $status);
+            self::rememberDefault($post->ID);
+            $stats['updated'][] = $ref;
         }
         FaqRepository::flush();
 

@@ -115,6 +115,54 @@ $check($again['created'] === 0 && count(FaqImporter::existingRefs()) === 92 && c
 wp_untrash_post($byRef(3)->ID);
 wp_publish_post($byRef(3)->ID);
 
+echo "Unveränderte Standard-FAQs aktualisieren (neuer Datenstand)\n";
+$check(FaqImporter::VERSION !== '1', 'Datenstand erhöht: '.FaqImporter::VERSION);
+$f4 = $byRef(4);
+$f5 = $byRef(5);
+$f12 = $byRef(12);
+$check(get_post_meta($f4->ID, FaqImporter::META_DEFAULT_HASH, true) === FaqImporter::hash($f4->post_title, $f4->post_content) && get_post_meta($f12->ID, FaqImporter::META_DEFAULT_STATUS, true) === 'draft', 'Import merkt Prüfsumme und Status des Standardstands');
+// Neuer Standardstand (simuliert): Texte von 1 (vom Betreiber geändert), 4, 5 (ohne Prüfsumme wie Datenstand 1) und 12 (Entwurf mit Platzhalter).
+delete_post_meta($f5->ID, FaqImporter::META_DEFAULT_HASH);
+delete_post_meta($f5->ID, FaqImporter::META_DEFAULT_STATUS);
+$newDefaults = DefaultFaqs::RUBRICS;
+foreach ($newDefaults as &$rubric) {
+    foreach ($rubric['subcategories'] as &$sub) {
+        foreach ($sub['faqs'] as &$faq) {
+            if (in_array($faq['ref'], [1, 4, 5, 12], true)) {
+                $faq['answer'] = 'Neuer Standardtext für FAQ '.$faq['ref'].' & mehr.';
+                $faq['note'] = $faq['ref'] === 12 ? null : $faq['note'];
+            }
+            if ($faq['ref'] === 4) {
+                $faq['question'] = 'Neue Frage 4?';
+            }
+        }
+        unset($faq);
+    }
+    unset($sub);
+}
+unset($rubric);
+$upd = FaqImporter::updateDefaults($newDefaults);
+sort($upd['updated']);
+$check($upd['updated'] === [4, 5, 12] && $upd['kept'] === [1], 'aktualisiert 4, 5, 12; vom Betreiber geänderte FAQ 1 bleibt ('.wp_json_encode($upd).')');
+$f4 = get_post($f4->ID);
+$check($f4->post_title === 'Neue Frage 4?' && str_contains($f4->post_content, '<p>Neuer Standardtext für FAQ 4 &amp; mehr.</p>') && $f4->post_status === 'publish', 'FAQ 4: Frage und Antwort neu, Status bleibt veröffentlicht');
+$check(str_contains((string) get_post_field('post_content', $f5->ID), 'Neuer Standardtext für FAQ 5'), 'FAQ 5 ohne gemerkte Prüfsumme: über DefaultFaqHistory als unverändert erkannt');
+$check(str_contains((string) get_post_field('post_content', $f1->ID), 'Vom Betreiber geändert.'), 'FAQ 1 (geändert) unverändert');
+$check(get_post_status($f12->ID) === 'publish' && get_post_meta($f12->ID, Faq::META_NOTE, true) === '', 'FAQ 12: ohne Platzhalter jetzt veröffentlicht, Redaktionshinweis entfernt');
+$again = FaqImporter::updateDefaults($newDefaults);
+$check($again['updated'] === [] && $again['kept'] === [1], 'zweiter Lauf ändert nichts');
+// Betreiber ändert FAQ 4 nach dem Update → bleibt beim nächsten Stand; FAQ 12 bekommt vom Betreiber den Status Entwurf.
+wp_update_post(['ID' => $f4->ID, 'post_content' => '<!-- wp:paragraph --><p>Betreibertext 4.</p><!-- /wp:paragraph -->']);
+wp_update_post(['ID' => $f12->ID, 'post_status' => 'draft']);
+// Zurück auf den echten Datenstand (wie nach einem Plugin-Update): maybeImport() mit neuer VERSION.
+update_option(FaqImporter::OPTION_VERSION, '1');
+FaqImporter::maybeImport();
+$check(get_option(FaqImporter::OPTION_VERSION) === FaqImporter::VERSION, 'maybeImport: Datenstand gespeichert');
+$check(str_contains((string) get_post_field('post_content', $f4->ID), 'Betreibertext 4.'), 'FAQ 4 nach Betreiber-Änderung nicht überschrieben');
+$check(str_contains((string) get_post_field('post_content', $f5->ID), 'Das Mindestalter hängt von Schein und Antriebsart ab.') && str_contains((string) get_post_field('post_content', $f12->ID), '[Link zu den Standorten ergänzen.]'), 'FAQ 5 und 12 wieder auf dem Standardtext');
+$check(get_post_status($f12->ID) === 'draft', 'FAQ 12: Status bleibt Entwurf (Standard: Entwurf wegen Platzhalter)');
+wp_update_post(['ID' => $f4->ID, 'post_title' => DefaultFaqs::RUBRICS[0]['subcategories'][1]['faqs'][0]['question'], 'post_content' => FaqImporter::content(DefaultFaqs::RUBRICS[0]['subcategories'][1]['faqs'][0])]);
+
 echo "bootspruefung_faqs()\n";
 $fields = ['id', 'ref', 'question', 'answer_html', 'rubric', 'rubric_label', 'subcategory', 'subcategory_label', 'theme'];
 $faqs = bootspruefung_faqs();
@@ -177,6 +225,9 @@ $small = do_shortcode('[bootspruefung_faq rubric="SRC" theme_only="1" title="Fra
 $check(str_contains($small, '>Fragen zum SRC</h2>') && ! str_contains($small, 'bp-faq-nav') && ! str_contains($small, 'bp-faq-search') && substr_count($small, '<summary>') === 4 && str_contains($small, '<h3 class="bp-faq-group-title">'), 'mit Attributen: Titel h2, keine Navigation/Suche, 4 ★-FAQs SRC');
 $check(str_contains($small, '"@type":"FAQPage"') && substr_count($small, '"@type":"Question"') === 4, 'JSON-LD nur mit den ausgegebenen FAQs');
 $check(do_shortcode('[bootspruefung_faq rubric="gibt-es-nicht"]') === '', 'ohne Treffer: keine Ausgabe');
+$noLd = do_shortcode('[bootspruefung_faq rubric="SRC" theme_only="1" search="0" schema="0"]');
+$check(substr_count($noLd, '<summary>') === 4 && ! str_contains($noLd, 'application/ld+json') && ! str_contains($noLd, 'FAQPage'), 'schema="0": FAQs ohne JSON-LD FAQPage');
+$check(str_contains(do_shortcode('[bootspruefung_faq rubric="SRC" theme_only="1" search="0" schema="1"]'), '"@type":"FAQPage"'), 'schema="1" (Standard): mit JSON-LD');
 
 echo "REST GET /bootspruefung/v1/faqs\n";
 wp_set_current_user(0);
@@ -201,9 +252,21 @@ $existingPage = FaqAdmin::faqPage();
 $page = FaqAdmin::createPage();
 if (! $existingPage) {
     $createdPages[] = $page['id'];
-    $check($page['created'] && get_post_field('post_title', $page['id']) === 'Häufige Fragen' && str_contains((string) get_post_field('post_content', $page['id']), '[bootspruefung_faq]') && get_post_status($page['id']) === 'publish', 'FAQ-Seite „Häufige Fragen“ mit Shortcode angelegt');
+    $check($page['created'] && get_post_field('post_title', $page['id']) === 'Häufige Fragen zum Bootsführerschein' && get_post_field('post_name', $page['id']) === 'faq-bootsfuehrerschein' && str_contains((string) get_post_field('post_content', $page['id']), '[bootspruefung_faq]') && get_post_status($page['id']) === 'publish', 'FAQ-Seite „Häufige Fragen zum Bootsführerschein“ (/faq-bootsfuehrerschein/) mit Shortcode angelegt');
 }
 $check(FaqAdmin::createPage() === ['id' => $page['id'], 'created' => false], 'zweiter Klick legt keine weitere Seite an');
+// Vorhandene Seite mit dem Shortcode wird genutzt – eine Seite mit FAQ-Auszug (schema="0") aber nicht.
+delete_option(Faq::PAGE_OPTION);
+if (! $existingPage) {
+    wp_delete_post($page['id'], true);
+    $createdPages[] = $excerptId = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Ratgeber FAQ-Test', 'post_name' => 'ratgeber-faq-test',
+        'post_content' => '<!-- wp:shortcode -->[bootspruefung_faq rubric="allgemein" schema="0" search="0"]<!-- /wp:shortcode -->']);
+    $check(FaqAdmin::faqPage() === null, 'Seite mit FAQ-Auszug (schema="0") gilt nicht als FAQ-Seite');
+    $createdPages[] = $ownId = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'Eigene FAQ', 'post_name' => 'eigene-faq-test',
+        'post_content' => '<!-- wp:shortcode -->[bootspruefung_faq]<!-- /wp:shortcode -->']);
+    $again = FaqAdmin::createPage();
+    $check($again === ['id' => $ownId, 'created' => false], 'vorhandene Seite mit dem Shortcode wird genutzt, keine neue angelegt');
+}
 
 echo "Theme Kurswasser\n";
 if (! function_exists('kurswasser_course_faq') && is_file(get_theme_root().'/kurswasser/inc/courses.php')) {

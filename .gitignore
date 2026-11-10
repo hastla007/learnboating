@@ -4,3 +4,4 @@
 /bootspruefung-learning/vendor/
 /tools/content-build/.phpunit.result.cache
 /tools/device-sim/node_modules/
+__pycache__/

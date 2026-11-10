@@ -161,6 +161,12 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/faq-test.php | tee faq.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" faq.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Theme Kurswasser – Inhaltsseiten-Konverter (Python)
+        run: python3 -m unittest discover -s themes/kurswasser/tools -p 'test_*.py' -v
+      - name: Theme Kurswasser – Inhaltsseiten anlegen und SEO-Ausgabe (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/content-pages-test.php | tee content-pages.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" content-pages.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Zugangslogik (Integration, ohne Shop)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log

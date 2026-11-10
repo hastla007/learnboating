@@ -160,6 +160,17 @@ function kurswasser_course_image(string $slug, bool $small = false): ?string
     return is_file(get_template_directory().'/'.$file) ? get_template_directory_uri().'/'.$file : null;
 }
 
+/**
+ * Ziel des Brotkrumen-Glieds „Kurse“: die Kursübersicht /kurse/ (legt kurswasser_create_course_pages() an).
+ * Ohne veröffentlichte Übersichtsseite wie bisher der Anker der Startseite.
+ */
+function kurswasser_courses_overview_url(): string
+{
+    $page = get_page_by_path('kurse');
+
+    return $page instanceof WP_Post && $page->post_status === 'publish' ? (string) get_permalink($page) : home_url('/#kurse');
+}
+
 function kurswasser_course_url(string $slug): string
 {
     $page = get_page_by_path('kurse/'.$slug);
@@ -395,7 +406,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $photo = kurswasser_course_image($slug);
     $photoSmall = kurswasser_course_image($slug, true);
     $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) $photoSmall).'\')"' : '').'><div class="kw-course-hero-inner">';
-    $html .= '<nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html($def['title']).'</span></nav>';
+    $html .= '<nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(kurswasser_courses_overview_url()).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html($def['title']).'</span></nav>';
     $html .= '<div class="kw-course-hero-grid"><div><p class="kw-eyebrow">'.esc_html($def['name']).'</p>';
     $html .= '<h1>'.esc_html(sprintf(__('%s online lernen', 'kurswasser'), $def['title'])).'</h1><p class="kw-course-lead">'.esc_html($def['lead']).'</p>';
     $html .= '<div class="kw-course-cta"><a class="kw-btn kw-btn-signal" href="#preise">'.esc_html($from !== null ? sprintf(__('Ab %s – Angebote ansehen', 'kurswasser'), kurswasser_money($from)) : __('Angebote ansehen', 'kurswasser')).'</a><a class="kw-btn kw-btn-ghost" href="'.esc_url($trial).'">'.esc_html__('Kostenlos reinschnuppern', 'kurswasser').'</a></div></div>';
@@ -492,7 +503,7 @@ function kurswasser_course_exam(array $def): string
 function kurswasser_packages_page(): string
 {
     $photo = kurswasser_course_image('pakete');
-    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('pakete', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></nav>';
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('pakete', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(kurswasser_courses_overview_url()).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Pakete & Pässe', 'kurswasser').'</span></nav>';
     $html .= '<div class="kw-course-hero-grid is-single"><div><p class="kw-eyebrow">'.esc_html__('Sparen mit Kombis und Paketen', 'kurswasser').'</p><h1>'.esc_html__('Pakete & Pässe', 'kurswasser').'</h1><p class="kw-course-lead">'.esc_html__('Mehrere Scheine auf einmal? Mit Kombi, Kapitäns-Bundle oder einem Pass für alle Inhalte lernst du alles an einem Ort – und sparst gegenüber dem Einzelkauf.', 'kurswasser').'</p></div></div></div></section>';
     $html .= '<section id="preise" class="kw-section">'.do_shortcode('[kurswasser_offers]').'</section>';
 
@@ -536,7 +547,7 @@ function kurswasser_more_page(): string
 function kurswasser_more_page_legacy(): string
 {
     $photo = kurswasser_course_image('weitere');
-    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('weitere', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(home_url('/#kurse')).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Weitere Kurse', 'kurswasser').'</span></nav>';
+    $html = '<section class="kw-course-hero alignfull"'.($photo ? ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image('weitere', true)).'\')"' : '').'><div class="kw-course-hero-inner"><nav class="kw-crumbs" aria-label="'.esc_attr__('Brotkrumen', 'kurswasser').'"><a href="'.esc_url(home_url('/')).'">'.esc_html__('Start', 'kurswasser').'</a><span aria-hidden="true">/</span><a href="'.esc_url(kurswasser_courses_overview_url()).'">'.esc_html__('Kurse', 'kurswasser').'</a><span aria-hidden="true">/</span><span>'.esc_html__('Weitere Kurse', 'kurswasser').'</span></nav>';
     $html .= '<div class="kw-course-hero-grid is-single"><div><p class="kw-eyebrow">'.esc_html__('Mehr Kurse', 'kurswasser').'</p><h1>'.esc_html__('Weitere Kurse', 'kurswasser').'</h1><p class="kw-course-lead">'.esc_html__('Segeln auf Binnengewässern, Seenotsignalmittel, Ergänzungskurse für Scheininhaber, Pässe für alle Inhalte und Pakete für Gruppen.', 'kurswasser').'</p></div></div></div></section>';
     $html .= '<section class="kw-section">'.do_shortcode('[kurswasser_course_tiles set="more"]').kurswasser_offer_trust().'</section>';
 

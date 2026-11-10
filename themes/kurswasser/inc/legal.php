@@ -196,12 +196,12 @@ function kurswasser_legal_templates_hash(): string
 /**
  * Sperre gegen parallele Abgleiche (zwei Admin-Tabs, Admin + Cron). INSERT IGNORE ist atomar – add_option()
  * nutzt „ON DUPLICATE KEY UPDATE“ und würde beim gleichzeitigen Zugriff beiden Anfragen Erfolg melden.
- * Eine liegen gebliebene Sperre (abgebrochene Anfrage) verfällt nach fünf Minuten.
+ * Eine liegen gebliebene Sperre (abgebrochene Anfrage) verfällt nach fünf Minuten. $name: eigene Sperre
+ * (z. B. kurswasser_content_lock für die Inhaltsseiten).
  */
-function kurswasser_legal_lock(bool $acquire): bool
+function kurswasser_legal_lock(bool $acquire, string $name = 'kurswasser_legal_lock'): bool
 {
     global $wpdb;
-    $name = 'kurswasser_legal_lock';
     if (! $acquire) {
         $wpdb->delete($wpdb->options, ['option_name' => $name]);
         wp_cache_delete($name, 'options');

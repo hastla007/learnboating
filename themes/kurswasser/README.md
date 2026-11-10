@@ -77,6 +77,35 @@ sonst `/<ziel>/` (z. B. `#kw:impressum`).
   sichtbarer Fokus, „Bewegung reduzieren“ wird respektiert.
 - Palette mit Slug `primary`: Das Lern-Plugin übernimmt die Akzentfarbe automatisch.
 
+## Inhaltsseiten (Info- und Marketingseiten)
+
+Texte entstehen als Markdown (`NN-slug.md`: Front-Matter + `## Inhalt` mit `### [Typ] Überschrift`,
+Typen B1–B10 des Seiten-Baukastens; Format im Kopf von `tools/content_build.py`). Daraus:
+
+```bash
+python3 themes/kurswasser/tools/content_build.py <ordner-mit-md> --check   # nur prüfen
+python3 themes/kurswasser/tools/content_build.py <ordner-mit-md>           # → content/pages.php + content/pages/*.html
+wp kurswasser content-pages status                                         # was wäre neu/aktualisierbar, offene Punkte
+wp kurswasser content-pages sync --user=<admin>                             # anlegen bzw. aktualisieren
+```
+
+- Typ A = Vorlage `course` mit Kurs-Hero (`[kurswasser_page_hero]`: Brotkrumen, Eyebrow, H1 = Seitentitel,
+  Lead, CTAs, optional Foto/Kennzahlen/Sprungnavigation); Typ B = Vorlage `page`.
+- `{{brand}}` wird beim Anlegen (und beim Ausgeben) zum Website-Namen.
+- Nichts wird ungefragt überschrieben: vom Betreiber geänderte Seiten bleiben (Prüfsumme), neue Vorlagenstände
+  meldet der Admin-Hinweis (Dashboard, Seiten) mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ und den
+  offenen Punkten je Seite. Seiten mit `[[Betreiber: …]]` bzw. „Offen“-Kasten entstehen als Entwurf.
+- Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`.
+- `#kw:`-Links überstehen kses (auch ohne `unfiltered_html`).
+
+## SEO (`inc/seo.php`)
+
+Metabox „SEO (Kurswasser)“ an Seiten und Beiträgen: SEO-Titel, Meta-Description, Canonical, Stand, noindex,
+Schema. Ausgabe: `<title>`, Description, `noindex, follow`, Canonical, keine noindex-Seiten in der Sitemap,
+JSON-LD BreadcrumbList (Seiten), Article (Schema „Article“), Organization + WebSite (nur Startseite).
+Mit Yoast SEO oder Rank Math aktiv: keine eigene Ausgabe, nur Rückfall auf die eigenen Felder, wo das
+Plugin-Feld leer ist.
+
 ## Prüfen
 
 CI (Job mit WooCommerce 11.2.2) testet Lernbereich, Trainer und Kaufablauf mit diesem Theme,

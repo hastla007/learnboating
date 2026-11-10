@@ -280,13 +280,16 @@ final class FaqAdmin
         }
         $result = self::createPage();
         Ui::flash($result['created']
-            ? __('Seite „Häufige Fragen“ angelegt und veröffentlicht.', 'bootspruefung-learning')
+            ? __('Seite „Häufige Fragen zum Bootsführerschein“ angelegt und veröffentlicht.', 'bootspruefung-learning')
             : __('Es gibt schon eine FAQ-Seite.', 'bootspruefung-learning'), $result['created'] ? 'success' : 'info');
         wp_safe_redirect(admin_url(self::LIST_URL));
         exit;
     }
 
-    /** Legt die Seite „Häufige Fragen“ mit dem Shortcode an, falls es noch keine gibt. @return array{id:int,created:bool} */
+    /** Slug der FAQ-Seite (wie die Inhaltsseite 34 des Themes Kurswasser). */
+    public const PAGE_SLUG = 'faq-bootsfuehrerschein';
+
+    /** Legt die Seite „Häufige Fragen zum Bootsführerschein“ mit dem Shortcode an, falls es noch keine gibt. @return array{id:int,created:bool} */
     public static function createPage(): array
     {
         $page = self::faqPage();
@@ -296,8 +299,8 @@ final class FaqAdmin
         $id = wp_insert_post(wp_slash([
             'post_type' => 'page',
             'post_status' => 'publish',
-            'post_title' => __('Häufige Fragen', 'bootspruefung-learning'),
-            'post_name' => 'haeufige-fragen',
+            'post_title' => __('Häufige Fragen zum Bootsführerschein', 'bootspruefung-learning'),
+            'post_name' => self::PAGE_SLUG,
             'post_content' => "<!-- wp:shortcode -->\n[bootspruefung_faq]\n<!-- /wp:shortcode -->",
             'comment_status' => 'closed',
         ]), true);
@@ -309,7 +312,10 @@ final class FaqAdmin
         return ['id' => (int) $id, 'created' => true];
     }
 
-    /** Vorhandene FAQ-Seite: gemerkte Seite oder irgendeine Seite mit dem Shortcode (nicht im Papierkorb). */
+    /**
+     * Vorhandene FAQ-Seite (nicht im Papierkorb): gemerkte Seite, sonst die Seite /faq-bootsfuehrerschein/, sonst
+     * irgendeine Seite mit dem Shortcode – aber keine mit einem FAQ-Auszug (schema="0", z. B. auf Ratgeberseiten).
+     */
     public static function faqPage(): ?WP_Post
     {
         $id = (int) get_option(Faq::PAGE_OPTION);
@@ -317,13 +323,40 @@ final class FaqAdmin
         if ($page instanceof WP_Post && $page->post_type === 'page' && $page->post_status !== 'trash') {
             return $page;
         }
+        $page = get_page_by_path(self::PAGE_SLUG, OBJECT, 'page');
+        if ($page instanceof WP_Post && $page->post_status !== 'trash' && str_contains($page->post_content, '[bootspruefung_faq')) {
+            return $page;
+        }
         global $wpdb;
-        $found = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status NOT IN ('trash','auto-draft','inherit') AND post_content LIKE %s ORDER BY ID LIMIT 1",
+        $ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status NOT IN ('trash','auto-draft','inherit') AND post_content LIKE %s ORDER BY ID LIMIT 50",
             '%'.$wpdb->esc_like('[bootspruefung_faq').'%'
         ));
+        foreach ($ids as $found) {
+            $post = get_post((int) $found);
+            if ($post instanceof WP_Post && self::isFaqPageContent($post->post_content)) {
+                return $post;
+            }
+        }
 
-        return $found > 0 ? get_post($found) : null;
+        return null;
+    }
+
+    /** Enthält der Inhalt den FAQ-Shortcode als ganze FAQ-Sektion (nicht als Auszug mit schema="0")? */
+    public static function isFaqPageContent(string $content): bool
+    {
+        if (! preg_match_all('/\[bootspruefung_faq\b([^\]]*)\]/', $content, $m)) {
+            return false;
+        }
+        foreach ($m[1] as $attrs) {
+            $atts = shortcode_parse_atts($attrs);
+            $schema = is_array($atts) ? ($atts['schema'] ?? '1') : '1';
+            if (filter_var($schema, FILTER_VALIDATE_BOOLEAN)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function termAddFields(): void
