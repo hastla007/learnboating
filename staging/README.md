@@ -71,6 +71,14 @@ Danach:
    ```
 
    Caddy holt das Zertifikat automatisch und setzt `X-Robots-Tag: noindex`.
+
+   **App-Schnittstelle hinter Caddy:** WordPress sieht als Client-Adresse den Caddy-Container. Damit die Anmelde-Limits der App je echter Client-IP zählen, unter Admin → Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“ das Docker-Netz des Projekts eintragen (seit App-API 1.4.0 wird standardmäßig keinem Proxy vertraut). Subnetz ermitteln:
+
+   ```bash
+   docker network inspect "$(basename "$PWD")_default" --format '{{(index .IPAM.Config 0).Subnet}}'
+   ```
+
+   (z. B. `172.18.0.0/16`; bei abweichendem Projektnamen `docker network ls` ansehen). Ohne Eintrag teilen sich alle Testkunden die Limits der Caddy-Adresse.
 3. **Ohne Domain:** `STAGING_BIND=0.0.0.0` und `STAGING_URL=http://<server-ip>:8080` setzen. Das ist nur für kurze Tests gedacht, weil Passwörter dabei unverschlüsselt übertragen werden.
 
 Die Staging-Seite ist für Suchmaschinen gesperrt, aber öffentlich erreichbar, wenn sie im Netz hängt. Wer sie verstecken möchte, schützt sie zusätzlich (Firewall/VPN oder Basic-Auth im eigenen Reverse-Proxy).

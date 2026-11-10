@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Mobile;
 
 /**
- * Universal Links (iOS) und App Links (Android) für den Passwort-Reset-Link:
+ * Universal Links (iOS) und App Links (Android) für den Passwort-Reset-Link und (seit 1.4.0) den
+ * Bestätigungslink der Kontolöschung:
  * - /.well-known/apple-app-site-association und /.well-known/assetlinks.json direkt aus WordPress
  *   (application/json, ohne Weiterleitung), nur wenn in „Bootsprüfung → Mobile App“ eingetragen –
  *   sonst schlichte 404 (ohne Weiterleitung/Theme-Seite);
@@ -13,11 +14,16 @@ namespace Bootspruefung\Learning\Mobile;
  *   der Browser hier und wird auf die normale WordPress-Seite zum Setzen des Passworts
  *   (wp-login.php?action=rp&key=…&login=…) weitergeleitet – der Link funktioniert also immer;
  * - nur bei POST /auth/password/forgot (App) und nur bei eingetragenen App-Kennungen zeigt der Link
- *   der Reset-Mail auf /app/passwort/ (Filter retrieve_password_message nur für diese Anfrage).
+ *   der Reset-Mail auf /app/passwort/ (Filter retrieve_password_message nur für diese Anfrage);
+ * - Kontolöschung: nur bei POST /me/deletion-request (App) und eingetragenen App-Kennungen zeigt der
+ *   Bestätigungslink auf /app/konto-loeschen/?request_id=…&confirm_key=… (Filter
+ *   user_request_action_email_content nur während dieses Aufrufs). Ohne App leitet die Website auf die
+ *   normale WordPress-Bestätigung (wp-login.php?action=confirmaction&…) weiter.
  */
 final class AppLinks
 {
     public const RESET_PATH = 'app/passwort';
+    public const DELETION_PATH = 'app/konto-loeschen';
 
     public static function register(): void
     {
@@ -52,6 +58,17 @@ final class AppLinks
         return home_url('/'.self::RESET_PATH.'/');
     }
 
+    /** Pfad-Muster des Kontolöschungs-Links ab Domain (für apple-app-site-association). */
+    public static function deletionPathPattern(): string
+    {
+        return rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/').'/'.self::DELETION_PATH.'/*';
+    }
+
+    public static function deletionUrl(): string
+    {
+        return home_url('/'.self::DELETION_PATH.'/');
+    }
+
     /**
      * Antwort für eine der beiden /.well-known-Dateien: 200 mit JSON, wenn eingetragen, sonst 404;
      * null bei anderen Adressen (WordPress macht weiter).
@@ -79,7 +96,10 @@ final class AppLinks
                 'applinks' => [
                     'details' => [[
                         'appIDs' => $ids,
-                        'components' => [['/' => self::resetPathPattern(), 'comment' => 'Passwort zurücksetzen in der App']],
+                        'components' => [
+                            ['/' => self::resetPathPattern(), 'comment' => 'Passwort zurücksetzen in der App'],
+                            ['/' => self::deletionPathPattern(), 'comment' => 'Kontolöschung in der App bestätigen'],
+                        ],
                     ]],
                 ],
             ];
@@ -122,7 +142,23 @@ final class AppLinks
         return $url;
     }
 
-    /** parse_request (früh, vor Kanonisierung/Template): /.well-known und App-Link-Pfad bedienen. */
+    /**
+     * Browser statt App: /app/konto-loeschen/?request_id=…&confirm_key=… → WordPress-Bestätigung
+     * (wp-login.php?action=confirmaction&request_id=…&confirm_key=…, wie im Original-Mail-Link).
+     * Ohne/mit ungültigen Werten → Startseite. @param array<string,mixed> $query
+     */
+    public static function deletionRedirect(array $query): string
+    {
+        $id = isset($query['request_id']) && is_string($query['request_id']) ? $query['request_id'] : '';
+        $key = isset($query['confirm_key']) && is_string($query['confirm_key']) ? $query['confirm_key'] : '';
+        if (! ctype_digit($id) || (int) $id <= 0 || preg_match('/^[A-Za-z0-9]{1,64}$/', $key) !== 1) {
+            return home_url('/');
+        }
+
+        return add_query_arg(['action' => 'confirmaction', 'request_id' => (int) $id, 'confirm_key' => $key], wp_login_url());
+    }
+
+    /** parse_request (früh, vor Kanonisierung/Template): /.well-known und App-Link-Pfade bedienen. */
     public static function handleRequest(): void
     {
         $path = self::requestPath((string) ($_SERVER['REQUEST_URI'] ?? '/'));
@@ -140,6 +176,13 @@ final class AppLinks
             header('Referrer-Policy: no-referrer');
             header('X-Robots-Tag: noindex, nofollow');
             wp_safe_redirect(self::resetRedirect(wp_unslash($_GET)), 302, 'bootspruefung-learning'); // phpcs:ignore WordPress.Security.NonceVerification
+            exit;
+        }
+        if (rtrim($path, '/') === '/'.self::DELETION_PATH) {
+            nocache_headers();
+            header('Referrer-Policy: no-referrer');
+            header('X-Robots-Tag: noindex, nofollow');
+            wp_safe_redirect(self::deletionRedirect(wp_unslash($_GET)), 302, 'bootspruefung-learning'); // phpcs:ignore WordPress.Security.NonceVerification
             exit;
         }
     }
@@ -178,6 +221,38 @@ final class AppLinks
             return $callback();
         } finally {
             remove_filter('retrieve_password_message', $filter, 50);
+        }
+    }
+
+    /**
+     * Bestätigungslink der Löschantrags-Mail auf den App-Link-Pfad umschreiben (nur innerhalb von
+     * $callback, nur mit App-Kennungen, nur für Anträge „remove_personal_data“). WordPress ersetzt den
+     * Platzhalter ###CONFIRM_URL### erst nach dem Filter – hier wird er vorher durch die App-Adresse
+     * mit denselben Werten (request_id, confirm_key) ersetzt.
+     */
+    public static function withAppDeletionLink(callable $callback): mixed
+    {
+        if (! self::configured()) {
+            return $callback();
+        }
+        $filter = static function ($content, $data = []) {
+            if (! is_string($content) || ! is_array($data) || ! isset($data['request'], $data['confirm_url'])
+                || ($data['request']->action_name ?? '') !== 'remove_personal_data') {
+                return $content;
+            }
+            parse_str(html_entity_decode((string) wp_parse_url((string) $data['confirm_url'], PHP_URL_QUERY)), $q);
+            if (($q['action'] ?? '') !== 'confirmaction' || empty($q['request_id']) || empty($q['confirm_key'])) {
+                return $content;
+            }
+            $url = self::deletionUrl().'?'.http_build_query(['request_id' => (string) $q['request_id'], 'confirm_key' => (string) $q['confirm_key']], '', '&', PHP_QUERY_RFC3986);
+
+            return str_replace('###CONFIRM_URL###', esc_url_raw($url), $content);
+        };
+        add_filter('user_request_action_email_content', $filter, 50, 2);
+        try {
+            return $callback();
+        } finally {
+            remove_filter('user_request_action_email_content', $filter, 50);
         }
     }
 }

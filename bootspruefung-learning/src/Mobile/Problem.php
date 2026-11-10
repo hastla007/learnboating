@@ -53,6 +53,10 @@ final class Problem
         'COUPON_NOT_SUPPORTED' => 'Kein Zugangscode',
         'RATE_LIMITED' => 'Zu viele Anfragen',
         'EXPORT_EXPIRED' => 'Export abgelaufen',
+        'EXPORT_NOT_READY' => 'Export wird erstellt',
+        'EXPORT_FAILED' => 'Export fehlgeschlagen',
+        'RANGE_NOT_SATISFIABLE' => 'Bereich ungültig',
+        'DELETION_CONFIRMATION_INVALID' => 'Bestätigungslink ungültig oder abgelaufen',
         'VERSION_CONFLICT' => 'Inzwischen geändert',
         'WEB_SESSION_DISABLED' => 'Webansicht-Anmeldung abgeschaltet',
         'WEB_SESSION_NOT_ALLOWED' => 'Webansicht-Anmeldung nicht erlaubt',
@@ -83,6 +87,10 @@ final class Problem
         $response->header('Content-Type', 'application/problem+json; charset='.get_option('blog_charset', 'UTF-8'));
         if (isset($body['retry_after'])) {
             $response->header('Retry-After', (string) (int) $body['retry_after']);
+        }
+        // Zusätzliche Antwort-Header (z. B. Content-Range bei 416), nicht im Fehlerobjekt.
+        foreach ((array) ($extra['headers'] ?? []) as $name => $value) {
+            $response->header((string) $name, (string) $value);
         }
 
         return $response;

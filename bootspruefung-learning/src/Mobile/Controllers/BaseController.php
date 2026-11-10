@@ -15,6 +15,7 @@ use Bootspruefung\Learning\Mobile\Mapper\CourseMapper;
 use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\Problem;
 use Bootspruefung\Learning\Support\AccessDenied;
+use Bootspruefung\Learning\Support\DomainException;
 use Bootspruefung\Learning\Support\NotFound;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -186,8 +187,8 @@ abstract class BaseController
     /**
      * Ruft den Controller auf und übersetzt fachliche Fehler der Services:
      * AccessDenied (Sperre trotz Kurszugang: Teilumfang, zeitgesteuerte Freigabe) → 403 CONTENT_LOCKED,
-     * NotFound → 404, sonstige Fachfehler → 422 bzw. bekannte Zustände (Prüfung beendet/abgelaufen,
-     * Rate-Limit, abgelaufenes Frage-Token) auf eigene Codes.
+     * NotFound → 404, Fachfehler mit Code (DomainException: Prüfung beendet/abgelaufen, Rate-Limit,
+     * abgelaufenes Frage-Token …) auf eigene Codes, sonstige Fachfehler → 422.
      */
     public static function wrap(callable $callback, bool $tenant): callable
     {
@@ -205,8 +206,10 @@ abstract class BaseController
                 return Problem::response('CONTENT_LOCKED', $e->getMessage(), 403);
             } catch (NotFound $e) {
                 return Problem::response('RESOURCE_NOT_FOUND', $e->getMessage(), 404);
+            } catch (DomainException $e) {
+                return self::domainError($e);
             } catch (\RuntimeException|\InvalidArgumentException $e) {
-                return self::serviceError($e->getMessage());
+                return Problem::response('VALIDATION_FAILED', $e->getMessage(), 422);
             } catch (\Throwable $e) {
                 error_log('[bootspruefung-learning mobile] '.Problem::requestId().' '.get_class($e).': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
 
@@ -215,28 +218,30 @@ abstract class BaseController
         };
     }
 
-    /** Bekannte Meldungen der Services auf stabile Codes abbilden (Services werfen RuntimeException ohne Code). */
-    private static function serviceError(string $message): WP_REST_Response
+    /**
+     * Fachfehler der Services mit stabilem Code (Support\DomainException::errorCode) auf die
+     * Fehlercodes der App abbilden. Bis 1.3.x wurde hier der (deutsche) Meldungstext verglichen;
+     * seit 1.4.0 zählt nur noch der Code – Texte dürfen sich ändern, ohne die App zu brechen.
+     * Fachfehler ohne Code (RuntimeException) bleiben 422 VALIDATION_FAILED mit der Meldung.
+     */
+    public static function domainError(DomainException $e): WP_REST_Response
     {
-        $map = [
-            'Die Prüfungszeit ist abgelaufen.' => ['EXAM_EXPIRED', 410],
-            'Die Prüfung ist bereits abgeschlossen.' => ['EXAM_ALREADY_SUBMITTED', 409],
-            'Die Prüfung ist bereits beendet.' => ['EXAM_ALREADY_SUBMITTED', 409],
-            'Bitte zuerst die Musterantwort anzeigen.' => ['EXAM_ANSWER_LOCKED', 409],
-            'Zu viele Antworten in kurzer Zeit. Bitte kurz warten.' => ['RATE_LIMITED', 429],
-            'Frage-Token ist abgelaufen. Bitte die Frage neu laden.' => ['QUESTION_TOKEN_EXPIRED', 409],
-            'Für diesen Kurs ist kein Prüfungsregelwerk vorhanden.' => ['EXAM_NOT_STARTABLE', 409],
-            'Für diese Prüfung sind derzeit keine Fragen freigegeben.' => ['EXAM_NOT_STARTABLE', 409],
-            'Dieser Bogen enthält derzeit nicht freigegebene Fragen und kann nicht gestartet werden.' => ['EXAM_NOT_STARTABLE', 409],
-        ];
-        $hit = $map[$message] ?? null;
-        if ($hit === null && str_starts_with($message, 'Die Prüfung wird gerade gestartet')) {
-            $hit = ['REQUEST_IN_PROGRESS', 409];
-        }
-        if ($hit === null) {
-            return Problem::response('VALIDATION_FAILED', $message, 422);
-        }
+        $hit = match ($e->errorCode()) {
+            DomainException::EXAM_EXPIRED => ['EXAM_EXPIRED', 410],
+            DomainException::EXAM_FINISHED => ['EXAM_ALREADY_SUBMITTED', 409],
+            DomainException::EXAM_ANSWER_LOCKED => ['EXAM_ANSWER_LOCKED', 409],
+            DomainException::EXAM_NOT_STARTABLE => ['EXAM_NOT_STARTABLE', 409],
+            DomainException::EXAM_START_BUSY => ['REQUEST_IN_PROGRESS', 409],
+            DomainException::ANSWER_RATE_LIMITED => ['RATE_LIMITED', 429],
+            DomainException::QUESTION_TOKEN_EXPIRED => ['QUESTION_TOKEN_EXPIRED', 409],
+            default => ['VALIDATION_FAILED', 422],
+        };
+        $extra = match ($hit[0]) {
+            'RATE_LIMITED' => ['retry_after' => 60],
+            'REQUEST_IN_PROGRESS' => ['retry_after' => 2],
+            default => [],
+        };
 
-        return Problem::response($hit[0], $message, $hit[1], $hit[0] === 'RATE_LIMITED' ? ['retry_after' => 60] : []);
+        return Problem::response($hit[0], $e->getMessage(), $hit[1], $extra);
     }
 }

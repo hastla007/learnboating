@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.3.1
+  version: 1.4.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -82,8 +82,11 @@ paths:
       summary: Mit dem bestehenden Shop-/Lernkonto anmelden
       description: >-
         E-Mail-Adresse oder Benutzername plus Passwort (WordPress `wp_authenticate`, setzt keine
-        Cookies). Kein Tenant-Header nötig. Limit: 10 Fehlversuche je Client-IP und 5 je
-        E-Mail-Adresse in 15 Minuten (danach 429 mit `retry_after`).
+        Cookies). Kein Tenant-Header nötig. Limits in 15 Minuten (seit 1.4.0, atomare Zähler):
+        5 Fehlversuche je E-Mail-Adresse **und** Client-IP, 10 je Client-IP, 30 je E-Mail-Adresse
+        insgesamt (danach 429 mit `retry_after`). Eine erfolgreiche Anmeldung setzt den Zähler
+        E-Mail + IP zurück. Bis 1.3.x sperrten schon 5 Fehlversuche von beliebigen IPs das Konto.
+        Client-IP: `REMOTE_ADDR`; `X-Forwarded-For` nur von im Shop eingetragenen Proxys.
         Abweichung: Konten gelten immer als bestätigt (`email_verified: true`), es gibt keine
         eingeschränkte Sitzung und keinen Bestätigungsablauf – die App darf keine
         E-Mail-Bestätigung anbieten.
@@ -109,11 +112,17 @@ paths:
       summary: Token-Paar rotieren
       description: >-
         Liefert ein neues Access- und Refresh-Token; das bisherige Refresh-Token ist danach
-        verbraucht. Wird ein bereits rotiertes Refresh-Token erneut vorgelegt, wird die Sitzung
-        widerrufen (401 `REFRESH_TOKEN_REUSED`). Ausnahme: innerhalb von 10 Sekunden nach der
-        Rotation (zwei parallele Refresh-Aufrufe der App) antwortet der Server mit 409
-        `REFRESH_TOKEN_ROTATED` ohne Widerruf und ohne neue Tokens – die App verwendet dann die
-        Tokens aus der parallelen Antwort. Refresh-Aufrufe in der App bitte serialisieren.
+        verbraucht. Seit 1.4.0 (verlorene Antwort, z. B. Funkloch): Wird **innerhalb von 60
+        Sekunden** nach einer Rotation das unmittelbar vorherige Refresh-Token erneut vorgelegt,
+        rotiert der Server noch einmal und liefert **200 mit einem neuen, gültigen Token-Paar**
+        derselben Sitzung (`session_id` gleich). Das zuvor ausgegebene (verlorene) Paar wird dabei
+        ungültig – gültig ist immer nur das **zuletzt erhaltene** Paar. Das Fenster zählt ab der
+        ersten Rotation und verlängert sich durch Wiederholungen nicht. Nach 60 Sekunden widerruft
+        die Wiederverwendung die Sitzung (401 `REFRESH_TOKEN_REUSED`). Ein ersetztes, nie
+        vorgelegtes Refresh-Token ergibt 401 `UNAUTHENTICATED` (Sitzung bleibt). 409
+        `REFRESH_TOKEN_ROTATED` kommt nur noch bei extremen Wettläufen vor (dann einmal
+        wiederholen). Bis 1.3.x: 409 ohne Tokens innerhalb von 10 Sekunden. Refresh-Aufrufe in der
+        App weiterhin serialisieren und neue Tokens sofort speichern.
       security: []
       requestBody:
         required: true
@@ -222,6 +231,18 @@ paths:
         (`manage_options`, `edit_others_posts`) → 403 `WEB_SESSION_NOT_ALLOWED`; im Shop
         abgeschaltet → 403 `WEB_SESSION_DISABLED`. Limit: 20 je Konto in 15 Minuten.
         Die URL sofort in der Webansicht öffnen, nicht speichern, nicht protokollieren.
+
+
+        **Seit 1.4.0 (Schutz vor Login-CSRF, Vertragsänderung):** Die Antwort enthält zusätzlich
+        `verifier` und `verifier_header` (`X-Boatingschool-Web-Verifier`). Die App muss die URL in
+        ihrer Webansicht **mit diesem Header** laden (Android `WebView.loadUrl(url, mapOf(header to
+        verifier))`, iOS `URLRequest` mit `setValue(verifier, forHTTPHeaderField: header)` und
+        `WKWebView.load(request)`). Ohne bzw. mit falschem Header (z. B. Link aus Mail/Chat im
+        Browser geöffnet) wird niemand angemeldet: Code verbraucht, Anmeldeseite ohne Grund. Ist in
+        der Webansicht bereits ein **anderes** WordPress-Konto angemeldet, wird nicht umgeschaltet
+        (Code verbraucht, Anmeldeseite; die bestehende Anmeldung bleibt) – die App löscht beim
+        Abmelden/Kontowechsel die Cookies der Webansicht. Der Header ist nur beim ersten Laden
+        nötig (die anschließende Weiterleitung braucht ihn nicht).
       requestBody:
         required: true
         content:
@@ -353,6 +374,10 @@ paths:
         Bestätigung bearbeitet der Shop den Antrag (Werkzeuge → Personenbezogene Daten löschen,
         danach Konto löschen); beim Löschen des Kontos werden Lernstand und App-Sitzungen
         entfernt. Ein offener Antrag wird nicht doppelt angelegt (`already_requested: true`).
+        Seit 1.4.0: Sind im Shop App-Kennungen (Universal Links/App Links) eingetragen, zeigt der
+        Bestätigungslink dieser Mail auf `https://<shop>/app/konto-loeschen/?request_id=…&confirm_key=…`
+        (öffnet die App → `POST /me/deletion-request/confirm`); ohne App leitet die Website auf die
+        WordPress-Bestätigung (`wp-login.php?action=confirmaction&…`) weiter.
       responses:
         '202':
           description: Antrag angelegt bzw. bereits vorhanden
@@ -360,6 +385,39 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/DeletionRequestResponse'}
         '401': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /me/deletion-request/confirm:
+    post:
+      tags: [Privacy]
+      operationId: confirmAccountDeletion
+      summary: Löschantrag mit dem Link aus der Bestätigungsmail bestätigen
+      description: >-
+        Erweiterung (1.4.0). Ohne Anmeldung und ohne Tenant (wie Passwort-Reset): die App liest
+        `request_id` und `confirm_key` aus dem App-Link `/app/konto-loeschen/?request_id=…&confirm_key=…`.
+        Der Server prüft wie WordPress (`wp_validate_user_request_key`, 24 h gültig) und bestätigt den
+        Antrag genau wie `wp-login.php?action=confirmaction` (Aktion `user_request_action_confirmed`:
+        Status „bestätigt“, Benachrichtigung an die Verwaltung). Nur Löschanträge. Ungültig,
+        abgelaufen, schon bestätigt oder kein Löschantrag → einheitlich 422
+        `DELETION_CONFIRMATION_INVALID`. Limit: 20 je IP und 10 je Antrag pro Stunde.
+        Danach bearbeitet der Shop den Antrag (siehe `POST /me/deletion-request`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id, confirm_key]
+              properties:
+                request_id: {type: [string, integer], description: Parameter request_id des Links}
+                confirm_key: {type: string, minLength: 1, maxLength: 100, description: Parameter confirm_key des Links}
+      responses:
+        '200':
+          description: Antrag bestätigt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DeletionRequestResponse'}
+        '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
   /courses:
     get:
@@ -840,6 +898,10 @@ paths:
         Mehrfachauswahl: leere Auswahl nimmt die Antwort zurück. Offene Fragen: zuerst
         `/reveal`, dann `known` senden. Seit 1.3.0 speichert `marked_for_review` (true/false) die
         Markierung „zur Überprüfung“ wie `PUT …/flag`; null/fehlend lässt sie unverändert.
+        Endet der Kurszugang während der Prüfung (Erstattung, Sperre, Ablauf), werden weitere
+        Antworten, Markierungen und Aufdecken mit 403 `CONTENT_LOCKED` abgelehnt; die Abgabe
+        (`POST /exams/{examId}/submit`) bleibt möglich und wertet die gespeicherten Antworten
+        (wie im Web).
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/ExamId'
@@ -924,7 +986,9 @@ paths:
       tags: [Exams]
       operationId: submitExam
       summary: Prüfung abgeben und auswerten
-      description: Erneuter Aufruf liefert dasselbe Ergebnis.
+      description: >-
+        Erneuter Aufruf liefert dasselbe Ergebnis. Auch nach Ende des Kurszugangs möglich
+        (gespeicherte Antworten werden gewertet); eine neue Prüfung lässt sich dann nicht starten.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/ExamId'
@@ -1639,7 +1703,9 @@ paths:
         Gruppenlizenzen (`g…`/`i…` mit 32 Hex-Zeichen oder der ganze Link `…/gruppe/<code>/`).
         WooCommerce-Gutscheine sind Rabatte für den Kauf: 422 `COUPON_NOT_SUPPORTED`.
         Unbekannte Codes: 422 `COUPON_INVALID` mit Hinweis auf die automatische Freischaltung.
-        Limit: 10 Versuche je Stunde.
+        Limit: 10 Versuche je Stunde. Seit 1.4.0 wird der Idempotency-Key vor dem Limit geprüft:
+        Eine Wiederholung mit demselben Key liefert die gespeicherte Antwort, ohne einen Versuch zu
+        verbrauchen.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
@@ -1666,17 +1732,22 @@ paths:
       operationId: requestDataExport
       summary: Datenexport erstellen (Art. 15/20 DSGVO)
       description: >-
-        Erstellt den Export sofort (`status: ready`) aus allen WordPress-Datenexporten: Lernstand,
-        Prüfungen, Zugänge, App-Sitzungen und App-Einstellungen dieses Plugins, WordPress-Konto, WooCommerce
-        (Kundendaten, Bestellungen). Gespeichert in der Datenbank (kein öffentlicher
-        Upload-Ordner), nur mit Anmeldung abrufbar, nach 24 Stunden automatisch gelöscht.
-        Ein neuer Export ersetzt den vorherigen. Limit: 5 je Tag.
+        **Seit 1.4.0 asynchron (Vertragsänderung):** Antwort 202 mit `status: pending` und
+        `download_url: null`; der Server erstellt den Export im Hintergrund (Action Scheduler bzw.
+        WP-Cron). Die App fragt `GET /profile/export/{exportId}` ab (z. B. alle 2–5 Sekunden, mit
+        Rückoff), bis `status` `ready` (dann `download_url`) oder `failed` (neu anfordern) ist.
+        Wartet ein Export länger als 30 Sekunden, erstellt ihn die Statusabfrage selbst.
+        Inhalt: alle WordPress-Datenexporte – Lernstand, Prüfungen, Zugänge, App-Sitzungen und
+        App-Einstellungen dieses Plugins, WordPress-Konto, WooCommerce (Kundendaten, Bestellungen).
+        Gespeichert in der Datenbank (kein öffentlicher Upload-Ordner), nur mit Anmeldung
+        abrufbar, 24 Stunden nach Fertigstellung automatisch gelöscht. Ein neuer Export ersetzt
+        den vorherigen. Limit: 5 je Tag. Bis 1.3.x kam sofort `status: ready`.
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
         '202':
-          description: Export bereit
+          description: Export angelegt (`pending`) bzw. gespeicherte Antwort bei gleichem Idempotency-Key
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ExportStatusResponse'}
@@ -1687,6 +1758,10 @@ paths:
       tags: [Privacy]
       operationId: getDataExport
       summary: Exportstatus und Download-Adresse
+      description: >-
+        `pending` (wird erstellt, `download_url` null) → `ready` (`download_url` gesetzt) oder
+        `failed` (Fehler bei der Erstellung, neu anfordern); `expired` nach Ablauf. Wartet der Export
+        länger als 30 Sekunden, erstellt diese Abfrage ihn selbst (kann dann einige Sekunden dauern).
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/ExportId'
@@ -1702,7 +1777,12 @@ paths:
       tags: [Privacy]
       operationId: downloadDataExport
       summary: Export als JSON herunterladen (nur Eigentümer, mit Bearer-Token)
-      description: Erweiterung (ersetzt den öffentlichen, tokenbasierten Download des Konzepts). Kein Tenant-Header nötig.
+      description: >-
+        Erweiterung (ersetzt den öffentlichen, tokenbasierten Download des Konzepts). Kein
+        Tenant-Header nötig. Noch nicht fertig → 409 `EXPORT_NOT_READY` (mit `retry_after`);
+        fehlgeschlagen → 410 `EXPORT_FAILED`; abgelaufen → 410 `EXPORT_EXPIRED`. Keine
+        Teil-Downloads (`Accept-Ranges: none`, kleine JSON-Datei); `Content-Disposition: attachment;
+        filename="…"; filename*=UTF-8''…`.
       parameters:
         - $ref: '#/components/parameters/ExportId'
       responses:
@@ -1712,6 +1792,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ExportFile'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
   /files/{fileId}:
     get:
@@ -1722,20 +1803,34 @@ paths:
         Erweiterung. Gleiche Freigabe wie /bootsscheine/datei/<id>/ im Web (Kurs-PDFs,
         lizenzierte Seekarten nur mit vollem Navigationszugang), aber mit Bearer-Token.
         URLs kommen aus Kursdetails (`downloads`, `section_files`, `charts`) und Navigationsaufgaben.
-        Kein Tenant-Header nötig.
+        Kein Tenant-Header nötig. Seit 1.4.0: `Accept-Ranges: bytes`; mit `Range: bytes=<von>-<bis>`
+        (genau ein Bereich, auch `bytes=<von>-` und `bytes=-<letzte N>`) 206 mit `Content-Range`
+        (z. B. Download fortsetzen). Mehrere Bereiche, fehlerhafte oder nicht erfüllbare Angaben → 416
+        `RANGE_NOT_SATISFIABLE` mit `Content-Range: bytes */<Größe>`. Mit `If-Range` wird immer die
+        ganze Datei geliefert. `Content-Disposition: inline; filename="<ASCII>"; filename*=UTF-8''<Name>`.
       parameters:
         - in: path
           name: fileId
           required: true
           schema: {type: string}
+        - in: header
+          name: Range
+          required: false
+          schema: {type: string, examples: ['bytes=1048576-']}
       responses:
         '200':
           description: Datei
           content:
             application/octet-stream:
               schema: {type: string, contentMediaType: application/octet-stream}
+        '206':
+          description: Teilinhalt (Range)
+          content:
+            application/octet-stream:
+              schema: {type: string, contentMediaType: application/octet-stream}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '416': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
     BearerAuth:
@@ -1852,7 +1947,7 @@ components:
         message: {type: string, description: 'Gleich detail (Erweiterung, für einfache Clients)'}
         code:
           type: string
-          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, EXPORT_EXPIRED, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
+          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
         request_id: {type: string}
         errors:
           type: object
@@ -1976,12 +2071,17 @@ components:
       properties:
         data:
           type: object
-          required: [url, expires_at, expires_in, redirect]
+          required: [url, expires_at, expires_in, redirect, verifier, verifier_header]
           properties:
             url: {type: string, format: uri, description: 'Einmal-URL (enthält den Code; sofort öffnen, nicht speichern)'}
             expires_at: {type: string, format: date-time}
             expires_in: {type: integer, const: 60}
             redirect: {type: string, format: uri, description: Ziel nach der Anmeldung (ohne Code)}
+            verifier:
+              type: string
+              pattern: '^bpv_[A-Za-z0-9_-]{43}$'
+              description: 'Seit 1.4.0: Prüfwert, den die Webansicht beim Laden von url als Header verifier_header mitsendet (nicht in die URL, nicht speichern)'
+            verifier_header: {type: string, const: X-Boatingschool-Web-Verifier, description: Seit 1.4.0}
     AppSettings:
       type: object
       description: Von der App definiert; Schlüssel ^[a-z0-9_.-]{1,64}$, höchstens 4 Ebenen, 8192 Bytes.
@@ -3060,8 +3160,8 @@ components:
           required: [export_id, status, download_url, expires_at]
           properties:
             export_id: {type: string}
-            status: {type: string, enum: [ready, expired]}
-            download_url: {type: [string, 'null'], format: uri, description: API-Adresse; Bearer-Token des Eigentümers nötig}
+            status: {type: string, enum: [pending, ready, failed, expired], description: 'Seit 1.4.0 zusätzlich pending und failed'}
+            download_url: {type: [string, 'null'], format: uri, description: 'API-Adresse, nur bei ready; Bearer-Token des Eigentümers nötig'}
             download_requires_authorization: {type: boolean, const: true}
             size_bytes: {type: integer}
             created_at: {type: string, format: date-time}

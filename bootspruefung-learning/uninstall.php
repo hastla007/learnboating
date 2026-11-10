@@ -40,6 +40,11 @@ foreach (get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE,
     wp_delete_post((int) $tipId, true);
 }
 wp_clear_scheduled_hook('bp_learning_hourly');
+// Geplante Erzeugung von App-Datenexporten (WP-Cron mit Argumenten bzw. Action Scheduler).
+wp_unschedule_hook('bp_mobile_export_generate');
+if (function_exists('as_unschedule_all_actions')) {
+    as_unschedule_all_actions('bp_mobile_export_generate');
+}
 // Importierte Medien und Pakete löschen. Geschützte Kurs-PDFs bleiben im gesperrten Ordner
 // uploads/bootspruefung/protected-*/ (nicht öffentlich abrufbar), damit nichts ungewollt frei wird.
 $dir = \Bootspruefung\Learning\Content\Media\MediaStorage::baseDir();

@@ -690,7 +690,7 @@ final class LearningService
         $key = 'bp_rl_'.$userId.'_'.intdiv(time(), 60);
         $count = (int) get_transient($key);
         if ($count >= self::RATE_LIMIT) {
-            throw new RuntimeException('Zu viele Antworten in kurzer Zeit. Bitte kurz warten.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::ANSWER_RATE_LIMITED, 'Zu viele Antworten in kurzer Zeit. Bitte kurz warten.');
         }
         set_transient($key, $count + 1, 120);
     }

@@ -16,7 +16,15 @@ use Bootspruefung\Learning\Frontend\Router;
  * - beim Aufruf: WordPress-Anmeldecookie ohne „angemeldet bleiben“, Referrer-Policy no-referrer,
  *   Cache-Control no-store, Weiterleitung aufs Ziel ohne Code; ungültig/abgelaufen/verbraucht →
  *   Anmeldeseite mit redirect_to (ohne Hinweis auf den Grund);
- * - Konten mit Verwaltungsrechten (manage_options, edit_others_posts) sind ausgeschlossen.
+ * - Konten mit Verwaltungsrechten (manage_options, edit_others_posts) sind ausgeschlossen;
+ * - seit 1.4.0 an die Webansicht der App gebunden (Schutz vor Login-CSRF: sonst könnte jemand eine
+ *   eigene Einmal-URL erzeugen und einer anderen Person schicken, die dann im fremden Konto landet):
+ *   Die Antwort enthält zusätzlich einen Prüfwert (verifier), den die App beim Laden der URL als
+ *   Header X-Boatingschool-Web-Verifier mitsendet (Android loadUrl(url, headers), iOS URLRequest).
+ *   Ein Link aus Mail/Chat im Browser kann diesen Header nicht senden → keine Anmeldung. Der Code
+ *   wird dabei trotzdem verbraucht;
+ * - ist im Browser bereits ein anderes WordPress-Konto angemeldet, wird nicht umgeschaltet: Code
+ *   verbraucht, Anmeldeseite (wie bei ungültigem Code), bestehende Anmeldung bleibt unverändert.
  */
 final class WebSession
 {
@@ -26,6 +34,9 @@ final class WebSession
     public const RATE_LIMIT = 20;
     public const RATE_WINDOW = 15 * MINUTE_IN_SECONDS;
     private const CODE_PATTERN = '/^bpw_[A-Za-z0-9_-]{43}$/';
+    private const VERIFIER_PATTERN = '/^bpv_[A-Za-z0-9_-]{43}$/';
+    /** Header, mit dem die Webansicht der App den Prüfwert beim ersten Laden mitsendet. */
+    public const VERIFIER_HEADER = 'X-Boatingschool-Web-Verifier';
 
     public static function register(): void
     {
@@ -104,18 +115,20 @@ final class WebSession
     }
 
     /**
-     * Einmal-Code anlegen.
-     * @return array{url:string,expires_at:string,expires_in:int,redirect:string}
+     * Einmal-Code anlegen (Code in der URL, Prüfwert getrennt für den Header der Webansicht).
+     * @return array{url:string,expires_at:string,expires_in:int,redirect:string,verifier:string,verifier_header:string}
      */
     public static function create(int $userId, int $sessionId, string $path): array
     {
         global $wpdb;
         $code = 'bpw_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $verifier = 'bpv_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $now = time();
         $ok = $wpdb->insert(self::table(), [
             'user_id' => $userId,
             'session_id' => $sessionId,
             'code_hash' => hash('sha256', $code),
+            'verifier_hash' => hash('sha256', $verifier),
             'redirect_path' => $path,
             'created_at' => gmdate('Y-m-d H:i:s', $now),
             'expires_at' => gmdate('Y-m-d H:i:s', $now + self::TTL),
@@ -129,14 +142,17 @@ final class WebSession
             'expires_at' => gmdate('Y-m-d\TH:i:s\Z', $now + self::TTL),
             'expires_in' => self::TTL,
             'redirect' => self::origin().$path,
+            'verifier' => $verifier,
+            'verifier_header' => self::VERIFIER_HEADER,
         ];
     }
 
     /**
-     * Code einlösen (atomar, genau einmal). Gültig nur, solange die App-Sitzung aktiv ist und das
-     * Konto keine Verwaltungsrechte hat. @return ?object Zeile mit user_id und redirect_path
+     * Code einlösen (atomar, genau einmal). Gültig nur mit passendem Prüfwert der Webansicht,
+     * solange die App-Sitzung aktiv ist und das Konto keine Verwaltungsrechte hat. Ein falscher oder
+     * fehlender Prüfwert verbraucht den Code ebenfalls. @return ?object Zeile mit user_id und redirect_path
      */
-    public static function consume(string $code): ?object
+    public static function consume(string $code, string $verifier = ''): ?object
     {
         if (preg_match(self::CODE_PATTERN, $code) !== 1) {
             return null;
@@ -149,11 +165,12 @@ final class WebSession
             return null;
         }
         $row = $wpdb->get_row($wpdb->prepare(
-            'SELECT c.user_id, c.redirect_path FROM '.self::table().' c JOIN '.$wpdb->prefix.'bp_mobile_session s ON s.id = c.session_id AND s.user_id = c.user_id
+            'SELECT c.user_id, c.redirect_path, c.verifier_hash FROM '.self::table().' c JOIN '.$wpdb->prefix.'bp_mobile_session s ON s.id = c.session_id AND s.user_id = c.user_id
              WHERE c.code_hash = %s AND s.revoked_at IS NULL AND s.refresh_expires_at > %s AND s.absolute_expires_at > %s',
             $hash, $now, $now
         ));
-        if (! $row) {
+        if (! $row || preg_match(self::VERIFIER_PATTERN, $verifier) !== 1 || ! is_string($row->verifier_hash)
+            || ! hash_equals($row->verifier_hash, hash('sha256', $verifier))) {
             return null;
         }
         $user = get_userdata((int) $row->user_id);
@@ -166,11 +183,19 @@ final class WebSession
 
     /**
      * Aufruf der Einmal-URL auswerten (ohne Header/Exit, testbar): bei Erfolg Anmeldecookie setzen.
+     * $verifier = Wert des Headers X-Boatingschool-Web-Verifier. Ist im Browser schon ein anderes
+     * Konto angemeldet, bleibt es dabei (kein Kontowechsel): Code verbraucht, Anmeldeseite.
      * @return array{location:string,user_id:int}
      */
-    public static function resolveRequest(string $code, string $requestUri): array
+    public static function resolveRequest(string $code, string $requestUri, string $verifier = ''): array
     {
-        $row = MobileSettings::webSessionEnabled() ? self::consume($code) : null;
+        $row = MobileSettings::webSessionEnabled() ? self::consume($code, $verifier) : null;
+        if ($row !== null) {
+            $logged = self::browserUser();
+            if ($logged > 0 && $logged !== (int) $row->user_id) {
+                $row = null;
+            }
+        }
         if ($row !== null) {
             $userId = (int) $row->user_id;
             wp_set_auth_cookie($userId, false);
@@ -186,6 +211,20 @@ final class WebSession
         return ['location' => wp_login_url($target !== null ? self::origin().$target : Router::url()), 'user_id' => 0];
     }
 
+    /** Im Browser bereits angemeldetes WordPress-Konto (gültiges logged_in-Cookie) oder 0. */
+    private static function browserUser(): int
+    {
+        return (int) wp_validate_auth_cookie('', 'logged_in');
+    }
+
+    /** Prüfwert aus dem Header der Webansicht. */
+    private static function verifierHeader(): string
+    {
+        $value = $_SERVER['HTTP_'.strtoupper(str_replace('-', '_', self::VERIFIER_HEADER))] ?? '';
+
+        return is_string($value) ? trim(wp_unslash($value)) : '';
+    }
+
     /** init: ?bp_app_login=… einlösen und weiterleiten (Code verschwindet aus der Adresse). */
     public static function handleRequest(): void
     {
@@ -194,7 +233,7 @@ final class WebSession
             return;
         }
         $code = is_string($_GET[self::PARAM]) ? (string) wp_unslash($_GET[self::PARAM]) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-        $result = self::resolveRequest($code, (string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $result = self::resolveRequest($code, (string) ($_SERVER['REQUEST_URI'] ?? '/'), self::verifierHeader());
         nocache_headers();
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private');
         header('Referrer-Policy: no-referrer');

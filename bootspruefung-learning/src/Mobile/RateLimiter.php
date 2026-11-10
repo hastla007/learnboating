@@ -5,67 +5,108 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Mobile;
 
 /**
- * Einfache Zähler mit festem Zeitfenster (Transients, mit Objekt-Cache im Speicher) und
- * Ermittlung der Client-IP hinter Reverse-Proxys: X-Forwarded-For gilt nur, wenn die
- * direkte Gegenstelle ein vertrauenswürdiger Proxy ist (Loopback, private Netze oder in
- * den App-Einstellungen eingetragen). Ausgewertet wird von rechts – der erste nicht
+ * Zähler mit festem Zeitfenster (beginnt mit dem ersten Treffer) in der Tabelle bp_mobile_rate_limit
+ * (seit 1.4.0; vorher Transients mit Lesen-Prüfen-Schreiben, nicht atomar): Jeder Treffer ist ein
+ * einziges INSERT … ON DUPLICATE KEY UPDATE hits = hits + 1 (nach Fensterende: 1); der neue Stand wird
+ * über LAST_INSERT_ID(…) in derselben Anweisung gesetzt und auf derselben Verbindung gelesen –
+ * parallele Anfragen können das Limit nicht überholen. Zählername (E-Mail, IP …) nur als gesalzener SHA-256-Hash; abgelaufene
+ * Fenster löscht der stündliche Cron.
+ *
+ * Client-IP: standardmäßig nur REMOTE_ADDR. X-Forwarded-For gilt erst, wenn die direkte Gegenstelle
+ * als vertrauenswürdiger Proxy eingetragen ist (Bootsprüfung → Mobile App bzw. Filter
+ * bootspruefung_mobile_trusted_proxies); ausgewertet wird von rechts – der erste nicht
  * vertrauenswürdige Eintrag ist der Client (gefälschte linke Einträge zählen nicht).
  */
 final class RateLimiter
 {
-    private const PREFIX = 'bp_mobile_rl_';
+    private static function table(): string
+    {
+        global $wpdb;
 
-    /** Anfrage zählen; wirft RATE_LIMITED, wenn das Limit im Fenster erreicht ist. */
+        return $wpdb->prefix.'bp_mobile_rate_limit';
+    }
+
+    /** Anfrage zählen; wirft RATE_LIMITED, sobald mehr als $limit Treffer im Fenster liegen. */
     public static function hit(string $bucket, int $limit, int $window, string $message = ''): void
     {
-        $state = self::state($bucket);
-        if ($state['count'] >= $limit) {
-            throw ApiException::rateLimited($state['reset'] - time(), $message);
-        }
-        self::store($bucket, $state['count'] + 1, $state['count'] === 0 ? time() + $window : $state['reset']);
-    }
-
-    /** Limit erreicht? (ohne zu zählen) */
-    public static function check(string $bucket, int $limit, string $message = ''): void
-    {
-        $state = self::state($bucket);
-        if ($state['count'] >= $limit) {
-            throw ApiException::rateLimited($state['reset'] - time(), $message);
+        [$count, $reset] = self::add($bucket, $window);
+        if ($count > $limit) {
+            throw ApiException::rateLimited($reset - time(), $message);
         }
     }
 
-    /** Fehlversuch zählen (Fenster beginnt mit dem ersten Fehlversuch). */
-    public static function increment(string $bucket, int $window): void
+    /** Limit erreicht? (ohne zu zählen; $window nur zur Lesbarkeit der Aufrufer, das Fenster legt der erste Treffer fest) */
+    public static function check(string $bucket, int $limit, int $window, string $message = ''): void
     {
-        $state = self::state($bucket);
-        self::store($bucket, $state['count'] + 1, $state['count'] === 0 ? time() + $window : $state['reset']);
+        [$count, $reset] = self::count($bucket);
+        if ($count >= $limit) {
+            throw ApiException::rateLimited($reset - time(), $message);
+        }
     }
 
+    /** Fehlversuch zählen. @return int Stand im aktuellen Fenster */
+    public static function increment(string $bucket, int $window): int
+    {
+        return self::add($bucket, $window)[0];
+    }
+
+    /** Zähler zurücksetzen (alle Fenster dieses Zählers). */
     public static function clear(string $bucket): void
     {
-        delete_transient(self::key($bucket));
+        global $wpdb;
+        $wpdb->delete(self::table(), ['bucket_hash' => self::key($bucket)]);
     }
 
-    /** @return array{count:int,reset:int} */
-    private static function state(string $bucket): array
+    /** Abgelaufene Fenster löschen (stündlicher Cron). */
+    public static function cleanup(): int
     {
-        $value = get_transient(self::key($bucket));
-        if (! is_array($value) || (int) ($value['reset'] ?? 0) <= time()) {
-            return ['count' => 0, 'reset' => time()];
+        global $wpdb;
+
+        return (int) $wpdb->query($wpdb->prepare('DELETE FROM '.self::table().' WHERE expires_at < %s LIMIT 10000', gmdate('Y-m-d H:i:s')));
+    }
+
+    /** @return array{0:int,1:int} [Treffer, Fensterende] */
+    private static function add(string $bucket, int $window): array
+    {
+        global $wpdb;
+        $now = time();
+        $nowSql = gmdate('Y-m-d H:i:s', $now);
+        $endSql = gmdate('Y-m-d H:i:s', $now + max(1, $window));
+        $key = self::key($bucket);
+        // Atomar in einer Anweisung: einfügen, hochzählen oder – nach Fensterende – neu beginnen (Fenster
+        // beginnt mit dem ersten Treffer). LAST_INSERT_ID(expr) merkt sich den neuen Stand für diese Verbindung;
+        // expires_at muss als Letztes gesetzt werden (MySQL wertet die Zuweisungen von links nach rechts aus).
+        $ok = $wpdb->query($wpdb->prepare(
+            'INSERT INTO '.self::table().' (bucket_hash, window_start, hits, expires_at) VALUES (%s, %d, LAST_INSERT_ID(1), %s)
+             ON DUPLICATE KEY UPDATE hits = LAST_INSERT_ID(IF(expires_at <= %s, 1, hits + 1)), window_start = IF(expires_at <= %s, %d, window_start),
+             expires_at = IF(expires_at <= %s, %s, expires_at)',
+            $key, $now, $endSql, $nowSql, $nowSql, $now, $nowSql, $endSql
+        ));
+        if ($ok === false) {
+            // Zähler nicht verfügbar (z. B. Migration noch nicht gelaufen): nicht sperren, aber protokollieren.
+            error_log('[bootspruefung-learning mobile] Rate-Limit-Zähler nicht verfügbar: '.$wpdb->last_error);
+
+            return [0, $now + $window];
         }
+        $hits = (int) $wpdb->get_var('SELECT LAST_INSERT_ID()');
+        $end = $wpdb->get_var($wpdb->prepare('SELECT expires_at FROM '.self::table().' WHERE bucket_hash = %s', $key));
 
-        return ['count' => (int) $value['count'], 'reset' => (int) $value['reset']];
+        return [$hits, $end !== null ? (int) strtotime($end.' UTC') : $now + $window];
     }
 
-    private static function store(string $bucket, int $count, int $reset): void
+    /** @return array{0:int,1:int} [Treffer, Fensterende] */
+    private static function count(string $bucket): array
     {
-        set_transient(self::key($bucket), ['count' => $count, 'reset' => $reset], max(1, $reset - time()));
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare('SELECT hits, expires_at FROM '.self::table().' WHERE bucket_hash = %s AND expires_at > %s', self::key($bucket), gmdate('Y-m-d H:i:s')));
+
+        return $row ? [(int) $row->hits, (int) strtotime($row->expires_at.' UTC')] : [0, time()];
     }
 
     private static function key(string $bucket): string
     {
-        // Transient-Namen ≤ 172 Zeichen; E-Mail/IP nicht im Klartext in wp_options.
-        return self::PREFIX.substr(hash('sha256', $bucket.'|'.wp_salt('nonce')), 0, 40);
+        // E-Mail/IP nicht im Klartext speichern.
+        return hash('sha256', $bucket.'|'.wp_salt('nonce'));
     }
 
     // ------------------------------------------------------------------ Client-IP
@@ -92,6 +133,20 @@ final class RateLimiter
         return (string) apply_filters('bootspruefung_mobile_client_ip', $ip);
     }
 
+    /**
+     * Vertrauenswürdige Proxys (IP oder CIDR): Einstellung „Vertrauenswürdige Proxys“ plus Filter.
+     * Standard: keine – auch Loopback und private Netze nicht (sonst könnte jeder Dienst im selben
+     * Netz bzw. eine Fehlkonfiguration die Client-IP vorgeben).
+     * @return list<string>
+     */
+    public static function trustedProxies(): array
+    {
+        /** Filter: vertrauenswürdige Proxys (Liste von IPs/CIDRs), z. B. Docker-Netz des Reverse-Proxys. */
+        $list = apply_filters('bootspruefung_mobile_trusted_proxies', MobileSettings::trustedProxies());
+
+        return array_values(array_filter(array_map('strval', is_array($list) ? $list : []), [self::class, 'validCidr']));
+    }
+
     private static function cleanIp(string $value): ?string
     {
         $value = trim($value, " \t\"[]");
@@ -105,11 +160,7 @@ final class RateLimiter
 
     private static function trusted(string $ip): bool
     {
-        // Loopback und private Netze (Docker, Reverse-Proxy im selben Netz).
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-            return true;
-        }
-        foreach (MobileSettings::trustedProxies() as $cidr) {
+        foreach (self::trustedProxies() as $cidr) {
             if (self::inCidr($ip, $cidr)) {
                 return true;
             }

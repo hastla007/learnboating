@@ -9,10 +9,17 @@ namespace Bootspruefung\Learning\Mobile;
  * gespeicherte Antwort erneut, gleicher Schlüssel + anderer Inhalt → IDEMPOTENCY_KEY_REUSED.
  * Gespeichert werden nur erfolgreiche Antworten; schlägt ein Vorgang fehl, ist der Schlüssel
  * wieder frei. Aufbewahrung 7 Tage.
+ *
+ * Seit 1.4.0: Bricht PHP hart ab (Fatal Error, Timeout, OOM), bliebe die Zeile „in Arbeit“
+ * (status_code 0) stehen und jede Wiederholung erhielte 7 Tage lang REQUEST_IN_PROGRESS. Eine
+ * solche Zeile gilt nach ORPHAN_AFTER Sekunden als verwaist; die nächste Wiederholung (gleicher
+ * Inhalt) übernimmt sie atomar (bedingtes UPDATE auf created_at) und führt den Vorgang aus.
  */
 final class Idempotency
 {
     public const RETENTION = 7 * DAY_IN_SECONDS;
+    /** „In Arbeit“ älter als so viele Sekunden = verwaist (Prozess abgebrochen), darf übernommen werden. */
+    public const ORPHAN_AFTER = 60;
 
     private static function table(): string
     {
@@ -40,6 +47,9 @@ final class Idempotency
             $wpdb->delete(self::table(), ['id' => (int) $existing->id]);
             $existing = null;
         }
+        if ($existing && ($id = self::takeOver($existing, $requestHash, $now)) !== null) {
+            return self::execute($id, $operation);
+        }
         if ($existing) {
             return self::replay($existing, $requestHash);
         }
@@ -51,12 +61,46 @@ final class Idempotency
         $wpdb->suppress_errors($suppress);
         if ($inserted === false) {
             $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE user_id = %d AND scope = %s AND idem_key = %s', $userId, $scope, $key));
+            if ($existing && ($id = self::takeOver($existing, $requestHash, $now)) !== null) {
+                return self::execute($id, $operation);
+            }
             if ($existing) {
                 return self::replay($existing, $requestHash);
             }
             throw new ApiException('INTERNAL_ERROR', __('Die Anfrage konnte nicht gespeichert werden. Bitte versuche es erneut.', 'bootspruefung-learning'), 500);
         }
-        $id = (int) $wpdb->insert_id;
+
+        return self::execute((int) $wpdb->insert_id, $operation);
+    }
+
+    /**
+     * Verwaiste Zeile „in Arbeit“ übernehmen: nur bei gleichem Inhalt, nur wenn älter als
+     * ORPHAN_AFTER; von parallelen Wiederholungen gewinnt genau eine (bedingtes UPDATE).
+     * @return ?int ID der übernommenen Zeile
+     */
+    private static function takeOver(object $row, string $requestHash, int $now): ?int
+    {
+        if ((int) $row->status_code !== 0 || ! hash_equals((string) $row->request_hash, $requestHash)
+            || strtotime($row->created_at.' UTC') > $now - self::ORPHAN_AFTER) {
+            return null;
+        }
+        global $wpdb;
+        $taken = $wpdb->query($wpdb->prepare(
+            'UPDATE '.self::table().' SET created_at = %s WHERE id = %d AND status_code = 0 AND created_at = %s',
+            gmdate('Y-m-d H:i:s', $now), (int) $row->id, (string) $row->created_at
+        ));
+
+        return (int) $taken === 1 ? (int) $row->id : null;
+    }
+
+    /**
+     * Vorgang zur reservierten Zeile ausführen und Antwort speichern (bei Fehler Zeile freigeben).
+     * @param callable():array{0:int,1:mixed,2:?string} $operation
+     * @return array{0:int,1:mixed,2:bool}
+     */
+    private static function execute(int $id, callable $operation): array
+    {
+        global $wpdb;
         try {
             [$status, $body, $resource] = array_pad($operation(), 3, null);
         } catch (\Throwable $e) {

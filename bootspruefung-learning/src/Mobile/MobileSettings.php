@@ -19,7 +19,7 @@ final class MobileSettings
         'tenant_slug' => '',
         'primary_color' => '',
         'support_email' => '',
-        // Zusätzliche vertrauenswürdige Proxys (IP oder CIDR), deren X-Forwarded-For gilt.
+        // Vertrauenswürdige Proxys (IP oder CIDR), deren X-Forwarded-For gilt. Leer = keiner (nur REMOTE_ADDR).
         'trusted_proxies' => '',
         // Sitzungsübergabe App → Web (POST /auth/web-session), z. B. Simulator in der Tablet-Webansicht.
         'web_session_enabled' => true,

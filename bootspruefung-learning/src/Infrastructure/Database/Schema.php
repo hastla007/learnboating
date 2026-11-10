@@ -29,8 +29,9 @@ final class Schema
         'entitlement', 'access_rule', 'product_access', 'learning_group', 'learning_group_member',
         // Prüfungsanmeldung (Anleitung, Prüfungsausschüsse)
         'exam_committee', 'exam_guide',
-        // Mobile App (REST boatingschool/v1): Gerätesitzungen, Idempotenz, Datenexporte, Sitzungsübergabe ans Web
-        'mobile_session', 'mobile_idempotency', 'mobile_export', 'mobile_web_code',
+        // Mobile App (REST boatingschool/v1): Gerätesitzungen, Idempotenz, Datenexporte, Sitzungsübergabe ans Web,
+        // Zähler der Rate-Limits (seit 1.12.0)
+        'mobile_session', 'mobile_idempotency', 'mobile_export', 'mobile_web_code', 'mobile_rate_limit',
     ];
 
     public function __construct(private readonly string $prefix, private readonly string $charsetCollate)
@@ -800,6 +801,7 @@ final class Schema
   KEY user_resource (user_id,resource),
   KEY expires_at (expires_at)",
             // Datenexport (Art. 15/20 DSGVO) für die App: nur mit Anmeldung abrufbar, wird automatisch gelöscht.
+            // Seit 1.12.0 asynchron: status pending → ready|failed, started_at = Sperre des erzeugenden Laufs.
             'mobile_export' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   user_id bigint(20) unsigned NOT NULL,
@@ -808,18 +810,21 @@ final class Schema
   payload longtext NULL,
   size_bytes int(10) unsigned NOT NULL DEFAULT 0,
   created_at datetime NOT NULL,
+  started_at datetime NULL,
   expires_at datetime NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY public_id (public_id),
   KEY user_id (user_id),
   KEY expires_at (expires_at)",
             // Einmal-Codes für die Sitzungsübergabe App → Web (eingebettete Webansicht): nur SHA-256-Hash,
-            // 60 Sekunden gültig, einmal verwendbar, an Konto und App-Sitzung gebunden.
+            // 60 Sekunden gültig, einmal verwendbar, an Konto und App-Sitzung gebunden; seit 1.12.0 zusätzlich an die
+            // Webansicht der App (verifier_hash: SHA-256 des Prüfwerts, den nur die App als Header mitsendet).
             'mobile_web_code' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   user_id bigint(20) unsigned NOT NULL,
   session_id bigint(20) unsigned NOT NULL,
   code_hash char(64) NOT NULL,
+  verifier_hash char(64) NULL,
   redirect_path varchar(500) NOT NULL,
   created_at datetime NOT NULL,
   expires_at datetime NOT NULL,
@@ -828,6 +833,15 @@ final class Schema
   UNIQUE KEY code_hash (code_hash),
   KEY user_id (user_id),
   KEY session_id (session_id),
+  KEY expires_at (expires_at)",
+            // Rate-Limit-Zähler mit festem Zeitfenster ab dem ersten Treffer (atomar per INSERT … ON DUPLICATE KEY UPDATE).
+            // bucket_hash = SHA-256 aus Zählername (z. B. E-Mail/IP) und Salt – keine Klartextdaten; Aufräumen stündlich.
+            'mobile_rate_limit' => "
+  bucket_hash char(64) NOT NULL,
+  window_start int(10) unsigned NOT NULL,
+  hits int(10) unsigned NOT NULL DEFAULT 0,
+  expires_at datetime NOT NULL,
+  PRIMARY KEY  (bucket_hash),
   KEY expires_at (expires_at)",
         ];
 

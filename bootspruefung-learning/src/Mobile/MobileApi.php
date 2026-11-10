@@ -33,7 +33,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.3.1';
+    public const API_VERSION = '1.4.0';
 
     public static function register(): void
     {
@@ -44,6 +44,8 @@ final class MobileApi
         add_filter('rest_request_after_callbacks', [self::class, 'afterCallbacks'], 10, 3);
         add_filter('rest_post_dispatch', [self::class, 'postDispatch'], 10, 3);
         add_action('bp_learning_hourly', [self::class, 'cleanup']);
+        // Datenexport im Hintergrund (Action Scheduler bzw. WP-Cron, seit 1.4.0).
+        add_action(PrivacyController::GENERATE_HOOK, [PrivacyController::class, 'generate']);
         // Passwortänderung (Reset, Profil, WooCommerce „Konto-Details“) beendet alle App-Sitzungen.
         add_action('after_password_reset', static fn ($user) => $user instanceof \WP_User ? TokenAuth::revokeAll((int) $user->ID, 'password_change') : null);
         add_action('wp_set_password', [self::class, 'passwordSet'], 10, 3);
@@ -216,6 +218,7 @@ final class MobileApi
         Idempotency::cleanup();
         PrivacyController::cleanup();
         WebSession::cleanup();
+        RateLimiter::cleanup();
     }
 
     // ------------------------------------------------------------------ Routen
@@ -250,6 +253,10 @@ final class MobileApi
         self::route('/me/sessions', 'DELETE', [AccountController::class, 'revokeOthers'], true, false);
         self::route('/me/sessions/'.sprintf($id, 'sessionId'), 'DELETE', [AccountController::class, 'revokeSession'], true, false);
         self::route('/me/deletion-request', 'POST', [PrivacyController::class, 'deletionRequest'], true, false);
+        // Bestätigung aus dem Mail-Link (App-Link /app/konto-loeschen/): ohne Anmeldung, wie Passwort-Reset.
+        self::route('/me/deletion-request/confirm', 'POST', [PrivacyController::class, 'deletionConfirm'], false, false, [
+            'request_id' => ['type' => ['string', 'integer'], 'required' => true], 'confirm_key' => $string(100, true),
+        ]);
         self::route('/me/settings', 'GET', [SettingsController::class, 'show'], true, false);
         self::route('/me/settings', 'PUT', [SettingsController::class, 'replace'], true, false);
         self::route('/auth/web-session', 'POST', [AuthController::class, 'webSession'], true, false, ['redirect' => $string(400, true)]);

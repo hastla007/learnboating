@@ -144,14 +144,14 @@ final class ExamService
         $this->partModules = [];
         ['rule' => $rule, 'live' => $live] = $this->content->examRule((int) $course->id);
         if ($rule === null) {
-            throw new RuntimeException('Für diesen Kurs ist kein Prüfungsregelwerk vorhanden.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_NOT_STARTABLE, 'Für diesen Kurs ist kein Prüfungsregelwerk vorhanden.');
         }
 
         // Doppelklick/paralleler Start: Prüfen und Anlegen unter einer Sperre je Nutzer (sonst zwei laufende Sitzungen).
         $lock = 'bp_exam_start_'.$userId;
         // GET_LOCK liefert 1 (erhalten), 0 (Zeitüberschreitung) oder NULL (Fehler) – nur mit Sperre weiter.
         if ((string) $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lock)) !== '1') {
-            throw new RuntimeException(__('Die Prüfung wird gerade gestartet. Bitte versuche es in einem Moment erneut.', 'bootspruefung-learning'));
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_START_BUSY, __('Die Prüfung wird gerade gestartet. Bitte versuche es in einem Moment erneut.', 'bootspruefung-learning'));
         }
         try {
         $running = $this->db->get_var($this->db->prepare(
@@ -176,7 +176,7 @@ final class ExamService
             }
             $rows = $this->content->paperQuestions($paperId);
             if (count($rows) !== $this->content->paperQuestionCount($paperId)) {
-                throw new RuntimeException('Dieser Bogen enthält derzeit nicht freigegebene Fragen und kann nicht gestartet werden.');
+                throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_NOT_STARTABLE, 'Dieser Bogen enthält derzeit nicht freigegebene Fragen und kann nicht gestartet werden.');
             }
             $picked = array_map(static fn ($r) => ['question_id' => (int) $r->question_id, 'revision_id' => (int) $r->revision_id], $rows);
             // Zeitgesteuerte Freigabe (Drip) gilt auch für feste Bögen: sonst wären gesperrte Module über den Bogen vorab sichtbar.
@@ -218,7 +218,7 @@ final class ExamService
             }
         }
         if ($picked === []) {
-            throw new RuntimeException('Für diese Prüfung sind derzeit keine Fragen freigegeben.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_NOT_STARTABLE, 'Für diese Prüfung sind derzeit keine Fragen freigegeben.');
         }
 
         // Kombis (Festlegung 07.11.2026): Teilgrenzen nur für die Teile, deren Modul im Bogen vorkommt;
@@ -360,7 +360,7 @@ final class ExamService
                 throw new RuntimeException('Bitte Selbsteinschätzung angeben.');
             }
             if ($sq->revealed_at === null) {
-                throw new RuntimeException('Bitte zuerst die Musterantwort anzeigen.');
+                throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_ANSWER_LOCKED, 'Bitte zuerst die Musterantwort anzeigen.');
             }
             $data['self_assessed_known'] = $known ? 1 : 0;
         } else {
@@ -385,7 +385,7 @@ final class ExamService
         $status = $this->db->get_var($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
         if ($status !== 'running') {
             $this->db->query('ROLLBACK');
-            throw new RuntimeException('Die Prüfung ist bereits beendet.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_FINISHED, 'Die Prüfung ist bereits beendet.');
         }
         $this->db->update($this->t('exam_session_question'), $data, ['id' => (int) $sq->id]);
         $this->db->query('COMMIT');
@@ -404,7 +404,7 @@ final class ExamService
         $status = $this->db->get_var($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
         if ($status !== 'running') {
             $this->db->query('ROLLBACK');
-            throw new RuntimeException('Die Prüfung ist bereits beendet.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_FINISHED, 'Die Prüfung ist bereits beendet.');
         }
         $this->db->update($this->t('exam_session_question'), ['flagged' => $flagged ? 1 : 0], ['id' => (int) $sq->id]);
         $this->db->query('COMMIT');
@@ -844,7 +844,7 @@ final class ExamService
     {
         $session = $this->session($userId, $sessionId);
         if ($session->status !== 'running') {
-            throw new RuntimeException('Die Prüfung ist bereits abgeschlossen.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_FINISHED, 'Die Prüfung ist bereits abgeschlossen.');
         }
         // Zugang inzwischen beendet (Erstattung, Rückbuchung, Ablauf)? Dann nicht weiter bearbeiten.
         $code = (string) (json_decode((string) $session->rule_snapshot, true)['course_code'] ?? '');
@@ -853,7 +853,7 @@ final class ExamService
         }
         if ($this->expired($session)) {
             $this->evaluate($sessionId, true);
-            throw new RuntimeException('Die Prüfungszeit ist abgelaufen.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_EXPIRED, 'Die Prüfungszeit ist abgelaufen.');
         }
 
         return $session;

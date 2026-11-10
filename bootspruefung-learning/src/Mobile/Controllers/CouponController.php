@@ -18,6 +18,9 @@ use WP_REST_Response;
  * Gruppenlizenzen (Einladungslink „…/gruppe/<code>/“); diese werden über GroupService::join
  * eingelöst wie im Web. WooCommerce-Gutscheine sind Rabatte für den Kauf und werden mit klarer
  * Meldung abgelehnt.
+ *
+ * Seit 1.4.0 zuerst Idempotenz, dann Rate-Limit: Eine Netzwiederholung mit demselben
+ * Idempotency-Key liefert die gespeicherte Antwort, ohne einen Versuch zu verbrauchen.
  */
 final class CouponController extends BaseController
 {
@@ -28,12 +31,14 @@ final class CouponController extends BaseController
         if ($raw === '') {
             throw ApiException::validation(['code' => [__('Bitte gib einen Code ein.', 'bootspruefung-learning')]]);
         }
-        RateLimiter::hit('redeem|'.$user, 10, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
+        $limit = static fn () => RateLimiter::hit('redeem|'.$user, 10, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
         // Ganzer Einladungslink oder nur der Code.
         $code = preg_match('#/gruppe/([gi][0-9a-f]{32})/?#i', $raw, $m) === 1 ? strtolower($m[1]) : strtolower($raw);
 
         if (preg_match('/^[gi][0-9a-f]{32}$/', $code) === 1) {
-            [$status, $body] = Idempotency::run($user, 'redeem', $this->idempotencyKey($request, false), ['code' => hash('sha256', $code)], function () use ($user, $code): array {
+            [$status, $body] = Idempotency::run($user, 'redeem', $this->idempotencyKey($request, false), ['code' => hash('sha256', $code)], function () use ($user, $code, $limit): array {
+                // Erst hier zählen: Wiederholungen mit gleichem Key kommen gar nicht bis hierher.
+                $limit();
                 global $wpdb;
                 $groups = new GroupService($wpdb);
                 try {
@@ -48,6 +53,7 @@ final class CouponController extends BaseController
 
             return new WP_REST_Response($body, $status);
         }
+        $limit();
         if (function_exists('wc_get_coupon_id_by_code') && wc_get_coupon_id_by_code($raw) > 0) {
             throw new ApiException('COUPON_NOT_SUPPORTED', __('Das ist ein Gutscheincode für den Shop. Löse ihn beim Kauf im Shop ein – dein Zugang wird nach dem Kauf automatisch freigeschaltet.', 'bootspruefung-learning'), 422);
         }

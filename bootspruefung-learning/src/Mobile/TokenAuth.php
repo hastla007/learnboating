@@ -10,8 +10,9 @@ namespace Bootspruefung\Learning\Mobile;
  * - Access-Token 15 Minuten, Refresh-Token rotierend (30 Tage Inaktivität, 90 Tage absolut);
  * - gespeichert werden nur SHA-256-Hashes;
  * - ein bereits rotiertes Refresh-Token erneut vorgelegt → Sitzung wird widerrufen
- *   (Ausnahme: innerhalb weniger Sekunden nach der Rotation, z. B. zwei parallele Refresh-Aufrufe
- *   der App – dann 409 ohne Widerruf und ohne neue Tokens);
+ *   (Ausnahme seit 1.4.0: das unmittelbar vorherige Refresh-Token innerhalb von 60 Sekunden nach
+ *   der Rotation – typischerweise ging die Antwort im Funkloch verloren. Dann wird erneut rotiert:
+ *   neues gültiges Token-Paar für dieselbe Sitzung, das verlorene Paar wird ungültig);
  * - Bearer-Tokens gelten ausschließlich für /wp-json/boatingschool/v1/* (nicht für /wp/v2 usw.).
  */
 final class TokenAuth
@@ -19,8 +20,12 @@ final class TokenAuth
     public const ACCESS_TTL = 15 * MINUTE_IN_SECONDS;
     public const REFRESH_TTL = 30 * DAY_IN_SECONDS;
     public const SESSION_MAX_TTL = 90 * DAY_IN_SECONDS;
-    /** Parallel-Refresh: so lange nach einer Rotation führt das alte Token nicht zum Widerruf. */
-    public const ROTATION_GRACE = 10;
+    /**
+     * Kulanz nach einer Rotation (Sekunden): Das unmittelbar vorherige Refresh-Token liefert so lange
+     * ein neues Paar (verlorene Antwort), danach widerruft seine Wiederverwendung die Sitzung.
+     * Das Fenster zählt ab der ersten Rotation und verlängert sich durch Wiederholungen nicht.
+     */
+    public const ROTATION_GRACE = 60;
     /** last_used_at höchstens so oft schreiben. */
     private const TOUCH_INTERVAL = 60;
 
@@ -163,6 +168,13 @@ final class TokenAuth
 
     /**
      * Refresh-Token rotieren.
+     * - aktuelles Refresh-Token: bedingt rotieren (von parallelen Aufrufen gewinnt genau einer, der
+     *   andere landet im Kulanzweg und erhält ebenfalls ein Paar – gültig ist das zuletzt ausgegebene);
+     * - unmittelbar vorheriges Token innerhalb von ROTATION_GRACE: erneut rotieren (prev_refresh_hash
+     *   und rotated_at bleiben, damit eine weitere verlorene Antwort ebenfalls aufgefangen wird, das
+     *   Fenster aber nicht wächst); das bisher aktuelle Paar wird ungültig;
+     * - vorheriges Token nach dem Fenster: Sitzung widerrufen (REFRESH_TOKEN_REUSED).
+     * Alle Änderungen sind bedingte UPDATEs (Zeilensperre in InnoDB) – nie zwei gültige Paare.
      * @return array{0:int,1:array<string,mixed>} [user_id, Token-Paar]
      */
     public static function refresh(string $refreshToken): array
@@ -173,38 +185,66 @@ final class TokenAuth
             throw $invalid;
         }
         $hash = self::hash($refreshToken);
-        $now = time();
-        $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE refresh_hash = %s LIMIT 1', $hash));
-        if (! $row) {
-            // Bereits rotiertes Token erneut benutzt?
-            $old = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE prev_refresh_hash = %s LIMIT 1', $hash));
-            if ($old && $old->revoked_at === null) {
-                if ($old->rotated_at !== null && $now - (int) strtotime($old->rotated_at.' UTC') <= self::ROTATION_GRACE) {
-                    throw new ApiException('REFRESH_TOKEN_ROTATED', __('Die Sitzung wurde gerade erneuert. Bitte verwende die zuletzt erhaltenen Tokens.', 'bootspruefung-learning'), 409);
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $now = time();
+            $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE refresh_hash = %s LIMIT 1', $hash));
+            if ($row) {
+                if (! self::usable($row, $now)) {
+                    throw $invalid;
                 }
+                [$access, $refresh, $accessEnd, $refreshEnd] = self::newPair($row, $now);
+                $updated = $wpdb->query($wpdb->prepare(
+                    'UPDATE '.self::table().' SET access_hash = %s, refresh_hash = %s, prev_refresh_hash = %s, rotated_at = %s, last_used_at = %s, access_expires_at = %s, refresh_expires_at = %s
+                     WHERE id = %d AND refresh_hash = %s AND revoked_at IS NULL',
+                    self::hash($access), self::hash($refresh), $hash, self::sql($now), self::sql($now), self::sql($accessEnd), self::sql($refreshEnd), (int) $row->id, $hash
+                ));
+                if ((int) $updated === 1) {
+                    return [(int) $row->user_id, self::pair((int) $row->id, $access, $refresh, $accessEnd, $refreshEnd)];
+                }
+                continue; // gleichzeitig rotiert: jetzt ist das Token das vorherige → Kulanzweg
+            }
+            // Bereits rotiertes Token erneut vorgelegt?
+            $old = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE prev_refresh_hash = %s LIMIT 1', $hash));
+            if (! $old || $old->revoked_at !== null) {
+                throw $invalid;
+            }
+            $rotatedAt = $old->rotated_at !== null ? (int) strtotime($old->rotated_at.' UTC') : 0;
+            if ($rotatedAt === 0 || $now - $rotatedAt > self::ROTATION_GRACE) {
                 self::revoke((int) $old->id, 'refresh_reuse');
                 throw new ApiException('REFRESH_TOKEN_REUSED', __('Aus Sicherheitsgründen wurde diese Sitzung beendet. Bitte melde dich erneut an.', 'bootspruefung-learning'), 401);
             }
-            throw $invalid;
-        }
-        if ($row->revoked_at !== null || strtotime($row->refresh_expires_at.' UTC') <= $now || strtotime($row->absolute_expires_at.' UTC') <= $now || ! get_userdata((int) $row->user_id)) {
-            throw $invalid;
-        }
-        $access = self::token('bpa_');
-        $refresh = self::token('bpr_');
-        $refreshEnd = min($now + self::REFRESH_TTL, (int) strtotime($row->absolute_expires_at.' UTC'));
-        $accessEnd = min($now + self::ACCESS_TTL, (int) strtotime($row->absolute_expires_at.' UTC'));
-        // Bedingt rotieren: von zwei gleichzeitigen Aufrufen gewinnt genau einer.
-        $updated = $wpdb->query($wpdb->prepare(
-            'UPDATE '.self::table().' SET access_hash = %s, refresh_hash = %s, prev_refresh_hash = %s, rotated_at = %s, last_used_at = %s, access_expires_at = %s, refresh_expires_at = %s
-             WHERE id = %d AND refresh_hash = %s AND revoked_at IS NULL',
-            self::hash($access), self::hash($refresh), $hash, self::sql($now), self::sql($now), self::sql($accessEnd), self::sql($refreshEnd), (int) $row->id, $hash
-        ));
-        if ((int) $updated !== 1) {
-            throw new ApiException('REFRESH_TOKEN_ROTATED', __('Die Sitzung wurde gerade erneuert. Bitte verwende die zuletzt erhaltenen Tokens.', 'bootspruefung-learning'), 409);
-        }
+            if (! self::usable($old, $now)) {
+                throw $invalid;
+            }
+            // Antwort der letzten Rotation verloren: erneut rotieren, das verlorene Paar wird ungültig.
+            [$access, $refresh, $accessEnd, $refreshEnd] = self::newPair($old, $now);
+            $updated = $wpdb->query($wpdb->prepare(
+                'UPDATE '.self::table().' SET access_hash = %s, refresh_hash = %s, last_used_at = %s, access_expires_at = %s, refresh_expires_at = %s
+                 WHERE id = %d AND prev_refresh_hash = %s AND rotated_at = %s AND revoked_at IS NULL',
+                self::hash($access), self::hash($refresh), self::sql($now), self::sql($accessEnd), self::sql($refreshEnd), (int) $old->id, $hash, (string) $old->rotated_at
+            ));
+            if ((int) $updated === 1) {
+                /** Aktion: verlorene Refresh-Antwort nachgeliefert (Protokoll, Statistik). */
+                do_action('bootspruefung_mobile_refresh_retry', (int) $old->user_id, (int) $old->id);
 
-        return [(int) $row->user_id, self::pair((int) $row->id, $access, $refresh, $accessEnd, $refreshEnd)];
+                return [(int) $old->user_id, self::pair((int) $old->id, $access, $refresh, $accessEnd, $refreshEnd)];
+            }
+            // Zeile hat sich zwischen Lesen und Schreiben geändert (paralleler Aufruf): neu lesen.
+        }
+        throw new ApiException('REFRESH_TOKEN_ROTATED', __('Die Sitzung wurde gerade erneuert. Bitte verwende die zuletzt erhaltenen Tokens.', 'bootspruefung-learning'), 409);
+    }
+
+    private static function usable(object $row, int $now): bool
+    {
+        return $row->revoked_at === null && strtotime($row->refresh_expires_at.' UTC') > $now && strtotime($row->absolute_expires_at.' UTC') > $now && get_userdata((int) $row->user_id);
+    }
+
+    /** @return array{0:string,1:string,2:int,3:int} [Access, Refresh, Access-Ende, Refresh-Ende] */
+    private static function newPair(object $row, int $now): array
+    {
+        $absolute = (int) strtotime($row->absolute_expires_at.' UTC');
+
+        return [self::token('bpa_'), self::token('bpr_'), min($now + self::ACCESS_TTL, $absolute), min($now + self::REFRESH_TTL, $absolute)];
     }
 
     /** @return array<string,mixed> */

@@ -161,7 +161,7 @@ final class QuestionPresenter
             throw new RuntimeException('Frage-Token gehört zu einem anderen Konto.');
         }
         if (time() - (int) $data['t'] > self::TTL) {
-            throw new RuntimeException('Frage-Token ist abgelaufen. Bitte die Frage neu laden.');
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::QUESTION_TOKEN_EXPIRED, 'Frage-Token ist abgelaufen. Bitte die Frage neu laden.');
         }
 
         return $data;
