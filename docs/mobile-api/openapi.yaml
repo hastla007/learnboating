@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.4.0
+  version: 1.5.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -2262,6 +2262,23 @@ components:
                   items: {$ref: '#/components/schemas/FileRef'}
                 web_url: {type: string, format: uri}
                 device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
+                knots:
+                  description: >-
+                    Videokapitel „Knoten“ als eigener Bereich (Kachel wie im Web); null, wenn der Kurs keines hat.
+                    Lektionen über GET /courses/{courseId}/videos (Kapitel mit id = module_id). Ohne Videozugang
+                    gesperrt mit Anzahl der Lektionen und Shop-Link. Seit 1.5.0.
+                  oneOf:
+                    - type: object
+                      required: [available, locked, module_id, lessons, completed, unlock_at, webshop_url]
+                      properties:
+                        available: {type: boolean}
+                        locked: {type: boolean, description: 'ohne Videozugang oder Kapitel noch nicht freigegeben (unlock_at)'}
+                        module_id: {type: string}
+                        lessons: {type: integer}
+                        completed: {type: integer}
+                        unlock_at: {type: [string, 'null'], format: date-time}
+                        webshop_url: {type: [string, 'null'], format: uri}
+                    - type: 'null'
                 exam_registration:
                   type: object
                   required: [available, web_url]
@@ -2305,11 +2322,25 @@ components:
             continue_learning:
               oneOf:
                 - type: object
-                  required: [module_id, module_name, mode]
+                  required: [module_id, module_name, mode, topic, open, unsure, trainer_query]
+                  description: >-
+                    „Dein nächster Schritt“: erstes freigegebenes, noch nicht gefestigtes Modul und darin das erste
+                    nicht gefestigte Thema. trainer_query sind die Parameter für GET /courses/{courseId}/trainer/next.
                   properties:
                     module_id: {type: string}
                     module_name: {type: string}
                     mode: {type: string, const: smarttrainer}
+                    topic: {type: [string, 'null'], description: 'Thema innerhalb des Moduls (seit 1.5.0)'}
+                    open: {type: integer, description: 'Fragen des Moduls, die noch nicht gefestigt sind (seit 1.5.0)'}
+                    unsure: {type: integer, description: 'davon unsicher/falsch beantwortet (seit 1.5.0)'}
+                    trainer_query:
+                      type: object
+                      description: seit 1.5.0
+                      required: [mode, module_id]
+                      properties:
+                        mode: {type: string, enum: [topic, module]}
+                        module_id: {type: string}
+                        topic: {type: string}
                 - type: 'null'
             modules:
               type: array

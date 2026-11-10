@@ -512,6 +512,18 @@ beibehalten, wo es passt. Abweichungen:
 
 ## 8. Änderungsprotokoll
 
+### 1.5.0 (additiv)
+
+- **Knoten als eigener Bereich:** `knots` in `GET /courses/{courseId}` (Kapitel-ID, Lektionen,
+  abgeschlossen, gesperrt/Freigabetermin, Shop-Link ohne Videozugang); `null`, wenn der Kurs kein
+  Knoten-Kapitel hat. Lektionen wie bisher über `GET /courses/{courseId}/videos`.
+- **„Dein nächster Schritt“:** `continue_learning` in `GET /courses/{courseId}/overview` enthält
+  zusätzlich `topic` (erstes nicht gefestigtes Thema des Moduls), `open`, `unsure` und
+  `trainer_query` (Parameter für `GET /courses/{courseId}/trainer/next`).
+- **Anmeldesperre:** unverändert, zur Klarstellung: 429 `RATE_LIMITED` enthält die echte Restzeit
+  als Header `Retry-After` und Feld `retry_after` (Sekunden bis Ende des Fensters) – für Anzeigen wie
+  „Erneut versuchen in 30 Sekunden“.
+
 ### 1.4.0 (Sicherheits- und Robustheitskorrekturen aus dem externen Review)
 
 **Vertragsänderungen für die App (bitte umsetzen):**

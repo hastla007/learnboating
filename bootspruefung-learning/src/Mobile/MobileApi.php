@@ -33,7 +33,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.4.0';
+    public const API_VERSION = '1.5.0';
 
     public static function register(): void
     {

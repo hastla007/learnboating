@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\ExamGuide\ExamGuideService;
 use Bootspruefung\Learning\Frontend\Router;
 use Bootspruefung\Learning\Gate\Charts;
@@ -16,6 +17,7 @@ use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Rest\Controllers\TrainerController;
 use Bootspruefung\Learning\Trainers\DeviceSimService;
 use Bootspruefung\Learning\Trainers\RadioPracticeService;
+use Bootspruefung\Learning\Trainers\VideoService;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -54,6 +56,8 @@ final class CourseController extends BaseController
             'web_url' => Router::url(strtolower((string) $course->code)),
             // Funkgerät-Simulator: nur Link in den Web-Lernbereich (keine Bedien-API).
             'device_simulator' => RadioController::simulator($user, $course, new DeviceSimService($this->access, new RadioPracticeService($this->access)), $offers),
+            // Knoten: Videokapitel „Knoten“ als eigene Kachel (wie im Web-Lernbereich).
+            'knots' => $this->knots($user, $course, $features[AccessService::VIDEO], $offers),
             'exam_registration' => ['available' => $guide, 'web_url' => $guide ? Router::url(strtolower((string) $course->code).'/pruefung-anmelden') : null],
         ];
 
@@ -70,7 +74,25 @@ final class CourseController extends BaseController
         $continue = null;
         foreach ($modules as $m) {
             if (! $m['locked'] && $m['question_count'] > 0 && $m['progress']['percent'] < 100) {
-                $continue = ['module_id' => $m['id'], 'module_name' => $m['name'], 'mode' => 'smarttrainer'];
+                // Erstes Thema des Moduls, das noch nicht gefestigt ist (für „Dein nächster Schritt“).
+                $topic = null;
+                foreach ($m['topics'] as $t) {
+                    if ($t['progress']['total'] > 0 && $t['progress']['percent'] < 100) {
+                        $topic = $t;
+                        break;
+                    }
+                }
+                $p = $m['progress'];
+                $continue = [
+                    'module_id' => $m['id'],
+                    'module_name' => $m['name'],
+                    'mode' => 'smarttrainer',
+                    'topic' => $topic['name'] ?? null,
+                    'open' => $p['new'] + $p['unsure'] + $p['learning'],
+                    'unsure' => $p['unsure'],
+                    // Parameter für GET /courses/{id}/trainer/next, um genau dieses Thema zu üben.
+                    'trainer_query' => $topic !== null ? ['mode' => 'topic', 'module_id' => $m['id'], 'topic' => $topic['name']] : ['mode' => 'module', 'module_id' => $m['id']],
+                ];
                 break;
             }
         }
@@ -180,5 +202,53 @@ final class CourseController extends BaseController
         }
 
         return ['url' => rest_url('boatingschool/v1/files/'.$m[1]), 'requires_authorization' => true];
+    }
+
+    /**
+     * Videokapitel „Knoten“ (SBF See, SBF Binnen, Kombi) als eigener Bereich. null, wenn der Kurs
+     * keines hat. Ohne Videozugang: gesperrt mit Anzahl der Lektionen und Shop-Link; Lektionen
+     * über GET /courses/{id}/videos (Kapitel module_id).
+     * @param array<string,list<array<string,string>>> $offers
+     * @return ?array<string,mixed>
+     */
+    private function knots(int $user, object $course, bool $videoAccess, array $offers): ?array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT m.id, COUNT(l.id) AS lessons FROM {$wpdb->prefix}bp_video_module m ".Overrides::rightsJoin('video_module', 'm', 'o')."
+             JOIN {$wpdb->prefix}bp_video_lesson l ON l.module_id = m.id AND l.status <> 'source_archived'
+             WHERE m.course_id = %d AND m.status = 'published' AND m.title = 'Knoten'
+               AND COALESCE(o.value, m.rights_status) NOT IN (".Overrides::blockingList().')
+             GROUP BY m.id, m.sort_order ORDER BY m.sort_order LIMIT 1',
+            $course->id
+        ));
+        if (! $row || (int) $row->lessons === 0) {
+            return null;
+        }
+        $locked = ['available' => true, 'locked' => true, 'module_id' => (string) $row->id, 'lessons' => (int) $row->lessons, 'completed' => 0, 'unlock_at' => null,
+            'webshop_url' => $offers[AccessService::VIDEO][0]['url'] ?? null];
+        if (! $videoAccess) {
+            return $locked;
+        }
+        try {
+            $overview = (new VideoService($this->access, $this->content, $this->presenter))->course($user, $course);
+        } catch (\Throwable $e) {
+            return $locked;
+        }
+        foreach ($overview['modules'] as $m) {
+            if ((int) $m['id'] === (int) $row->id) {
+                return [
+                    'available' => true,
+                    'locked' => (bool) $m['locked'],
+                    'module_id' => (string) $m['id'],
+                    'lessons' => count($m['lessons']),
+                    'completed' => count(array_filter($m['lessons'], static fn ($l) => $l['completed'])),
+                    'unlock_at' => CourseMapper::iso($m['unlock_at']),
+                    'webshop_url' => null,
+                ];
+            }
+        }
+
+        return $locked;
     }
 }

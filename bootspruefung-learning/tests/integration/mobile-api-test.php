@@ -283,6 +283,13 @@ $detailByCode = $api('GET', '/courses/'.strtolower($courseCode), [], $tokenA);
 $check($detailByCode['status'] === 200 && $detailByCode['body']['data']['id'] === $courseId, 'Kurs auch über den Kurscode');
 $ov = $api('GET', "/courses/{$courseId}/overview", [], $tokenA);
 $check($ov['status'] === 200 && count($ov['body']['data']['modules']) > 0 && $ov['body']['data']['continue_learning']['mode'] === 'smarttrainer', 'Übersicht mit Modulen und Weiterlernen');
+$cl = $ov['body']['data']['continue_learning'];
+$clMod = array_values(array_filter($ov['body']['data']['modules'], static fn ($m) => $m['id'] === $cl['module_id']))[0] ?? null;
+$check($clMod !== null && array_key_exists('topic', $cl) && $cl['open'] === $clMod['progress']['new'] + $clMod['progress']['unsure'] + $clMod['progress']['learning'] && $cl['trainer_query']['module_id'] === $cl['module_id']
+    && ($cl['topic'] === null ? $cl['trainer_query']['mode'] === 'module' : ($cl['trainer_query']['mode'] === 'topic' && $cl['trainer_query']['topic'] === $cl['topic'] && in_array($cl['topic'], array_column($clMod['topics'], 'name'), true))), 'Weiterlernen: Thema, offene Fragen und Parameter für trainer/next');
+$tq = $cl['trainer_query'];
+$nextByQuery = $api('GET', "/courses/{$courseId}/trainer/next?".http_build_query($tq), [], $tokenA);
+$check($nextByQuery['status'] === 200, 'trainer_query aus Weiterlernen funktioniert mit trainer/next');
 $mods = $api('GET', "/courses/{$courseId}/modules", [], $tokenA);
 $check($mods['status'] === 200 && $mods['body']['data'][0]['order'] === 1 && isset($mods['body']['data'][0]['progress']['percent']), 'Module mit Fortschritt');
 
@@ -545,6 +552,10 @@ echo "Videos\n";
 $videos = $api('GET', "/courses/{$courseId}/videos", [], $tokenA);
 $lesson = $videos['body']['data'][0]['lessons'][0] ?? null;
 $check($videos['status'] === 200 && $lesson !== null, 'Videomodule mit Lektionen');
+// Knoten als eigener Bereich: Kursdetails nennen das Kapitel „Knoten“ (falls vorhanden) passend zu /videos.
+$knotMod = array_values(array_filter($videos['body']['data'], static fn ($m) => $m['title'] === 'Knoten'))[0] ?? null;
+$knots = $api('GET', "/courses/{$courseId}", [], $tokenA)['body']['data']['knots'] ?? 'fehlt';
+$check($knots !== 'fehlt' && ($knotMod === null ? $knots === null : ($knots['module_id'] === $knotMod['id'] && $knots['lessons'] === count($knotMod['lessons']) && $knots['locked'] === false && $knots['webshop_url'] === null)), 'Kursdetails: knots passend zum Videokapitel „Knoten“'.($knotMod === null ? ' (Kurs ohne Knoten-Kapitel → null)' : ''));
 if ($lesson !== null) {
     $l = $api('GET', '/videos/'.$lesson['id'], [], $tokenA);
     $media = $l['body']['data']['media'] ?? [];
