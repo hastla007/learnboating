@@ -733,6 +733,15 @@ $check(count($to($expUsers['a'])) === 2, 'neues Ablaufdatum (Verlängerung) erin
 $c = $meCourses($expUsers['a']);
 $check($c['SBF-SEE']['expires_soon'] === true && $c['SBF-SEE']['expires_at'] === $untilA2 && is_string($c['SBF-SEE']['renew_url']) && $c['SRC']['expires_soon'] === false && $c['SRC']['renew_url'] === null, 'Kursliste: expires_soon, expires_at und renew_url');
 $check($meCourses($expUsers['later'])['SBF-BIN-MOTOR']['expires_soon'] === false && $meCourses($relUsers['trial'])['SBF-SEE']['expires_soon'] === false, 'kein Hinweis bei Verlängerung oder Teilumfang');
+$comboExp = $user('bp_exp_combo');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $comboExp));
+$untilC = $in(6);
+foreach (['SBF-SEE-BIN', 'SBF-SEE', 'SBF-BIN-MOTOR'] as $code) {
+    $entitlements->grantManual($comboExp, $code, ['question_bank'], $untilC, 'Test Ablauf Kombi');
+}
+$check(array_keys($ER::expiring($comboExp)[$comboExp] ?? []) === ['SBF-SEE-BIN'], 'Kombi: mitgekaufte Teilkurse werden nicht einzeln erinnert');
+$check($ER::collapse(['SRC' => $untilC, 'SRC-UBI' => $untilC, 'UBI' => $in(9)]) === ['SRC-UBI' => $untilC, 'UBI' => $in(9)], 'Zusammenfassen nur bei gleichem Ablaufdatum');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $comboExp));
 $before = count($expiryMails);
 $entitlements->extend($idsA[0], $in(6), 'Test aus');
 update_option(Settings::OPTION, array_merge(Settings::all(), ['expiry_reminder_enabled' => false]));

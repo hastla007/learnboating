@@ -95,7 +95,32 @@ final class ExpiryReminder
             }
         }
 
-        return $out;
+        return array_map([self::class, 'collapse'], $out);
+    }
+
+    /**
+     * Mitgekaufte Teilkurse nicht einzeln nennen: Endet ein Kurs zum selben Zeitpunkt wie ein Kurs,
+     * der ihn laut CourseRelations enthält (z. B. Kombi „SBF See & Binnen“ mit SBF See und SBF Binnen),
+     * bleibt nur der umfassendere (mehr ausgeblendete Kurse) stehen.
+     *
+     * @param array<string,string> $courses Kurscode => Ende
+     * @return array<string,string>
+     */
+    public static function collapse(array $courses): array
+    {
+        $rules = CourseRelations::rules();
+        $weight = static fn (string $code): int => count($rules[$code]['hide'] ?? []);
+        $drop = [];
+        foreach ($courses as $code => $end) {
+            foreach ($courses as $other => $otherEnd) {
+                if ($other !== $code && $otherEnd === $end && in_array($code, $rules[$other]['hide'] ?? [], true) && $weight($other) > $weight($code)) {
+                    $drop[$code] = true;
+                    break;
+                }
+            }
+        }
+
+        return array_diff_key($courses, $drop);
     }
 
     /** Kurse, deren Fragenkatalog für alle kostenlos ist (endet nicht). @return array<string,true> */
