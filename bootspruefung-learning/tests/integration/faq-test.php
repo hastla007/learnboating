@@ -84,7 +84,7 @@ $drafts = array_map(static fn ($p) => (int) get_post_meta($p->ID, Faq::META_REF,
 sort($drafts);
 $check($drafts === [9, 11, 12, 13, 14, 19, 20, 21, 23], 'Entwürfe genau bei Platzhaltern bzw. Redaktionshinweis ohne ★: '.implode(', ', $drafts));
 $f22 = $byRef(22);
-$check($f22 && $f22->post_status === 'publish' && str_contains($f22->post_content, 'Alle Bedingungen stehen in den AGB: {{agb}}.') && ! str_contains($f22->post_content, '['), 'FAQ 22 (★): Platzhalter → {{agb}}, veröffentlicht');
+$check($f22 && $f22->post_status === 'publish' && str_contains($f22->post_content, 'Alle Bedingungen stehen in den {{agb}}.') && ! str_contains($f22->post_content, '['), 'FAQ 22 (★): Platzhalter → {{agb}}, veröffentlicht');
 $f51 = $byRef(51);
 $f85 = $byRef(85);
 $check($f51 && $f85 && $f51->post_status === 'publish' && $f85->post_status === 'publish'
@@ -142,11 +142,11 @@ $check(preg_match('#^<p( class="wp-block-paragraph")?>Du übst#', $see[0]['answe
 // Platzhalter {{agb}}
 update_option('woocommerce_terms_page_id', 0);
 $g22 = bootspruefung_faqs(['rubric' => 'allgemein', 'theme_only' => true])[5];
-$check($g22['ref'] === 22 && str_ends_with($g22['answer_html'], 'Alle Bedingungen stehen in den AGB: AGB.</p>') && ! str_contains($g22['answer_html'], '{{'), 'ohne AGB-Seite: nur „AGB“');
+$check($g22['ref'] === 22 && str_ends_with($g22['answer_html'], 'Alle Bedingungen stehen in den AGB.</p>') && ! str_contains($g22['answer_html'], '{{'), 'ohne AGB-Seite: nur „AGB“');
 $createdPages[] = $agbId = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'AGB FAQ-Test', 'post_name' => 'agb-faq-test']);
 update_option('woocommerce_terms_page_id', $agbId);
 $g22 = bootspruefung_faqs(['rubric' => 'allgemein', 'theme_only' => true])[5];
-$check(str_contains($g22['answer_html'], 'Alle Bedingungen stehen in den AGB: <a href="'.esc_url(get_permalink($agbId)).'">AGB</a>.'), '{{agb}} → Link auf die AGB-Seite (wc_terms_and_conditions_page_id)');
+$check(str_contains($g22['answer_html'], 'Alle Bedingungen stehen in den <a href="'.esc_url(get_permalink($agbId)).'">AGB</a>.'), '{{agb}} → Link auf die AGB-Seite (wc_terms_and_conditions_page_id)');
 
 // Zwischenspeicher wird beim Speichern geleert
 $f24 = $byRef(24);
