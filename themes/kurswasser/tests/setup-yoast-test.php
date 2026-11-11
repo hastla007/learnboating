@@ -258,7 +258,8 @@ $check($msg[0][0] === 'success' && get_option('kurswasser_content_seo_target') =
 $check($m($p1, '_yoast_wpseo_title') === 'Mindestalter Bootsführerschein (Beispiel) | %%sitename%%', 'Titel: {{brand}} → %%sitename%% ('.$m($p1, '_yoast_wpseo_title').')');
 $check($m($p1, '_yoast_wpseo_metadesc') === 'Beispielseite für den Konverter: Ab 16 unter Motor, ab 14 unter Segel – mit Quellen und Ablauf. Bei %%sitename%% online lernen.', 'Beschreibung mit %%sitename%%');
 $check($m($p1, '_yoast_wpseo_meta-robots-noindex') === '' && $m($p2, '_yoast_wpseo_meta-robots-noindex') === '1', 'noindex = 1 nur bei noindex');
-$check($m($p2, '_yoast_wpseo_canonical') === get_permalink($p1) && $m($p1, '_yoast_wpseo_canonical') === '', 'Canonical als absolute URL (Slug → Permalink), sonst leer');
+$check($m($p2, '_yoast_wpseo_canonical') === '' && $m($p1, '_yoast_wpseo_canonical') === '', 'Canonical: bei noindex leer (Selbstreferenz wie im Theme), ohne Vorgabe leer');
+$check(kurswasser_content_yoast_values(['seo_title' => 'Kurz', 'meta_description' => '', 'index' => 'index', 'canonical' => 'beispiel-ratgeber', 'schema' => ''])['_yoast_wpseo_canonical'] === get_permalink($p1), 'Canonical als absolute URL (Slug → Permalink) bei indexierbarer Seite');
 $check($m($p1, '_yoast_wpseo_schema_article_type') === 'Article' && $m($p2, '_yoast_wpseo_schema_article_type') === '', 'Artikeltyp Article nur bei Schema Article');
 $check($m($p3, '_yoast_wpseo_schema_page_type') === 'AboutPage' && $m($p5, '_yoast_wpseo_schema_page_type') === '', 'Seitentyp AboutPage; FAQ-Seite ohne FAQPage (Shortcode liefert FAQ-JSON-LD)');
 $check($m($p1, '_yoast_wpseo_focuskw') === 'Mindestalter Bootsführerschein' && $m($p2, '_yoast_wpseo_focuskw') === '', 'Fokus-Keyword nur aus focus_keyword, sonst keins');

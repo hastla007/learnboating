@@ -129,7 +129,8 @@ function kurswasser_content_yoast_values(array $entry): array
         '_yoast_wpseo_title' => $yoastTitle,
         '_yoast_wpseo_metadesc' => kurswasser_content_yoast_vars((string) ($entry['meta_description'] ?? '')),
         '_yoast_wpseo_meta-robots-noindex' => ($entry['index'] ?? 'index') === 'noindex' ? '1' : '',
-        '_yoast_wpseo_canonical' => kurswasser_content_yoast_canonical((string) ($entry['canonical'] ?? '')),
+        // Wie inc/seo.php: noindex-Seiten verweisen auf sich selbst (Yoast-Standard), kein fremdes Canonical.
+        '_yoast_wpseo_canonical' => ($entry['index'] ?? 'index') === 'noindex' ? '' : kurswasser_content_yoast_canonical((string) ($entry['canonical'] ?? '')),
         '_yoast_wpseo_schema_article_type' => $schema === 'Article' ? 'Article' : '',
         '_yoast_wpseo_schema_page_type' => in_array($schema, ['AboutPage', 'ContactPage'], true) ? $schema : '',
         '_yoast_wpseo_focuskw' => trim((string) ($entry['focus_keyword'] ?? '')),
