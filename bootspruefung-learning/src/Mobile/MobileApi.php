@@ -10,6 +10,7 @@ use Bootspruefung\Learning\Mobile\Controllers\BaseController;
 use Bootspruefung\Learning\Mobile\Controllers\CouponController;
 use Bootspruefung\Learning\Mobile\Controllers\CourseController;
 use Bootspruefung\Learning\Mobile\Controllers\ExamController;
+use Bootspruefung\Learning\Mobile\Controllers\FaqController;
 use Bootspruefung\Learning\Mobile\Controllers\FileController;
 use Bootspruefung\Learning\Mobile\Controllers\GroupController;
 use Bootspruefung\Learning\Mobile\Controllers\LearningController;
@@ -35,7 +36,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.9.0';
+    public const API_VERSION = '1.10.0';
 
     public static function register(): void
     {
@@ -397,6 +398,9 @@ final class MobileApi
         ]);
         self::route($course.'/radio/practice/'.$key('scenarioId').'/done', 'PUT', [RadioController::class, 'practiceDone'], true, true, $done);
         self::route($course.'/radio/samples', 'GET', [RadioController::class, 'samples']);
+
+        // Kunden-FAQ eines Kurses (seit 1.10.0, wie „Fragen & Antworten zu deinem Kurs“ im Kurs-Hub)
+        self::route($course.'/faqs', 'GET', [FaqController::class, 'list']);
 
         // Tipps & Tricks (seit 1.7.0, wie /bootsscheine/tipps/)
         self::route('/tips', 'GET', [TipsController::class, 'list']);

@@ -985,6 +985,12 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-tip-body { padding: 0.9rem 1.2rem 1.1rem; line-height: 1.6; }
 .bp-tip-body > :first-child { margin-top: 0; }
 
+/* Kurs-Hub: „Fragen & Antworten zu deinem Kurs“ (Kunden-FAQ) – Karten wie Tipps & Tricks */
+.bp-app .bp-tips-head h3 { margin: 0; font-size: 1.15rem; font-weight: 600; flex: 1; }
+.bp-app .bp-hub-faq-sub { font-size: 1rem; font-weight: 600; margin: 1.2rem 0 0.6rem; }
+.bp-app .bp-hub-faq-group > .bp-hub-faq-sub:first-child, .bp-app .bp-tips-head + .bp-hub-faq-sub { margin-top: 0.4rem; }
+.bp-app .bp-hub-faq-sub.is-nested { font-size: 0.95rem; padding-left: 0.75rem; border-left: 3px solid var(--bp-tint); }
+
 /* Meine Gruppen: leerer Zustand */
 .bp-empty { text-align: center; padding: clamp(2rem, 6vw, 3.5rem) 1.5rem; border-radius: var(--bp-radius-lg); border: 1px dashed color-mix(in srgb, currentColor 20%, transparent); background: var(--bp-surface); }
 .bp-empty > .bp-ico { width: 4rem; height: 4rem; margin: 0 auto 1rem; display: block; border-radius: 50%; background: var(--bp-tint); position: relative; -webkit-mask: none; mask: none; }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.9.0
+  version: 1.10.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -42,6 +42,7 @@ tags:
   - name: Coupons
   - name: Groups
   - name: Tips
+  - name: CustomerFaq
   - name: Privacy
   - name: Files
   - name: System
@@ -687,6 +688,37 @@ paths:
                 required: [data]
                 properties:
                   data: {$ref: '#/components/schemas/ExamRegistration'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/faqs:
+    get:
+      tags: [CustomerFaq]
+      operationId: listCourseFaqs
+      summary: Fragen & Antworten zum Kurs (Kunden-FAQ)
+      description: >-
+        Erweiterung (1.10.0). Dieselben veröffentlichten Kunden-FAQs wie „Fragen & Antworten zu deinem
+        Kurs“ im Kurs-Hub des Web-Lernbereichs (`GET bootspruefung/v1/courses/{code}/customer-faqs`,
+        `CustomerFaqRepository::forCourse`). Nur für Kunden des Kurses: voller Zugang zum Fragenkatalog
+        (Kauf, manuelle Freigabe, Gruppe oder „Zugang ohne Shop“). Kostenloser Teilumfang (Testkurs):
+        403 `CONTENT_LOCKED` mit `details.reason = partial_access`; ohne Zugang 403 `ENTITLEMENT_REQUIRED`
+        (bzw. `ENTITLEMENT_EXPIRED`/`ENTITLEMENT_SUSPENDED`) mit `details.webshop_url`.
+        Gruppiert nach Schein: der Kurs selbst (falls es eine Kategorie mit seinem Code gibt), dann die
+        Teilscheine eines Kombikurses (SBF-SEE-BIN → SBF-SEE, SBF-BIN-MOTOR; SRC-UBI → SRC, UBI) bzw. der
+        Zielschein einer Ergänzung (z. B. ADD-BIN-TO-SEE → SBF-SEE). Je Schein FAQs direkt am Schein und
+        `subcategories` als flache Liste in Anzeigereihenfolge (Tiefensuche) mit `parent_id` und `depth`
+        (1 = direkt unter dem Schein) – Überschriften je nach `depth` einrücken. Leere Unterkategorien
+        und Scheine ohne FAQs fehlen; Reihenfolge nicht ändern. Antworten: `answer_html` (wp_kses_post,
+        Links absolut), `answer_text` (Absätze durch Leerzeile, Listenpunkte „• “) und `links`.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          description: Scheine mit Unterkategorien und FAQs (leer, wenn keine veröffentlicht sind)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CourseFaqsResponse'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/trainer/next:
     get:
@@ -2480,6 +2512,10 @@ components:
           format: uri
           description: Passendstes WooCommerce-Angebot (günstigstes Produkt mit dem Hauptbereich), nur ohne Vollzugang.
         relation: {$ref: '#/components/schemas/CourseRelation'}
+        faq_count:
+          type: integer
+          minimum: 0
+          description: 'Seit 1.10.0: Anzahl der Kunden-FAQs (`GET /courses/{courseId}/faqs`), die der Kunde sieht; 0 ohne vollen Zugang zum Fragenkatalog.'
     CourseListResponse:
       type: object
       required: [data, meta]
@@ -3584,6 +3620,58 @@ components:
           properties:
             groups: {type: integer}
             tips: {type: integer}
+    CourseFaq:
+      type: object
+      required: [id, question, answer_html, answer_text, links]
+      properties:
+        id: {type: string}
+        question: {type: string}
+        answer_html: {type: string, description: 'Antwort-HTML wie im Web (wp_kses_post), Links absolut'}
+        answer_text: {type: string, description: 'Reiner Text (Absätze durch Leerzeile, Listenpunkte „• “)'}
+        links:
+          type: array
+          items: {$ref: '#/components/schemas/TipLink'}
+    CourseFaqSubcategory:
+      type: object
+      required: [id, name, slug, parent_id, depth, faqs]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        slug: {type: string}
+        parent_id: {type: string, description: 'Übergeordnete Kategorie (direkt unter dem Schein: ID des Scheins)'}
+        depth: {type: integer, minimum: 1, description: '1 = direkt unter dem Schein, 2 = darunter usw.'}
+        faqs:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaq'}
+    CourseFaqGroup:
+      type: object
+      required: [id, key, name, slug, faqs, subcategories]
+      properties:
+        id: {type: string}
+        key: {type: string, description: 'Schein-Schlüssel (Kurscode), z. B. SBF-SEE'}
+        name: {type: string, description: 'Name des Scheins, z. B. „SBF See“'}
+        slug: {type: string}
+        faqs:
+          type: array
+          description: FAQs direkt am Schein (ohne Unterkategorie)
+          items: {$ref: '#/components/schemas/CourseFaq'}
+        subcategories:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaqSubcategory'}
+    CourseFaqsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaqGroup'}
+        meta:
+          type: object
+          required: [course_id, groups, faqs]
+          properties:
+            course_id: {type: string}
+            groups: {type: integer}
+            faqs: {type: integer}
     GroupScope:
       type: object
       required: [course_id, course_code, course_name, feature, capability, feature_label]

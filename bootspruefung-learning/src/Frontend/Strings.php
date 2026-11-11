@@ -204,6 +204,11 @@ final class Strings
             'hub_downloads_meta_one' => __('1 Datei zum Herunterladen', $d),
             'hub_downloads_none' => __('Für diesen Kurs gibt es keine Downloads.', $d),
             'hub_guide_meta' => __('Anmeldung, Unterlagen und Prüfungsausschüsse', $d),
+            // Kunden-FAQ im Kurs-Hub (nur für Kunden des Kurses).
+            'hub_faq_title' => __('Fragen & Antworten zu deinem Kurs', $d),
+            'hub_faq_hint' => __('Antworten rund um Lernen, Prüfung und Zugang – exklusiv für Kunden dieses Kurses.', $d),
+            'hub_faq_count' => __('{n} Fragen', $d),
+            'hub_faq_count_one' => __('1 Frage', $d),
             'modules_title' => __('Nach Themen lernen', $d),
             'mode_smart_desc' => __('Neue, falsche und schwache Fragen im Wechsel', $d),
             'mode_new_desc' => __('Noch nie beantwortet', $d),

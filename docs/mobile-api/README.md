@@ -95,6 +95,7 @@ entfernt).
 | `DELETE /me/groups/{id}/members/{memberId}` (1.7.0) | `GroupService::removeMember` (wie Web) |
 | `POST /me/groups/{id}/join-code` (1.7.0) | `GroupService::regenerateToken` (wie Web `me/groups/{id}/token`) |
 | `GET /tips` (1.7.0) | `Tips::groups` (gleiche Daten wie Web `GET tips` = `Tips::payload`) |
+| `GET /courses/{id}/faqs` (1.10.0) | `CustomerFaq::isCustomer` (`AccessService::full`, Fragenkatalog), `CustomerFaqRepository::forCourse` (gleiche Daten wie Web `GET courses/{code}/customer-faqs`), `TipsController::absoluteLinks/plainText/links`; `faq_count` im `CourseSummary`: `CustomerFaqRepository::count` |
 | `POST /profile/export`, `GET /profile/export/{id}[/download]` | asynchron: Action Scheduler (`as_enqueue_async_action`) bzw. `wp_schedule_single_event`, Hook `bp_mobile_export_generate` → `PrivacyController::generate`; alle WordPress-Datenexporte (`PersonalData` des Plugins, WordPress-Konto, WooCommerce) |
 | `POST /me/deletion-request` | `wp_create_user_request()`, `wp_send_user_request()` (mit App-Kennungen: Link über `AppLinks`) |
 | `POST /me/deletion-request/confirm` | `wp_validate_user_request_key()`, Aktion `user_request_action_confirmed` (wie `wp-login.php?action=confirmaction`) |
@@ -366,6 +367,22 @@ entfernt).
     kostenlosen Teilumfangs, `details.webshop_url`), `scheduled_release` (`details.unlock_at`) oder
     `running_exam` (erst Prüfung abgeben); 403 `ENTITLEMENT_*` ohne Smarttrainer-Zugang. Bewusst
     eigener Modus (statt `question_id` an jedem Modus): `question_id` ohne `mode=question` → 422.
+21. **Fragen & Antworten zum Kurs (Kunden-FAQ, seit 1.10.0):** `GET /courses/{id}/faqs` liefert dieselben
+    veröffentlichten Kunden-FAQs wie der Abschnitt „Fragen & Antworten zu deinem Kurs“ im Kurs-Hub des
+    Web-Lernbereichs. Nur für Kunden des Kurses (voller Zugang zum Fragenkatalog: Kauf, manuelle Freigabe,
+    Gruppe oder „Zugang ohne Shop“). Testkurs (kostenloser Teilumfang): 403 `CONTENT_LOCKED` mit
+    `details.reason = partial_access` und `details.webshop_url`; ohne Zugang 403 `ENTITLEMENT_REQUIRED`
+    (bzw. `_EXPIRED`/`_SUSPENDED`), Meldung „Die Fragen und Antworten stehen Kunden dieses Kurses zur
+    Verfügung.“ `data[]` = Scheine (`id`, `key` = Kurscode, `name`, `slug`, `faqs` direkt am Schein,
+    `subcategories`) – Kombikurse liefern ihre Teilscheine als getrennte Gruppen (SBF See & Binnen → SBF See,
+    SBF Binnen; SRC & UBI → SRC, UBI), Ergänzungen ihren Zielschein (z. B. Binnen → See: SBF See), eine
+    Kategorie mit dem Code des Kurses selbst steht davor. `subcategories` ist flach in Anzeigereihenfolge
+    (Tiefensuche) mit `parent_id` und `depth` (1 = direkt unter dem Schein); Überschriften nach `depth`
+    einrücken. Je FAQ `question`, `answer_html` (wp_kses_post, Links absolut), `answer_text` (Klartext wie
+    bei den Tipps) und `links`. Leere Unterkategorien fehlen; Reihenfolge nicht ändern. Mehrere Scheine
+    mit Scheinnamen als Zwischenüberschrift zeigen, einen einzelnen ohne. `faq_count` in jedem
+    `CourseSummary` (0 ohne Kundenzugang) entscheidet, ob die App den Abschnitt bzw. Menüpunkt zeigt –
+    dann entfällt der 403-Aufruf für Nicht-Kunden.
 
 **Prüfung – Markieren (seit 1.3.0):** `PUT /exams/{examId}/answers/{position}/flag` mit
 `{"flagged": true|false}` (auch `marked_for_review` beim Antworten). `GET /exams/{examId}` liefert
@@ -495,7 +512,7 @@ beibehalten, wo es passt. Abweichungen:
 | Prüfung nach Zugangsende | – | Abgabe und Ergebnis möglich, weitere Antworten 403 `CONTENT_LOCKED`, kein Neustart (wie Web, gleicher Service) | Bereits Gearbeitetes nicht verlieren, aber keine weitere Nutzung ohne Zugang |
 | Webansicht-Anmeldung | – | seit 1.4.0 nur mit Prüfwert-Header der App-WebView, kein Kontowechsel bei anderer bestehender Anmeldung | Schutz vor Login-CSRF über weitergeleitete Einmal-Links |
 | Idempotency-Key | bei allen POST Pflicht | Pflicht bei `attempts`; optional (aber unterstützt) bei Sammlung, Prüfungsstart, Code, Export | übrige Vorgänge sind ohnehin wiederholbar |
-| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm`, `/tips`, `/me/groups…`, `/groups/join/{token}` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0, 1.7.0) |
+| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm`, `/tips`, `/me/groups…`, `/groups/join/{token}`, `/courses/{id}/faqs` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0, 1.7.0, 1.10.0) |
 | Gruppenlizenzen | – | Verwalten nur durch die besitzende Person (wie Web-Lernbereich); Personal mit `manage_bp_entitlements` verwaltet im Backend, nicht über die App; Einladen/neuer Link nur bei aktiver Gruppe (409 statt still wie im Web-REST) | Gleiche Rechte wie die Web-Oberfläche; keine Mails aus ausgesetzten Gruppen |
 | Fehlerobjekt | RFC 9457 | gleiches Format, `type` als URN, zusätzlich `message`, `details`, `retry_after` | einheitlich und einfach auswertbar |
 
@@ -533,6 +550,9 @@ beibehalten, wo es passt. Abweichungen:
   WP_DIR=/pfad/zu/test-wordpress php bootspruefung-learning/tests/integration/mobile-api-test.php
   ```
 
+- **Kunden-FAQ (seit 1.10.0):** `tests/integration/customer-faq-test.php` prüft `GET /courses/{id}/faqs`
+  (Gast 401, Testkurs 403 `CONTENT_LOCKED`, ohne Zugang 403 `ENTITLEMENT_REQUIRED`, Kunde, Kombi mit
+  getrennten Gruppen, `answer_text`, absolute Links, `faq_count`) zusammen mit dem Web-Endpunkt.
 - **CI:** Schritt „App-Schnittstelle boatingschool/v1“ nach dem WooCommerce-Adapter – einmal ohne,
   einmal mit WooCommerce.
 - **Vertrag:** `python3 -c "from openapi_spec_validator import validate; from openapi_spec_validator.readers import read_from_filename; validate(read_from_filename('docs/mobile-api/openapi.yaml')[0])"`
@@ -599,10 +619,29 @@ beibehalten, wo es passt. Abweichungen:
     lässt `wp_kses_post` nicht durch. Sollen Tipps künftig gezielt auf App-Bildschirme verlinken (z. B.
     „Smarttrainer öffnen“), braucht es eine Linkkonvention (z. B. Web-Pfade, die die App als App-Link
     erkennt).
+15. **Kunden-FAQ in der App (seit 1.10.0):** Für den Abschnitt „Fragen & Antworten zu deinem Kurs“ gibt es
+    noch keinen Figma-Screen. Vorschlag wie im Web: in der Kursübersicht nach den Lernbereichen, Fragen als
+    aufklappbare Liste, gruppiert nach Schein (bei Kombikursen) und Unterkategorie.
 
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.10.0 (additiv)
+
+- **Neu: Kunden-FAQ** `GET /courses/{courseId}/faqs` (Tenant-Header): scheinspezifische Fragen und
+  Antworten nur für Kunden des Kurses (voller Zugang zum Fragenkatalog; Testkurs → 403 `CONTENT_LOCKED`
+  mit `details.reason = partial_access`, ohne Zugang 403 `ENTITLEMENT_REQUIRED`/`_EXPIRED`/`_SUSPENDED`).
+  Gruppiert nach Schein (Kombikurse: Teilscheine, Ergänzungen: Zielschein) und Unterkategorie (flach mit
+  `parent_id`, `depth`); je FAQ `answer_html` (Links absolut), `answer_text`, `links`. Gleiche Daten wie
+  der neue Abschnitt „Fragen & Antworten zu deinem Kurs“ im Kurs-Hub (Web `GET bootspruefung/v1/courses/{code}/customer-faqs`).
+- **`faq_count`** in jedem `CourseSummary` (`GET /courses`, `GET /courses/{courseId}`, `course` in
+  `/overview`): Anzahl der Kunden-FAQs, 0 ohne Kundenzugang.
+- Neuer Tag `CustomerFaq`; neue Schemas `CourseFaq`, `CourseFaqSubcategory`, `CourseFaqGroup`,
+  `CourseFaqsResponse`. Keine neuen Fehlercodes (vorhandene Zugangscodes), keine Datenbanktabelle
+  (eigener Beitragstyp `bp_customer_faq`, Taxonomie `bp_cfaq_category`).
+- Server: `BaseController::featureDenied` (Fehlerobjekt von `requireFeature`, jetzt auch mit eigener
+  Meldung nutzbar); App-Verhalten der bestehenden Endpunkte unverändert.
 
 ### 1.9.0 (additiv)
 

@@ -814,7 +814,9 @@
 	function viewCourse(slug) {
 		return api('GET', 'courses/' + encodeURIComponent(slug)).then(function (c) {
 			var own = api('GET', 'courses/' + encodeURIComponent(slug) + '/videos').catch(function () { return null; });
-			return Promise.all([videoParts(c, own), own]).then(function (r) { renderCourseHub(slug, c, r[0], r[1]); });
+			// Kunden-FAQ nur für Kunden des Kurses (Anzahl > 0); bei einem Fehler entfällt der Abschnitt.
+			var faqs = c.customer_faqs > 0 ? api('GET', 'courses/' + encodeURIComponent(slug) + '/customer-faqs').catch(function () { return null; }) : null;
+			return Promise.all([videoParts(c, own), own, faqs]).then(function (r) { renderCourseHub(slug, c, r[0], r[1], r[2]); });
 		});
 	}
 
@@ -823,7 +825,46 @@
 		return videos ? (videos.modules || []).filter(function (m) { return /^Knoten$/i.test(m.title); })[0] || null : null;
 	}
 
-	function renderCourseHub(slug, c, parts, ownVideos) {
+	// „Fragen & Antworten zu deinem Kurs“ (Kunden-FAQ): je Schein (nur bei mehreren mit Überschrift), darunter die
+	// Unterkategorien als Zwischenüberschriften (Tiefe aus depth) und die Fragen als aufklappbare Karten.
+	function customerFaqSection(groups) {
+		if (!Array.isArray(groups)) {
+			return null;
+		}
+		var total = 0;
+		var multi = groups.length > 1;
+		var list = function (faqs) {
+			if (!faqs || !faqs.length) {
+				return null;
+			}
+			total += faqs.length;
+			return el('div', { class: 'bp-tips' }, faqs.map(function (f) {
+				var body = el('div', { class: 'bp-tip-body' });
+				body.innerHTML = f.answer_html; // serverseitig mit wp_kses_post bereinigt
+				return el('details', { class: 'bp-card bp-tip' }, [el('summary', { text: f.question }), body]);
+			}));
+		};
+		var blocks = groups.map(function (g) {
+			var count = (g.faqs || []).length + (g.subcategories || []).reduce(function (n, s) { return n + s.faqs.length; }, 0);
+			var nodes = multi ? [el('div', { class: 'bp-tips-head' }, [el('span', { class: 'bp-ico bp-ico-layers', 'aria-hidden': 'true' }), el('h3', { text: g.name }), el('span', { class: 'bp-pill', text: t('hub_faq_count', { n: count }) })])] : [];
+			nodes.push(list(g.faqs));
+			(g.subcategories || []).forEach(function (s) {
+				var level = Math.min(6, (multi ? 3 : 2) + Math.max(1, s.depth));
+				nodes.push(el('h' + level, { class: 'bp-hub-faq-sub' + (s.depth > 1 ? ' is-nested' : ''), text: s.name }));
+				nodes.push(list(s.faqs));
+			});
+			return el('div', { class: 'bp-tips-group bp-hub-faq-group' }, nodes);
+		});
+		if (!total) {
+			return null;
+		}
+		return el('section', { class: 'bp-section bp-hub-faq', 'aria-labelledby': 'bp-hub-faq-h' }, [
+			el('div', { class: 'bp-section-head' }, [el('h2', { id: 'bp-hub-faq-h', text: t('hub_faq_title') }), el('p', { class: 'bp-muted', text: t('hub_faq_hint') })]),
+			el('div', { class: 'bp-tips-wrap' }, blocks)
+		]);
+	}
+
+	function renderCourseHub(slug, c, parts, ownVideos, faqs) {
 		{
 			var shop = c.shop || {};
 			var p = c.progress ? c.progress.total : null;
@@ -917,6 +958,8 @@
 					]);
 				}))
 			]));
+			// Kunden-FAQ nach den Lernbereichen (nur mit mindestens einer Frage).
+			nodes.push(customerFaqSection(faqs));
 			mount(nodes, c.name);
 		}
 	}

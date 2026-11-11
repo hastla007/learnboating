@@ -316,6 +316,8 @@ final class CourseMapper
             'features' => $this->features($userId, $course),
             'webshop_url' => $this->webshopUrl($userId, $course, $access),
             'relation' => $this->relation($userId, $course),
+            // Kunden-FAQ (seit 1.10.0): Anzahl für Kunden des Kurses (voller Fragenkatalog), sonst 0.
+            'faq_count' => $bank['full'] ? \Bootspruefung\Learning\Faq\CustomerFaqRepository::count((string) $course->code) : 0,
         ];
     }
 

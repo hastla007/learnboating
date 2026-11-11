@@ -119,42 +119,6 @@ final class Faq
     /** Zwischenspeicher leeren, sobald sich FAQs, ihre Kategorien oder Merkmale ändern. */
     private static function registerCacheInvalidation(): void
     {
-        $flush = [FaqRepository::class, 'flush'];
-        $ifFaq = static function ($postId) use ($flush): void {
-            if (get_post_type((int) $postId) === self::POST_TYPE) {
-                $flush();
-            }
-        };
-        add_action('save_post_'.self::POST_TYPE, $flush);
-        add_action('transition_post_status', static function ($new, $old, $post) use ($flush): void {
-            if ($post instanceof \WP_Post && $post->post_type === self::POST_TYPE && $new !== $old) {
-                $flush();
-            }
-        }, 10, 3);
-        foreach (['before_delete_post', 'deleted_post', 'trashed_post', 'untrashed_post'] as $hook) {
-            add_action($hook, $ifFaq);
-        }
-        add_action('set_object_terms', static function ($objectId, $terms, $ttIds, $taxonomy) use ($flush): void {
-            if ($taxonomy === self::TAXONOMY) {
-                $flush();
-            }
-        }, 10, 4);
-        foreach (['created_', 'edited_', 'delete_'] as $prefix) {
-            add_action($prefix.self::TAXONOMY, $flush);
-        }
-        $metaPost = static function ($metaId, $objectId, $key) use ($ifFaq): void {
-            if (in_array($key, [self::META_REF, self::META_THEME], true)) {
-                $ifFaq($objectId);
-            }
-        };
-        $metaTerm = static function ($metaId, $objectId, $key) use ($flush): void {
-            if (in_array($key, [self::TERM_KEY, self::TERM_ORDER], true)) {
-                $flush();
-            }
-        };
-        foreach (['added', 'updated', 'deleted'] as $action) {
-            add_action($action.'_post_meta', $metaPost, 10, 3);
-            add_action($action.'_term_meta', $metaTerm, 10, 3);
-        }
+        FaqTerms::flushOnChange(self::POST_TYPE, self::TAXONOMY, [self::META_REF, self::META_THEME], [self::TERM_KEY, self::TERM_ORDER], [FaqRepository::class, 'flush']);
     }
 }

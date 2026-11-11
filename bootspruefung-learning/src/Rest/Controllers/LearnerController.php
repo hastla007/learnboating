@@ -208,6 +208,8 @@ final class LearnerController
             // Prüfungsanmeldung (Anleitung) nur, wenn freigeschaltet und eine Anleitung für den Kurs existiert.
             'exam_guide' => \Bootspruefung\Learning\ExamGuide\ExamGuideService::enabled() && ($pages = (new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->pagesFor((string) $course->code)) !== []
                 ? ['tabs' => array_map(static fn ($p) => $p['guide']['tab'], $pages)] : null,
+            // Kunden-FAQ: Anzahl für Kunden des Kurses (voller Fragenkatalog), sonst 0 – Inhalte über /customer-faqs.
+            'customer_faqs' => $scopes[AccessService::QUESTION_BANK]['full'] ? \Bootspruefung\Learning\Faq\CustomerFaqRepository::count((string) $course->code) : 0,
         ];
     }
 

@@ -52,8 +52,18 @@ $faqTerms = get_terms(['taxonomy' => \Bootspruefung\Learning\Faq\Faq::TAXONOMY, 
 foreach (is_array($faqTerms) ? $faqTerms : [] as $faqTermId) {
     wp_delete_term((int) $faqTermId, \Bootspruefung\Learning\Faq\Faq::TAXONOMY);
 }
+// Kunden-FAQ ebenso (Beiträge, Scheine/Unterkategorien, Zwischenspeicher); der Datenstand steckt in bp_learning_cfaq_version.
+\Bootspruefung\Learning\Faq\CustomerFaq::registerTypes();
+foreach (get_posts(['post_type' => \Bootspruefung\Learning\Faq\CustomerFaq::POST_TYPE, 'post_status' => $faqStatuses, 'numberposts' => -1, 'fields' => 'ids']) as $customerFaqId) {
+    wp_delete_post((int) $customerFaqId, true);
+}
+$customerFaqTerms = get_terms(['taxonomy' => \Bootspruefung\Learning\Faq\CustomerFaq::TAXONOMY, 'hide_empty' => false, 'fields' => 'ids']);
+foreach (is_array($customerFaqTerms) ? $customerFaqTerms : [] as $customerFaqTermId) {
+    wp_delete_term((int) $customerFaqTermId, \Bootspruefung\Learning\Faq\CustomerFaq::TAXONOMY);
+}
 if (function_exists('wp_cache_flush_group') && wp_cache_supports('flush_group')) {
     wp_cache_flush_group(\Bootspruefung\Learning\Faq\Faq::CACHE_GROUP);
+    wp_cache_flush_group(\Bootspruefung\Learning\Faq\CustomerFaq::CACHE_GROUP);
 }
 wp_clear_scheduled_hook('bp_learning_hourly');
 wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK);

@@ -100,7 +100,8 @@ final class FaqRepository
         return (array) apply_filters('bootspruefung_faq_tokens', ['{{agb}}' => $agb]);
     }
 
-    private static function filterAnswer(string $content): string
+    /** Antwort-HTML filtern (Blöcke rendern, wp_kses_post), Platzhalter bleiben stehen – auch für die Kunden-FAQ. */
+    public static function filterAnswer(string $content): string
     {
         $html = has_blocks($content) ? do_blocks($content) : wpautop($content);
 
@@ -187,19 +188,7 @@ final class FaqRepository
         if (is_array($cached)) {
             return $cached;
         }
-        $terms = get_terms(['taxonomy' => Faq::TAXONOMY, 'hide_empty' => false]);
-        $map = [];
-        foreach (is_array($terms) ? $terms : [] as $term) {
-            $order = get_term_meta($term->term_id, Faq::TERM_ORDER, true);
-            $map[(int) $term->term_id] = [
-                'id' => (int) $term->term_id,
-                'parent' => (int) $term->parent,
-                'slug' => (string) $term->slug,
-                'name' => html_entity_decode((string) $term->name, ENT_QUOTES, 'UTF-8'),
-                'key' => (string) (get_term_meta($term->term_id, Faq::TERM_KEY, true) ?: $term->slug),
-                'order' => $order === '' ? PHP_INT_MAX : (int) $order,
-            ];
-        }
+        $map = FaqTerms::map(Faq::TAXONOMY, Faq::TERM_KEY, Faq::TERM_ORDER);
         wp_cache_set($key, $map, Faq::CACHE_GROUP, DAY_IN_SECONDS);
 
         return $map;

@@ -17,7 +17,7 @@ use WP_Term;
  * Hinweis, Filter nach Rubrik, Metabox (★, Redaktionshinweis), Term-Felder (Schlüssel, Reihenfolge)
  * sowie die Knöpfe „Fehlende Standard-FAQs importieren“ und „FAQ-Seite anlegen“.
  */
-final class FaqAdmin
+final class FaqAdmin extends TermFaqAdmin
 {
     public const LIST_URL = 'edit.php?post_type='.Faq::POST_TYPE;
     public const TERMS_URL = 'edit-tags.php?taxonomy='.Faq::TAXONOMY.'&post_type='.Faq::POST_TYPE;
@@ -25,8 +25,7 @@ final class FaqAdmin
 
     public function register(): void
     {
-        add_filter('parent_file', [$this, 'parentFile']);
-        add_filter('submenu_file', [$this, 'submenuFile'], 10, 2);
+        $this->registerShared(); // Menü offen halten, Term-Felder Schlüssel und Reihenfolge
         add_filter('manage_'.Faq::POST_TYPE.'_posts_columns', [$this, 'columns']);
         add_action('manage_'.Faq::POST_TYPE.'_posts_custom_column', [$this, 'column'], 10, 2);
         add_filter('manage_edit-'.Faq::POST_TYPE.'_sortable_columns', static fn (array $c): array => $c + ['bp_faq_ref' => 'bp_faq_ref']);
@@ -37,31 +36,6 @@ final class FaqAdmin
         add_action('admin_notices', [$this, 'listPanel']);
         add_action('admin_post_bp_faq_import', [$this, 'handleImport']);
         add_action('admin_post_bp_faq_page', [$this, 'handlePage']);
-        // Term-Felder: Schlüssel (nur Rubriken) und Reihenfolge.
-        add_action(Faq::TAXONOMY.'_add_form_fields', [$this, 'termAddFields']);
-        add_action(Faq::TAXONOMY.'_edit_form_fields', [$this, 'termEditFields']);
-        add_action('created_'.Faq::TAXONOMY, [$this, 'saveTerm']);
-        add_action('edited_'.Faq::TAXONOMY, [$this, 'saveTerm']);
-        add_filter('manage_edit-'.Faq::TAXONOMY.'_columns', [$this, 'termColumns']);
-        add_filter('manage_'.Faq::TAXONOMY.'_custom_column', [$this, 'termColumn'], 10, 3);
-    }
-
-    /** Menü „Bootsprüfung“ bleibt geöffnet, auch beim Bearbeiten einer FAQ oder Kategorie. */
-    public function parentFile(?string $parent): ?string
-    {
-        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-
-        return $screen && ($screen->post_type === Faq::POST_TYPE || $screen->taxonomy === Faq::TAXONOMY) ? Menu::SLUG : $parent;
-    }
-
-    public function submenuFile(?string $submenu, ?string $parent = ''): ?string
-    {
-        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-        if ($screen && $screen->taxonomy === Faq::TAXONOMY) {
-            return self::TERMS_URL;
-        }
-
-        return $screen && $screen->post_type === Faq::POST_TYPE ? self::LIST_URL : $submenu;
     }
 
     /** @param array<string,string> $columns @return array<string,string> */
@@ -93,7 +67,7 @@ final class FaqAdmin
                 break;
             case 'bp_faq_rubric':
             case 'bp_faq_sub':
-                [$rubric, $sub] = self::placement($postId);
+                [$rubric, $sub] = self::placementIn($postId, Faq::TAXONOMY);
                 $term = $column === 'bp_faq_rubric' ? $rubric : $sub;
                 if (! $term) {
                     echo $column === 'bp_faq_rubric' ? '<span title="'.esc_attr__('Ohne Rubrik erscheint die FAQ unter „Weitere Fragen“.', 'bootspruefung-learning').'">–</span>' : '–';
@@ -112,35 +86,6 @@ final class FaqAdmin
                 echo $note !== '' ? '<span class="dashicons dashicons-edit-page" title="'.esc_attr($note).'" aria-hidden="true"></span><span class="screen-reader-text">'.esc_html($note).'</span>' : '–';
                 break;
         }
-    }
-
-    /** @return array{0:?WP_Term,1:?WP_Term} Rubrik und Unterkategorie */
-    private static function placement(int $postId): array
-    {
-        $terms = get_the_terms($postId, Faq::TAXONOMY);
-        if (! is_array($terms) || $terms === []) {
-            return [null, null];
-        }
-        $term = $terms[0];
-        foreach ($terms as $t) {
-            if ($t->parent !== 0) {
-                $term = $t;
-                break;
-            }
-        }
-        if ($term->parent === 0) {
-            return [$term, null];
-        }
-        $top = $term;
-        for ($i = 0; $top->parent !== 0 && $i < 10; $i++) {
-            $parent = get_term($top->parent, Faq::TAXONOMY);
-            if (! $parent instanceof WP_Term) {
-                break;
-            }
-            $top = $parent;
-        }
-
-        return [$top, $term];
     }
 
     public function rubricFilter(string $postType): void
@@ -192,12 +137,7 @@ final class FaqAdmin
             esc_html__('Im Theme anzeigen (★)', 'bootspruefung-learning')
         );
         echo '<p class="description">'.esc_html__('★-FAQs erscheinen im Theme: „Allgemeine Fragen“ auf Startseite und Shopseiten, die Rubrik eines Scheins auf dessen Kursseite.', 'bootspruefung-learning').'</p>';
-        printf(
-            '<p><label for="bp-faq-note"><strong>%s</strong></label><textarea id="bp-faq-note" name="bp_faq_note" rows="4" class="widefat">%s</textarea><span class="description">%s</span></p>',
-            esc_html__('Redaktionshinweis', 'bootspruefung-learning'),
-            esc_textarea((string) get_post_meta($post->ID, Faq::META_NOTE, true)),
-            esc_html__('Nur im Admin sichtbar.', 'bootspruefung-learning')
-        );
+        self::renderNoteField($post, Faq::META_NOTE, 'bp_faq_note');
         echo '<p class="description">'.esc_html__('Rubrik und Unterkategorie unter „FAQ-Kategorien“ wählen (die Unterkategorie genügt). Reihenfolge innerhalb der Unterkategorie: „Seiten-Attribute › Reihenfolge“. Platzhalter {{agb}} wird zum Link auf die AGB.', 'bootspruefung-learning').'</p>';
     }
 
@@ -210,8 +150,7 @@ final class FaqAdmin
             return;
         }
         update_post_meta($postId, Faq::META_THEME, ! empty($_POST['bp_faq_theme']) ? '1' : '0');
-        $note = sanitize_textarea_field(wp_unslash((string) ($_POST['bp_faq_note'] ?? '')));
-        $note === '' ? delete_post_meta($postId, Faq::META_NOTE) : update_post_meta($postId, Faq::META_NOTE, $note);
+        self::saveNote($postId, Faq::META_NOTE, 'bp_faq_note');
     }
 
     /** Knöpfe und Kurzinfo über der FAQ-Liste. */
@@ -359,71 +298,45 @@ final class FaqAdmin
         return false;
     }
 
-    public function termAddFields(): void
+    protected function postType(): string
     {
-        echo '<div class="form-field"><label for="bp-faq-key">'.esc_html__('Schlüssel (nur Rubrik)', 'bootspruefung-learning').'</label><input type="text" id="bp-faq-key" name="bp_faq_key" value="">'
-            .'<p>'.esc_html(self::keyHelp()).'</p></div>';
-        echo '<div class="form-field"><label for="bp-faq-order">'.esc_html__('Reihenfolge', 'bootspruefung-learning').'</label><input type="number" id="bp-faq-order" name="bp_faq_order" value="" min="0" step="1">'
-            .'<p>'.esc_html__('Kleinere Zahl = weiter oben (Rubriken untereinander, Unterkategorien innerhalb ihrer Rubrik).', 'bootspruefung-learning').'</p></div>';
+        return Faq::POST_TYPE;
     }
 
-    public function termEditFields(WP_Term $term): void
+    protected function taxonomy(): string
     {
-        $key = (string) get_term_meta($term->term_id, Faq::TERM_KEY, true);
-        $order = get_term_meta($term->term_id, Faq::TERM_ORDER, true);
-        if ($term->parent === 0) {
-            printf(
-                '<tr class="form-field"><th scope="row"><label for="bp-faq-key">%s</label></th><td><input type="text" id="bp-faq-key" name="bp_faq_key" value="%s"><p class="description">%s</p></td></tr>',
-                esc_html__('Schlüssel', 'bootspruefung-learning'),
-                esc_attr($key),
-                esc_html(self::keyHelp())
-            );
-        }
-        printf(
-            '<tr class="form-field"><th scope="row"><label for="bp-faq-order">%s</label></th><td><input type="number" id="bp-faq-order" name="bp_faq_order" value="%s" min="0" step="1"><p class="description">%s</p></td></tr>',
-            esc_html__('Reihenfolge', 'bootspruefung-learning'),
-            esc_attr((string) $order),
-            esc_html__('Kleinere Zahl = weiter oben.', 'bootspruefung-learning')
-        );
+        return Faq::TAXONOMY;
     }
 
-    /** Speichert Schlüssel und Reihenfolge (WordPress hat das Formular-Nonce bereits geprüft). */
-    public function saveTerm(int $termId): void
+    protected function keyMeta(): string
     {
-        // phpcs:disable WordPress.Security.NonceVerification -- Term-Formulare prüft WordPress selbst.
-        if (! current_user_can(Capabilities::MANAGE_CONTENT) || (! isset($_POST['bp_faq_key']) && ! isset($_POST['bp_faq_order']))) {
-            return;
-        }
-        $term = get_term($termId, Faq::TAXONOMY);
-        if (isset($_POST['bp_faq_key']) && $term instanceof WP_Term && $term->parent === 0) {
-            $key = preg_replace('/[^A-Za-z0-9_-]/', '', sanitize_text_field(wp_unslash((string) $_POST['bp_faq_key'])));
-            $key === '' ? delete_term_meta($termId, Faq::TERM_KEY) : update_term_meta($termId, Faq::TERM_KEY, $key);
-        }
-        if (isset($_POST['bp_faq_order'])) {
-            $order = trim(sanitize_text_field(wp_unslash((string) $_POST['bp_faq_order'])));
-            $order === '' ? delete_term_meta($termId, Faq::TERM_ORDER) : update_term_meta($termId, Faq::TERM_ORDER, max(0, (int) $order));
-        }
-        // phpcs:enable
+        return Faq::TERM_KEY;
     }
 
-    /** @param array<string,string> $columns @return array<string,string> */
-    public function termColumns(array $columns): array
+    protected function orderMeta(): string
     {
-        unset($columns['description']);
-
-        return $columns + ['bp_faq_key' => __('Schlüssel', 'bootspruefung-learning'), 'bp_faq_order' => __('Reihenfolge', 'bootspruefung-learning')];
+        return Faq::TERM_ORDER;
     }
 
-    public function termColumn(string $content, string $column, int $termId): string
+    protected function listUrl(): string
     {
-        return match ($column) {
-            'bp_faq_key' => esc_html((string) get_term_meta($termId, Faq::TERM_KEY, true)),
-            'bp_faq_order' => esc_html((string) get_term_meta($termId, Faq::TERM_ORDER, true)),
-            default => $content,
-        };
+        return self::LIST_URL;
     }
 
-    private static function keyHelp(): string
+    protected function termsUrl(): string
+    {
+        return self::TERMS_URL;
+    }
+
+    protected function termLabels(): array
+    {
+        return [
+            'key_add' => __('Schlüssel (nur Rubrik)', 'bootspruefung-learning'),
+            'order_add' => __('Kleinere Zahl = weiter oben (Rubriken untereinander, Unterkategorien innerhalb ihrer Rubrik).', 'bootspruefung-learning'),
+        ];
+    }
+
+    protected function keyHelp(): string
     {
         return sprintf(__('Für Rubriken (oberste Ebene): %s. Das Theme sucht die ★-FAQs eines Kurses über diesen Schlüssel.', 'bootspruefung-learning'), implode(', ', Faq::RUBRIC_KEYS));
     }

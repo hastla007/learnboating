@@ -89,6 +89,9 @@ final class Plugin
         // Standard-FAQs anlegen, solange es noch keine FAQ gibt (danach wie Migrationen per Datenstand).
         \Bootspruefung\Learning\Faq\Faq::registerTypes();
         \Bootspruefung\Learning\Faq\FaqImporter::maybeImport();
+        // Kunden-FAQ: Scheine, Unterkategorien und Startpaket (Entwürfe), solange es keine Kunden-FAQ gibt.
+        \Bootspruefung\Learning\Faq\CustomerFaq::registerTypes();
+        \Bootspruefung\Learning\Faq\CustomerFaqImporter::maybeImport();
     }
 
     public static function deactivate(): void
@@ -129,6 +132,7 @@ final class Plugin
         (new \Bootspruefung\Learning\Gate\Charts())->register();
         (new \Bootspruefung\Learning\Tips\Tips())->register();
         (new \Bootspruefung\Learning\Faq\Faq())->register();
+        (new \Bootspruefung\Learning\Faq\CustomerFaq())->register();
         (new \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks())->register();
 
         if (defined('WP_CLI') && WP_CLI) {

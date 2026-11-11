@@ -31,6 +31,7 @@ final class Menu
         (new PricePage())->register();
         (new ExamGuidePages())->register();
         (new FaqAdmin())->register();
+        (new CustomerFaqAdmin())->register();
     }
 
     public function addPages(): void
@@ -54,6 +55,9 @@ final class Menu
             // FAQ: eigener Beitragstyp (Liste, Bearbeiten im Block-Editor) und Kategorien (Rubriken › Unterkategorien).
             [FaqAdmin::LIST_URL, __('FAQ', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
             [FaqAdmin::TERMS_URL, __('FAQ-Kategorien', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
+            // Kunden-FAQ: nur für Kunden eines Kurses (Kurs-Hub, App), Scheine › Unterkategorien.
+            [CustomerFaqAdmin::LIST_URL, __('Kunden-FAQs', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
+            [CustomerFaqAdmin::TERMS_URL, __('Kunden-FAQ-Kategorien', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [PricePage::SLUG, __('Preise', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PricePage(), 'render']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],

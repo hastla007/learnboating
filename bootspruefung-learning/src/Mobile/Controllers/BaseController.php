@@ -130,6 +130,15 @@ abstract class BaseController
         if ($this->access->can($this->user(), (string) $course->code, $feature)) {
             return;
         }
+        throw $this->featureDenied($course, $feature);
+    }
+
+    /**
+     * Fehler für einen nicht freigeschalteten Bereich: ENTITLEMENT_REQUIRED/EXPIRED/SUSPENDED mit Grund und
+     * Shop-Angebot ($message ersetzt die Standardmeldung bei ENTITLEMENT_REQUIRED).
+     */
+    protected function featureDenied(object $course, string $feature, ?string $message = null): ApiException
+    {
         $access = $this->courses->access($this->user(), $course);
         $cap = array_search($feature, CourseMapper::CAPABILITIES, true);
         $code = match ($access['status']) {
@@ -140,10 +149,11 @@ abstract class BaseController
         $message = match ($code) {
             'ENTITLEMENT_EXPIRED' => __('Dein Zugang zu diesem Kurs ist abgelaufen.', 'bootspruefung-learning'),
             'ENTITLEMENT_SUSPENDED' => __('Dein Zugang zu diesem Kurs ist derzeit ausgesetzt. Bitte wende dich an den Support.', 'bootspruefung-learning'),
-            default => __('Dieser Bereich ist für deinen Kurs nicht freigeschaltet.', 'bootspruefung-learning'),
+            default => $message ?? __('Dieser Bereich ist für deinen Kurs nicht freigeschaltet.', 'bootspruefung-learning'),
         };
         $offers = $this->courses->offers($this->user(), $course);
-        throw new ApiException($code, $message, 403, ['details' => [
+
+        return new ApiException($code, $message, 403, ['details' => [
             'course_id' => (string) $course->id,
             'capability' => $cap !== false ? $cap : $feature,
             'access_status' => $access['status'],
