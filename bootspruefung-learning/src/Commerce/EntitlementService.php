@@ -388,6 +388,10 @@ final class EntitlementService
         $out = [];
         $rank = [EntitlementPlanner::ACTIVE => 5, EntitlementPlanner::PENDING => 4, EntitlementPlanner::SUSPENDED => 3, EntitlementPlanner::EXPIRED => 2, EntitlementPlanner::REVOKED => 1];
         foreach ($this->forUser($userId) as $row) {
+            // Nie freigeschaltet und beendet (z. B. unbezahlte Bestellung storniert): für den Kunden kein Zugang, nicht anzeigen.
+            if ($row->status === EntitlementPlanner::REVOKED && $row->valid_from === null) {
+                continue;
+            }
             $status = $row->status === EntitlementPlanner::ACTIVE && $row->valid_until !== null && $row->valid_until < $now ? EntitlementPlanner::EXPIRED : $row->status;
             $key = $row->course_code.'|'.$row->feature_code;
             $cur = $out[$key] ?? null;

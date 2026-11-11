@@ -38,7 +38,7 @@ final class CartRelationHint
      * Ermittlung ohne Datenbank und ohne WooCommerce.
      *
      * @param list<string> $owned besessene Kurse
-     * @return array{sku:string,course:string,owned:string,alternative:?string,alternative_skus:list<string>}|null
+     * @return array{sku:string,course:string,owned:string,covered_by:list<string>,alternative:?string,alternative_skus:list<string>}|null
      */
     public static function evaluate(array $owned, string $sku): ?array
     {
@@ -77,11 +77,14 @@ final class CartRelationHint
         if ($coveredBy === null) {
             return null;
         }
+        // Alle besessenen Kurse, die den Kurs abdecken (Reihenfolge der Tabelle, z. B. SBF Binnen vor der Ergänzung).
+        $coveredAll = array_values(array_filter(array_keys($rules), static fn ($code) => in_array($code, $owned, true) && in_array($main, $rules[$code]['hide'], true)));
 
         return [
             'sku' => $sku,
             'course' => $main,
             'owned' => $coveredBy,
+            'covered_by' => $coveredAll !== [] ? $coveredAll : [$coveredBy],
             'alternative' => $alternative,
             'alternative_skus' => $alternative !== null ? self::alternativeSkus($alternative, $sku, $base) : [],
         ];
@@ -122,7 +125,7 @@ final class CartRelationHint
      * Hinweise für einen Nutzer: je Warenkorb-Position höchstens einer, gleiche Hinweise nur einmal.
      *
      * @param array<string,string> $items Warenkorb-Schlüssel => SKU
-     * @return array<string,array{sku:string,course:string,owned:string,alternative:?string,alternative_skus:list<string>}>
+     * @return array<string,array{sku:string,course:string,owned:string,covered_by:list<string>,alternative:?string,alternative_skus:list<string>}>
      */
     public static function forUser(int $userId, array $items): array
     {
@@ -157,7 +160,12 @@ final class CartRelationHint
             return sprintf(__('Du hast %1$s schon – dafür reicht %2$s.', 'bootspruefung-learning'), $owned, self::withArticle(Labels::course($hint['alternative'])));
         }
 
-        /* translators: 1: besessener Kurs, 2: Kurs im Warenkorb */
+        // Mehrere besessene Kurse decken den Kurs gemeinsam ab (z. B. SBF Binnen und Ergänzung Binnen → See = Kombi).
+        $covered = array_map(static fn ($code) => Labels::course((string) $code), (array) ($hint['covered_by'] ?? [$hint['owned']]));
+        $last = array_pop($covered);
+        $owned = $covered === [] ? (string) $last : sprintf(__('%1$s und %2$s', 'bootspruefung-learning'), implode(', ', $covered), $last);
+
+        /* translators: 1: besessene(r) Kurs(e), 2: Kurs im Warenkorb */
         return sprintf(__('Du hast %1$s schon – der Inhalt von %2$s ist darin schon enthalten.', 'bootspruefung-learning'), $owned, Labels::course($hint['course']));
     }
 
@@ -230,7 +238,7 @@ final class CartRelationHint
             $alt = self::alternativeProduct($hint);
             $cards .= '<p>'.esc_html(self::message($hint, $alt !== null)).'</p>';
             if ($alt !== null) {
-                $cards .= '<p><a class="button bp-upgrade-add bp-relation-swap" rel="nofollow" href="'.esc_url(self::swapUrl($key, $base)).'">'
+                $cards .= '<p><a class="button wp-element-button bp-upgrade-add bp-relation-swap" rel="nofollow" href="'.esc_url(self::swapUrl($key, $base)).'">'
                     .esc_html(sprintf(__('Stattdessen %s', 'bootspruefung-learning'), Labels::course((string) $hint['alternative']))).'</a></p>';
             }
         }

@@ -10,6 +10,7 @@ use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Commerce\OrderSync;
 use Bootspruefung\Learning\Commerce\Plan;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
+use Bootspruefung\Learning\Commerce\ShopCatalog;
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Frontend\Router;
 use Bootspruefung\Learning\Security\Capabilities;
@@ -269,20 +270,30 @@ final class Integration
                     continue;
                 }
                 $seen[$parent->get_id()] = true;
-                $out[$feature][] = ['name' => $parent->get_name(), 'url' => (string) $parent->get_permalink(), 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8'), 'amount' => (float) $product->get_price()];
+                $out[$feature][] = ['name' => $parent->get_name(), 'url' => (string) $parent->get_permalink(), 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8'), 'amount' => (float) $product->get_price(), 'rank' => self::offerRank((string) ($product->get_sku() ?: $parent->get_sku()))];
             }
         }
-        // Passendstes zuerst: günstigstes Angebot (meist der Einzelkurs vor Kombi, Bundle und Pässen), höchstens sechs.
+        // Passendstes zuerst: Kurse (Einzelkurs, Kombi, Ergänzung) vor Bundle, Pässen und Gruppenpaketen, je Gruppe das
+        // günstigste zuerst – ein 1-Monats-Pass ist zwar billiger als der Einzelkurs, aber kein „Vollzugang“ zum Kurs. Höchstens sechs.
         foreach ($out as $feature => $list) {
-            usort($list, static fn (array $a, array $b): int => $a['amount'] <=> $b['amount']);
+            usort($list, static fn (array $a, array $b): int => [$a['rank'], $a['amount']] <=> [$b['rank'], $b['amount']]);
             $out[$feature] = array_map(static function (array $o): array {
-                unset($o['amount']);
+                unset($o['amount'], $o['rank']);
 
                 return $o;
             }, array_slice($list, 0, self::MAX_OFFERS));
         }
 
         return $out;
+    }
+
+    /** 0 = Kurs aus dem Katalog (Einzelkurs, Kombi, Ergänzung, auch Komplett-Stufe), 1 = alles andere (Bundle, Pässe, Gruppen, fremde Produkte). */
+    private static function offerRank(string $sku): int
+    {
+        static $groups = null;
+        $groups ??= array_column(ShopCatalog::products(), 'group', 'sku');
+
+        return in_array($groups[$sku] ?? '', ['sbf', 'funk', 'signal', 'addon'], true) ? 0 : 1;
     }
 
     public static function accountUrl(): ?string

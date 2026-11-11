@@ -99,7 +99,7 @@ final class SimUpgrade
             $html .= ' <span>'.esc_html(sprintf(__('(12-Monats-Zugang einzeln: %s)', 'bootspruefung-learning'), $was)).'</span>';
         }
         $html .= '</p>';
-        $html .= '<p><a class="button bp-upgrade-add" rel="nofollow" href="'.esc_url($url).'">'.esc_html__('Upgrade hinzufügen', 'bootspruefung-learning').'</a></p>';
+        $html .= '<p><a class="button wp-element-button bp-upgrade-add" rel="nofollow" href="'.esc_url($url).'">'.esc_html__('Upgrade hinzufügen', 'bootspruefung-learning').'</a></p>';
         $html .= '<p class="bp-upgrade-note">'.esc_html__('Einmalzahlung, kein Abo. Für den Simulator gilt keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', 'bootspruefung-learning').'</p>';
 
         return $html.'</aside>';
@@ -181,6 +181,6 @@ final class SimUpgrade
         }
         $done = true;
 
-        return '<style>.bp-upgrade{position:relative;margin:0 0 1.5rem;padding:1.2rem 1.4rem;border:2px dashed #F5B900;border-radius:16px;background:color-mix(in srgb,#F5B900 9%,transparent)}.bp-upgrade h2{margin:.1rem 0 .4rem;font-size:1.15rem}.bp-upgrade p{margin:0 0 .6rem}.bp-upgrade-flag{display:inline-block;padding:.1rem .7rem;border-radius:999px;background:#F5B900;color:#071B2E;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.bp-upgrade-price strong{font-size:1.2rem}.bp-upgrade-price span{opacity:.75}.bp-upgrade-note{font-size:.82rem;opacity:.75}.bp-upgrade .bp-upgrade-add{border-radius:999px}</style>';
+        return '<style>.bp-upgrade{position:relative;margin:0 0 1.5rem;padding:1.2rem 1.4rem;border:2px dashed #F5B900;border-radius:16px;background:color-mix(in srgb,#F5B900 9%,transparent)}.bp-upgrade h2{margin:.1rem 0 .4rem;font-size:1.15rem}.bp-upgrade p{margin:0 0 .6rem}.bp-upgrade-flag{display:inline-block;padding:.1rem .7rem;border-radius:999px;background:#F5B900;color:#071B2E;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.bp-upgrade-price strong{font-size:1.2rem}.bp-upgrade-price span{opacity:.75}.bp-upgrade-note{font-size:.82rem;opacity:.75}.bp-upgrade .bp-upgrade-add{display:inline-block;padding:.6rem 1.2rem;border-radius:999px;font-weight:700;line-height:1.3;text-decoration:none}</style>';
     }
 }

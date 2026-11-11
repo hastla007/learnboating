@@ -20,7 +20,19 @@ final class PriceNote
         add_action('woocommerce_review_order_after_order_total', [$this, 'classicRow']);
         add_action('woocommerce_cart_totals_after_order_total', [$this, 'classicRow']);
         add_action('woocommerce_email_after_order_table', [$this, 'email'], 20, 4);
+        add_action('wp_enqueue_scripts', [$this, 'smallScreenStyle'], 20);
     }
+
+    /**
+     * Mobile Warenkorb-Tabelle (woocommerce-smallscreen.css): WooCommerce stellt jeder Zelle „data-title: “ voran –
+     * die Hinweis-Zeile hat keine Beschriftung, sonst stünde dort ein einzelner Doppelpunkt.
+     */
+    public function smallScreenStyle(): void
+    {
+        wp_add_inline_style('woocommerce-smallscreen', self::SMALLSCREEN_CSS);
+    }
+
+    public const SMALLSCREEN_CSS = '.woocommerce table.shop_table_responsive tr.bp-price-note-row td::before,.woocommerce-page table.shop_table_responsive tr.bp-price-note-row td::before{display:none}';
 
     public static function text(): string
     {

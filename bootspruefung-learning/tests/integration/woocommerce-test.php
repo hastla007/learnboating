@@ -417,6 +417,16 @@ $published = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, 
 $check(wc_get_product($byS['BP-SBF-SEE']['product_id'])->get_description() === 'Eigener Text des Betreibers' && wc_get_product($kombi->get_id())->get_status() === 'publish', 'veröffentlicht; von Hand geänderter Text bleibt');
 $check(count(get_posts(['post_type' => 'attachment', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_bp_catalog_image'])) === 62, 'Bilder nur einmal importiert');
 $check(wc_get_product($byS['BP-SBF-SEE-VIDEO']['product_id'])->get_catalog_visibility() === 'hidden' && wc_get_product($byS['BP-SBF-SEE-KOMPLETT']['product_id'])->get_catalog_visibility() === 'visible' && \Bootspruefung\Learning\Commerce\MoneyBack::policy($byS['BP-SBF-SEE-VIDEO']['product_id']) !== null, 'Video-Upgrade nicht gelistet, mit Geld-zurück-Garantie; Komplett im Shop');
+// Sperrhinweis/Testkurs „Vollzugang freischalten“: Kurs vor Pässen, auch wenn der 1-Monats-Pass billiger ist.
+$seeOffers = array_column(Integration::offers('SBF-SEE', ['question_bank' => false])['question_bank'] ?? [], 'url');
+$passAt = array_search(get_permalink($byS['BP-PASS-1M']['product_id']), $seeOffers, true);
+$check(($seeOffers[0] ?? '') === get_permalink($byS['BP-SBF-SEE']['product_id']) && $passAt !== false && $passAt > array_search(get_permalink($byS['BP-SBF-SEE-BIN']['product_id']), $seeOffers, true), 'Angebote SBF See: Einzelkurs zuerst, Kombi vor Pass (Pass 16,90 € < Kurs 28,90 €)');
+// Mobile Warenkorb-Tabelle: Hinweis-Zeile ohne „: “-Beschriftung von WooCommerce.
+if (! wp_style_is('woocommerce-smallscreen', 'registered')) {
+    wp_register_style('woocommerce-smallscreen', false);
+}
+(new \Bootspruefung\Learning\Commerce\WooCommerce\PriceNote())->smallScreenStyle();
+$check(str_contains(implode('', (array) wp_styles()->get_data('woocommerce-smallscreen', 'after')), 'tr.bp-price-note-row td::before{display:none}'), 'Preis-Hinweis im mobilen Warenkorb ohne Doppelpunkt-Beschriftung');
 $fam = wc_get_product($byS['GRP-FAM-02']['product_id']);
 $famRows = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->forItem($fam->get_id(), 0);
 $check($fam->get_regular_price() === '148.90' && \Bootspruefung\Learning\Commerce\ProductAccessRepository::seats($famRows) === 3 && \Bootspruefung\Learning\Commerce\MoneyBack::policy($fam->get_id()) === null && ! $fam->is_sold_individually(), 'Familien-Flotte: 3 Plätze, 148,90 €, ohne Geld-zurück-Garantie');
@@ -516,6 +526,8 @@ $h = $crh::evaluate(['UBI'], 'BP-SRC-UBI');
 $check($h !== null && $h['alternative'] === 'SRC' && $h['alternative_skus'][0] === 'BP-SRC-KOMPLETT' && $crh::message($h, true) === 'Du hast UBI Vollkurs schon – dafür reicht der SRC Vollkurs.', 'UBI + SRC & UBI → SRC Vollkurs');
 $h = $crh::evaluate(['SBF-SEE-BIN'], 'BP-SBF-SEE-KOMPLETT');
 $check($h !== null && $h['course'] === 'SBF-SEE' && $h['alternative'] === null && $crh::message($h, false) === 'Du hast SBF See & Binnen schon – der Inhalt von SBF See ist darin schon enthalten.', 'Kombi + SBF See (Komplett-Stufe): Hinweis ohne Alternative');
+$h = $crh::evaluate(['ADD-BIN-TO-SEE', 'SBF-BIN-MOTOR'], 'BP-SBF-SEE-BIN');
+$check($h !== null && $h['alternative'] === null && $crh::message($h, false) === 'Du hast SBF Binnen und Ergänzung Binnen → See schon – der Inhalt von SBF See & Binnen ist darin schon enthalten.', 'Binnen + Ergänzung + Kombi: Text nennt beide besessenen Kurse');
 $check($crh::evaluate(['SBF-BIN-MOTOR', 'SBF-SEE-BIN'], 'BP-SBF-SEE-BIN') === null && $crh::evaluate(['SBF-BIN-MOTOR'], 'BP-SBF-BIN') === null && $crh::evaluate(['SRC'], 'BP-SRC-KOMPLETT') === null, 'Verlängerung (Kurs selbst besessen): kein Hinweis');
 $check($crh::evaluate(['SBF-BIN-MOTOR'], 'BP-KAPITAEN') === null && $crh::evaluate(['SBF-BIN-MOTOR'], 'GRP-PAIR-03') === null && $crh::evaluate(['SBF-SEE-BIN'], 'BP-SBF-SEE-VIDEO') === null && $crh::evaluate([], 'BP-SBF-SEE-BIN') === null, 'kein Hinweis für Bundle, Gruppenpaket, Video-Upgrade oder ohne Besitz');
 if (function_exists('wc_load_cart')) {
@@ -533,6 +545,7 @@ if (function_exists('wc_load_cart')) {
     $hBox = $crh::box(wc_get_cart_url());
     $check(str_contains($hBox, 'Du hast SBF Binnen schon – dafür reicht die Ergänzung Binnen → See.') && str_contains($hBox, 'Stattdessen Ergänzung Binnen → See') && str_contains($hBox, 'bp-swap='.$kKey) && str_contains($hBox, 'bp-upgrade'), 'Warenkorb: Box mit Text und Tausch-Knopf');
     $check(substr_count($crh::box(), 'bp-relation-swap') === 1, 'je Position höchstens ein Hinweis');
+    $check(str_contains($hBox, 'class="button wp-element-button bp-upgrade-add bp-relation-swap"'), 'Tausch-Knopf als Knopf (Block-Theme-Klasse), nicht als Textlink');
     $rendered = (string) apply_filters('render_block_woocommerce/checkout', '<div class="wc-block-checkout"></div>');
     $check(str_contains($rendered, 'bp-relation-hint') && str_contains($rendered, 'Stattdessen Ergänzung Binnen → See'), 'Kasse (Block): Hinweis über dem Formular');
     add_filter('bootspruefung_cart_relation_hint', '__return_false');
