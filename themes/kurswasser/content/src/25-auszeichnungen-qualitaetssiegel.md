@@ -53,7 +53,7 @@ Für Onlinekurse zur Vorbereitung auf den Sportbootführerschein gibt es keine a
 - **Simulation:** nach den Regeln der jeweiligen Prüfung – Fragenzahl, Bestehensgrenze, Zeit
 - **Kennzeichnung:** Ist ein Regelwerk noch nicht fachlich verifiziert, läuft die Simulation sichtbar als „Übungsmodus“
 - **Aktualität:** Aktualisierungen während deiner Laufzeit, etwa bei geänderten Fragenkatalogen
-- **Ratgeber:** mit Stand-Datum und Links zu den amtlichen Quellen
+- **Ratgeber:** ausgerichtet an den amtlichen Vorgaben
 
 ### [B10 CTA] Überzeug dich selbst
 Teste jeden Kurs kostenlos mit deinem Kundenkonto und sieh dir an, wie Smarttrainer und Simulation arbeiten.

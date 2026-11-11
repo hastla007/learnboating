@@ -67,16 +67,6 @@ Das hängt vor allem von dir ab: von deiner Lernzeit, deinem Vorwissen und davon
 ### [B3 Gut zu wissen] Reform angekündigt
 Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Sportbootführerschein ersetzen. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Wir passen diesen Guide an, sobald sich am Ablauf etwas ändert.
 
-### [B6] Quellen und offizielle Stellen
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/)
-- [Sportbootführerscheine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-- [Antrag auf Zulassung zur Prüfung und Unterlagen](https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/)
-- [Sportbootführerschein im Bundesportal (PDF)](https://fimportal.de/api/v0/xzufi-services/B100019/104921748/de/pdf)
-- [Pressemitteilung des BMV zur geplanten Neuregelung (2025)](https://www.bmv.de/SharedDocs/DE/Pressemitteilungen/2025/051-hirte-regeln-fuer-sportbootfuehrerscheine-werden-modernisiert.html)
-- [Bericht der Zeitschrift Yacht zur Reform](https://www.yacht.de/segelwissen/fuehrerschein/sportbootfuehrerschein-bundesverkehrsministerium-verkuendet-ende-der-beleihungspraxis/) (Fachpresse)
-
-Stand: 10.11.2026
-
 ### [B8] Weiterlesen
 - [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor): SBF See und Binnen im Vergleich.
 - [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/) (Symbol compass): Reihenfolge, Kombi und Ergänzungen.

@@ -123,7 +123,7 @@ Dein Onlinekurs bei {{brand}} läuft 12 Monate ab Zahlungseingang. Du lernst im 
 ### [B2] Was kostet der Bootsführerschein? {#kosten}
 Die Kosten setzen sich aus mehreren Posten zusammen: Theoriekurs, Fahrpraxis und Prüfungsboot, amtliche Prüfungsgebühr, ärztliches Attest sowie Kleinkram wie Passbild, Führungszeugnis (falls du keinen Kfz-Führerschein hast) und für den SBF See die Übungsseekarte mit Navigationsbesteck.
 
-Die amtlichen Prüfungsgebühren sind bundesweit festgelegt. Laut Bundesportal liegen sie je nach Schein und Kombination zwischen rund 128 € und 218 € (Stand: 10.11.2026). Alle Posten mit Richtwerten und unseren aktuellen Kurspreisen findest du unter [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/).
+Die amtlichen Prüfungsgebühren sind bundesweit festgelegt. Sie liegen je nach Schein und Kombination zwischen rund 128 € und 218 € (Stand: 10.11.2026). Alle Posten mit Richtwerten und unseren aktuellen Kurspreisen findest du unter [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/).
 
 ### [B2] Die Prüfung: Theorie und Praxis
 In der **Theorieprüfung** beantwortest du einen Fragebogen mit Fragen aus dem amtlichen Fragenkatalog: Basisfragen plus scheinspezifische Fragen, beim SBF Binnen unter Segel zusätzlich Segelfragen. Zum SBF See gehört außerdem eine Navigationsaufgabe in der Übungsseekarte.
@@ -177,18 +177,6 @@ Kostenlos testen kannst du jeden Kurs mit einem kostenlosen Kundenkonto. Die Bed
 
 ### [B2]
 [Alle Ratgeber](/ratgeber-bootsfuehrerschein/) · [Begriffe im Lexikon](/bootsfuehrerschein-lexikon/)
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Sportbootführerscheinverordnung (SpFV) bei gesetze-im-internet.de](https://www.gesetze-im-internet.de/spfv/) – Bundesministerium der Justiz
-- [Sportbootführerschein bei sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/) – gemeinsames Portal von DSV und DMYV mit Formularen und Prüfungsausschüssen
-- [Wassersport beim Bundesverkehrsministerium](https://www.bmv.de/wassersport) – BMV
-- [Pressemitteilung zur geplanten Neuregelung](https://www.bmv.de/SharedDocs/DE/Pressemitteilungen/2025/051-hirte-regeln-fuer-sportbootfuehrerscheine-werden-modernisiert.html) – BMV, 2025
-- [Gebühren laut Leistungsbeschreibung „Sportbootführerschein“ (PDF)](https://fimportal.de/api/v0/xzufi-services/B100019/104921748/de/pdf) – FIM-Portal des Bundes
-- [Merkblatt Führerscheine auf dem Wasser (PDF)](https://bochum.polizei.nrw/sites/default/files/2023-10/fuhrerscheine-2023.pdf) – Polizei NRW, Wasserschutzpolizei
-- [Bodenseeschifferpatent bei service-bw](https://www.service-bw.de/zufi/leistungen/846) – Land Baden-Württemberg
-- [Fachpresse zum Ende der Beleihung](https://www.yacht.de/segelwissen/fuehrerschein/sportbootfuehrerschein-bundesverkehrsministerium-verkuendet-ende-der-beleihungspraxis/) – YACHT
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zur Scheinwahl
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-scheinwahl-und-geltungsbereich" title="Häufige Fragen zur Scheinwahl" search="0" schema="0"]

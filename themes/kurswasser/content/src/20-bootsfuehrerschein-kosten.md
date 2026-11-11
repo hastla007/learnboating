@@ -49,7 +49,7 @@ open_items:
 Vergleiche Angebote nicht nur nach dem Einstiegspreis. Prüfe, was enthalten ist – und welche Posten du separat bei Schule, Arzt oder Prüfungsausschuss bezahlst.
 
 ### [B5 Fakten] Amtliche Prüfungsgebühren {#gebuehren}
-Die Gebühren für die amtlichen Prüfungen sind bundesweit festgelegt. Du zahlst sie direkt an den Prüfungsausschuss, nicht an uns. Laut Bundesportal liegen sie für den Sportbootführerschein je nach Schein und Kombination zwischen rund 128 € und 218 €.
+Die Gebühren für die amtlichen Prüfungen sind bundesweit festgelegt. Du zahlst sie direkt an den Prüfungsausschuss, nicht an uns. Sie liegen für den Sportbootführerschein je nach Schein und Kombination zwischen rund 128 € und 218 €.
 
 Richtwerte je Prüfung:
 
@@ -113,13 +113,6 @@ Sparen kannst du bei Kurs, Fahrpraxis und Material. Die amtlichen Prüfungsgebü
 
 ### [B3 Garantie] Geld-zurück-Garantie
 Für Einzelkurse (Theorie und Komplett), Video-Upgrades, Ergänzungskurse, Kombikurse, das Kapitäns-Bundle und die Pässe gilt unsere Geld-zurück-Garantie: 14 Tage ab Zahlungseingang, wenn du seither weniger als 20 % der gekauften Inhalte genutzt hast. Sie gilt nicht für Gruppenpakete und nicht für eigenständige Zugänge zum Funkgerät-Simulator. Alle Bedingungen: [Geld-zurück-Garantie](/geld-zurueck-garantie-bootsfuehrerschein/)
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Gebühren laut Leistungsbeschreibung „Sportbootführerschein“ (PDF)](https://fimportal.de/api/v0/xzufi-services/B100019/104921748/de/pdf) – FIM-Portal des Bundes
-- [Prüfungsausschüsse und Termine bei sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/) – DSV und DMYV
-- [Prüfungsausschüsse des DMYV](https://www.dmyv.de/fuehrerschein/-funk/pruefungen/pruefungsausschuesse/) – DMYV
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zu Prüfung und Gebühren
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-pruefung-und-pruefungsablauf" title="Häufige Fragen zu Prüfung und Gebühren" search="0" schema="0"]

@@ -85,14 +85,6 @@ Bestätige das Mindestalter vor der Anmeldung bei deinem Prüfungsausschuss. Zu 
 ### [B2] Weitere Voraussetzungen
 Neben dem Alter brauchst du für den Sportbootführerschein einen ärztlichen Tauglichkeitsnachweis, ab 18 Jahren einen Zuverlässigkeitsnachweis und eine bestandene Prüfung in Theorie und Praxis. Vorkenntnisse brauchst du nicht. Alle Schritte von der Scheinwahl bis zur Prüfung stehen im [Überblick zum Sportbootführerschein](/sportbootfuehrerschein/#voraussetzungen).
 
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/) – gesetze-im-internet.de
-- [Sportbootführerschein bei sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/) – DSV und DMYV
-- [Antrag auf Zulassung zur Prüfung](https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/) – DSV und DMYV
-- [Merkblatt Führerscheine auf dem Wasser (PDF)](https://bochum.polizei.nrw/sites/default/files/2023-10/fuhrerscheine-2023.pdf) – Polizei NRW
-
-Stand: 10.11.2026
-
 ### [B9] Häufige Fragen zu den Voraussetzungen
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" search="0" schema="0"]
 

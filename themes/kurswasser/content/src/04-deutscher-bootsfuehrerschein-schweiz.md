@@ -13,7 +13,7 @@ meta_description: Wohnsitz in der Schweiz? Warum ein deutscher SBF den Schweizer
 eyebrow: Ratgeber · Schweiz
 lead: Lernen kannst du von überall. Wohnst du in der Schweiz, ersetzt ein deutscher SBF den Schweizer Schiffsführerausweis aber in der Regel nicht – kläre das vor dem Kauf.
 cta_primary: Deutsche SBF-Kurse ansehen | /kurse/
-cta_secondary: "Zuständiges Amt finden | #quellen"
+cta_secondary:
 schema: Article
 breadcrumb: Start / Ratgeber / Schweiz
 hero_photo: sbf-binnen-segel
@@ -51,7 +51,6 @@ Für Schweizer Seen und Flüsse ist der Schweizer Schiffsführerausweis der rich
 Eyebrow: Schritt für Schritt
 Erst klären, dann lernen: So vermeidest du einen Kurs, den du nicht nutzen kannst.
 
-
 1. **Ziel klären.** Wo willst du fahren? Für Schweizer Gewässer fragst du das Schifffahrtsamt deines Kantons.
 2. **Prüfungsausschuss wählen.** Den deutschen SBF legst du bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl ab, in der Regel in Deutschland. Frag dort, welche Unterlagen du mit Wohnsitz in der Schweiz einreichen kannst.
 3. **Theorie online lernen.** Mit {{brand}} lernst du den deutschen Prüfungsstoff im Browser – unabhängig von deinem Wohnort.
@@ -60,17 +59,6 @@ Erst klären, dann lernen: So vermeidest du einen Kurs, den du nicht nutzen kann
 
 ### [B2] Was {{brand}} dir bietet – und was nicht
 Wir bereiten dich auf den deutschen Prüfungsstoff vor: alle Prüfungsfragen im Smarttrainer, Prüfungssimulation, Navigationsaufgaben für den SBF See und Praxiskarten. Für Funkzeugnisse gibt es eigene Kurse, etwa das [UBI](/kurse/ubi/) für den Binnenfunk. Ein deutscher Onlinekurs ist keine Schweizer Ausbildung und ersetzt keinen Schweizer Schiffsführerausweis. Unsere Preise gelten in Euro.
-
-### [B6] Quellen und zuständige Stellen {#quellen}
-- [Freizeitschifffahrt beim Bundesamt für Verkehr (BAV)](https://www.bav.admin.ch/de/freizeitschifffahrt)
-- [BAV-Rundschreiben Nr. 54 (PDF)](https://www.bav.admin.ch/dam/de/sd-web/4onWexGD1eq5/rundschreiben_nr54-1.pdf) – Umtausch ausländischer Ausweise
-- [Art. 91a Binnenschifffahrtsverordnung (BSV, SR 747.201.1)](https://lawbrary.ch/law/art/BSV-v2022.01-de-art-91a/) – amtlicher Text auf fedlex.admin.ch
-- [Ausländische Schiffsführerausweise beim Kanton St. Gallen](https://www.sg.ch/verkehr/schifffahrt/schiffsfuehrer/auslaendische-schiffsfuehrerausweis.html) – Beispiel für ein kantonales Schifffahrtsamt
-- [Ausländische Schiffsführerausweise beim Kanton Zürich](https://www.vsz.ch/schifffahrt/schiffsfuehrerausweis/privatpersonen/auslaendische-schiffsfuehrerausweise)
-- [Bodenseeschifferpatent bei service-bw](https://www.service-bw.de/zufi/leistungen/846)
-- [Prüfungsausschüsse und Termine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-
-Stand: 10.11.2026
 
 ### [B8] Weiterlesen
 - [Bootsführerschein im Ausland](/bootsfuehrerschein-ausland-anerkennung/) (Symbol anchor): ICC, Charter und Bodensee.

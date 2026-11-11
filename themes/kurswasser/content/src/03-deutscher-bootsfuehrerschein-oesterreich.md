@@ -52,7 +52,6 @@ Für österreichische Gewässer ist meist ein österreichischer Befähigungsausw
 Eyebrow: Schritt für Schritt
 Erst klären, dann lernen: So vermeidest du einen Kurs, den du nicht nutzen kannst.
 
-
 1. **Ziel klären.** Wo willst du fahren? Für österreichische Gewässer fragst du die Landesbehörde deines Bundeslands, welcher Ausweis nötig ist.
 2. **Prüfungsausschuss wählen.** Den deutschen SBF legst du bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl ab, in der Regel in Deutschland. Für Prüfungen im Ausland können Zusatzkosten anfallen. Frag beim Ausschuss auch, welche Unterlagen du mit Wohnsitz in Österreich einreichen kannst, etwa als Zuverlässigkeitsnachweis.
 3. **Theorie online lernen.** Mit {{brand}} lernst du den deutschen Prüfungsstoff im Browser – unabhängig von deinem Wohnort.
@@ -61,15 +60,6 @@ Erst klären, dann lernen: So vermeidest du einen Kurs, den du nicht nutzen kann
 
 ### [B2] Was {{brand}} dir bietet – und was nicht
 Wir bereiten dich auf den deutschen Prüfungsstoff vor: alle Prüfungsfragen im Smarttrainer, Prüfungssimulation, Navigationsaufgaben für den SBF See und Praxiskarten. Ein deutscher Onlinekurs ist keine österreichische Ausbildung und ersetzt keinen österreichischen Befähigungsausweis. Unsere Preise gelten in Euro.
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Schiffsführerpatent beim Land Niederösterreich](https://www.noe.gv.at/noe/Schifffahrt/schifffahrt_patent.html) – Beispiel für eine Landesbehörde (4,4-kW-Grenze); andere Bundesländer haben eigene Stellen
-- [Informationsblatt Schiffsführerprüfung des BMIMI (PDF)](https://www.bmimi.gv.at/dam/jcr:b2a1065f-9681-46e5-a5d1-2bcb5485db08/Info_Schifffsfuehrerpruefung.pdf)
-- [Schifffahrtsgesetz im Rechtsinformationssystem des Bundes (RIS)](https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=10012703) – § 101
-- [Prüfungsausschüsse und Termine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-- [Bodenseeschifferpatent bei service-bw](https://www.service-bw.de/zufi/leistungen/846)
-
-Stand: 10.11.2026
 
 ### [B8] Weiterlesen
 - [Bootsführerschein im Ausland](/bootsfuehrerschein-ausland-anerkennung/) (Symbol anchor): ICC, Charter und Bodensee.

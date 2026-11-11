@@ -13,7 +13,7 @@ meta_description: Gilt dein deutscher SBF im Ausland? Was das ICC bedeutet, wo G
 eyebrow: Ratgeber · Ausland
 lead: Der deutsche Sportbootführerschein wird als internationales Zertifikat (ICC) ausgestellt. Das hilft im Ausland, ist aber keine Zusage für jedes Land, jedes Revier und jedes Boot.
 cta_primary: SBF-Kurse vergleichen | /kurse/
-cta_secondary: "Offizielle Quellen | #quellen"
+cta_secondary:
 schema: Article
 breadcrumb: Start / Ratgeber / Ausland
 hero_photo: sbf-see
@@ -65,25 +65,13 @@ Wer im Ausland eine Segelyacht chartern will, braucht deshalb häufig zusätzlic
 Wer eine Yacht mit UKW-Seefunkanlage führt, braucht in der Regel ein Funkzeugnis, und Vercharterer verlangen es oft. Für den Seefunk ist das [SRC (Short Range Certificate)](/kurse/src/) gedacht, für den Binnenfunk das [UBI](/kurse/ubi/). Bei {{brand}} übst du dafür Prüfungsfragen, Funktexte und die Buchstabiertafel und kannst den Funkgerät-Simulator kostenlos testen.
 
 ### [B3 Gut zu wissen] Sonderfall Bodensee
-Auf dem Bodensee gilt die Bodensee-Schifffahrts-Ordnung. Für Motorboote mit mehr als 4,4 kW und Segelboote mit mehr als 12 m² Segelfläche brauchst du das Bodenseeschifferpatent. Ein deutscher SBF gilt dort nicht automatisch; für Gäste gibt es nur zeitlich begrenzte Ausnahmen. Details nennt das Landratsamt bzw. die Schifffahrtsbehörde am See (Quellen unten).
+Auf dem Bodensee gilt die Bodensee-Schifffahrts-Ordnung. Für Motorboote mit mehr als 4,4 kW und Segelboote mit mehr als 12 m² Segelfläche brauchst du das Bodenseeschifferpatent. Ein deutscher SBF gilt dort nicht automatisch; für Gäste gibt es nur zeitlich begrenzte Ausnahmen. Details nennt das Landratsamt bzw. die Schifffahrtsbehörde am See.
 
 ### [B2] Wohnsitz in Österreich oder der Schweiz
 Wohnst du nicht in Deutschland, kann dein Wohnsitz entscheidend sein. In Österreich gelten ausländische Scheine vor allem für Gäste mit Wohnsitz im Ausland; in der Schweiz brauchst du nach zwölf Monaten Wohnsitz einen Schweizer Ausweis, und ein Umtausch setzt voraus, dass du beim Erwerb im Ausstellerstaat gewohnt hast. Einzelheiten: [Deutscher Bootsführerschein mit Wohnsitz in Österreich](/deutscher-bootsfuehrerschein-oesterreich/) und [mit Wohnsitz in der Schweiz](/deutscher-bootsfuehrerschein-schweiz/).
 
 ### [B3 Gut zu wissen] Reform angekündigt
 Das Bundesverkehrsministerium hat 2025 eine Neuregelung der Sportbootführerscheine angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Schein ersetzen und zugleich als ICC gelten. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Wir aktualisieren diese Seite, sobald es Neuigkeiten gibt.
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Sportbootführerschein im Bundesportal (Leistungsbeschreibung, englisch)](https://fimportal.de/api/v0/xzufi-services/B100019/104921748/en/pdf) – Ausstellung als internationales Zertifikat
-- [Wassersport beim Bundesministerium für Verkehr](https://www.bmv.de/wassersport)
-- [Pressemitteilung des BMV zur geplanten Neuregelung (2025)](https://www.bmv.de/SharedDocs/DE/Pressemitteilungen/2025/051-hirte-regeln-fuer-sportbootfuehrerscheine-werden-modernisiert.html)
-- [Bericht der Zeitschrift Yacht zur Reform](https://www.yacht.de/segelwissen/fuehrerschein/sportbootfuehrerschein-bundesverkehrsministerium-verkuendet-ende-der-beleihungspraxis/) (Fachpresse)
-- [Bericht der Zeitschrift Yacht zur europaweiten Anerkennung](https://www.yacht.de/segelwissen/fuehrerschein/sportbootfuehrerschein-neue-eu-studie-empfiehlt-europaweite-anerkennung/) (Fachpresse, zum Status der Resolution 40)
-- [Bodenseeschifferpatent bei service-bw](https://www.service-bw.de/zufi/leistungen/846)
-- [Hinweise zum Revier Bodensee beim Segler-Verband Baden-Württemberg](https://www.segelverband-bw.de/breitensport/reviere/der-bodensee/allgemeine-hinweise)
-- [Sportbootführerscheine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zur Scheinwahl
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-scheinwahl-und-geltungsbereich" title="Häufige Fragen zu Schein und Geltungsbereich" search="0" schema="0"]

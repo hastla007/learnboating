@@ -68,14 +68,6 @@ Rechtsstand 10.11.2026. Antrag und Unterlagen müssen spätestens eine Woche vor
 
 Prüfungsausschüsse und ihre Termine findest du auf der gemeinsamen Website von DSV und DMYV. Frag dort oder bei der Bootsschule nach, welche Termine am Ausbildungsort angeboten werden.
 
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Prüfungsausschüsse und Termine bei sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/) – DSV und DMYV
-- [Prüfungsausschüsse des DMYV](https://www.dmyv.de/fuehrerschein/-funk/pruefungen/pruefungsausschuesse/) – DMYV
-- [Deutscher Segler-Verband](https://www.dsv.org/) – DSV
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/) – gesetze-im-internet.de
-
-Stand: 10.11.2026
-
 ### [B8] Weiterlesen
 - [Praxis und Prüfung vor Ort planen](/bootsfuehrerschein-standorte/) (Symbol compass) – Ausbildung, Prüfungsort und Termine im Überblick.
 - [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/) (Symbol cart) – Fahrstunden, Prüfungsboot und Gebühren.

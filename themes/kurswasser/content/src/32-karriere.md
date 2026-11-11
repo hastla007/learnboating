@@ -47,7 +47,7 @@ Bereiche, in denen wir Unterstützung brauchen können:
 - [x] Digitales Lernen: Lernwege und Übungen gestalten
 - [x] Software: Plattform und Lernbereich weiterentwickeln
 - [x] Service: Lernenden bei Fragen zu Kurs und Zugang helfen
-- [x] Redaktion: Ratgeber verständlich und mit Quellen schreiben
+- [x] Redaktion: Ratgeber verständlich und fachlich korrekt schreiben
 
 ### [B3 Karte] Offene Stellen {#stellen}
 #### [[Betreiber: Stellentitel (m/w/d)]]

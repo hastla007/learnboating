@@ -83,15 +83,6 @@ Button: Alle Ergänzungskurse im Shop | #kw:ergaenzung
 ### [B2] Und die Funkzeugnisse?
 Auch für die Funkzeugnisse gibt es keine vorgeschriebene Reihenfolge. Das [SRC](/kurse/src/) brauchst du für den Seefunk, das [UBI](/kurse/ubi/) für den Binnenfunk. Wer beides will, nimmt den [Kombikurs SRC & UBI](/kurse/funk-kombi/); wer schon das SRC hat, ergänzt das UBI mit einem Ergänzungskurs. Alle vier Scheine – SBF See, SBF Binnen, SRC und UBI – bündelt das [Kapitäns-Bundle](/kurse/kapitaen/).
 
-### [B6] Quellen und offizielle Stellen
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/) – § 8 Prüfung
-- [Sportbootführerscheine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-- [Antrag auf Zulassung zur Prüfung](https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/) – Tauglichkeitsnachweis und Ersatz
-- [Merkblatt Führerscheine der Polizei Berlin (PDF)](https://www.berlin.de/polizei/_assets/dienststellen/anlagen-dir-e/info_1_fuhrerscheine_2021.pdf) – Segeln auf Berliner Gewässern
-- [Merkblatt der Polizei NRW (PDF)](https://bochum.polizei.nrw/sites/default/files/2023-10/fuhrerscheine-2023.pdf) – Fahrerlaubnisgrenzen
-
-Stand: 10.11.2026
-
 ### [B9] Häufige Fragen zum Kombikurs
 [bootspruefung_faq rubric="SBF-SEE-BIN" title="Häufige Fragen zum Kombikurs See & Binnen" search="0" schema="0"]
 

@@ -42,8 +42,8 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] Orientierung, die du nachprüfen kannst
-Unser Ratgeber beantwortet die Fragen, die vor und während der Vorbereitung auftauchen. Wo es um Prüfungsrecht geht – Voraussetzungen, Fristen, Gebühren, Geltung im Ausland –, nennen wir die Quelle und den Stand, damit du die Angaben bei der zuständigen Stelle nachprüfen kannst. Verbindlich sind die Sportbootführerscheinverordnung, die Informationen der Verbände auf [sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/) und dein Prüfungsausschuss.
+### [B2] Orientierung für deine Vorbereitung
+Unser Ratgeber beantwortet die Fragen, die vor und während der Vorbereitung auftauchen. Wo es um Prüfungsrecht geht – Voraussetzungen, Fristen, Gebühren, Geltung im Ausland –, richten wir uns nach den amtlichen Vorgaben. Verbindlich sind die Sportbootführerscheinverordnung, die Informationen der Verbände auf sportbootfuehrerscheine.org und dein Prüfungsausschuss.
 
 Den kompletten Überblick über SBF See und SBF Binnen findest du auf der Seite [Sportbootführerschein im Überblick](/sportbootfuehrerschein/).
 

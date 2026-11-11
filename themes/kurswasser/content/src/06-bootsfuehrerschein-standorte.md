@@ -68,12 +68,7 @@ Untertitel: Das klärst du dort
 Häufig ist der Ausbildungsort auch der Prüfungsort, weil Bootsschulen Termine mit einem Ausschuss vereinbaren. Das ist üblich, aber keine Regel.
 
 ### [B2] Prüfungsausschuss und Prüfungstermine finden {#pruefungstermine}
-Prüfungstermine und -orte veröffentlichen die Prüfungsausschüsse von DSV und DMYV auf ihrer gemeinsamen Website. Dort findest du auch den Antrag auf Zulassung zur Prüfung und die Hinweise zu den Unterlagen:
-
-- [Sportbootführerscheine bei DSV und DMYV (sportbootfuehrerscheine.org)](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-- [Antrag auf Zulassung zur Prüfung und Unterlagen](https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/)
-- [Deutscher Segler-Verband (DSV)](https://www.dsv.org/)
-- [Deutscher Motoryachtverband (DMYV)](https://www.dmyv.de/)
+Prüfungstermine und -orte veröffentlichen die Prüfungsausschüsse von DSV und DMYV auf ihrer gemeinsamen Website. Dort findest du auch den Antrag auf Zulassung zur Prüfung und die Hinweise zu den Unterlagen.
 
 In deinem Kurs bei {{brand}} findest du außerdem die Anleitung „Prüfung anmelden“: mit Gebühr, Unterlagen und Fristen sowie einer Suche nach Prüfungsausschüssen nach Ort, Postleitzahl oder Name und einer Karte nach Bundesländern. Sie ersetzt nicht die vollständigen Listen der Verbände.
 
@@ -84,13 +79,6 @@ Eine feste Reihenfolge schreibt dir niemand vor. Bewährt hat sich: zuerst die T
 - Der Antrag muss spätestens eine Woche vor dem Prüfungstermin vollständig beim Ausschuss sein.
 
 Welche Schritte du sonst planst, zeigt der [Bootsführerschein-Guide](/bootsfuehrerschein-guide/). Ob du See oder Binnen zuerst machst, klärt [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/).
-
-### [B6] Quellen und offizielle Stellen
-- [sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/) – gemeinsames Portal von DSV und DMYV, Termine und Ausschüsse
-- [Antrag auf Zulassung (DMYV, PDF)](https://www.dmyv.de/fileadmin/content/pdf/downloads/fuehrerschein/sbf-binnen-see/Zulassungsantrag_Sportbootfuehrerschein_2023_1.pdf) – Unterlagen und Frist (§ 7 Abs. 1 SpFV)
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/)
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zu Prüfung und Ablauf
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-pruefung-und-pruefungsablauf" title="Häufige Fragen zu Prüfung und Ablauf" search="0" schema="0"]

@@ -58,8 +58,6 @@ Das Formular für den Tauglichkeitsnachweis gehört zu den Antragsunterlagen. Du
 
 Wichtig: Anlage 2 der SpFV wurde zum 1. Januar 2023 geändert. Verwende deshalb kein älteres Formular aus dem Netz, sondern das aktuelle Muster.
 
-Button: Formular bei sportbootfuehrerscheine.org | https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/
-
 ### [B2] Wer das Attest ausstellen darf
 Den Tauglichkeitsnachweis stellt eine Ärztin oder ein Arzt auf dem amtlichen Formular aus. Frag am besten in deiner Hausarztpraxis nach, ob sie den Nachweis ausstellt, und nimm das ausgedruckte Formular zum Termin mit. Wenn du eine Brille, Kontaktlinsen oder ein Hörgerät trägst, nimm sie ebenfalls mit.
 
@@ -92,13 +90,6 @@ Das Attest reichst du zusammen mit dem Antrag beim Prüfungsausschuss ein. Für 
 ::: hinweis
 Diese Seite ist eine Orientierung. Sie ersetzt keine ärztliche Untersuchung und keine Entscheidung des Prüfungsausschusses.
 :::
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [Antrag auf Zulassung zur Prüfung mit Formularen bei sportbootfuehrerscheine.org](https://www.sportbootfuehrerscheine.org/downloads/sbf-sportbootfuehrerschein/sbf-antrag-auf-zulassung-zur-pruefung/) – DSV und DMYV
-- [Zulassungsantrag Sportbootführerschein (PDF)](https://www.dmyv.de/fileadmin/content/pdf/downloads/fuehrerschein/sbf-binnen-see/Zulassungsantrag_Sportbootfuehrerschein_2023_1.pdf) – DMYV
-- [Sportbootführerscheinverordnung (SpFV), Anlage 2](https://www.gesetze-im-internet.de/spfv/) – gesetze-im-internet.de
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zu den Voraussetzungen
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" search="0" schema="0"]

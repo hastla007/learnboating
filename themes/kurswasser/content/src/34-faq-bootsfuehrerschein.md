@@ -39,9 +39,6 @@ open_items:
 ### [B1]
 Du hast Fragen zum Sportbootführerschein, zu Funkzeugnissen oder zu deinem Onlinekurs? Hier findest du kurze Antworten – und Links zu den ausführlichen Seiten.
 
-### [B3 Hinweis]
-Stand: 10.11.2026. Für Prüfung, Gebühren und Unterlagen ist immer dein Prüfungsausschuss maßgeblich. Eine Reform des Sportbootführerscheins ist angekündigt; den Stand erklären wir im [Überblick zum Sportbootführerschein](/sportbootfuehrerschein/).
-
 ### [B9]
 [bootspruefung_faq]
 

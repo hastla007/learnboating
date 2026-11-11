@@ -59,10 +59,6 @@ Deine Lerndaten nutzen wir für deine eigene Lernansicht. Für eine Untersuchung
 
 [[Betreiber: Ergebnis in zwei bis vier Absätzen]]
 
-::: hinweis
-Stand: [[Betreiber: Datum der Veröffentlichung]]
-:::
-
 ### [B10 CTA] Wie unser Lernkonzept funktioniert
 Smarttrainer, Prüfungssimulation und Praxiskarten – sieh dir an, wie du bei {{brand}} lernst.
 Button: Unser Lernkonzept | /online-lernplattform-bootsfuehrerschein/

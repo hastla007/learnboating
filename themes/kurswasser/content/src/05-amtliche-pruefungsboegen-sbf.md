@@ -50,8 +50,6 @@ Untertitel: amtlich und maßgeblich
 - getrennt für SBF See und SBF Binnen
 - Grundlage jeder Prüfung; achte auf die gültige Fassung
 
-[Fragenkataloge bei ELWIS](https://www.elwis.de/)
-
 #### Üben bei {{brand}}
 Untertitel: Lernwerkzeug für deine Vorbereitung
 - alle Prüfungsfragen deines Kurses im Smarttrainer, mit Erklärungen (die Zahl steht auf der Kursseite)
@@ -88,20 +86,12 @@ Auswendiglernen allein trägt selten bis zur Prüfung. Diese Funktionen helfen d
 - **Zum Ausdrucken:** Je nach Kurs kannst du Prüfungsbögen und Navigationsaufgaben als PDF herunterladen.
 
 ### [B3 Gut zu wissen] Gut zu wissen
-Die Online-Simulation ist ein Lernwerkzeug und keine amtliche Prüfung. {{brand}} ist kein amtlicher Anbieter und arbeitet nicht im Auftrag der Prüfungsausschüsse. Wo eine Prüfungsregel bei uns noch nicht abschließend geprüft ist, kennzeichnet die Simulation das als „Übungsmodus“. Vollständige amtliche Kataloge veröffentlichen wir nicht auf dieser Seite; dafür verlinken wir die Originalquelle.
+Die Online-Simulation ist ein Lernwerkzeug und keine amtliche Prüfung. {{brand}} ist kein amtlicher Anbieter und arbeitet nicht im Auftrag der Prüfungsausschüsse. Wo eine Prüfungsregel bei uns noch nicht abschließend geprüft ist, kennzeichnet die Simulation das als „Übungsmodus“. Die vollständigen amtlichen Kataloge veröffentlichen wir nicht auf dieser Seite.
 
 Kostenlos testen kannst du mit einem kostenlosen Kundenkonto: 10 Fragen je Lernmodul und einen festen Prüfungsbogen pro Kurs. Die Zufallsprüfung gehört zum vollen Zugang.
 
 ### [B7] Alles an einem Ort
 Muster: features
-
-### [B6] Quellen und offizielle Stellen {#quellen}
-- [ELWIS – Elektronisches Wasserstraßen-Informationssystem](https://www.elwis.de/) – Fragenkataloge SBF See und Binnen
-- [Infobrief der DRK-Wasserwacht 02/24 (PDF)](https://www.drk.de/fileadmin/user_upload/Wasserwacht/mitglieder/01_infobriefe/DRK_WW_Infobrief_02_24_Schifffahrtsrechtliche_AEnderungen.pdf) – zitiert die Katalogänderung vom April 2023
-- [Sportbootführerscheinverordnung (SpFV)](https://www.gesetze-im-internet.de/spfv/)
-- [Sportbootführerscheine bei DSV und DMYV](https://www.sportbootfuehrerscheine.org/fuehrerscheine-funk/sbf-sportbootfuehrerschein/)
-
-Stand: 10.11.2026
 
 ### [B9] Häufige Fragen zur Prüfung
 [bootspruefung_faq rubric="SBF-SEE" subcategory="sbf-see-pruefung" title="Häufige Fragen zur SBF-See-Prüfung" search="0" schema="0"]
