@@ -145,9 +145,10 @@ final class VideoUpgrade
         return null;
     }
 
+    /** Angebot nach Warenkorb-Inhalt, auch für Gäste (Betreiber, 11.11.2026): Sie legen an der Kasse ein Konto an. */
     public function blockBox($content)
     {
-        if (is_admin() || ! is_user_logged_in()) {
+        if (is_admin()) {
             return $content;
         }
         $box = self::box();
@@ -157,9 +158,6 @@ final class VideoUpgrade
 
     public function classicBox(): void
     {
-        if (! is_user_logged_in()) {
-            return;
-        }
         $box = self::box();
         if ($box !== '') {
             echo SimUpgrade::styles().$box; // phpcs:ignore WordPress.Security.EscapeOutput -- oben maskiert

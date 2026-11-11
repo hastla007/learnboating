@@ -147,7 +147,8 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
         $html .= '<div class="kw-offer-price"><span class="kw-offer-amount">'.esc_html(kurswasser_money($o['price'])).'</span><span class="kw-offer-once">'.esc_html__('einmalig', 'kurswasser').'</span></div>';
         $meta = array_filter([kurswasser_price_note(), $duration]);
         if ($months === 12) {
-            $meta[] = sprintf(__('≈ %s pro Monat', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
+            // Umrechnung nur zur Orientierung; „kein Abo“ dazu, damit sie nicht wie eine Monatsgebühr wirkt (Betreiber, 11.11.2026).
+            $meta[] = sprintf(__('entspricht ≈ %s pro Monat, kein Abo', 'kurswasser'), kurswasser_money(round($o['price'] / 12, 2)));
         }
         $html .= '<p class="kw-offer-meta">'.esc_html(implode(' · ', $meta)).'</p>';
         if ($saving >= 1) {

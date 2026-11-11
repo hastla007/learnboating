@@ -496,6 +496,13 @@ if (function_exists('wc_load_cart')) {
     $baseKey = WC()->cart->add_to_cart($vBase);
     $vBox = \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::box();
     $check(str_contains($vBox, 'Videokurs') && preg_match('/11[.,]90/', $vBox) && str_contains($vBox, 'add-to-cart='.$vUp), 'Theorie im Warenkorb: Videokurs für 11,90 € angeboten');
+    $vPrevUser = get_current_user_id();
+    wp_set_current_user(0);
+    $check(str_contains((string) apply_filters('render_block_woocommerce/checkout', '<div class="wc-block-checkout"></div>'), 'bp-video-upgrade'), 'Gast: Video-Angebot auch in der Kasse (Block)');
+    ob_start();
+    (new \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade())->classicBox();
+    $check(str_contains((string) ob_get_clean(), 'bp-video-upgrade'), 'Gast: Video-Angebot auch in der klassischen Kasse');
+    wp_set_current_user($vPrevUser);
     $check(apply_filters('woocommerce_add_to_cart_validation', true, $vUp, 1) === true && (bool) WC()->cart->add_to_cart($vUp) && \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::box() === '', 'Upgrade im Warenkorb, Angebot verschwindet');
     WC()->cart->remove_cart_item($baseKey);
     WC()->cart->calculate_totals();

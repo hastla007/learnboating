@@ -315,6 +315,7 @@ html, body { overflow-x: clip; }
 .wc-block-components-text-input.is-active input, .wc-block-components-text-input input:focus { border-color: var(--kw-blue-dark) !important; box-shadow: 0 0 0 1px var(--kw-blue-dark) !important; }
 .wc-block-components-notice-banner { border-radius: var(--kw-radius-sm) !important; }
 .bp-checkout-account, main .bp-checkout-account.woocommerce { max-width: 40rem; margin: 0 auto; } /* main …: gegen WooCommerces 1000px-Regel für main .woocommerce */
+.bp-upgrade:has(~ .bp-checkout-account) { box-sizing: border-box; max-width: 40rem; margin-left: auto; margin-right: auto; } /* Upgrade-Angebot über dem Anmeldekasten für Gäste */
 /* Hinweise unter der Kasse (Widerruf, „Alle Preise …“) bündig zum Anmeldekasten für Gäste */
 .bp-checkout-account ~ .bp-digital-consent-note, .bp-checkout-account ~ .bp-price-note-total { max-width: 40rem; margin-left: auto; margin-right: auto; }
 .bp-checkout-account .woocommerce-info { background: var(--kw-mist); border: 1px solid var(--kw-line); border-left: 4px solid var(--kw-blue); border-radius: var(--kw-radius-sm); padding: 1rem 1.25rem 1rem 3.5em; }
