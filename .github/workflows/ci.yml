@@ -214,6 +214,13 @@ jobs:
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
+      - name: Theme Kurswasser – Einrichtung Schritt 3 „Shop einrichten“ (Integration, mit WooCommerce, ohne Netz)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/setup-shop-test.php | tee setup-shop.log
+          if grep -E "PHP Fatal" setup-shop.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*(kurswasser|bootspruefung-learning)" setup-shop.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: App-Vertrag openapi.yaml (OpenAPI 3.1) gültig
         run: |
           python3 -m venv "$RUNNER_TEMP/oas" && "$RUNNER_TEMP/oas/bin/pip" install --quiet openapi-spec-validator

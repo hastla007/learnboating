@@ -92,6 +92,69 @@ wp kurswasser content-pages sync --user=<admin> [--seo=yoast|theme] [--force]
 
 `--seo` gilt nur für diesen Lauf; ohne gilt die Wahl aus der Einrichtung.
 
+### Schritt 3 – Shop einrichten (`inc/setup-shop.php`)
+
+Erscheint nur mit aktivem WooCommerce (sonst ein Satz im Einleitungstext). Ablauf:
+
+1. **Formular:** Land (27 EU-Länder und Schweiz) und Region (aus WooCommerce), Anschrift (Straße, PLZ, Ort),
+   Mehrwertsteuer-Weg (kein Weg vorausgewählt, Hinweis „im Zweifel mit dem Steuerberater klären“), Verkauf an
+   „EU + Schweiz“ (empfohlen) oder „alle Länder“, Häkchen: Produkte als Entwurf, Schnupper-Paket, Registrierung,
+   Sprache Deutsch.
+2. **Vorschau** (`kw_view=shop`, ändert nichts): je Einstellung „aktuell → neu“ mit Häkchen, die EU-Steuertabelle mit
+   Stand, der Produkt-Probelauf (`applyProducts(true)`) und das Schnupper-Paket (`applyFreeTier(true)`).
+3. **Bestätigen** (POST an `admin-post.php?action=kurswasser_setup_shop`, Nonce, `manage_options` **und**
+   `manage_woocommerce`) → **Ergebnis** (`kw_view=shop-result`): erledigt, übersprungen, Fehler, bei Produkten die Zeilen
+   aus `applyProducts` (Artikelnummer, Ergebnis, von Hand geänderte Felder).
+
+**Mehrwertsteuer-Wege**
+
+| Weg | Steuer | Steuersätze (Standard-Klasse) | Preis-Hinweis |
+|---|---|---|---|
+| `oss` – Satz je EU-Kundenland | an, nach Rechnungsadresse | Normalsätze aller 27 EU-Länder; außerhalb der EU kein Satz | „inkl. MwSt.“ |
+| `own` – eigener Satz für alle | an, nach Rechnungsadresse | ein Satz für „alle Länder“ (Vorschlag nach Land: DE 19, AT 20, CH 8,1) | „inkl. MwSt.“ |
+| `small` – Kleinunternehmer | aus (`woocommerce_calc_taxes` = no) | keine | DE „ohne MwSt. – Kleinunternehmer gem. § 19 UStG“, AT „ohne USt. – Kleinunternehmer gem. § 6 Abs. 1 Z 27 UStG“ (im Formular änderbar) |
+
+Der Preis-Hinweis ist die Einstellung **„Hinweis zum Preis“ des Lern-Plugins** (`bp_learning_settings[price_note]`,
+max. 80 Zeichen, später unter Bootsprüfung › Einstellungen änderbar). Das Plugin zeigt ihn hinter jedem Preis, in
+Warenkorb und Kasse („Alle Preise …“) und in den Bestellmails. Ohne aktives Lern-Plugin gibt es keinen Hinweis
+(Meldung in der Vorschau).
+
+Die EU-Tabelle steht in `KURSWASSER_EU_VAT_RATES` mit `KURSWASSER_EU_VAT_RATES_STAND` (letzte berücksichtigte
+Änderung, derzeit 01.08.2025: u. a. FI 25,5 %, SK 23 %, EE 24 %, RO 21 %). **Vor dem Livegang prüfen** – regionale
+Sätze (Madeira, Azoren, griechische Inseln …) sind nicht enthalten. Bei OSS setzt der Schritt zusätzlich
+`kurswasser_shop_same_gross_price` = yes (Filter `woocommerce_adjust_non_base_location_prices` → false): Der Preis der
+Preis-Seite gilt für alle EU-Kunden, nur der MwSt.-Anteil ändert sich.
+
+**Weitere Einstellungen:** Währung EUR, Symbol rechts mit Leerzeichen, Tausender „.“, Dezimal „,“, 2 Nachkommastellen
+(passt zu `wc_price()` in `inc/offers.php` und dessen Rückfall `29,90 €`); Preise inklusive Steuer (die Preise der
+Preis-Seite sind Bruttopreise, vgl. Systemstatus des Plugins), Anzeige inkl. in Shop und Warenkorb;
+`woocommerce_ship_to_countries` = disabled (nur digitale Produkte, keine Lieferadresse); Verkaufsländer;
+`woocommerce_enable_myaccount_registration` = yes (das zählt in `templates/app.php` des Plugins neben
+`users_can_register` für „Konto anlegen“); `WPLANG` = de_DE nur, wenn `wp_download_language_pack()` das Paket laden
+konnte (danach Versuch, die Übersetzungen der Plugins zu laden) – sonst klare Meldung, alles andere läuft weiter.
+
+**Was nicht überschrieben wird**
+
+- Einstellungen: Angehakt sind nur leere Felder und WooCommerce-Werkseinstellungen (`kurswasser_shop_factory_defaults()`).
+  Was schon anders eingestellt ist, steht gelb und **nicht angehakt** in der Vorschau und bleibt ohne Häkchen. Hat sich
+  ein Wert zwischen Vorschau und Bestätigung geändert, wird er nicht überschrieben (Prüfsumme `kw_seen`).
+- Steuersätze: nie gelöscht, nie doppelt. Gleiches Land + Satz + Klasse = vorhanden; gibt es für ein Land schon einen
+  anderen Satz, wird keiner angelegt (Meldung). Weitere vorhandene Sätze bleiben und werden genannt.
+- Produkte: über `ShopCatalog::applyProducts(false, false)` – neue als **Entwurf**, nie veröffentlicht, Status
+  bestehender Produkte bleibt, Preise nur von der Preis-Seite, von Hand geänderte Felder bleiben. Bei Angebotspreis-
+  Konflikten (`saleConflicts()`) kein Abgleich.
+- Schnupper-Paket: `ShopCatalog::applyFreeTier()` legt nur fehlende Regeln an.
+- Nicht angefasst: „Zugang ohne Shop“ des Lern-Plugins – steht er auf „alle angemeldeten Nutzer“, weist die Vorschau
+  darauf hin (vor dem Verkaufsstart auf „Nur kostenlose Regeln und Freischaltungen“ stellen).
+
+WP-CLI (ohne `--yes` nur Vorschau; ohne `--overwrite` nur die vorausgewählten Punkte):
+
+```bash
+wp kurswasser setup shop --country=DE --tax=oss --products
+wp kurswasser setup shop --country=AT --tax=own --rate=20 --products --free --yes --user=admin
+wp kurswasser setup shop --country=DE --tax=small --no-language --yes   # weitere: --state --address --postcode --city --note --sell=eu|all --no-registration
+```
+
 ## Seiten und Vorlagen
 
 | Vorlage | Zweck |
@@ -210,7 +273,8 @@ CI (Job mit WooCommerce 11.2.2) testet Lernbereich, Trainer und Kaufablauf mit d
 legt danach den Produktkatalog an und speichert Screenshots (Desktop und Mobil) als Artefakt
 `theme-kurswasser-screenshots`. Integrationstests `tests/content-pages-test.php` und `tests/setup-yoast-test.php`
 (Einrichtung, Plugin-Installation aus einer Dummy-ZIP, Yoast-Übernahme – Yoast dort nur als Stub, nicht das echte
-Plugin). Lokal:
+Plugin) sowie `tests/setup-shop-test.php` (Schritt 3 mit echtem WooCommerce, ohne Netz; aktiviert WooCommerce bei Bedarf
+selbst). Lokal:
 
 ```bash
 BP_URL=http://127.0.0.1:8099 BP_SHOTS=/tmp/shots node themes/kurswasser/tests/screenshots.mjs
@@ -219,5 +283,7 @@ BP_URL=http://127.0.0.1:8099 BP_SHOTS=/tmp/shots node themes/kurswasser/tests/sc
 ## Vor dem Livegang
 
 - Logo hochladen (Editor › Kopfbereich › Website-Logo) und Markenname setzen.
+- EU-Steuertabelle (`KURSWASSER_EU_VAT_RATES` in `inc/setup-shop.php`) und den Mehrwertsteuer-Weg mit dem
+  Steuerberater prüfen; Lern-Plugin „Zugang ohne Shop“ auf „Nur kostenlose Regeln und Freischaltungen“ stellen.
 - Rechtstexte in die Entwürfe einfügen und veröffentlichen.
 - Hero-Foto ggf. durch eigenes Motiv ersetzen (`assets/images/hero-boat.*`).

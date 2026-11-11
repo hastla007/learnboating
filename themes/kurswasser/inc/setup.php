@@ -16,6 +16,9 @@
  * mit aktivem Yoast – in Yoast (Option B, inc/content-yoast.php), oder „Vorerst nicht anlegen“. Die Wahl steht
  * in der Option kurswasser_content_seo_target und gilt für spätere Abgleiche (Admin-Hinweis, WP-CLI).
  *
+ * Schritt 3 – Shop einrichten (inc/setup-shop.php, nur mit aktivem WooCommerce): Anschrift, Währung, Steuer,
+ * Verkauf ohne Versand, Registrierung, Sprache, Produkte als Entwurf – mit Vorschau „aktuell → neu“ und Bestätigung.
+ *
  * Außerdem: „Alles aus dem Theme übernehmen (überschreibt deine Änderungen)“ – nur mit Bestätigungsschritt
  * und Liste der betroffenen Seiten (force).
  *
@@ -407,15 +410,28 @@ function kurswasser_setup_page(): void
             echo '<div class="notice notice-'.esc_attr(in_array($type, ['success', 'error', 'warning', 'info'], true) ? $type : 'info').' is-dismissible"><p>'.esc_html((string) $text).'</p></div>';
         }
     }
-    if (sanitize_key((string) ($_GET['kw_view'] ?? '')) === 'force') {
+    $view = sanitize_key((string) ($_GET['kw_view'] ?? ''));
+    if ($view === 'force') {
         kurswasser_setup_force_view();
         echo '</div>';
 
         return;
     }
-    echo '<p>'.esc_html__('Zwei Schritte: die passenden Plugins installieren und die Info- und Marketingseiten des Themes anlegen. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen.', 'kurswasser').'</p>';
+    if (in_array($view, ['shop', 'shop-result'], true) && function_exists('kurswasser_setup_shop_view')) {
+        kurswasser_setup_shop_view($view);
+        echo '</div>';
+
+        return;
+    }
+    $shop = function_exists('kurswasser_shop_available') && kurswasser_shop_available();
+    echo '<p>'.esc_html($shop
+        ? __('Drei Schritte: die passenden Plugins installieren, die Info- und Marketingseiten des Themes anlegen und den Shop einrichten. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen.', 'kurswasser')
+        : __('Zwei Schritte: die passenden Plugins installieren und die Info- und Marketingseiten des Themes anlegen. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen. Schritt 3 „Shop einrichten“ erscheint, sobald WooCommerce aktiv ist.', 'kurswasser')).'</p>';
     kurswasser_setup_plugins_card();
     kurswasser_setup_content_card();
+    if ($shop) {
+        kurswasser_setup_shop_card();
+    }
     echo '</div>';
 }
 
