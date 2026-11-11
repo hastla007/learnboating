@@ -1152,7 +1152,7 @@ return [
         'open_items' => [
             'Ohne ausgeschriebene Stelle statt der Stellenkarte den Satz der Moderation zeigen: „Derzeit sind keine Stellen ausgeschrieben. Schau gern später wieder vorbei.“',
             'Betreiber: konkrete Stellen liefern (Titel mit „(m/w/d)“, Beschäftigungsart, Ort bzw. Remote-Regel, Aufgaben, Profil, Ansprechperson, Bewerbungsweg); ohne Stellen und Bewerbungsweg Entwurf.',
-            'Recht: Datenschutzabschnitt „Bewerbungen“ in der Datenschutzerklärung ergänzen (Art. 13 DSGVO; Rechtsgrundlage Art. 6 Abs. 1 lit. b DSGVO; Löschfrist, üblich etwa 6 Monate nach Absage); verschlüsselter Bewerbungsweg; AGG-neutrale Anzeigen.',
+            'Recht: Abschnitt „Bewerbungen“ steht in der Vorlage der Datenschutzerklärung (legal/datenschutz.html) – Rechtsgrundlage, Bewerbungsweg und Löschfrist eintragen und rechtlich prüfen lassen; verschlüsselter Bewerbungsweg; AGG-neutrale Anzeigen.',
             'Recht: Entgelttransparenz (Richtlinie (EU) 2023/970, Umsetzungsfrist 07.06.2026) – Stand des deutschen Umsetzungsgesetzes prüfen; ggf. Einstiegsentgelt bzw. Spanne nennen.',
             'SEO: JobPosting-Markup nur je echter Stelle auf eigener URL, mit validThrough; abgelaufene Stellen entfernen.',
         ],
@@ -1185,7 +1185,7 @@ return [
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Support-E-Mail, Telefon mit Erreichbarkeit, E-Mail für Datenschutzanfragen eintragen; Anschrift steht im Impressum. Keine Reaktionszeit zusagen, die nicht eingehalten wird.',
-            'Recht: Datenschutzerklärung um einen Abschnitt „Kontaktaufnahme“ (E-Mail, Telefon; Rechtsgrundlage Art. 6 Abs. 1 lit. b bzw. f DSGVO; Speicherdauer) ergänzen. Ein späteres Kontaktformular nur mit Pflichtfeldern E-Mail und Nachricht, ohne Drittanbieter-Captcha ohne Einwilligung; Formularstile fehlen im Theme.',
+            'Recht: Abschnitt „Kontaktaufnahme“ steht in der Vorlage der Datenschutzerklärung (legal/datenschutz.html) – Löschfrist eintragen und rechtlich prüfen lassen. Ein späteres Kontaktformular nur mit Pflichtfeldern E-Mail und Nachricht, ohne Drittanbieter-Captcha ohne Einwilligung; Formularstile fehlen im Theme.',
             'SEO: ContactPage-Schema und contactPoint an der Organization, sobald der Kanal feststeht (Feld schema kennt nur WebPage).',
             'FAQ-Auszug „Kontakt und Support“ entfällt: FAQ 23 ist ein Platzhalter-Entwurf (siehe _faq-aenderungen-2.md).',
         ],

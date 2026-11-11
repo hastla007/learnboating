@@ -20,7 +20,7 @@ stand: 10.11.2026
 open_items:
   - "Ohne ausgeschriebene Stelle statt der Stellenkarte den Satz der Moderation zeigen: „Derzeit sind keine Stellen ausgeschrieben. Schau gern später wieder vorbei.“"
   - "Betreiber: konkrete Stellen liefern (Titel mit „(m/w/d)“, Beschäftigungsart, Ort bzw. Remote-Regel, Aufgaben, Profil, Ansprechperson, Bewerbungsweg); ohne Stellen und Bewerbungsweg Entwurf."
-  - "Recht: Datenschutzabschnitt „Bewerbungen“ in der Datenschutzerklärung ergänzen (Art. 13 DSGVO; Rechtsgrundlage Art. 6 Abs. 1 lit. b DSGVO; Löschfrist, üblich etwa 6 Monate nach Absage); verschlüsselter Bewerbungsweg; AGG-neutrale Anzeigen."
+  - "Recht: Abschnitt „Bewerbungen“ steht in der Vorlage der Datenschutzerklärung (legal/datenschutz.html) – Rechtsgrundlage, Bewerbungsweg und Löschfrist eintragen und rechtlich prüfen lassen; verschlüsselter Bewerbungsweg; AGG-neutrale Anzeigen."
   - "Recht: Entgelttransparenz (Richtlinie (EU) 2023/970, Umsetzungsfrist 07.06.2026) – Stand des deutschen Umsetzungsgesetzes prüfen; ggf. Einstiegsentgelt bzw. Spanne nennen."
   - "SEO: JobPosting-Markup nur je echter Stelle auf eigener URL, mit validThrough; abgelaufene Stellen entfernen."
 ---

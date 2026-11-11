@@ -19,7 +19,7 @@ breadcrumb:
 stand: 10.11.2026
 open_items:
   - "Betreiber: Support-E-Mail, Telefon mit Erreichbarkeit, E-Mail für Datenschutzanfragen eintragen; Anschrift steht im Impressum. Keine Reaktionszeit zusagen, die nicht eingehalten wird."
-  - "Recht: Datenschutzerklärung um einen Abschnitt „Kontaktaufnahme“ (E-Mail, Telefon; Rechtsgrundlage Art. 6 Abs. 1 lit. b bzw. f DSGVO; Speicherdauer) ergänzen. Ein späteres Kontaktformular nur mit Pflichtfeldern E-Mail und Nachricht, ohne Drittanbieter-Captcha ohne Einwilligung; Formularstile fehlen im Theme."
+  - "Recht: Abschnitt „Kontaktaufnahme“ steht in der Vorlage der Datenschutzerklärung (legal/datenschutz.html) – Löschfrist eintragen und rechtlich prüfen lassen. Ein späteres Kontaktformular nur mit Pflichtfeldern E-Mail und Nachricht, ohne Drittanbieter-Captcha ohne Einwilligung; Formularstile fehlen im Theme."
   - "SEO: ContactPage-Schema und contactPoint an der Organization, sobald der Kanal feststeht (Feld schema kennt nur WebPage)."
   - "FAQ-Auszug „Kontakt und Support“ entfällt: FAQ 23 ist ein Platzhalter-Entwurf (siehe _faq-aenderungen-2.md)."
 ---
