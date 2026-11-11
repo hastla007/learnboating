@@ -44,6 +44,23 @@ jobs:
           path: themes/kurswasser/plugins/bootspruefung-learning.zip
           retention-days: 14
 
+  affiliate-connector:
+    name: Partnerprogramm-Connector
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        php: ['8.1', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: PHP-Syntax
+        run: find learnboating-affiliate-connector -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Connector-Test
+        run: php learnboating-affiliate-connector/tests/connector-test.php
+
   golden-master:
     name: Golden Master gegen Laravel
     runs-on: ubuntu-24.04
