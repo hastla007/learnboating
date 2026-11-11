@@ -317,7 +317,16 @@ function kurswasser_content_pages_sync(array $options = []): array
                 $result[$path] = ['state' => $state, 'id' => $id, 'title' => $title, 'nr' => (int) ($entry['nr'] ?? 0)];
             };
             if (! empty($entry['replaces'])) {
-                $set('legal', ($p = kurswasser_content_page($entry)) ? $p->ID : 0);
+                $p = kurswasser_content_page($entry);
+                $set('legal', $p ? $p->ID : 0);
+                // Inhalt pflegt inc/legal.php; Titel, Beschreibung und Schema der Vorlage nur in leere Felder.
+                if ($p && ! $dry) {
+                    foreach (array_intersect_key(kurswasser_content_seo_values($entry), array_flip(['_kw_seo_title', '_kw_seo_description', '_kw_schema'])) as $key => $value) {
+                        if ($value !== '' && trim((string) get_post_meta($p->ID, $key, true)) === '') {
+                            update_post_meta($p->ID, $key, $value);
+                        }
+                    }
+                }
                 continue;
             }
             $content = kurswasser_content_template($entry, $dir);
@@ -461,7 +470,7 @@ function kurswasser_content_open_items(?string $dir = null): array
         $page = $page && $page->post_status !== 'trash' ? $page : null;
         $items = array_values(array_map('strval', (array) ($entry['open_items'] ?? [])));
         if (! empty($entry['replaces'])) {
-            $items[] = sprintf(__('ersetzt den Rechtstext „%s“ – Vorlage legal/%s.html anpassen, keine eigene Seite', 'kurswasser'), substr((string) $entry['replaces'], 6), substr((string) $entry['replaces'], 6));
+            $items[] = sprintf(__('Rechtstext „%s“: Inhalt aus der Vorlage legal/%s.html (inc/legal.php), keine eigene Seite', 'kurswasser'), substr((string) $entry['replaces'], 6), substr((string) $entry['replaces'], 6));
         } elseif (! $page) {
             $items[] = __('Seite noch nicht angelegt', 'kurswasser');
         } else {

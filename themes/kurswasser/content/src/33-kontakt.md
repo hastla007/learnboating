@@ -18,9 +18,6 @@ schema: WebPage
 breadcrumb:
 stand: 10.11.2026
 open_items:
-  - "KEINE neue Seite: Die Umsetzung ersetzt die Theme-Vorlage themes/kurswasser/legal/kontakt.html durch diese Fassung (Block-Markup). Die Seite /kontakt/ legt das Theme über inc/legal.php an (kurswasser_legal_pages); nicht doppelt anlegen."
-  - "Beim Ersetzen der Vorlage den theme-üblichen Vorlagen-Hinweis (Absatz kw-placeholder „Vorlage – vor der Veröffentlichung rechtlich prüfen lassen …“) als ersten Block beibehalten; er wird mit dem Ausfüllen der Platzhalter gelöscht. #kw:-Links bleiben, kurswasser_legal_resolve_links löst sie beim Einfügen auf."
-  - "Ist die Seite bereits angelegt und bearbeitet, überschreibt wp kurswasser legal --force die Ergänzungen – Hash/Status prüfen (Design, Hinweis Technik 6). Seitentitel von „Kontakt“ auf „Wie können wir dir helfen?“ ändern, Menütitel „Kontakt“."
   - "Betreiber: Support-E-Mail, Telefon mit Erreichbarkeit, E-Mail für Datenschutzanfragen eintragen; Anschrift steht im Impressum. Keine Reaktionszeit zusagen, die nicht eingehalten wird."
   - "Recht: Datenschutzerklärung um einen Abschnitt „Kontaktaufnahme“ (E-Mail, Telefon; Rechtsgrundlage Art. 6 Abs. 1 lit. b bzw. f DSGVO; Speicherdauer) ergänzen. Ein späteres Kontaktformular nur mit Pflichtfeldern E-Mail und Nachricht, ohne Drittanbieter-Captcha ohne Einwilligung; Formularstile fehlen im Theme."
   - "SEO: ContactPage-Schema und contactPoint an der Organization, sobald der Kanal feststeht (Feld schema kennt nur WebPage)."

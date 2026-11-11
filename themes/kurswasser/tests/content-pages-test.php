@@ -72,6 +72,29 @@ $check(get_page_by_path('beispiel-ratgeber') === null, 'Probelauf legt nichts an
 $res = kurswasser_content_pages_sync(['dir' => $tmp]);
 $check(array_column($res, 'state') === ['created', 'created', 'created', 'created', 'created', 'legal'], 'angelegt: '.implode(', ', array_column($res, 'state')));
 $check(has_filter('content_save_pre', 'wp_filter_post_kses') !== false, 'kses danach wieder aktiv');
+// Rechtstext-Seite Kontakt: SEO-Werte der Vorlage nur in leere Felder (Seite ggf. nur für den Test anlegen).
+$kontaktTemp = 0;
+$kontaktNow = get_page_by_path('kontakt', OBJECT, 'page');
+if (! $kontaktNow) {
+    $kontaktTemp = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'Kontakt', 'post_name' => 'kontakt', 'post_content' => '']);
+    $kontaktNow = get_post($kontaktTemp);
+}
+$seoBefore = ['t' => get_post_meta($kontaktNow->ID, '_kw_seo_title', true), 'd' => get_post_meta($kontaktNow->ID, '_kw_seo_description', true), 's' => get_post_meta($kontaktNow->ID, '_kw_schema', true)];
+delete_post_meta($kontaktNow->ID, '_kw_seo_title');
+delete_post_meta($kontaktNow->ID, '_kw_schema');
+kurswasser_content_pages_sync(['dir' => $tmp]);
+$check(get_post_meta($kontaktNow->ID, '_kw_seo_title', true) === 'Kontakt | {{brand}}' && get_post_meta($kontaktNow->ID, '_kw_schema', true) === 'ContactPage', 'Kontakt (Rechtstext): SEO-Titel und Schema aus der Vorlage gesetzt');
+update_post_meta($kontaktNow->ID, '_kw_seo_title', 'Eigener Titel');
+kurswasser_content_pages_sync(['dir' => $tmp]);
+$check(get_post_meta($kontaktNow->ID, '_kw_seo_title', true) === 'Eigener Titel', 'Kontakt: eigener SEO-Titel bleibt beim nächsten Abgleich');
+if ($kontaktTemp) {
+    wp_delete_post($kontaktTemp, true);
+} else {
+    foreach (['_kw_seo_title' => 't', '_kw_seo_description' => 'd', '_kw_schema' => 's'] as $key => $k) {
+        $seoBefore[$k] === '' ? delete_post_meta($kontaktNow->ID, $key) : update_post_meta($kontaktNow->ID, $key, $seoBefore[$k]);
+    }
+}
+
 $p1 = get_page_by_path('beispiel-ratgeber');
 $p2 = get_page_by_path('beispiel-angebot');
 $p3 = get_page_by_path('beispiel-ueber-uns');
