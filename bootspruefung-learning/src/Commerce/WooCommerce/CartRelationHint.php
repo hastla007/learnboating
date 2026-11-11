@@ -160,6 +160,12 @@ final class CartRelationHint
             return sprintf(__('Du hast %1$s schon – dafür reicht %2$s.', 'bootspruefung-learning'), $owned, self::withArticle(Labels::course($hint['alternative'])));
         }
 
+        if ($hint['alternative'] !== null) {
+            // Es gibt eine passende Ergänzung, sie ist aber nicht im Shop: nicht behaupten, alles sei schon enthalten.
+            /* translators: 1: besessener Kurs, 2: Kurs im Warenkorb, 3: Alternative mit Artikel */
+            return sprintf(__('Du hast %1$s schon – %2$s enthält ihn noch einmal. Dafür reicht eigentlich %3$s (derzeit nicht im Shop).', 'bootspruefung-learning'), $owned, Labels::course($hint['course']), self::withArticle(Labels::course($hint['alternative'])));
+        }
+
         // Mehrere besessene Kurse decken den Kurs gemeinsam ab (z. B. SBF Binnen und Ergänzung Binnen → See = Kombi).
         $covered = array_map(static fn ($code) => Labels::course((string) $code), (array) ($hint['covered_by'] ?? [$hint['owned']]));
         $last = array_pop($covered);

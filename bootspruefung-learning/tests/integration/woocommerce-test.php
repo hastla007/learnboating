@@ -520,6 +520,7 @@ $crh = \Bootspruefung\Learning\Commerce\WooCommerce\CartRelationHint::class;
 $h = $crh::evaluate(['SBF-BIN-MOTOR'], 'BP-SBF-SEE-BIN');
 $check($h !== null && $h['owned'] === 'SBF-BIN-MOTOR' && $h['alternative'] === 'ADD-BIN-TO-SEE' && $h['alternative_skus'] === ['BP-ADD-BIN-TO-SEE-KOMPLETT', 'BP-ADD-BIN-TO-SEE'], 'Binnen + Kombi See & Binnen → Ergänzung Binnen → See (Komplett, Kombi enthält Video)');
 $check($h !== null && $crh::message($h, true) === 'Du hast SBF Binnen schon – dafür reicht die Ergänzung Binnen → See.', 'Text: „Du hast SBF Binnen schon – dafür reicht die Ergänzung Binnen → See.“');
+$check($h !== null && $crh::message($h, false) === 'Du hast SBF Binnen schon – SBF See & Binnen enthält ihn noch einmal. Dafür reicht eigentlich die Ergänzung Binnen → See (derzeit nicht im Shop).', 'Ergänzung nicht im Shop: kein „schon enthalten“, sondern Hinweis auf die Ergänzung');
 $h = $crh::evaluate(['SRC'], 'BP-SRC-UBI');
 $check($h !== null && $h['alternative'] === 'ADD-UBI-TO-SRC' && $h['alternative_skus'][0] === 'BP-ADD-UBI-TO-SRC-KOMPLETT', 'SRC + SRC & UBI → Ergänzung SRC → UBI');
 $h = $crh::evaluate(['UBI'], 'BP-SRC-UBI');
