@@ -436,9 +436,6 @@ function kurswasser_shop_plan(array $input): array
     if (array_filter($rates['rows'], static fn ($r) => $r['status'] === 'conflict')) {
         $notes[] = ['warning', __('Für manche Länder gibt es schon einen anderen Satz. Der Assistent legt dort keinen zweiten an und löscht nichts – bitte den vorhandenen Satz prüfen.', 'kurswasser')];
     }
-    if ($input['tax'] === 'small') {
-        $notes[] = ['info', __('Die Systemstatus-Seite der Lernplattform weist dann auf die ausgeschaltete Steuerberechnung hin – für Kleinunternehmer ist das so gewollt.', 'kurswasser')];
-    }
     if ($conflicts !== []) {
         $notes[] = ['error', sprintf(__('Produkte werden nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter Bootsprüfung › Preise abgleichen.', 'kurswasser'), implode(', ', array_keys($conflicts)))];
     }

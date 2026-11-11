@@ -183,6 +183,7 @@ $own = ShopCatalog::ownPrices();
 $check(($own['BP-SKN'] ?? '') === '1299.00' && ($own['BP-FKN'] ?? '') === '1234.00' && isset($r['errors']['BP-SRC']), 'Tausenderpunkt toleriert, Unsinn abgewiesen');
 $pricesBefore === null ? delete_option(ShopCatalog::PRICE_OPTION) : update_option(ShopCatalog::PRICE_OPTION, $pricesBefore, false);
 $check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true]) !== null && SystemStatus::taxWarning(['prices_include_tax' => true, 'tax_enabled' => true]) === null && SystemStatus::taxWarning(['prices_include_tax' => null]) === null, 'Warnung bei Nettopreisen in WooCommerce');
+$check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'ohne MwSt. – Kleinunternehmer gem. § 19 UStG']) === null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'inkl. MwSt.']) !== null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true, 'price_note' => 'Kleinunternehmer']) !== null, 'Steuer aus: keine Warnung bei Kleinunternehmer-Hinweis am Preis, sonst Warnung');
 
 echo "Admin-Anzeige\n";
 $check(\Bootspruefung\Learning\Admin\Ui::label('draft') === 'Entwurf' && \Bootspruefung\Learning\Admin\Ui::label('single_choice') === 'Einfachauswahl' && str_contains(\Bootspruefung\Learning\Admin\Ui::status('source_archived'), 'archiviert'), 'Status und Typen auf Deutsch');
