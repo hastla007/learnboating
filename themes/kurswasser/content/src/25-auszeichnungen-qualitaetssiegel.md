@@ -10,12 +10,13 @@ index: noindex
 canonical: ueber-uns
 seo_title: "Auszeichnungen und Qualität bei {{brand}}"
 meta_description: "Welche Auszeichnungen {{brand}} hat – mit Vergabestelle, Kriterien und Gültigkeit – und wie wir die Qualität unserer Lerninhalte sichern."
-eyebrow:
+eyebrow: Über uns
 lead: "Qualität soll nachprüfbar sein. Hier findest du jede Auszeichnung mit Vergabestelle, Kriterien und Gültigkeit – und wie wir die Qualität unserer Inhalte sichern."
-cta_primary: "Lernplattform ansehen | /online-lernplattform-bootsfuehrerschein/"
-cta_secondary: "Kontakt | /kontakt/"
+cta_primary: "Kostenlos testen | /bootsscheine/"
+cta_secondary: "Lernplattform ansehen | /online-lernplattform-bootsfuehrerschein/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: Gibt es Auszeichnungen, Zertifizierungen oder Testsiegel? Je Eintrag Name, Vergabestelle, Kriterien, Datum, Gültigkeit, Link zur Vergabestelle bzw. Fundstelle und Lizenz für das Siegel-Logo liefern. Ohne mindestens einen belegten Eintrag nicht veröffentlichen (Anhang Nr. 2 und 4 UWG, § 5 Abs. 2 Nr. 3 UWG)."
   - "Keine leeren Badge-Flächen; Logos von DSV, DMYV oder Behörden nur mit Freigabe."
@@ -37,17 +38,6 @@ open_items:
 ### [B1]
 Qualität soll nachprüfbar sein. Hier findest du jede Auszeichnung mit Vergabestelle, Kriterien und Gültigkeit – und wie wir die Qualität unserer Inhalte sichern.
 
-### [B5 Fakten] Unsere Auszeichnungen
-#### [[Betreiber: Name der Auszeichnung]]
-- **Vergabestelle:** [[Betreiber: Name der Stelle]]
-- **Kriterien:** [[Betreiber: worauf die Auszeichnung beruht]]
-- **Vergeben am:** [[Betreiber: Datum]]
-- **Gültig bis:** [[Betreiber: Datum]]
-- **Fundstelle:** [[Betreiber: Link zur Veröffentlichung]]
-
-### [B3 Wichtig] Gut zu wissen
-Für Onlinekurse zur Vorbereitung auf den Sportbootführerschein gibt es keine amtliche Zulassung oder Anerkennung. Die Prüfung nehmen die Prüfungsausschüsse des DSV und des DMYV ab – unabhängig davon, wie du dich vorbereitet hast.
-
 ### [B5 Fakten] So sichern wir Qualität
 - **Fragen:** aus den amtlichen Fragenkatalogen, mit Erklärungen zu den Antworten
 - **Simulation:** nach den Regeln der jeweiligen Prüfung – Fragenzahl, Bestehensgrenze, Zeit
@@ -55,7 +45,18 @@ Für Onlinekurse zur Vorbereitung auf den Sportbootführerschein gibt es keine a
 - **Aktualität:** Aktualisierungen während deiner Laufzeit, etwa bei geänderten Fragenkatalogen
 - **Ratgeber:** ausgerichtet an den amtlichen Vorgaben
 
+### [B5 Fakten] Unsere Auszeichnungen
+#### [[Betreiber: Name der Auszeichnung]]
+- **Vergabestelle:** [[Betreiber: Vergabestelle]]
+- **Kriterien:** [[Betreiber: worauf die Auszeichnung beruht]]
+- **Vergeben am:** [[Betreiber: Datum]]
+- **Gültig bis:** [[Betreiber: Datum]]
+- **Fundstelle:** [[Betreiber: wo die Auszeichnung veröffentlicht ist]]
+
+### [B3 Wichtig] Keine amtliche Zulassung für Onlinekurse
+Für Onlinekurse zur Vorbereitung auf den Sportbootführerschein gibt es keine amtliche Zulassung oder Anerkennung. Die Prüfung nehmen die Prüfungsausschüsse des DSV und des DMYV ab – unabhängig davon, wie du dich vorbereitet hast.
+
 ### [B10 CTA] Überzeug dich selbst
 Teste jeden Kurs kostenlos mit deinem Kundenkonto und sieh dir an, wie Smarttrainer und Simulation arbeiten.
+Button: Kostenlos testen | /bootsscheine/
 Button: Lernplattform ansehen | /online-lernplattform-bootsfuehrerschein/
-Button: Kontakt | /kontakt/

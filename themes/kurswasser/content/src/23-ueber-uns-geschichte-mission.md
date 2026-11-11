@@ -10,12 +10,13 @@ index: index
 canonical:
 seo_title: "Unsere Geschichte und Mission | {{brand}}"
 meta_description: "Warum es {{brand}} gibt, wofür wir stehen und wie wir dich online auf Sportbootführerschein, Funkzeugnis und Seenotsignalmittel vorbereiten."
-eyebrow:
+eyebrow: Über uns
 lead: "Wir wollen, dass du die Theorie für deinen Schein verstehst – nicht nur auswendig lernst. Deshalb bauen wir eine Lernplattform, die dich gezielt durch den Prüfungsstoff führt."
 cta_primary: "Kurse entdecken | /kurse/"
-cta_secondary: "Unser Team kennenlernen | /ueber-uns/team/"
+cta_secondary: "So lernst du bei uns | /online-lernplattform-bootsfuehrerschein/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: Unternehmensgeschichte liefern – Gründungsjahr, Anlass, Gründerinnen und Gründer, nachprüfbare Meilensteine. Keine unbelegten Angaben wie „seit X Jahren“ (§ 5 Abs. 2 Nr. 3 UWG)."
   - "Sekundär-CTA zum Team erst aktiv schalten, wenn Seite 24 veröffentlicht ist; bis dahin „Kontakt aufnehmen“ → /kontakt/."
@@ -37,16 +38,18 @@ open_items:
 Wir wollen, dass du die Theorie für deinen Schein verstehst – nicht nur auswendig lernst. Deshalb bauen wir eine Lernplattform, die dich gezielt durch den Prüfungsstoff führt.
 
 ### [B2] Unsere Mission
-Der Weg aufs Wasser beginnt oft am Schreibtisch: mit Fragenkatalogen, Lichterführung, Vorfahrtsregeln und – beim SBF See – mit Kurs und Kartenarbeit. Wir möchten, dass dieser Teil für dich gut planbar ist und Spaß macht.
+Der Weg aufs Wasser beginnt oft am Schreibtisch: mit Fragenkatalogen, Lichterführung, Vorfahrtsregeln und – beim SBF See – mit Kursen in der Seekarte. Wir möchten, dass dieser Teil für dich gut planbar ist und Spaß macht.
 
 {{brand}} bereitet dich online auf deutsche Prüfungen vor: auf die Sportbootführerscheine See und Binnen, auf die Funkzeugnisse SRC und UBI und auf den Fachkunde- und den Sachkundenachweis für Seenotsignalmittel. Du lernst, wann und wo du willst, und siehst jederzeit, wie weit du bist.
 
 ### [B2] Wie {{brand}} entstanden ist
+::: offen
 [[Betreiber: Gründungsjahr und Anlass – warum {{brand}} gegründet wurde]]
 
 [[Betreiber: Wer {{brand}} gegründet hat und welchen Bezug die Personen zum Wassersport bzw. zum digitalen Lernen haben]]
 
 [[Betreiber: nachprüfbare Meilensteine, z. B. Start der ersten Kurse]]
+:::
 
 ### [B5 Karten] Wofür wir stehen
 - **Lernen mit System** (Symbol smart): Der Smarttrainer zeigt dir zuerst neue, dann falsch beantwortete und unsichere Fragen. Eine Frage gilt erst als gefestigt, wenn du sie dreimal hintereinander richtig beantwortest.
@@ -59,11 +62,11 @@ Der Weg aufs Wasser beginnt oft am Schreibtisch: mit Fragenkatalogen, Lichterfü
 - Während deiner Laufzeit bekommst du die nötigen Aktualisierungen, etwa wenn sich Fragenkataloge ändern. Du musst dafür nichts installieren.
 - Für die praktische Prüfung helfen Praxiskarten zu Lichtern, Schallsignalen, Manövern, Knoten und Sicherheit; beim SBF See kommen Navigationsaufgaben mit automatischer Prüfung deiner Werte dazu.
 
-### [B3 Gut zu wissen] Gut zu wissen
+### [B3 Gut zu wissen] Ein Teil deiner Vorbereitung
 Ein Onlinekurs ist ein Teil deiner Vorbereitung. Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab, Fahrpraxis bekommst du bei einer Bootsschule. Ein bestimmtes Prüfungsergebnis können wir dir nicht versprechen – aber wir helfen dir, gut vorbereitet hinzugehen.
 
 ### [B10 CTA] Lern die Theorie in deinem Tempo
 Eyebrow: Leinen los
 Teste jeden Kurs vorher kostenlos mit deinem Kundenkonto.
-Button: Kurse entdecken | /kurse/
-Button: Unser Team kennenlernen | /ueber-uns/team/
+Button: Kostenlos testen | /bootsscheine/
+Button: So lernst du bei uns | /online-lernplattform-bootsfuehrerschein/

@@ -13,12 +13,14 @@ meta_description: "Ab 14 unter Segel, ab 16 mit Motor: Welches Mindestalter für
 eyebrow: Voraussetzungen
 lead: "Für den Sportbootführerschein unter Motor musst du mindestens 16 Jahre alt sein, für den SBF Binnen unter Segel 14 Jahre. Minderjährige brauchen die Zustimmung ihrer Eltern."
 cta_primary: "SBF-Kurse ansehen | /kurse/"
-cta_secondary: "SBF Binnen unter Segel | /kurse/sbf-binnen-segel/"
+cta_secondary: "Kostenlos testen | /bootsscheine/"
 schema: Article
 breadcrumb: "Start / Ratgeber / Mindestalter"
 hero_stats:
   - "wheel | 16 Jahre | unter Motor"
   - "sail | 14 Jahre | unter Segel"
+hero_photo: sbf-binnen-segel
+stand: 10.11.2026
 open_items:
   - "Fachliche Endkontrolle am Wortlaut der SpFV: Mindestalter, Zustimmung der gesetzlichen Vertretung, vorgezogene Prüfung bis drei Monate vorher (bisher nur Leitfaden und Sekundärquellen); Fundstelle (Paragraf) im Quellenteil ergänzen."
   - "Altersgrenzen Funk und Seenotsignalmittel (15/16/18) stammen aus der eigenen Prüfungsanleitung (pruefung_buchen.php); vor Go-live gegen Verbandsangaben prüfen."
@@ -39,54 +41,60 @@ open_items:
 
 ### [B1] Ab welchem Alter kannst du den Bootsführerschein machen?
 
-### [B5 Fakten] Kurz beantwortet
-- **SBF See:** 16 Jahre (nur unter Antriebsmaschine)
-- **SBF Binnen Motor:** 16 Jahre
-- **SBF Binnen Segel:** 14 Jahre
-- **Minderjährige:** Zustimmung der Eltern nötig
-- **Ohne Schein:** Motorboote binnen ab 16 Jahren
+### [B2] Kurz beantwortet: 16 Jahre unter Motor, 14 unter Segel
+Für den SBF See und den SBF Binnen unter Antriebsmaschine musst du mindestens 16 Jahre alt sein, für den SBF Binnen unter Segel 14 Jahre. Minderjährige brauchen die Zustimmung ihrer Eltern.
 
-::: hinweis
-Rechtsstand 10.11.2026, nach der Sportbootführerscheinverordnung (SpFV). Maßgeblich sind die SpFV und dein Prüfungsausschuss.
-:::
+| Schein | Mindestalter | Hinweis |
+|---|---|---|
+| SBF See | 16 Jahre | nur unter Antriebsmaschine |
+| SBF Binnen unter Antriebsmaschine | 16 Jahre | – |
+| SBF Binnen unter Segel | 14 Jahre | nur auf bestimmten Revieren vorgeschrieben |
+| Motorboot ohne Schein (binnen) | 16 Jahre | auch ohne Führerscheinpflicht |
+| SRC und UBI | 15 Jahre | in der Regel |
+| FKN | 16 Jahre | in der Regel |
+| SKN | 18 Jahre | in der Regel |
 
-### [B2] Mindestalter unter Motor: 16 Jahre {#motor}
-Für ein Sportboot mit Antriebsmaschine – also für den SBF See und den SBF Binnen unter Antriebsmaschine – liegt das Mindestalter bei 16 Jahren. Das gilt für Motorboote, deren Verbrennungsmotor mehr als 11,03 kW (15 PS) leistet, bei Elektromotoren derzeit ab mehr als 7,5 kW.
+Maßgeblich sind die Sportbootführerscheinverordnung (SpFV) und dein Prüfungsausschuss.
+
+### [B2] Mindestalter unter Motor: 16 Jahre {#motor | Unter Motor: 16 Jahre}
+Für ein Sportboot mit Motor über der Leistungsgrenze – also für den SBF See und den SBF Binnen unter Antriebsmaschine – liegt das Mindestalter bei 16 Jahren. Wo die Grenze liegt, steht unter [Wann du keinen Schein brauchst](/sportbootfuehrerschein/#fuehrerscheinfrei).
 
 Auch für Motorboote, die du ohne Führerschein fahren darfst, gilt auf Binnenschifffahrtsstraßen ein Mindestalter von 16 Jahren.
 
-### [B2] Mindestalter unter Segel: 14 Jahre {#segel}
-Den SBF Binnen unter Segel kannst du ab 14 Jahren machen. Einen SBF See unter Segel gibt es nicht: Segeln auf Seeschifffahrtsstraßen ist fahrerlaubnisfrei. Binnen ist der Schein unter Segel nur auf bestimmten Revieren vorgeschrieben, zum Beispiel auf Bundeswasserstraßen in Berlin.
+### [B2] Mindestalter unter Segel: 14 Jahre {#segel | Unter Segel: 14 Jahre}
+Den SBF Binnen unter Segel kannst du ab 14 Jahren machen. Einen SBF See unter Segel gibt es nicht: Segeln auf Seeschifffahrtsstraßen ist fahrerlaubnisfrei. Binnen ist der Schein unter Segel nur auf bestimmten Revieren vorgeschrieben, zum Beispiel auf Bundeswasserstraßen in Berlin. Hat dein Segelboot einen Motor über der Leistungsgrenze, brauchst du für dieses Boot in der Regel trotzdem den passenden Motorschein – auch wenn du meistens segelst.
 
 Für Jugendliche ist der SBF Binnen unter Segel deshalb oft der erste Schein. Mit dem [Kurs SBF Binnen unter Segel](/kurse/sbf-binnen-segel/) übst du die Binnen- und die zusätzlichen Segelfragen, Manöver unter Segel, Wind und Trimm.
 
-### [B2] Prüfung kurz vor dem Geburtstag
-Zur Prüfung kannst du bereits bis zu drei Monate vor Erreichen des Mindestalters antreten, also mit 15 Jahren und 9 Monaten bzw. 13 Jahren und 9 Monaten. Der Führerschein wird dir aber erst ab deinem Geburtstag erteilt. Bestätige diese Regel vor der Anmeldung bei deinem Prüfungsausschuss.
+### [B3 Gut zu wissen] Prüfung kurz vor dem Geburtstag {#geburtstag}
+Symbol: clock
+Zur Prüfung kannst du bereits bis zu drei Monate vor Erreichen des Mindestalters antreten, also mit 15 Jahren und 9 Monaten bzw. 13 Jahren und 9 Monaten. Der Führerschein wird dir aber erst ab deinem Geburtstag erteilt. Ob dein Ausschuss das so handhabt, frag vor der Anmeldung nach.
 
-### [B2] Was Minderjährige brauchen {#minderjaehrige}
+### [B2] Was Minderjährige brauchen {#minderjaehrige | Minderjährige}
 - **Zustimmung der Eltern:** Für die Erteilung brauchst du die schriftliche oder elektronische Zustimmung deiner gesetzlichen Vertretung. Sie steht mit auf dem Antrag.
 - **Kein Zuverlässigkeitsnachweis:** Erwachsene legen eine Kopie des Kfz-Führerscheins oder ein Führungszeugnis vor. Bei Minderjährigen entfällt dieser Nachweis.
 - **Attest wie alle anderen:** Den ärztlichen Tauglichkeitsnachweis brauchst du trotzdem. Mehr zum [ärztlichen Attest](/aerztliches-attest-bootsfuehrerschein/).
 
-### [B3 Gut zu wissen] Kurs für Jugendliche kaufen
+### [B3 Gut zu wissen] Kurs für dein Kind kaufen
+Symbol: user
 Bist du unter 18, brauchst du für den Kauf eines Kurses die Zustimmung deiner Eltern. Ein Kurszugang gehört immer zu dem Kundenkonto, mit dem er gekauft wurde. Kaufen deine Eltern den Kurs über ihr eigenes Konto, liegt der Zugang dort. Damit du mit deinem eigenen Konto und Lernfortschritt lernst, legst du am besten selbst ein Konto an und kaufst den Kurs dort – mit Zustimmung deiner Eltern.
 
 Lernt ihr zu zweit, etwa ein Elternteil und ein Kind, passt auch ein [Gruppenpaket](/bootsfuehrerschein-gruppenangebote/) für SBF See, SBF Binnen oder die Kombi: Eine Person kauft, beide lernen mit eigenem Konto. Für den SBF Binnen unter Segel gibt es kein Gruppenpaket.
 
-### [B2] Altersgrenzen für Funk und Seenotsignalmittel
+### [B5 Zahlen] Altersgrenzen für Funk und Seenotsignalmittel {#funk | Funk und Seenot}
 Für die Funkzeugnisse und die Nachweise für Seenotsignalmittel gelten eigene Altersgrenzen. In der Regel gilt:
 
-- **SRC und UBI:** 15 Jahre
-- **FKN:** 16 Jahre
-- **SKN:** 18 Jahre
+- **15 Jahre** | SRC und UBI | Funkzeugnisse See und Binnen (Symbol radio, Akzent funk)
+- **16 Jahre** | FKN | Fachkundenachweis Seenotsignalmittel (Symbol flare, Akzent signal)
+- **18 Jahre** | SKN | Sachkundenachweis Seenotsignalmittel (Symbol flare, Akzent signal)
 
 Bestätige das Mindestalter vor der Anmeldung bei deinem Prüfungsausschuss. Zu den Kursen: [SRC](/kurse/src/) · [UBI](/kurse/ubi/) · [FKN](/kurse/fkn/) · [SKN](/kurse/skn/)
 
-### [B2] Weitere Voraussetzungen
+### [B2] Weitere Voraussetzungen {#weitere | Weitere Voraussetzungen}
 Neben dem Alter brauchst du für den Sportbootführerschein einen ärztlichen Tauglichkeitsnachweis, ab 18 Jahren einen Zuverlässigkeitsnachweis und eine bestandene Prüfung in Theorie und Praxis. Vorkenntnisse brauchst du nicht. Alle Schritte von der Scheinwahl bis zur Prüfung stehen im [Überblick zum Sportbootführerschein](/sportbootfuehrerschein/#voraussetzungen).
 
-### [B9] Häufige Fragen zu den Voraussetzungen
-[bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" search="0" schema="0"]
+### [B9] Häufige Fragen zum Mindestalter
+[bootspruefung_faq ids="5,6,21" search="0" schema="0"]
 
 ### [B8] Weiterlesen
 - [Ärztliches Attest für den SBF](/aerztliches-attest-bootsfuehrerschein/) (Symbol shield) – Formular, Prüfung und wie alt es sein darf.
@@ -96,5 +104,5 @@ Neben dem Alter brauchst du für den Sportbootführerschein einen ärztlichen Ta
 ### [B10 CTA] Fang mit der Theorie an
 Eyebrow: Alt genug?
 Die Fragen kannst du schon lernen, bevor du alt genug für die Prüfung bist – im eigenen Tempo und auf jedem Gerät.
-Button: SBF-Kurse ansehen | /kurse/
+Button: Kostenlos testen | /bootsscheine/
 Button: SBF Binnen unter Segel | /kurse/sbf-binnen-segel/

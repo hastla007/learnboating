@@ -10,12 +10,13 @@ index: index
 canonical:
 seo_title: "Häufige Fragen zum Bootsführerschein | {{brand}}"
 meta_description: "Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt, mit Wegen zu den ausführlichen Ratgeberseiten."
-eyebrow:
+eyebrow: Hilfe
 lead: "Du hast Fragen zum Sportbootführerschein, zu Funkzeugnissen oder zu deinem Onlinekurs? Hier findest du kurze Antworten – und Links zu den ausführlichen Seiten."
 cta_primary: "Kontakt aufnehmen | /kontakt/"
 cta_secondary: "Kurse ansehen | /kurse/"
 schema: FAQPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Voraussetzung für die Veröffentlichung: die FAQ-Änderungen aus _faq-aenderungen-2.md im Plugin einpflegen (Admin „Bootsprüfung › FAQ“; DefaultFaqs.php nur für Neuinstallationen). Der Shortcode zeigt alle veröffentlichten FAQs, also auch FAQ 1, 3, 5, 7, 15–18, 22, 25, 51, 89 in der heutigen Fassung."
   - "Plugin-Änderungen: (1) FaqShortcode bekommt das Attribut schema=\"0\" (Standard 1), damit Auszüge auf anderen Seiten kein FAQPage-JSON-LD erzeugen – FAQPage gibt es nur hier. (2) Der Knopf „FAQ-Seite anlegen“ (FaqAdmin::createPage) legt diese Seite mit Slug faq-bootsfuehrerschein und Titel „Häufige Fragen zum Bootsführerschein und zum Onlinekurs“ an statt /haeufige-fragen/; faqPage() erkennt eine vorhandene Seite mit dem Shortcode weiter."
@@ -45,9 +46,10 @@ Du hast Fragen zum Sportbootführerschein, zu Funkzeugnissen oder zu deinem Onli
 ### [B8 Weiterlesen] Ausführlich erklärt
 - [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor) – welcher Schein, welche Voraussetzungen, welcher Weg.
 - [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/) (Symbol cart) – Prüfungsgebühr, Attest, Kurs und Praxis.
-- [Geld-zurück-Garantie](/geld-zurueck-garantie-bootsfuehrerschein/) (Symbol shield) – Frist, Bedingungen und Ausnahmen.
+- [Mindestalter](/mindestalter-bootsfuehrerschein/) (Symbol user) – ab 14 unter Segel, ab 16 mit Motor.
+- [Ärztliches Attest](/aerztliches-attest-bootsfuehrerschein/) (Symbol shield) – Formular, Kriterien und Fristen.
 
 ### [B10 CTA] Keine Antwort gefunden?
-Schreib uns – am besten mit Kurs und Bestellnummer. Wir antworten dir per E-Mail.
+Schreib uns – am besten mit Kurs und Bestellnummer. Oder probier es einfach aus: Mit kostenlosem Konto testest du jeden Kurs.
 Button: Kontakt aufnehmen | /kontakt/
-Button: Kurse ansehen | /kurse/
+Button: Kostenlos testen | /bootsscheine/

@@ -10,12 +10,13 @@ index: index
 canonical:
 seo_title: "Karriere bei {{brand}}: Jobs rund ums digitale Lernen"
 meta_description: "Offene Stellen bei {{brand}}: Arbeite mit uns an digitaler Prüfungsvorbereitung für Sportbootführerscheine und Funkzeugnisse. Aufgaben und Bewerbung."
-eyebrow:
+eyebrow: Karriere
 lead: "Wir entwickeln Lernangebote für Menschen, die sich auf Sportbootführerscheine, Funkzeugnisse und Seenotsignalmittel vorbereiten. Wenn du Erfahrung in Nautik, digitalem Lernen, Software, Service oder Redaktion mitbringst, freuen wir uns von dir zu hören."
 cta_primary: "Zu den offenen Stellen | #stellen"
 cta_secondary: "Über uns | /ueber-uns/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Ohne ausgeschriebene Stelle statt der Stellenkarte den Satz der Moderation zeigen: „Derzeit sind keine Stellen ausgeschrieben. Schau gern später wieder vorbei.“"
   - "Betreiber: konkrete Stellen liefern (Titel mit „(m/w/d)“, Beschäftigungsart, Ort bzw. Remote-Regel, Aufgaben, Profil, Ansprechperson, Bewerbungsweg); ohne Stellen und Bewerbungsweg Entwurf."
@@ -69,3 +70,4 @@ Wir verwenden deine Bewerbungsdaten nur für das Bewerbungsverfahren und lösche
 ### [B10 CTA] Lerne uns kennen
 Wer wir sind und wie wir arbeiten, liest du auf unserer Seite „Über uns“.
 Button: Über uns | /ueber-uns/
+Button: So lernst du bei uns | /online-lernplattform-bootsfuehrerschein/

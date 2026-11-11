@@ -10,12 +10,13 @@ index: index
 canonical:
 seo_title: "Das Team hinter {{brand}}"
 meta_description: "Wer bei {{brand}} an Lernplattform, Kursinhalten und Service arbeitet – mit Rollen, Aufgaben und fachlichem Hintergrund."
-eyebrow:
+eyebrow: Über uns
 lead: "Hinter {{brand}} stehen Menschen, die an der Lernplattform, an den Kursinhalten und am Service für Lernende arbeiten. Hier stellen sie sich vor."
 cta_primary: "Kontakt aufnehmen | /kontakt/"
 cta_secondary: "Unsere Mission | /ueber-uns/geschichte-mission/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: je Person Name, Rolle, Aufgabenbereich, kurze Vorstellung und nur belegte Qualifikationen (z. B. Ausbilderschein, SKS/SSS) liefern; Fotos nur autorisiert, keine KI-Personenfotos."
   - "Betreiber: schriftliche oder elektronische Einwilligung je Person dokumentieren (Art. 6 Abs. 1 lit. a, Art. 88 DSGVO, § 26 Abs. 2 BDSG, § 22 KUG) und Ablauf für ausscheidende Mitarbeitende festlegen."
@@ -69,5 +70,5 @@ Du hast eine Frage zu einem Kurs oder deinem Zugang? Schreib uns über die [Kont
 ### [B10 CTA] Wir helfen dir weiter
 Eyebrow: Fragen?
 Schreib uns zu Kurs, Zugang oder Bestellung – am besten mit deiner Bestellnummer.
+Button: Häufige Fragen | /faq-bootsfuehrerschein/
 Button: Kontakt aufnehmen | /kontakt/
-Button: Unsere Mission | /ueber-uns/geschichte-mission/

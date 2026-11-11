@@ -13,10 +13,11 @@ meta_description: "Kombikurse, Kapitäns-Bundle, Pässe, Ergänzungskurse und Gr
 eyebrow: Preise und Angebote
 lead: "Bei uns sparst du nicht mit Aktionen, sondern mit dem passenden Paket: Kombikurse, Bundle, Pässe, Ergänzungskurse und Gruppenpakete. Alle Preise siehst du live."
 cta_primary: "Preise ansehen | #preise"
-cta_secondary: Alle Kurse | /kurse/
+cta_secondary: "Kostenlos testen | /bootsscheine/"
 schema: WebPage
 breadcrumb: Start / Kurse / Preise
 hero_photo: pakete
+stand: 10.11.2026
 open_items:
   - "Technik: noindex,follow und Canonical auf /kurse/pakete/ setzen (Rahmen, Kannibalisierung mit der Paketseite)."
   - "[kurswasser_offers] zeigt bei Kombi und Bundle einen durchgestrichenen „Einzeln“-Preis (offers.php:137). Der Rahmen verbietet durchgestrichene Vergleichspreise; Darstellung ändern, z. B. „Einzeln zusammen: X €“ ohne Durchstreichung. Den Satz „Du sparst X € gegenüber dem Einzelkauf“ hält Recht für zulässig, weil er live aus den aktuellen Einzelpreisen berechnet wird; Wortlaut an „gegenüber den Einzelkursen“ angleichen."
@@ -39,14 +40,14 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] So sparst du bei {{brand}}
+### [B2] Welcher Weg ist für dich am günstigsten? {#sparen | So sparst du}
 Statt Rabattcodes wählst du das Paket, das zu deinem Ziel passt:
 
 - **Kombikurs SBF See & Binnen:** Beide Scheine in einem Kurs, die gemeinsamen Grundlagen lernst du nur einmal. Der Videokurs ist immer enthalten. Was du gegenüber den beiden Einzelkursen sparst, berechnet der Shop aus den aktuellen Einzelpreisen. Mehr: [Kombikurs](/kurse/sbf-kombi/).
 - **Kombikurs SRC & UBI:** See- und Binnenfunk zusammen. Mehr: [Funk-Kombi](/kurse/funk-kombi/).
 - **Kapitäns-Bundle:** SBF See, SBF Binnen, SRC und UBI in einem Paket, mit der Vollversion des Funkgerät-Simulators. Mehr: [Kapitäns-Bundle](/kurse/kapitaen/).
 - **Pässe:** Ein oder drei Monate Zugang zu allen Kursen und Trainern – praktisch, wenn du in kurzer Zeit viel lernen willst.
-- **Ergänzungskurse:** Du hast schon einen Schein? Dann lernst du nur, was dir noch fehlt – von See nach Binnen, von Binnen nach See, von Binnen zum Segeln, von SRC zu UBI oder vom FKN zum SKN. Mehr: [Ergänzungskurse](#kw:ergaenzung).
+- **Ergänzungskurse:** Du hast schon einen Schein? Dann lernst du nur, was dir noch fehlt – von See nach Binnen, von Binnen nach See, von Binnen zum Segeln, vom SRC zum UBI oder vom FKN zum SKN. Mehr: [Ergänzungskurse](#kw:ergaenzung).
 - **Theorie zuerst:** Starte mit der Theorie-Stufe ohne Videokurs und buche den Videokurs später als Upgrade dazu.
 - **Gemeinsam lernen:** Gruppenpakete für 2 bis 50 Personen. Mehr: [Gruppenangebote](/bootsfuehrerschein-gruppenangebote/).
 - **Verlängern statt neu kaufen:** Kaufst du denselben Kurs erneut, schließt die neue Laufzeit an. 14 Tage vor dem Ende erinnern wir dich per E-Mail.
@@ -56,20 +57,21 @@ Legst du einen Kurs in den Warenkorb, dessen Inhalt du schon weitgehend besitzt 
 ### [B7] Aktuelle Preise {#preise}
 [kurswasser_offers]
 
-::: hinweis
-Alle Preise inkl. MwSt. laut Shop. Die Ersparnis bei Kombis bezieht sich auf die aktuellen Preise der enthaltenen Einzelkurse.
-:::
-
-### [B3 Gut zu wissen] Gut zu wissen
-Ermäßigungen für bestimmte Personengruppen, etwa Schüler oder Studierende, bieten wir derzeit nicht an. Unsere Preise betreffen nur die Onlinekurse. Die amtliche Prüfungsgebühr ist bundesweit festgelegt, wird an den Prüfungsausschuss gezahlt und lässt sich nicht rabattieren. Was der Bootsführerschein insgesamt kostet, zeigt [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/).
+### [B3 Gut zu wissen] Keine Ermäßigungen, feste Prüfungsgebühr
+Ermäßigungen für bestimmte Personengruppen, etwa Schüler oder Studierende, bieten wir derzeit nicht an. Unsere Preise betreffen nur die Onlinekurse. Die Prüfungsgebühr ist amtlich festgelegt, wird an den Prüfungsausschuss gezahlt und lässt sich nicht rabattieren. Was der Bootsführerschein insgesamt kostet, zeigt [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/).
 
 ### [B10 Garantie]
 
-### [B9] Häufige Fragen
-Muster: faq
+### [B9] Häufige Fragen zu Preisen und Paketen
+[bootspruefung_faq ids="99,96,95,9,10" search="0" schema="0"]
+
+### [B8] Weiterlesen
+- [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/) (Symbol cart) – alle Posten von Kurs bis Prüfungsgebühr.
+- [Gemeinsam lernen](/bootsfuehrerschein-gruppenangebote/) (Symbol crew) – Gruppenpakete für 2 bis 50 Personen.
+- [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/) (Symbol compass) – Kombi, Einzelkurs oder Ergänzung.
 
 ### [B10 CTA] Das passende Paket für deinen Weg.
 Eyebrow: Preise und Angebote
 Vergleiche Kombis, Bundle und Pässe – oder teste erst kostenlos.
-Button: Preise ansehen | #preise
+Button: Kostenlos testen | /bootsscheine/
 Button: Alle Kurse | /kurse/

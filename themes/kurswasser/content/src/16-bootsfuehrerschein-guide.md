@@ -16,6 +16,11 @@ cta_primary: Passenden Kurs finden | /kurse/
 cta_secondary: "Ablauf ansehen | #ablauf"
 schema: Article
 breadcrumb: Start / Ratgeber / Guide
+hero_photo: sbf-binnen
+stand: 10.11.2026
+hero_stats:
+  - "compass | 6 Schritte | bis zum Schein"
+  - "wheel | 16 Jahre | Mindestalter mit Motor"
 open_items:
   - "Technik: noindex,follow und Canonical auf /sportbootfuehrerschein/ setzen (Rahmen; SEO sieht Kannibalisierung „Bootsführerschein machen“)."
   - "Moderator 2 (Seite 18): Die Kurzfassung der Schritte dort mit dieser Seite abstimmen und hierher verlinken."
@@ -39,8 +44,8 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] Bevor du startest
-Den Sportbootführerschein machst du in deinem Tempo. Eine feste Reihenfolge oder eine bestimmte Ausbildung schreibt dir niemand vor; am Ende zählt die bestandene Prüfung. Zwei Fristen solltest du aber von Anfang an im Blick haben: Dein ärztlicher Tauglichkeitsnachweis darf bei der Antragstellung höchstens zwölf Monate alt sein, und der Antrag muss spätestens eine Woche vor dem Prüfungstermin vollständig beim Prüfungsausschuss liegen.
+### [B2] Bevor du startest {#start | Bevor du startest}
+Den Sportbootführerschein machst du in deinem Tempo. Eine feste Reihenfolge oder eine bestimmte Ausbildung schreibt dir niemand vor; am Ende zählt die bestandene Prüfung. Zwei Fristen solltest du aber von Anfang an im Blick haben: Dein ärztlicher Tauglichkeitsnachweis darf bei der Antragstellung höchstens zwölf Monate alt sein, und der Antrag muss in der Regel spätestens eine Woche vor dem Prüfungstermin vollständig beim Prüfungsausschuss liegen.
 
 ### [B4] In sechs Schritten zum Schein {#ablauf}
 Eyebrow: Ablauf
@@ -54,32 +59,44 @@ Was du online erledigst, was vor Ort passiert und was beim Ausschuss läuft.
 Maßgeblich sind die Sportbootführerscheinverordnung und dein Prüfungsausschuss.
 :::
 
-1. **Geltungsbereich und Antriebsart wählen.** Binnenschifffahrtsstraßen, Seeschifffahrtsstraßen oder beides? Motor über 11,03 kW (bei Elektroantrieb derzeit über 7,5 kW) oder – nur binnen und nur auf bestimmten Revieren vorgeschrieben – Segel? Auf dem Bodensee gilt ein eigenes Patent. Hilfe: [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/)
-2. **Voraussetzungen prüfen.** Mindestalter (16 Jahre unter Antriebsmaschine, 14 Jahre für den SBF Binnen unter Segel), ärztlicher Tauglichkeitsnachweis nach amtlichem Muster und ab 18 Jahren ein Zuverlässigkeitsnachweis: Kopie des Kfz-Führerscheins oder ein Führungszeugnis. Mehr: [Mindestalter](/mindestalter-bootsfuehrerschein/), [Ärztliches Attest](/aerztliches-attest-bootsfuehrerschein/).
+1. **Geltungsbereich und Antriebsart wählen.** Binnenschifffahrtsstraßen, Seeschifffahrtsstraßen oder beides? Motor über der Leistungsgrenze ([Wann du keinen Schein brauchst](/sportbootfuehrerschein/#fuehrerscheinfrei)) oder – nur binnen und nur auf bestimmten Revieren vorgeschrieben – Segel? Auf dem Bodensee gilt ein eigenes Patent. Hilfe: [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/)
+2. **Voraussetzungen prüfen.** Mindestalter (16 Jahre unter Antriebsmaschine, 14 Jahre für den SBF Binnen unter Segel), ärztlicher Tauglichkeitsnachweis nach amtlichem Muster, ab 18 Jahren ein Zuverlässigkeitsnachweis (Kopie des Kfz-Führerscheins oder Führungszeugnis) und bei Minderjährigen die Zustimmung der Eltern. Mehr: [Mindestalter](/mindestalter-bootsfuehrerschein/), [Ärztliches Attest](/aerztliches-attest-bootsfuehrerschein/).
 3. **Theorie online lernen.** Übe alle Prüfungsfragen im Smarttrainer, simuliere die Prüfung mit Zeitlimit und – für den SBF See – die Navigationsaufgaben in der Übungsseekarte D 49. Praxiskarten und die Knoten-Übersicht helfen dir schon vor der ersten Fahrstunde. [Kurse vergleichen](/kurse/)
-4. **Fahrpraxis einplanen.** Einen Ausbildungsnachweis brauchst du für die Zulassung nicht. Für die praktische Prüfung brauchst du aber Fahrpraxis und ein Prüfungsboot; beides bieten meist Bootsschulen an. [Praxis und Prüfung vor Ort](/bootsfuehrerschein-standorte/)
-5. **Antrag stellen.** Wähle einen Prüfungsausschuss des DSV oder DMYV und einen Termin. Der Antrag mit Passbild, Tauglichkeitsnachweis und gegebenenfalls Zuverlässigkeitsnachweis muss spätestens eine Woche vorher vorliegen; manche Ausschüsse verlangen mehr Vorlauf. Die Prüfungsgebühr ist amtlich festgelegt. In deinem Kurs hilft dir die Anleitung „Prüfung anmelden“ mit Unterlagen, Fristen und Ausschuss-Suche. [Kosten](/bootsfuehrerschein-kosten/)
+4. **Fahrpraxis einplanen.** Eine Ausbildung bei einer Bootsschule ist keine Zulassungsvoraussetzung. Für die praktische Prüfung brauchst du aber Fahrpraxis und ein Prüfungsboot; beides bieten meist Bootsschulen an. [Praxis und Prüfung vor Ort](/bootsfuehrerschein-standorte/)
+5. **Antrag stellen.** Wähle einen Prüfungsausschuss des DSV oder DMYV und einen Termin. Der Antrag mit allen Unterlagen – Antrag auf Zulassung, Passbild, ärztlicher Tauglichkeitsnachweis (bei Antragstellung höchstens zwölf Monate alt), ab 18 Jahren ein Zuverlässigkeitsnachweis (Kopie des Kfz-Führerscheins oder Führungszeugnis), bei Minderjährigen die Zustimmung der Eltern auf dem Antrag und die Prüfungsgebühr – muss in der Regel spätestens eine Woche vorher vorliegen; manche Ausschüsse verlangen mehr Vorlauf. Die Prüfungsgebühr ist amtlich festgelegt. In deinem Kurs hilft dir die Anleitung „Prüfung anmelden“ mit Unterlagen, Fristen und Ausschuss-Suche. [Kosten](/bootsfuehrerschein-kosten/)
 6. **Prüfung ablegen und Schein erhalten.** Du legst den Fragebogen ab – beim SBF See mit Navigationsaufgabe – und die praktische Prüfung. Theorie und Praxis werden getrennt bewertet. Nach bestandener Prüfung erteilt der Prüfungsausschuss den Führerschein und schickt dir die Karte zu. Der Sportbootführerschein ist unbefristet gültig.
 
-### [B2] Wie lange dauert es?
-Das hängt vor allem von dir ab: von deiner Lernzeit, deinem Vorwissen und davon, wann du einen Prüfungstermin und Fahrpraxis bekommst. Plane rückwärts vom Wunschtermin: Antrag mindestens eine Woche vorher, Tauglichkeitsnachweis höchstens zwölf Monate vor dem Antrag. Wie die Prüfung im Einzelnen abläuft – Umfang, Dauer und Bestehensgrenzen –, steht auf den Kursseiten [SBF See](/kurse/sbf-see/) und [SBF Binnen](/kurse/sbf-binnen/) unter „So läuft die Prüfung ab“.
+### [B5 Tabelle] Wie lange dauert es? Rückwärts planen {#dauer | Wie lange es dauert}
+Das hängt vor allem von dir ab: von deiner Lernzeit, deinem Vorwissen und davon, wann du einen Prüfungstermin und Fahrpraxis bekommst. Plane rückwärts vom Wunschtermin:
+
+Unterschrift: Für Funkprüfungen verlangen Ausschüsse oft mehr Vorlauf – frag deinen Prüfungsausschuss.
+| Wann | Was du erledigst |
+|---|---|
+| Bis 12 Monate vor dem Antrag | Arzttermin für den ärztlichen Tauglichkeitsnachweis |
+| In den Wochen davor | Theorie lernen, Fahrpraxis sammeln, Ausschuss und Termin wählen |
+| Spätestens 1 Woche vorher | Antrag mit allen Unterlagen vollständig beim Ausschuss – manche verlangen mehr Vorlauf |
+| Prüfungstag | Fragebogen und praktische Prüfung |
+| Danach | Der Ausschuss erteilt den Schein und schickt dir die Karte |
+
+Wie die Prüfung im Einzelnen abläuft – Umfang, Dauer und Bestehensgrenzen –, steht auf den Kursseiten [SBF See](/kurse/sbf-see/) und [SBF Binnen](/kurse/sbf-binnen/) unter „So läuft die Prüfung ab“.
 
 ### [B3 Gut zu wissen] Reform angekündigt
-Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Sportbootführerschein ersetzen. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir passen diesen Guide an, sobald sich am Ablauf etwas ändert.
+Das Bundesverkehrsministerium hat eine Neuregelung der Sportbootführerscheine angekündigt: Künftig sollen anerkannte Scheine der Verbände den amtlichen Sportbootführerschein ersetzen. In Kraft ist sie nach unserem Stand (November 2026) noch nicht. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir passen unsere Seiten an, sobald sich etwas ändert.
+
+### [B7 Auswahl] Welcher Kurs passt zu dir? {#kurse | Kurse}
+Eyebrow: Schritt 3
+Kurse: sbf-see, sbf-binnen, sbf-kombi
+
+### [B9] Häufige Fragen zum Weg zum Schein
+[bootspruefung_faq ids="8,16,17,39" search="0" schema="0"]
 
 ### [B8] Weiterlesen
 - [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor): SBF See und Binnen im Vergleich.
 - [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/) (Symbol compass): Reihenfolge, Kombi und Ergänzungen.
 - [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/) (Symbol cart): alle Posten im Überblick.
 
-### [B2] Welchen Schein machst du?
-Button: Kurse vergleichen | /kurse/
-
-### [B9] Häufige Fragen zu den Voraussetzungen
-[bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" search="0" schema="0"]
-
 ### [B10 CTA] Schritt 3 kannst du heute starten.
 Eyebrow: Bootsführerschein-Guide
 Lerne die Theorie online, während du Termin und Fahrpraxis planst.
-Button: Passenden Kurs finden | /kurse/
-Button: Kostenlos reinschnuppern | /bootsscheine/
+Button: Kostenlos testen | /bootsscheine/
+Button: Kurse vergleichen | /kurse/

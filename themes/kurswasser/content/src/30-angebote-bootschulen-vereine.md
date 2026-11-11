@@ -11,12 +11,13 @@ canonical: bootsfuehrerschein-gruppenangebote
 seo_title: "Online-Lernzugänge für Bootsschulen und Vereine"
 meta_description: "Lernplätze zentral kaufen, per Link oder E-Mail vergeben: So nutzen Bootsschulen und Vereine die Gruppenpakete von {{brand}} – 2 bis 50 Plätze."
 eyebrow: Bootsschulen & Vereine
-lead: "Kaufe Lernplätze zentral und vergib sie per Link oder E-Mail. Jede Person lernt mit eigenem Konto und eigenem Fortschritt – für SBF See, SBF Binnen, die Kombi oder Funk."
+lead: "Deine Teilnehmenden lernen die Theorie zu Hause, du nutzt die Fahrstunden fürs Boot: Lernplätze zentral kaufen und per Link oder E-Mail vergeben – jede Person mit eigenem Konto."
 cta_primary: "Gruppenpakete ansehen | #kw:gruppen"
 cta_secondary: "Alles zu Gruppen | /bootsfuehrerschein-gruppenangebote/"
 schema: WebPage
 breadcrumb: "Start / Kurse / Bootsschulen & Vereine"
 hero_photo: gruppen
+stand: 10.11.2026
 open_items:
   - "Zusammengelegt mit Seite 7: noindex, Canonical auf /bootsfuehrerschein-gruppenangebote/ (Abschnitt #vereine dort). Die Seite dient als Ziel für direkte Ansprache von Schulen und Vereinen."
   - "Betreiber (optional): Rechnung auf Firma/Verein, Sammelbestellung, Fortschrittsübersicht mit Einwilligung oder Funk-/Segel-Pakete für größere Gruppen sind im Code nicht vorhanden – nur ergänzen, wenn eingerichtet."
@@ -38,7 +39,7 @@ open_items:
 
 ### [B1] Digitale Theorievorbereitung für Bootsschulen und Vereine
 
-### [B2] So funktioniert es für deine Schule oder deinen Verein
+### [B2] So funktioniert es für deine Schule oder deinen Verein {#so-gehts | So geht’s}
 Du kaufst ein Gruppenpaket mit der passenden Zahl an Plätzen und lädst deine Teilnehmenden per Einladungslink oder E-Mail ein. Jede Person legt ein eigenes Kundenkonto an, lernt im eigenen Tempo und behält ihren eigenen Lernfortschritt. Ein Platz kann auch für dich selbst sein.
 
 Deine Teilnehmenden üben alle Prüfungsfragen im Smarttrainer, simulieren die Prüfung mit Zeitlimit und wiederholen mit Praxiskarten Manöver, Knoten, Lichter und Schallsignale. Der Videokurs ist in den Gruppenpaketen immer enthalten. So kommt die Gruppe mit gefestigter Theorie zu deinen Fahrstunden.
@@ -49,31 +50,35 @@ Deine Teilnehmenden üben alle Prüfungsfragen im Smarttrainer, simulieren die P
 3. **Verwalten:** Unter „Meine Gruppen“ siehst du, wer eingeladen ist und wer beigetreten ist, und kannst Teilnehmende entfernen.
 4. **Lernen:** Alle lernen bis zum Ende der Laufzeit – 12 Monate ab Zahlung, für alle gleich, egal wann jemand beitritt.
 
-### [B5 Fakten] Welche Kurse es als Gruppenpaket gibt
+### [B5 Fakten] Welche Kurse es als Gruppenpaket gibt {#kurse | Kurse als Paket}
 - **SBF See:** 2 bis 20 Plätze
 - **SBF Binnen:** 2 Plätze
-- **Kombi See/Binnen:** 2 bis 50 Plätze
+- **Kombi:** 2 bis 50 Plätze
 - **Funk SRC/UBI:** 2 oder 5 Plätze
-- **Nicht als Gruppe:** SBF Binnen unter Segel, SKN, FKN, Ergänzungskurse, Kapitäns-Bundle, Pässe
+- **Nicht dabei:** SBF Binnen unter Segel, SKN, FKN, Ergänzungskurse, Kapitäns-Bundle, Pässe
 
 ::: hinweis
 In den Funk-Gruppenpaketen ist der Funkgerät-Simulator nicht enthalten; jede Person kann ihn als eigenen Simulator-Zugang dazubuchen. Die aktuellen Pakete und Preise stehen im Shop.
 :::
 
-### [B3 Gut zu wissen] Gut zu wissen
+### [B3 Gut zu wissen] Lernstand bleibt privat, Prüfung läuft einzeln
+Symbol: shield
 - **Lernstand bleibt privat:** Als Käufer siehst du Anzeigename, E-Mail-Adresse und Status deiner Teilnehmenden – nicht ihren Lernstand oder ihre Prüfungsergebnisse. Eine Fortschrittsübersicht für Lehrende gibt es nicht.
 - **Prüfung einzeln:** Jede Person meldet sich selbst bei einem Prüfungsausschuss des DSV oder DMYV an und zahlt die Prüfungsgebühr selbst – auch wenn deine Schule den Termin organisiert.
 - **Einladungen:** Lade nur Personen ein, die mit der Einladung rechnen.
 - **Garantie und Widerruf:** Für Gruppenpakete gilt die Geld-zurück-Garantie nicht. Kaufst du als Verbraucher, hast du ein gesetzliches Widerrufsrecht; bei digitalen Inhalten erlischt es, sobald wir den Zugang nach deiner Zustimmung in der Kasse freischalten (siehe [Widerrufsbelehrung](#kw:widerruf)). Kaufen Bootsschulen oder Vereine als Unternehmer, besteht kein gesetzliches Widerrufsrecht.
 
-### [B7] Pakete im Überblick
+### [B7] Pakete für deine Schule oder deinen Verein
+Eyebrow: Paketgrößen
 Muster: groups
 
-### [B2] Fragen zu deiner Gruppe?
-Du planst einen Kurs für deine Schule oder deinen Verein und hast Fragen zu Paketen oder Ablauf? Schreib uns über die [Kontaktseite](/kontakt/). Wenn du langfristig mit uns zusammenarbeiten möchtest, lies weiter unter [Partner werden](/partnerprogramm/).
+### [B8] Weiterlesen
+- [Gemeinsam lernen](/bootsfuehrerschein-gruppenangebote/) (Symbol crew) – Gruppenpakete für Paare, Familien und Crews.
+- [So funktioniert die Lernplattform](/online-lernplattform-bootsfuehrerschein/) (Symbol smart) – was deine Teilnehmenden im Kurs bekommen.
+- [Praxis und Prüfung vor Ort](/bootsfuehrerschein-standorte/) (Symbol wheel) – Prüfungsausschuss und Termine.
 
 ### [B10 CTA] Lernplätze für deine Gruppe
 Eyebrow: Gemeinsam lernen
 Ein Kauf, Plätze per Link oder E-Mail vergeben – jede Person lernt mit eigenem Konto.
-Button: Gruppenpakete ansehen | #kw:gruppen
-Button: Alles zu Gruppen | /bootsfuehrerschein-gruppenangebote/
+Button: Gruppenpaket wählen | #kw:gruppen
+Button: Kostenlos testen | /bootsscheine/

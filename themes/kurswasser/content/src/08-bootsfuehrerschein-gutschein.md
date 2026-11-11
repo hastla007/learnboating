@@ -11,11 +11,13 @@ canonical:
 seo_title: "Bootsführerschein-Gutschein: Onlinekurs verschenken"
 meta_description: "Verschenke die Theorievorbereitung auf den Bootsführerschein: So funktionieren Kauf, Einlösung und Gültigkeit des {{brand}}-Gutscheins."
 eyebrow: Verschenken
-lead: Ein Onlinekurs für alle, die aufs Wasser wollen. Die beschenkte Person löst den Gutschein im eigenen Konto ein und lernt die Theorie im eigenen Tempo.
+lead: "Verschenk den Start aufs Wasser: Die beschenkte Person löst den Gutschein im eigenen Konto ein und lernt die Theorie, wann und wo sie will."
 cta_primary: "Gutschein auswählen | [[Betreiber: URL des Gutscheinprodukts]]"
 cta_secondary: Kurse vergleichen | /kurse/
 schema: WebPage
 breadcrumb: Start / Kurse / Gutschein
+hero_photo: pakete
+stand: 10.11.2026
 open_items:
   - Es gibt kein Gutscheinprodukt (keine Zugangscodes; WooCommerce-Gutscheine sind nur Rabattcodes, CouponController.php:15-20). Seite bleibt Entwurf, bis Produkt, Einlösefunktion und AGB-Abschnitt „Gutscheine“ live sind.
   - "Betreiber festlegen und in die Platzhalter eintragen: Gutscheinart (Kurs oder Wert), Zustellweg, Einlöseweg, Beginn der Kurslaufzeit, Gültigkeitsdauer, Übertragbarkeit, Restguthaben/Barauszahlung, Geltung der Geld-zurück-Garantie."
@@ -38,6 +40,12 @@ open_items:
 
 ### [B1] Seitenkopf
 
+### [B3 Offen]
+- Gutschein: für einen bestimmten Kurs oder einen Wert?
+- Zustellweg und Einlöseweg, Beginn der Kurslaufzeit
+- Gültigkeit, Übertragbarkeit, Restwert und Garantie für den eingelösten Kurs
+- Produkt-URL für die Knöpfe „Gutschein auswählen“
+
 ### [B2] So funktioniert der Gutschein
 Ein Gutschein von {{brand}} gilt für [[Betreiber: einen bestimmten Kurs oder einen Wert]]. Du kaufst ihn im Shop und erhältst ihn [[Betreiber: Zustellweg, z. B. als PDF per E-Mail zum Ausdrucken oder Weiterleiten]].
 
@@ -45,13 +53,18 @@ Die beschenkte Person legt ein kostenloses Kundenkonto an und löst den Gutschei
 
 Warum ein Gutschein und kein normaler Kurskauf? Ein gekaufter Kurs ist an das Konto der Person gebunden, die ihn kauft, und lässt sich nicht weitergeben. Zum Verschenken ist deshalb der Gutschein der richtige Weg.
 
-### [B5 Fakten] Was im Geschenk steckt – und was nicht
-- **Enthalten:** der Onlinekurs mit allen Inhalten des gewählten Produkts, zum Beispiel Smarttrainer, Prüfungssimulation, Trainer und je nach Stufe der Videokurs
-- **Konto:** eigenes, kostenloses Kundenkonto der beschenkten Person; der Lernfortschritt wird dort gespeichert
-- **Prüfung:** nicht enthalten. Die amtliche Prüfung und die Prüfungsgebühr laufen immer direkt über einen Prüfungsausschuss.
-- **Praxis:** nicht enthalten. Fahrstunden auf dem Wasser sind kein Teil des Onlinekurses.
+### [B5 Vergleich] Was im Geschenk steckt – und was nicht {#inhalt | Was drinsteckt}
+#### Enthalten
+Untertitel: im Onlinekurs
+- alle Inhalte des gewählten Produkts, zum Beispiel Smarttrainer, Prüfungssimulation, Trainer und je nach Stufe der Videokurs
+- ein eigenes, kostenloses Kundenkonto der beschenkten Person; der Lernfortschritt wird dort gespeichert
 
-### [B5 Fakten] Bedingungen auf einen Blick
+#### Nicht enthalten
+Untertitel: läuft immer separat
+- die amtliche Prüfung und die Prüfungsgebühr – sie laufen direkt über einen Prüfungsausschuss
+- Fahrstunden auf dem Wasser – sie sind kein Teil des Onlinekurses
+
+### [B5 Fakten] Bedingungen auf einen Blick {#bedingungen | Bedingungen}
 - **Gültig bis:** [[Betreiber: Gültigkeitsdauer des Gutscheins]]
 - **Übertragbar:** [[Betreiber: ja/nein]]
 - **Restwert:** [[Betreiber: Regel zu Restguthaben und Barauszahlung]]
@@ -60,19 +73,23 @@ Warum ein Gutschein und kein normaler Kurskauf? Ein gekaufter Kurs ist an das Ko
 
 Die vollständigen Bedingungen stehen in den [AGB](/agb/).
 
-### [B2] Welcher Kurs passt?
+### [B2] Welcher Kurs passt? {#kurswahl | Kurswahl}
 Wer auf Flüssen, Kanälen und Seen fahren will, braucht meist den SBF Binnen; wer an die Küste will, den SBF See. Wer beides vorhat, ist mit dem Kombikurs gut bedient. Eine Entscheidungshilfe gibt [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/), den Überblick der [Sportbootführerschein im Überblick](/sportbootfuehrerschein/).
 
-Verschenkst du den Kurs an Jugendliche, denk an das Mindestalter: 16 Jahre unter Antriebsmaschine, 14 Jahre für den SBF Binnen unter Segel. Mehr: [Mindestalter](/mindestalter-bootsfuehrerschein/).
+Verschenkst du den Kurs an Jugendliche, denk an das Mindestalter: 16 Jahre unter Antriebsmaschine, 14 für den SBF Binnen unter Segel; den SKN gibt es erst ab 18. Mehr: [Mindestalter](/mindestalter-bootsfuehrerschein/).
 
 ### [B3 Gut zu wissen] Lieber gemeinsam lernen?
 Ihr wollt den Schein zusammen machen? Dann ist ein Gruppenpaket ab zwei Plätzen eine Alternative: Du kaufst die Plätze, behältst einen für dich und lädst die andere Person per Link oder E-Mail ein. Jede Person lernt mit eigenem Konto. Mehr: [Gemeinsam lernen](/bootsfuehrerschein-gruppenangebote/).
 
-### [B7] Welchen Schein verschenkst du?
-Muster: courses
+Button: Gruppenpakete ansehen | #kw:gruppen
 
-### [B9] Häufige Fragen zu Kosten und Gutscheinen
-[bootspruefung_faq rubric="allgemein" subcategory="allgemein-kosten-gutscheine-und-garantien" title="Häufige Fragen zu Kosten, Gutscheinen und Garantie" search="0" schema="0"]
+### [B9] Häufige Fragen zum Verschenken
+[bootspruefung_faq ids="21,9,10,99" search="0" schema="0"]
+
+### [B8] Weiterlesen
+- [Mindestalter](/mindestalter-bootsfuehrerschein/) (Symbol user) – ab wann welcher Schein möglich ist.
+- [Gemeinsam lernen](/bootsfuehrerschein-gruppenangebote/) (Symbol crew) – Gruppenpakete ab zwei Plätzen.
+- [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor) – welcher Schein für welches Revier.
 
 ### [B10 CTA] Schenk den ersten Schritt aufs Wasser.
 Eyebrow: Verschenken

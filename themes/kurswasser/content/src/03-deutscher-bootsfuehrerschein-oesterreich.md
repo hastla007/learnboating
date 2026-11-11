@@ -17,6 +17,7 @@ cta_secondary: "So gehst du vor | #vorgehen"
 schema: Article
 breadcrumb: Start / Ratgeber / Österreich
 hero_photo: sbf-binnen-segel
+stand: 10.11.2026
 open_items:
   - "Betreiber/Steuerberatung: Verkauf an Verbraucher in Österreich klären (Umsatzsteuer des Kundenlands bzw. OSS, Preisangabe „inkl. MwSt.“). Bis dahin Entwurf (Recht)."
   - Aussage „häufig nicht anerkannt“ stützt sich auf § 101 Abs. 3 SchFG und eine Fachquelle (Bootsschule); vor Veröffentlichung am RIS-Text gegenlesen (Fach).
@@ -36,10 +37,13 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B3 Wichtig] Wichtig für Menschen mit Wohnsitz in Österreich
-Auf österreichischen Gewässern brauchst du für Motorboote schon ab 4,4 kW (6 PS) Antriebsleistung einen Befähigungsausweis – deutlich früher als in Deutschland, wo die Grenze für Verbrennungsmotoren bei 11,03 kW liegt. Ausländische Scheine sind in Österreich vor allem für Gäste gedacht: Die Ausnahme für ausländische Sportfahrzeuge setzt nach § 101 Abs. 3 Schifffahrtsgesetz unter anderem einen Sitz oder Hauptwohnsitz im Ausland voraus. Mit Hauptwohnsitz in Österreich wird ein deutscher SBF deshalb häufig nicht anerkannt. Kläre das vor Kurskauf und Prüfung mit der zuständigen Landesbehörde.
+### [B2] Kurz beantwortet: Für österreichische Gewässer reicht er oft nicht
+Mit Hauptwohnsitz in Österreich reicht ein deutscher SBF für österreichische Gewässer häufig nicht. Lernen kannst du trotzdem von überall – kläre vorher mit der Landesbehörde deines Bundeslands, welcher Ausweis für dein Gewässer nötig ist.
 
-### [B2] Wofür ein deutscher SBF trotzdem sinnvoll sein kann
+### [B3 Wichtig] Wichtig für Menschen mit Wohnsitz in Österreich
+Auf vielen österreichischen Gewässern brauchst du für Motorboote schon ab 4,4 kW (6 PS) Antriebsleistung einen Befähigungsausweis – früher als in Deutschland (Grenzwerte: [Wann du keinen Schein brauchst](/sportbootfuehrerschein/#fuehrerscheinfrei)). Ausländische Scheine sind in Österreich vor allem für Gäste gedacht: Die Ausnahme für ausländische Sportfahrzeuge setzt nach § 101 Abs. 3 Schifffahrtsgesetz unter anderem einen Sitz oder Hauptwohnsitz im Ausland voraus. Mit Hauptwohnsitz in Österreich wird ein deutscher SBF deshalb häufig nicht anerkannt. Kläre das vor Kurskauf und Prüfung mit der zuständigen Landesbehörde.
+
+### [B2] Wofür ein deutscher SBF trotzdem sinnvoll sein kann {#sinnvoll | Wofür er sinnvoll ist}
 Ein deutscher Sportbootführerschein lohnt sich, wenn du vor allem auf deutschen Gewässern fahren willst – etwa auf Binnenschifffahrtsstraßen oder an Nord- und Ostsee. Auch für einen Törn in einem anderen Land kann er nützlich sein; prüfe dann aber vorher, ob das Zielland deinen Wohnsitz berücksichtigt (siehe [Bootsführerschein im Ausland](/bootsfuehrerschein-ausland-anerkennung/)).
 
 Für österreichische Gewässer ist meist ein österreichischer Befähigungsausweis der passende Weg, zum Beispiel das Schiffsführerpatent 10 m. Beachte außerdem:
@@ -69,5 +73,5 @@ Wir bereiten dich auf den deutschen Prüfungsstoff vor: alle Prüfungsfragen im 
 ### [B10 CTA] Geklärt? Dann leg los.
 Eyebrow: Ratgeber
 Lerne die Theorie für den deutschen SBF online – mit allen Prüfungsfragen und Prüfungssimulation.
-Button: Deutsche SBF-Kurse ansehen | /kurse/
-Button: Kostenlos reinschnuppern | /bootsscheine/
+Button: Kostenlos testen | /bootsscheine/
+Button: Deutsche SBF-Kurse | /kurse/

@@ -10,12 +10,13 @@ index: noindex
 canonical:
 seo_title: "Studien zum Lernen für den Bootsführerschein | {{brand}}"
 meta_description: "Eigene Untersuchungen von {{brand}} zum digitalen Lernen für SBF und Funkzeugnis – mit Fragestellung, Daten, Methode und Grenzen offen dargestellt."
-eyebrow:
+eyebrow: Über uns
 lead: "Hier veröffentlichen wir eigene Untersuchungen zum Lernen für Sportbootführerschein und Funkzeugnis – immer mit Fragestellung, Datengrundlage, Methode und Grenzen."
-cta_primary: "Unser Lernkonzept | /online-lernplattform-bootsfuehrerschein/"
+cta_primary: "So lernst du bei uns | /online-lernplattform-bootsfuehrerschein/"
 cta_secondary: "Fragen zur Untersuchung | /kontakt/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: Es liegt keine Untersuchung vor. Vor Veröffentlichung: tatsächliche Untersuchung mit Fragestellung, Datengrundlage, Zeitraum, Methode, Einschränkungen und Interessenkonflikten liefern."
   - "Recht/Datenschutz: Lerndaten werden laut Datenschutzerklärung nur für die eigene Lernansicht genutzt – jede Auswertung ist eine Zweckänderung. Nur mit echter Anonymisierung oder Einwilligung, Datenschutzerklärung vorher anpassen (Art. 5 Abs. 1 lit. b, Art. 6 Abs. 4 DSGVO). Befragungen per E-Mail sind Werbung (BGH VI ZR 225/17)."
@@ -61,5 +62,5 @@ Deine Lerndaten nutzen wir für deine eigene Lernansicht. Für eine Untersuchung
 
 ### [B10 CTA] Wie unser Lernkonzept funktioniert
 Smarttrainer, Prüfungssimulation und Praxiskarten – sieh dir an, wie du bei {{brand}} lernst.
-Button: Unser Lernkonzept | /online-lernplattform-bootsfuehrerschein/
-Button: Fragen zur Untersuchung | /kontakt/
+Button: So lernst du bei uns | /online-lernplattform-bootsfuehrerschein/
+Button: Kostenlos testen | /bootsscheine/

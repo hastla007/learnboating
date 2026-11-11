@@ -16,6 +16,8 @@ cta_primary: "Kostenlos testen | /bootsscheine/"
 cta_secondary: "Kursfunktionen ansehen | /online-lernplattform-bootsfuehrerschein/"
 schema: WebPage
 breadcrumb: "Start / Kurse / Erfahrungen"
+hero_photo: gruppen
+stand: 10.11.2026
 open_items:
   - "Betreiber: echte, freigegebene Rückmeldungen liefern (Empfehlung SEO: mindestens etwa 10), je Rückmeldung Vorname oder Initialen, Kurs, Monat/Jahr, Quelle, Kennzeichnung „gekürzt“ und dokumentierte Einwilligung (Art. 6 Abs. 1 lit. a, Art. 7 DSGVO; bei Fotos § 22 KUG)."
   - "Betreiber: Prüfverfahren einrichten und dokumentieren. Der Text unter „So prüfen wir Rückmeldungen“ beschreibt das empfohlene Verfahren (Kauf über Kundenkonto, Abgleich mit der Bestellung) – nur veröffentlichen, wenn es genau so läuft (§ 5b Abs. 3 UWG, Anhang Nr. 23b UWG)."
@@ -39,10 +41,21 @@ open_items:
 
 ### [B1] Erfahrungen mit {{brand}}
 
+### [B3 Offen]
+- Echte, freigegebene Rückmeldungen mit Einwilligung (Wortlaut, Vorname oder Initialen, Kurs, Monat und Jahr, ggf. „gekürzt“)
+- Auswahlkriterium für die gezeigten Rückmeldungen
+- Erst veröffentlichen, wenn echte Rückmeldungen vorliegen; ohne sie bleibt die Seite Entwurf
+
 ### [B2] So erleben Lernende die Vorbereitung
 Ob SBF See, SBF Binnen oder Funkzeugnis: Jede und jeder lernt anders – nach Feierabend auf dem Sofa, in der Mittagspause am Handy oder am Wochenende am Rechner. Auf dieser Seite erzählen Lernende, wie sie mit {{brand}} gelernt haben, was ihnen geholfen hat und was sie anderen raten.
 
 Die Rückmeldungen geben persönliche Eindrücke wieder. Wie deine Prüfung ausgeht, hängt von deiner Vorbereitung und dem Prüfungstag ab – ein Erfahrungsbericht ist kein Versprechen für ein bestimmtes Ergebnis.
+
+### [B3 Transparenz] So prüfen wir Rückmeldungen
+Symbol: check
+Wir veröffentlichen nur Rückmeldungen von Personen, die einen kostenpflichtigen Kurs über ihr Kundenkonto gekauft haben. Das prüfen wir anhand der Bestellung, bevor wir eine Rückmeldung freischalten. Rückmeldungen außerhalb dieses Verfahrens veröffentlichen wir nicht.
+
+Wir veröffentlichen Namen, Kurs und Zeitraum nur mit deiner Einwilligung. Du kannst sie jederzeit widerrufen; dann entfernen wir deine Rückmeldung. Für Rückmeldungen gibt es keine Gegenleistung.
 
 ### [B2] Rückmeldungen nach Kurs
 #### SBF See
@@ -59,26 +72,18 @@ Die Rückmeldungen geben persönliche Eindrücke wieder. Wie deine Prüfung ausg
 
 Wir zeigen hier [[Betreiber: Auswahlkriterium, z. B. „alle freigegebenen Rückmeldungen der letzten zwölf Monate“]]. Gekürzte Rückmeldungen sind als „gekürzt“ gekennzeichnet; am Inhalt ändern wir nichts.
 
-### [B3 Transparenz] So prüfen wir Rückmeldungen
-Wir veröffentlichen nur Rückmeldungen von Personen, die einen kostenpflichtigen Kurs über ihr Kundenkonto gekauft haben. Das prüfen wir anhand der Bestellung, bevor wir eine Rückmeldung freischalten. Rückmeldungen außerhalb dieses Verfahrens veröffentlichen wir nicht.
-
-Wir veröffentlichen Namen, Kurs und Zeitraum nur mit deiner Einwilligung. Du kannst sie jederzeit widerrufen; dann entfernen wir deine Rückmeldung. Für Rückmeldungen gibt es keine Gegenleistung.
-
 ### [B5 Karten] Was dir beim Lernen hilft
 Eyebrow: Funktionen
 
 - **Smarttrainer** (smart): erst neue, dann falsche und unsichere Fragen – eine Frage gilt nach drei richtigen Antworten in Folge als gefestigt.
 - **Prüfungssimulation** (exam): mit Zeitlimit, Auswertung nach Themen und Prüfungsverlauf.
-- **Navigationsaufgaben** (compass): für den SBF See mit automatischer Prüfung deiner Werte.
-- **Praxiskarten** (cards): Lichter, Schallsignale, Manöver, Knoten und Sicherheit wiederholen.
-- **Funktraining** (radio): Funktexte, Vokabeln, Buchstabiertafel und Funkgerät-Simulator (Testversion kostenlos).
-- **Lernfortschritt** (check): im Browser auf Rechner, Tablet und Smartphone, gespeichert in deinem Konto.
+- **Lernfortschritt** (phone): im Browser auf Rechner, Tablet und Smartphone, gespeichert in deinem Konto.
 
 ### [B2] Teile deine Erfahrung
 Du hast mit {{brand}} gelernt und möchtest anderen von deiner Vorbereitung erzählen? Schreib uns über die [Kontaktseite](/kontakt/) und nenne den Kurs und deine Bestellnummer. Wir melden uns mit der Bitte um deine Einwilligung, bevor wir etwas veröffentlichen.
 
 ### [B10 CTA] Mach dir dein eigenes Bild
 Eyebrow: Selbst ausprobieren
-Mit einem kostenlosen Kundenkonto testest du in jedem Kurs ausgewählte Fragen, einen Prüfungsbogen und die erste Video-Lektion.
+Mit kostenlosem Konto testest du in jedem Kurs 10 Fragen je Lernmodul, einen Prüfungsbogen und die erste Video-Lektion.
 Button: Kostenlos testen | /bootsscheine/
-Button: Kursfunktionen ansehen | /online-lernplattform-bootsfuehrerschein/
+Button: Kurse vergleichen | /kurse/

@@ -10,12 +10,13 @@ index: noindex
 canonical: bootsfuehrerschein-standorte
 seo_title: "Unsere Partner aus der nautischen Ausbildung | {{brand}}"
 meta_description: "Mit diesen Bootsschulen, Vereinen und nautischen Anbietern arbeitet {{brand}} zusammen – mit Leistung, Region und Art der Zusammenarbeit."
-eyebrow:
+eyebrow: Partner
 lead: "Theorie online, Praxis vor Ort: Mit diesen Bootsschulen, Vereinen und nautischen Anbietern arbeiten wir zusammen. Zu jedem Partner steht, was er anbietet und wie wir verbunden sind."
-cta_primary: "Kursübersicht öffnen | /kurse/"
+cta_primary: "Kostenlos testen | /bootsscheine/"
 cta_secondary: "Partner werden | /partnerprogramm/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: Es gibt keine belegten Partner. Je Partner liefern: Name, schriftliche Freigabe (Name, Logo), Leistung, Region, Kontakt bzw. Website und Art der Geschäftsbeziehung (Provision, Kooperation, keine Gegenleistung)."
   - "Recht: Kommerzielle Beziehung offenlegen (§ 5a Abs. 4 UWG, § 6 Abs. 1 Nr. 1 DDG); Links mit Gegenleistung mit rel=\"sponsored\"; keine Prüfaussage („geprüft“, „verifiziert“) ohne offengelegtes Prüfverfahren; Datenweitergabe an Partner nur mit Rechtsgrundlage und Hinweis in der Datenschutzerklärung."
@@ -56,5 +57,5 @@ Du bildest aus oder leitest einen Verein und möchtest mit uns zusammenarbeiten?
 ### [B10 CTA] Lerne online, fahre vor Ort
 Eyebrow: Theorie zuerst
 Bereite dich mit {{brand}} auf die Theorie vor und komm gut vorbereitet zur Praxis.
-Button: Kursübersicht öffnen | /kurse/
-Button: Partner werden | /partnerprogramm/
+Button: Kostenlos testen | /bootsscheine/
+Button: Kurse vergleichen | /kurse/

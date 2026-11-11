@@ -10,12 +10,13 @@ index: index
 canonical:
 seo_title: "Kontakt und Support | {{brand}}"
 meta_description: "Fragen zu Kurs, Lernzugang oder Bestellung? So erreichst du unseren Support – mit Bestellnummer geht es schneller. Antworten auch in den FAQ."
-eyebrow:
+eyebrow: Kontakt
 lead: "Du hast eine Frage zu einem Kurs, zu deinem Zugang oder zu einer Bestellung? Schreib uns – wir antworten dir per E-Mail."
 cta_primary: "Nachricht senden | mailto:[[Betreiber: Support-E-Mail]]"
 cta_secondary: "Häufige Fragen ansehen | /faq-bootsfuehrerschein/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "KEINE neue Seite: Die Umsetzung ersetzt die Theme-Vorlage themes/kurswasser/legal/kontakt.html durch diese Fassung (Block-Markup). Die Seite /kontakt/ legt das Theme über inc/legal.php an (kurswasser_legal_pages); nicht doppelt anlegen."
   - "Beim Ersetzen der Vorlage den theme-üblichen Vorlagen-Hinweis (Absatz kw-placeholder „Vorlage – vor der Veröffentlichung rechtlich prüfen lassen …“) als ersten Block beibehalten; er wird mit dem Ausfüllen der Platzhalter gelöscht. #kw:-Links bleiben, kurswasser_legal_resolve_links löst sie beim Einfügen auf."
@@ -68,7 +69,7 @@ Schick uns niemals dein Passwort. Bitte sende uns auch keine Zahlungsdaten wie K
 ### [B2] Wer hilft wobei?
 Nicht jede Frage können wir beantworten. Für manche Themen sind andere Stellen zuständig:
 
-- **Prüfungsanmeldung, Prüfungstermine und Prüfungsgebühren:** dein Prüfungsausschuss des DSV oder DMYV. Ausschüsse und Termine findest du auf sportbootfuehrerscheine.org.
+- **Prüfungsanmeldung, Prüfungstermine und Prüfungsgebühren:** dein Prüfungsausschuss des DSV oder DMYV. Ausschüsse und Termine findest du auf sportbootfuehrerscheine.org, der gemeinsamen Website von DSV und DMYV; in deinem Kurs hilft dir die Anleitung „Prüfung anmelden“.
 - **Anerkennung deines Scheins im Ausland:** die zuständige Behörde des jeweiligen Landes. Eine erste Orientierung gibt unsere Seite [Bootsführerschein im Ausland](/bootsfuehrerschein-ausland-anerkennung/).
 - **Fahrstunden und Prüfungsboot:** die Bootsschule, bei der du die Praxis machst.
 
@@ -80,5 +81,7 @@ Auskunft, Berichtigung oder Löschung deiner Daten: Schreib uns an [[Betreiber: 
 
 Wenn du uns schreibst, verwenden wir deine Angaben nur, um dein Anliegen zu bearbeiten. Einzelheiten findest du in der [Datenschutzerklärung](#kw:datenschutz).
 
-### [B2]
+### [B10 CTA] Lieber selbst nachlesen?
+Viele Antworten zu Kurs, Zugang und Prüfung stehen in unseren häufigen Fragen.
 Button: Häufige Fragen ansehen | /faq-bootsfuehrerschein/
+Button: Kostenlos testen | /bootsscheine/

@@ -10,12 +10,13 @@ index: noindex
 canonical: partnerprogramm
 seo_title: "Affiliate-Partnerschaft mit {{brand}}"
 meta_description: "Du empfiehlst Bootsführerschein-Kurse auf Website, Kanal oder Newsletter? So funktioniert das Affiliate-Programm von {{brand}}: Ablauf und Regeln."
-eyebrow:
+eyebrow: Partner
 lead: "Du betreibst eine Website, einen Kanal oder einen Newsletter rund um Bootssport und möchtest {{brand}} empfehlen? Hier stehen Ablauf, Vergütung und die Regeln für Werbung."
 cta_primary: "Jetzt bewerben | [[Betreiber: Bewerbungsweg]]"
 cta_secondary: "Partner werden | /partnerprogramm/"
 schema: WebPage
 breadcrumb:
+stand: 10.11.2026
 open_items:
   - "Betreiber: Es gibt kein Affiliate-Programm und kein Tracking im Code. Vor Veröffentlichung festlegen: Netzwerk bzw. eigenes Programm, Anmeldung, Vergütung, Cookie-Laufzeit bzw. Zuordnung, erlaubte Werbemittel, Auszahlung, Bewerbungsweg und Teilnahmebedingungen."
   - "Recht: Affiliate-Tracking braucht eine Einwilligung (§ 25 Abs. 1 TDDDG). Das Banner (inc/consent.php) kennt nur „notwendig“ und „statistik“ – Kategorie „Marketing“ ergänzen, Consent-Version erhöhen, Datenschutzerklärung anpassen (sie sagt „keine Marketing-Tools“)."
@@ -43,14 +44,14 @@ Du betreibst eine Website, einen Kanal oder einen Newsletter rund um Bootssport 
 - **Zuordnung:** [[Betreiber: wie Käufe zugeordnet werden, Laufzeit]]
 - **Werbemittel:** [[Betreiber: Links, Banner, Texte]]
 - **Auszahlung:** [[Betreiber: Rhythmus, Mindestbetrag, Gutschrift]]
-- **Bedingungen:** [[Betreiber: Link zu den Teilnahmebedingungen]]
+- **Bedingungen:** [[Betreiber: wo die Teilnahmebedingungen stehen]]
 
 ### [B2] Was du bewerben kannst
 Onlinekurse zur Theorie für den Sportbootführerschein See und Binnen, die Funkzeugnisse SRC und UBI sowie die Nachweise für Seenotsignalmittel FKN und SKN – dazu Kombis, das Kapitäns-Bundle, Pässe und Gruppenpakete. Alle Inhalte laufen im Browser; jede Person kann jeden Kurs vorher mit einem kostenlosen Kundenkonto testen.
 
 ### [B3 Wichtig] Regeln für Werbung
 - **Kennzeichnen:** Empfehlungen mit Provision kennzeichnest du klar als Werbung, zum Beispiel mit „Werbung“ oder „Anzeige“.
-- **Nichts versprechen, was es nicht gibt:** Keine Aussagen wie „Bestehensgarantie“, „amtlich anerkannter Kurs“ oder „Prüfung inklusive“. Die amtliche Prüfung nimmt ein Prüfungsausschuss ab; sie ist nicht im Kurs enthalten.
+- **Nichts versprechen, was es nicht gibt:** Keine Aussagen wie „Bestehensgarantie“, „amtlich anerkannter Kurs“ oder „Prüfung inklusive“ und keine Aussagen zu Bestehensquoten. Die amtliche Prüfung nimmt ein Prüfungsausschuss ab; sie ist nicht im Kurs enthalten.
 - **Garantie richtig nennen:** Die Geld-zurück-Garantie gilt nur zu den Bedingungen auf unserer [Garantieseite](/geld-zurueck-garantie-bootsfuehrerschein/).
 - **Kein Spam:** Keine Werbe-E-Mails ohne Einwilligung, keine Anzeigen auf unseren Markennamen.
 

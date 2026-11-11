@@ -12,12 +12,12 @@ seo_title: "SBF-Fragenkatalog: Prüfungsfragen für See und Binnen üben"
 meta_description: Wo du den amtlichen Fragenkatalog für SBF See und Binnen findest, wie der Prüfungsbogen aufgebaut ist und wie du online übst. Kostenlos testen.
 eyebrow: Prüfungsvorbereitung
 lead: Die amtlichen Fragenkataloge für SBF See und Binnen veröffentlicht die Wasserstraßen- und Schifffahrtsverwaltung bei ELWIS. Bei uns übst du die Fragen mit Smarttrainer und Prüfungssimulation.
-cta_primary: Kostenlos Fragen testen | /bootsscheine/
+cta_primary: "Kostenlos testen | /bootsscheine/"
 cta_secondary: "Katalog oder Übung? | #kataloge"
 schema: Article
 breadcrumb: Start / Ratgeber / Prüfungsfragen
-hero_photo: sbf-see
-hero_note: Mit kostenlosem Kundenkonto.
+hero_photo: sbf-binnen
+stand: 10.11.2026
 open_items:
   - "Betreiber: Stand bzw. Fassung des Fragenkatalogs je Kurs liefern (Platzhalter im Abschnitt „Katalog oder Übung?“). Pflicht laut Recht; bis dahin Entwurf."
   - Rechte an Fragen und ELWIS-Abbildungen sind nur vorläufig freigegeben (offene-punkte Nr. 30, blockiert Go-live); Bildnachweise im Impressum klären.
@@ -40,8 +40,8 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] Kurz beantwortet: Wo es den offiziellen Fragenkatalog gibt
-Die Fragen- und Antwortenkataloge für den SBF See und den SBF Binnen veröffentlicht die Wasserstraßen- und Schifffahrtsverwaltung des Bundes auf ELWIS. Für die Prüfung ist allein der amtliche Katalog in seiner aktuell bekannt gemachten Fassung maßgeblich. Die uns bekannte letzte Änderung ist die Bekanntmachung vom April 2023; prüfe bei ELWIS, ob seitdem eine neuere Fassung gilt.
+### [B2] Kurz beantwortet: Den amtlichen Katalog veröffentlicht ELWIS
+Die Fragen- und Antwortenkataloge für den SBF See und den SBF Binnen veröffentlicht die Wasserstraßen- und Schifffahrtsverwaltung des Bundes auf ELWIS. Maßgeblich ist der amtliche Katalog in der aktuell bekannt gemachten Fassung. Ob eine neue Fassung gilt, siehst du bei ELWIS oder erfährst du bei deinem Prüfungsausschuss.
 
 ### [B5 Vergleich] Amtlicher Katalog oder Übung im Kurs? {#kataloge}
 #### Fragenkatalog bei ELWIS
@@ -59,45 +59,49 @@ Untertitel: Lernwerkzeug für deine Vorbereitung
 
 [Kurse vergleichen](/kurse/)
 
-### [B2] So ist der Prüfungsbogen aufgebaut
-Der Fragebogen besteht aus Fragen des amtlichen Katalogs mit je vier Antworten, von denen genau eine richtig ist. Er setzt sich aus Basisfragen, die für See und Binnen gleich sind, und scheinspezifischen Fragen zusammen:
+### [B5 Tabelle] So ist der Prüfungsbogen aufgebaut {#bogen | Prüfungsbogen}
+Der Fragebogen besteht aus Fragen des amtlichen Katalogs mit je vier Antworten, von denen genau eine richtig ist. Er setzt sich aus [Basisfragen](/bootsfuehrerschein-lexikon/#basisfragen), die für See und Binnen gleich sind, und scheinspezifischen Fragen zusammen.
 
-- **SBF See:** 7 Basisfragen und 23 See-Fragen. Dazu kommt eine Navigationsaufgabe in der Übungsseekarte – Kurse und Positionen bestimmen, Gezeiten und Strom berücksichtigen.
-- **SBF Binnen unter Antriebsmaschine:** 7 Basisfragen und 23 Binnen-Fragen.
-- **SBF Binnen unter Segel:** zusätzlich 7 Segelfragen.
-- **See und Binnen zusammen:** Die Basisfragen beantwortest du nur einmal.
+Unterschrift: Legst du See und Binnen zusammen ab, beantwortest du die Basisfragen nur einmal. Maßgeblich ist dein Prüfungsausschuss.
+| Schein | Basisfragen | Scheinspezifisch | Dazu |
+|---|---|---|---|
+| SBF See | 7 | 23 See-Fragen | Navigationsaufgabe in der Übungsseekarte |
+| SBF Binnen unter Antriebsmaschine | 7 | 23 Binnen-Fragen | – |
+| SBF Binnen unter Segel | 7 | 23 Binnen-Fragen | 7 Segelfragen |
 
 Bestehensgrenzen und Prüfungsdauer findest du auf den Kursseiten [SBF See](/kurse/sbf-see/) und [SBF Binnen](/kurse/sbf-binnen/) im Abschnitt „So läuft die Prüfung ab“.
 
-::: hinweis
-Angaben laut Prüfungsrahmen der Verbände; maßgeblich ist dein Prüfungsausschuss.
-:::
-
-### [B2] Funkzeugnisse und Seenotsignalmittel
+### [B2] Funkzeugnisse und Seenotsignalmittel {#funk | Funk und Seenot}
 Für die Funkzeugnisse [SRC](/kurse/src/) und [UBI](/kurse/ubi/) sowie für die Nachweise für Seenotsignalmittel [SKN](/kurse/skn/) und [FKN](/kurse/fkn/) gelten eigene Fragenkataloge – nicht die SBF-Kataloge auf ELWIS. Beim FKN können sich die Unterlagen je nach Verband unterscheiden; kläre vorab mit deinem Prüfungsausschuss, ob du die Unterlagen des DSV oder des DMYV brauchst.
 
-### [B2] So lernst du den Katalog effizient
+### [B2] So lernst du den Katalog effizient {#lernen | Effizient lernen}
 Auswendiglernen allein trägt selten bis zur Prüfung. Diese Funktionen helfen dir, den Stoff wirklich zu sitzen:
 
 - **Smarttrainer:** zeigt zuerst neue, dann falsch beantwortete und unsichere Fragen. Nach drei richtigen Antworten in Folge gilt eine Frage als gefestigt. Du kannst nach Themen üben, nur falsch beantwortete Fragen wiederholen und Favoriten in eigenen Sammlungen ablegen.
 - **Prüfungssimulation:** ohne Lösungen und mit Zeitlimit, wie in der Prüfung. Unsichere Fragen markierst du und gehst sie am Ende noch einmal durch.
 - **Auswertung:** Ergebnis nach Themen, „Fehler aus der Prüfung lernen“ und dein Prüfungsverlauf als Diagramm.
-- **Navigationsaufgaben (SBF See):** Du trägst deine Werte ein; sie werden automatisch mit Toleranz geprüft. Dazu Musterlösung und Selbsteinschätzung. Für die Aufgaben brauchst du die gedruckte Übungsseekarte D 49.
+- **Navigationsaufgaben (SBF See):** Du trägst deine Werte ein; sie werden automatisch mit Toleranz geprüft. Dazu die amtliche Lösung der Aufgabe und Selbsteinschätzung. Für die Aufgaben brauchst du die gedruckte Übungsseekarte D 49.
 - **Zum Ausdrucken:** Je nach Kurs kannst du Prüfungsbögen und Navigationsaufgaben als PDF herunterladen.
 
-### [B3 Gut zu wissen] Gut zu wissen
+### [B3 Gut zu wissen] Lernwerkzeug, keine amtliche Prüfung
 Die Online-Simulation ist ein Lernwerkzeug und keine amtliche Prüfung. {{brand}} ist kein amtlicher Anbieter und arbeitet nicht im Auftrag der Prüfungsausschüsse. Wo eine Prüfungsregel bei uns noch nicht abschließend geprüft ist, kennzeichnet die Simulation das als „Übungsmodus“. Die vollständigen amtlichen Kataloge veröffentlichen wir nicht auf dieser Seite.
 
 Kostenlos testen kannst du mit einem kostenlosen Kundenkonto: 10 Fragen je Lernmodul und einen festen Prüfungsbogen pro Kurs. Die Zufallsprüfung gehört zum vollen Zugang.
 
-### [B7] Alles an einem Ort
+### [B7] So übst du den Katalog bei {{brand}}
+Eyebrow: Alles an einem Ort
 Muster: features
 
-### [B9] Häufige Fragen zur Prüfung
-[bootspruefung_faq rubric="SBF-SEE" subcategory="sbf-see-pruefung" title="Häufige Fragen zur SBF-See-Prüfung" search="0" schema="0"]
+### [B9] Häufige Fragen zur Prüfungsvorbereitung
+[bootspruefung_faq ids="26,34,28,31" search="0" schema="0"]
+
+### [B8] Weiterlesen
+- [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor) – Voraussetzungen, Prüfung und Ablauf.
+- [Schritt für Schritt zum Schein](/bootsfuehrerschein-guide/) (Symbol compass) – vom Kurs bis zur Prüfung.
+- [Lexikon](/bootsfuehrerschein-lexikon/) (Symbol cards) – Begriffe rund um Prüfung und Schein.
 
 ### [B10 CTA] Teste dein Wissen – kostenlos.
 Eyebrow: Prüfungsvorbereitung
 Mit kostenlosem Konto übst du 10 Fragen je Lernmodul und einen ganzen Prüfungsbogen.
-Button: Kostenlos Fragen testen | /bootsscheine/
+Button: Kostenlos testen | /bootsscheine/
 Button: Kurse vergleichen | /kurse/

@@ -11,12 +11,18 @@ canonical:
 seo_title: "Geld-zurück-Garantie: 14 Tage, unter 20 % genutzt | {{brand}}"
 meta_description: "Kurs in Ruhe testen: Erstattung innerhalb von 14 Tagen, wenn du weniger als 20 % genutzt hast. Alle Bedingungen und Ausnahmen im Überblick."
 eyebrow: Garantie
-lead: Du kannst deinen Kurs in Ruhe kennenlernen. Zusätzlich zu deinen gesetzlichen Rechten geben wir dir freiwillig eine Geld-zurück-Garantie.
-cta_primary: Kurs wählen | /kurse/
-cta_secondary: Kostenlos reinschnuppern | /bootsscheine/
+lead: "Zusätzlich zu deinen gesetzlichen Rechten: Hast du in den 14 Tagen ab Zahlungseingang weniger als 20 % der gekauften Inhalte genutzt, erstatten wir dir den gezahlten Preis der Produkte mit Garantie."
+cta_primary: "Kurse vergleichen | /kurse/"
+cta_secondary: "Kostenlos testen | /bootsscheine/"
 schema: WebPage
 breadcrumb: Start / Kurse / Geld-zurück-Garantie
 hero_note: "Garantiegeber: [[Betreiber: Firma, Anschrift, E-Mail]]"
+hero_photo: paesse
+stand: 10.11.2026
+hero_stats:
+  - "shield | 14 Tage | ab Zahlungseingang"
+  - "check | unter 20 % | genutzt"
+  - "user | Mein Lernen | dort anfordern"
 open_items:
   - "Betreiber: Name/Firma, Anschrift und E-Mail des Garantiegebers eintragen (§ 479 BGB; Platzhalter auch in AGB Nr. 1). Grund für Status Entwurf."
   - "Betreiber: verbindliche Erstattungsfrist festlegen und gleichlautend in AGB Nr. 9, auf dieser Seite, in FAQ 22, im Produkttext (ShopCatalog::guaranteeParagraph()) und unter „Mein Lernen“ (MoneyBackWoo) eintragen. Heute nennt keine Quelle eine Frist."
@@ -39,9 +45,7 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B10 Garantie]
-
-### [B5 Fakten] Die Bedingungen
+### [B5 Fakten] Die Bedingungen {#bedingungen | Bedingungen}
 - **Frist:** 14 Tage ab Zahlungseingang, auf die Minute genau. Das Fristende mit Datum und Uhrzeit siehst du unter „Mein Lernen“.
 - **Bedingung:** Du hast seit dem Zahlungseingang weniger als 20 % der gekauften Inhalte genutzt.
 - **So zählen wir:** Gezählt werden die Prüfungsfragen der gekauften Kurse, die du seit dem Zahlungseingang beantwortet hast – im Smarttrainer oder in den Quizfragen der Video-Lektionen, jede Frage einmal –, und die abgeschlossenen Video-Lektionen, die du seit dem Zahlungseingang aufgerufen hast. Maßstab ist die Gesamtzahl der Fragen und Video-Lektionen der gekauften Kurse.
@@ -50,7 +54,7 @@ open_items:
 - **Erstattung:** Wir erstatten den gezahlten Preis der Produkte mit Garantie dieser Bestellung über deine ursprüngliche Zahlungsart, spätestens [[Betreiber: Erstattungsfrist]] nach Eingang deiner Anfrage.
 - **Folge:** Mit der Erstattung endet dein Zugang zu den erstatteten Kursen. Produkte ohne Garantie in derselben Bestellung werden nicht erstattet und bleiben nutzbar.
 
-### [B5 Vergleich] Für welche Produkte die Garantie gilt
+### [B5 Vergleich] Für welche Produkte die Garantie gilt {#produkte | Produkte}
 #### Gilt für
 - Einzelkurse in der Theorie-Stufe und in „Komplett mit Videokurs“
 - Video-Upgrades
@@ -63,7 +67,10 @@ open_items:
 - eigenständige Zugänge zum Funkgerät-Simulator: Simulator-Pässe und das Simulator-Upgrade im Checkout
 - Produkte, die bereits ganz oder teilweise erstattet wurden; für die übrigen Produkte der Bestellung bleibt die Garantie bestehen
 
-### [B4 schlicht] So forderst du dein Geld zurück
+### [B4] So forderst du dein Geld zurück {#anfordern | Geld zurück anfordern}
+Eyebrow: In drei Schritten
+Die Erstattung forderst du selbst in deinem Kundenkonto an.
+
 1. **„Mein Lernen“ öffnen.** In deinem Kundenkonto siehst du bei der Bestellung deinen Anteil, die 20-%-Grenze und das Fristende.
 2. **„Geld zurück anfordern“ klicken.** Der Knopf erscheint, solange die Bedingungen erfüllt sind. Je Bestellung ist eine Anfrage möglich.
 3. **Bestätigung erhalten.** Den Eingang bestätigen wir dir per E-Mail; danach erstatten wir über deine ursprüngliche Zahlungsart.
@@ -76,11 +83,11 @@ Bei unseren digitalen Kursen stimmst du in der Kasse zu, dass wir sofort mit der
 ### [B3 Gut zu wissen] Deine gesetzlichen Rechte
 Deine Rechte bei Mängeln (§§ 327 ff. BGB) bleiben unberührt. Ihre Inanspruchnahme ist unentgeltlich und hängt nicht von der Garantie ab. Die vollständigen Bedingungen stehen in [Abschnitt 9 der AGB](#kw:agb#geld-zurueck-garantie); du erhältst sie auch mit deiner Bestellbestätigung per E-Mail.
 
-### [B2] Gibt es eine Bestehensgarantie? {#bestehensgarantie}
+### [B2] Gibt es eine Bestehensgarantie? {#bestehensgarantie | Bestehensgarantie?}
 Nein. Die amtliche Prüfung nimmt ein Prüfungsausschuss des DSV oder DMYV ab, und dein Ergebnis hängt von deiner Vorbereitung und vom Prüfungstag ab. Ein bestandenes Ergebnis kann deshalb niemand seriös versprechen. Wir unterstützen dich mit Smarttrainer, Prüfungssimulation mit Auswertung und – je nach Kurs – Navigationsaufgaben, Praxiskarten und Videokurs. Mehr dazu: [Gibt es eine Bestehensgarantie?](/bestehensgarantie-bootsfuehrerschein/)
 
 ### [B10 CTA] Erst testen, dann entscheiden.
 Eyebrow: Garantie
 Mit kostenlosem Konto probierst du jeden Kurs aus – und nach dem Kauf hast du 14 Tage Geld-zurück-Garantie bei weniger als 20 % Nutzung.
-Button: Kurs wählen | /kurse/
+Button: Kostenlos testen | /bootsscheine/
 Button: Bedingungen in den AGB | #kw:agb#geld-zurueck-garantie

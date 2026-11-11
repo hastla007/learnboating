@@ -13,10 +13,11 @@ meta_description: Gilt dein deutscher SBF im Ausland? Was das ICC bedeutet, wo G
 eyebrow: Ratgeber · Ausland
 lead: Der deutsche Sportbootführerschein wird als internationales Zertifikat (ICC) ausgestellt. Das hilft im Ausland, ist aber keine Zusage für jedes Land, jedes Revier und jedes Boot.
 cta_primary: SBF-Kurse vergleichen | /kurse/
-cta_secondary:
+cta_secondary: "Kurz beantwortet | #kurz"
 schema: Article
 breadcrumb: Start / Ratgeber / Ausland
-hero_photo: sbf-see
+hero_photo: weitere flip
+stand: 10.11.2026
 open_items:
   - ELWIS- bzw. Bundesportal-Deep-Link zur Ausstellung als ICC prüfen und mit Abrufdatum einsetzen (Recht, Fach).
   - UNECE-Seite mit der Liste der Staaten, die Resolution Nr. 40 angenommen haben, als Link prüfen (Fach).
@@ -37,15 +38,15 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] Kurz beantwortet
-Oft ja, aber nicht automatisch. Der deutsche Sportbootführerschein wird nach den Angaben im Bundesportal als Internationales Zertifikat (International Certificate of Competence, ICC) im Sinne der UNECE-Resolution Nr. 40 ausgestellt. Das kann die Anerkennung im Ausland erleichtern.
+### [B2] Kurz beantwortet: Der SBF gilt nicht automatisch überall
+Oft ja, aber nicht automatisch. Der deutsche Sportbootführerschein wird als Internationales Zertifikat (International Certificate of Competence, ICC) im Sinne der UNECE-Resolution Nr. 40 ausgestellt. Das kann die Anerkennung im Ausland erleichtern.
 
 Die Resolution Nr. 40 ist allerdings eine Empfehlung. Jeder Staat entscheidet selbst, ob und wie er sie anwendet, und nicht alle Staaten haben sie angenommen. Ob dein Schein genügt, hängt deshalb vom Land, vom Revier, vom Boot, manchmal von deinem Wohnsitz und von den Anforderungen eines Vercharterers ab.
 
-### [B3 Wichtig] Wichtig
+### [B3 Wichtig] Keine pauschale Zusage
 Wir geben keine pauschale Zusage, dass der deutsche Schein in einem bestimmten Land genügt. Darüber entscheiden allein die Behörden des jeweiligen Landes. Prüfe vor jeder Reise die aktuellen Vorgaben – am besten schriftlich.
 
-### [B2] Was auf deinem Schein steht
+### [B2] Was auf deinem Schein steht {#schein | Dein Schein}
 Dein Sportbootführerschein gilt nur für den eingetragenen Geltungsbereich und die eingetragene Antriebsart:
 
 - **SBF See:** Seeschifffahrtsstraßen, nur für Sportboote mit Antriebsmaschine. Eine Segelbefähigung bescheinigt er nicht.
@@ -53,7 +54,7 @@ Dein Sportbootführerschein gilt nur für den eingetragenen Geltungsbereich und 
 
 Wer im Ausland eine Segelyacht chartern will, braucht deshalb häufig zusätzliche Nachweise, etwa einen Segelschein oder einen Erfahrungsnachweis. Was genau verlangt wird, entscheidet das Land bzw. der Vercharterer.
 
-### [B2] Vor Reise oder Charter prüfen
+### [B2] Vor Reise oder Charter prüfen {#charter | Charter-Check}
 - [x] Welche Behörde ist im Zielland zuständig, und was verlangt sie für dein Revier (Küste, Fluss, See)?
 - [x] Erkennt das Land ausländische Scheine an – auch bei deinem Wohnsitz?
 - [x] Passt dein Schein zum Boot: Antriebsmaschine oder Segel, Motorleistung, Länge?
@@ -61,28 +62,28 @@ Wer im Ausland eine Segelyacht chartern will, braucht deshalb häufig zusätzlic
 - [x] Hat das Boot eine UKW-Seefunkanlage? Dann brauchst du in der Regel ein Funkzeugnis.
 - [x] Gelten auf dem Revier eigene Regeln, etwa Motorbootverbote auf Seen oder ein eigenes Patent wie am Bodensee?
 
-### [B2] Funkzeugnis im Ausland: SRC und UBI
+### [B2] Funkzeugnis im Ausland: SRC und UBI {#funk | Funkzeugnis}
 Wer eine Yacht mit UKW-Seefunkanlage führt, braucht in der Regel ein Funkzeugnis, und Vercharterer verlangen es oft. Für den Seefunk ist das [SRC (Short Range Certificate)](/kurse/src/) gedacht, für den Binnenfunk das [UBI](/kurse/ubi/). Bei {{brand}} übst du dafür Prüfungsfragen, Funktexte und die Buchstabiertafel und kannst den Funkgerät-Simulator kostenlos testen.
 
-### [B3 Gut zu wissen] Sonderfall Bodensee
+### [B3 Gut zu wissen] Sonderfall Bodensee {#bodensee}
 Auf dem Bodensee gilt die Bodensee-Schifffahrts-Ordnung. Für Motorboote mit mehr als 4,4 kW und Segelboote mit mehr als 12 m² Segelfläche brauchst du das Bodenseeschifferpatent. Ein deutscher SBF gilt dort nicht automatisch; für Gäste gibt es nur zeitlich begrenzte Ausnahmen. Details nennt das Landratsamt bzw. die Schifffahrtsbehörde am See.
 
-### [B2] Wohnsitz in Österreich oder der Schweiz
-Wohnst du nicht in Deutschland, kann dein Wohnsitz entscheidend sein. In Österreich gelten ausländische Scheine vor allem für Gäste mit Wohnsitz im Ausland; in der Schweiz brauchst du nach zwölf Monaten Wohnsitz einen Schweizer Ausweis, und ein Umtausch setzt voraus, dass du beim Erwerb im Ausstellerstaat gewohnt hast. Einzelheiten: [Deutscher Bootsführerschein mit Wohnsitz in Österreich](/deutscher-bootsfuehrerschein-oesterreich/) und [mit Wohnsitz in der Schweiz](/deutscher-bootsfuehrerschein-schweiz/).
+### [B2] Wohnsitz in Österreich oder der Schweiz {#wohnsitz | Österreich und Schweiz}
+Wohnst du nicht in Deutschland, kann dein Wohnsitz entscheidend sein. In Österreich gelten ausländische Scheine vor allem für Gäste mit Wohnsitz im Ausland; in der Schweiz brauchst du in der Regel nach zwölf Monaten Wohnsitz einen Schweizer Ausweis, und ein Umtausch setzt voraus, dass du beim Erwerb im Ausstellerstaat gewohnt hast. Einzelheiten: [Deutscher Bootsführerschein mit Wohnsitz in Österreich](/deutscher-bootsfuehrerschein-oesterreich/) und [mit Wohnsitz in der Schweiz](/deutscher-bootsfuehrerschein-schweiz/).
 
 ### [B3 Gut zu wissen] Reform angekündigt
-Das Bundesverkehrsministerium hat 2025 eine Neuregelung der Sportbootführerscheine angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Schein ersetzen und zugleich als ICC gelten. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir aktualisieren diese Seite, sobald es Neuigkeiten gibt.
+Das Bundesverkehrsministerium hat eine Neuregelung der Sportbootführerscheine angekündigt: Künftig sollen anerkannte Scheine der Verbände den amtlichen Sportbootführerschein ersetzen. In Kraft ist sie nach unserem Stand (November 2026) noch nicht. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir passen unsere Seiten an, sobald sich etwas ändert.
 
-### [B9] Häufige Fragen zur Scheinwahl
-[bootspruefung_faq rubric="allgemein" subcategory="allgemein-scheinwahl-und-geltungsbereich" title="Häufige Fragen zu Schein und Geltungsbereich" search="0" schema="0"]
+### [B9] Häufige Fragen zum Schein im Ausland
+[bootspruefung_faq ids="3,98,93" search="0" schema="0"]
 
 ### [B8] Weiterlesen
 - [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor): SBF See und Binnen, Voraussetzungen und Ablauf.
-- [Wohnsitz in Österreich](/deutscher-bootsfuehrerschein-oesterreich/) (Symbol compass): Wann ein deutscher SBF dort nicht reicht.
-- [Wohnsitz in der Schweiz](/deutscher-bootsfuehrerschein-schweiz/) (Symbol sail): Schweizer Ausweis, Umtausch und Bodensee.
+- [SBF See oder Binnen zuerst?](/reihenfolge-bootsfuehrerschein/) (Symbol compass): Welcher Schein für dein Revier passt.
+- [Praxis und Prüfung vor Ort](/bootsfuehrerschein-standorte/) (Symbol wheel): Prüfungsausschuss und Bootsschule finden.
 
 ### [B10 CTA] Erst der Schein, dann das Revier.
 Eyebrow: Ratgeber
 Lerne die Theorie für SBF See, SBF Binnen und die Funkzeugnisse online – im eigenen Tempo.
-Button: SBF-Kurse vergleichen | /kurse/
-Button: Kostenlos reinschnuppern | /bootsscheine/
+Button: Kostenlos testen | /bootsscheine/
+Button: Funkkurs SRC ansehen | /kurse/src/

@@ -16,6 +16,8 @@ cta_primary: Kurse vergleichen | /kurse/
 cta_secondary: "Zum Shop | #kw:shop"
 schema: WebPage
 breadcrumb: Start / Kurse / Lernmaterial
+hero_photo: fkn
+stand: 10.11.2026
 open_items:
   - "Technik: noindex,follow und Canonical auf /kurse/ setzen (Rahmen; Kannibalisierung mit Kursübersicht und Shop)."
   - "Betreiber (optional): Bezugsquelle für die Übungsseekarte D 49 nennen; ohne belegte Quelle bleibt es bei „besorgst du selbst“. Fach: Kartenbezeichnung (D 49 / INT 1463) gegen ELWIS bzw. BSH prüfen."
@@ -37,7 +39,7 @@ open_items:
 
 ### [B1] Seitenkopf
 
-### [B2] Was es im Shop gibt
+### [B2] Alles digital – Zugang direkt nach Zahlungseingang {#shop | Was es gibt}
 Alle Produkte sind digital: Du lernst im Browser, es gibt keinen Versand und keine Versandkosten. Der Shop ist nach diesen Bereichen gegliedert:
 
 - **Sportbootführerscheine:** SBF See, SBF Binnen unter Antriebsmaschine, SBF Binnen unter Segel und der Kombikurs See & Binnen
@@ -50,7 +52,7 @@ Alle Produkte sind digital: Du lernst im Browser, es gibt keinen Versand und kei
 
 Alle Produkte sind Einmalzahlungen ohne Abo. Den genauen Umfang und die Laufzeit nennt jede Kursseite.
 
-### [B5 Karten] Was in einem Kurs steckt
+### [B5 Karten] Was in einem Kurs steckt {#kurs | Im Kurs}
 - **Smarttrainer** (smart): alle Prüfungsfragen mit Erklärungen – Tag „Alle Kurse“
 - **Prüfungssimulation** (exam): Zufallsprüfung und feste Bögen mit Zeitlimit – Tag „Alle Kurse“
 - **Navigationsaufgaben** (compass): mit automatischer Prüfung deiner Werte – Tag „SBF See“
@@ -60,22 +62,27 @@ Alle Produkte sind Einmalzahlungen ohne Abo. Den genauen Umfang und die Laufzeit
 
 Mehr zu jeder Funktion: [So funktioniert die Lernplattform](/online-lernplattform-bootsfuehrerschein/).
 
-### [B2] Zum Ausdrucken
+### [B2] Zum Ausdrucken {#pdf | Zum Ausdrucken}
 Je nach Kurs kannst du Unterlagen als PDF herunterladen, zum Beispiel Navigationsaufgaben mit Lösungen, Prüfungsbögen, Vokabeln, Muster-Funksprüche und die Buchstabiertafel. Die PDFs gehören zum vollen Zugang des jeweiligen Kurses.
 
 ### [B3 Wichtig] Das brauchst du zusätzlich für den SBF See
+Symbol: compass
 Für die Navigationsaufgaben zum SBF See brauchst du die gedruckte Übungsseekarte D 49 sowie Navigationsbesteck, etwa Kursdreieck und Zirkel. In der Prüfung arbeitest du ebenfalls in der Übungsseekarte. Karte und Besteck sind nicht im Kurs enthalten; wir verkaufen sie nicht, du besorgst sie selbst.
 
 ### [B7] Welchen Schein machst du?
+Eyebrow: Unsere Kurse
 Muster: courses
 
-[kurswasser_course_tiles set="more"]
+### [B9] Häufige Fragen zu Material und Zugang
+[bootspruefung_faq ids="11,25,95,20" search="0" schema="0"]
 
-### [B9] Häufige Fragen
-Muster: faq
+### [B8] Weiterlesen
+- [So funktioniert die Lernplattform](/online-lernplattform-bootsfuehrerschein/) (Symbol smart) – jede Funktion im Detail.
+- [Kosten des Bootsführerscheins](/bootsfuehrerschein-kosten/) (Symbol cart) – was außer dem Kurs anfällt.
+- [Online zum Bootsführerschein](/online-bootsfuehrerschein/) (Symbol anchor) – was online geht und was vor Ort.
 
 ### [B10 CTA] Alles für die Theorie – digital.
 Eyebrow: Shop
 Vergleiche die Kurse und teste jeden mit kostenlosem Konto.
+Button: Kostenlos testen | /bootsscheine/
 Button: Kurse vergleichen | /kurse/
-Button: Kostenlos reinschnuppern | /bootsscheine/

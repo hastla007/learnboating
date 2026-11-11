@@ -13,10 +13,11 @@ meta_description: Wohnsitz in der Schweiz? Warum ein deutscher SBF den Schweizer
 eyebrow: Ratgeber · Schweiz
 lead: Lernen kannst du von überall. Wohnst du in der Schweiz, ersetzt ein deutscher SBF den Schweizer Schiffsführerausweis aber in der Regel nicht – kläre das vor dem Kauf.
 cta_primary: Deutsche SBF-Kurse ansehen | /kurse/
-cta_secondary:
+cta_secondary: "So gehst du vor | #vorgehen"
 schema: Article
 breadcrumb: Start / Ratgeber / Schweiz
 hero_photo: sbf-binnen-segel
+stand: 10.11.2026
 open_items:
   - "Betreiber/Steuerberatung: Verkauf an Schweizer Privatkunden klären (Schweizer MWST-Pflicht ab weltweitem Umsatz von CHF 100.000, Preisangabe). Bis dahin Entwurf (Recht)."
   - Art. 91a BSV am amtlichen Text (fedlex.admin.ch, SR 747.201.1) gegenlesen; Fach zitiert über lawbrary.ch.
@@ -36,16 +37,16 @@ open_items:
 
 ### [B1] Seitenkopf
 
+### [B2] Kurz beantwortet: Für Schweizer Gewässer in der Regel nicht
+Wohnst du in der Schweiz, ersetzt ein deutscher SBF den Schweizer Schiffsführerausweis in der Regel nicht. Lernen kannst du trotzdem von überall – kläre vorher mit dem Schifffahrtsamt deines Kantons, welcher Ausweis für dein Gewässer nötig ist.
+
 ### [B3 Wichtig] Wichtig für Menschen mit Wohnsitz in der Schweiz
-Wohnst du in der Schweiz, brauchst du für Schweizer Gewässer nach zwölf Monaten Wohnsitz einen Schweizer Schiffsführerausweis (Art. 91a Binnenschifffahrtsverordnung). Einen ausländischen Ausweis tauscht das kantonale Schifffahrtsamt nur prüfungsfrei um, wenn er aus einem Staat stammt, den das Bundesamt für Verkehr dafür anerkennt, und wenn du beim Erwerb nachweislich im Ausstellerstaat gewohnt hast. Ein deutscher SBF, den du von der Schweiz aus erwirbst, ersetzt den Schweizer Ausweis daher in der Regel nicht.
+Wohnst du in der Schweiz, brauchst du für Schweizer Gewässer in der Regel nach zwölf Monaten Wohnsitz einen Schweizer Schiffsführerausweis (Art. 91a Binnenschifffahrtsverordnung). Einen ausländischen Ausweis tauscht das kantonale Schifffahrtsamt nur prüfungsfrei um, wenn er aus einem Staat stammt, den das Bundesamt für Verkehr dafür anerkennt, und wenn du beim Erwerb nachweislich im Ausstellerstaat gewohnt hast. Ein deutscher SBF, den du von der Schweiz aus erwirbst, ersetzt den Schweizer Ausweis daher in der Regel nicht.
 
-### [B3 Gut zu wissen] Bodensee: eigene Regeln
-Auf dem Bodensee gilt die Bodensee-Schifffahrts-Ordnung. Für Motorboote mit mehr als 4,4 kW und Segelboote mit mehr als 12 m² Segelfläche brauchst du das Bodenseeschifferpatent. Ein deutscher SBF gilt dort nicht automatisch; für Gäste gibt es nur zeitlich begrenzte Ausnahmen.
-
-### [B2] Wofür ein deutscher SBF trotzdem sinnvoll sein kann
+### [B2] Wofür ein deutscher SBF trotzdem sinnvoll sein kann {#sinnvoll | Wofür er sinnvoll ist}
 Ein deutscher Sportbootführerschein kann sich lohnen, wenn du auf deutschen Gewässern fahren willst – etwa auf Binnenschifffahrtsstraßen oder an Nord- und Ostsee – oder wenn du im Ausland chartern möchtest. Ob ein Revier im Ausland den Schein bei Schweizer Wohnsitz akzeptiert, prüfst du vorher bei der dortigen Behörde und beim Vercharterer (siehe [Bootsführerschein im Ausland](/bootsfuehrerschein-ausland-anerkennung/)).
 
-Für Schweizer Seen und Flüsse ist der Schweizer Schiffsführerausweis der richtige Weg. Zuständig ist das Schifffahrtsamt deines Wohnsitzkantons, oft beim Strassenverkehrsamt angesiedelt.
+Für Schweizer Seen und Flüsse ist der Schweizer Schiffsführerausweis der richtige Weg. Zuständig ist das Schifffahrtsamt deines Wohnsitzkantons, oft beim Strassenverkehrsamt angesiedelt. Für den Bodensee gilt ein eigenes Patent – mehr dazu im Abschnitt [Sonderfall Bodensee](/bootsfuehrerschein-ausland-anerkennung/#bodensee).
 
 ### [B4] So gehst du vor {#vorgehen}
 Eyebrow: Schritt für Schritt
@@ -68,5 +69,5 @@ Wir bereiten dich auf den deutschen Prüfungsstoff vor: alle Prüfungsfragen im 
 ### [B10 CTA] Geklärt? Dann leg los.
 Eyebrow: Ratgeber
 Lerne die Theorie für den deutschen SBF online – mit allen Prüfungsfragen und Prüfungssimulation.
-Button: Deutsche SBF-Kurse ansehen | /kurse/
-Button: Kostenlos reinschnuppern | /bootsscheine/
+Button: Kostenlos testen | /bootsscheine/
+Button: Deutsche SBF-Kurse | /kurse/
