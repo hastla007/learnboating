@@ -24,7 +24,7 @@ namespace Bootspruefung\Learning\Faq;
  */
 final class FaqImporter
 {
-    public const VERSION = '3';
+    public const VERSION = '4';
     /** Prüfsumme des zuletzt eingespielten Standardstands (Frage + Antwort, wie gespeichert). */
     public const META_DEFAULT_HASH = '_bp_faq_default_hash';
     /** Status, den der Import bzw. die Aktualisierung zuletzt gesetzt hat. */

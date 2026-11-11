@@ -285,6 +285,17 @@ $check(do_shortcode('[bootspruefung_faq rubric="gibt-es-nicht"]') === '', 'ohne 
 $noLd = do_shortcode('[bootspruefung_faq rubric="SRC" theme_only="1" search="0" schema="0"]');
 $check(substr_count($noLd, '<summary>') === 4 && ! str_contains($noLd, 'application/ld+json') && ! str_contains($noLd, 'FAQPage'), 'schema="0": FAQs ohne JSON-LD FAQPage');
 $check(str_contains(do_shortcode('[bootspruefung_faq rubric="SRC" theme_only="1" search="0" schema="1"]'), '"@type":"FAQPage"'), 'schema="1" (Standard): mit JSON-LD');
+$picked = do_shortcode('[bootspruefung_faq ids="20,5,9999,1,5" search="0" schema="0"]');
+preg_match_all('#<summary>(.*?)</summary>#', $picked, $qs);
+$check($qs[1] === ['Sind die Prüfungsgebühren im Kurspreis enthalten?', 'Wie alt muss ich für den Sportbootführerschein sein?', 'Welchen Bootsführerschein brauche ich?'], 'ids: genau diese Nummern in dieser Reihenfolge, unbekannte und doppelte entfallen');
+$check(! str_contains($picked, '<h2') && ! str_contains($picked, '<h3') && ! str_contains($picked, 'bp-faq-nav') && str_contains($picked, 'aria-label="Häufige Fragen"'), 'ids: flache Liste ohne Rubrik- und Unterkategorie-Überschriften');
+$titled = do_shortcode('[bootspruefung_faq ids="1,2" title="Fragen zur Scheinwahl" search="0" schema="1"]');
+$check(str_contains($titled, '>Fragen zur Scheinwahl</h2>') && substr_count($titled, '<summary>') === 2 && substr_count($titled, '"@type":"Question"') === 2 && ! str_contains($titled, '<h3'), 'ids mit Titel: h2, nur die gewählten FAQs (auch im JSON-LD)');
+$byPost = do_shortcode('[bootspruefung_faq ids="'.$byRef(91)->ID.'" search="0" schema="0"]');
+$check(substr_count($byPost, '<summary>') === 1 && str_contains($byPost, 'Wie funktionieren Gruppenpakete?'), 'ids: Zahl ohne passende Nummer gilt als Beitrags-ID');
+$check(substr_count(do_shortcode('[bootspruefung_faq rubric="allgemein" limit="3" search="0" schema="0"]'), '<summary>') === 3, 'limit begrenzt die Zahl der Fragen');
+$check(do_shortcode('[bootspruefung_faq ids="9999" search="0"]') === '', 'ids ohne Treffer: keine Ausgabe');
+$check(! str_contains(FaqRepository::renderAnswer((string) $byRef(94)->post_content).FaqRepository::renderAnswer((string) $byRef(18)->post_content), 'Fachpresse'), 'FAQ 18 und 94 ohne Verweis auf Presseberichte (Datenstand 4)');
 
 echo "REST GET /bootspruefung/v1/faqs\n";
 wp_set_current_user(0);

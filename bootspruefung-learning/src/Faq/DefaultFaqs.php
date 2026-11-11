@@ -15,7 +15,8 @@ namespace Bootspruefung\Learning\Faq;
  * Betreiber im Admin.
  *
  * Datenstand 3 (10.11.2026): Korrekturen der Inhaltsmoderation (content/src/_moderation/_faq-aenderungen-1/-2.md),
- * neue FAQs 93–99, FAQ 13 entfernt. Frühere Texte: DefaultFaqHistory.
+ * neue FAQs 93–99, FAQ 13 entfernt. Datenstand 4 (11.11.2026): FAQ 18 und 94 ohne Verweis auf Presseberichte
+ * (Reform-Text wie auf den Inhaltsseiten). Frühere Texte: DefaultFaqHistory.
  */
 final class DefaultFaqs
 {
@@ -130,7 +131,7 @@ final class DefaultFaqs
                         'answer' => 'Nach bestandener Prüfung erteilt der Prüfungsausschuss den Führerschein. Die Karte wird dir zugeschickt. Wie lange das dauert und ob du vorher einen Nachweis bekommst, sagt dir dein Prüfungsausschuss.',
                         'note' => null],
                     ['ref' => 18, 'theme' => false, 'question' => 'Wie lange ist mein Bootsführerschein gültig?',
-                        'answer' => 'Der Sportbootführerschein ist unbefristet gültig. Er kann entzogen werden, wenn die Eignung oder Zuverlässigkeit fehlt. Eine Reform ist angekündigt. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Mehr dazu: {{link:/sportbootfuehrerschein/|Sportbootführerschein im Überblick}}.',
+                        'answer' => 'Der Sportbootführerschein ist unbefristet gültig. Er kann entzogen werden, wenn die Eignung oder Zuverlässigkeit fehlt. Eine Reform ist angekündigt; bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Mehr dazu: {{link:/sportbootfuehrerschein/|Sportbootführerschein im Überblick}}.',
                         'note' => null],
                     ['ref' => 20, 'theme' => false, 'question' => 'Sind die Prüfungsgebühren im Kurspreis enthalten?',
                         'answer' => 'Nein. Die Prüfungsgebühr zahlst du direkt an den Prüfungsausschuss. In keinem unserer Kurse ist sie enthalten.',
@@ -139,7 +140,7 @@ final class DefaultFaqs
                         'answer' => 'Nein. Der Kurs bereitet dich online vor. Die amtliche Prüfung legst du bei einem Prüfungsausschuss des DSV oder DMYV deiner Wahl ab; Anmeldung, Termin und Prüfungsgebühr laufen direkt über den Ausschuss.',
                         'note' => null],
                     ['ref' => 94, 'theme' => false, 'question' => 'Gilt mein Bootsführerschein nach der angekündigten Reform weiter?',
-                        'answer' => 'Das Bundesverkehrsministerium hat 2025 angekündigt, den amtlichen Sportbootführerschein durch anerkannte Scheine der Verbände zu ersetzen. Ob und wann das in Kraft tritt, stand am 10.11.2026 noch nicht fest. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Den aktuellen Stand findest du beim Bundesverkehrsministerium.',
+                        'answer' => 'Das Bundesverkehrsministerium hat eine Neuregelung der Sportbootführerscheine angekündigt: Künftig sollen anerkannte Scheine der Verbände den amtlichen Sportbootführerschein ersetzen. In Kraft ist sie nach unserem Stand (November 2026) noch nicht. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir passen unsere Seiten an, sobald sich etwas ändert.',
                         'note' => null],
                 ]],
                 ['name' => 'Kosten, Gutscheine und Garantien', 'slug' => 'allgemein-kosten-gutscheine-und-garantien', 'faqs' => [

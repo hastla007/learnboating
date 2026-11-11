@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Faq;
 
 /**
- * Shortcode [bootspruefung_faq rubric="" theme_only="0" subcategory="" title="" search="1" schema="1"].
+ * Shortcode [bootspruefung_faq rubric="" theme_only="0" subcategory="" ids="" limit="" title="" search="1" schema="1"].
+ *
+ * ids="12,31,40": genau diese FAQs in dieser Reihenfolge – Nummern aus den Standard-FAQs (ref); eine Zahl ohne
+ * passende Nummer gilt als Beitrags-ID. Mit ids erscheint eine flache Liste ohne Rubrik- und Unterkategorie-
+ * Überschriften (kuratierter Auszug); rubric, subcategory und theme_only filtern zusätzlich. limit="5" begrenzt
+ * die Zahl der Fragen (auch ohne ids). Ohne beide Attribute bleibt alles wie bisher.
  *
  * Ohne Attribute: ganze FAQ-Sektion mit Rubrik-Navigation (Anker), je Rubrik eine Überschrift,
  * Unterkategorien als Zwischenüberschriften und die FAQs als native <details>. Optional eine
@@ -22,8 +27,16 @@ final class FaqShortcode
     /** @param array<string,string>|string $atts */
     public static function render($atts = []): string
     {
-        $atts = shortcode_atts(['rubric' => '', 'theme_only' => '0', 'subcategory' => '', 'title' => '', 'search' => '1', 'schema' => '1'], (array) $atts, 'bootspruefung_faq');
+        $atts = shortcode_atts(['rubric' => '', 'theme_only' => '0', 'subcategory' => '', 'ids' => '', 'limit' => '', 'title' => '', 'search' => '1', 'schema' => '1'], (array) $atts, 'bootspruefung_faq');
         $faqs = FaqRepository::query(['rubric' => (string) $atts['rubric'], 'theme_only' => $atts['theme_only'], 'subcategory' => (string) $atts['subcategory']]);
+        $ids = self::ids((string) $atts['ids']);
+        if ($ids !== []) {
+            $faqs = self::pick($faqs, $ids);
+        }
+        $limit = (int) $atts['limit'];
+        if ($limit > 0) {
+            $faqs = array_slice($faqs, 0, $limit);
+        }
         if ($faqs === []) {
             return '';
         }
@@ -44,10 +57,15 @@ final class FaqShortcode
         // Überschriften-Hierarchie: Titel (h2) → Rubrik → Unterkategorie, jeweils nur wenn sinnvoll.
         $level = 2;
         $titleLevel = $title !== '' ? $level++ : 0;
-        $showRubric = count($rubrics) > 1 || $title === '';
+        $flat = $ids !== [];
+        if ($flat) {
+            // Kuratierter Auszug: eine Liste in der gewünschten Reihenfolge, ohne Rubrik-Überschriften.
+            $rubrics = ['_' => ['label' => '', 'groups' => ['' => ['label' => '', 'faqs' => $faqs]]]];
+        }
+        $showRubric = ! $flat && (count($rubrics) > 1 || $title === '');
         $rubricLevel = $showRubric ? $level++ : 0;
         $subLevel = min(6, $level);
-        $showSub = trim((string) $atts['subcategory']) === '';
+        $showSub = ! $flat && trim((string) $atts['subcategory']) === '';
 
         $themed = self::themeActive();
         $classes = 'bp-faq'.($themed ? ' kw-section kw-faq' : '');
@@ -116,6 +134,42 @@ final class FaqShortcode
         ];
 
         return '<script type="application/ld+json">'.wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP).'</script>';
+    }
+
+    /** Zahlen aus ids="12, 31,40" (Reihenfolge bleibt, doppelte entfallen). @return list<int> */
+    private static function ids(string $value): array
+    {
+        $ids = array_map('intval', preg_split('/[\s,;]+/', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: []);
+
+        return array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
+    }
+
+    /**
+     * FAQs zu den Nummern bzw. IDs in genau dieser Reihenfolge; unbekannte Nummern entfallen.
+     *
+     * @param list<array<string,mixed>> $faqs
+     * @param list<int> $ids
+     * @return list<array<string,mixed>>
+     */
+    private static function pick(array $faqs, array $ids): array
+    {
+        $byRef = [];
+        $byId = [];
+        foreach ($faqs as $faq) {
+            if ($faq['ref'] !== null) {
+                $byRef[(int) $faq['ref']] ??= $faq;
+            }
+            $byId[(int) $faq['id']] = $faq;
+        }
+        $out = [];
+        foreach ($ids as $id) {
+            $faq = $byRef[$id] ?? $byId[$id] ?? null;
+            if ($faq !== null && ! isset($out[(int) $faq['id']])) {
+                $out[(int) $faq['id']] = $faq;
+            }
+        }
+
+        return array_values($out);
     }
 
     private static function anchor(string $prefix, string $key): string
