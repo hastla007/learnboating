@@ -145,6 +145,8 @@ class FixtureBuild(unittest.TestCase):
         php = cb.manifest_php(self.pages, 'fixtures')
         self.assertIn("'seo_title' => 'Mindestalter Bootsführerschein (Beispiel) | {{brand}}',", php)
         self.assertIn("'open_items' => ['Namen und Rollen des Teams', 'autorisierte Fotos'],", php)
+        self.assertIn("'focus_keyword' => 'Mindestalter Bootsführerschein',", php)
+        self.assertEqual(php.count("'focus_keyword' => '',"), 5)  # optional: sonst leer, nie erfunden
         if shutil.which('php'):
             with tempfile.NamedTemporaryFile('w', suffix='.php', delete=False, encoding='utf-8') as f:
                 f.write(php)
@@ -193,6 +195,19 @@ class Validation(unittest.TestCase):
         meta = 'm' * 148 + '{{brand}}'  # 156
         issues = self.run_build('07-test-a.md', PAGE_A.replace('Beschreibung.', meta) + '### [B2] T\nText\n')
         self.assertTrue(any('07-test-a.md:9: meta_description hat 156 Zeichen' in e for e in issues.errors), issues.errors)
+
+    def test_focus_keyword_optional(self) -> None:
+        issues = self.run_build('07-test-a.md', PAGE_A + '### [B2] T\nText\n')
+        self.assertEqual(issues.errors, [])
+        pages = cb.build(self.dir, cb.Issues())
+        self.assertEqual(pages[0]['focus_keyword'], '')
+        issues = self.run_build('07-test-a.md', PAGE_A.replace('schema: Article\n', 'schema: Article\nfocus_keyword:  Test   A \n') + '### [B2] T\nText\n')
+        self.assertEqual(issues.errors, [])
+        self.assertEqual(cb.build(self.dir, cb.Issues())[0]['focus_keyword'], 'Test A')
+        issues = self.run_build('07-test-a.md', PAGE_A.replace('schema: Article\n', 'schema: Article\nfocus_keyword: {{brand}} Kurs\n') + '### [B2] T\nText\n')
+        self.assertTrue(any('07-test-a.md:14: focus_keyword ohne {{brand}}' in e for e in issues.errors), issues.errors)
+        issues = self.run_build('07-test-a.md', PAGE_A.replace('schema: Article\n', 'schema: Article\nfocus_keyword:\n  - a\n  - b\n') + '### [B2] T\nText\n')
+        self.assertTrue(any('focus_keyword ist ein einzelner Begriff' in e for e in issues.errors), issues.errors)
 
     def test_missing_fields(self) -> None:
         issues = self.run_build('07-test-a.md', PAGE_A.replace('eyebrow: Test\n', '').replace('schema: Article\n', '') + '### [B2] T\nText\n')

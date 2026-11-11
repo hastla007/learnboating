@@ -5,6 +5,93 @@ Funkzeugnissen und Seenotsignalmitteln. Es ist auf das Plugin **Bootsprüfung �
 und **WooCommerce mit Block-Checkout** abgestimmt. Markenname: Platzhalter „XXXX“ (Einstellungen
 des Plugins bzw. Website-Titel).
 
+## Einrichtung (Design › Kurswasser einrichten)
+
+Nach dem Aktivieren des Themes im Backend leitet WordPress den Admin einmal auf **Design › Kurswasser einrichten**
+(nicht bei WP-CLI, AJAX, Cron, Netzwerk-Admin oder Mehrfach-Aktivierung; abschaltbar mit dem Filter
+`kurswasser_setup_redirect`). Die Seite ist danach jederzeit über das Menü erreichbar (`inc/setup.php`).
+
+**Schritt 1 – Plugins.** Liste mit Status (nicht installiert / installiert / aktiv) und Häkchen „installieren und
+aktivieren“ – Reihenfolge WooCommerce, Yoast SEO, Bootsprüfung Lernplattform (WooCommerce immer vor dem Lern-Plugin).
+Vorausgewählt sind WooCommerce und das Lern-Plugin, Yoast ist optional. Installiert wird mit den WordPress-Bordmitteln
+(`plugins_api` + `Plugin_Upgrader`), nur mit den Rechten `install_plugins`/`activate_plugins` und Nonce. Mit
+`DISALLOW_FILE_MODS` oder ohne Schreibrechte/FTP-Zugangsdaten zeigt die Seite einen Hinweis und einen Link zur
+Plugin-Suche bzw. zu wordpress.org statt einer Installation. Die Willkommens-Weiterleitungen von WooCommerce und Yoast
+werden dabei abgeschaltet, damit der Assistent weiterläuft.
+
+**Quelle des Lern-Plugins** (liegt nicht auf wordpress.org), in dieser Reihenfolge:
+
+1. Konstante in `wp-config.php`: `define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', 'https://…/bootspruefung-learning.zip' );`
+   (URL oder lokaler Pfad zu einer ZIP) bzw. Filter `kurswasser_learning_plugin_zip`;
+2. eine mitgelieferte ZIP im Theme: `plugins/bootspruefung-learning.zip` – erzeugt mit
+   `themes/kurswasser/tools/build-plugin-zip.sh [<commit>]` (Stand eines Commits, ohne Tests, ca. 2,7 MB). Die ZIP
+   liegt bewusst nicht im Git (`.gitignore`): Sie wäre bei jeder Plugin-Änderung veraltet und würde das Repo
+   aufblähen. CI baut sie als Artefakt `bootspruefung-learning-plugin`; für ein Release-Paket des Themes vor dem
+   Zippen das Skript ausführen;
+3. sonst: Erklärung und Knopf „Plugin hochladen“ (`plugin-install.php?tab=upload`).
+
+WP-CLI: `wp kurswasser setup plugins` (Stand) bzw. `wp kurswasser setup plugins --install=woocommerce,bootspruefung-learning --user=<admin>`
+(oder `--install=all`).
+
+**Schritt 2 – Inhaltsseiten** (35 Seiten aus `content/pages.php`):
+
+| Yoast SEO | Auswahl |
+|---|---|
+| nicht aktiv | **A** „Inhaltsseiten anlegen (SEO-Daten gibt das Theme aus)“ · „Vorerst nicht anlegen“ |
+| aktiv | **B** „Inhaltsseiten anlegen, SEO-Daten in Yoast“ (empfohlen, vorausgewählt) · **A** „…, SEO-Daten im Theme“ · „Vorerst nicht anlegen“ |
+
+- **Option A:** wie bisher – die Seiten bekommen die Felder der Box „SEO (Kurswasser)“; `inc/seo.php` gibt sie aus
+  (mit aktivem Yoast nur als Rückfall, wo das Yoast-Feld leer ist).
+- **Option B:** zusätzlich werden die Yoast-Felder jeder Seite gefüllt (siehe unten). Sie stehen dann im Yoast-Kasten,
+  in der Snippet-Vorschau und in der Yoast-Sitemap.
+- **Vorerst nicht:** Es passiert nichts; der Hinweis im Dashboard und die Einrichtungsseite bleiben.
+- Die Wahl steht in der Option `kurswasser_content_seo_target` (`theme` bzw. `yoast`) und gilt für jeden späteren
+  Abgleich (Knopf im Admin-Hinweis, WP-CLI). Ist Yoast gewählt, aber nicht aktiv, gilt `theme`. Ist Yoast aktiv und
+  noch nichts gewählt, führt der Knopf im Admin-Hinweis zuerst zur Auswahl.
+
+### Yoast-Felder (Option B, `inc/content-yoast.php`)
+
+| Yoast-Feld | Wert |
+|---|---|
+| `_yoast_wpseo_title` | `seo_title`, `{{brand}}` → `%%sitename%%`; fehlt die Marke und passt sie noch (≤ 60 Zeichen), wird „` %%sep%% %%sitename%%`“ angehängt – wie die Theme-Ausgabe |
+| `_yoast_wpseo_metadesc` | `meta_description`, `{{brand}}` → `%%sitename%%` |
+| `_yoast_wpseo_meta-robots-noindex` | `1` bei `index: noindex`, sonst nicht gesetzt |
+| `_yoast_wpseo_canonical` | absolute URL aus `canonical` (Slug, `/pfad/`, `/` oder URL); zeigt er auf eine Seite, die noch Entwurf ist, bleibt das Feld leer (das Theme setzt dann per Rückfall die Selbstreferenz) und wird beim nächsten Abgleich gefüllt, sobald das Ziel veröffentlicht ist. Nach einem Domainwechsel aktualisiert der nächste Abgleich die URL (sofern unverändert) |
+| `_yoast_wpseo_schema_article_type` | `Article` bei `schema: Article` |
+| `_yoast_wpseo_schema_page_type` | `AboutPage`/`ContactPage`, falls so angegeben. **Nicht** `FAQPage`: `[bootspruefung_faq]` gibt auf der FAQ-Seite schon FAQPage-JSON-LD mit den Fragen aus; Yoast würde zusätzlich seinen WebPage-Knoten zu einer FAQPage ohne Fragen machen (doppeltes Markup) |
+| `_yoast_wpseo_focuskw` | nur aus dem optionalen Manifest-Feld `focus_keyword` (Front-Matter); ohne Angabe kein Fokus-Keyword – es wird keins erfunden |
+
+Die `_kw_`-Felder setzt der Abgleich weiterhin, damit ein Wechsel zurück zu Option A (oder ohne Yoast) funktioniert.
+Die Theme-Ausgabe bleibt bei aktivem Yoast unverändert: nur Rückfall.
+
+**Neuaufbau in Yoast:** Yoast liest Titel, Beschreibung, Robots und Canonical im Frontend und in der Sitemap aus
+seinen Indexables. Nach dem Schreiben baut das Theme das Indexable der Seite über Yoasts eigenen Watcher neu
+(`YoastSEO()->classes->get(Indexable_Post_Watcher::class)->build_indexable($id)`, derselbe Weg wie beim Speichern
+im Editor) und leert den Sitemap-Cache der Seite (`WPSEO_Sitemaps_Cache::invalidate_post`). Zusätzlich erkennt
+Yoasts `Indexable_Post_Meta_Watcher` geänderte `_yoast_wpseo_`-Felder selbst. Falls doch etwas veraltet wirkt:
+Yoast SEO › Werkzeuge › SEO-Datenoptimierung bzw. `wp yoast index --reindex`.
+
+### Überschreib-Regeln
+
+- **Neuer Vorlagenstand** (neue `content/pages.php` mit einem Theme-Update): Der nächste Abgleich übernimmt ihn
+  überall dort, wo du in WordPress nichts geändert hast – Seiteninhalt (Prüfsumme `_kw_content_hash`) und jedes
+  SEO-Feld einzeln (`_kw_content_seo` bzw. `_kw_yoast_written` = zuletzt vom Theme geschriebene Werte).
+- **Von dir geändert:** Seiten mit geändertem Titel/Inhalt bleiben (Hinweis „von dir bearbeitet“). Ein Yoast-Feld
+  wird nur gesetzt, wenn es leer ist und das Theme es noch nie beschrieben hat, oder wenn es noch genau den zuletzt
+  vom Theme geschriebenen Wert enthält. Ein Feld, das du ausgefüllt, geändert oder bewusst geleert hast, bleibt.
+- **„Alles aus dem Theme übernehmen (überschreibt deine Änderungen)“** (Einrichtungsseite, nie vorausgewählt): erst
+  eine Bestätigungsseite mit Warnung und Liste der betroffenen Seiten samt Grund (Inhalt, SEO-Felder, Yoast-Felder,
+  schon vorhandene fremde Seite), dann nur mit Pflicht-Häkchen. Überschreibt auch Geändertes; der alte Seitentext
+  bleibt in den Revisionen, SEO-/Yoast-Felder haben keine. Rechtstexte, Seiten im Papierkorb und veröffentlichte
+  Seiten, deren neue Vorlage Platzhalter enthält, bleiben auch dann unberührt. WP-CLI: `--force`.
+
+```bash
+wp kurswasser content-pages status [--seo=yoast|theme]          # inkl. Yoast-Felder, die gesetzt würden
+wp kurswasser content-pages sync --user=<admin> [--seo=yoast|theme] [--force]
+```
+
+`--seo` gilt nur für diesen Lauf; ohne gilt die Wahl aus der Einrichtung.
+
 ## Seiten und Vorlagen
 
 | Vorlage | Zweck |
@@ -100,7 +187,9 @@ wp kurswasser content-pages sync --user=<admin>                             # an
 - `{{brand}}` wird beim Anlegen (und beim Ausgeben) zum Website-Namen.
 - Nichts wird ungefragt überschrieben: vom Betreiber geänderte Seiten bleiben (Prüfsumme), neue Vorlagenstände
   meldet der Admin-Hinweis (Dashboard, Seiten) mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ und den
-  offenen Punkten je Seite. Seiten mit `[[Betreiber: …]]` bzw. „Offen“-Kasten entstehen als Entwurf.
+  offenen Punkten je Seite. Seiten mit `[[Betreiber: …]]` bzw. „Offen“-Kasten entstehen als Entwurf. Regeln im
+  Einzelnen und „Alles aus dem Theme übernehmen“: Abschnitt „Einrichtung“ oben.
+- Optionales Front-Matter-Feld `focus_keyword:` (ein Begriff, ohne `{{brand}}`) – nur für Yoast (Option B).
 - Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`
   (Seite 33 steckt in `legal/kontakt.html`).
 - Eine alte FAQ-Seite `/haeufige-fragen/` mit `[bootspruefung_faq]` leitet per 301 auf `/faq-bootsfuehrerschein/`.
@@ -112,13 +201,16 @@ Metabox „SEO (Kurswasser)“ an Seiten und Beiträgen: SEO-Titel, Meta-Descrip
 Schema. Ausgabe: `<title>`, Description, `noindex, follow`, Canonical, keine noindex-Seiten in der Sitemap,
 JSON-LD BreadcrumbList (Seiten), Article (Schema „Article“), Organization + WebSite (nur Startseite).
 Mit Yoast SEO oder Rank Math aktiv: keine eigene Ausgabe, nur Rückfall auf die eigenen Felder, wo das
-Plugin-Feld leer ist.
+Plugin-Feld leer ist. Mit Option B der Einrichtung stehen die Werte der Inhaltsseiten zusätzlich direkt in den
+Yoast-Feldern (siehe „Einrichtung“).
 
 ## Prüfen
 
 CI (Job mit WooCommerce 11.2.2) testet Lernbereich, Trainer und Kaufablauf mit diesem Theme,
 legt danach den Produktkatalog an und speichert Screenshots (Desktop und Mobil) als Artefakt
-`theme-kurswasser-screenshots`. Lokal:
+`theme-kurswasser-screenshots`. Integrationstests `tests/content-pages-test.php` und `tests/setup-yoast-test.php`
+(Einrichtung, Plugin-Installation aus einer Dummy-ZIP, Yoast-Übernahme – Yoast dort nur als Stub, nicht das echte
+Plugin). Lokal:
 
 ```bash
 BP_URL=http://127.0.0.1:8099 BP_SHOTS=/tmp/shots node themes/kurswasser/tests/screenshots.mjs

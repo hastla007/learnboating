@@ -36,6 +36,13 @@ jobs:
           name: content-package
           path: build/*.zip
           retention-days: 14
+      - name: Lern-Plugin als ZIP (für „Kurswasser einrichten“ bzw. „Plugin hochladen“)
+        run: themes/kurswasser/tools/build-plugin-zip.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bootspruefung-learning-plugin
+          path: themes/kurswasser/plugins/bootspruefung-learning.zip
+          retention-days: 14
 
   golden-master:
     name: Golden Master gegen Laravel
@@ -171,6 +178,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/content-pages-test.php | tee content-pages.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" content-pages.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Theme Kurswasser – Einrichtung, Plugin-Installation, Yoast-Übernahme (Integration, Yoast simuliert)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/setup-yoast-test.php | tee setup-yoast.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" setup-yoast.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Zugangslogik (Integration, ohne Shop)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log

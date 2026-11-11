@@ -26,6 +26,7 @@ Format einer Seite (siehe ``content/rahmen.md``):
     canonical:                         (leer, Slug, /pfad/ oder URL)
     seo_title: … | {{brand}}           (≤ 60 Zeichen, {{brand}} zählt 8)
     meta_description: …                (≤ 155 Zeichen)
+    focus_keyword:                     (optional; nur mit Yoast: Fokus-Keyword, wird sonst nicht gesetzt)
     eyebrow: Voraussetzungen           (Typ A Pflicht)
     lead: …                            (Typ A Pflicht; Typ B: Einleitung, falls kein [B1])
     cta_primary: SBF-Kurse ansehen | /kurse/      (Typ A Pflicht)
@@ -1186,6 +1187,15 @@ def build_page(path: Path, issues: Issues) -> dict | None:
         issues.errors.append(f'{file}:{line_of("seo_title")}: seo_title hat {brand_len(fm["seo_title"])} Zeichen (max. {MAX_SEO_TITLE}, {BRAND_TOKEN} = {BRAND_LEN})')
     if isinstance(fm.get('meta_description'), str) and fm['meta_description'] and brand_len(fm['meta_description']) > MAX_META:
         issues.errors.append(f'{file}:{line_of("meta_description")}: meta_description hat {brand_len(fm["meta_description"])} Zeichen (max. {MAX_META}, {BRAND_TOKEN} = {BRAND_LEN})')
+    focus = fm.get('focus_keyword', '')
+    if isinstance(focus, list):
+        issues.errors.append(f'{file}:{line_of("focus_keyword")}: focus_keyword ist ein einzelner Begriff, keine Liste')
+        focus = ''
+    focus = re.sub(r'\s+', ' ', str(focus or '')).strip()
+    if len(focus) > 100:
+        issues.errors.append(f'{file}:{line_of("focus_keyword")}: focus_keyword hat {len(focus)} Zeichen (max. 100)')
+    if BRAND_TOKEN in focus or '[[' in focus:
+        issues.errors.append(f'{file}:{line_of("focus_keyword")}: focus_keyword ohne {BRAND_TOKEN} und Platzhalter')
     title = str(fm.get('title', ''))
     if brand_len(title) > 60:
         issues.warnings.append(f'{file}:{line_of("title")}: H1 hat {brand_len(title)} Zeichen (empfohlen ≤ 60)')
@@ -1316,6 +1326,7 @@ def build_page(path: Path, issues: Issues) -> dict | None:
         'canonical': str(fm.get('canonical', '') or '').strip(),
         'seo_title': str(fm.get('seo_title', '')),
         'meta_description': str(fm.get('meta_description', '')),
+        'focus_keyword': focus,
         'schema': str(fm.get('schema', 'none')),
         'open_items': as_list(fm.get('open_items')),
         'eyebrow': str(fm.get('eyebrow', '') or ''),
@@ -1432,7 +1443,7 @@ def php_value(v, indent: int = 2) -> str:
 
 
 MANIFEST_KEYS = ['nr', 'slug', 'path', 'parent', 'title', 'menu_title', 'type', 'template', 'status', 'index', 'canonical',
-                 'seo_title', 'meta_description', 'schema', 'open_items', 'eyebrow', 'lead', 'cta_primary', 'cta_secondary',
+                 'seo_title', 'meta_description', 'focus_keyword', 'schema', 'open_items', 'eyebrow', 'lead', 'cta_primary', 'cta_secondary',
                  'breadcrumb', 'crumb_label', 'reviewed', 'replaces', 'file', 'source']
 
 

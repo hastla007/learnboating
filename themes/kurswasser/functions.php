@@ -18,7 +18,9 @@ require_once __DIR__.'/inc/courses.php';
 require_once __DIR__.'/inc/consent.php';
 require_once __DIR__.'/inc/legal.php';
 require_once __DIR__.'/inc/seo.php';
+require_once __DIR__.'/inc/content-yoast.php';
 require_once __DIR__.'/inc/content-pages.php';
+require_once __DIR__.'/inc/setup.php';
 
 add_action('after_setup_theme', static function (): void {
     load_theme_textdomain('kurswasser', get_template_directory().'/languages');

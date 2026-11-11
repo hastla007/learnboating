@@ -26,6 +26,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Über {{brand}}: wer wir sind und wie wir arbeiten',
         'meta_description' => '{{brand}} bereitet dich online auf Sportbootführerscheine, Funkzeugnisse und Seenotsignalmittel vor. So arbeiten wir und so erreichst du uns.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Zusatzseite (nicht unter den 34 Nummern): Elternseite für 23 (ueber-uns/geschichte-mission) und 24 (ueber-uns/team). Muss vor den Unterseiten angelegt werden, damit deren Slugs stimmen.',
@@ -58,6 +59,7 @@ return [
         'canonical' => '/',
         'seo_title' => 'Online zum Bootsführerschein: was online geht | {{brand}}',
         'meta_description' => 'Theorie online, Prüfung vor Ort: So bereitest du dich mit Smarttrainer und Prüfungssimulation auf SBF See oder Binnen vor. Kostenlos testen.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Startseite (nicht Teil dieser Seiten) braucht laut SEO eine Keyword-Zeile „Bootsführerschein online lernen“ als H1 bzw. im Title; sonst rankt für das Keyword keine URL. Bleibt die Startseite unverändert, Index-Entscheidung für diese Seite neu treffen.',
@@ -92,6 +94,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein im Ausland: Wo gilt der deutsche SBF?',
         'meta_description' => 'Gilt dein deutscher SBF im Ausland? Was das ICC bedeutet, wo Grenzen liegen, etwa am Bodensee, und was du vor Urlaub oder Charter klärst.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'ELWIS- bzw. Bundesportal-Deep-Link zur Ausstellung als ICC prüfen und mit Abrufdatum einsetzen (Recht, Fach).',
@@ -126,6 +129,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Deutscher Bootsführerschein mit Wohnsitz in Österreich',
         'meta_description' => 'Wohnsitz in Österreich? Wann ein deutscher SBF auf österreichischen Gewässern nicht reicht, wofür er sinnvoll ist und was du vor dem Kurskauf klärst.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Betreiber/Steuerberatung: Verkauf an Verbraucher in Österreich klären (Umsatzsteuer des Kundenlands bzw. OSS, Preisangabe „inkl. MwSt.“). Bis dahin Entwurf (Recht).',
@@ -159,6 +163,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Deutscher Bootsführerschein mit Wohnsitz in der Schweiz',
         'meta_description' => 'Wohnsitz in der Schweiz? Warum ein deutscher SBF den Schweizer Schiffsführerausweis meist nicht ersetzt, was am Bodensee gilt und wofür er sich lohnt.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Betreiber/Steuerberatung: Verkauf an Schweizer Privatkunden klären (Schweizer MWST-Pflicht ab weltweitem Umsatz von CHF 100.000, Preisangabe). Bis dahin Entwurf (Recht).',
@@ -192,6 +197,7 @@ return [
         'canonical' => '',
         'seo_title' => 'SBF-Fragenkatalog: Prüfungsfragen für See und Binnen üben',
         'meta_description' => 'Wo du den amtlichen Fragenkatalog für SBF See und Binnen findest, wie der Prüfungsbogen aufgebaut ist und wie du online übst. Kostenlos testen.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Betreiber: Stand bzw. Fassung des Fragenkatalogs je Kurs liefern (Platzhalter im Abschnitt „Katalog oder Übung?“). Pflicht laut Recht; bis dahin Entwurf.',
@@ -228,6 +234,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Prüfungsausschuss und Bootsschule für den SBF finden',
         'meta_description' => 'Theorie online, Praxis und Prüfung vor Ort: So findest du einen Prüfungsausschuss deiner Wahl und eine Bootsschule für die Fahrpraxis.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Deep-Link zur Terminsuche auf sportbootfuehrerscheine.org prüfen und einsetzen (Fach).',
@@ -263,6 +270,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein in der Gruppe: Pakete für 2–50 Personen',
         'meta_description' => 'Lernt als Paar, Familie, Crew oder Verein: ein Kauf, Plätze per Link vergeben, jede Person mit eigenem Konto und eigenem Lernfortschritt.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Navigation „Gruppen“ im Kopf auf diese Seite umstellen (Design, SEO); Produktkategorie „gruppen“ dann noindex,follow (SEO).',
@@ -298,6 +306,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein-Gutschein: Onlinekurs verschenken',
         'meta_description' => 'Verschenke die Theorievorbereitung auf den Bootsführerschein: So funktionieren Kauf, Einlösung und Gültigkeit des {{brand}}-Gutscheins.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Es gibt kein Gutscheinprodukt (keine Zugangscodes; WooCommerce-Gutscheine sind nur Rabattcodes, CouponController.php:15-20). Seite bleibt Entwurf, bis Produkt, Einlösefunktion und AGB-Abschnitt „Gutscheine“ live sind.',
@@ -334,6 +343,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Geld-zurück-Garantie: 14 Tage, unter 20 % genutzt | {{brand}}',
         'meta_description' => 'Kurs in Ruhe testen: Erstattung innerhalb von 14 Tagen, wenn du weniger als 20 % genutzt hast. Alle Bedingungen und Ausnahmen im Überblick.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Name/Firma, Anschrift und E-Mail des Garantiegebers eintragen (§ 479 BGB; Platzhalter auch in AGB Nr. 1). Grund für Status Entwurf.',
@@ -370,6 +380,7 @@ return [
         'canonical' => 'geld-zurueck-garantie-bootsfuehrerschein',
         'seo_title' => 'Gibt es eine Bestehensgarantie? | {{brand}}',
         'meta_description' => 'Nein – ein Prüfungsergebnis kann niemand garantieren. Was dich bei der Vorbereitung wirklich unterstützt und welche Garantie wir dir stattdessen geben.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Technik: noindex,follow und Canonical auf /geld-zurueck-garantie-bootsfuehrerschein/ setzen (Rahmen). Alternative laut Design/SEO: 301 auf …/#bestehensgarantie; dann entfällt diese Seite.',
@@ -401,6 +412,7 @@ return [
         'canonical' => 'kurse/pakete',
         'seo_title' => 'Preise und Kombiangebote für SBF- und Funkkurse | {{brand}}',
         'meta_description' => 'Kombikurse, Kapitäns-Bundle, Pässe, Ergänzungskurse und Gruppenpakete: So findest du das passende Angebot. Preise live im Shop, kein Abo.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Technik: noindex,follow und Canonical auf /kurse/pakete/ setzen (Rahmen, Kannibalisierung mit der Paketseite).',
@@ -437,6 +449,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Lernplattform: So lernst du für den Bootsführerschein',
         'meta_description' => 'Smarttrainer, Prüfungssimulation, Navigationsaufgaben und Funktrainer im Browser – auf PC, Tablet und Smartphone. Mit kostenlosem Konto testen.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Laut Rahmen beworben, aber noch nicht live: Videokurs und Knoten-Videos (Platzhalter, offene-punkte Nr. 3), PDF-Downloads (Nr. 34), Anleitung „Prüfung anmelden“ mit Ausschuss-Suche (Nr. 13, standardmäßig aus), App (REST-API gebaut, App nicht veröffentlicht). Vor dem echten Livegang je Punkt prüfen oder Satz ausblenden.',
@@ -472,6 +485,7 @@ return [
         'canonical' => 'kurse',
         'seo_title' => 'Digitales Lernmaterial für SBF, Funk und SKN/FKN | {{brand}}',
         'meta_description' => 'Fragentrainer, Simulation, Videokurs, Praxiskarten und Funktraining – alles digital. Und was du zusätzlich brauchst, etwa die gedruckte Übungskarte D 49.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Technik: noindex,follow und Canonical auf /kurse/ setzen (Rahmen; Kannibalisierung mit Kursübersicht und Shop).',
@@ -507,6 +521,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein-Lexikon: Begriffe von A bis Z erklärt',
         'meta_description' => 'Was bedeuten ICC, Basisfragen, Tauglichkeitsnachweis oder Bodenseeschifferpatent? Begriffe zu Schein, Prüfung und Funk.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Index-Entscheidung: noindex, bis das Lexikon den Mindestumfang laut SEO erreicht (rund 40 belegte Einträge mit je 40–150 Wörtern); danach auf index stellen. Ausbau um nautische Begriffe (Luv/Lee, Kardinalzeichen usw.) nur mit Fachprüfung und Quelle je Eintrag.',
@@ -542,6 +557,7 @@ return [
         'canonical' => 'sportbootfuehrerschein',
         'seo_title' => 'Ratgeber zum Bootsführerschein: alle Themen | {{brand}}',
         'meta_description' => 'Scheinwahl, Voraussetzungen, Attest, Kosten, Prüfungsfragen und Ausland: alle Ratgeberthemen zum Sportbootführerschein auf einen Blick.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Technik: noindex,follow und Canonical auf /sportbootfuehrerschein/ setzen (Rahmen; SEO sieht Seite 18 als Hub).',
@@ -574,6 +590,7 @@ return [
         'canonical' => 'sportbootfuehrerschein',
         'seo_title' => 'Bootsführerschein machen: Schritt für Schritt erklärt',
         'meta_description' => 'Vom passenden Schein bis zur Karte im Briefkasten: Voraussetzungen, Theorie, Fahrpraxis, Anmeldung und Prüfung – der Ablauf in sechs Schritten.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Technik: noindex,follow und Canonical auf /sportbootfuehrerschein/ setzen (Rahmen; SEO sieht Kannibalisierung „Bootsführerschein machen“).',
@@ -611,6 +628,7 @@ return [
         'canonical' => '',
         'seo_title' => 'SBF See oder Binnen zuerst? Reihenfolge und Kombi',
         'meta_description' => 'See, Binnen oder beide? So wählst du die Reihenfolge passend zu deinem Revier und erfährst, was bei der Kombination von See und Binnen gilt.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Anrechnungsregeln (Basisfragen einmal; praktische Prüfung bei SBF-See-Inhabern für Binnen in der Regel angerechnet; bei SBF-Binnen-Inhabern für See verkürzt) stützen sich auf den Prüfungsrahmen im Repo und Sekundärquellen; vor Veröffentlichung gegen § 8 SpFV prüfen (Fach).',
@@ -646,6 +664,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein machen: SBF See und Binnen erklärt',
         'meta_description' => 'Welcher Bootsführerschein für welches Gewässer? SBF See und Binnen, Voraussetzungen, Ablauf, Kosten und Prüfung – Schritt für Schritt erklärt.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Fachliche Endkontrolle vor Go-live am Wortlaut der SpFV (gesetze-im-internet.de war für die Experten nicht erreichbar): Ausbildung keine Zulassungsvoraussetzung, vorgezogene Prüfung, Gültigkeit unbefristet, Nord-Ostsee-Kanal als Seeschifffahrtsstraße.',
@@ -683,6 +702,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Ärztliches Attest für den Bootsführerschein (SBF)',
         'meta_description' => 'Wer stellt das Attest aus, welches Formular gilt, was wird geprüft und wie alt darf es sein? Alles zum Tauglichkeitsnachweis für den SBF.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Fachliche Endkontrolle am Wortlaut von § 7 und Anlage 2 SpFV mit Anhang 1 (Formular), insbesondere Ersatzregel und Höchstalter des Nachweises.',
@@ -717,6 +737,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein Kosten: Prüfung, Attest, Kurs & Praxis',
         'meta_description' => 'Was kostet der Bootsführerschein? Alle Posten von der Prüfungsgebühr über Attest und Fahrpraxis bis zum Kurs – mit amtlichen Richtwerten.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Gebühren-Richtwerte (Stand November 2026, GuideCorrections.php) und die Spanne laut Bundesportal vor Go-live gegen die Gebührenordnung bzw. das Bundesportal prüfen; Prüfintervall festlegen (z. B. vierteljährlich) und das Stand-Datum mitziehen.',
@@ -752,6 +773,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Bootsführerschein: Mindestalter und Voraussetzungen',
         'meta_description' => 'Ab 14 unter Segel, ab 16 mit Motor: Welches Mindestalter für den SBF gilt, was Minderjährige brauchen und welche Altersgrenzen für Funk gelten.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Fachliche Endkontrolle am Wortlaut der SpFV: Mindestalter, Zustimmung der gesetzlichen Vertretung, vorgezogene Prüfung bis drei Monate vorher (bisher nur Leitfaden und Sekundärquellen); Fundstelle (Paragraf) im Quellenteil ergänzen.',
@@ -786,6 +808,7 @@ return [
         'canonical' => '',
         'seo_title' => '{{brand}} Erfahrungen: Rückmeldungen von Lernenden',
         'meta_description' => 'Wie Lernende mit Smarttrainer, Prüfungssimulation und Praxiskarten für SBF und Funkzeugnis gelernt haben – und wie wir Rückmeldungen prüfen.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: echte, freigegebene Rückmeldungen liefern (Empfehlung SEO: mindestens etwa 10), je Rückmeldung Vorname oder Initialen, Kurs, Monat/Jahr, Quelle, Kennzeichnung „gekürzt“ und dokumentierte Einwilligung (Art. 6 Abs. 1 lit. a, Art. 7 DSGVO; bei Fotos § 22 KUG).',
@@ -823,6 +846,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Unsere Geschichte und Mission | {{brand}}',
         'meta_description' => 'Warum es {{brand}} gibt, wofür wir stehen und wie wir dich online auf Sportbootführerschein, Funkzeugnis und Seenotsignalmittel vorbereiten.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Unternehmensgeschichte liefern – Gründungsjahr, Anlass, Gründerinnen und Gründer, nachprüfbare Meilensteine. Keine unbelegten Angaben wie „seit X Jahren“ (§ 5 Abs. 2 Nr. 3 UWG).',
@@ -856,6 +880,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Das Team hinter {{brand}}',
         'meta_description' => 'Wer bei {{brand}} an Lernplattform, Kursinhalten und Service arbeitet – mit Rollen, Aufgaben und fachlichem Hintergrund.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: je Person Name, Rolle, Aufgabenbereich, kurze Vorstellung und nur belegte Qualifikationen (z. B. Ausbilderschein, SKS/SSS) liefern; Fotos nur autorisiert, keine KI-Personenfotos.',
@@ -891,6 +916,7 @@ return [
         'canonical' => 'ueber-uns',
         'seo_title' => 'Auszeichnungen und Qualität bei {{brand}}',
         'meta_description' => 'Welche Auszeichnungen {{brand}} hat – mit Vergabestelle, Kriterien und Gültigkeit – und wie wir die Qualität unserer Lerninhalte sichern.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Gibt es Auszeichnungen, Zertifizierungen oder Testsiegel? Je Eintrag Name, Vergabestelle, Kriterien, Datum, Gültigkeit, Link zur Vergabestelle bzw. Fundstelle und Lizenz für das Siegel-Logo liefern. Ohne mindestens einen belegten Eintrag nicht veröffentlichen (Anhang Nr. 2 und 4 UWG, § 5 Abs. 2 Nr. 3 UWG).',
@@ -923,6 +949,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Studien zum Lernen für den Bootsführerschein | {{brand}}',
         'meta_description' => 'Eigene Untersuchungen von {{brand}} zum digitalen Lernen für SBF und Funkzeugnis – mit Fragestellung, Daten, Methode und Grenzen offen dargestellt.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Es liegt keine Untersuchung vor. Vor Veröffentlichung: tatsächliche Untersuchung mit Fragestellung, Datengrundlage, Zeitraum, Methode, Einschränkungen und Interessenkonflikten liefern.',
@@ -955,6 +982,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Partner werden: für Bootsschulen und Vereine | {{brand}}',
         'meta_description' => 'Bootsschule oder Verein? Verbinde deine Praxisausbildung mit der Online-Theorie von {{brand}}. Was heute schon geht und wie eine Partnerschaft abläuft.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Gibt es ein Partnerprogramm? Leistungen, Konditionen (Vergütung, Laufzeit, Vertragsbedingungen B2B), Ablauf, Ansprechperson und Kontaktweg festlegen. Bis dahin Entwurf (Recht, Angebot: kein Code, keine Bedingungen).',
@@ -987,6 +1015,7 @@ return [
         'canonical' => 'bootsfuehrerschein-standorte',
         'seo_title' => 'Ausbildungsstätte für Praxis und Prüfung finden',
         'meta_description' => 'So findest du eine Bootsschule für die praktische SBF-Ausbildung: Checkliste zu Fahrstunden, Prüfungsboot, Kosten und Prüfungstermin.',
+        'focus_keyword' => '',
         'schema' => 'Article',
         'open_items' => [
             'Betreiber: Gibt es ein geprüftes Verzeichnis von Ausbildungsstätten oder verlässliche öffentliche Listen? Ohne Verzeichnis erfüllt die Seite ihr Versprechen „finden“ nur teilweise – daher Entwurf. Bei einem Verzeichnis: Aufnahmekriterien, Aktualisierungsdatum, Ranking-Transparenz (§ 5b Abs. 2 UWG) und Kennzeichnung bezahlter Einträge (Anhang Nr. 11a UWG) liefern.',
@@ -1020,6 +1049,7 @@ return [
         'canonical' => 'bootsfuehrerschein-standorte',
         'seo_title' => 'Unsere Partner aus der nautischen Ausbildung | {{brand}}',
         'meta_description' => 'Mit diesen Bootsschulen, Vereinen und nautischen Anbietern arbeitet {{brand}} zusammen – mit Leistung, Region und Art der Zusammenarbeit.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Es gibt keine belegten Partner. Je Partner liefern: Name, schriftliche Freigabe (Name, Logo), Leistung, Region, Kontakt bzw. Website und Art der Geschäftsbeziehung (Provision, Kooperation, keine Gegenleistung).',
@@ -1052,6 +1082,7 @@ return [
         'canonical' => 'bootsfuehrerschein-gruppenangebote',
         'seo_title' => 'Online-Lernzugänge für Bootsschulen und Vereine',
         'meta_description' => 'Lernplätze zentral kaufen, per Link oder E-Mail vergeben: So nutzen Bootsschulen und Vereine die Gruppenpakete von {{brand}} – 2 bis 50 Plätze.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Zusammengelegt mit Seite 7: noindex, Canonical auf /bootsfuehrerschein-gruppenangebote/ (Abschnitt #vereine dort). Die Seite dient als Ziel für direkte Ansprache von Schulen und Vereinen.',
@@ -1087,6 +1118,7 @@ return [
         'canonical' => 'partnerprogramm',
         'seo_title' => 'Affiliate-Partnerschaft mit {{brand}}',
         'meta_description' => 'Du empfiehlst Bootsführerschein-Kurse auf Website, Kanal oder Newsletter? So funktioniert das Affiliate-Programm von {{brand}}: Ablauf und Regeln.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Betreiber: Es gibt kein Affiliate-Programm und kein Tracking im Code. Vor Veröffentlichung festlegen: Netzwerk bzw. eigenes Programm, Anmeldung, Vergütung, Cookie-Laufzeit bzw. Zuordnung, erlaubte Werbemittel, Auszahlung, Bewerbungsweg und Teilnahmebedingungen.',
@@ -1119,6 +1151,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Karriere bei {{brand}}: Jobs rund ums digitale Lernen',
         'meta_description' => 'Offene Stellen bei {{brand}}: Arbeite mit uns an digitaler Prüfungsvorbereitung für Sportbootführerscheine und Funkzeugnisse. Aufgaben und Bewerbung.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'Ohne ausgeschriebene Stelle statt der Stellenkarte den Satz der Moderation zeigen: „Derzeit sind keine Stellen ausgeschrieben. Schau gern später wieder vorbei.“',
@@ -1152,6 +1185,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Kontakt und Support | {{brand}}',
         'meta_description' => 'Fragen zu Kurs, Lernzugang oder Bestellung? So erreichst du unseren Support – mit Bestellnummer geht es schneller. Antworten auch in den FAQ.',
+        'focus_keyword' => '',
         'schema' => 'WebPage',
         'open_items' => [
             'KEINE neue Seite: Die Umsetzung ersetzt die Theme-Vorlage themes/kurswasser/legal/kontakt.html durch diese Fassung (Block-Markup). Die Seite /kontakt/ legt das Theme über inc/legal.php an (kurswasser_legal_pages); nicht doppelt anlegen.',
@@ -1187,6 +1221,7 @@ return [
         'canonical' => '',
         'seo_title' => 'Häufige Fragen zum Bootsführerschein | {{brand}}',
         'meta_description' => 'Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt, mit Wegen zu den ausführlichen Ratgeberseiten.',
+        'focus_keyword' => '',
         'schema' => 'FAQPage',
         'open_items' => [
             'Voraussetzung für die Veröffentlichung: die FAQ-Änderungen aus _faq-aenderungen-2.md im Plugin einpflegen (Admin „Bootsprüfung › FAQ“; DefaultFaqs.php nur für Neuinstallationen). Der Shortcode zeigt alle veröffentlichten FAQs, also auch FAQ 1, 3, 5, 7, 15–18, 22, 25, 51, 89 in der heutigen Fassung.',

@@ -15,6 +15,7 @@ lead: Ab 16 Jahren unter Motor, ab 14 Jahren unter Segel – und was Minderjähr
 cta_primary: SBF-Kurse ansehen | /kurse/
 cta_secondary: Offizielle Quellen | #quellen
 schema: Article
+focus_keyword: Mindestalter Bootsführerschein
 breadcrumb: Start / Ratgeber (/beispiel-ratgeber/) / Mindestalter
 hero_stats:
   - wheel | 16 Jahre | unter Motor

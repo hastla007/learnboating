@@ -7,9 +7,12 @@
  *
  * Wie die Rechtstexte (inc/legal.php): Nichts wird ungefragt überschrieben. Eine Seite, die der Betreiber
  * geändert hat (Prüfsumme über Titel und Inhalt in _kw_content_hash), bleibt, wie sie ist; neue Vorlagen-
- * stände werden gemeldet. Angelegt und aktualisiert wird nur über den Knopf im Admin oder per WP-CLI
- * (`wp kurswasser content-pages sync`). Seiten mit [[Betreiber: …]] oder „Offen“-Kasten (kw-placeholder)
- * entstehen immer als Entwurf. Einträge, die einen Rechtstext ersetzen (replaces = legal:kontakt), werden
+ * stände werden gemeldet. Unveränderte Seiten (und unveränderte SEO-Felder) übernehmen einen neuen
+ * Vorlagenstand beim nächsten Abgleich. Angelegt und aktualisiert wird nur über den Knopf im Admin, die
+ * Einrichtung (Design › Kurswasser einrichten, inc/setup.php) oder per WP-CLI (`wp kurswasser content-pages
+ * sync`). Auch Geändertes überschreibt nur force: „Alles aus dem Theme übernehmen“ (mit Bestätigung) bzw. --force.
+ * SEO-Daten: immer in die _kw_-Felder (inc/seo.php); mit Ziel „yoast“ zusätzlich in Yoast (inc/content-yoast.php).
+ * Seiten mit [[Betreiber: …]] oder „Offen“-Kasten (kw-placeholder) entstehen immer als Entwurf. Einträge, die einen Rechtstext ersetzen (replaces = legal:kontakt), werden
  * übersprungen – diese Seite pflegt inc/legal.php.
  *
  * Typ A (Vorlage course): Der Kurs-Hero kommt aus dem Shortcode [kurswasser_page_hero] am Seitenanfang
@@ -257,7 +260,9 @@ function kurswasser_content_source_hash(array $entry, string $content): string
 /**
  * Seiten aus dem Manifest anlegen bzw. aktualisieren.
  *
- * Optionen: dry_run (nur prüfen), force (auch bearbeitete/fremde Seiten überschreiben), dir (Vorlagenordner).
+ * Optionen: dry_run (nur prüfen), force (auch bearbeitete/fremde Seiten und geänderte SEO-Felder überschreiben),
+ * dir (Vorlagenordner), seo („theme“ bzw. „yoast“; Standard: kurswasser_content_seo_target()). Mit seo=yoast
+ * stehen je Seite zusätzlich die Yoast-Felder in 'yoast' (written = gesetzt bzw. zu setzen, kept = vom Betreiber).
  * Zustände je Pfad: created|updated (bzw. im Probelauf new|outdated), unchanged, edited (neue Vorlage, Seite
  * vom Betreiber geändert), customized (geändert, Vorlage unverändert), foreign (Seite gab es schon, nicht aus
  * der Vorlage), blocked (live und neue Vorlage enthält Platzhalter), legal (ersetzt einen Rechtstext),
@@ -270,8 +275,10 @@ function kurswasser_content_pages_sync(array $options = []): array
     $dry = ! empty($options['dry_run']);
     $force = ! empty($options['force']);
     $dir = isset($options['dir']) ? (string) $options['dir'] : null;
+    $seo = in_array($options['seo'] ?? '', ['theme', 'yoast'], true) ? (string) $options['seo'] : kurswasser_content_seo_target();
     $result = [];
     $planned = [];
+    $entries = [];
     // Ohne unfiltered_html (WP-CLI ohne --user, Cron) würde kses #kw:-Links und Inline-Stile entfernen.
     $kses = ! $dry && has_filter('content_save_pre', 'wp_filter_post_kses');
     if ($kses) {
@@ -280,6 +287,7 @@ function kurswasser_content_pages_sync(array $options = []): array
     try {
         foreach (kurswasser_content_manifest($dir) as $entry) {
             $path = (string) $entry['path'];
+            $entries[$path] = $entry;
             $title = kurswasser_content_tokens((string) $entry['title']);
             $set = static function (string $state, int $id = 0) use (&$result, $path, $title, $entry): void {
                 $result[$path] = ['state' => $state, 'id' => $id, 'title' => $title, 'nr' => (int) ($entry['nr'] ?? 0)];
@@ -369,6 +377,14 @@ function kurswasser_content_pages_sync(array $options = []): array
             kurswasser_content_store_meta((int) $id, $entry, $source, $status, ! $ours || $force);
             $set('updated', (int) $id);
         }
+        if ($seo === 'yoast') {
+            // Auch unveränderte und vom Betreiber bearbeitete Seiten: Die Yoast-Felder haben eigene Regeln je Feld.
+            foreach ($result as $path => $row) {
+                if (in_array($row['state'], ['created', 'updated', 'unchanged', 'customized', 'edited', 'new', 'outdated'], true)) {
+                    $result[$path]['yoast'] = kurswasser_content_yoast_store($row['id'], $entries[$path], $force, $dry);
+                }
+            }
+        }
     } finally {
         if ($kses) {
             kses_init_filters();
@@ -441,15 +457,75 @@ function kurswasser_content_open_items(?string $dir = null): array
     return $open;
 }
 
-/** Zustände zusammenfassen: Zustand => Liste von Titeln. */
+/** Zustände zusammenfassen: Zustand => Liste von Titeln (Yoast: yoast-pending/-written, yoast-kept). */
 function kurswasser_content_group(array $result): array
 {
     $groups = [];
     foreach ($result as $row) {
         $groups[$row['state']][] = $row['title'];
+        if (! empty($row['yoast']['written'])) {
+            $groups[! empty($row['yoast']['dry']) ? 'yoast-pending' : 'yoast-written'][] = $row['title'];
+        }
+        if (! empty($row['yoast']['kept'])) {
+            $groups['yoast-kept'][] = $row['title'];
+        }
     }
 
     return $groups;
+}
+
+/** SEO-Felder (_kw_), die der Betreiber nach dem letzten Abgleich geändert hat (Schlüssel). */
+function kurswasser_content_seo_customized(int $id): array
+{
+    $last = get_post_meta($id, '_kw_content_seo', true);
+    if (! is_array($last)) {
+        return [];
+    }
+    $changed = [];
+    foreach ($last as $key => $value) {
+        if ((string) get_post_meta($id, (string) $key, true) !== (string) $value) {
+            $changed[] = (string) $key;
+        }
+    }
+
+    return $changed;
+}
+
+/**
+ * Was „Alles aus dem Theme übernehmen“ (force) überschreiben würde: je Seite die Gründe (von dir bearbeiteter
+ * Inhalt, fremde Seite, geänderte SEO- bzw. Yoast-Felder). Seiten ohne eigene Änderungen fehlen.
+ *
+ * @return list<array{nr:int,title:string,id:int,reasons:list<string>}>
+ */
+function kurswasser_content_force_preview(?string $dir = null, ?string $seo = null): array
+{
+    $options = ['dry_run' => true, 'dir' => $dir, 'seo' => $seo ?? kurswasser_content_seo_target()];
+    if ($dir === null) {
+        unset($options['dir']);
+    }
+    $yoastLabels = kurswasser_content_yoast_fields();
+    $seoLabels = ['_kw_seo_title' => __('SEO-Titel', 'kurswasser'), '_kw_seo_description' => __('Meta-Description', 'kurswasser'), '_kw_noindex' => __('noindex', 'kurswasser'),
+        '_kw_canonical' => __('Canonical', 'kurswasser'), '_kw_reviewed_date' => __('Stand', 'kurswasser'), '_kw_schema' => __('Schema', 'kurswasser')];
+    $preview = [];
+    foreach (kurswasser_content_pages_sync($options) as $row) {
+        $reasons = [];
+        if ($row['state'] === 'edited' || $row['state'] === 'customized') {
+            $reasons[] = __('Inhalt bzw. Titel von dir geändert – wird durch die Vorlage ersetzt', 'kurswasser');
+        } elseif ($row['state'] === 'foreign') {
+            $reasons[] = __('Seite gab es schon (nicht aus dem Theme) – Inhalt wird durch die Vorlage ersetzt', 'kurswasser');
+        }
+        if ($row['id'] && in_array($row['state'], ['unchanged', 'outdated', 'edited', 'customized'], true) && ($seoKeys = kurswasser_content_seo_customized($row['id']))) {
+            $reasons[] = sprintf(__('SEO-Felder (Kurswasser) von dir geändert: %s', 'kurswasser'), implode(', ', array_map(static fn ($k) => $seoLabels[$k] ?? $k, $seoKeys)));
+        }
+        if (! empty($row['yoast']['kept'])) {
+            $reasons[] = sprintf(__('Yoast-Felder von dir gesetzt: %s', 'kurswasser'), implode(', ', array_map(static fn ($k) => $yoastLabels[$k] ?? $k, $row['yoast']['kept'])));
+        }
+        if ($reasons) {
+            $preview[] = ['nr' => $row['nr'], 'title' => $row['title'], 'id' => $row['id'], 'reasons' => $reasons];
+        }
+    }
+
+    return $preview;
 }
 
 /** Bezeichnungen der Zustände (Admin und WP-CLI). */
@@ -470,6 +546,9 @@ function kurswasser_content_state_labels(): array
         'no-parent' => __('Elternseite fehlt', 'kurswasser'),
         'no-file' => __('Vorlagendatei fehlt', 'kurswasser'),
         'error' => __('Fehler beim Speichern', 'kurswasser'),
+        'yoast-pending' => __('Yoast-Felder zu übernehmen', 'kurswasser'),
+        'yoast-written' => __('Yoast-Felder übernommen', 'kurswasser'),
+        'yoast-kept' => __('Yoast-Felder von dir gesetzt – nicht überschrieben', 'kurswasser'),
     ];
 }
 
@@ -551,7 +630,8 @@ add_action('admin_notices', static function (): void {
         return;
     }
     $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-    if ($screen && ! in_array($screen->id, ['dashboard', 'edit-page', 'themes'], true)) {
+    $setup = $screen && $screen->id === 'appearance_page_kurswasser-setup';
+    if ($screen && ! $setup && ! in_array($screen->id, ['dashboard', 'edit-page', 'themes'], true)) {
         return;
     }
     $uid = get_current_user_id();
@@ -565,19 +645,22 @@ add_action('admin_notices', static function (): void {
         }
         echo '</ul></div>';
     }
-    if (kurswasser_content_manifest() === []) {
-        return;
+    if ($setup || kurswasser_content_manifest() === []) {
+        return; // Die Einrichtungsseite zeigt den Stand selbst.
     }
     $groups = kurswasser_content_group(kurswasser_content_pages_sync(['dry_run' => true]));
     $labels = kurswasser_content_state_labels();
-    $todo = count($groups['new'] ?? []) + count($groups['outdated'] ?? []);
-    $report = array_intersect_key($groups, array_flip(['new', 'outdated', 'edited', 'foreign', 'blocked', 'no-parent', 'no-file']));
+    $todo = count($groups['new'] ?? []) + count($groups['outdated'] ?? []) + count($groups['yoast-pending'] ?? []);
+    $report = array_intersect_key($groups, array_flip(['new', 'outdated', 'edited', 'foreign', 'blocked', 'no-parent', 'no-file', 'yoast-pending', 'yoast-kept']));
     $open = $screen && $screen->id === 'themes' ? [] : kurswasser_content_open_items();
-    if (! $report && ! $open) {
+    // Yoast später aktiviert, Seiten schon da: einmal fragen, ob die SEO-Daten in Yoast übernommen werden sollen.
+    $askYoast = $todo === 0 && kurswasser_yoast_active() && kurswasser_content_seo_choice() === '' && current_user_can('manage_options')
+        && array_intersect_key($groups, array_flip(['unchanged', 'customized', 'edited'])) !== [];
+    if (! $report && ! $open && ! $askYoast) {
         return;
     }
     echo '<div class="notice notice-info"><p><strong>'.esc_html__('Inhaltsseiten aus dem Theme', 'kurswasser').'</strong> – '
-        .esc_html__('Info- und Marketingseiten aus content/. Von dir bearbeitete Seiten werden nie überschrieben.', 'kurswasser').'</p>';
+        .esc_html__('Info- und Marketingseiten aus content/. Unveränderte Seiten übernehmen neue Vorlagenstände; von dir bearbeitete Seiten und SEO-Felder bleiben, außer du wählst ausdrücklich „Alles aus dem Theme übernehmen“.', 'kurswasser').'</p>';
     if ($report) {
         echo '<ul style="list-style:disc;margin-left:1.5em">';
         foreach ($report as $state => $titles) {
@@ -586,9 +669,21 @@ add_action('admin_notices', static function (): void {
         echo '</ul>';
     }
     if ($todo > 0 && current_user_can('manage_options')) {
-        $url = wp_nonce_url(admin_url('admin-post.php?action=kurswasser_content_sync'), 'kurswasser_content_sync');
-        echo '<p><a class="button button-primary" href="'.esc_url($url).'">'.esc_html__('Inhaltsseiten anlegen bzw. aktualisieren', 'kurswasser').'</a> '
-            .esc_html(sprintf(__('(%d Seiten; nur unveränderte – Seiten mit Platzhaltern als Entwurf)', 'kurswasser'), $todo)).'</p>';
+        $setupUrl = admin_url('themes.php?page=kurswasser-setup#kw-setup-content');
+        if (kurswasser_yoast_active() && kurswasser_content_seo_choice() === '') {
+            // Yoast aktiv, aber noch keine Wahl getroffen: erst fragen, wohin die SEO-Daten sollen.
+            echo '<p><a class="button button-primary" href="'.esc_url($setupUrl).'">'.esc_html__('Inhaltsseiten einrichten', 'kurswasser').'</a> '
+                .esc_html__('(Yoast SEO ist aktiv – wähle, ob die SEO-Daten in Yoast oder im Theme stehen sollen)', 'kurswasser').'</p>';
+        } else {
+            $url = wp_nonce_url(admin_url('admin-post.php?action=kurswasser_content_sync'), 'kurswasser_content_sync');
+            echo '<p><a class="button button-primary" href="'.esc_url($url).'">'.esc_html__('Inhaltsseiten anlegen bzw. aktualisieren', 'kurswasser').'</a> '
+                .esc_html(sprintf(__('(%d Seiten; nur unveränderte – Seiten mit Platzhaltern als Entwurf)', 'kurswasser'), $todo))
+                .' <a href="'.esc_url($setupUrl).'">'.esc_html(kurswasser_content_seo_target() === 'yoast' ? __('SEO-Daten: Yoast – ändern', 'kurswasser') : __('SEO-Daten: Theme – ändern', 'kurswasser')).'</a></p>';
+        }
+    }
+    if ($askYoast) {
+        echo '<p><a class="button" href="'.esc_url(admin_url('themes.php?page=kurswasser-setup#kw-setup-content')).'">'.esc_html__('SEO-Daten in Yoast übernehmen …', 'kurswasser').'</a> '
+            .esc_html__('Yoast SEO ist aktiv. Du kannst Titel, Beschreibung, noindex und Canonical der Inhaltsseiten in die Yoast-Felder schreiben lassen.', 'kurswasser').'</p>';
     }
     if ($open) {
         echo '<details><summary><strong>'.esc_html(sprintf(__('Offene Punkte je Seite (%d Seiten)', 'kurswasser'), count($open))).'</strong></summary><ul style="list-style:disc;margin-left:1.5em">';
@@ -608,26 +703,49 @@ add_action('admin_post_kurswasser_content_sync', static function (): void {
         wp_die(esc_html__('Keine Berechtigung.', 'kurswasser'), '', ['response' => 403]);
     }
     check_admin_referer('kurswasser_content_sync');
-    if (kurswasser_legal_lock(true, 'kurswasser_content_lock')) {
-        try {
-            $groups = kurswasser_content_group(kurswasser_content_pages_sync());
-            set_transient('kurswasser_content_flash_'.get_current_user_id(), array_intersect_key($groups, array_flip(['created', 'updated', 'edited', 'foreign', 'blocked', 'no-parent', 'no-file', 'error'])), 5 * MINUTE_IN_SECONDS);
-        } finally {
-            kurswasser_legal_lock(false, 'kurswasser_content_lock');
-        }
-    }
+    kurswasser_content_run_sync();
     wp_safe_redirect(wp_get_referer() ?: admin_url('edit.php?post_type=page'));
     exit;
 });
+
+/**
+ * Abgleich mit Sperre (gegen Doppelklick) und Ergebnis als Hinweis für den aktuellen Benutzer.
+ * Gibt die Gruppen zurück oder null, wenn gerade ein anderer Abgleich läuft.
+ */
+function kurswasser_content_run_sync(array $options = []): ?array
+{
+    if (! kurswasser_legal_lock(true, 'kurswasser_content_lock')) {
+        return null;
+    }
+    try {
+        $groups = kurswasser_content_group(kurswasser_content_pages_sync($options));
+        set_transient('kurswasser_content_flash_'.get_current_user_id(), array_intersect_key($groups, array_flip(['created', 'updated', 'edited', 'foreign', 'blocked', 'no-parent', 'no-file', 'error', 'yoast-written', 'yoast-kept'])), 5 * MINUTE_IN_SECONDS);
+
+        return $groups;
+    } finally {
+        kurswasser_legal_lock(false, 'kurswasser_content_lock');
+    }
+}
 
 if (defined('WP_CLI') && WP_CLI) {
     $kurswasser_content_cli = static function (bool $dry): callable {
         return static function (array $args, array $assoc) use ($dry): void {
             $labels = kurswasser_content_state_labels();
-            $options = ['dry_run' => $dry || ! empty($assoc['dry-run']), 'force' => ! empty($assoc['force'])];
+            $options = ['dry_run' => $dry || ! empty($assoc['dry-run']), 'force' => ! $dry && ! empty($assoc['force'])];
             if (! empty($assoc['dir'])) {
                 $options['dir'] = rtrim((string) $assoc['dir'], '/');
             }
+            if (isset($assoc['seo'])) {
+                if (! in_array($assoc['seo'], ['theme', 'yoast'], true)) {
+                    WP_CLI::error('--seo=theme oder --seo=yoast');
+                }
+                $options['seo'] = (string) $assoc['seo'];
+                if ($options['seo'] === 'yoast' && ! kurswasser_yoast_active()) {
+                    WP_CLI::warning('Yoast SEO ist nicht aktiv – die Yoast-Felder werden trotzdem geschrieben und gelten, sobald Yoast aktiv ist.');
+                }
+            }
+            $options['seo'] ??= kurswasser_content_seo_target();
+            WP_CLI::log('SEO-Daten: '.($options['seo'] === 'yoast' ? 'Theme-Felder und Yoast' : 'Theme (inc/seo.php)'));
             if (kurswasser_content_manifest($options['dir'] ?? null) === []) {
                 WP_CLI::warning('Kein Manifest bzw. keine Seiten in '.($options['dir'] ?? kurswasser_content_dir()).'/pages.php');
 
@@ -635,7 +753,14 @@ if (defined('WP_CLI') && WP_CLI) {
             }
             $result = kurswasser_content_pages_sync($options);
             foreach ($result as $path => $row) {
-                WP_CLI::log(sprintf('%02d %-44s %s%s', $row['nr'], '/'.$path.'/', $labels[$row['state']] ?? $row['state'], $row['id'] ? ' (#'.$row['id'].')' : ''));
+                $yoast = '';
+                if (! empty($row['yoast']['written'])) {
+                    $yoast .= ' · Yoast '.($options['dry_run'] ? 'zu setzen' : 'gesetzt').': '.implode(', ', array_map(static fn ($k) => substr($k, 13), $row['yoast']['written']));
+                }
+                if (! empty($row['yoast']['kept'])) {
+                    $yoast .= ' · Yoast von dir (bleibt): '.implode(', ', array_map(static fn ($k) => substr($k, 13), $row['yoast']['kept']));
+                }
+                WP_CLI::log(sprintf('%02d %-44s %s%s%s', $row['nr'], '/'.$path.'/', $labels[$row['state']] ?? $row['state'], $row['id'] ? ' (#'.$row['id'].')' : '', $yoast));
             }
             foreach (kurswasser_content_open_items($options['dir'] ?? null) as $row) {
                 WP_CLI::log(sprintf('  offen %02d %s: %s', $row['nr'], $row['title'], implode('; ', $row['items'])));
@@ -652,7 +777,10 @@ if (defined('WP_CLI') && WP_CLI) {
      * : Nur anzeigen, was passieren würde.
      *
      * [--force]
-     * : Auch vom Betreiber bearbeitete und schon vorhandene fremde Seiten überschreiben.
+     * : Auch vom Betreiber bearbeitete und schon vorhandene fremde Seiten sowie geänderte SEO- und Yoast-Felder überschreiben.
+     *
+     * [--seo=<ziel>]
+     * : Wohin die SEO-Daten gehen: theme (nur Theme-Felder) oder yoast (zusätzlich Yoast-Felder). Standard: Wahl aus der Einrichtung.
      *
      * [--dir=<ordner>]
      * : Anderer Vorlagenordner (mit pages.php und pages/).
@@ -661,10 +789,14 @@ if (defined('WP_CLI') && WP_CLI) {
      *
      *     wp kurswasser content-pages sync --dry-run
      *     wp kurswasser content-pages sync --user=admin
+     *     wp kurswasser content-pages sync --seo=yoast --user=admin
      */
     WP_CLI::add_command('kurswasser content-pages sync', $kurswasser_content_cli(false));
     /**
      * Stand der Inhaltsseiten und offene Punkte anzeigen (ändert nichts).
+     *
+     * [--seo=<ziel>]
+     * : theme oder yoast (zeigt auch, welche Yoast-Felder gesetzt würden).
      *
      * [--dir=<ordner>]
      * : Anderer Vorlagenordner.
