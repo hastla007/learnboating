@@ -141,7 +141,7 @@ function kurswasser_tile(string $slug): string
     $html .= '<div class="kw-tile-photo"'.($img ? ' style="background-image:url(\''.esc_url($img).'\')"' : '').'><span class="kw-tile-pill'.($t['signal'] ? ' is-signal' : '').'"><span class="kw-icon kw-icon-'.esc_attr($t['icon']).'" aria-hidden="true"></span>'.esc_html($t['eyebrow']).'</span><span class="kw-tile-code" aria-hidden="true">'.esc_html($t['title']).'</span></div>';
     $html .= '<div class="kw-tile-body"><h3><a href="'.esc_url($t['url']).'">'.esc_html($t['name']).'</a></h3><p class="kw-tile-text">'.esc_html($t['teaser']).'</p><ul class="kw-tile-facts">';
     if ($t['saving'] >= 1) {
-        $html .= '<li class="is-save"><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html(sprintf(__('Du sparst %s', 'kurswasser'), kurswasser_money($t['saving']))).'</li>';
+        $html .= '<li class="is-save"><span class="kw-icon kw-icon-check" aria-hidden="true"></span>'.esc_html(sprintf(__('Du sparst %s gegenüber den Einzelkursen', 'kurswasser'), kurswasser_money($t['saving']))).'</li>';
     }
     foreach (array_slice($t['facts'], 0, $t['saving'] >= 1 ? 1 : 2) as [$icon, $text]) {
         $html .= '<li><span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>'.esc_html($text).'</li>';
@@ -377,8 +377,14 @@ function kurswasser_course_faq(string $slug): string
 /* ------------------------------------------------------------------ Kacheln (Startseite) */
 
 add_shortcode('kurswasser_course_tiles', static function ($atts): string {
-    $set = sanitize_key((string) (shortcode_atts(['set' => 'main'], (array) $atts)['set']));
+    $a = shortcode_atts(['set' => 'main', 'kurse' => ''], (array) $atts);
+    $set = sanitize_key((string) $a['set']);
     $slugs = kurswasser_tile_sets()[$set] ?? kurswasser_tile_sets()['main'];
+    // Auswahl für Ratgeberseiten: kurse="sbf-see,sbf-binnen" – nur bekannte Kurse bzw. Zusatz-Kacheln.
+    $pick = array_values(array_filter(array_map('sanitize_key', explode(',', (string) $a['kurse'])), static fn (string $s): bool => $s !== '' && (isset(kurswasser_courses()[$s]) || isset(kurswasser_special_tiles()[$s]))));
+    if ($pick !== []) {
+        return '<div class="kw-tiles kw-tiles-pick kw-tiles-n'.count($pick).'">'.implode('', array_map('kurswasser_tile', $pick)).'</div>';
+    }
 
     return '<div class="kw-tiles'.(count($slugs) % 4 !== 0 && count($slugs) % 3 === 0 ? ' kw-tiles-3' : '').'">'.implode('', array_map('kurswasser_tile', $slugs)).'</div>';
 });
@@ -447,6 +453,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
 
     // Prüfung
     $html .= kurswasser_course_exam($def);
+    $html .= kurswasser_course_guides();
 
     // Angebote
     $html .= '<section id="preise" class="kw-section kw-course-offers"><div class="kw-center-head"><p class="kw-eyebrow">'.esc_html__('Preise', 'kurswasser').'</p><h2>'.esc_html(sprintf(__('Starte mit %s', 'kurswasser'), $def['title'])).'</h2><p class="kw-lead">'.esc_html__('Einmal zahlen, sofort lernen. Mit der Kombi sparst du gegenüber dem Einzelkauf.', 'kurswasser').'</p></div>';
@@ -458,6 +465,25 @@ add_shortcode('kurswasser_course', static function ($atts): string {
 
     return $html.'<section class="kw-course-tail">'.do_blocks('<!-- wp:pattern {"slug":"kurswasser/guarantee"} /--><!-- wp:pattern {"slug":"kurswasser/faq"} /-->').'</section>';
 });
+
+/**
+ * Zeile „Vor der Prüfung wissen“ auf den Kursseiten: Links auf die passenden Ratgeber (nur veröffentlichte Seiten).
+ */
+function kurswasser_course_guides(): string
+{
+    $links = [];
+    foreach ([['aerztliches-attest-bootsfuehrerschein', __('Ärztliches Attest', 'kurswasser')], ['mindestalter-bootsfuehrerschein', __('Mindestalter', 'kurswasser')],
+        ['bootsfuehrerschein-kosten', __('Kosten', 'kurswasser')], ['bootsfuehrerschein-standorte', __('Praxis und Prüfung vor Ort', 'kurswasser')]] as [$path, $label]) {
+        if (function_exists('kurswasser_page_published') && kurswasser_page_published($path)) {
+            $links[] = kurswasser_page_link($path, $label);
+        }
+    }
+    if ($links === []) {
+        return '';
+    }
+
+    return '<section class="kw-section kw-course-guides"><p class="kw-link-chips"><span class="kw-link-chips-label">'.esc_html__('Vor der Prüfung wissen:', 'kurswasser').'</span>'.implode('', $links).'</p></section>';
+}
 
 /** Prüfungsrahmen aus der Anleitung der Quelle (erste Prüfungsform des Kurses). */
 function kurswasser_course_exam(array $def): string

@@ -79,7 +79,9 @@ class FixtureBuild(unittest.TestCase):
         self.assertTrue(first.startswith('<!-- wp:shortcode -->[kurswasser_page_hero eyebrow="Voraussetzungen"'))
         self.assertIn('primary="SBF-Kurse ansehen|/kurse/"', first)
         self.assertIn('stats="wheel|16 Jahre|unter Motor||sail|14 Jahre|unter Segel"', first)
-        self.assertIn('nav="#motor|Motor||#ablauf|Ablauf"', first)
+        self.assertIn('nav="#motor|Motor||#ablauf|Ablauf"', first)  # unter 5 Abschnitten: Chips im Kopf, keine Sprungleiste
+        self.assertIn('stand="2026-11-10"', first)  # Stand-Zeile (Schema Article)
+        self.assertNotIn('kw-toc-bar', a['html'])
         self.assertNotIn('<h1', a['html'])
         self.assertEqual(a['breadcrumb'], [['Ratgeber', '/beispiel-ratgeber/']])
         self.assertEqual(a['crumb_label'], 'Mindestalter')
@@ -87,22 +89,27 @@ class FixtureBuild(unittest.TestCase):
 
     def test_type_a_sections(self) -> None:
         h = self.by_path['beispiel-ratgeber']['html']
-        self.assertIn('<section id="motor" class="wp-block-group kw-section">', h)  # B2 mit Anker
+        # Lauf aus Lese-Abschnitten: ein Artikel-Abschnitt (ohne Randspalte, da kein „Auf dieser Seite“)
+        self.assertIn('<section class="wp-block-group kw-section kw-article-section"><!-- wp:group {"className":"kw-article"', h)
+        self.assertIn('<div id="motor" class="wp-block-group kw-part">', h)  # B2 mit Anker als Teil des Artikels
+        self.assertEqual(h.count('id="motor"'), 1)
+        self.assertNotIn('kw-article-rail', h)
         self.assertIn('<ul class="wp-block-list is-style-checks">', h)  # - [x]
-        self.assertIn('<p class="kw-pill">Wichtig</p>', h)  # ::: wichtig
-        self.assertIn('<p class="kw-exam-note">Diese Angaben ersetzen keine amtliche Auskunft.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group --></section>', h)  # B3 Hinweis in der Lesespalte davor
-        self.assertEqual(h.count('<section id="motor"'), 1)
-        self.assertIn('<section class="wp-block-group kw-section" style="padding-top:0">', h)  # zweiter weißer Abschnitt in Folge (Vergleich nach Fakten)
-        self.assertIn('<section id="ablauf" class="wp-block-group alignfull kw-section kw-mist">', h)  # B4
-        self.assertIn('<ol class="kw-exam-parts"><li><h3>Geltungsbereich wählen</h3><p>Binnen, See oder beides.</p></li>', h)
+        self.assertIn('<div class="wp-block-group kw-note is-important">', h)  # ::: wichtig als Merkkasten
+        self.assertIn('kw-icon-flare', h)
+        self.assertIn('<p class="kw-exam-note">Diese Angaben ersetzen keine amtliche Auskunft.</p>', h)
+        self.assertIn('<section id="ablauf" class="wp-block-group alignfull kw-section kw-mist">', h)  # B4 (Standardanker ablauf)
+        self.assertIn('<ol class="kw-exam-parts is-route"><li><h3>Geltungsbereich wählen</h3><p>Binnen, See oder beides.</p></li>', h)  # ab 4 Schritten Kurslinie
+        self.assertIn('kw-exam-grid is-sticky', h)
         self.assertIn('<dl class="kw-exam-facts"><div><dt>Online</dt>', h)
         self.assertIn('<div><dt>Motor</dt><dd>16 Jahre</dd></div>', h)  # B5 Fakten
         self.assertIn('<div class="kw-offers-grid kw-offers-n2"><article class="kw-offer">', h)  # B5 Vergleich
+        self.assertIn('<section id="sbf-see-oder-sbf-binnen" class="wp-block-group alignfull kw-section kw-mist">', h)  # Vergleich als Nebelband (Rhythmus)
         self.assertIn('<a class="kw-offer-details" href="/kurse/sbf-see/">', h)
         self.assertIn('<section id="quellen" class="wp-block-group kw-section"', h)  # B6
         self.assertIn('<p class="kw-exam-note">Stand: 10.11.2026</p>', h)
-        self.assertIn('[bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" schema="0" search="0"]', h)  # B9
-        self.assertIn('<p class="kw-eyebrow">Weiterlesen</p>', h)  # B8
+        self.assertIn('[bootspruefung_faq rubric="allgemein" subcategory="allgemein-voraussetzungen" title="Häufige Fragen zu den Voraussetzungen" schema="0" search="0"]', h)  # B9 ohne ids: wie bisher
+        self.assertIn('<div class="kw-more"><div class="kw-more-head"><p class="kw-eyebrow">Weiterlesen</p><h2>Passende Ratgeber</h2>', h)  # B8 als Foto-Kacheln
         self.assertIn('kw-icon-check', h)
         self.assertIn('<div class="wp-block-group kw-cta">', h)  # B10
         self.assertIn('href="#quellen">Offizielle Quellen</a>', h)
@@ -122,16 +129,17 @@ class FixtureBuild(unittest.TestCase):
 
     def test_type_b(self) -> None:
         h = self.by_path['beispiel-ueber-uns']['html']
-        self.assertTrue(h.startswith('<!-- wp:paragraph {"fontSize":"large","textColor":"muted"} -->'))  # Lead als Einleitung
+        self.assertTrue(h.startswith('<!-- wp:shortcode -->[kurswasser_page_head lead='))  # Kopf „Seekarte“ mit Einleitung
         self.assertNotIn('kw-course-hero', h)
         self.assertNotIn('<section', h.split('kw-cta')[0])  # Typ B ohne Abschnitts-Hüllen
         self.assertIn('<div class="kw-feature-grid alignwide">', h)
         self.assertIn('kw-icon-smart', h)
         self.assertIn('<span class="kw-feature-tag">Alle Kurse</span>', h)
-        self.assertIn('<p class="kw-pill">Gut zu wissen</p>', h)
+        self.assertIn('<div class="wp-block-group kw-note">', h)
+        self.assertIn('<p class="kw-eyebrow">Gut zu wissen</p>', h)
         self.assertIn('is-style-card-dark', h)
         self.assertIn('href="/beispiel-ueber-uns/beispiel-team/">Team</a>', h)  # cta_secondary
-        self.assertEqual(self.by_path['beispiel-ueber-uns']['template'], '')
+        self.assertEqual(self.by_path['beispiel-ueber-uns']['template'], 'page-info')
         team = self.by_path['beispiel-ueber-uns/beispiel-team']
         self.assertIn('kw-placeholder', team['html'])
         self.assertEqual(team['breadcrumb'], [['Über uns', '/beispiel-ueber-uns/']])
@@ -288,7 +296,9 @@ class ModerationForms(unittest.TestCase):
             - [Kachel 2](/k2/) – Text (Foto `sbf-see`)
             """)
         html = pg['html']
-        self.assertIn('kw-icon-compass" aria-hidden="true"></span></span><h3><a href="/eins/">Eins</a></h3><p>Satz eins.</p>', html)
+        self.assertIn('kw-icon-compass" aria-hidden="true"></span>Ratgeber</span></div><div class="kw-tile-body"><h3><a href="/eins/">Eins</a></h3><p class="kw-tile-text">Satz eins.</p>', html)
+        self.assertIn('hero-boat-960.webp', html)  # Ziel ohne bekannte Seite: Standardfoto
+        self.assertNotIn('%%KW', html)
         self.assertIn('kw-icon-cart', html)
         self.assertIn("courses/pakete-sm.webp", html)
         self.assertIn("courses/sbf-see-sm.webp", html)
@@ -316,6 +326,149 @@ class ModerationForms(unittest.TestCase):
         self.assertLess(html.index('kw-exam-parts'), html.index('Danach noch ein Satz.'))
         self.assertIn('Stand: 10.11.2026. Mehr im <a href="/ueberblick/">Überblick</a>.', html)
         self.assertEqual(pg['reviewed'], '2026-11-10')
+
+    def test_toc_rail_and_answer(self) -> None:
+        pg, issues = self.build("""\
+            ### [B2] Kurz beantwortet: 16 Jahre unter Motor
+            Die Antwort in einem Satz.
+
+            ### [B2] Erster Abschnitt {#eins | Eins}
+            Text eins.
+
+            ### [B3 Wichtig] Achtung
+            Symbol: shield
+            Ein Hinweis.
+
+            ### [B2] Zweiter Abschnitt
+            Text zwei.
+
+            ### [B5 Karten] Karten
+            - **Eins** (Symbol exam): Text
+
+            ### [B2] Dritter Abschnitt
+            Text drei.
+
+            ### [B9] Häufige Fragen zum Thema
+            [bootspruefung_faq ids="5,6" search="0" schema="0"]
+
+            ### [B10 CTA] Leg los
+            Eyebrow: Bereit?
+            Button: Kostenlos testen | /bootsscheine/
+            """, head='hero_photo: gruppen flip\n')
+        h = pg['html']
+        first = h.split('\n', 1)[0]
+        self.assertIn('photo="gruppen" flip="1"', first)
+        self.assertIn('<nav class="kw-toc-bar has-rail" aria-label="Sprungleiste: Auf dieser Seite"><ol><li><a href="#kurz">Kurz beantwortet</a></li><li><a href="#eins">Eins</a></li><li><a href="#zweiter-abschnitt">Zweiter Abschnitt</a></li>', h)
+        self.assertIn('<li><a href="#fragen">Häufige Fragen</a></li>', h)
+        self.assertIn('kw-article has-rail', h)
+        self.assertIn('<div class="kw-rail-cta"><p class="kw-eyebrow">Bereit?</p><p class="kw-rail-title">Leg los</p><a class="kw-btn kw-btn-signal" href="/bootsscheine/">Kostenlos testen</a></div>', h)
+        self.assertIn('<div id="kurz" class="wp-block-group kw-answer">', h)
+        self.assertIn('Kurz beantwortet</p>', h)
+        self.assertIn('<h2 class="wp-block-heading">16 Jahre unter Motor</h2>', h)
+        self.assertIn('<p class="kw-answer-lead">Die Antwort in einem Satz.</p>', h)
+        self.assertIn('<div class="wp-block-group kw-note is-important">', h)
+        self.assertIn('kw-icon-shield', h)
+        self.assertIn('<h3 class="wp-block-heading">Achtung</h3>', h)
+        # Rhythmus: Karten zwischen weißen Läufen als Nebelband, FAQ-Auszug mit ids als Band mit Kopf links
+        self.assertIn('id="karten" class="wp-block-group alignfull kw-section kw-mist"', h)
+        self.assertIn('<section id="fragen" class="wp-block-group alignfull kw-section kw-mist kw-faq-band">', h)
+        self.assertIn('<p class="kw-faq-all"><a href="/faq-bootsfuehrerschein/">Alle Fragen ansehen</a></p>', h)
+        self.assertIn('[bootspruefung_faq ids="5,6" search="0" schema="0"]', h)
+        self.assertNotIn('title=', h.split('kw-faq-band')[1].split('<!-- /wp:shortcode -->')[0])
+        self.assertIn('kw-cta kw-photo-gruppen is-flip', h)  # Abschluss-Aufruf mit dem Foto der Seite
+        self.assertEqual(block_balance(h), {})
+        self.assertFalse(any('Rhythmus' in w for w in issues.warnings))
+
+    def test_tables_numbers_points_chips(self) -> None:
+        pg, issues = self.build("""\
+            ### [B5 Tabelle] Gebühren
+            Unterschrift: Gerundete Richtwerte.
+            | Prüfung | Richtwert | Zahlst du an |
+            |---|---|---|
+            | SBF See | rund 150 € | Prüfungsausschuss |
+
+            ### [B5 Zahlen] Altersgrenzen
+            - **15 Jahre** | SRC und UBI | Funkzeugnisse (Symbol radio, Akzent funk)
+            - **18 Jahre** | SKN
+
+            ### [B2] Liste
+            - **Eins:** Text eins.
+            - **Zwei:** Text zwei.
+            - **Drei:** Text drei.
+
+            Zu den Kursen: [SRC](/kurse/src/) · [UBI](/kurse/ubi/)
+
+            | A | B | C |
+            |---|---|---|
+            | x | y | z |
+            """)
+        h = pg['html']
+        self.assertIn('<figure class="kw-table"><table><caption>Gerundete Richtwerte.</caption><thead><tr><th scope="col">Prüfung</th>', h)
+        self.assertIn('<tr><th scope="row">SBF See</th><td data-label="Richtwert">rund 150 €</td><td data-label="Zahlst du an">Prüfungsausschuss</td></tr>', h)
+        self.assertIn('<li class="is-funk"><span class="kw-icon kw-icon-radio" aria-hidden="true"></span><strong>15<small>Jahre</small></strong><span class="kw-numbers-label">SRC und UBI</span><span class="kw-numbers-sub">Funkzeugnisse</span></li>', h)
+        self.assertIn('<li><span class="kw-icon kw-icon-check" aria-hidden="true"></span><strong>18<small>Jahre</small></strong><span class="kw-numbers-label">SKN</span></li>', h)
+        self.assertIn('<ul class="wp-block-list kw-points is-2col">', h)
+        self.assertIn('<p class="kw-link-chips"><span class="kw-link-chips-label">Zu den Kursen:</span><a href="/kurse/src/">SRC</a><a href="/kurse/ubi/">UBI</a></p>', h)
+        self.assertIn('<td data-label="B">y</td>', h)  # Tabelle ab 3 Spalten auch im Fließtext
+        self.assertEqual(issues.errors, [])
+
+    def test_glossary_selection_patterns(self) -> None:
+        pg, _ = self.build("""\
+            ### [B5 Glossar] A {#a}
+            #### Antriebsmaschine {#antriebsmaschine}
+            Amtlicher Begriff für den Motor.
+
+            ### [B5 Glossar] B {#b}
+            #### Basisfragen
+            Gemeinsamer Teil.
+
+            ### [B7 Auswahl] Welcher Kurs passt? {#kurse | Kurse}
+            Kurse: sbf-see, sbf-kombi
+
+            ### [B7] Für Bootsschulen und Vereine
+            Eyebrow: Paketgrößen
+            Muster: groups
+
+            ### [B4] In drei Schritten zum Schein
+            Muster: steps
+            """)
+        h = pg['html']
+        self.assertIn('<div class="kw-glossary-letter" id="a"><h2 class="kw-glossary-mark">A</h2><div class="kw-glossary-entries"><div class="kw-glossary-entry" id="antriebsmaschine"><h3>Antriebsmaschine</h3><p>Amtlicher Begriff für den Motor.</p></div>', h)
+        self.assertEqual(h.count('class="wp-block-group kw-section kw-glossary"'), 1)  # aufeinanderfolgende Buchstaben in einem Abschnitt
+        self.assertIn('[kurswasser_course_tiles kurse="sbf-see,sbf-kombi"]', h)
+        self.assertIn('<p class="kw-courses-all"><a href="/kurse/">Alle Kurse ansehen', h)
+        self.assertIn('<!-- wp:pattern {"slug":"kurswasser/groups","kwHeading":"Für Bootsschulen und Vereine","kwEyebrow":"Paketgrößen"} /-->', h)
+        self.assertIn('<!-- wp:pattern {"slug":"kurswasser/steps","kwHeading":"In drei Schritten zum Schein"} /-->', h)
+
+    def test_type_b_head_and_tile_photos(self) -> None:
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / '07-test-a.md').write_text(PAGE_A.replace('schema: Article\n', 'schema: Article\nhero_photo: pakete\n') + '### [B2] Text\nEin Satz.\n', encoding='utf-8')
+            (d / '08-test-b.md').write_text(PAGE_A.replace('nr: 7', 'nr: 8').replace('slug: test-a', 'slug: test-b').replace('type: A', 'type: B')
+                                            .replace('schema: Article\n', 'schema: WebPage\nhero_nav:\n  - "/test-a/ | Seite A | compass"\n  - "#text | Text"\n')
+                                            + '### [B1]\nLead-Satz.\n\n### [B2] Text {#text}\nEin Satz.\n\n### [B8 Weiterlesen] Mehr\n- [Seite A](/test-a/) (Symbol cart) – Satz.\n', encoding='utf-8')
+            issues = cb.Issues()
+            pages = {p['nr']: p for p in cb.build(d, issues)}
+        finally:
+            shutil.rmtree(d)
+        self.assertEqual(issues.errors, [])
+        b = pages[8]
+        self.assertEqual(b['template'], 'page-info')
+        self.assertTrue(b['html'].startswith('<!-- wp:shortcode -->[kurswasser_page_head eyebrow="Test" lead="Lead-Satz." nav="/test-a/|Seite A|compass||#text|Text"]'))
+        self.assertEqual(b['html'].count('Lead-Satz.'), 1)  # Einleitung nur im Kopf
+        self.assertIn("courses/pakete-sm.webp", b['html'])  # Foto der Zielseite
+        self.assertIn('kw-icon-cart" aria-hidden="true"></span>Test</span>', b['html'])  # Rubrik = Eyebrow der Zielseite
+        self.assertNotIn('%%KW', b['html'])
+
+    def test_unknown_course_in_selection(self) -> None:
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / '07-test-a.md').write_text(PAGE_A + '### [B7 Auswahl] Kurse\nKurse: sbf-see, gibt-es-nicht\n', encoding='utf-8')
+            issues = cb.Issues()
+            cb.build(d, issues)
+        finally:
+            shutil.rmtree(d)
+        self.assertTrue(any('gibt-es-nicht' in e for e in issues.errors))
 
     def test_placeholder_targets(self) -> None:
         pg, issues = self.build("""\

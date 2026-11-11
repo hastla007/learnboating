@@ -183,7 +183,31 @@ function kurswasser_content_unlink_unpublished(string $html): string
     $html = (string) preg_replace_callback('#<div class="kw-feature">.*?</div>|<article class="kw-tile">.*?</article>#s', static fn (array $m): string => $bad($m[0]) ? '' : $m[0], $html);
     $html = (string) preg_replace_callback('#<div class="wp-block-button[^"]*">\s*<a\b[^>]*>.*?</a>\s*</div>|<a class="kw-btn\b[^"]*"[^>]*>.*?</a>#s', static fn (array $m): string => $bad($m[0]) ? '' : $m[0], $html);
 
-    return (string) preg_replace_callback('#<a\b([^>]*)>(.*?)</a>#s', static fn (array $m): string => preg_match('/href="([^"]*)"/', $m[1], $h) && kurswasser_link_unpublished($h[1]) ? $m[2] : $m[0], $html);
+    $html = (string) preg_replace_callback('#<a\b([^>]*)>(.*?)</a>#s', static function (array $m): string {
+        if (! preg_match('/href="([^"]*)"/', $m[1], $h) || ! kurswasser_link_unpublished($h[1])) {
+            return $m[0];
+        }
+        $fallback = kurswasser_content_fallback_target($h[1]);
+
+        return $fallback !== null ? '<a'.str_replace($h[0], 'href="'.esc_url($fallback).'"', $m[1]).'>'.$m[2].'</a>' : $m[2];
+    }, $html);
+
+    // Abschluss-Aufruf ohne Knopf (alle Ziele noch Entwurf): Ersatzknopf „Kostenlos testen“.
+    return (string) preg_replace('#<div class="wp-block-buttons([^"]*)">\s*</div>#', '<div class="wp-block-buttons$1"><div class="wp-block-button is-style-signal"><a class="wp-block-button__link wp-element-button" href="'.esc_url(kurswasser_content_link('#kw:learn')).'">'.esc_html__('Kostenlos testen', 'kurswasser').'</a></div></div>', $html);
+}
+
+/**
+ * Ausweichziel für Links auf eine noch nicht veröffentlichte Seite: Die Garantieseite verweist dann auf den
+ * Abschnitt in den AGB (wie inc/offers.php), sofern die AGB veröffentlicht sind. Sonst null (Link wird zu Text).
+ */
+function kurswasser_content_fallback_target(string $href): ?string
+{
+    $href = html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if (! str_contains($href, 'geld-zurueck-garantie-bootsfuehrerschein') || ! kurswasser_page_published('agb')) {
+        return null;
+    }
+
+    return kurswasser_content_link('#kw:agb#geld-zurueck-garantie');
 }
 
 add_filter('render_block', static function (string $html, array $block): string {
@@ -565,7 +589,7 @@ add_filter('kses_allowed_protocols', static function (array $protocols): array {
 
 /** Kurs-Hero für Infoseiten (Typ A, Vorlage course) – Markup wie die Kursseiten (inc/courses.php). */
 add_shortcode('kurswasser_page_hero', static function ($atts): string {
-    $a = shortcode_atts(['eyebrow' => '', 'lead' => '', 'primary' => '', 'secondary' => '', 'photo' => '', 'stats' => '', 'nav' => '', 'title' => '', 'note' => ''], (array) $atts, 'kurswasser_page_hero');
+    $a = shortcode_atts(['eyebrow' => '', 'lead' => '', 'primary' => '', 'secondary' => '', 'photo' => '', 'flip' => '', 'stats' => '', 'nav' => '', 'title' => '', 'note' => '', 'stand' => ''], (array) $atts, 'kurswasser_page_hero');
     $a = array_map(static fn ($v): string => kurswasser_content_tokens(html_entity_decode((string) $v, ENT_QUOTES | ENT_HTML5, 'UTF-8')), $a);
     $post = get_post();
     $title = $a['title'] !== '' ? esc_html($a['title']) : ($post ? esc_html(get_the_title($post)) : '');
@@ -575,7 +599,7 @@ add_shortcode('kurswasser_page_hero', static function ($atts): string {
         $style = ' style="--kw-course-photo:url(\''.esc_url($photo).'\');--kw-course-photo-sm:url(\''.esc_url((string) kurswasser_course_image($slot, true)).'\')"';
     }
     $stats = array_filter(array_map(static fn ($s) => array_map('trim', explode('|', $s)), explode('||', $a['stats'])), static fn ($s) => count($s) === 3);
-    $html = '<section class="kw-course-hero alignfull kw-page-hero"'.$style.'><div class="kw-course-hero-inner">';
+    $html = '<section class="kw-course-hero alignfull kw-page-hero'.($style !== '' && $a['flip'] === '1' ? ' is-flip' : '').'"'.$style.'><div class="kw-course-hero-inner">';
     if ($post) {
         $html .= kurswasser_breadcrumbs_html(kurswasser_breadcrumbs($post));
     }
@@ -601,6 +625,7 @@ add_shortcode('kurswasser_page_hero', static function ($atts): string {
         // Kurze Zeile unter den Buttons (z. B. „Mit kostenlosem Kundenkonto.“) – Farbe und Schrift wie der Lead, kleiner.
         $html .= '<p class="kw-course-lead kw-page-hero-note" style="margin-top:.9rem;font-size:.85rem">'.esc_html($a['note']).'</p>';
     }
+    $html .= kurswasser_content_stand_html($a['stand']);
     $nav = array_filter(array_map(static fn ($s) => array_map('trim', explode('|', $s)), explode('||', $a['nav'])), static fn ($s) => count($s) === 2 && str_starts_with($s[0], '#'));
     if ($nav) {
         $html .= '<nav class="kw-overview-nav" aria-label="'.esc_attr__('Auf dieser Seite', 'kurswasser').'">';
@@ -620,6 +645,175 @@ add_shortcode('kurswasser_page_hero', static function ($atts): string {
 
     return $html.'</div></div></section>';
 });
+
+/** Zeile „Stand: Monat Jahr“ (Ratgeber- und prüfungsrechtliche Seiten); $date = JJJJ-MM-TT. Keine Quellen, nur das Datum. */
+function kurswasser_content_stand_html(string $date, string $class = 'kw-hero-meta'): string
+{
+    if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', trim($date), $m)) {
+        return '';
+    }
+    $months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    $label = ($months[(int) $m[2] - 1] ?? '').' '.$m[1];
+    $how = kurswasser_page_published('ueber-uns') ? ' <span aria-hidden="true">·</span> '.kurswasser_page_link('ueber-uns', __('So entstehen unsere Inhalte', 'kurswasser'), '#inhalte') : '';
+
+    return '<p class="'.esc_attr($class).'"><span class="kw-icon kw-icon-clock" aria-hidden="true"></span>'.esc_html__('Stand:', 'kurswasser').' <time datetime="'.esc_attr($m[0]).'">'.esc_html($label).'</time>'.$how.'</p>';
+}
+
+/** Kompassrose mit Kurslinie und gelbem Wegpunkt (Dekor des Kopfs „Seekarte“, Farbe = currentColor). */
+function kurswasser_chart_rose_svg(): string
+{
+    $cx = 300;
+    $cy = 170;
+    $o = '<svg class="kw-chart-deco" viewBox="0 0 470 340" fill="none" stroke="currentColor" aria-hidden="true" focusable="false"><g stroke-width="1.2" opacity=".28">';
+    foreach ([0, 22, 44, 66] as $off) {
+        $o .= sprintf('<path d="M%.1f %d C %d %d, %.1f %.1f, %.1f %.1f S 205 %.1f, %.1f -10"/>', -10 + $off * .3, 300 - $off, 60 + $off, 250 - $off, 90 + $off * .5, 150 - $off * .6, 150 + $off * .4, 120 - $off * .8, 30 - $off * .4, 250 + $off * .3);
+    }
+    $o .= '</g><path d="M18 318 L120 236 L196 214" stroke-width="2" stroke-dasharray="6 7" opacity=".55"/><circle cx="120" cy="236" r="5" fill="#F5B900" stroke="none"/><circle cx="18" cy="318" r="4" fill="currentColor" stroke="none" opacity=".55"/>';
+    $o .= '<g opacity=".38" stroke-width="1.2"><circle cx="300" cy="170" r="150"/><circle cx="300" cy="170" r="136" stroke-dasharray="1.5 5.5"/><circle cx="300" cy="170" r="100"/><circle cx="300" cy="170" r="14"/>';
+    for ($d = 0; $d < 360; $d += 10) {
+        $a = deg2rad($d);
+        $r1 = $d % 90 ? 141 : 128;
+        $o .= sprintf('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f"/>', $cx + $r1 * sin($a), $cy - $r1 * cos($a), $cx + 150 * sin($a), $cy - 150 * cos($a));
+    }
+    $o .= '</g><g opacity=".5" stroke-linejoin="round">';
+    foreach ([[92, 16, 45, '.25'], [126, 22, 0, '.55']] as [$r, $w, $ang0, $fill]) {
+        for ($i = 0; $i < 4; $i++) {
+            $a = deg2rad($ang0 + $i * 90);
+            $tip = [$cx + $r * sin($a), $cy - $r * cos($a)];
+            $l = [$cx + $w * sin($a - M_PI / 4), $cy - $w * cos($a - M_PI / 4)];
+            $rr = [$cx + $w * sin($a + M_PI / 4), $cy - $w * cos($a + M_PI / 4)];
+            $o .= sprintf('<path d="M%d %d L%.1f %.1f L%.1f %.1f Z" fill="currentColor" fill-opacity="%s" stroke-width="1.2"/>', $cx, $cy, $l[0], $l[1], $tip[0], $tip[1], $fill);
+            $o .= sprintf('<path d="M%d %d L%.1f %.1f L%.1f %.1f Z" fill="none" stroke-width="1.2"/>', $cx, $cy, $rr[0], $rr[1], $tip[0], $tip[1]);
+        }
+    }
+
+    return $o.'</g><text x="300" y="14" text-anchor="middle" font-weight="800" font-size="16" fill="currentColor" stroke="none" opacity=".6">N</text></svg>';
+}
+
+/**
+ * Kopf „Seekarte“ für Seiten vom Typ B (Vorlage page-info): Raster, Kompassrose, Brotkrumen, Eyebrow, H1 (Seitentitel),
+ * Einleitung, Sprung-Chips (#anker bzw. /pfad/ mit Symbol; Ziele, die noch Entwurf sind, entfallen) und Stand.
+ */
+add_shortcode('kurswasser_page_head', static function ($atts): string {
+    $a = shortcode_atts(['eyebrow' => '', 'lead' => '', 'nav' => '', 'stand' => '', 'title' => ''], (array) $atts, 'kurswasser_page_head');
+    $a = array_map(static fn ($v): string => kurswasser_content_tokens(html_entity_decode((string) $v, ENT_QUOTES | ENT_HTML5, 'UTF-8')), $a);
+    $post = get_post();
+    $title = $a['title'] !== '' ? $a['title'] : ($post ? get_the_title($post) : '');
+    $html = '<div class="kw-page-head is-chart alignfull">'.kurswasser_chart_rose_svg().'<div class="kw-page-head-inner">';
+    if ($post) {
+        $html .= kurswasser_breadcrumbs_html(kurswasser_breadcrumbs($post));
+    }
+    $html .= ($a['eyebrow'] !== '' ? '<p class="kw-eyebrow">'.esc_html($a['eyebrow']).'</p>' : '').'<h1>'.esc_html(wp_strip_all_tags($title)).'</h1>';
+    if ($a['lead'] !== '') {
+        $html .= '<p class="kw-page-lead">'.esc_html($a['lead']).'</p>';
+    }
+    $chips = '';
+    foreach (array_filter(explode('||', $a['nav'])) as $item) {
+        $parts = array_map('trim', explode('|', $item));
+        if (count($parts) < 2 || $parts[1] === '' || ! preg_match('#^(\#|/)#', $parts[0]) || kurswasser_link_unpublished($parts[0])) {
+            continue;
+        }
+        $icon = sanitize_key($parts[2] ?? '');
+        $href = str_starts_with($parts[0], '#') ? '#'.sanitize_title(substr($parts[0], 1)) : kurswasser_content_link($parts[0]);
+        $chips .= '<a href="'.esc_url($href).'">'.($icon !== '' ? '<span class="kw-icon kw-icon-'.esc_attr($icon).'" aria-hidden="true"></span>' : '').esc_html($parts[1]).'</a>';
+    }
+    if ($chips !== '') {
+        $html .= '<nav class="kw-page-chips" aria-label="'.esc_attr__('Auf dieser Seite', 'kurswasser').'">'.$chips.'</nav>';
+    }
+    $html .= kurswasser_content_stand_html($a['stand'], 'kw-page-meta');
+
+    return $html.'</div></div>';
+});
+
+/** Kursfoto als Klasse (.kw-photo-<kurs>): Abschluss-Aufruf und Blöcke ohne Inline-Stil (Block-Validierung). */
+function kurswasser_photo_css(): string
+{
+    $css = '';
+    foreach (glob(get_template_directory().'/assets/images/courses/*-sm.webp') ?: [] as $file) {
+        $slot = basename($file, '-sm.webp');
+        $big = kurswasser_course_image($slot);
+        $small = kurswasser_course_image($slot, true);
+        if ($big && $small && preg_match('/^[a-z0-9-]+$/', $slot)) {
+            $css .= '.kw-photo-'.$slot.'{--kw-course-photo:url("'.esc_url($big).'");--kw-course-photo-sm:url("'.esc_url($small).'")}';
+        }
+    }
+
+    return $css;
+}
+
+add_action('wp_enqueue_scripts', static function (): void {
+    if (wp_style_is('kurswasser', 'enqueued')) {
+        wp_add_inline_style('kurswasser', kurswasser_photo_css());
+    }
+    $post = is_singular('page') ? get_queried_object() : null;
+    if ($post instanceof WP_Post && (str_contains($post->post_content, 'kw-toc') || get_post_meta($post->ID, '_kw_content_nr', true) !== '')) {
+        $file = get_template_directory().'/assets/js/content-pages.js';
+        wp_enqueue_script('kurswasser-content-pages', get_template_directory_uri().'/assets/js/content-pages.js', [], is_file($file) ? (string) filemtime($file) : KURSWASSER_VERSION, ['in_footer' => true, 'strategy' => 'defer']);
+    }
+}, 20);
+
+/** Hero-Foto der Seite (Slot aus [kurswasser_page_hero photo] bzw. [kurswasser_course id]) oder '' = Standardfoto. */
+function kurswasser_content_photo_slot(?WP_Post $post): string
+{
+    if (! $post instanceof WP_Post) {
+        return '';
+    }
+    if (preg_match('/\[kurswasser_page_hero\b[^\]]*\sphoto="([a-z0-9-]+)"/', $post->post_content, $m) || preg_match('/\[kurswasser_course id="([a-z0-9-]+)"/', $post->post_content, $m)) {
+        return kurswasser_course_image($m[1]) ? $m[1] : '';
+    }
+
+    return '';
+}
+
+/** Hero-Foto vorladen (LCP): klein bis 781 px, groß ab 782 px – wie die Hintergrundbilder in theme.css. */
+add_action('wp_head', static function (): void {
+    $post = is_singular('page') ? get_queried_object() : null;
+    if (! $post instanceof WP_Post || (! str_contains($post->post_content, '[kurswasser_page_hero') && ! str_contains($post->post_content, '[kurswasser_course id='))) {
+        return;
+    }
+    $slot = kurswasser_content_photo_slot($post);
+    $small = $slot !== '' ? (string) kurswasser_course_image($slot, true) : get_template_directory_uri().'/assets/images/hero-boat-960.webp';
+    $big = $slot !== '' ? (string) kurswasser_course_image($slot) : get_template_directory_uri().'/assets/images/hero-boat.webp';
+    printf('<link rel="preload" as="image" href="%s" type="image/webp" media="(max-width: 781px)" fetchpriority="high">'."\n", esc_url($small));
+    printf('<link rel="preload" as="image" href="%s" type="image/webp" media="(min-width: 782px)" fetchpriority="high">'."\n", esc_url($big));
+}, 2);
+
+/*
+ * Muster mit eigener Überschrift: <!-- wp:pattern {"slug":"kurswasser/courses","kwHeading":"…","kwEyebrow":"…","kwLead":"…"} /-->
+ * ersetzt die erste H2, die erste Eyebrow-Zeile und den ersten Lead des Musters (Konverter, Abschnittsüberschrift).
+ */
+add_filter('render_block', static function (string $html, array $block): string {
+    if (($block['blockName'] ?? '') !== 'core/pattern' || $html === '') {
+        return $html;
+    }
+    $attrs = $block['attrs'] ?? [];
+    $set = static function (string $html, string $pattern, string $text): string {
+        return (string) preg_replace_callback($pattern, static fn (array $m): string => $m[1].esc_html($text).$m[3], $html, 1);
+    };
+    if (! empty($attrs['kwHeading'])) {
+        $html = $set($html, '#(<h2\b[^>]*>)(.*?)(</h2>)#s', kurswasser_content_tokens((string) $attrs['kwHeading']));
+    }
+    if (! empty($attrs['kwEyebrow'])) {
+        $html = $set($html, '#(<p\b[^>]*class="[^"]*kw-eyebrow[^"]*"[^>]*>)(.*?)(</p>)#s', kurswasser_content_tokens((string) $attrs['kwEyebrow']));
+    }
+    if (! empty($attrs['kwLead'])) {
+        $html = $set($html, '#(<p\b[^>]*class="[^"]*kw-lead[^"]*"[^>]*>)(.*?)(</p>)#s', kurswasser_content_tokens((string) $attrs['kwLead']));
+    }
+
+    return $html;
+}, 15, 2);
+
+/*
+ * Fußzeile: Einträge, deren Link auf eine Inhaltsseite zeigt, die noch Entwurf ist (z. B. Kontakt), entfallen – auch
+ * in einer im Website-Editor angepassten Fußzeile (dort steht womöglich noch #kw:kontakt statt #kw:page:kontakt).
+ */
+add_filter('render_block', static function (string $html, array $block): string {
+    if (($block['blockName'] ?? '') !== 'core/template-part' || ($block['attrs']['slug'] ?? '') !== 'footer' || ! str_contains($html, 'kw-footer-links')) {
+        return $html;
+    }
+
+    return (string) preg_replace_callback('#<li>\s*<a href="([^"]*)"[^>]*>[^<]*</a>\s*</li>#', static fn (array $m): string => kurswasser_link_unpublished($m[1]) ? '' : $m[0], $html);
+}, 26, 2);
 
 /*
  * Admin: Hinweis mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ (nur unveränderte Seiten) und die

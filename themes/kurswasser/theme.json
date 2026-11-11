@@ -450,6 +450,13 @@
       "postTypes": [
         "page"
       ]
+    },
+    {
+      "name": "page-info",
+      "title": "Infoseite (Kopf „Seekarte“)",
+      "postTypes": [
+        "page"
+      ]
     }
   ]
 }
