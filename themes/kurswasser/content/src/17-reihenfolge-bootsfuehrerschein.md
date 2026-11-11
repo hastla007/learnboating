@@ -67,13 +67,13 @@ Im [Kombikurs SBF See & Binnen](/kurse/sbf-kombi/) ist das genauso aufgebaut: Da
 Du kannst die Scheine auch mit Abstand machen. Hast du schon einen, entfallen bei der zweiten Prüfung in der Regel die Basisfragen:
 
 Unterschrift: Welche Prüfungsteile angerechnet werden, bestätigt dein Prüfungsausschuss. Das Mindestalter für den SBF Binnen unter Segel ist 14 Jahre.
-| Du hast | Du willst | Theorie | Praxis | Unser Kurs |
-|---|---|---|---|---|
-| SBF Binnen | SBF See | 23 See-Fragen und Navigationsaufgabe | praktische Prüfung, den Umfang nennt dein Ausschuss | Ergänzung Binnen → See |
-| SBF See | SBF Binnen unter Antriebsmaschine | 23 Binnen-Fragen | wird in der Regel angerechnet – frag nach | Ergänzung See → Binnen |
-| SBF Binnen unter Antriebsmaschine | SBF Binnen unter Segel | 7 Segelfragen | praktische Prüfung unter Segel | Ergänzung Binnen → Segeln |
-| SRC | UBI | Ergänzungsprüfung UBI | nennt dein Ausschuss | Ergänzung SRC → UBI |
-| FKN | SKN | SKN-Prüfung, die Anrechnung nennt dein Ausschuss | – | Ergänzung FKN → SKN |
+| Du hast → du willst | Theorie | Praxis | Unser Kurs |
+|---|---|---|---|
+| SBF Binnen → SBF See | 23 See-Fragen und Navigationsaufgabe | praktische Prüfung, den Umfang nennt dein Ausschuss | Ergänzung Binnen → See |
+| SBF See → SBF Binnen (Motor) | 23 Binnen-Fragen | wird in der Regel angerechnet – frag nach | Ergänzung See → Binnen |
+| SBF Binnen (Motor) → unter Segel | 7 Segelfragen | praktische Prüfung unter Segel | Ergänzung Binnen → Segeln |
+| SRC → UBI | Ergänzungsprüfung UBI | nennt dein Ausschuss | Ergänzung SRC → UBI |
+| FKN → SKN | SKN-Prüfung, die Anrechnung nennt dein Ausschuss | – | Ergänzung FKN → SKN |
 
 Ein durch Prüfung erworbener Sportbootführerschein ersetzt beim nächsten Antrag den ärztlichen Tauglichkeitsnachweis, wenn er bei Antragstellung nicht älter als ein Jahr ist.
 

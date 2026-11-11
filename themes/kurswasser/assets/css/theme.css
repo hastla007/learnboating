@@ -770,3 +770,12 @@ mark.kw-legal-placeholder { background: #fffbea; color: inherit; font-weight: in
 	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(3)), .kw-overview-section .kw-tiles:has(> :nth-child(5)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+/* Themen-Kacheln am Handy kompakt: Foto links, Text rechts */
+@media (max-width: 560px) {
+	.kw-overview-section .kw-tiles { gap: .75rem; }
+	.kw-overview-section .kw-tile { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); border-radius: 14px; }
+	.kw-overview-section .kw-tile-photo { grid-row: span 2; aspect-ratio: auto; min-height: 100%; padding: .5rem; }
+	.kw-overview-section .kw-tile-pill, .kw-overview-section .kw-tile-code, .kw-overview-section .kw-tile-foot { display: none; }
+	.kw-overview-section .kw-tile-body { padding: .85rem .9rem; gap: .3rem; }
+	.kw-overview-section .kw-tile h3 { font-size: 1rem; }
+}
