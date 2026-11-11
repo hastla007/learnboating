@@ -14,6 +14,8 @@ namespace Bootspruefung\Learning\ExamGuide;
  *   Bestätigt unverändert: SRC 127,88 €, UBI 108,71 €, SBF See 148,38 €, SKN 48 € (PA Nord).
  * - Bootsschul-Bezug der Quelle („nicht an die Bootsschule“) passt nicht zu dieser Plattform.
  * - Alle Gebühren als Richtwert mit Stand und Hinweis auf den Prüfungsausschuss.
+ * - Unterlagen SBF: Ein anderer Sportbootführerschein ersetzt das ärztliche Zeugnis nur, wenn er durch Prüfung
+ *   erworben und bei Antragstellung nicht älter als ein Jahr ist (Zulassungsantrag; wie die Inhaltsseite „Attest“).
  */
 final class GuideCorrections
 {
@@ -27,6 +29,8 @@ final class GuideCorrections
 
     private const TEXT = [
         ', nicht an die Bootsschule.' => ' – nicht über diese Lernplattform.',
+        'Falls vorhanden: Kopie eines anderen Sportbootführerscheins (ersetzt ggf. das ärztliche Zeugnis)'
+            => 'Falls vorhanden: Kopie eines durch Prüfung erworbenen Sportbootführerscheins – ist er bei Antragstellung nicht älter als ein Jahr, ersetzt er das ärztliche Zeugnis',
     ];
 
     /**
@@ -50,6 +54,11 @@ final class GuideCorrections
         foreach (['intro', 'apply', 'deadline', 'lead_time'] as $field) {
             if (isset($guide[$field]) && is_string($guide[$field])) {
                 $guide[$field] = $replace($guide[$field]);
+            }
+        }
+        foreach ((array) ($guide['documents'] ?? []) as $i => $doc) {
+            if (is_string($doc)) {
+                $guide['documents'][$i] = $replace($doc);
             }
         }
         foreach ($guide['faq'] ?? [] as $i => $faq) {

@@ -703,7 +703,6 @@ return [
         'schema' => 'Article',
         'open_items' => [
             'Fachliche Endkontrolle am Wortlaut von § 7 und Anlage 2 SpFV mit Anhang 1 (Formular), insbesondere Ersatzregel und Höchstalter des Nachweises.',
-            'Eigene Prüfungsanleitung im Lernbereich angleichen: content-source/.../pruefung_buchen.php:45 sagt „Kopie eines anderen Sportbootführerscheins (ersetzt ggf. das ärztliche Zeugnis)“ – präzisieren auf „durch Prüfung erworben, bei Antragstellung nicht älter als ein Jahr“.',
             'Formular-Link vor Go-live prüfen (Download-Seite sportbootfuehrerscheine.org; DMYV-PDF von 2023).',
             'FAQ-Auszug setzt Shortcode-Attribut schema=\\"0\\" voraus; FAQ 4 und 5 vorher korrigieren (siehe _faq-aenderungen-2.md).',
         ],

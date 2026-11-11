@@ -76,6 +76,8 @@ $bin = $service->payload('SBF-BIN-MOTOR')['tabs'][0];
 $fknTab = $service->payload('FKN')['tabs'][0];
 $allText = wp_json_encode(array_map(static fn ($g) => $g['faq'], $service->guides()), JSON_UNESCAPED_UNICODE);
 $check($bin['fee'] === '130,78 €' && str_contains(wp_json_encode($bin['faq'], JSON_UNESCAPED_UNICODE), 'ca. 130,78 €') && $fknTab['fee'] === '28,89 €', 'Gebühren korrigiert: SBF Binnen 130,78 €, FKN 28,89 €');
+$docs = wp_json_encode($see['documents'] ?? [], JSON_UNESCAPED_UNICODE);
+$check(str_contains($docs, 'durch Prüfung erworbenen Sportbootführerscheins') && str_contains($docs, 'nicht älter als ein Jahr, ersetzt er das ärztliche Zeugnis') && ! str_contains($docs, 'ersetzt ggf.'), 'Unterlagen: Ersatz des ärztlichen Zeugnisses nur durch geprüften SBF, nicht älter als ein Jahr');
 $check(! str_contains($allText, 'Bootsschule') && str_contains($allText, 'nicht über diese Lernplattform') && str_contains((string) $see['fee_note'], 'Stand November 2026'), 'kein Bootsschul-Bezug, Gebühr mit Stand');
 $funk = $service->committees('SRC');
 $funkIdx = array_search('Postanschrift Funk (UBI/SRC/LRC)', array_column($funk, 'location_type'), true);
