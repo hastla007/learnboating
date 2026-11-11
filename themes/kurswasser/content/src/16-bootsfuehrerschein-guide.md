@@ -65,7 +65,7 @@ Maßgeblich sind die Sportbootführerscheinverordnung und dein Prüfungsausschus
 Das hängt vor allem von dir ab: von deiner Lernzeit, deinem Vorwissen und davon, wann du einen Prüfungstermin und Fahrpraxis bekommst. Plane rückwärts vom Wunschtermin: Antrag mindestens eine Woche vorher, Tauglichkeitsnachweis höchstens zwölf Monate vor dem Antrag. Wie die Prüfung im Einzelnen abläuft – Umfang, Dauer und Bestehensgrenzen –, steht auf den Kursseiten [SBF See](/kurse/sbf-see/) und [SBF Binnen](/kurse/sbf-binnen/) unter „So läuft die Prüfung ab“.
 
 ### [B3 Gut zu wissen] Reform angekündigt
-Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Sportbootführerschein ersetzen. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Wir passen diesen Guide an, sobald sich am Ablauf etwas ändert.
+Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Sportbootführerschein ersetzen. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir passen diesen Guide an, sobald sich am Ablauf etwas ändert.
 
 ### [B8] Weiterlesen
 - [Sportbootführerschein im Überblick](/sportbootfuehrerschein/) (Symbol anchor): SBF See und Binnen im Vergleich.

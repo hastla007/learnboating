@@ -506,7 +506,7 @@ return [
         'index' => 'noindex',
         'canonical' => '',
         'seo_title' => 'Bootsführerschein-Lexikon: Begriffe von A bis Z erklärt',
-        'meta_description' => 'Was bedeuten ICC, Basisfragen, Tauglichkeitsnachweis oder Bodenseeschifferpatent? Begriffe zu Schein, Prüfung und Funk – mit Quellen.',
+        'meta_description' => 'Was bedeuten ICC, Basisfragen, Tauglichkeitsnachweis oder Bodenseeschifferpatent? Begriffe zu Schein, Prüfung und Funk.',
         'schema' => 'Article',
         'open_items' => [
             'Index-Entscheidung: noindex, bis das Lexikon den Mindestumfang laut SEO erreicht (rund 40 belegte Einträge mit je 40–150 Wörtern); danach auf index stellen. Ausbau um nautische Begriffe (Luv/Lee, Kardinalzeichen usw.) nur mit Fachprüfung und Quelle je Eintrag.',
@@ -516,7 +516,7 @@ return [
             'Impressum: verantwortliche Person nach § 18 Abs. 2 MStV für redaktionelle Inhalte benennen (Recht, global).',
         ],
         'eyebrow' => 'Lexikon',
-        'lead' => 'Von Antriebsmaschine bis Zuverlässigkeitsnachweis: die wichtigsten Begriffe rund um Sportbootführerschein, Prüfung, Funk und Seenotsignalmittel – kurz erklärt und mit Quelle.',
+        'lead' => 'Von Antriebsmaschine bis Zuverlässigkeitsnachweis: die wichtigsten Begriffe rund um Sportbootführerschein, Prüfung, Funk und Seenotsignalmittel – kurz erklärt.',
         'cta_primary' => ['Kostenlos Fragen testen', '/bootsscheine/'],
         'cta_secondary' => ['Zum Ratgeber', '/ratgeber-bootsfuehrerschein/'],
         'breadcrumb' => [
@@ -1186,7 +1186,7 @@ return [
         'index' => 'index',
         'canonical' => '',
         'seo_title' => 'Häufige Fragen zum Bootsführerschein | {{brand}}',
-        'meta_description' => 'Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt und mit Links zu den ausführlichen Ratgeberseiten.',
+        'meta_description' => 'Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt, mit Wegen zu den ausführlichen Ratgeberseiten.',
         'schema' => 'FAQPage',
         'open_items' => [
             'Voraussetzung für die Veröffentlichung: die FAQ-Änderungen aus _faq-aenderungen-2.md im Plugin einpflegen (Admin „Bootsprüfung › FAQ“; DefaultFaqs.php nur für Neuinstallationen). Der Shortcode zeigt alle veröffentlichten FAQs, also auch FAQ 1, 3, 5, 7, 15–18, 22, 25, 51, 89 in der heutigen Fassung.',

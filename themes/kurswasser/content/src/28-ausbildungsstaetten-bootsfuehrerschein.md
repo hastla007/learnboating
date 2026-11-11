@@ -64,7 +64,7 @@ Eine Ausbildung bei einer Bootsschule ist keine Zulassungsvoraussetzung für die
 Rechtsstand 10.11.2026. Antrag und Unterlagen müssen spätestens eine Woche vor dem Prüfungstermin beim Ausschuss vorliegen; manche Ausschüsse verlangen mehr Vorlauf.
 
 ### [B2] Wo du suchen kannst {#suche}
-[[Betreiber: geprüftes Verzeichnis von Ausbildungsstätten oder verlässliche öffentliche Liste mit Link und Aktualisierungsdatum]]
+[[Betreiber: geprüftes Verzeichnis von Ausbildungsstätten oder verlässliche öffentliche Liste mit Aktualisierungsdatum]]
 
 Prüfungsausschüsse und ihre Termine findest du auf der gemeinsamen Website von DSV und DMYV. Frag dort oder bei der Bootsschule nach, welche Termine am Ausbildungsort angeboten werden.
 

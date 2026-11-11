@@ -61,7 +61,7 @@ Den SBF Binnen unter Segel kannst du ab 14 Jahren machen. Einen SBF See unter Se
 Für Jugendliche ist der SBF Binnen unter Segel deshalb oft der erste Schein. Mit dem [Kurs SBF Binnen unter Segel](/kurse/sbf-binnen-segel/) übst du die Binnen- und die zusätzlichen Segelfragen, Manöver unter Segel, Wind und Trimm.
 
 ### [B2] Prüfung kurz vor dem Geburtstag
-Zur Prüfung kannst du bereits bis zu drei Monate vor Erreichen des Mindestalters antreten, also mit 15 Jahren und 9 Monaten bzw. 13 Jahren und 9 Monaten. Der Führerschein wird dir aber erst ab deinem Geburtstag erteilt. Diese Regel ist bisher nur in Sekundärquellen beschrieben – bestätige sie vor der Anmeldung bei deinem Prüfungsausschuss.
+Zur Prüfung kannst du bereits bis zu drei Monate vor Erreichen des Mindestalters antreten, also mit 15 Jahren und 9 Monaten bzw. 13 Jahren und 9 Monaten. Der Führerschein wird dir aber erst ab deinem Geburtstag erteilt. Bestätige diese Regel vor der Anmeldung bei deinem Prüfungsausschuss.
 
 ### [B2] Was Minderjährige brauchen {#minderjaehrige}
 - **Zustimmung der Eltern:** Für die Erteilung brauchst du die schriftliche oder elektronische Zustimmung deiner gesetzlichen Vertretung. Sie steht mit auf dem Antrag.
@@ -74,7 +74,7 @@ Bist du unter 18, brauchst du für den Kauf eines Kurses die Zustimmung deiner E
 Lernt ihr zu zweit, etwa ein Elternteil und ein Kind, passt auch ein [Gruppenpaket](/bootsfuehrerschein-gruppenangebote/) für SBF See, SBF Binnen oder die Kombi: Eine Person kauft, beide lernen mit eigenem Konto. Für den SBF Binnen unter Segel gibt es kein Gruppenpaket.
 
 ### [B2] Altersgrenzen für Funk und Seenotsignalmittel
-Für die Funkzeugnisse und die Nachweise für Seenotsignalmittel gelten eigene Altersgrenzen. Nach den Angaben, die wir aus den Unterlagen der Prüfungsausschüsse zusammengestellt haben:
+Für die Funkzeugnisse und die Nachweise für Seenotsignalmittel gelten eigene Altersgrenzen. In der Regel gilt:
 
 - **SRC und UBI:** 15 Jahre
 - **FKN:** 16 Jahre

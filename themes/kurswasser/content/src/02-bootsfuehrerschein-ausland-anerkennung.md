@@ -71,7 +71,7 @@ Auf dem Bodensee gilt die Bodensee-Schifffahrts-Ordnung. Für Motorboote mit meh
 Wohnst du nicht in Deutschland, kann dein Wohnsitz entscheidend sein. In Österreich gelten ausländische Scheine vor allem für Gäste mit Wohnsitz im Ausland; in der Schweiz brauchst du nach zwölf Monaten Wohnsitz einen Schweizer Ausweis, und ein Umtausch setzt voraus, dass du beim Erwerb im Ausstellerstaat gewohnt hast. Einzelheiten: [Deutscher Bootsführerschein mit Wohnsitz in Österreich](/deutscher-bootsfuehrerschein-oesterreich/) und [mit Wohnsitz in der Schweiz](/deutscher-bootsfuehrerschein-schweiz/).
 
 ### [B3 Gut zu wissen] Reform angekündigt
-Das Bundesverkehrsministerium hat 2025 eine Neuregelung der Sportbootführerscheine angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Schein ersetzen und zugleich als ICC gelten. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Wir aktualisieren diese Seite, sobald es Neuigkeiten gibt.
+Das Bundesverkehrsministerium hat 2025 eine Neuregelung der Sportbootführerscheine angekündigt. Danach sollen anerkannte Verbandsscheine den amtlichen Schein ersetzen und zugleich als ICC gelten. Eine beschlossene Fassung lag uns zum Stand dieser Seite nicht vor. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Wir aktualisieren diese Seite, sobald es Neuigkeiten gibt.
 
 ### [B9] Häufige Fragen zur Scheinwahl
 [bootspruefung_faq rubric="allgemein" subcategory="allgemein-scheinwahl-und-geltungsbereich" title="Häufige Fragen zu Schein und Geltungsbereich" search="0" schema="0"]

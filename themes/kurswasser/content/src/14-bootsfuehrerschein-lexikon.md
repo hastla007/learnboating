@@ -9,9 +9,9 @@ status: publish
 index: noindex
 canonical:
 seo_title: "Bootsführerschein-Lexikon: Begriffe von A bis Z erklärt"
-meta_description: Was bedeuten ICC, Basisfragen, Tauglichkeitsnachweis oder Bodenseeschifferpatent? Begriffe zu Schein, Prüfung und Funk – mit Quellen.
+meta_description: Was bedeuten ICC, Basisfragen, Tauglichkeitsnachweis oder Bodenseeschifferpatent? Begriffe zu Schein, Prüfung und Funk.
 eyebrow: Lexikon
-lead: "Von Antriebsmaschine bis Zuverlässigkeitsnachweis: die wichtigsten Begriffe rund um Sportbootführerschein, Prüfung, Funk und Seenotsignalmittel – kurz erklärt und mit Quelle."
+lead: "Von Antriebsmaschine bis Zuverlässigkeitsnachweis: die wichtigsten Begriffe rund um Sportbootführerschein, Prüfung, Funk und Seenotsignalmittel – kurz erklärt."
 cta_primary: Kostenlos Fragen testen | /bootsscheine/
 cta_secondary: Zum Ratgeber | /ratgeber-bootsfuehrerschein/
 schema: Article

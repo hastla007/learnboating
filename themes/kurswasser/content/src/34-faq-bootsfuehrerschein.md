@@ -9,7 +9,7 @@ status: publish
 index: index
 canonical:
 seo_title: "Häufige Fragen zum Bootsführerschein | {{brand}}"
-meta_description: "Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt und mit Links zu den ausführlichen Ratgeberseiten."
+meta_description: "Antworten zu Onlinekurs, Zugang, Prüfung, Praxis, Kosten und Garantie – kurz erklärt, mit Wegen zu den ausführlichen Ratgeberseiten."
 eyebrow:
 lead: "Du hast Fragen zum Sportbootführerschein, zu Funkzeugnissen oder zu deinem Onlinekurs? Hier findest du kurze Antworten – und Links zu den ausführlichen Seiten."
 cta_primary: "Kontakt aufnehmen | /kontakt/"

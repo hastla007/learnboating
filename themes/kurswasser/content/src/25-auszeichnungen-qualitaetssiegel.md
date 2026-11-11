@@ -39,7 +39,7 @@ Qualität soll nachprüfbar sein. Hier findest du jede Auszeichnung mit Vergabes
 
 ### [B5 Fakten] Unsere Auszeichnungen
 #### [[Betreiber: Name der Auszeichnung]]
-- **Vergabestelle:** [[Betreiber: Name der Stelle mit Link]]
+- **Vergabestelle:** [[Betreiber: Name der Stelle]]
 - **Kriterien:** [[Betreiber: worauf die Auszeichnung beruht]]
 - **Vergeben am:** [[Betreiber: Datum]]
 - **Gültig bis:** [[Betreiber: Datum]]

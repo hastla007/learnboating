@@ -42,7 +42,7 @@ Theorie online, Praxis vor Ort: Mit diesen Bootsschulen, Vereinen und nautischen
 Symbol: crew
 [[Betreiber: Art der Zusammenarbeit, z. B. „Kooperationspartner“ oder „Partner gegen Provision“]]
 [[Betreiber: Leistung, z. B. Fahrstunden und Prüfungsboot für SBF See und Binnen]]
-[[Betreiber: Link zur Website des Partners, ggf. mit rel="sponsored"]]
+[[Betreiber: Name und Ort des Partners]]
 Tag: [[Betreiber: Region]]
 
 ### [B3 Transparenz] So arbeiten wir mit Partnern zusammen

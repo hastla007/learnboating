@@ -41,7 +41,7 @@ open_items:
 ### [B1] Seitenkopf
 
 ### [B2] Kurz beantwortet: Wo es den offiziellen Fragenkatalog gibt
-Die Fragen- und Antwortenkataloge für den SBF See und den SBF Binnen veröffentlicht die Wasserstraßen- und Schifffahrtsverwaltung des Bundes auf ELWIS. Für die Prüfung ist allein der amtliche Katalog in seiner aktuell bekannt gemachten Fassung maßgeblich. Die letzte Änderung, die wir belegen konnten, ist die Bekanntmachung vom April 2023; prüfe bei ELWIS, ob seitdem eine neuere Fassung gilt.
+Die Fragen- und Antwortenkataloge für den SBF See und den SBF Binnen veröffentlicht die Wasserstraßen- und Schifffahrtsverwaltung des Bundes auf ELWIS. Für die Prüfung ist allein der amtliche Katalog in seiner aktuell bekannt gemachten Fassung maßgeblich. Die uns bekannte letzte Änderung ist die Bekanntmachung vom April 2023; prüfe bei ELWIS, ob seitdem eine neuere Fassung gilt.
 
 ### [B5 Vergleich] Amtlicher Katalog oder Übung im Kurs? {#kataloge}
 #### Fragenkatalog bei ELWIS

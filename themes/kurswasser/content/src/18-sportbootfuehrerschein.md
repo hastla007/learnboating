@@ -22,7 +22,6 @@ hero_nav:
   - "#voraussetzungen | Voraussetzungen"
   - "#ablauf | In 6 Schritten"
   - "#kosten | Kosten"
-  - "#quellen | Quellen"
 open_items:
   - "Fachliche Endkontrolle vor Go-live am Wortlaut der SpFV (gesetze-im-internet.de war für die Experten nicht erreichbar): Ausbildung keine Zulassungsvoraussetzung, vorgezogene Prüfung, Gültigkeit unbefristet, Nord-Ostsee-Kanal als Seeschifffahrtsstraße."
   - "Reform-Absatz vor Veröffentlichung beim BMV auf aktuellen Stand prüfen; die Aussage zur Weitergeltung erteilter Scheine stammt aus der Fachpresse."
@@ -149,7 +148,7 @@ Kläre deshalb vor jeder Reise oder Charter, was im Zielland gilt: [Bootsführer
 ### [B3 Gut zu wissen] Wie lange gilt der Schein – und was ändert die Reform?
 Der Sportbootführerschein ist unbefristet gültig. Er kann entzogen werden, wenn die Eignung oder Zuverlässigkeit fehlt.
 
-Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt: Künftig sollen anerkannte Scheine der Verbände den amtlichen Sportbootführerschein ersetzen. Ob und wann die neue Verordnung in Kraft tritt, stand am 10.11.2026 noch nicht fest. Nach Berichten der Fachpresse sollen bereits erteilte Scheine gültig bleiben. Den aktuellen Stand findest du beim Bundesverkehrsministerium (Link im Quellenteil).
+Das Bundesverkehrsministerium hat 2025 eine Neuregelung angekündigt: Künftig sollen anerkannte Scheine der Verbände den amtlichen Sportbootführerschein ersetzen. Ob und wann die neue Verordnung in Kraft tritt, stand am 10.11.2026 noch nicht fest. Bereits erteilte Scheine sollen nach den bisherigen Ankündigungen gültig bleiben. Den aktuellen Stand nennt das Bundesverkehrsministerium.
 
 ### [B5 Karten] So bereitest du dich mit {{brand}} vor
 Eyebrow: Online lernen
