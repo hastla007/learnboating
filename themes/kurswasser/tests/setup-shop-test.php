@@ -136,6 +136,20 @@ $noNet = static fn () => new WP_Error('http_request_failed', 'Testlauf ohne Netz
 add_filter('pre_http_request', $noNet, 10, 3);
 $base = ['country' => 'DE', 'state' => 'DE-SH', 'address' => 'Hafenstraße 1', 'postcode' => '24103', 'city' => 'Lübeck', 'sell' => 'eu', 'registration' => '1', 'language' => ''];
 
+echo "Warenkorb und Kasse (Vorlagen)\n";
+// Hinweise aus der Sitzung (z. B. „… liegt jetzt statt … im Warenkorb“, „… wurde hinzugefügt“) gingen auf den Block-Seiten sonst verloren
+// und erschienen erst später auf einer anderen Seite.
+foreach (['page-cart', 'page-checkout'] as $tpl) {
+    $tplHtml = (string) file_get_contents(dirname(__DIR__).'/templates/'.$tpl.'.html');
+    $check(str_contains($tplHtml, '<!-- wp:woocommerce/store-notices /-->') && strpos($tplHtml, 'wp:woocommerce/store-notices') < strpos($tplHtml, 'wp:post-content'), $tpl.': Shop-Hinweise vor dem Seiteninhalt');
+}
+wc_clear_notices();
+$notices = do_blocks('<!-- wp:woocommerce/store-notices /-->');
+$check(trim(wp_strip_all_tags($notices)) === '' && ! str_contains($notices, 'woocommerce-message'), 'ohne Hinweis kein Hinweistext (nur der leere WooCommerce-Rahmen ohne Höhe)');
+wc_add_notice('Testhinweis Warenkorb', 'success');
+$check(str_contains(do_blocks('<!-- wp:woocommerce/store-notices /-->'), 'Testhinweis Warenkorb') && wc_notice_count() === 0, 'Hinweis wird ausgegeben und danach geleert');
+$check(str_contains((string) file_get_contents(dirname(__DIR__).'/assets/css/theme.css'), 'body .woocommerce table.shop_table_responsive tr td { display: flow-root; }'), 'mobiler Warenkorb: leere Zelle überlappt die nächste Zeile nicht');
+
 echo "Schritt 3 nur mit WooCommerce\n";
 $fresh();
 $main = $html('kurswasser_setup_page');
