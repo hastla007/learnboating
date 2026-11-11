@@ -2,7 +2,8 @@
 /**
  * SEO-Grundausstattung ohne Plugin (Review 4, Abschnitt „Technische Empfehlung“):
  * SEO-Titel, Meta-Description, noindex, Canonical und Prüfdatum als Post-Meta (Metabox im Editor),
- * Ausgabe von <title>, Description, Robots und Canonical, noindex-Seiten nicht in der Core-Sitemap,
+ * Ausgabe von <title>, Description, Robots und Canonical (noindex-Seiten: Canonical auf sich selbst), Open-Graph-
+ * und Twitter-Tags (Bild = Hero-Foto der Seite), noindex-Seiten nicht in der Core-Sitemap,
  * JSON-LD BreadcrumbList (aus der Seitenhierarchie bzw. den Brotkrumen der Inhaltsseiten), Article
  * (Seiten mit Schema „Article“) und Organization/WebSite (nur Startseite).
  *
@@ -117,7 +118,8 @@ function kurswasser_seo_description(WP_Post $post): string
 function kurswasser_seo_canonical(WP_Post $post): ?string
 {
     $value = kurswasser_seo_meta($post->ID, '_kw_canonical');
-    if ($value === '') {
+    // noindex-Seiten verweisen mit dem Canonical auf sich selbst – noindex und ein fremdes Canonical widersprechen sich.
+    if ($value === '' || kurswasser_seo_noindex($post)) {
         return null;
     }
     if (preg_match('#^https?://#i', $value)) {
@@ -273,13 +275,70 @@ function kurswasser_seo_json_ld(): array
         if ($desc !== '') {
             $article['description'] = $desc;
         }
+        $article['image'] = kurswasser_seo_image($post);
         $data[] = $article;
     }
 
     return $data;
 }
 
-/** Kopf-Ausgabe: Meta-Description und JSON-LD (leer, wenn ein SEO-Plugin aktiv ist). */
+/** Startseite ohne eigene Seite (Vorlage front-page): SEO-Titel und Beschreibung (Filter kurswasser_front_seo). */
+function kurswasser_seo_front(): array
+{
+    $brand = (string) get_bloginfo('name');
+    $tagline = trim((string) get_bloginfo('description'));
+    $defaults = [
+        'title' => 'Bootsführerschein online lernen: SBF, SRC & UBI'.($brand !== '' ? ' | '.$brand : ''),
+        'description' => $tagline !== '' && $tagline !== 'Just another WordPress site' ? $tagline
+            : 'Lerne die Theorie für SBF See und Binnen, SRC, UBI, SKN und FKN online: alle Prüfungsfragen, Prüfungssimulation und dein Lernstand auf jedem Gerät.',
+    ];
+
+    return array_merge($defaults, (array) apply_filters('kurswasser_front_seo', []));
+}
+
+/** Bild für Vorschauen (og:image, Article): Hero-Foto der Seite bzw. Kursfoto, sonst das Segelboot der Startseite. */
+function kurswasser_seo_image(?WP_Post $post): string
+{
+    $slot = $post && function_exists('kurswasser_content_photo_slot') ? kurswasser_content_photo_slot($post) : '';
+    if ($slot !== '' && function_exists('kurswasser_course_image') && ($img = kurswasser_course_image($slot))) {
+        return $img;
+    }
+
+    return get_template_directory_uri().'/assets/images/hero-boat.jpg';
+}
+
+/** Open-Graph- und Twitter-Tags (Titel, Beschreibung, URL, Bild = Hero-Foto der Seite). */
+function kurswasser_seo_social_html(?WP_Post $post, string $desc): string
+{
+    $front = is_front_page() && ! $post;
+    if (! $post && ! $front) {
+        return '';
+    }
+    $title = $post ? (kurswasser_seo_title($post) ?? wp_strip_all_tags(html_entity_decode(get_the_title($post), ENT_QUOTES, 'UTF-8'))) : kurswasser_seo_front()['title'];
+    $url = $post ? (string) (wp_get_canonical_url($post) ?: get_permalink($post)) : home_url('/');
+    $tags = [
+        ['property', 'og:locale', 'de_DE'],
+        ['property', 'og:type', $post && get_post_meta($post->ID, '_kw_schema', true) === 'Article' ? 'article' : 'website'],
+        ['property', 'og:site_name', (string) get_bloginfo('name')],
+        ['property', 'og:title', $title],
+        ['property', 'og:description', $desc],
+        ['property', 'og:url', $url],
+        ['property', 'og:image', kurswasser_seo_image($post)],
+        ['name', 'twitter:card', 'summary_large_image'],
+        ['name', 'twitter:title', $title],
+        ['name', 'twitter:description', $desc],
+    ];
+    $html = '';
+    foreach ($tags as [$attr, $key, $value]) {
+        if ($value !== '') {
+            $html .= '<meta '.$attr.'="'.esc_attr($key).'" content="'.esc_attr($key === 'og:url' || $key === 'og:image' ? esc_url($value) : $value).'">'."\n";
+        }
+    }
+
+    return $html;
+}
+
+/** Kopf-Ausgabe: Meta-Description, Open Graph und JSON-LD (leer, wenn ein SEO-Plugin aktiv ist). */
 function kurswasser_seo_head_html(): string
 {
     if (kurswasser_seo_plugin_active()) {
@@ -287,10 +346,11 @@ function kurswasser_seo_head_html(): string
     }
     $html = '';
     $post = kurswasser_seo_current();
-    $desc = $post ? kurswasser_seo_description($post) : (is_front_page() ? kurswasser_seo_trim((string) get_bloginfo('description')) : '');
+    $desc = $post ? kurswasser_seo_description($post) : (is_front_page() ? kurswasser_seo_trim(kurswasser_seo_front()['description']) : '');
     if ($desc !== '') {
         $html .= '<meta name="description" content="'.esc_attr($desc).'">'."\n";
     }
+    $html .= kurswasser_seo_social_html($post, $desc);
     foreach (kurswasser_seo_json_ld() as $item) {
         $html .= '<script type="application/ld+json">'.wp_json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP).'</script>'."\n";
     }
@@ -303,6 +363,9 @@ add_action('wp_head', static function (): void {
 }, 1);
 
 add_filter('pre_get_document_title', static function ($title) {
+    if (! kurswasser_seo_plugin_active() && is_front_page() && ! kurswasser_seo_current()) {
+        return esc_html(kurswasser_seo_front()['title']);
+    }
     if (kurswasser_seo_plugin_active() || ! ($post = kurswasser_seo_current())) {
         return $title;
     }
