@@ -520,8 +520,8 @@ html, body { overflow-x: clip; }
 @media (min-width: 782px) { .kw-cta.is-flip::after { background-image: var(--kw-course-photo); } }
 
 /* ---------- Sprungleiste (klebend unter dem Kopf) ---------- */
-.kw-toc-bar { position: sticky; top: calc(4.5rem + 1px); z-index: 30; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--kw-line); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); }
-.admin-bar .kw-toc-bar { top: calc(4.5rem + 1px + var(--wp-admin--admin-bar--height, 32px)); }
+.kw-toc-bar { position: sticky; top: 0; z-index: 30; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--kw-line); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); }
+.admin-bar .kw-toc-bar { top: var(--wp-admin--admin-bar--height, 32px); }
 .kw-toc-bar ol { list-style: none; display: flex; gap: .45rem; max-width: 1240px; margin: 0 auto; padding: .6rem clamp(1rem, 4vw, 2rem); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
 .kw-toc-bar ol::-webkit-scrollbar { display: none; }
 .kw-toc-bar li { flex: none; scroll-snap-align: start; }
@@ -529,8 +529,8 @@ html, body { overflow-x: clip; }
 .kw-toc-bar a:hover { border-color: var(--kw-blue-dark); }
 .kw-toc-bar a[aria-current="true"] { background: var(--kw-navy); border-color: var(--kw-navy); color: #fff; }
 .kw-toc-bar.is-letters a { min-width: 2.25rem; justify-content: center; padding: .3rem .5rem; }
-@media (min-width: 1100px) { .kw-toc-bar.has-rail { position: fixed; left: 0; right: 0; transform: translateY(-120%); visibility: hidden; transition: transform .25s var(--kw-ease), visibility .25s; } .kw-toc-bar.has-rail.is-past-rail { transform: none; visibility: visible; } }
-@media (max-width: 1099px) { html:has(.kw-toc-bar) { scroll-padding-top: 8.5rem; } }
+@media (min-width: 1100px) { .kw-toc-bar.has-rail { display: none; } .kw-toc-bar.has-rail.is-past-rail { display: block; position: fixed; left: 0; right: 0; } }
+html:has(.kw-toc-bar) { scroll-padding-top: 5rem; }
 
 /* ---------- Artikel: Lesespalte plus Randspalte ---------- */
 .kw-article { display: grid; grid-template-columns: minmax(0, 760px); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
@@ -604,6 +604,7 @@ mark.kw-legal-placeholder { background: #fffbea; color: inherit; font-weight: in
 @media (max-width: 600px) {
 	.kw-table table, .kw-table tbody, .kw-table tr, .kw-table th, .kw-table td { display: block; }
 	.kw-table table { border: 0; background: transparent; border-radius: 0; overflow: visible; }
+	.kw-table caption { display: block; padding: 0 0 .6rem; }
 	.kw-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 	.kw-table tbody { display: grid; gap: .6rem; }
 	.kw-table tr { background: #fff; border: 1px solid var(--kw-line); border-radius: 12px; padding: .75rem .9rem; }
@@ -709,11 +710,11 @@ mark.kw-legal-placeholder { background: #fffbea; color: inherit; font-weight: in
 
 /* ---------- Glossar (Lexikon) ---------- */
 .kw-glossary > * { max-width: 1240px; }
-.kw-glossary-letter { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 1.5rem; padding: 2rem 0; border-top: 1px solid var(--kw-line); scroll-margin-top: 8.5rem; }
+.kw-glossary-letter { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 1.5rem; padding: 2rem 0; border-top: 1px solid var(--kw-line); scroll-margin-top: 4rem; }
 .kw-glossary-letter:first-child { border-top: 0; padding-top: 0; }
-.kw-glossary-mark { margin: 0; font-size: clamp(2.6rem, 5vw, 3.75rem); font-weight: 800; line-height: 1; letter-spacing: -.03em; color: transparent; -webkit-text-stroke: 2px var(--kw-blue); position: sticky; top: 9.5rem; align-self: start; }
+.kw-glossary-mark { margin: 0; font-size: clamp(2.6rem, 5vw, 3.75rem); font-weight: 800; line-height: 1; letter-spacing: -.03em; color: transparent; -webkit-text-stroke: 2px var(--kw-blue); position: sticky; top: 5rem; align-self: start; }
 .kw-glossary-entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.kw-glossary-entry { background: #fff; border: 1px solid var(--kw-line); border-radius: var(--kw-radius); padding: 1.1rem 1.25rem; scroll-margin-top: 9rem; }
+.kw-glossary-entry { background: #fff; border: 1px solid var(--kw-line); border-radius: var(--kw-radius); padding: 1.1rem 1.25rem; scroll-margin-top: 5rem; }
 .kw-glossary-entry h3 { font-size: 1.05rem; margin: 0 0 .35rem; }
 .kw-glossary-entry p { margin: 0 0 .5rem; color: var(--kw-ink); font-size: .95rem; line-height: 1.55; }
 .kw-glossary-entry p:last-child { margin-bottom: 0; }
@@ -762,3 +763,10 @@ mark.kw-legal-placeholder { background: #fffbea; color: inherit; font-weight: in
 .kw-info-page .kw-more-tiles > .kw-tile:last-child:nth-child(odd) .kw-tile-photo { aspect-ratio: auto; min-height: 10rem; grid-row: span 2; }
 @media (max-width: 900px) { .kw-info-page .kw-tiles.kw-more-tiles { grid-template-columns: 1fr; } .kw-info-page .kw-more-tiles > .kw-tile:last-child:nth-child(odd) { grid-template-columns: 8.5rem minmax(0, 1fr); } .kw-guides .kw-more-tiles { grid-template-columns: 1fr; } }
 @media (max-width: 420px) { .kw-info-page .kw-more-tiles > .kw-tile:last-child:nth-child(odd) { grid-template-columns: 6.5rem minmax(0, 1fr); } }
+/* Themen-Kacheln (Hub): Spaltenzahl nach Kartenzahl, auch wenn Karten auf Entwürfe wegfallen */
+@media (min-width: 1101px) {
+	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(1)) { grid-template-columns: minmax(0, 26rem); }
+	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(3)), .kw-overview-section .kw-tiles:has(> :nth-child(5)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.kw-overview-section .kw-tiles:has(> :last-child:nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

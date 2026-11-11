@@ -282,7 +282,7 @@ function kurswasser_seo_json_ld(): array
     return $data;
 }
 
-/** Startseite ohne eigene Seite (Vorlage front-page): SEO-Titel und Beschreibung (Filter kurswasser_front_seo). */
+/** Startseite (Vorlage front-page bzw. statische Seite ohne eigene SEO-Felder): SEO-Titel und Beschreibung (Filter kurswasser_front_seo). */
 function kurswasser_seo_front(): array
 {
     $brand = (string) get_bloginfo('name');
@@ -314,7 +314,8 @@ function kurswasser_seo_social_html(?WP_Post $post, string $desc): string
     if (! $post && ! $front) {
         return '';
     }
-    $title = $post ? (kurswasser_seo_title($post) ?? wp_strip_all_tags(html_entity_decode(get_the_title($post), ENT_QUOTES, 'UTF-8'))) : kurswasser_seo_front()['title'];
+    $own = $post ? kurswasser_seo_title($post) : null;
+    $title = $own ?? (is_front_page() ? kurswasser_seo_front()['title'] : wp_strip_all_tags(html_entity_decode(get_the_title($post), ENT_QUOTES, 'UTF-8')));
     $url = $post ? (string) (wp_get_canonical_url($post) ?: get_permalink($post)) : home_url('/');
     $tags = [
         ['property', 'og:locale', 'de_DE'],
@@ -346,7 +347,10 @@ function kurswasser_seo_head_html(): string
     }
     $html = '';
     $post = kurswasser_seo_current();
-    $desc = $post ? kurswasser_seo_description($post) : (is_front_page() ? kurswasser_seo_trim(kurswasser_seo_front()['description']) : '');
+    $desc = $post ? kurswasser_seo_description($post) : '';
+    if ($desc === '' && is_front_page()) {
+        $desc = kurswasser_seo_trim(kurswasser_seo_front()['description']); // Startseite: eigene Beschreibung, auch als statische Seite
+    }
     if ($desc !== '') {
         $html .= '<meta name="description" content="'.esc_attr($desc).'">'."\n";
     }
@@ -363,7 +367,7 @@ add_action('wp_head', static function (): void {
 }, 1);
 
 add_filter('pre_get_document_title', static function ($title) {
-    if (! kurswasser_seo_plugin_active() && is_front_page() && ! kurswasser_seo_current()) {
+    if (! kurswasser_seo_plugin_active() && is_front_page() && (! ($front = kurswasser_seo_current()) || kurswasser_seo_title($front) === null)) {
         return esc_html(kurswasser_seo_front()['title']);
     }
     if (kurswasser_seo_plugin_active() || ! ($post = kurswasser_seo_current())) {
