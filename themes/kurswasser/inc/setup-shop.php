@@ -156,7 +156,7 @@ function kurswasser_shop_input(array $raw): array
         'country' => $country, 'state' => $state, 'address' => $text('address'), 'postcode' => $text('postcode', 20), 'city' => $text('city', 100),
         'tax' => $tax, 'rate' => $rate, 'note' => $note, 'sell' => $sell,
         'products' => ! empty($raw['products']), 'free' => ! empty($raw['free']),
-        'registration' => ! empty($raw['registration']), 'language' => ! empty($raw['language']),
+        'registration' => ! empty($raw['registration']), 'language' => ! empty($raw['language']), 'live' => ! empty($raw['live']),
         'errors' => $errors,
     ];
 }
@@ -177,7 +177,7 @@ function kurswasser_shop_form_values(): array
     return [
         'country' => $country, 'state' => $state, 'address' => (string) get_option('woocommerce_store_address', ''),
         'postcode' => (string) get_option('woocommerce_store_postcode', ''), 'city' => (string) get_option('woocommerce_store_city', ''),
-        'tax' => '', 'rate' => '', 'note' => '', 'sell' => 'eu', 'products' => '1', 'free' => '1', 'registration' => '1', 'language' => '1',
+        'tax' => '', 'rate' => '', 'note' => '', 'sell' => 'eu', 'products' => '1', 'free' => '1', 'registration' => '1', 'language' => '1', 'live' => '',
     ];
 }
 
@@ -186,7 +186,7 @@ function kurswasser_shop_query_args(array $input): array
 {
     $args = array_intersect_key($input, array_flip(['country', 'state', 'address', 'postcode', 'city', 'tax', 'note', 'sell']));
     $args['rate'] = $input['rate'] !== null ? (string) $input['rate'] : '';
-    foreach (['products', 'free', 'registration', 'language'] as $flag) {
+    foreach (['products', 'free', 'registration', 'language', 'live'] as $flag) {
         $args[$flag] = $input[$flag] ? '1' : '';
     }
 
@@ -206,7 +206,7 @@ function kurswasser_shop_factory_defaults(): array
         'woocommerce_price_num_decimals' => '2', 'woocommerce_calc_taxes' => 'no', 'woocommerce_prices_include_tax' => 'no', 'woocommerce_tax_based_on' => 'shipping',
         'woocommerce_tax_display_shop' => 'excl', 'woocommerce_tax_display_cart' => 'excl', 'woocommerce_allowed_countries' => 'all',
         'woocommerce_specific_allowed_countries' => '', 'woocommerce_ship_to_countries' => '', 'woocommerce_enable_myaccount_registration' => 'no',
-        'kurswasser_shop_same_gross_price' => '', 'bp_price_note' => 'inkl. MwSt.', 'WPLANG' => '',
+        'woocommerce_coming_soon' => 'yes', 'kurswasser_shop_same_gross_price' => '', 'bp_price_note' => 'inkl. MwSt.', 'WPLANG' => '',
     ];
 }
 
@@ -272,6 +272,8 @@ function kurswasser_shop_value_label(string $key, $value): string
             return $v === 'yes' ? __('ja – gleicher Bruttopreis in allen EU-Ländern', 'kurswasser') : __('nein – WooCommerce passt den Bruttopreis an den Satz des Kundenlands an', 'kurswasser');
         case 'bp_price_note':
             return $v === '' ? __('(kein Hinweis)', 'kurswasser') : '„'.$v.'“';
+        case 'woocommerce_coming_soon':
+            return $v === 'yes' ? __('„Demnächst verfügbar“ – Gäste sehen den Shop nicht', 'kurswasser') : __('sichtbar für alle', 'kurswasser');
         case 'WPLANG':
             return ['' => __('Englisch (USA)', 'kurswasser'), 'en_US' => __('Englisch (USA)', 'kurswasser'), 'de_DE' => __('Deutsch', 'kurswasser'), 'de_DE_formal' => __('Deutsch (Sie)', 'kurswasser'), 'de_AT' => __('Deutsch (Österreich)', 'kurswasser'), 'de_CH' => __('Deutsch (Schweiz)', 'kurswasser')][$v] ?? $v;
     }
@@ -325,6 +327,9 @@ function kurswasser_shop_targets(array $input): array
     $site = __('Konten und Sprache', 'kurswasser');
     if ($input['registration']) {
         $t['woocommerce_enable_myaccount_registration'] = [$site, __('Kundenkonto auf „Mein Konto“ anlegen', 'kurswasser'), 'yes', __('Damit „Kostenlos testen“ für Gäste funktioniert: Der Lernbereich zeigt dann „Konto anlegen“.', 'kurswasser')];
+    }
+    if ($input['live']) {
+        $t['woocommerce_coming_soon'] = [__('Sichtbarkeit', 'kurswasser'), __('Shop für Kunden sichtbar', 'kurswasser'), 'no', __('Schaltet den WooCommerce-Modus „Demnächst verfügbar“ aus: Gäste sehen Shop, Produkte, Warenkorb und Kasse. Erst einschalten, wenn Preise und Rechtstexte stehen.', 'kurswasser')];
     }
     if ($input['language']) {
         $t['WPLANG'] = [$site, __('Sprache der Website', 'kurswasser'), 'de_DE', __('Lädt das deutsche Sprachpaket von wordpress.org (und die Übersetzungen der Plugins).', 'kurswasser')];
@@ -436,6 +441,10 @@ function kurswasser_shop_plan(array $input): array
     }
     if ($conflicts !== []) {
         $notes[] = ['error', sprintf(__('Produkte werden nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter Bootsprüfung › Preise abgleichen.', 'kurswasser'), implode(', ', array_keys($conflicts)))];
+    }
+
+    if (! $input['live'] && get_option('woocommerce_coming_soon') === 'yes') {
+        $notes[] = ['info', __('Der Shop ist im WooCommerce-Modus „Demnächst verfügbar“: Gäste sehen Shop, Produkte, Warenkorb und Kasse nicht. Zum Livegang hier „Shop für Kunden sichtbar machen“ wählen oder unter WooCommerce › Einstellungen › Sichtbarkeit umstellen.', 'kurswasser')];
     }
 
     return ['input' => $input, 'settings' => $settings, 'rates' => $rates, 'products' => $products, 'conflicts' => $conflicts, 'free' => $free, 'notes' => $notes];
@@ -762,7 +771,8 @@ function kurswasser_setup_shop_card(): void
         echo '<p class="description">'.esc_html__('Produkte und Schnupper-Paket: erst mit aktivem Lern-Plugin (Schritt 1).', 'kurswasser').'</p>';
     }
     echo '<label><input type="checkbox" name="kw_shop[registration]" value="1"'.checked($on('registration'), true, false).'> '.esc_html__('Kunden-Registrierung einschalten (Konto anlegen auf „Mein Konto“)', 'kurswasser').'</label><br>';
-    echo '<label><input type="checkbox" name="kw_shop[language]" value="1"'.checked($on('language'), true, false).'> '.esc_html__('Website-Sprache Deutsch (lädt das Sprachpaket von wordpress.org)', 'kurswasser').'</label>';
+    echo '<label><input type="checkbox" name="kw_shop[language]" value="1"'.checked($on('language'), true, false).'> '.esc_html__('Website-Sprache Deutsch (lädt das Sprachpaket von wordpress.org)', 'kurswasser').'</label><br>';
+    echo '<label><input type="checkbox" name="kw_shop[live]" value="1"'.checked($on('live'), true, false).'> '.esc_html__('Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus) – erst zum Livegang', 'kurswasser').'</label>';
     echo '</fieldset></td></tr></tbody></table>';
     echo '<p><button type="submit" class="button button-primary">'.esc_html__('Vorschau anzeigen', 'kurswasser').'</button> <span class="description">'.esc_html__('Es wird noch nichts geändert.', 'kurswasser').'</span></p></form>';
     // Vorschläge nach Land (ohne JavaScript gilt der Vorschlag, wenn das Feld leer ist).
@@ -966,6 +976,9 @@ if (defined('WP_CLI') && WP_CLI) {
      * [--language]
      * : Website-Sprache Deutsch, Sprachpaket laden (Standard: an; --no-language schaltet ab).
      *
+     * [--live]
+     * : Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus). Standard: aus.
+     *
      * [--overwrite]
      * : Auch Werte überschreiben, die schon anders eingestellt sind.
      *
@@ -987,6 +1000,7 @@ if (defined('WP_CLI') && WP_CLI) {
             'country' => $assoc['country'] ?? '', 'state' => $assoc['state'] ?? '', 'address' => $assoc['address'] ?? '', 'postcode' => $assoc['postcode'] ?? '',
             'city' => $assoc['city'] ?? '', 'tax' => $assoc['tax'] ?? '', 'rate' => $assoc['rate'] ?? '', 'note' => $assoc['note'] ?? '', 'sell' => $assoc['sell'] ?? 'eu',
             'products' => $flag('products', false), 'free' => $flag('free', false), 'registration' => $flag('registration', true), 'language' => $flag('language', true),
+            'live' => $flag('live', false),
         ]);
         if ($input['errors'] !== []) {
             WP_CLI::error(implode(' ', $input['errors']));

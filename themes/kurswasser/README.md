@@ -133,6 +133,8 @@ Preis-Seite sind Bruttopreise, vgl. Systemstatus des Plugins), Anzeige inkl. in 
 `users_can_register` für „Konto anlegen“); `WPLANG` = de_DE nur, wenn `wp_download_language_pack()` das Paket laden
 konnte (danach Versuch, die Übersetzungen der Plugins zu laden) – sonst klare Meldung, alles andere läuft weiter.
 
+**Sichtbarkeit:** Neue WooCommerce-Shops starten im Modus „Demnächst verfügbar“ (Gäste sehen Shop, Warenkorb und Kasse nicht). Der Assistent schaltet ihn nur mit dem Häkchen „Shop für Kunden sichtbar machen“ aus (`woocommerce_coming_soon` = no; WP-CLI `--live`) – erst zum Livegang. Ohne Häkchen weist die Vorschau darauf hin.
+
 **Was nicht überschrieben wird**
 
 - Einstellungen: Angehakt sind nur leere Felder und WooCommerce-Werkseinstellungen (`kurswasser_shop_factory_defaults()`).

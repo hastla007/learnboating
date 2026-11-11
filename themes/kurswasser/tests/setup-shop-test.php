@@ -171,6 +171,18 @@ $check(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'rate' => '7,5'
 $check(str_contains(kurswasser_shop_input(['country' => 'DE', 'tax' => 'small'])['note'], '§ 19 UStG') && str_contains(kurswasser_shop_input(['country' => 'AT', 'tax' => 'small'])['note'], '§ 6 Abs. 1 Z 27 UStG'), 'Kleinunternehmer-Hinweis je Land (DE § 19 UStG, AT § 6 Abs. 1 Z 27 UStG)');
 $check(kurswasser_shop_input(['country' => 'DE', 'state' => 'DE-BY', 'tax' => 'own'])['state'] === 'DE-BY' && kurswasser_shop_input(['country' => 'AT', 'state' => 'DE-BY', 'tax' => 'own'])['state'] === '', 'Region nur, wenn sie zum Land gehört');
 
+// Sichtbarkeit: Modus „Demnächst verfügbar“ nur mit ausdrücklichem Häkchen ausschalten.
+$soonBefore = get_option('woocommerce_coming_soon', null);
+update_option('woocommerce_coming_soon', 'yes');
+$planNoLive = kurswasser_shop_plan(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own']));
+$check(! isset($planNoLive['settings']['woocommerce_coming_soon']) && str_contains(wp_json_encode($planNoLive['notes'], JSON_UNESCAPED_UNICODE), 'Demnächst verfügbar'), 'ohne Häkchen: Shop bleibt verborgen, Vorschau weist auf „Demnächst verfügbar“ hin');
+$planLive = kurswasser_shop_plan(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1']));
+$soon = $planLive['settings']['woocommerce_coming_soon'] ?? null;
+$check($soon !== null && $soon['new'] === 'no' && $soon['state'] === 'default' && $soon['checked'] && ! str_contains(wp_json_encode($planLive['notes'], JSON_UNESCAPED_UNICODE), 'Demnächst verfügbar'), 'mit Häkchen „Shop sichtbar“: Modus wird ausgeschaltet (vorausgewählt)');
+kurswasser_shop_apply(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1']), ['woocommerce_coming_soon']);
+$check(get_option('woocommerce_coming_soon') === 'no', 'angewendet: Shop sichtbar');
+$soonBefore === null ? delete_option('woocommerce_coming_soon') : update_option('woocommerce_coming_soon', $soonBefore);
+
 echo "EU-Steuertabelle\n";
 $eu = WC()->countries->get_european_union_countries();
 sort($eu);
