@@ -95,6 +95,45 @@ abstract class TermFaqAdmin
         return [$top, $term];
     }
 
+    /**
+     * Alle Zuordnungen einer FAQ (mehrere Kategorien möglich): je gewählter Kategorie die oberste Ebene und die
+     * Kategorie selbst (null, wenn direkt die oberste Ebene gewählt ist). Eine oberste Ebene, unter der zusätzlich
+     * eine Unterkategorie gewählt ist, steht nur einmal (mit der Unterkategorie).
+     *
+     * @return list<array{0:WP_Term,1:?WP_Term}>
+     */
+    protected static function placementsIn(int $postId, string $taxonomy): array
+    {
+        $terms = get_the_terms($postId, $taxonomy);
+        if (! is_array($terms) || $terms === []) {
+            return [];
+        }
+        $out = [];
+        $withSub = [];
+        foreach ($terms as $term) {
+            if ($term->parent === 0) {
+                continue;
+            }
+            $top = $term;
+            for ($i = 0; $top->parent !== 0 && $i < 10; $i++) {
+                $parent = get_term($top->parent, $taxonomy);
+                if (! $parent instanceof WP_Term) {
+                    break;
+                }
+                $top = $parent;
+            }
+            $out[] = [$top, $term];
+            $withSub[$top->term_id] = true;
+        }
+        foreach ($terms as $term) {
+            if ($term->parent === 0 && ! isset($withSub[$term->term_id])) {
+                $out[] = [$term, null];
+            }
+        }
+
+        return $out;
+    }
+
     /** Feld „Redaktionshinweis“ (nur im Admin sichtbar). */
     protected static function renderNoteField(WP_Post $post, string $metaKey, string $field): void
     {

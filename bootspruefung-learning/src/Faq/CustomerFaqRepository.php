@@ -17,8 +17,14 @@ use Bootspruefung\Learning\Gate\SectionFiles;
  * die Unterkategorien-Hierarchie in Ausgabereihenfolge (Tiefensuche, je Ebene nach bp_cfaq_order, dann
  * Name) als flache Liste mit parent (Term-ID; direkt unter dem Schein = dessen ID) und depth (1 = direkt
  * unter dem Schein). Unterkategorien ohne FAQs (auch in ihren Unterkategorien) und Scheine ohne FAQs
- * entfallen. FAQs: {id, question, answer_html}, sortiert nach menu_order und ID; eine FAQ in mehreren
- * Kategorien erscheint je Schein einmal (an der ersten Stelle).
+ * entfallen. FAQs: {id, question, answer_html}, sortiert nach menu_order und ID.
+ *
+ * Gemeinsame FAQs: Eine FAQ kann mehreren Kategorien zugeordnet sein (auch Unterkategorien verschiedener Scheine,
+ * z. B. „Lernen im Kurs“ aller Scheine). Sie erscheint in jedem zugeordneten Schein – pro Kurs aber nur einmal:
+ * im ersten Schein in der Reihenfolge von keysFor() (Kurs selbst, dann Teil- bzw. Zielscheine wie in
+ * SectionFiles::PARTS) und dort an der ersten Stelle (Tiefensuche). Im Kombikurs SBF See & Binnen steht eine FAQ
+ * für SBF See und SBF Binnen also nur unter SBF See; bleibt ein Schein dadurch leer, entfällt er. Web-REST, App
+ * (FaqController) und Web-App (Kurs-Hub) nutzen diese Gruppen, die Anzahl (count) zählt jede FAQ einmal.
  *
  * Zwischenspeicher wie FaqRepository (Gruppe „bp_cfaq“, last_changed); Antworten werden mit wp_kses_post
  * gefiltert gespeichert, Platzhalter ({{agb}}, {{link:/pfad/|Text}}) erst beim Abruf ersetzt.
@@ -82,6 +88,7 @@ final class CustomerFaqRepository
         ['terms' => $terms, 'children' => $children, 'faqs' => $byTerm] = self::data();
         $out = [];
         $usedTops = [];
+        $seen = []; // FAQ-IDs, die der Kurs schon zeigt (über alle Scheine hinweg)
         foreach (self::keysFor($courseCode) as $key) {
             $top = null;
             foreach ($children[0] ?? [] as $id) {
@@ -94,7 +101,6 @@ final class CustomerFaqRepository
                 continue;
             }
             $usedTops[$top['id']] = true;
-            $seen = [];
             $take = static function (int $termId) use ($byTerm, &$seen): array {
                 $list = [];
                 foreach ($byTerm[$termId] ?? [] as $faq) {

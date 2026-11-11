@@ -379,7 +379,10 @@ entfernt).
     Kategorie mit dem Code des Kurses selbst steht davor. `subcategories` ist flach in Anzeigereihenfolge
     (Tiefensuche) mit `parent_id` und `depth` (1 = direkt unter dem Schein); Überschriften nach `depth`
     einrücken. Je FAQ `question`, `answer_html` (wp_kses_post, Links absolut), `answer_text` (Klartext wie
-    bei den Tipps) und `links`. Leere Unterkategorien fehlen; Reihenfolge nicht ändern. Mehrere Scheine
+    bei den Tipps) und `links`. Leere Unterkategorien fehlen; Reihenfolge nicht ändern. Eine FAQ kann
+    mehreren Scheinen zugeordnet sein (gemeinsame FAQ, z. B. „Wie melde ich mich zur Prüfung an?“); in einem
+    Kombikurs steht sie trotzdem nur einmal – beim ersten Schein (Reihenfolge von `data[]`), `faq_count` und
+    `meta.faqs` zählen sie einmal (Format unverändert). Mehrere Scheine
     mit Scheinnamen als Zwischenüberschrift zeigen, einen einzelnen ohne. `faq_count` in jedem
     `CourseSummary` (0 ohne Kundenzugang) entscheidet, ob die App den Abschnitt bzw. Menüpunkt zeigt –
     dann entfällt der 403-Aufruf für Nicht-Kunden.

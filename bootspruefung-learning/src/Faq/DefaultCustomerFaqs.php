@@ -5,9 +5,16 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Faq;
 
 /**
- * Startinhalte der Kunden-FAQ (Datenstand 1, 11.11.2026): je Schein eine Kategorie mit denselben
+ * Startinhalte der Kunden-FAQ (Datenstand 2, 11.11.2026): je Schein eine Kategorie mit denselben
  * Start-Unterkategorien (SBF See zusätzlich „Navigationsaufgaben“, SRC und UBI „Funktraining“) und ein
- * Startpaket von je 6 FAQs. Alle FAQs werden als ENTWURF angelegt – der Betreiber prüft und gibt frei.
+ * Startpaket von 16 FAQs: 6 gemeinsame FAQs, die mehreren Scheinen zugeordnet sind (je eine Kategorie pro
+ * Schein, z. B. „Lernen im Kurs“ aller 7 Scheine), und 10 FAQs nur für einen Schein (Prüfungssimulation mit
+ * eigenen Grenzen, Navigationsaufgaben, Funktraining SRC bzw. UBI). Jeder Schein sieht wie in Datenstand 1
+ * 6 FAQs. Alle FAQs werden als ENTWURF angelegt – der Betreiber prüft und gibt frei.
+ *
+ * Datenstand 1 hatte die gemeinsamen Fragen je Schein kopiert (42 FAQs). Die Nummern dieser Kopien stehen in
+ * „replaces“ (Reihenfolge wie „placements“); CustomerFaqImporter::mergeCopies() führt unbearbeitete Kopien auf
+ * bestehenden Installationen zur gemeinsamen FAQ zusammen. Diese Nummern werden nie neu vergeben.
  *
  * Nur Aussagen, die im Code oder in den Kursdaten belegt sind; keine Preise, keine Angebote. Belegstellen:
  *
@@ -49,7 +56,10 @@ namespace Bootspruefung\Learning\Faq;
  *
  * Aufbau wie DefaultFaqs: Antworten mit Leerzeile = Absätze, „- “ = Liste, **fett**; {{agb}} und
  * {{link:/pfad/|Text}} ersetzt der Abruf. Keine kursbezogenen Links (eine Schein-FAQ erscheint auch in Kombi-
- * und Ergänzungskursen). Nummern (ref): je Schein ein eigener Hunderterbereich.
+ * und Ergänzungskursen). Nummern (ref): 1–99 gemeinsame FAQs, je Schein ein eigener Hunderterbereich. „since“
+ * = Datenstand, in dem die FAQ dazukam: Beim Update legt der Import nur FAQs eines neueren Datenstands an
+ * (vom Betreiber gelöschte ältere kommen nicht zurück). Ändert sich ein Text: CustomerFaqImporter::VERSION erhöhen,
+ * unveränderte FAQs zieht der Import dann nach (updateDefaults).
  */
 final class DefaultCustomerFaqs
 {
@@ -74,13 +84,14 @@ final class DefaultCustomerFaqs
     private const NOTE = 'Startpaket (Entwurf): Aussage gegen den aktuellen Kursstand prüfen, dann veröffentlichen.';
 
     /**
-     * @return list<array{key:string,name:string,slug:string,subcategories:list<array{name:string,slug:string,faqs:list<array{ref:int,question:string,answer:string,note:?string}>}>}>
+     * Scheine mit ihren Start-Unterkategorien (Reihenfolge = bp_cfaq_order).
+     *
+     * @return list<array{key:string,name:string,slug:string,subcategories:list<array{name:string,slug:string}>}>
      */
     public static function scheine(): array
     {
         $out = [];
-        foreach (self::SCHEINE as $key => [$name, $prefix, $base]) {
-            $faqs = self::faqsFor($key, $name);
+        foreach (self::SCHEINE as $key => [$name, $prefix]) {
             $subs = [self::LEARN, self::EXAM];
             if ($key === 'SBF-SEE') {
                 $subs[] = self::NAVIGATION;
@@ -90,101 +101,113 @@ final class DefaultCustomerFaqs
             }
             $subs[] = self::REGISTER;
             $subs[] = self::TECH;
-            $n = 0;
-            $subcategories = [];
-            foreach ($subs as $sub) {
-                $items = [];
-                foreach ($faqs[$sub] ?? [] as $faq) {
-                    $items[] = ['ref' => $base + (++$n), 'question' => $faq[0], 'answer' => $faq[1], 'note' => $faq[2] ?? self::NOTE];
-                }
-                // Slug unabhängig von der Sprache der Website (ä → ae usw.).
-                $subcategories[] = ['name' => $sub, 'slug' => $prefix.'-'.sanitize_title(strtr($sub, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue', 'ß' => 'ss'])), 'faqs' => $items];
-            }
+            // Slug unabhängig von der Sprache der Website (ä → ae usw.).
+            $subcategories = array_map(static fn (string $sub): array => [
+                'name' => $sub,
+                'slug' => $prefix.'-'.sanitize_title(strtr($sub, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue', 'ß' => 'ss'])),
+            ], $subs);
             $out[] = ['key' => $key, 'name' => $name, 'slug' => 'kunden-'.$prefix, 'subcategories' => $subcategories];
         }
 
         return $out;
     }
 
-    /** @return array<string,list<array{0:string,1:string,2?:string}>> Unterkategorie => [Frage, Antwort, Hinweis?] */
-    private static function faqsFor(string $key, string $name): array
+    /**
+     * Start-FAQs: placements = [Schein-Schlüssel, Unterkategorie] (eine gemeinsame FAQ hat mehrere), order =
+     * Reihenfolge in der Unterkategorie (menu_order), replaces = Nummern der Kopien aus Datenstand 1 (gleiche
+     * Reihenfolge wie placements), since = Datenstand, in dem die FAQ dazukam.
+     *
+     * @return list<array{ref:int,since:string,question:string,answer:string,note:?string,order:int,placements:list<array{0:string,1:string}>,replaces:list<int>}>
+     */
+    public static function faqs(): array
     {
-        $faqs = [
-            self::LEARN => [[
-                'Wann gilt eine Frage im Smarttrainer als gefestigt?',
-                "Eine Frage gilt als gefestigt, wenn du sie **dreimal hintereinander richtig** beantwortet hast. Eine falsche Antwort setzt die Serie wieder auf null.\n\n"
-                ."Damit nicht das Kurzzeitgedächtnis zählt, wird eine erneute richtige Antwort auf dieselbe Frage erst gewertet, wenn seit deiner letzten Antwort mindestens fünf Minuten vergangen sind oder du zwischendurch andere Fragen beantwortet hast.\n\n"
-                .'Der Smarttrainer wählt die nächste Frage für dich: zuerst neue, dann falsch beantwortete Fragen und Fragen aus Themen, die dir noch schwerfallen.',
-            ]],
-            self::EXAM => [self::exam($key)],
-            self::REGISTER => [[
-                'Wie melde ich mich zur Prüfung an?',
-                "Zur Prüfung meldest du dich selbst an – die Prüfung nimmt ein Prüfungsausschuss des Deutschen Segler-Verbands (DSV) oder des Deutschen Motoryachtverbands (DMYV) ab. Die Prüfungsgebühr zahlst du direkt an den Prüfungsausschuss bzw. Verband, nicht über diese Lernplattform.\n\n"
-                ."Im Bereich **„Prüfung anmelden“** deines Kurses findest du eine Anleitung mit Antrag, Unterlagen und Fristen sowie alle Prüfungsausschüsse, filterbar nach Ort, PLZ oder Name. Die Prüfung selbst legst du vor Ort ab, nicht online.\n\n"
-                .'Gebühren, Fristen und Abläufe dort sind Richtwerte; maßgeblich sind die Angaben deines Prüfungsausschusses.',
-                'Startpaket (Entwurf): nur veröffentlichen, wenn unter Bootsprüfung › Einstellungen die Prüfungsanmeldung eingeschaltet ist (Standard: aus) – sonst gibt es den Bereich „Prüfung anmelden“ im Kurs nicht.',
-            ]],
-            self::TECH => [
-                [
-                    'Was passiert, wenn mein Zugang endet?',
-                    "Endet dein Zugang zum Kurs bald, zeigt dir der Lernbereich einen Hinweis mit dem Enddatum und einem Link zum Verlängern. Zusätzlich erinnern wir dich vorher per E-Mail.\n\n"
-                    .'Dein Lernstand bleibt erhalten – verlängerst du später, lernst du dort weiter, wo du aufgehört hast.',
-                    'Startpaket (Entwurf): Die E-Mail-Erinnerung ist unter Bootsprüfung › Einstellungen abschaltbar (Standard: ein, 14 Tage vorher). Ist sie aus, den Satz zur E-Mail streichen.',
-                ],
-                [
-                    'Kann ich mein Geld zurückbekommen, wenn der Kurs nicht zu mir passt?',
-                    "Für viele Produkte geben wir dir zusätzlich zu deinen gesetzlichen Rechten freiwillig eine Geld-zurück-Garantie. Ob sie für deinen Kauf gilt und bis wann, siehst du in deinem Konto unter **„Mein Lernen“** – dort forderst du sie auch an.\n\n"
-                    ."Voraussetzung ist, dass du seit dem Zahlungseingang erst wenig gelernt hast. Gezählt werden die beantworteten Prüfungsfragen und die abgeschlossenen Video-Lektionen der gekauften Kurse.\n\n"
-                    .'Alle Bedingungen: {{link:/geld-zurueck-garantie-bootsfuehrerschein/|Geld-zurück-Garantie}} und {{agb}}.',
-                    'Startpaket (Entwurf): Gilt nur für Produkte mit eingetragener Garantie (WooCommerce-Produkt › Geld-zurück). Gruppenmitglieder sehen diese FAQ ebenfalls; für Gruppenpakete gilt die Garantie nicht.',
-                ],
-            ],
+        $all = array_keys(self::SCHEINE);
+        $base = static fn (string $key): int => self::SCHEINE[$key][2];
+        $faq = static fn (int $ref, array $keys, string $sub, int $order, string $question, string $answer, ?string $note = null, array $replaces = []): array => [
+            'ref' => $ref, 'since' => '1', 'question' => $question, 'answer' => $answer, 'note' => $note ?? self::NOTE, 'order' => $order,
+            'placements' => array_map(static fn (string $key): array => [$key, $sub], $keys), 'replaces' => $replaces,
         ];
-        if ($key === 'SBF-SEE') {
-            $faqs[self::NAVIGATION] = [[
-                'Wie übe ich die Navigationsaufgaben?',
-                "Im Bereich **„Navigationsaufgaben“** löst du die amtlichen Aufgaben Teilaufgabe für Teilaufgabe mit Seekarte und Kursdreieck. Du arbeitest mit der Übungskarte D49 des BSH: Ist die digitale Karte freigeschaltet, öffnest du sie direkt in der Aufgabe, sonst nimmst du die gedruckte Übungskarte.\n\n"
-                ."Trägst du deine Lösung ein und deckst das amtliche Ergebnis auf, prüfen wir bei Teilaufgaben mit hinterlegten Lösungswerten deine Werte – zum Beispiel Kurs, Distanz, Position oder Uhrzeit – automatisch mit Toleranz. Das ist eine Hilfe: Ob deine Lösung stimmt, entscheidest du mit deiner Selbsteinschätzung.\n\n"
-                .'In der Prüfung brauchst du in der Navigationsaufgabe mindestens 7 von 9 Punkten. Die Prüfungssimulation bewertet die Navigationsaufgabe nicht mit – übe sie deshalb hier.',
-            ]];
-        }
-        if ($key === 'SRC') {
-            $faqs[self::RADIO] = [[
-                'Was übe ich im Funktraining?',
-                "Im Funktraining bereitest du dich auf die Teile der Prüfung neben dem Fragebogen vor:\n\n"
-                ."- **Seefunktexte:** Lass dir einen Text vorlesen, schreib mit und übersetze – Deutsch → Englisch oder Englisch → Deutsch. Die Auswertung zeigt, wie viel Prozent der Wörter du getroffen hast und was fehlt.\n"
-                ."- **Vokabeln und Buchstabiertafel:** Eine Vokabel gilt als gelernt, wenn du sie dreimal in Folge gewusst hast.\n"
-                ."- **Funkpraxis:** Lage lesen, Meldung eintragen, Auswertung gegen die Prüfpunkte, danach die Musterlösung.\n"
-                ."- **Gerätesimulation:** Bedienung eines UKW-Funkgeräts. Ob du die Testversion oder die Vollversion nutzt, steht auf der Kachel im Kurs.",
-            ]];
-        }
-        if ($key === 'UBI') {
-            $faqs[self::RADIO] = [[
-                'Was übe ich im Funktraining?',
-                "Im Funktraining bereitest du dich auf die Teile der Prüfung neben dem Fragebogen vor:\n\n"
-                ."- **UBI-Aufnahme:** Lass dir eine Meldung vorlesen und schreib sie wortgenau mit.\n"
-                ."- **UBI-Abgabe:** Lies eine Meldung vor und buchstabiere die markierten Wörter mit der internationalen Buchstabiertafel.\n"
-                ."- **Vokabeln und Buchstabiertafel:** Eine Vokabel gilt als gelernt, wenn du sie dreimal in Folge gewusst hast.\n"
-                ."- **Funkpraxis:** Lage lesen, Meldung mit Verkehrskreis eintragen, Auswertung gegen die Prüfpunkte, danach die Musterlösung.\n"
-                ."- **Gerätesimulation:** Bedienung eines UKW-Funkgeräts. Ob du die Testversion oder die Vollversion nutzt, steht auf der Kachel im Kurs.",
-            ]];
-        }
-        if (in_array($key, ['SKN', 'FKN'], true)) {
-            $faqs[self::EXAM][] = [
-                'Wie werden offene Fragen gewertet?',
-                "Bei offenen Fragen gibt es keine Antworten zur Auswahl. Überlege dir zuerst deine Antwort, zeige dann die Musterantwort und schätze ehrlich ein, ob du sie gewusst hättest.\n\n"
-                .'Deine Einschätzung zählt im Smarttrainer und in der Prüfungssimulation wie eine richtige oder falsche Antwort – je ehrlicher, desto aussagekräftiger dein Lernstand.',
-            ];
-        }
-        if (in_array($key, ['SBF-BIN-MOTOR', 'SBF-BIN-SEGEL'], true)) {
-            $faqs[self::TECH][] = [
-                'Wo finde ich Unterlagen zum Herunterladen?',
-                'Unter **„Downloads“** in deinem Kurs findest du die PDF-Dateien, die wir für deinen Kurs bereitstellen. Dateien zu einem Lernbereich stehen zusätzlich oben auf der passenden Lernseite. Herunterladen kannst du sie mit deinem Kurszugang.',
-                'Startpaket (Entwurf): nur veröffentlichen, wenn für diesen Schein Dateien in der Mediathek hinterlegt sind (Lernzugang erforderlich: Kurs · Downloads).',
-            ];
-        }
+        // Nummern der Kopien aus Datenstand 1 je Schein (Basis + laufende Nummer im Schein).
+        $copies = static fn (array $offsets): array => array_map(static fn (string $key): int => $base($key) + $offsets[$key], array_keys($offsets));
+        $out = [];
 
-        return $faqs;
+        // Gemeinsame FAQs (wortgleich für alle betroffenen Scheine) [B1, B6, B7, B8, B3, B9].
+        $out[] = $faq(1, $all, self::LEARN, 1,
+            'Wann gilt eine Frage im Smarttrainer als gefestigt?',
+            "Eine Frage gilt als gefestigt, wenn du sie **dreimal hintereinander richtig** beantwortet hast. Eine falsche Antwort setzt die Serie wieder auf null.\n\n"
+            ."Damit nicht das Kurzzeitgedächtnis zählt, wird eine erneute richtige Antwort auf dieselbe Frage erst gewertet, wenn seit deiner letzten Antwort mindestens fünf Minuten vergangen sind oder du zwischendurch andere Fragen beantwortet hast.\n\n"
+            .'Der Smarttrainer wählt die nächste Frage für dich: zuerst neue, dann falsch beantwortete Fragen und Fragen aus Themen, die dir noch schwerfallen.',
+            null,
+            $copies(array_fill_keys($all, 1))
+        );
+        $out[] = $faq(2, $all, self::REGISTER, 1,
+            'Wie melde ich mich zur Prüfung an?',
+            "Zur Prüfung meldest du dich selbst an – die Prüfung nimmt ein Prüfungsausschuss des Deutschen Segler-Verbands (DSV) oder des Deutschen Motoryachtverbands (DMYV) ab. Die Prüfungsgebühr zahlst du direkt an den Prüfungsausschuss bzw. Verband, nicht über diese Lernplattform.\n\n"
+            ."Im Bereich **„Prüfung anmelden“** deines Kurses findest du eine Anleitung mit Antrag, Unterlagen und Fristen sowie alle Prüfungsausschüsse, filterbar nach Ort, PLZ oder Name. Die Prüfung selbst legst du vor Ort ab, nicht online.\n\n"
+            .'Gebühren, Fristen und Abläufe dort sind Richtwerte; maßgeblich sind die Angaben deines Prüfungsausschusses.',
+            'Startpaket (Entwurf): nur veröffentlichen, wenn unter Bootsprüfung › Einstellungen die Prüfungsanmeldung eingeschaltet ist (Standard: aus) – sonst gibt es den Bereich „Prüfung anmelden“ im Kurs nicht.',
+            $copies(['SBF-SEE' => 4, 'SBF-BIN-MOTOR' => 3, 'SBF-BIN-SEGEL' => 3, 'SRC' => 4, 'UBI' => 4, 'SKN' => 4, 'FKN' => 4])
+        );
+        $out[] = $faq(3, $all, self::TECH, 1,
+            'Was passiert, wenn mein Zugang endet?',
+            "Endet dein Zugang zum Kurs bald, zeigt dir der Lernbereich einen Hinweis mit dem Enddatum und einem Link zum Verlängern. Zusätzlich erinnern wir dich vorher per E-Mail.\n\n"
+            .'Dein Lernstand bleibt erhalten – verlängerst du später, lernst du dort weiter, wo du aufgehört hast.',
+            'Startpaket (Entwurf): Die E-Mail-Erinnerung ist unter Bootsprüfung › Einstellungen abschaltbar (Standard: ein, 14 Tage vorher). Ist sie aus, den Satz zur E-Mail streichen.',
+            $copies(['SBF-SEE' => 5, 'SBF-BIN-MOTOR' => 4, 'SBF-BIN-SEGEL' => 4, 'SRC' => 5, 'UBI' => 5, 'SKN' => 5, 'FKN' => 5])
+        );
+        $out[] = $faq(4, $all, self::TECH, 2,
+            'Kann ich mein Geld zurückbekommen, wenn der Kurs nicht zu mir passt?',
+            "Für viele Produkte geben wir dir zusätzlich zu deinen gesetzlichen Rechten freiwillig eine Geld-zurück-Garantie. Ob sie für deinen Kauf gilt und bis wann, siehst du in deinem Konto unter **„Mein Lernen“** – dort forderst du sie auch an.\n\n"
+            ."Voraussetzung ist, dass du seit dem Zahlungseingang erst wenig gelernt hast. Gezählt werden die beantworteten Prüfungsfragen und die abgeschlossenen Video-Lektionen der gekauften Kurse.\n\n"
+            .'Alle Bedingungen: {{link:/geld-zurueck-garantie-bootsfuehrerschein/|Geld-zurück-Garantie}} und {{agb}}.',
+            'Startpaket (Entwurf): Gilt nur für Produkte mit eingetragener Garantie (WooCommerce-Produkt › Geld-zurück). Gruppenmitglieder sehen diese FAQ ebenfalls; für Gruppenpakete gilt die Garantie nicht.',
+            $copies(['SBF-SEE' => 6, 'SBF-BIN-MOTOR' => 5, 'SBF-BIN-SEGEL' => 5, 'SRC' => 6, 'UBI' => 6, 'SKN' => 6, 'FKN' => 6])
+        );
+        $out[] = $faq(5, ['SKN', 'FKN'], self::EXAM, 2,
+            'Wie werden offene Fragen gewertet?',
+            "Bei offenen Fragen gibt es keine Antworten zur Auswahl. Überlege dir zuerst deine Antwort, zeige dann die Musterantwort und schätze ehrlich ein, ob du sie gewusst hättest.\n\n"
+            .'Deine Einschätzung zählt im Smarttrainer und in der Prüfungssimulation wie eine richtige oder falsche Antwort – je ehrlicher, desto aussagekräftiger dein Lernstand.',
+            null,
+            $copies(['SKN' => 3, 'FKN' => 3])
+        );
+        $out[] = $faq(6, ['SBF-BIN-MOTOR', 'SBF-BIN-SEGEL'], self::TECH, 3,
+            'Wo finde ich Unterlagen zum Herunterladen?',
+            'Unter **„Downloads“** in deinem Kurs findest du die PDF-Dateien, die wir für deinen Kurs bereitstellen. Dateien zu einem Lernbereich stehen zusätzlich oben auf der passenden Lernseite. Herunterladen kannst du sie mit deinem Kurszugang.',
+            'Startpaket (Entwurf): Gemeinsame FAQ für SBF Binnen und SBF Binnen unter Segel. Nur veröffentlichen, wenn für diese Scheine Dateien in der Mediathek hinterlegt sind (Lernzugang erforderlich: Kurs · Downloads); fehlen sie für einen der Scheine, dessen Kategorie in dieser FAQ abwählen.',
+            $copies(['SBF-BIN-MOTOR' => 6, 'SBF-BIN-SEGEL' => 6])
+        );
+
+        // Nur für einen Schein: Prüfungssimulation (eigene Fragenzahl, Zeit und Grenzen) [B2].
+        foreach ($all as $key) {
+            [$question, $answer] = self::exam($key);
+            $out[] = $faq($base($key) + 2, [$key], self::EXAM, 1, $question, $answer);
+        }
+        // Navigationsaufgaben (SBF See) [B4] und Funktraining (SRC, UBI) [B5].
+        $out[] = $faq(103, ['SBF-SEE'], self::NAVIGATION, 1,
+            'Wie übe ich die Navigationsaufgaben?',
+            "Im Bereich **„Navigationsaufgaben“** löst du die amtlichen Aufgaben Teilaufgabe für Teilaufgabe mit Seekarte und Kursdreieck. Du arbeitest mit der Übungskarte D49 des BSH: Ist die digitale Karte freigeschaltet, öffnest du sie direkt in der Aufgabe, sonst nimmst du die gedruckte Übungskarte.\n\n"
+            ."Trägst du deine Lösung ein und deckst das amtliche Ergebnis auf, prüfen wir bei Teilaufgaben mit hinterlegten Lösungswerten deine Werte – zum Beispiel Kurs, Distanz, Position oder Uhrzeit – automatisch mit Toleranz. Das ist eine Hilfe: Ob deine Lösung stimmt, entscheidest du mit deiner Selbsteinschätzung.\n\n"
+            .'In der Prüfung brauchst du in der Navigationsaufgabe mindestens 7 von 9 Punkten. Die Prüfungssimulation bewertet die Navigationsaufgabe nicht mit – übe sie deshalb hier.'
+        );
+        $out[] = $faq(403, ['SRC'], self::RADIO, 1,
+            'Was übe ich im Funktraining?',
+            "Im Funktraining bereitest du dich auf die Teile der Prüfung neben dem Fragebogen vor:\n\n"
+            ."- **Seefunktexte:** Lass dir einen Text vorlesen, schreib mit und übersetze – Deutsch → Englisch oder Englisch → Deutsch. Die Auswertung zeigt, wie viel Prozent der Wörter du getroffen hast und was fehlt.\n"
+            ."- **Vokabeln und Buchstabiertafel:** Eine Vokabel gilt als gelernt, wenn du sie dreimal in Folge gewusst hast.\n"
+            ."- **Funkpraxis:** Lage lesen, Meldung eintragen, Auswertung gegen die Prüfpunkte, danach die Musterlösung.\n"
+            ."- **Gerätesimulation:** Bedienung eines UKW-Funkgeräts. Ob du die Testversion oder die Vollversion nutzt, steht auf der Kachel im Kurs."
+        );
+        $out[] = $faq(503, ['UBI'], self::RADIO, 1,
+            'Was übe ich im Funktraining?',
+            "Im Funktraining bereitest du dich auf die Teile der Prüfung neben dem Fragebogen vor:\n\n"
+            ."- **UBI-Aufnahme:** Lass dir eine Meldung vorlesen und schreib sie wortgenau mit.\n"
+            ."- **UBI-Abgabe:** Lies eine Meldung vor und buchstabiere die markierten Wörter mit der internationalen Buchstabiertafel.\n"
+            ."- **Vokabeln und Buchstabiertafel:** Eine Vokabel gilt als gelernt, wenn du sie dreimal in Folge gewusst hast.\n"
+            ."- **Funkpraxis:** Lage lesen, Meldung mit Verkehrskreis eintragen, Auswertung gegen die Prüfpunkte, danach die Musterlösung.\n"
+            ."- **Gerätesimulation:** Bedienung eines UKW-Funkgeräts. Ob du die Testversion oder die Vollversion nutzt, steht auf der Kachel im Kurs."
+        );
+
+        return $out;
     }
 
     /** Prüfungssimulation je Schein [B2]. @return array{0:string,1:string} */
@@ -210,13 +233,12 @@ final class DefaultCustomerFaqs
     /** Anzahl der Start-FAQs (Admin-Knopf „Fehlende Start-FAQs importieren“). */
     public static function total(): int
     {
-        $n = 0;
-        foreach (self::scheine() as $schein) {
-            foreach ($schein['subcategories'] as $sub) {
-                $n += count($sub['faqs']);
-            }
-        }
+        return count(self::faqs());
+    }
 
-        return $n;
+    /** Name eines Scheins (Startkategorie) oder der Schlüssel selbst. */
+    public static function scheinName(string $key): string
+    {
+        return self::SCHEINE[$key][0] ?? $key;
     }
 }

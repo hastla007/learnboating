@@ -6,7 +6,6 @@ namespace Bootspruefung\Learning\Admin;
 
 use Bootspruefung\Learning\Faq\CustomerFaq;
 use Bootspruefung\Learning\Faq\CustomerFaqImporter;
-use Bootspruefung\Learning\Faq\DefaultCustomerFaqs;
 use Bootspruefung\Learning\Faq\FaqTerms;
 use Bootspruefung\Learning\Security\Capabilities;
 use WP_Post;
@@ -14,9 +13,12 @@ use WP_Query;
 use WP_Term;
 
 /**
- * Adminbereich Kunden-FAQ (Bootsprüfung › Kunden-FAQs): Spalten Nr., Schein, Unterkategorie (Pfad) und
- * Hinweis, Filter nach Schein, Metabox (Redaktionshinweis), Term-Felder (Schlüssel = Kurscode, Reihenfolge)
- * sowie der Knopf „Fehlende Start-FAQs importieren“. Gemeinsame Teile mit den öffentlichen FAQ: TermFaqAdmin.
+ * Adminbereich Kunden-FAQ (Bootsprüfung › Kunden-FAQs): Spalten Nr., Schein und Unterkategorie (Pfad) – bei
+ * gemeinsamen FAQs alle Zuordnungen – und Hinweis, Filter nach Schein, Metabox (Redaktionshinweis), Term-Felder
+ * (Schlüssel = Kurscode, Reihenfolge), der Knopf „Fehlende Start-FAQs importieren“ und der Bericht des letzten
+ * automatischen Updates der Start-FAQs (CustomerFaqImporter::OPTION_REPORT). Mehrere Kategorien wählt man im
+ * Editor in der Kategorie-Box (Block-Editor: Panel „Kunden-FAQ-Kategorien“). Gemeinsame Teile mit den
+ * öffentlichen FAQ: TermFaqAdmin.
  */
 final class CustomerFaqAdmin extends TermFaqAdmin
 {
@@ -36,6 +38,7 @@ final class CustomerFaqAdmin extends TermFaqAdmin
         add_action('save_post_'.CustomerFaq::POST_TYPE, [$this, 'saveMeta'], 5, 2);
         add_action('admin_notices', [$this, 'listPanel']);
         add_action('admin_post_bp_cfaq_import', [$this, 'handleImport']);
+        add_action('admin_post_bp_cfaq_report_dismiss', [$this, 'handleReportDismiss']);
     }
 
     /** @param array<string,string> $columns @return array<string,string> */
@@ -65,17 +68,27 @@ final class CustomerFaqAdmin extends TermFaqAdmin
                 echo $ref === '' ? '–' : esc_html((string) (int) $ref);
                 break;
             case 'bp_cfaq_schein':
-                [$top] = self::placementIn($postId, CustomerFaq::TAXONOMY);
-                if (! $top) {
+                // Alle Scheine der FAQ (gemeinsame FAQ: mehrere), je einmal, in der Reihenfolge der Scheine.
+                $tops = [];
+                foreach (self::placementsIn($postId, CustomerFaq::TAXONOMY) as [$top]) {
+                    $tops[$top->term_id] = $top;
+                }
+                if ($tops === []) {
                     echo '<span title="'.esc_attr__('Ohne Schein erscheint die FAQ in keinem Kurs.', 'bootspruefung-learning').'">–</span>';
                     break;
                 }
-                $url = add_query_arg([CustomerFaq::TAXONOMY => $top->slug], admin_url(self::LIST_URL));
-                echo '<a href="'.esc_url($url).'">'.esc_html($top->name).'</a>';
+                uasort($tops, static fn (WP_Term $a, WP_Term $b): int => [(int) get_term_meta($a->term_id, CustomerFaq::TERM_ORDER, true), $a->name] <=> [(int) get_term_meta($b->term_id, CustomerFaq::TERM_ORDER, true), $b->name]);
+                echo implode(', ', array_map(static fn (WP_Term $top): string => '<a href="'.esc_url(add_query_arg([CustomerFaq::TAXONOMY => $top->slug], admin_url(self::LIST_URL))).'">'.esc_html($top->name).'</a>', $tops));
                 break;
             case 'bp_cfaq_sub':
-                [, $sub] = self::placementIn($postId, CustomerFaq::TAXONOMY);
-                echo $sub ? esc_html(self::path($sub)) : '–';
+                // Unterkategorien (Pfad unter dem Schein), gleiche Pfade mehrerer Scheine nur einmal.
+                $paths = [];
+                foreach (self::placementsIn($postId, CustomerFaq::TAXONOMY) as [, $sub]) {
+                    if ($sub) {
+                        $paths[self::path($sub)] = true;
+                    }
+                }
+                echo $paths !== [] ? esc_html(implode(', ', array_keys($paths))) : '–';
                 break;
             case 'bp_cfaq_note':
                 $note = (string) get_post_meta($postId, CustomerFaq::META_NOTE, true);
@@ -146,9 +159,13 @@ final class CustomerFaqAdmin extends TermFaqAdmin
         if ($ref !== '') {
             echo '<p>'.esc_html(sprintf(__('Start-FAQ Nr. %d', 'bootspruefung-learning'), (int) $ref)).'</p>';
         }
+        $from = (string) get_post_meta($post->ID, CustomerFaqImporter::META_MERGED_FROM, true);
+        if ($from !== '') {
+            echo '<p class="description">'.esc_html(sprintf(__('Zusammengeführt aus den Kopien Nr. %s (die übrigen Kopien liegen im Papierkorb).', 'bootspruefung-learning'), str_replace(',', ', ', $from))).'</p>';
+        }
         echo '<p class="description">'.esc_html__('Nur für Kunden sichtbar: im Kurs-Hub („Fragen & Antworten zu deinem Kurs“) und in der App, wenn die FAQ veröffentlicht ist. Kombi- und Ergänzungskurse zeigen die FAQs ihrer Teil- bzw. Zielscheine.', 'bootspruefung-learning').'</p>';
         self::renderNoteField($post, CustomerFaq::META_NOTE, 'bp_cfaq_note');
-        echo '<p class="description">'.esc_html__('Schein und Unterkategorie unter „Kunden-FAQ-Kategorien“ wählen (die Unterkategorie genügt). Reihenfolge: „Seiten-Attribute › Reihenfolge“. Platzhalter {{agb}} wird zum Link auf die AGB.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Schein und Unterkategorie unter „Kunden-FAQ-Kategorien“ wählen (die Unterkategorie genügt). Gilt die Antwort für mehrere Scheine, mehrere Kategorien anhaken: Die FAQ erscheint in jedem dieser Scheine, im Kombikurs aber nur einmal (beim ersten Schein des Kurses). Reihenfolge: „Seiten-Attribute › Reihenfolge“. Platzhalter {{agb}} wird zum Link auf die AGB.', 'bootspruefung-learning').'</p>';
     }
 
     public function saveMeta(int $postId, WP_Post $post): void
@@ -170,10 +187,11 @@ final class CustomerFaqAdmin extends TermFaqAdmin
             return;
         }
         Ui::notice();
-        $missing = DefaultCustomerFaqs::total() - count(array_unique(CustomerFaqImporter::existingRefs()));
-        echo '<style>.post-type-bp_customer_faq .column-bp_cfaq_ref{width:4em}.post-type-bp_customer_faq .column-bp_cfaq_note{width:5.5em}.post-type-bp_customer_faq .column-bp_cfaq_schein{width:12%}.post-type-bp_customer_faq .column-bp_cfaq_sub{width:18%}</style>';
+        self::renderReport(get_option(CustomerFaqImporter::OPTION_REPORT));
+        $missing = count(CustomerFaqImporter::missingRefs());
+        echo '<style>.post-type-bp_customer_faq .column-bp_cfaq_ref{width:4em}.post-type-bp_customer_faq .column-bp_cfaq_note{width:5.5em}.post-type-bp_customer_faq .column-bp_cfaq_schein{width:16%}.post-type-bp_customer_faq .column-bp_cfaq_sub{width:18%}</style>';
         echo '<div class="notice notice-info"><p>';
-        echo esc_html__('Kunden-FAQs sind nur für Kunden eines Kurses sichtbar (voller Zugang zum Fragenkatalog, kein kostenloser Testkurs): im Kurs-Hub des Web-Lernbereichs und in der App. Nie öffentlich, nicht im FAQ-Shortcode. Es erscheinen nur veröffentlichte FAQs; das Startpaket liegt als Entwurf vor.', 'bootspruefung-learning');
+        echo esc_html__('Kunden-FAQs sind nur für Kunden eines Kurses sichtbar (voller Zugang zum Fragenkatalog, kein kostenloser Testkurs): im Kurs-Hub des Web-Lernbereichs und in der App. Nie öffentlich, nicht im FAQ-Shortcode. Es erscheinen nur veröffentlichte FAQs; das Startpaket liegt als Entwurf vor. Eine FAQ kann mehreren Scheinen zugeordnet sein (gemeinsame FAQ, Nr. unter 100); im Kombikurs erscheint sie nur einmal.', 'bootspruefung-learning');
         echo '</p><form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:0 0 10px">';
         wp_nonce_field('bp_cfaq_import');
         echo '<input type="hidden" name="action" value="bp_cfaq_import"><button type="submit" class="button">'.esc_html($missing > 0
@@ -187,6 +205,8 @@ final class CustomerFaqAdmin extends TermFaqAdmin
         if (! current_user_can(Capabilities::MANAGE_CONTENT)) {
             wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'));
         }
+        // Erst einen ausstehenden Datenstand nachziehen (Zusammenführen, Aktualisieren), dann Fehlendes anlegen.
+        CustomerFaqImporter::maybeImport();
         $stats = CustomerFaqImporter::import();
         update_option(CustomerFaqImporter::OPTION_VERSION, CustomerFaqImporter::VERSION, true);
         Ui::flash($stats['created'] > 0
@@ -194,6 +214,84 @@ final class CustomerFaqAdmin extends TermFaqAdmin
             : __('Alle Start-FAQs sind schon vorhanden. Nichts geändert.', 'bootspruefung-learning'));
         wp_safe_redirect(admin_url(self::LIST_URL));
         exit;
+    }
+
+    public function handleReportDismiss(): void
+    {
+        check_admin_referer('bp_cfaq_report_dismiss');
+        if (! current_user_can(Capabilities::MANAGE_CONTENT)) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'));
+        }
+        delete_option(CustomerFaqImporter::OPTION_REPORT);
+        wp_safe_redirect(admin_url(self::LIST_URL));
+        exit;
+    }
+
+    /**
+     * Bericht des letzten automatischen Updates der Start-FAQs (wie die Rückmeldung beim Import der öffentlichen
+     * FAQs, aber bis zum Ausblenden sichtbar): zusammengeführte, nicht zusammengeführte, neue und aktualisierte
+     * Start-FAQs sowie bearbeitete, nicht aktualisierte. Warnung, wenn etwas zu prüfen ist (gemischter Status → Entwurf, bearbeitete Kopien).
+     *
+     * @param mixed $report Inhalt von CustomerFaqImporter::OPTION_REPORT
+     */
+    public static function renderReport(mixed $report): void
+    {
+        if (! is_array($report)) {
+            return;
+        }
+        $merged = (array) ($report['merged'] ?? []);
+        $notMerged = (array) ($report['not_merged'] ?? []);
+        $added = array_map('intval', (array) ($report['added'] ?? []));
+        $updated = array_map('intval', (array) ($report['updated'] ?? []));
+        $kept = array_map('intval', (array) ($report['kept'] ?? []));
+        $mixed = array_values(array_filter($merged, static fn ($m): bool => is_array($m) && ! empty($m['mixed'])));
+        $items = [];
+        if ($merged !== []) {
+            $items[] = sprintf(
+                _n('%1$d gemeinsame Frage zusammengeführt (je Frage eine FAQ für alle Scheine; %2$d überzählige Kopien im Papierkorb): %3$s', '%1$d gemeinsame Fragen zusammengeführt (je Frage eine FAQ für alle Scheine; %2$d überzählige Kopien im Papierkorb): %3$s', count($merged), 'bootspruefung-learning'),
+                count($merged),
+                array_sum(array_map(static fn ($m): int => is_array($m) ? count((array) ($m['trashed'] ?? [])) : 0, $merged)),
+                implode('; ', array_map(static fn ($m): string => sprintf(__('Nr. %1$d aus Nr. %2$s', 'bootspruefung-learning'), (int) ($m['ref'] ?? 0), implode(', ', array_map('intval', (array) ($m['from'] ?? [])))), $merged))
+            );
+        }
+        foreach ($mixed as $m) {
+            $items[] = sprintf(
+                __('Bitte prüfen: Nr. %1$d „%2$s“ ist jetzt ein Entwurf, weil die Kopien unterschiedlichen Status hatten (veröffentlicht in: %3$s). Zuordnungen prüfen, dann veröffentlichen.', 'bootspruefung-learning'),
+                (int) ($m['ref'] ?? 0),
+                (string) ($m['question'] ?? ''),
+                implode(', ', array_map('strval', (array) ($m['published_in'] ?? [])))
+            );
+        }
+        foreach ($notMerged as $n) {
+            if (! is_array($n)) {
+                continue;
+            }
+            $items[] = sprintf(
+                __('Nicht zusammengeführt: „%1$s“ – bearbeitete Kopie Nr. %2$s. Alle Kopien bleiben eigenständig und werden nicht mehr automatisch aktualisiert; bei Bedarf von Hand zu einer FAQ zusammenfassen (mehrere Kategorien anhaken).', 'bootspruefung-learning'),
+                (string) ($n['question'] ?? ''),
+                implode(', ', array_map('intval', (array) ($n['edited'] ?? [])))
+            );
+        }
+        if ($added !== []) {
+            $items[] = sprintf(__('Neue Start-FAQs als Entwurf: Nr. %s', 'bootspruefung-learning'), implode(', ', $added));
+        }
+        if ($updated !== []) {
+            $items[] = sprintf(__('Unveränderte Start-FAQs auf den neuen Text gebracht (Status unverändert): Nr. %s', 'bootspruefung-learning'), implode(', ', $updated));
+        }
+        if ($kept !== []) {
+            $items[] = sprintf(__('Vom Betreiber bearbeitet, daher nicht aktualisiert (der Standardtext hat sich geändert): Nr. %s', 'bootspruefung-learning'), implode(', ', $kept));
+        }
+        if ($items === []) {
+            return;
+        }
+        $type = $mixed !== [] || $notMerged !== [] ? 'warning' : 'success';
+        printf('<div class="notice notice-%s bp-cfaq-report"><p><strong>%s</strong></p><ul style="list-style:disc;margin-left:1.5em">', esc_attr($type), esc_html(sprintf(__('Start-FAQs auf Datenstand %s gebracht. Vom Betreiber bearbeitete FAQs blieben unverändert.', 'bootspruefung-learning'), (string) ($report['version'] ?? CustomerFaqImporter::VERSION))));
+        foreach ($items as $item) {
+            echo '<li>'.esc_html($item).'</li>';
+        }
+        echo '</ul><form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:0 0 10px">';
+        wp_nonce_field('bp_cfaq_report_dismiss');
+        echo '<input type="hidden" name="action" value="bp_cfaq_report_dismiss"><button type="submit" class="button button-small">'.esc_html__('Hinweis ausblenden', 'bootspruefung-learning').'</button></form></div>';
     }
 
     protected function postType(): string

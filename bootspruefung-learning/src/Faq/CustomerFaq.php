@@ -19,7 +19,9 @@ use WP_REST_Server;
  * Kunden-FAQ: scheinspezifische Fragen und Antworten nur für Kunden eines Kurses (Kurs-Hub im
  * Web-Lernbereich, App). Eigener Beitragstyp bp_customer_faq (Frage = Titel, Antwort = Inhalt,
  * Reihenfolge = menu_order) mit hierarchischer Taxonomie bp_cfaq_category: oberste Ebene = Schein
- * (Term-Meta bp_cfaq_key = Kurscode), darunter Unterkategorien beliebiger Tiefe (bp_cfaq_order).
+ * (Term-Meta bp_cfaq_key = Kurscode), darunter Unterkategorien beliebiger Tiefe (bp_cfaq_order). Eine FAQ kann
+ * mehreren Kategorien zugeordnet sein (gemeinsame FAQ für mehrere Scheine); sie erscheint in jedem zugeordneten
+ * Schein, in einem Kombikurs aber nur einmal (CustomerFaqRepository).
  *
  * Nie öffentlich: keine Einzelseiten, Archive, Suche, Sitemap, kein Shortcode, kein JSON-LD, nicht in
  * /bootspruefung/v1/faqs. Die Core-REST-API (/wp/v2, für den Block-Editor) lesen nur Redakteure
