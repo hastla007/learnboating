@@ -13,6 +13,9 @@ namespace Bootspruefung\Learning\Trainers;
  * Die Eingabe wird tolerant gelesen (Dezimalkomma/-punkt, „079°“/„79“, „rwK = 79°“, „0,8 sm“, „15:12“,
  * „15.12 Uhr“, Positionen wie „53°55,8'N 7°51,3'E“ oder „53 55.8 N 007 51.3 E“). Mehrere Werte werden
  * über die Beschriftung zugeordnet, wenn die Eingabe welche enthält, sonst in der Reihenfolge.
+ * Außerdem (Fachprüfung FACH-15): Füllwörter in Positionen („Breite … Länge …“, „φ = … λ = …“), die Schreibweise
+ * „53-55,8N 007-51,3E“, Bruchteile von Stunden („3/4 Stunde“, „¾ h“), „Fahrzeit 1:42 h“ als Dauer, Rechenwege
+ * („MgP 168 + 2 = rwP 170“: nur das Ergebnis zählt) und Werte mit fremder Beschriftung („74° (rwK 79°)“ für den MgK).
  */
 final class NavigationCheck
 {
@@ -30,6 +33,20 @@ final class NavigationCheck
         'min' => 'duration', 'min.' => 'duration', 'minute' => 'duration', 'minuten' => 'duration',
         'h' => 'hours', 'std' => 'hours', 'std.' => 'hours', 'stunde' => 'hours', 'stunden' => 'hours',
     ];
+
+    /**
+     * Wie viele Navigations-Teilaufgaben haben Lösungswerte? Ein Paket vor Schema 1.4 hat keine – dann ist die automatische
+     * Prüfung überall aus (Fachprüfung FACH-14: Vorschau mit altem Paket). Für die Statusseite im Admin.
+     *
+     * @return array{with:int,total:int}
+     */
+    public static function coverage(): array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row("SELECT COUNT(*) AS total, SUM(answer_values IS NOT NULL AND answer_values <> '') AS with_values FROM {$wpdb->prefix}bp_navigation_question WHERE status <> 'source_archived'");
+
+        return ['with' => (int) ($row->with_values ?? 0), 'total' => (int) ($row->total ?? 0)];
+    }
 
     /** Gespeicherte Werte (JSON) einer Teilaufgabe; ungültig/leer → []. @return list<array<string,mixed>> */
     public static function decode(?string $json): array
@@ -56,7 +73,7 @@ final class NavigationCheck
         if ($values === [] || $input === null || trim($input) === '') {
             return null;
         }
-        $tokens = self::parse($input);
+        $tokens = self::collapseCalculations(self::parse($input), mb_strtolower(self::normalize($input)));
         $assigned = self::assign($values, $tokens, $input);
         $out = [];
         $recognized = 0;
@@ -110,12 +127,14 @@ final class NavigationCheck
             $text = substr_replace($text, str_repeat(' ', $length), $start, $length);
         };
         $num = static fn (string $n): float => (float) str_replace(',', '.', $n);
-        $deg = '(?:\s*°\s*|\s*grad\s+|\s+)';
+        $deg = '(?:\s*°\s*|\s*grad\s+|\s+|-)';
+        // Zwischen Breite und Länge: Trennzeichen und Füllwörter („Länge“, „λ =“).
+        $between = '[\s,;\/]*(?:(?:länge|laenge|lon\.?|λ)\s*[=:]?\s*)?';
         $min = '(\d{1,2}(?:[.,]\d+)?)\s*\'?';
 
         // Positionen: Halbkugel nach (53° 55,8' N 007° 51,3' E) oder vor den Zahlen (N 53° 55,8' E 7° 51,3').
         $patterns = [
-            '/(?<![\d.,])(\d{1,2})'.$deg.$min.'\s*(n|s)(?:ord|üd)?(?!\pL)[\s,;\/]*(\d{1,3})'.$deg.$min.'\s*(e|w|o)(?:st|est)?(?!\pL)/iu' => [1, 2, 3, 4, 5, 6],
+            '/(?<![\d.,])(\d{1,2})'.$deg.$min.'\s*(n|s)(?:ord|üd)?(?!\pL)'.$between.'(\d{1,3})'.$deg.$min.'\s*(e|w|o)(?:st|est)?(?!\pL)/iu' => [1, 2, 3, 4, 5, 6],
             '/(?<!\pL)(n|s)(?:ord|üd)?\s*(\d{1,2})'.$deg.$min.'[\s,;\/]*(e|w|o)(?:st|est)?\s*(\d{1,3})'.$deg.$min.'/iu' => [2, 3, 1, 5, 6, 4],
         ];
         foreach ($patterns as $re => $g) {
@@ -138,7 +157,7 @@ final class NavigationCheck
 
         // Uhrzeiten: 15:12 (auch „15:12 Uhr“), 15.12 Uhr, 1512 Uhr, 15 Uhr.
         $clock = [
-            '/(?<![\d.,:])([01]?\d|2[0-3]):([0-5]\d)(?![\d.,:])(?:\s*(?:uhr|h)(?!\pL))?/iu',
+            '/(?<![\d.,:])([01]?\d|2[0-3]):([0-5]\d)(?!\d|[.,:]\d)(?:\s*(?:uhr|h)(?!\pL))?/iu',
             '/(?<![\d.,:])([01]?\d|2[0-3])[.]([0-5]\d)\s*(?:uhr|h)(?!\pL)/iu',
             '/(?<![\d.,:])([01]\d|2[0-3])([0-5]\d)\s*uhr(?!\pL)/iu',
             '/(?<![\d.,:])([01]?\d|2[0-3])()\s*uhr(?!\pL)/iu',
@@ -146,9 +165,22 @@ final class NavigationCheck
         foreach ($clock as $re) {
             if (preg_match_all($re, $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
                 foreach ($all as $m) {
-                    $tokens[] = ['kind' => 'clock', 'value' => (int) $m[1][0] * 60 + (int) ($m[2][0] === '' ? 0 : $m[2][0]), 'start' => $m[0][1], 'end' => $m[0][1] + strlen($m[0][0])];
+                    // „1:42 h“ bzw. „Fahrzeit 1:42“ ist eine Dauer, keine Uhrzeit.
+                    $isDuration = preg_match('/\dh$/iu', str_replace(' ', '', $m[0][0]))
+                        || preg_match('/(?:fahrzeit|dauer|zeitbedarf|zeitraum)\s*[=:]?\s*$/iu', substr($text, max(0, $m[0][1] - 30), min(30, $m[0][1])));
+                    $tokens[] = ['kind' => $isDuration ? 'duration' : 'clock', 'value' => (int) $m[1][0] * 60 + (int) ($m[2][0] === '' ? 0 : $m[2][0]), 'start' => $m[0][1], 'end' => $m[0][1] + strlen($m[0][0])];
                     $mask($m[0][1], strlen($m[0][0]));
                 }
+            }
+        }
+
+        // Bruchteile von Stunden: „3/4 Stunde“, „1/2 h“, „¾ h“.
+        $fractions = ['½' => 0.5, '¼' => 0.25, '¾' => 0.75];
+        if (preg_match_all('/(?<![\pL\d.,\/])(?:(\d)\s*\/\s*(\d)|(½|¼|¾))\s*(?:h|std\.?|stunden?)(?!\pL)/iu', $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($all as $m) {
+                $hours = isset($m[3]) && $m[3][1] >= 0 ? $fractions[$m[3][0]] : ((int) $m[2][0] > 0 ? (int) $m[1][0] / (int) $m[2][0] : 0.0);
+                $tokens[] = ['kind' => 'duration', 'value' => $hours * 60, 'start' => $m[0][1], 'end' => $m[0][1] + strlen($m[0][0])];
+                $mask($m[0][1], strlen($m[0][0]));
             }
         }
 
@@ -168,6 +200,42 @@ final class NavigationCheck
         usort($tokens, static fn ($a, $b) => $a['start'] <=> $b['start']);
 
         return $tokens;
+    }
+
+    /**
+     * Rechenwege („MgP 168 + 2 = rwP 170“, „063 + 2 = 065“): Gradzahlen und Zahlen, die nur durch Rechenzeichen
+     * (und höchstens eine Beschriftung nach dem „=“) verbunden sind, bilden eine Kette; enthält sie ein „=“, zählt
+     * nur ihr letzter Wert.
+     * @param list<array{kind:string,value:mixed,start:int,end:int}> $tokens
+     * @return list<array{kind:string,value:mixed,start:int,end:int}>
+     */
+    private static function collapseCalculations(array $tokens, string $text): array
+    {
+        $drop = [];
+        $chain = [];
+        $hasEquals = false;
+        $count = count($tokens);
+        for ($i = 0; $i < $count; $i++) {
+            $calc = in_array($tokens[$i]['kind'], ['angle', 'number'], true);
+            $chain[] = $i;
+            $next = $tokens[$i + 1] ?? null;
+            $gap = $next !== null ? substr($text, $tokens[$i]['end'], max(0, $next['start'] - $tokens[$i]['end'])) : '';
+            $linked = $calc && $next !== null && in_array($next['kind'], ['angle', 'number'], true)
+                && preg_match('/[+\-−=]/u', $gap) && preg_match('/^[\s°+\-−±=]*(?:=\s*\pL{2,4}\s*)?$/u', $gap);
+            if ($linked) {
+                $hasEquals = $hasEquals || str_contains($gap, '=');
+                continue;
+            }
+            if ($hasEquals && count($chain) > 1) {
+                foreach (array_slice($chain, 0, -1) as $j) {
+                    $drop[$j] = true;
+                }
+            }
+            $chain = [];
+            $hasEquals = false;
+        }
+
+        return array_values(array_filter($tokens, static fn ($t, $i) => ! isset($drop[$i]), ARRAY_FILTER_USE_BOTH));
     }
 
     private static function normalize(string $input): string
@@ -234,7 +302,9 @@ final class NavigationCheck
                         [$best, $bestScore] = [$ti, $s];
                     }
                 }
-                $pick = $best ?? end($candidates);
+                // Ohne passende Beschriftung: Werte mit fremder Beschriftung („74° (rwK 79°)“ für den MgK) übergehen.
+                $unlabelled = $best === null ? array_values(array_filter($candidates, static fn ($ti) => ! self::foreignLabel($context[$ti][$side], $words[$indexes[0]]))) : [];
+                $pick = $best ?? ($unlabelled !== [] ? end($unlabelled) : end($candidates));
                 if ($best !== null) {
                     // Beschriftete Rechnung „MgK = 079° - 1° - 4° = 074°“: das Ergebnis nach dem letzten „=“ gilt.
                     $pick = self::resultOfCalculation($tokens, $context, $pick, $candidates);
@@ -288,6 +358,21 @@ final class NavigationCheck
         }
 
         return $result;
+    }
+
+    /** Nautische Kürzel, die einen Wert als etwas anderes ausweisen. */
+    private const LABELS = ['rwk', 'mgk', 'kük', 'küg', 'kdw', 'kug', 'rwp', 'mgp', 'mw', 'abl', 'dev', 'füg', 'fdw', 'bv', 'bvk'];
+
+    /** Steht im Kontext eines Werts ein Kürzel, das nicht zur Beschriftung des Sollwerts gehört? @param list<string> $own */
+    private static function foreignLabel(string $context, array $own): bool
+    {
+        foreach (self::LABELS as $label) {
+            if (! in_array($label, $own, true) && preg_match('/(?<![\pL\d])'.preg_quote($label, '/').'(?![\pL\d])/u', $context)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

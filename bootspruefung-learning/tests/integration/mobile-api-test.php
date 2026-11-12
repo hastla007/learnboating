@@ -670,6 +670,7 @@ if ($task !== null && $courseCode === 'SBF-SEE') {
     $parts = $t['body']['data']['parts'] ?? [];
     $byNumber = array_column($parts, null, 'number');
     $check(isset($byNumber[1], $byNumber[7]) && $byNumber[1]['auto_check'] === true && $byNumber[7]['auto_check'] === false && array_key_exists('check', $byNumber[2] ?? []), 'Aufgabe: auto_check je Teilaufgabe (NAV-01-01 ja, „Siehe Karte“ nein), Feld check');
+    $check(($byNumber[7]['chart_entry'] ?? null) === true && ($byNumber[1]['chart_entry'] ?? null) === false && ($t['body']['data']['score']['max'] ?? null) === 9 && $t['body']['data']['score']['pass_points'] === 7, 'Aufgabe: chart_entry („Siehe Karte“) und Punktestand (7 von 9) wie im Web (FACH-10)');
     $check(isset($byNumber[2]) && array_key_exists('check', $byNumber[2]) && $byNumber[2]['check'] === null, 'check null ohne eigene Antwort');
     if (isset($byNumber[1], $byNumber[2], $byNumber[6], $byNumber[7])) {
         // NAV-01-01: amtlich rwK = 079° (±2°); 045° aus dem Block oben weicht ab.
@@ -817,6 +818,7 @@ if ($guideWeb['tabs'] === []) {
 } else {
     $check($g['status'] === 200 && count($gd['guides']) === count($guideWeb['tabs']) && $gd['guides'][0]['title'] === $guideWeb['tabs'][0]['title'] && $gd['registration_in_app'] === false, 'Anleitung wie im Web (ExamGuideService::payload)');
     $check(count($gd['committees']) === count($guideWeb['committees']) && is_string($gd['committees'][0]['id'] ?? null) && array_key_exists('matches', $gd['committees'][0]), 'Prüfungsausschüsse mit passenden zuerst');
+    $check(($gd['committees_note'] ?? null) === $guideWeb['committees_note'] && str_starts_with((string) $gd['committees_note'], 'Die Liste ist nicht vollständig'), 'Hinweis: Liste der Prüfungsausschüsse nicht vollständig (FACH-09)');
     $check(str_ends_with((string) $gd['web_url'], '/bootsscheine/'.strtolower($courseCode).'/pruefung-anmelden/'), 'Link zur Web-Seite „Prüfung anmelden“');
     $er = $api('GET', "/courses/{$courseId}", [], $tokenA)['body']['data']['exam_registration'] ?? [];
     $check(($er['available'] ?? false) === true && $er['web_url'] === $gd['web_url'], 'Kursdetails: exam_registration mit Link');

@@ -3047,6 +3047,7 @@ components:
         course_id: {type: string}
         web_url: {type: string, format: uri, description: 'Web-Seite …/bootsscheine/<kurs>/pruefung-anmelden/'}
         registration_in_app: {type: boolean, const: false}
+        committees_note: {type: string, description: 'Hinweis, dass die Liste der Prüfungsausschüsse nicht vollständig ist (unter der Liste anzeigen)'}
         guides:
           type: array
           description: Eine Anleitung je Prüfung des Kurses (Reiter im Web), Felder wie ExamGuideService::payload
@@ -3072,7 +3073,7 @@ components:
               providers: {description: Anbieter/Prüfungsorganisationen}
         committees:
           type: array
-          description: Alle Prüfungsausschüsse, die für den Kurs zuständigen zuerst (`matches`)
+          description: Prüfungsausschüsse aus dem Content-Paket (nicht vollständig, siehe `committees_note`), die für den Kurs zuständigen zuerst (`matches`)
           items:
             type: object
             required: [id, label, commission, matches]
@@ -3497,6 +3498,22 @@ components:
                 oneOf:
                   - {$ref: '#/components/schemas/NavigationCheck'}
                   - {type: 'null'}
+              chart_entry: {type: boolean, description: 'true = das amtliche Ergebnis ist eine Eintragung in der Seekarte („Siehe Karte“); keine Werte zum Vergleichen'}
+        score:
+          type: object
+          description: >-
+            Punktestand nach Selbsteinschätzung: „richtig“ = 1 Punkt, „teilweise“ zählt nicht (strenge Wertung).
+            Amtlich bestanden ab 7 von 9 Punkten (`pass_points` nur bei Aufgaben mit 9 Teilaufgaben); `passed`
+            erst, wenn alle Teilaufgaben eingeschätzt sind, sonst null. Keine Zeitvorgabe.
+          required: [points, max, pass_points, assessed, partly, complete, passed]
+          properties:
+            points: {type: integer}
+            max: {type: integer}
+            pass_points: {type: [integer, 'null']}
+            assessed: {type: integer}
+            partly: {type: integer}
+            complete: {type: boolean}
+            passed: {type: [boolean, 'null']}
         previous_task_id: {type: [string, 'null']}
         previous_locked: {type: boolean}
         next_task_id: {type: [string, 'null']}
@@ -3516,7 +3533,9 @@ components:
         Seit 1.4.0. Automatische Prüfung der eigenen Antwort gegen die strukturierten Lösungswerte – nur
         als Hilfe zur Selbsteinschätzung. Gelesen werden u. a. „rwK = 79°“, „079“, „0,8 sm“, „15:12“,
         „15.12 Uhr“, „46 min“, „6 kn“ und Positionen wie „53°55,8'N 7°51,3'E“ oder „53 55.8 N 007 51.3 E“
-        (Dezimalkomma oder -punkt). Mehrere Werte werden über Beschriftungen in der Antwort zugeordnet
+        (Dezimalkomma oder -punkt), auch „Breite … Länge …“, „53-55,8N 007-51,3E“, „3/4 Stunde“,
+        „Fahrzeit 1:42 h“ (Dauer) und Rechenwege wie „MgP 168 + 2 = rwP 170“ (nur das Ergebnis zählt).
+        Mehrere Werte werden über Beschriftungen in der Antwort zugeordnet
         (z. B. „ST 065°, 4a 170°“), sonst in der Reihenfolge. Toleranzen: Kurs/Peilung/Winkel ±2°
         (über 360° hinweg), Distanz ±0,2 sm, Position ±0,3' je Breite/Länge, Uhrzeit ±3 min,
         Fahrt ±0,3 kn, Dauer ±3 min.

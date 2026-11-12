@@ -2280,6 +2280,7 @@
 				return el('li', { class: 'bp-card' }, [el('strong', { text: p.name }), el('span', { class: 'bp-muted', text: ' ' + p.full }), el('p', { text: p.text }), el('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'bp-button', text: t('guide_to_provider', { name: p.name }) })]);
 			})),
 			el('div', { class: 'bp-committee-bar' }, [el('h3', { text: t('guide_committees', { n: committees.length }) }), el('div', { class: 'bp-committee-filter' }, [stateSelect, input, count])]),
+			el('p', { class: 'bp-muted bp-committee-incomplete', text: t('guide_committee_incomplete') }),
 			el('div', { class: 'bp-committee-layout' }, [
 				el('div', { class: 'bp-committee-mapcol' }, [mapBox, el('p', { class: 'bp-muted bp-map-note', text: t('guide_map_note') })]),
 				el('div', { class: 'bp-committee-listcol' }, [stateBar, list])
@@ -2455,7 +2456,9 @@
 					return { stats: [[task.questions.length, t('nav_stat_parts')], [n, t('nav_stat_done')]], percent: Math.floor(n * 100 / Math.max(task.questions.length, 1)) };
 				};
 				// Zähler im Kopf sofort nachziehen, wenn eine Teilaufgabe erledigt ist.
-				var onDone = function () { var h = heroStats(); updateHero(hero, h.stats, h.percent, t('nav_stat_done')); };
+				var score = el('div', { class: 'bp-card bp-nav-score', 'aria-live': 'polite' });
+				var onDone = function () { var h = heroStats(); updateHero(hero, h.stats, h.percent, t('nav_stat_done')); navigationScore(score, task); };
+				navigationScore(score, task);
 				task.questions.forEach(function (q) { items.appendChild(navigationQuestion(slug, q, onDone)); });
 				var title = t('nav_task_title', { number: task.number });
 				var hs = heroStats();
@@ -2474,6 +2477,7 @@
 						]),
 						el('div', { class: 'bp-nav-questions' }, [
 							items,
+							score,
 							el('div', { class: 'bp-actions bp-nav-pager' }, [prevNode, nextNode]),
 							lockedNav,
 							task.source ? el('p', { class: 'bp-muted bp-source', text: t('source', { source: task.source }) }) : null
@@ -2482,6 +2486,22 @@
 				], title + ' – ' + c.name);
 			});
 		});
+	}
+
+	// Punktestand der Navigationsaufgabe nach Selbsteinschätzung (wie TrainerService::navigationScore): richtig = 1 Punkt.
+	function navigationScore(box, task) {
+		var max = task.questions.length;
+		var points = task.questions.filter(function (q) { return q.self_assessment === 'correct'; }).length;
+		var open = task.questions.filter(function (q) { return !q.self_assessment; }).length;
+		var pass = (task.score && task.score.pass_points) || null;
+		box.textContent = '';
+		box.appendChild(el('p', {}, [el('strong', { text: t('nav_score', { points: points, max: max }) })]));
+		if (pass) {
+			box.appendChild(el('p', { class: 'bp-muted', text: t('nav_score_rule', { pass: pass, max: max }) }));
+		}
+		if (open > 0 || pass) {
+			box.appendChild(el('p', { text: open > 0 ? t('nav_score_open', { n: open }) : t(points >= pass ? 'nav_score_passed' : 'nav_score_failed') }));
+		}
 	}
 
 	// Automatische Prüfung der eigenen Werte (nur Hilfe): Ergebnis je Wert als Text, nicht nur über die Farbe.
@@ -2537,7 +2557,7 @@
 				item.appendChild(el('div', { class: 'bp-actions' }, [reveal]));
 				return;
 			}
-			var official = el('div', { class: 'bp-model', tabindex: '-1' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer)]);
+			var official = el('div', { class: 'bp-model', tabindex: '-1' }, [el('p', { class: 'bp-model-title', text: t('nav_official') }), multiline('p', q.answer), q.chart_entry ? el('p', { class: 'bp-muted bp-nav-chart-entry', text: t('nav_chart_entry') }) : null]);
 			item.appendChild(official);
 			// Prüfergebnis erst nach dem Einhängen füllen, damit die Live-Region die Änderung meldet.
 			item.appendChild(checkLive);

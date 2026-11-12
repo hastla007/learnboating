@@ -352,4 +352,110 @@ final class PackageTest extends TestCase
             unlink($file);
         }
     }
+
+    public function testCombosAreVerifiedBecauseTheyMatchTheirSingleRules(): void
+    {
+        $rules = array_column(self::data('exam_rules'), null, 'course_code');
+        foreach (PackageBuilder::COMBO_VERIFIED_FROM as $combo => $singles) {
+            self::assertSame('published', $rules[$combo]['status'], $combo);
+            self::assertTrue($rules[$combo]['verified'], $combo);
+            // Herleitung nachgerechnet: Teile und Zeit der Kombi = Teile und Zeiten der verifizierten Einzelregelwerke.
+            $expected = [];
+            $seconds = 0;
+            foreach ($singles as $single) {
+                self::assertTrue($rules[$single]['verified'], $single);
+                $seconds += $rules[$single]['time_limit_seconds'];
+                $expected = array_merge($expected, array_map(static fn ($p) => [$p['module'], $p['min_correct'], $p['of']], $rules[$single]['passing_rule']['parts'] ?? [[
+                    'module' => $rules[$single]['blueprints'][0]['module_code'],
+                    'min_correct' => (int) round($rules[$single]['passing_rule']['min_correct_ratio'] * $rules[$single]['blueprints'][0]['question_count']),
+                    'of' => $rules[$single]['blueprints'][0]['question_count'],
+                ]]));
+            }
+            $actual = array_map(static fn ($p) => [$p['module'], $p['min_correct'], $p['of']], $rules[$combo]['passing_rule']['parts']);
+            sort($expected);
+            sort($actual);
+            self::assertSame($expected, $actual, $combo);
+            self::assertSame($seconds, $rules[$combo]['time_limit_seconds'], $combo);
+        }
+        // Ergänzung FKN → SKN: Prüfungsform nicht belegt → volle SKN-Prüfung simulieren, aber Entwurf (Übungsmodus).
+        $addon = $rules['ADD-FKN-TO-SKN'];
+        self::assertSame('draft', $addon['status']);
+        self::assertFalse($addon['verified']);
+        self::assertSame($rules['SKN']['time_limit_seconds'], $addon['time_limit_seconds']);
+        self::assertSame($rules['SKN']['blueprints'], $addon['blueprints']);
+        self::assertSame($rules['SKN']['passing_rule']['min_correct_ratio'], $addon['passing_rule']['min_correct_ratio']);
+        self::assertSame(PackageBuilder::ADDON_AS_FULL_NOTE, $addon['passing_rule']['note']);
+    }
+
+    public function testComboCheckRejectsDeviatingParts(): void
+    {
+        $singles = [
+            'A' => ['parts' => [['module' => 'X', 'min_correct' => 19, 'of' => 24]], 'seconds' => 1800],
+            'B' => ['parts' => [['module' => 'Y', 'min_correct' => 8, 'of' => 10]], 'seconds' => 1800],
+        ];
+        $combo = [
+            ['module' => 'X', 'min_correct' => 19, 'of' => 24, 'seconds' => 1800],
+            ['module' => 'Y', 'min_correct' => 8, 'of' => 10, 'seconds' => 1800],
+        ];
+        self::assertTrue(PackageBuilder::comboMatchesSingles($combo, $singles));
+        $lower = $combo;
+        $lower[1]['min_correct'] = 7;
+        self::assertFalse(PackageBuilder::comboMatchesSingles($lower, $singles), 'andere Grenze');
+        $longer = $combo;
+        $longer[0]['seconds'] = 2400;
+        self::assertFalse(PackageBuilder::comboMatchesSingles($longer, $singles), 'andere Zeit');
+        self::assertFalse(PackageBuilder::comboMatchesSingles([$combo[0]], $singles), 'Teil fehlt');
+    }
+
+    public function testAddonCoursesGetTheRegionalCardsOfTheirTargetLicence(): void
+    {
+        $byCourse = [];
+        foreach (self::data('praxis_tasks') as $task) {
+            $byCourse[$task['course_code']][$task['category']][] = $task;
+        }
+        foreach (PackageBuilder::PRAXIS_ADDON_CARDS as $target => [$source, $suffix, $categories]) {
+            foreach ($categories as $category) {
+                self::assertArrayHasKey($category, $byCourse[$source], "{$source}: {$category} gibt es in der Quelle");
+                self::assertCount(count($byCourse[$source][$category]), $byCourse[$target][$category] ?? [], "{$target}: {$category}");
+                foreach ($byCourse[$target][$category] as $task) {
+                    self::assertSame($task['copied_from'].$suffix, $task['source_id']);
+                }
+            }
+        }
+        self::assertArrayHasKey('Pflichtmanöver', $byCourse['ADD-BIN-TO-SEE'], 'Pflichtmanöver der Quelle bleiben');
+        self::assertArrayNotHasKey('Pflichtmanöver', $byCourse['ADD-SEE-TO-BIN'], 'Praxis See → Binnen wird angerechnet');
+        self::assertArrayNotHasKey('Seemannsknoten', $byCourse['ADD-SEE-TO-BIN']);
+    }
+
+    /**
+     * FKN/SKN-Fragen, bei denen alle Optionen richtig sind, stehen so im amtlichen Katalog („Es können mehrere Antworten
+     * richtig sein, mindestens eine ist immer richtig“, skn_catalog.php). Wer überall alles ankreuzt, darf damit trotzdem
+     * keinen Bogen und keine Zufallsprüfung bestehen.
+     */
+    public function testNoExamCanBePassedByTickingEveryOption(): void
+    {
+        $allCorrect = [];
+        foreach (self::data('questions') as $q) {
+            $answers = $q['revision']['answers'];
+            if (in_array($q['revision']['question_type'], ['single_choice', 'multi_choice'], true) && $answers !== [] && count(array_filter($answers, static fn ($a) => $a['is_correct'])) === count($answers)) {
+                $allCorrect[$q['source_id']] = true;
+            }
+        }
+        self::assertCount(11, $allCorrect, 'FKN 3, 7, 13, 30, 32 und SKN 4, 8, 15, 32, 44, 46 (wie im Katalog)');
+        $rules = array_column(self::data('exam_rules'), null, 'course_code');
+        foreach (self::data('exam_papers') as $paper) {
+            $required = (int) ceil($rules[$paper['course_code']]['passing_rule']['min_correct_ratio'] * count($paper['questions']) - 1e-9);
+            $free = count(array_filter($paper['questions'], static fn ($x) => isset($allCorrect[$x['question_source_id']])));
+            self::assertLessThan($required, $free, $paper['source_id']);
+        }
+        $modules = array_column(self::data('modules'), null, 'code');
+        foreach ($rules as $code => $rule) {
+            $total = array_sum(array_column($rule['blueprints'], 'question_count'));
+            $free = 0;
+            foreach ($rule['blueprints'] as $bp) {
+                $free += min($bp['question_count'], count(array_filter($modules[$bp['module_code']]['questions'], static fn ($m) => isset($allCorrect[$m['question_source_id']]))));
+            }
+            self::assertLessThan((int) ceil($rule['passing_rule']['min_correct_ratio'] * $total - 1e-9), $free, $code);
+        }
+    }
 }

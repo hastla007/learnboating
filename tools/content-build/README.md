@@ -18,6 +18,11 @@ Der Konverter bildet das Ergebnis eines frischen `php artisan db:seed` der Quell
   übernommen statt verworfen;
 - alle Texte werden getrimmt und Unicode-NFC-normalisiert;
 - Navigationsaufgaben stehen einmal im Paket mit `course_codes` statt als Kopie je Kurs.
+- Kombis SBF See & Binnen und SRC & UBI sind verifiziert, weil ihr Regelwerk Teil für Teil aus verifizierten
+  Regelwerken besteht (`COMBO_VERIFIED_FROM`, beim Bau nachgerechnet); die Ergänzung FKN → SKN simuliert die volle
+  SKN-Prüfung und bleibt Entwurf (`ADDON_AS_FULL`).
+- Die Ergänzungskurse Binnen → See und See → Binnen bekommen die revierspezifischen Praxiskarten des Zielscheins
+  (`PRAXIS_ADDON_CARDS`). Der Golden-Master-Abgleich wendet diese Abweichungen auf die Laravel-Seite an.
 
 Videokurse liest der Konverter als reine Literale (Tokenizer, keine Ausführung) aus den
 Seedern und bildet deren Logik nach (Kopien, Kapitel-Einschübe, Quizzuordnung nur einmal je

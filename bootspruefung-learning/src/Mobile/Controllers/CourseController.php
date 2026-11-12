@@ -150,6 +150,7 @@ final class CourseController extends BaseController
             'registration_in_app' => false,
             'guides' => $payload['tabs'],
             'committees' => array_map(static fn ($c) => ['id' => (string) $c['id']] + $c, $payload['committees']),
+            'committees_note' => $payload['committees_note'],
         ]);
     }
 

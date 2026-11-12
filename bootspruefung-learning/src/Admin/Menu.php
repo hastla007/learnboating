@@ -209,7 +209,7 @@ final class Menu
             esc_attr(Settings::OPTION),
             checked(! empty($settings['exam_guide_enabled']), true, false),
             esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
-            esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und alle Prüfungsausschüsse. Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
+            esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und eine Liste von Prüfungsausschüssen (nicht vollständig, Hinweis für die Lernenden). Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
         );
         printf(
             '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[expiry_reminder_enabled]" value="0"><label><input type="checkbox" name="%2$s[expiry_reminder_enabled]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',

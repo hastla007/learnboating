@@ -119,6 +119,16 @@ $cases = [
     ['NAV-13-01', 'Düne-S 008°, Helgoland-O 284°', 'within', [true, true]],
     ['NAV-14-08', 'rwP = 022° Süderpiep rwP = 100° Norderelbe', 'within', [true, true]],
     ['NAV-01-01', 'keine Ahnung', 'unrecognized', [false]],
+    // FACH-15: gängige Schreibweisen
+    ['NAV-01-05', "Breite 53° 55,8' N Länge 7° 51,3' O", 'within', [true]],
+    ['NAV-01-05', "φ = 53°55,8' N, λ = 007°51,3' E", 'within', [true]],
+    ['NAV-01-05', '53-55,8N 007-51,3E', 'within', [true]],
+    ['NAV-01-04', '3/4 Stunde', 'within', [true]],
+    ['NAV-01-04', 'in einer ¾ h', 'within', [true]],
+    ['NAV-01-04', '1/2 Stunde', 'deviates', [false]],
+    ['NAV-01-02', '74° (rwK 79°)', 'within', [true]],
+    ['NAV-01-02', 'rwK 79°, MgK 74°', 'within', [true]],
+    ['NAV-01-06', 'MgP 168 + 2 = rwP 170; ST 063 + 2 = 065', 'within', [true, true]],
 ];
 foreach ($cases as [$id, $input, $status, $oks]) {
     $r = NavigationCheck::check($values[$id], $input, true);
@@ -140,6 +150,12 @@ $r = NavigationCheck::check($values['NAV-01-01'], 'rwK 080°', false);
 $check(! array_key_exists('expected', $r['values'][0]) && $r['values'][0]['deviation'] == 1, 'ohne Aufdecken keine Sollwerte');
 $check(NavigationCheck::check($values['NAV-01-01'], '   ', true) === null && NavigationCheck::check([], 'rwK 079°', true) === null, 'leere Antwort oder keine Werte → keine Prüfung');
 $check(NavigationCheck::decode('kaputt') === [] && NavigationCheck::decode(null) === [] && count(NavigationCheck::decode((string) wp_json_encode($values['NAV-01-08']))) === 2, 'decode: ungültig → leer');
+$arrival = [
+    ['label' => 'Ankunft', 'quantity' => 'time', 'value' => '15:12', 'unit' => 'Uhr', 'tolerance' => 3],
+    ['label' => 'Fahrzeit', 'quantity' => 'duration', 'value' => 102, 'unit' => 'min', 'tolerance' => 3],
+];
+$r = NavigationCheck::check($arrival, 'Ankunft 15:12, Fahrzeit 1:42 h', true);
+$check($r['status'] === 'within' && array_column($r['values'], 'given') === ['15:12 Uhr', '102 min'], '„Fahrzeit 1:42 h“ als Dauer, „15:12“ als Uhrzeit (FACH-15)');
 $tokens = NavigationCheck::parse('Tonne "TG17/Weser1" 345°, 1b/Jade1 4a');
 $check(count($tokens) === 1 && $tokens[0]['value'] == 345.0, 'Ziffern in Namen (TG17, Weser1, 1b, 4a) zählen nicht als Werte');
 
@@ -161,6 +177,8 @@ ksort($stored);
 ksort($values);
 $check($stored == $values, '78 Teilaufgaben mit denselben Werten wie im Paket gespeichert');
 $check($wpdb->get_var("SELECT answer_values FROM {$p}navigation_question WHERE source_id = 'NAV-01-07'") === null, '„Siehe Karte“ ohne Werte (NULL)');
+$coverage = \Bootspruefung\Learning\Trainers\NavigationCheck::coverage();
+$check($coverage['total'] === 135 && $coverage['with'] > 0 && $coverage['with'] < 135, 'Statusseite: Teilaufgaben mit Lösungswerten gezählt ('.$coverage['with'].' von '.$coverage['total'].')');
 
 echo "Web-REST: Navigation\n";
 $settingsBefore = get_option(Settings::OPTION);
@@ -194,6 +212,19 @@ $check($a['check'] === null && $a['answer'] === 'MgK = 074° *)', 'Aufdecken ohn
 [, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
 $parts = array_column($task['questions'], null, 'number');
 $check($parts[1]['check']['status'] === 'deviates' && $parts[2]['check'] === null && $parts[7]['check'] === null, 'Aufgabe liefert die Prüfung der gespeicherten Antwort');
+
+echo "Punktestand der Navigationsaufgabe (FACH-10)\n";
+$check($parts[7]['chart_entry'] === true && $parts[1]['chart_entry'] === false, '„Siehe Karte“: Teilaufgabe als Karteneintragung gekennzeichnet');
+$check($task['score'] === ['points' => 0, 'max' => 9, 'pass_points' => 7, 'assessed' => 1, 'partly' => 1, 'complete' => false, 'passed' => null], 'Punktestand: „teilweise“ zählt nicht, 7 von 9 zum Bestehen, Ergebnis erst nach allen Einschätzungen');
+foreach ($parts as $n => $part) {
+    $req('POST', '/courses/SBF-SEE/navigation-questions/'.$part['id'], ['self_assessment' => $n <= 7 ? 'correct' : 'wrong']);
+}
+[, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+$check($task['score']['points'] === 7 && $task['score']['complete'] === true && $task['score']['passed'] === true, '7 von 9 richtig: bestanden');
+$req('POST', '/courses/SBF-SEE/navigation-questions/'.$parts[7]['id'], ['self_assessment' => 'partly']);
+[, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+$check($task['score']['points'] === 6 && $task['score']['passed'] === false, '6 von 9 (eine nur teilweise): nicht bestanden');
+$check(\Bootspruefung\Learning\Trainers\TrainerService::navigationScore(['correct', 'correct'])['pass_points'] === null, 'ohne 9 Teilaufgaben keine Bestehensgrenze');
 
 echo "Web-REST: Prüfungsfragen markieren\n";
 [$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');

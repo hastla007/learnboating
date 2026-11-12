@@ -49,6 +49,8 @@ $check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/tips'))->ge
 wp_set_current_user($prevUser);
 $check(count($service->guides()) === 6, '6 Anleitungen (SRC, UBI, SBF See, SBF Binnen, FKN, SKN)');
 $check(count($service->committees()) === 18, '18 Prüfungsausschüsse');
+// FACH-09: Die Liste enthält nur einen Teil der Ausschüsse (DMYV) – Hinweis in Web und App.
+$check(str_starts_with((string) ($service->payload('SBF-SEE')['committees_note'] ?? ''), 'Die Liste ist nicht vollständig') && \Bootspruefung\Learning\Frontend\Strings::all()['guide_committee_incomplete'] === ExamGuideService::committeesNote(), 'Hinweis „Liste nicht vollständig“ (Seite und App)');
 
 echo "Freischaltung\n";
 $check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see/pruefung-anmelden'))->get_status() === 404, 'deaktiviert: REST 404');
@@ -65,6 +67,14 @@ $full = $see['variants'][0];
 $check($full['key'] === 'full' && $full['scope'] === '30 Fragen: 7 Basisfragen aus 72, 23 See-Fragen aus 213', 'Umfang wie die Quelle (ohne freie Kartenaufgaben): '.$full['scope']);
 $check($full['pass_text'] === 'Basisfragen mind. 5 von 7 und See-Fragen mind. 18 von 23', 'Bestehensgrenze mehrteilig');
 $check($service->payload('ADD-BIN-TO-SEE')['tabs'][0]['variants'][0]['key'] === 'addon', 'Ergänzungskurs: Ergänzungsprüfung zuerst');
+// FACH-04: Der Kombikurs SRC & UBI übt die UBI-Ergänzung (8 von 10) – die Anleitung zeigt sie zuerst, mit Kombi-Hinweis.
+$srcUbi = $service->payload('SRC-UBI')['tabs'];
+$ubiTab = $srcUbi[1] ?? [];
+$check(array_column($srcUbi, 'key') === ['SRC', 'UBI'] && $srcUbi[0]['variants'][0]['key'] === 'full', 'Kombi SRC & UBI: Reiter SRC (Vollprüfung) und UBI');
+$check(($ubiTab['variants'][0]['key'] ?? '') === 'addon' && $ubiTab['variants'][0]['scope'] === '10 Fragen aus '.$service->catalogSize('UBI_ERG') && $ubiTab['variants'][0]['pass_text'] === 'ab 8 richtigen (max. 2 Fehler)', 'Kombi SRC & UBI: UBI-Ergänzungsprüfung zuerst (10 Fragen, ab 8 richtigen)');
+$check(str_starts_with((string) $ubiTab['variants'][0]['note'], 'Im Kombikurs übst du für die UBI') && ($ubiTab['variants'][1]['key'] ?? '') === 'full', 'Kombi-Hinweis statt „Du hast schon das SRC“, Vollprüfung bleibt als zweite Variante');
+$ubiOnly = $service->payload('UBI')['tabs'][0]['variants'];
+$check($ubiOnly[0]['key'] === 'full' && str_starts_with((string) $ubiOnly[1]['note'], 'Du hast schon das SRC'), 'UBI-Kurs unverändert: Vollprüfung zuerst, Hinweis der Quelle');
 $src = $service->payload('SRC')['tabs'][0]['variants'][0];
 $check($src['pass_text'] === 'ab 19 richtigen (max. 5 Fehler)' && $src['scope'] === '24 Fragen aus 180', 'SRC: 24 Fragen aus 180, ab 19 richtigen');
 $fkn = $service->payload('FKN')['tabs'][0];
