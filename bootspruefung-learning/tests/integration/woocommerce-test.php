@@ -243,6 +243,13 @@ try {
 }
 wp_set_current_user(1);
 $check($threw, 'Checkout-Block: Gastbestellung mit Lernprodukt abgewiesen');
+if (class_exists(\Automattic\WooCommerce\Blocks\Package::class)) {
+    // Ein festes required=true würde WooCommerce als enum [true] ins Store-API-Schema schreiben – dann scheitern
+    // Warenkörbe ohne Lernprodukte (Tickets, Gutscheine), obwohl das Kästchen ausgeblendet ist.
+    $fieldsService = \Automattic\WooCommerce\Blocks\Package::container()->get(\Automattic\WooCommerce\Blocks\Domain\Services\CheckoutFields::class);
+    $consentField = $fieldsService->get_additional_fields()[\Bootspruefung\Learning\Commerce\WooCommerce\DigitalConsent::FIELD] ?? null;
+    $check(is_array($consentField) && is_array($consentField['required']) && isset($consentField['required']['not']) && $fieldsService->is_conditional_field($consentField), 'Checkout-Block: Zustimmung digitale Inhalte nur bedingt Pflicht (Warenkorb ohne Lernprodukte)');
+}
 
 echo "Admin und Abgleich\n";
 require_once ABSPATH.'wp-admin/includes/admin.php';

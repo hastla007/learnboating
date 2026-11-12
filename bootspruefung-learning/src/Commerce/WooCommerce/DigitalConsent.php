@@ -150,27 +150,37 @@ final class DigitalConsent
             'label' => self::label(),
             'location' => 'order',
             'type' => 'checkbox',
-            'required' => true,
+            // Pflicht, außer der Warenkorb meldet ausdrücklich keine Lernprodukte (Umkehrung von „hidden“).
+            // Kein festes `true`: WooCommerce setzt für Pflicht-Kästchen sonst `enum: [true]` ins Store-API-
+            // Schema – auch wenn das Feld ausgeblendet ist –, und Warenkörbe ohne Lernprodukte (Tickets,
+            // Gutscheine) scheitern mit „… is not 1.“. blockOrder() prüft die Zustimmung zusätzlich serverseitig.
+            'required' => ['not' => ['type' => 'object', 'required' => ['cart'], 'properties' => self::noLearningRule()]],
             'error_message' => self::errorMessage(),
             // Nur ausblenden, wenn der Warenkorb ausdrücklich keine Lernprodukte meldet; fehlt das
             // Kennzeichen, bleibt das Feld sichtbar und Pflicht (sichere Richtung).
-            'hidden' => [
-                'cart' => [
-                    'required' => ['extensions'],
-                    'properties' => [
-                        'extensions' => [
-                            'required' => [self::EXTENSION],
-                            'properties' => [
-                                self::EXTENSION => [
-                                    'required' => ['digital'],
-                                    'properties' => ['digital' => ['const' => false]],
-                                ],
+            'hidden' => self::noLearningRule(),
+        ]);
+    }
+
+    /** Regel (Checkout-Dokument): Der Warenkorb meldet ausdrücklich keine Lernprodukte. */
+    private static function noLearningRule(): array
+    {
+        return [
+            'cart' => [
+                'required' => ['extensions'],
+                'properties' => [
+                    'extensions' => [
+                        'required' => [self::EXTENSION],
+                        'properties' => [
+                            self::EXTENSION => [
+                                'required' => ['digital'],
+                                'properties' => ['digital' => ['const' => false]],
                             ],
                         ],
                     ],
                 ],
             ],
-        ]);
+        ];
     }
 
     /** Store API (Bestellung absenden): Zustimmung prüfen (zusätzlich zur Feldregel) und mit Zeitpunkt speichern. */
