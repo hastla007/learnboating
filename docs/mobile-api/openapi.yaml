@@ -3498,6 +3498,22 @@ components:
                 oneOf:
                   - {$ref: '#/components/schemas/NavigationCheck'}
                   - {type: 'null'}
+              chart_entry: {type: boolean, description: 'true = das amtliche Ergebnis ist eine Eintragung in der Seekarte („Siehe Karte“); keine Werte zum Vergleichen'}
+        score:
+          type: object
+          description: >-
+            Punktestand nach Selbsteinschätzung: „richtig“ = 1 Punkt, „teilweise“ zählt nicht (strenge Wertung).
+            Amtlich bestanden ab 7 von 9 Punkten (`pass_points` nur bei Aufgaben mit 9 Teilaufgaben); `passed`
+            erst, wenn alle Teilaufgaben eingeschätzt sind, sonst null. Keine Zeitvorgabe.
+          required: [points, max, pass_points, assessed, partly, complete, passed]
+          properties:
+            points: {type: integer}
+            max: {type: integer}
+            pass_points: {type: [integer, 'null']}
+            assessed: {type: integer}
+            partly: {type: integer}
+            complete: {type: boolean}
+            passed: {type: [boolean, 'null']}
         previous_task_id: {type: [string, 'null']}
         previous_locked: {type: boolean}
         next_task_id: {type: [string, 'null']}

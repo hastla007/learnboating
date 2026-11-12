@@ -35,6 +35,41 @@ final class TrainerService
 
     // ------------------------------------------------------------------ Navigation
 
+    /**
+     * Amtliche Wertung der Navigationsaufgabe SBF See: mindestens 7 von 9 Punkten (pruefung_buchen.php der Quelle,
+     * Varianten SBF See und Ergänzung Binnen → See; Regelhinweis des Prüfungsregelwerks). Jede der 15 amtlichen Aufgaben
+     * hat 9 Teilaufgaben, also 1 Punkt je Teilaufgabe. Eine Zeitvorgabe ist im Repository nicht belegt – deshalb kein Timer.
+     */
+    public const NAV_MAX_POINTS = 9;
+
+    public const NAV_PASS_POINTS = 7;
+
+    /**
+     * Punktestand nach Selbsteinschätzung: „richtig“ = 1 Punkt; „teilweise“ zählt nicht (strenge Wertung, Teilpunkte
+     * sind nicht belegt). Bestehensgrenze nur bei Aufgaben mit 9 Teilaufgaben; „passed“ erst, wenn alle eingeschätzt sind.
+     *
+     * @param list<?string> $assessments Selbsteinschätzung je Teilaufgabe (correct|partly|wrong|null)
+     * @return array{points:int,max:int,pass_points:?int,assessed:int,partly:int,complete:bool,passed:?bool}
+     */
+    public static function navigationScore(array $assessments): array
+    {
+        $max = count($assessments);
+        $points = count(array_filter($assessments, static fn ($a) => $a === 'correct'));
+        $assessed = count(array_filter($assessments, static fn ($a) => in_array($a, ['correct', 'partly', 'wrong'], true)));
+        $pass = $max === self::NAV_MAX_POINTS ? self::NAV_PASS_POINTS : null;
+        $complete = $max > 0 && $assessed === $max;
+
+        return [
+            'points' => $points,
+            'max' => $max,
+            'pass_points' => $pass,
+            'assessed' => $assessed,
+            'partly' => count(array_filter($assessments, static fn ($a) => $a === 'partly')),
+            'complete' => $complete,
+            'passed' => $complete && $pass !== null ? $points >= $pass : null,
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public function navigationTasks(int $userId, object $course): array
     {
@@ -120,6 +155,7 @@ final class TrainerService
             'previous_locked' => $previous ? (bool) $previous['locked'] : false,
             'next' => $next ? $next['id'] : null,
             'next_locked' => $next ? (bool) $next['locked'] : false,
+            'score' => self::navigationScore(array_map(static fn ($q) => $q->self_assessment, $questions)),
             'questions' => array_map(static fn ($q) => [
                 'id' => (int) $q->id,
                 'number' => (int) $q->question_number,
@@ -129,6 +165,8 @@ final class TrainerService
                 'my_answer' => $q->my_answer,
                 'self_assessment' => $q->self_assessment,
                 'done' => (bool) $q->done,
+                // Amtliches Ergebnis ist eine Eintragung in der Seekarte (lizenziert, nicht im Paket): Hinweis statt Werte.
+                'chart_entry' => (bool) preg_match('/^\s*siehe\s+karte/iu', (string) $q->answer_text),
                 // Automatische Prüfung (Hilfe): nur Teilaufgaben mit strukturierten Lösungswerten; Ergebnis
                 // samt Sollwerten erst, wenn das amtliche Ergebnis ohnehin sichtbar ist.
                 'auto_check' => NavigationCheck::decode($q->answer_values) !== [],

@@ -195,6 +195,19 @@ $check($a['check'] === null && $a['answer'] === 'MgK = 074° *)', 'Aufdecken ohn
 $parts = array_column($task['questions'], null, 'number');
 $check($parts[1]['check']['status'] === 'deviates' && $parts[2]['check'] === null && $parts[7]['check'] === null, 'Aufgabe liefert die Prüfung der gespeicherten Antwort');
 
+echo "Punktestand der Navigationsaufgabe (FACH-10)\n";
+$check($parts[7]['chart_entry'] === true && $parts[1]['chart_entry'] === false, '„Siehe Karte“: Teilaufgabe als Karteneintragung gekennzeichnet');
+$check($task['score'] === ['points' => 0, 'max' => 9, 'pass_points' => 7, 'assessed' => 1, 'partly' => 1, 'complete' => false, 'passed' => null], 'Punktestand: „teilweise“ zählt nicht, 7 von 9 zum Bestehen, Ergebnis erst nach allen Einschätzungen');
+foreach ($parts as $n => $part) {
+    $req('POST', '/courses/SBF-SEE/navigation-questions/'.$part['id'], ['self_assessment' => $n <= 7 ? 'correct' : 'wrong']);
+}
+[, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+$check($task['score']['points'] === 7 && $task['score']['complete'] === true && $task['score']['passed'] === true, '7 von 9 richtig: bestanden');
+$req('POST', '/courses/SBF-SEE/navigation-questions/'.$parts[7]['id'], ['self_assessment' => 'partly']);
+[, $task] = $req('GET', '/courses/SBF-SEE/navigation/'.$tasks[0]['id']);
+$check($task['score']['points'] === 6 && $task['score']['passed'] === false, '6 von 9 (eine nur teilweise): nicht bestanden');
+$check(\Bootspruefung\Learning\Trainers\TrainerService::navigationScore(['correct', 'correct'])['pass_points'] === null, 'ohne 9 Teilaufgaben keine Bestehensgrenze');
+
 echo "Web-REST: Prüfungsfragen markieren\n";
 [$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');
 $sid = (int) ($d['session_id'] ?? 0);

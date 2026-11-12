@@ -214,6 +214,7 @@ final class TrainingController extends BaseController
             'done' => (bool) $q['done'],
             'auto_check' => (bool) $q['auto_check'],
             'check' => $q['check'],
+            'chart_entry' => (bool) $q['chart_entry'],
         ], $task['questions']);
 
         return [
@@ -228,6 +229,7 @@ final class TrainingController extends BaseController
             'part_count' => count($parts),
             'correction_notice' => null,
             'parts' => $parts,
+            'score' => $task['score'],
             'previous_task_id' => $task['previous'] !== null ? (string) $task['previous'] : null,
             'previous_locked' => (bool) $task['previous_locked'],
             'next_task_id' => $task['next'] !== null ? (string) $task['next'] : null,
