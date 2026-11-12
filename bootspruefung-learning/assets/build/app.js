@@ -415,7 +415,7 @@
 		var media = el('a', { class: 'bp-cc-media' + (img ? '' : ' is-plain'), href: base + c.slug + '/', 'data-bp-link': '1', tabindex: '-1', 'aria-hidden': 'true' }, [
 			img ? el('img', { src: img, alt: '', loading: 'lazy' }) : null,
 			el('span', { class: 'bp-cc-type bp-cc-type-' + c.type, text: typeLabel(c.type) }),
-			c.trial ? el('span', { class: 'bp-cc-trial', text: t('course_trial') }) : null
+			c.trial && !accessState(c) ? el('span', { class: 'bp-cc-trial', text: t('course_trial') }) : null
 		]);
 		var body = [el('h3', { class: 'bp-cc-title' }, [link(c.slug + '/', c.name)])];
 		// Empfehlung: passt zu einem besessenen Kurs (Server: CourseRelations).
@@ -426,15 +426,16 @@
 		}
 		if (c.progress) {
 			var started = c.progress.mastered + c.progress.learning + c.progress.unsure > 0;
-			if (c.trial) { body.push(el('p', { class: 'bp-cc-trial-note', text: t('course_trial_note') })); }
+			if (c.trial && !accessState(c)) { body.push(el('p', { class: 'bp-cc-trial-note', text: t('course_trial_note') })); }
+			body = body.concat(accessCardNodes(c));
 			body.push(el('p', { class: 'bp-cc-pct' }, [el('strong', { text: c.progress.percent + ' %' }), ' ' + t('course_hero_mastered')]));
 			body.push(progressBar(c.progress, t('progress_short', { mastered: c.progress.mastered, total: c.progress.questions })));
 			body.push(el('p', { class: 'bp-cc-actions' }, [link(c.slug + '/', c.trial ? t('course_trial_cta') : (started ? t('dash_continue') : t('course_cta_learn')), 'bp-button bp-button-primary bp-cc-go')]));
-			var offer = c.trial && c.shop && c.shop.question_bank ? c.shop.question_bank[0] : null;
+			var offer = c.trial && !accessState(c) && c.shop && c.shop.question_bank ? c.shop.question_bank[0] : null;
 			if (offer) { body.push(el('p', { class: 'bp-cc-unlock' }, [el('a', { href: offer.url, text: t('course_trial_unlock', { price: offer.price }) })])); }
 		} else {
 			body.push(el('p', { class: 'bp-muted bp-cc-locked', text: t('locked_short') }));
-			body = body.concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : []);
+			body = accessState(c) ? body.concat(accessCardNodes(c)) : body.concat(c.shop && c.shop.question_bank ? offerNodes(c.shop.question_bank) : []);
 		}
 		return el('li', { class: 'bp-card bp-course-card' + (c.progress ? '' : ' is-locked') + (rec ? ' is-recommended' : '') }, [media, el('div', { class: 'bp-cc-body' }, body)]);
 	}
@@ -448,6 +449,70 @@
 				c.renew_url ? el('a', { href: c.renew_url, text: t('expiry_renew') }) : null
 			])
 		]);
+	}
+
+	// ------------------------------------------------------------------ Zugangsstatus: Zahlung offen, abgelaufen, gesperrt
+	// Server: access.status (AccessStatus); der kostenlose Teilumfang bleibt nutzbar. Texte wie App-Screens 88 und 25.
+
+	var ACCESS_NOTICES = ['pending', 'expired', 'suspended'];
+
+	function accessState(c) {
+		var s = c && c.access ? c.access.status : null;
+		return ACCESS_NOTICES.indexOf(s) !== -1 ? s : null;
+	}
+
+	function accessNoticeParts(c) {
+		var a = c.access;
+		var s = accessState(c);
+		if (s === 'pending') {
+			var text = a.order ? t('access_pending_text', { number: a.order.number, name: c.name }) : t('access_pending_text_plain', { name: c.name });
+			if (a.duration) { text += ' ' + t('access_pending_term', { term: a.duration }); }
+			if (c.trial || (c.progress && c.progress.limit)) { text += ' ' + t('access_pending_free'); }
+			var url = a.order && a.order.url ? a.order.url : cfg.accountUrl;
+			return { status: s, title: t('access_pending_title'), text: text, icon: 'timer', url: url, link: t('access_pending_order') };
+		}
+		if (s === 'expired') {
+			return { status: s, title: t('access_expired_title'), text: t('access_expired_text', { name: c.name, date: fmtDate(a.expired_at) }), icon: 'timer', url: a.renew_url, link: t('access_renew') };
+		}
+		if (s === 'suspended') {
+			return { status: s, title: t('access_suspended_title'), text: t('access_suspended_text', { name: c.name }), icon: 'lock', url: a.contact_url, link: t('access_contact') };
+		}
+		return null;
+	}
+
+	// Übersicht: Hinweis wie „Zugang endet bald“ (je Kauf einmal, mitgekaufte Teilkurse nicht einzeln).
+	function accessNotice(c) {
+		var n = accessNoticeParts(c);
+		return n ? el('div', { class: 'bp-infobox bp-expiry bp-access-notice is-' + n.status }, [
+			el('span', { class: 'bp-ico bp-ico-' + n.icon, 'aria-hidden': 'true' }),
+			el('p', {}, [el('strong', { text: n.title + ': ' }), n.text + ' ', n.url ? el('a', { href: n.url, text: n.link }) : null])
+		]) : null;
+	}
+
+	// Kurs-Hub: Box an der Stelle von „Kurs freischalten“.
+	function accessHubBox(c) {
+		var n = accessNoticeParts(c);
+		return n ? el('section', { class: 'bp-hub-unlock bp-locked bp-access-notice is-' + n.status }, [
+			el('span', { class: 'bp-ico bp-ico-' + n.icon, 'aria-hidden': 'true' }),
+			el('div', {}, [
+				el('h2', { text: n.title }),
+				el('p', { class: 'bp-muted', text: n.text }),
+				n.url ? el('p', {}, [el('a', { href: n.url, class: 'bp-button' + (n.status === 'expired' ? ' bp-button-primary' : ''), text: n.link })]) : null
+			])
+		]) : null;
+	}
+
+	// Kurskachel: kurze Statuszeile statt „Vollzugang freischalten“ bzw. der Kaufangebote.
+	function accessCardNodes(c) {
+		var n = accessNoticeParts(c);
+		if (!n) {
+			return [];
+		}
+		var short = n.status === 'pending' ? t('access_pending_short') : (n.status === 'expired' ? t('access_expired_short', { date: fmtDate(c.access.expired_at) }) : t('access_suspended_short'));
+		return [
+			el('p', { class: 'bp-cc-trial-note bp-cc-access is-' + n.status }, [badge(short, n.status === 'pending' ? 'neutral' : 'warn')]),
+			n.url ? el('p', { class: 'bp-cc-unlock' }, [el('a', { href: n.url, text: n.link })]) : null
+		];
 	}
 
 	function viewOverview() {
@@ -482,7 +547,8 @@
 					el('p', {}, [link(focus.c.slug + '/lernen/', t('dash_continue'), 'bp-button bp-button-signal')])
 				]) : null
 			]);
-			var nodes = [hero].concat(courses.filter(function (c) { return c.expires_soon; }).map(expiryNotice));
+			var nodes = [hero].concat(courses.filter(function (c) { return c.expires_soon; }).map(expiryNotice))
+				.concat(courses.filter(function (c) { return accessState(c) && c.access.notice; }).map(accessNotice));
 			[['full', t('dash_group_full')], ['combo', t('dash_group_combo')], ['addon', t('dash_group_addon')]].forEach(function (g) {
 				var list = mine.filter(function (c) { return c.type === g[0]; });
 				if (list.length) {
@@ -871,8 +937,11 @@
 			var qb = c.features.question_bank;
 			var nodes = [courseHero(slug, c)];
 
-			// Freischalten (gesperrt oder kostenloser Teilumfang)
-			if ((!qb || (c.progress && c.progress.limit)) && shop.question_bank) {
+			// Zahlung offen, abgelaufen oder gesperrt – sonst Freischalten (gesperrt oder kostenloser Teilumfang)
+			var accessBox = accessHubBox(c);
+			if (accessBox) {
+				nodes.push(accessBox);
+			} else if ((!qb || (c.progress && c.progress.limit)) && shop.question_bank) {
 				nodes.push(el('section', { class: 'bp-hub-unlock bp-locked' }, [
 					el('span', { class: 'bp-ico bp-ico-lock', 'aria-hidden': 'true' }),
 					el('div', {}, [el('h2', { text: qb ? t('hub_unlock_partial') : t('hub_unlock_title') }), el('p', { class: 'bp-muted', text: qb ? t('free_limit_questions', { n: c.progress.limit }) : t('locked_feature') })].concat(offerNodes(shop.question_bank)))

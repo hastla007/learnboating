@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.10.0
+  version: 1.11.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -2413,9 +2413,11 @@ components:
         status:
           type: string
           description: >-
-            active = voller Zugang zu mindestens einem Bereich; limited (Erweiterung) = nur
-            kostenloser Teilumfang; pending (Erweiterung) = Kauf wartet auf Zahlung;
-            suspended/expired/revoked aus den Zugängen; not_granted = kein Zugang.
+            active = voller Zugang zu mindestens einem Bereich; pending (Erweiterung) = Kauf wartet auf
+            Zahlung (Screen 88); suspended = gesperrt, z. B. Zahlungsstreit/Rückbuchung (Screen 89);
+            expired = Kauf abgelaufen (Screen 25); limited (Erweiterung) = nur kostenloser Teilumfang;
+            revoked aus den Zugängen; not_granted = kein Zugang. Seit 1.11.0 haben pending, suspended
+            und expired Vorrang vor limited – der Teilumfang bleibt nutzbar (trial, limits, features).
           enum: [active, limited, pending, expired, suspended, revoked, not_granted]
         valid_from: {type: [string, 'null'], format: date-time}
         valid_until: {type: [string, 'null'], format: date-time, description: null = unbegrenzt bzw. ohne Kauf}
@@ -2440,8 +2442,28 @@ components:
           type: [string, 'null']
           format: uri
           description: >-
-            Seit 1.9.0. Nur wenn expires_soon: erstes passendes Shop-Angebot für den Fragenkatalog,
-            ohne Shop die Kursseite im Web-Lernbereich. Im Systembrowser öffnen.
+            Seit 1.9.0 bei expires_soon, seit 1.11.0 auch bei status expired (sonst null): die gekaufte
+            Stufe (Theorie bzw. Komplett, wenn der Videokurs dabei war; Kombi, Bundle, Pass), sonst das
+            erste passende Shop-Angebot für den Fragenkatalog, ohne Shop die Kursseite im
+            Web-Lernbereich. Im Systembrowser öffnen.
+        order_number:
+          type: [string, 'null']
+          description: Seit 1.11.0. Nur bei status pending - Nummer der offenen Bestellung.
+        order_url:
+          type: [string, 'null']
+          format: uri
+          description: >-
+            Seit 1.11.0. Nur bei status pending: Bestellansicht in „Mein Konto“ (dort stehen die
+            Zahlungsdaten). Im Systembrowser öffnen.
+        duration_days:
+          type: [integer, 'null']
+          description: >-
+            Seit 1.11.0. Nur bei status pending: Laufzeit ab Zahlungseingang in Tagen (z. B. 365 =
+            „12 Monate ab Zahlungseingang“); null = unbefristet bzw. andere Status.
+        contact_url:
+          type: [string, 'null']
+          format: uri
+          description: Seit 1.11.0. Nur bei status suspended - Kontaktseite (wie legal.contact), sonst null.
     CourseRelation:
       type: object
       required: [hidden, recommended, recommended_for]

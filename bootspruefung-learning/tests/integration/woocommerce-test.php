@@ -587,6 +587,89 @@ if (function_exists('wc_load_cart')) {
     wc_clear_notices();
     wp_set_current_user(0);
 }
+echo "Hinweis im Warenkorb: Kurs schon gekauft bzw. bestellt (Doppelkauf, QA-03/QA-17)\n";
+$cdh = \Bootspruefung\Learning\Commerce\WooCommerce\CartDuplicateHint::class;
+$tNow = '2026-11-12 10:00:00';
+$st = static fn (string $status, ?string $until, array $extra = []): array => ['SBF-SEE' => array_merge(['status' => $status, 'valid_until' => $until, 'order_id' => null, 'product_id' => null, 'sku' => 'BP-SBF-SEE', 'source' => 'woo', 'duration_days' => 365, 'pending_orders' => [], 'video' => false], $extra)];
+$h = $cdh::evaluate($st('pending', null, ['order_id' => 4711, 'pending_orders' => [4711]]), 'BP-SBF-SEE', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::ORDERED && $h['order_id'] === 4711 && str_contains($cdh::message($h)['text'], 'wartet noch auf deine Zahlung'), 'offene Bestellung: „schon bestellt“ mit Bestellung');
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00', ['pending_orders' => [4712]]), 'BP-SBF-SEE-KOMPLETT', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::ORDERED && $h['order_id'] === 4712, 'aktiver Zugang mit offener Verlängerung: „schon bestellt“');
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14);
+$msg = $h !== null ? $cdh::message($h)['text'] : '';
+$check($h !== null && $h['kind'] === $cdh::OWNED && $h['new_until'] === '2028-05-31 12:00:00' && str_contains($msg, '01.06.2027') && str_contains($msg, '31.05.2028') && ! $h['video_hint'], 'aktiver Zugang: Warnung mit bisherigem und neuem Laufzeitende');
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE-KOMPLETT', 365, $tNow, 14);
+$check($h !== null && $h['video_hint'] && str_contains($cdh::message($h)['text'], 'Video-Upgrade'), 'Theorie aktiv, Komplett im Warenkorb: Hinweis auf das Video-Upgrade');
+$h = $cdh::evaluate($st('active', '2026-11-20 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::RENEW_SOON && $cdh::message($h)['title'] === 'Du verlängerst deinen Zugang' && str_contains($cdh::message($h)['text'], 'verlängerst du ihn bis'), 'bald ablaufend: als Verlängerung erklärt');
+$h = $cdh::evaluate($st('expired', '2026-10-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::RENEW_EXPIRED && str_contains($cdh::message($h)['text'], 'abgelaufen') && str_contains($cdh::message($h)['text'], '12 Monate ab Zahlungseingang'), 'abgelaufen: als Verlängerung erklärt (Laufzeit ab Zahlungseingang)');
+$check(($cdh::evaluate($st('suspended', '2027-06-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14)['kind'] ?? null) === $cdh::SUSPENDED && ($cdh::evaluate($st('active', null), 'BP-SBF-SEE', 365, $tNow, 14)['kind'] ?? null) === $cdh::OWNED_UNLIMITED, 'gesperrt bzw. unbefristet: eigener Hinweis');
+$check($cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE-VIDEO', 365, $tNow, 14) === null && $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-KAPITAEN', 365, $tNow, 14) === null
+    && $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-BIN', 365, $tNow, 14) === null && $cdh::evaluate([], 'BP-SBF-SEE', 365, $tNow, 14) === null, 'kein Hinweis für Video-Upgrade, Bundle, anderen Kurs oder ohne Kauf');
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14, 'parallel');
+$check($h !== null && $h['kind'] === $cdh::OWNED && $h['new_until'] === null, 'parallele Laufzeit: kein neues Enddatum behauptet');
+if (function_exists('wc_load_cart')) {
+    $dupUser = $customer('wc_doppelkauf_kunde');
+    $wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $dupUser));
+    $seeId = (int) $byS['BP-SBF-SEE']['product_id'];
+    $dupOrder = wc_create_order(['customer_id' => $dupUser]);
+    $dupOrder->add_product(wc_get_product($seeId), 1);
+    $dupOrder->set_payment_method('bacs');
+    $dupOrder->calculate_totals();
+    $dupOrder->update_status('on-hold', 'Warte auf Überweisung');
+    $dupId = (int) $dupOrder->get_id();
+    $states = \Bootspruefung\Learning\Commerce\AccessStatus::forUser($dupUser);
+    $check(($states['SBF-SEE']['status'] ?? null) === 'pending' && ($states['SBF-SEE']['pending_orders'] ?? []) === [$dupId] && ($states['SBF-SEE']['duration_days'] ?? null) === 365, 'Überweisung offen: Kaufstatus pending mit Bestellung und Laufzeit');
+    wp_set_current_user($dupUser);
+    ob_start();
+    do_action('woocommerce_account_mein-lernen_endpoint');
+    $account = (string) ob_get_clean();
+    $check(str_contains($account, 'wartet auf Zahlung') && str_contains($account, '12 Monate ab Zahlungseingang') && ! str_contains($account, 'dauerhaft') && str_contains($account, 'Bestellung #'.$dupOrder->get_order_number()), '„Mein Lernen“: „12 Monate ab Zahlungseingang“ statt „dauerhaft“, Link zur Bestellung (QA-07/UX-03)');
+    wc_load_cart();
+    WC()->cart->empty_cart();
+    wc_clear_notices();
+    WC()->cart->add_to_cart($seeId);
+    $box = $cdh::box();
+    $check(str_contains($box, 'Diesen Kurs hast du schon bestellt') && str_contains($box, '#'.$dupOrder->get_order_number()) && str_contains($box, esc_url($dupOrder->get_view_order_url())), 'Warenkorb: „schon bestellt“ mit Link zur Bestellung');
+    $rendered = (string) apply_filters('render_block_woocommerce/checkout', '<div class="wc-block-checkout"></div>');
+    $check(str_contains($rendered, 'bp-duplicate-hint') && str_contains($rendered, 'wc-block-checkout'), 'Kasse (Block): Hinweis über dem Formular, Kasse bleibt (keine Sperre)');
+    add_filter('bootspruefung_cart_duplicate_hint', '__return_false');
+    $check($cdh::box() === '', 'Filter bootspruefung_cart_duplicate_hint aus: kein Hinweis');
+    remove_filter('bootspruefung_cart_duplicate_hint', '__return_false');
+    wp_set_current_user(0);
+    $check($cdh::box() === '', 'Gast: kein Hinweis');
+    wp_set_current_user(1);
+    $dupOrder = wc_get_order($dupId);
+    $dupOrder->update_status('cancelled');
+    $check(! isset(\Bootspruefung\Learning\Commerce\AccessStatus::forUser($dupUser)['SBF-SEE']), 'storniert: kein offener Kauf mehr');
+    // Verlängern-Link zur gekauften Stufe (QA-12): Komplett-Käufer → Komplett, Theorie-Käufer → Theorie.
+    $komplettId = (int) $byS['BP-SBF-SEE-KOMPLETT']['product_id'];
+    foreach ([$seeId, $komplettId] as $pid) {
+        $prod = wc_get_product($pid);
+        $prod->set_status('publish');
+        $prod->save();
+    }
+    $past = gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS);
+    $start = gmdate('Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS);
+    $wpdb->insert($p.'entitlement', ['user_id' => $dupUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'all', 'status' => 'expired', 'valid_from' => $start, 'valid_until' => $past, 'source' => 'woo', 'reference_key' => 'renew-test-k', 'order_id' => 990901, 'product_id' => $komplettId, 'sku_snapshot' => 'BP-SBF-SEE-KOMPLETT', 'created_at' => $start, 'updated_at' => $start]);
+    $komplettUrl = (string) get_permalink($komplettId);
+    $check(\Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl('SBF-SEE', $dupUser) === $komplettUrl, 'Komplett-Käufer: Verlängern führt zur Komplett-Stufe');
+    $wpdb->update($p.'entitlement', ['feature_code' => 'question_bank', 'sku_snapshot' => 'BP-SBF-SEE', 'product_id' => $seeId], ['reference_key' => 'renew-test-k']);
+    $check(\Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl('SBF-SEE', $dupUser) === (string) get_permalink($seeId), 'Theorie-Käufer: Verlängern führt zur Theorie-Stufe');
+    $wpdb->insert($p.'entitlement', ['user_id' => $dupUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'video_course', 'status' => 'expired', 'valid_from' => $start, 'valid_until' => $past, 'source' => 'woo', 'reference_key' => 'renew-test-v', 'order_id' => 990902, 'sku_snapshot' => 'BP-SBF-SEE-VIDEO', 'created_at' => $start, 'updated_at' => $start]);
+    $check(\Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl('SBF-SEE', $dupUser) === $komplettUrl, 'Theorie + Video-Upgrade: Verlängern führt zur Komplett-Stufe');
+    wp_set_current_user($dupUser);
+    $me = array_column((array) rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/me/courses'))->get_data(), null, 'code');
+    $check(($me['SBF-SEE']['access']['status'] ?? null) === 'expired' && ($me['SBF-SEE']['access']['renew_url'] ?? null) === $komplettUrl, 'Lernbereich: abgelaufen mit Verlängern-Link zur gekauften Stufe');
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($komplettId);
+    $check(str_contains($cdh::box(), 'Du verlängerst deinen Zugang'), 'Warenkorb nach Ablauf: als Verlängerung erklärt');
+    WC()->cart->empty_cart();
+    wc_clear_notices();
+    wp_set_current_user(0);
+    $wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $dupUser));
+}
 // Widerrufsfunktion (§ 356a BGB): WooCommerce-Funktion „Order withdrawal“ + Anbindung.
 $wf = \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class;
 $check($wf::available(), 'WooCommerce bringt die Widerrufsfunktion mit');

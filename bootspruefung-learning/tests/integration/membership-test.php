@@ -780,6 +780,143 @@ foreach (array_merge($relUsers, $expUsers) as $uid) {
 }
 remove_filter('pre_wp_mail', $capture, 10);
 
+echo "Zugangsstatus: Zahlung offen, abgelaufen, gesperrt (Web, QA-03/UX-01/UX-08)\n";
+$AS = \Bootspruefung\Learning\Learning\Services\AccessService::class;
+$row = static fn (string $status, ?string $from, ?string $until, array $extra = []): object => (object) array_merge(['course_code' => 'X', 'feature_code' => 'question_bank', 'status' => $status, 'valid_from' => $from, 'valid_until' => $until, 'order_id' => null, 'product_id' => null, 'sku_snapshot' => null, 'source' => 'woo', 'meta' => null], $extra);
+$tNow = '2026-11-12 10:00:00';
+$s = $AS::stateFromRows([$row('pending', null, null, ['order_id' => 5, 'meta' => '{"duration_days":365}'])], $tNow);
+$check($s !== null && $s['status'] === 'pending' && $s['order_id'] === 5 && $s['duration_days'] === 365 && $s['pending_orders'] === [5], 'Status pending mit Bestellung und Laufzeit');
+$s = $AS::stateFromRows([$row('active', '2026-01-01 00:00:00', '2027-01-01 00:00:00'), $row('pending', null, null, ['order_id' => 6])], $tNow);
+$check($s['status'] === 'active' && $s['valid_until'] === '2027-01-01 00:00:00' && $s['pending_orders'] === [6], 'aktiver Zugang vor offener Bestellung (Verlängerung per Überweisung), Bestellung gemerkt');
+$s = $AS::stateFromRows([$row('active', '2025-01-01 00:00:00', '2026-01-01 00:00:00', ['sku_snapshot' => 'BP-SBF-SEE', 'order_id' => 7]), $row('active', '2025-01-01 00:00:00', '2026-01-01 00:00:00', ['feature_code' => 'video_course', 'sku_snapshot' => 'BP-SBF-SEE-VIDEO', 'order_id' => 8])], $tNow);
+$check($s['status'] === 'expired' && $s['valid_until'] === '2026-01-01 00:00:00' && $s['sku'] === 'BP-SBF-SEE' && $s['video'] === true, 'abgelaufen mit gekaufter Stufe; Video-Upgrade erkannt');
+$s = $AS::stateFromRows([$row('expired', '2025-01-01 00:00:00', '2026-01-01 00:00:00'), $row('suspended', '2026-01-01 00:00:00', '2027-01-01 00:00:00')], $tNow);
+$check($s['status'] === 'suspended', 'gesperrt (Rückbuchung) vor abgelaufen');
+$s = $AS::stateFromRows([$row('suspended', '2025-01-01 00:00:00', '2026-01-01 00:00:00')], $tNow);
+$check($s === null, 'Sperre nach Laufzeitende zählt nicht mehr');
+$check($AS::stateFromRows([$row('revoked', null, null)], $tNow) === null && $AS::stateFromRows([$row('active', '2027-01-01 00:00:00', null)], $tNow) === null, 'erstattet/storniert und noch nicht begonnen: kein Status');
+$check(\Bootspruefung\Learning\Commerce\Labels::validity('pending', null, 365) === '12 Monate ab Zahlungseingang' && \Bootspruefung\Learning\Commerce\Labels::validity('pending', null, 182) === '6 Monate ab Zahlungseingang'
+    && \Bootspruefung\Learning\Commerce\Labels::validity('active', null, null) === 'dauerhaft', '„Gültig bis“: offene Zahlung = Laufzeit ab Zahlungseingang statt „dauerhaft“ (QA-07)');
+
+$stUsers = ['pend' => $user('bp_st_pend'), 'exp' => $user('bp_st_exp'), 'susp' => $user('bp_st_susp'), 'new' => $user('bp_st_new')];
+$stAll = implode(',', $stUsers);
+$wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$stAll})");
+$wpdb->insert($p.'access_rule', ['course_code' => 'SBF-BIN-MOTOR', 'feature_code' => 'question_bank', 'module_code' => null, 'access_type' => 'free_limited', 'limit_type' => 'questions_per_module', 'limit_value' => 5]);
+$stRule = (int) $wpdb->insert_id;
+wp_cache_flush_group('bootspruefung');
+$stNow = current_time('mysql', true);
+$ins = static function (int $uid, string $status, ?string $from, ?string $until, int $order) use ($wpdb, $p, $stNow): void {
+    $wpdb->insert($p.'entitlement', ['user_id' => $uid, 'course_code' => 'SBF-BIN-MOTOR', 'feature_code' => 'question_bank', 'status' => $status, 'valid_from' => $from, 'valid_until' => $until,
+        'source' => 'woo', 'reference_key' => 'st-test-'.$uid.'-'.$status, 'order_id' => $order, 'sku_snapshot' => 'BP-SBF-BIN', 'meta' => wp_json_encode(['duration_days' => 365]), 'created_at' => $stNow, 'updated_at' => $stNow]);
+};
+$ins($stUsers['pend'], 'pending', null, null, 910777);
+$ins($stUsers['exp'], 'active', gmdate('Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS), gmdate('Y-m-d H:i:s', time() - 35 * DAY_IN_SECONDS), 910778);
+$ins($stUsers['susp'], 'suspended', gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS), gmdate('Y-m-d H:i:s', time() + 300 * DAY_IN_SECONDS), 910779);
+$c = $meCourses($stUsers['pend'])['SBF-BIN-MOTOR'] ?? [];
+$check(($c['access']['status'] ?? null) === 'pending' && ($c['access']['order']['number'] ?? null) === '910777' && ($c['access']['duration'] ?? null) === '12 Monate' && $c['trial'] === true && $c['shop'] === [] && $c['access']['notice'] === true,
+    'Zahlung offen: access.status pending mit Bestellung und Laufzeit, kostenloser Teil bleibt, kein Kaufangebot (kein Doppelkauf)');
+$cE = $meCourses($stUsers['exp'])['SBF-BIN-MOTOR'] ?? [];
+$check(($cE['access']['status'] ?? null) === 'expired' && is_string($cE['access']['renew_url'] ?? null) && $cE['access']['renew_url'] !== '' && substr((string) $cE['access']['expired_at'], 0, 10) === gmdate('Y-m-d', time() - 35 * DAY_IN_SECONDS) && $cE['trial'] === true,
+    'abgelaufen: access.status expired mit Ablaufdatum und Verlängern-Link (UX-08)');
+$cS = $meCourses($stUsers['susp'])['SBF-BIN-MOTOR'] ?? [];
+$check(($cS['access']['status'] ?? null) === 'suspended' && array_key_exists('contact_url', $cS['access']) && $cS['shop'] === [], 'gesperrt: access.status suspended mit Kontakt, kein Kaufangebot');
+$cN = $meCourses($stUsers['new'])['SBF-BIN-MOTOR'] ?? [];
+$check(($cN['access']['status'] ?? null) === 'limited' && $cN['access']['order'] === null && $cN['access']['renew_url'] === null, 'Neukunde mit Teilumfang: limited (unverändert)');
+wp_set_current_user($stUsers['pend']);
+$res = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-bin-motor'));
+wp_set_current_user(1);
+$check($res->get_status() === 200 && ($res->get_data()['access']['status'] ?? null) === 'pending' && $res->get_data()['shop'] === [], 'Kurs-Hub: access.status pending, keine Freischalt-Angebote');
+$wpdb->insert($p.'entitlement', ['user_id' => $stUsers['pend'], 'course_code' => 'SBF-SEE-BIN', 'feature_code' => 'question_bank', 'status' => 'pending', 'source' => 'woo', 'reference_key' => 'st-test-kombi', 'order_id' => 910780, 'created_at' => $stNow, 'updated_at' => $stNow]);
+$wpdb->insert($p.'entitlement', ['user_id' => $stUsers['pend'], 'course_code' => 'SBF-SEE', 'feature_code' => 'question_bank', 'status' => 'pending', 'source' => 'woo', 'reference_key' => 'st-test-kombi', 'order_id' => 910780, 'created_at' => $stNow, 'updated_at' => $stNow]);
+$cK = $meCourses($stUsers['pend']);
+$check(($cK['SBF-SEE-BIN']['access']['notice'] ?? null) === true && ($cK['SBF-SEE']['access']['status'] ?? null) === 'pending' && ($cK['SBF-SEE']['access']['notice'] ?? null) === false, 'Kombi bestellt: ein Hinweis für die Kombi, Teilkurs nicht einzeln');
+$wpdb->delete($p.'access_rule', ['id' => $stRule]);
+wp_cache_flush_group('bootspruefung');
+
+echo "Ablauf-Erinnerung: Widerspruch und Abmeldelink (LAW-02)\n";
+$OO = \Bootspruefung\Learning\Commerce\ReminderOptOut::class;
+update_option(Settings::OPTION, array_merge(Settings::all(), ['expiry_reminder_enabled' => true, 'expiry_reminder_days' => 14]));
+$ooUser = $user('bp_st_optout');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $ooUser));
+delete_user_meta($ooUser, $ER::META);
+delete_user_meta($ooUser, $OO::META);
+$ooUntil = gmdate('Y-m-d H:i:s', time() + 4 * DAY_IN_SECONDS);
+$entitlements->grantManual($ooUser, 'SRC', ['question_bank'], $ooUntil, 'Test Widerspruch');
+$ooMails = [];
+$ooCatch = static function ($null, $atts) use (&$ooMails) {
+    $ooMails[] = $atts;
+
+    return true;
+};
+add_filter('pre_wp_mail', $ooCatch, 5, 2);
+$ooEmail = get_userdata($ooUser)->user_email;
+$ooFor = static function () use (&$ooMails, $ooEmail): array {
+    return array_values(array_filter($ooMails, static fn ($m) => $m['to'] === $ooEmail || $m['to'] === [$ooEmail]));
+};
+[$subj, $body] = $ER::mail(get_userdata($ooUser), ['SRC' => $ooUntil]);
+$check(str_contains($subj, 'läuft am '.$ER::date($ooUntil).' ab') && str_contains($body, 'läuft am '.$ER::date($ooUntil).' ab.') && ! str_contains($body, 'Jetzt verlängern') && str_contains($body, 'Verlängern: '),
+    'Mail sachlich: „Zugang läuft am … ab“, Verlängern nur als Link');
+$check(str_contains($body, 'jederzeit widersprechen') && str_contains($body, 'Basistarifen') && str_contains($body, $OO::url($ooUser)), 'Mail: Hinweis auf das Widerspruchsrecht mit Abmeldelink');
+$ER::run();
+$sent = $ooFor();
+$headers = implode("\n", (array) ($sent[0]['headers'] ?? []));
+$check(count($sent) === 1 && str_contains($headers, 'List-Unsubscribe: <'.$OO::url($ooUser).'>'), 'Erinnerung mit Kopfzeile List-Unsubscribe');
+$sig = $OO::signature($ooUser);
+$check($OO::verify($ooUser, $sig) && ! $OO::verify($ooUser, str_repeat('0', 32)) && ! $OO::verify($ooUser + 100000, $sig) && str_contains($OO::url($ooUser), '/'.$OO::PATH.'/'), 'Abmeldelink signiert (falsche Signatur oder anderes Konto abgelehnt)');
+set_query_var('bp_app', '1');
+set_query_var('bp_path', $OO::PATH);
+$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => $sig];
+$page = $OO::page();
+$check($OO::isRequest() && str_contains($page, 'Erinnerungen abbestellen') && str_contains($page, 'method="post"') && ! $OO::optedOut($ooUser), 'Bestätigungsseite ohne Anmeldung: Knopf statt Abmeldung beim Aufruf');
+$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => 'falsch'];
+$check(str_contains($OO::page(), 'ungültig') && ! str_contains($OO::page(), 'method="post"'), 'falsche Signatur: Hinweis, kein Knopf');
+$redirected = null;
+$stop = static function ($location) use (&$redirected) {
+    $redirected = $location;
+    throw new RuntimeException('redirect');
+};
+add_filter('wp_redirect', $stop, 1);
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = ['u' => (string) $ooUser, 's' => $sig, 'bp_reminder' => 'off'];
+try {
+    (new $OO())->handle();
+} catch (RuntimeException) {
+}
+$check($OO::optedOut($ooUser) && is_string($redirected) && str_contains($redirected, 'done=off'), 'Bestätigen (POST) bestellt ab und leitet auf die Bestätigung');
+$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => $sig, 'done' => 'off'];
+$check(str_contains($OO::page(), 'Erledigt') && str_contains($OO::page(), 'wieder einschalten'), 'Bestätigung mit „wieder einschalten“');
+$_POST = ['u' => (string) $ooUser, 's' => 'falsch', 'bp_reminder' => 'on'];
+$redirected = null;
+try {
+    (new $OO())->handle();
+} catch (RuntimeException) {
+}
+$check($OO::optedOut($ooUser) && $redirected === null, 'POST mit falscher Signatur ändert nichts');
+$_SERVER['REQUEST_METHOD'] = 'GET';
+$_POST = $_REQUEST = $_GET = [];
+set_query_var('bp_app', '');
+set_query_var('bp_path', '');
+remove_filter('wp_redirect', $stop, 1);
+delete_user_meta($ooUser, $ER::META);
+$before = count($ooFor());
+$ER::run();
+$check(count($ooFor()) === $before, 'nach Widerspruch keine Erinnerung mehr');
+ob_start();
+$OO::renderAccountSection($ooUser);
+$section = (string) ob_get_clean();
+$check(str_contains($section, $OO::FORM_FIELD) && ! str_contains($section, 'checked'), '„Mein Lernen“: Schalter zeigt den Widerspruch (nicht angehakt)');
+$OO::set($ooUser, false, 'account');
+ob_start();
+$OO::renderAccountSection($ooUser);
+$check(str_contains((string) ob_get_clean(), 'checked') && ! $OO::optedOut($ooUser), 'wieder eingeschaltet: angehakt');
+$ER::run();
+$check(count($ooFor()) === $before + 1, 'wieder eingeschaltet: Erinnerung kommt');
+remove_filter('pre_wp_mail', $ooCatch, 5);
+update_option(Settings::OPTION, $settingsNow);
+$wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$stAll}, {$ooUser})");
+delete_user_meta($ooUser, $ER::META);
+delete_user_meta($ooUser, $OO::META);
+
 // Aufräumen.
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");

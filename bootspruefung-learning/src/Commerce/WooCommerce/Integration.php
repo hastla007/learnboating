@@ -117,6 +117,7 @@ final class Integration
         (new SimUpgrade())->register();
         (new VideoUpgrade())->register();
         (new CartRelationHint())->register();
+        (new CartDuplicateHint())->register(); // Hinweis gegen Doppelkäufe (schon gekauft bzw. bestellt, Verlängerung)
         (new PriceNote())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();

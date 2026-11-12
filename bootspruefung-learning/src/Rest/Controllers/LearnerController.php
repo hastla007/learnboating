@@ -183,6 +183,17 @@ final class LearnerController
                 'access' => $info,
             ];
         }
+        // Hinweis in der Übersicht je Kauf einmal: mitgekaufte Teilkurse (z. B. der Kombi) nicht einzeln (wie die Ablauf-Erinnerung).
+        $keys = [];
+        foreach ($out as $row) {
+            if (in_array($row['access']['status'], \Bootspruefung\Learning\Commerce\AccessStatus::NOTICE_STATUSES, true)) {
+                $keys[(string) $row['code']] = $row['access']['status'].'|'.($row['access']['order']['id'] ?? '').'|'.($row['access']['expired_at'] ?? '');
+            }
+        }
+        $keep = \Bootspruefung\Learning\Commerce\ExpiryReminder::collapse($keys);
+        foreach ($out as $i => $row) {
+            $out[$i]['access']['notice'] = isset($keep[(string) $row['code']]);
+        }
 
         return $out;
     }
