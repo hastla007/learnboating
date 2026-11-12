@@ -380,6 +380,8 @@ $check(Integration::sync()->groups()->find((int) $groups[0]->id)->status === 're
 
 echo "Disputes per Webhook (PayPal, allgemein)\n";
 $dw = \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::class;
+// Feste Ereignis-IDs dieses Tests: Merker früherer Läufe entfernen (Transients, 90 Tage).
+$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_bp\\_dispute\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bp\\_dispute\\_%'");
 update_option($dw::OPTION, ['paypal_client_id' => 'cid', 'paypal_secret' => 'sec', 'paypal_webhook_id' => 'WH', 'paypal_mode' => 'sandbox', 'generic_secret' => 'test-secret']);
 $order = wc_create_order(['customer_id' => $alice]);
 $order->add_product(wc_get_product($video), 1);
@@ -437,7 +439,90 @@ $won = wp_json_encode(['id' => 'K-2', 'event' => 'won', 'order_id' => $klarna, '
 $req($won, $sign($won));
 $check($statuses($klarna) === ['active'], 'Konflikt gewonnen: aktiv');
 $check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_opened' AND object_id = %s", (string) $klarna)), 'Konflikt protokolliert');
+
+echo "Disputes: Reihenfolge nach Ereigniszeit, abgeschlossener Fall endgültig (SEC-04)\n";
+$paidOrder = static function (int $customer, string $method, string $tx = '') use ($video): int {
+    $order = wc_create_order(['customer_id' => $customer]);
+    $order->add_product(wc_get_product($video), 1);
+    $order->set_payment_method($method);
+    $order->calculate_totals();
+    $order->save();
+    $order->payment_complete($tx);
+
+    return (int) $order->get_id();
+};
+$send = static function (array $data) use ($req, $sign) {
+    $body = wp_json_encode($data);
+
+    return $req($body, $sign($body));
+};
+// Gewonnen kommt vor eröffnet an (Zustellverzögerung): der Zugang bleibt aktiv.
+$k2 = $paidOrder($bob, 'klarna_payments');
+$r = $send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-10T12:00:00Z']);
+$check($r->get_status() === 200 && $statuses($k2) === ['active'], '„gewonnen“ vor „eröffnet“: Zugang aktiv');
+$r = $send(['id' => 'K2-open', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-01T12:00:00Z']);
+$check($statuses($k2) === ['active'] && ($r->get_data()['ignored'] ?? []) === [$k2], 'verspätetes „eröffnet“ (älter) wird ignoriert');
+$send(['id' => 'K2-open-neu', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-11T12:00:00Z']);
+$check($statuses($k2) === ['active'], 'auch ein neueres „eröffnet“ öffnet den abgeschlossenen Fall nicht wieder');
+$check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_ignored' AND object_id = %s", (string) $k2)), 'ignoriertes Ereignis protokolliert');
+// Wiederholung nach Ablauf des Transients (z. B. nicht persistenter Object-Cache): Bestellung kennt das Ereignis.
+delete_transient('bp_dispute_'.md5('klarna|K2-won'));
+$check(! empty($send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1'])->get_data()['duplicate']), 'Ereignis-ID dauerhaft in der Bestellung (nicht nur im Transient)');
+// Ergebnis gegen Ergebnis: das jüngere gilt, ein älteres wird ignoriert.
+$send(['id' => 'K2-lost-alt', 'event' => 'lost', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-05T12:00:00Z']);
+$check($statuses($k2) === ['active'], 'älteres „verloren“ ändert ein jüngeres „gewonnen“ nicht');
+// Neuer Konfliktfall derselben Bestellung (eigene dispute_id): wird normal ausgewertet.
+$send(['id' => 'K2-open-2', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-2', 'timestamp' => '2026-11-12T08:00:00Z']);
+$check($statuses($k2) === ['suspended'], 'neuer Fall (andere dispute_id) setzt aus');
+// Ohne ID: Duplikat trotz anderer Leerzeichen/Schlüsselreihenfolge.
+$k3 = $paidOrder($bob, 'klarna_payments');
+$b1 = '{"event":"opened","order_id":'.$k3.',"source":"klarna-ohne-id"}';
+$b2 = '{ "source": "klarna-ohne-id",  "order_id": '.$k3.', "event": "opened" }';
+$req($b1, $sign($b1));
+$check(! empty($req($b2, $sign($b2))->get_data()['duplicate']), 'ohne ID: gleiche Nachricht mit anderen Leerzeichen ist ein Duplikat');
+// PayPal: RESOLVED vor CREATED, UPDATED mit status RESOLVED wird als Ergebnis gewertet.
+add_filter('bootspruefung_paypal_verify', '__return_true');
+$pp2 = $paidOrder($alice, 'ppcp-gateway', 'CAPTURE-'.wp_generate_password(6, false));
+$capture2 = wc_get_order($pp2)->get_transaction_id();
+$ppEvent = static fn (string $id, string $type, string $time, string $outcome = '', string $status = '') => ['id' => $id, 'event_type' => $type, 'create_time' => $time,
+    'resource' => ['dispute_id' => 'PP-D-2', 'update_time' => $time, 'status' => $status, 'disputed_transactions' => [['seller_transaction_id' => $capture2]], 'dispute_outcome' => ['outcome_code' => $outcome]]];
+$postHook('paypal', $ppEvent('WH-R', 'CUSTOMER.DISPUTE.RESOLVED', '2026-11-10T10:00:00Z', 'RESOLVED_SELLER_FAVOUR', 'RESOLVED'));
+$postHook('paypal', $ppEvent('WH-C', 'CUSTOMER.DISPUTE.CREATED', '2026-11-01T10:00:00Z'));
+$postHook('paypal', $ppEvent('WH-U', 'CUSTOMER.DISPUTE.UPDATED', '2026-11-11T10:00:00Z', '', 'UNDER_REVIEW'));
+$check($statuses($pp2) === ['active'], 'PayPal: RESOLVED vor CREATED/UPDATED – Zugang bleibt aktiv');
+$check($dw::paypalAction(['event_type' => 'CUSTOMER.DISPUTE.UPDATED', 'resource' => ['status' => 'RESOLVED', 'dispute_outcome' => ['outcome_code' => 'RESOLVED_BUYER_FAVOUR']]]) === 'lost'
+    && $dw::paypalAction(['event_type' => 'CUSTOMER.DISPUTE.UPDATED', 'resource' => ['status' => 'WAITING_FOR_SELLER_RESPONSE']]) === 'opened', 'PayPal: UPDATED nach resource.status ausgewertet');
+remove_filter('bootspruefung_paypal_verify', '__return_true');
 update_option($dw::OPTION, []);
+
+echo "Automatischer Abgleich verpasster Bestellereignisse (ARC-03)\n";
+$AR = \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::class;
+$missed = [$paidOrder($alice, 'bacs'), $paidOrder($bob, 'bacs')];
+foreach ($missed as $id) {
+    $o = wc_get_order($id);
+    $o->set_status('processing');
+    $o->save();
+}
+// Plugin war „aus“: die Zugänge zu diesen Bestellungen fehlen.
+$wpdb->query("DELETE FROM {$p}entitlement WHERE order_id IN (".implode(',', $missed).')');
+$firstModified = min(array_map(static fn ($id) => wc_get_order($id)->get_date_modified()->getTimestamp(), $missed));
+// Stand direkt vor diese Bestellungen setzen (ältere Testbestellungen derselben Sekunde haben kleinere IDs).
+update_option($AR::OPTION_CURSOR, ['time' => $firstModified, 'id' => min($missed) - 1], false);
+$later = time() + 10 * MINUTE_IN_SECONDS; // nach der Wartezeit für gerade geänderte Bestellungen
+$stats = $AR::run(1, $later);
+$check(is_array($stats) && $stats['checked'] === 1 && $stats['more'] && $statuses($missed[0]) === ['active'] && $statuses($missed[1]) === [], 'Abgleich je Lauf begrenzt: erste verpasste Bestellung nachgezogen');
+$stats = $AR::run(10, $later);
+$check(is_array($stats) && $statuses($missed[1]) === ['active'] && ! $stats['more'], 'nächster Lauf zieht den Rest nach');
+$check((int) (get_option($AR::OPTION_CURSOR)['time'] ?? 0) === $later - $AR::SETTLE, 'Stand rückt bis zur Wartezeit vor');
+$check($AR::run(10, $later)['checked'] === 0, 'ohne neue Änderungen nichts zu tun');
+$check(has_action('bp_learning_hourly', [\Bootspruefung\Learning\Plugin::class, 'hourly']) !== false, 'stündlicher Wartungslauf registriert (enthält den Abgleich)');
+\Bootspruefung\Learning\Plugin::deactivate();
+$check((int) get_option($AR::OPTION_DEACTIVATED) > 0, 'Deaktivierung gemerkt');
+\Bootspruefung\Learning\Plugin::activate();
+$check(wp_next_scheduled($AR::HOOK) !== false, 'nach der Aktivierung: Abgleich in Kürze geplant');
+wp_clear_scheduled_hook($AR::HOOK);
+delete_option($AR::OPTION_DEACTIVATED);
+delete_option($AR::OPTION_CURSOR);
 
 echo "Prüfung der Produktzuordnungen\n";
 $noPrice = new WC_Product_Simple();

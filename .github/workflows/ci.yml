@@ -199,6 +199,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/setup-yoast-test.php | tee setup-yoast.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" setup-yoast.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Theme Kurswasser – Versionsabgleich mit dem Lern-Plugin (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/learning-compat-test.php | tee learning-compat.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" learning-compat.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Zugangslogik (Integration, ohne Shop)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee commerce.log
@@ -219,6 +223,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/membership-test.php | tee membership.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" membership.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Betrieb – Sperren, Wartungslauf, Aufbewahrung, Kursübersicht, Versionsvertrag (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/operations-test.php | tee operations.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" operations.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: WooCommerce bereitstellen
         run: |
           # GitHub-Release, bei Störung wordpress.org (gleiche Version); je Quelle mit Wiederholungen.
