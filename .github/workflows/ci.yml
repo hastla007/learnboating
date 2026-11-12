@@ -231,6 +231,13 @@ jobs:
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" admin-woo.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           # Browser-Tests laufen wie bisher ohne Shop.
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
+      - name: Konto und Garantie – Datenschutz-Anträge, Kontolöschung, Geld-zurück-Anfrage (Integration, mit WooCommerce)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/account-test.php | tee account.log
+          if grep -E "PHP Fatal" account.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" account.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Theme Kurswasser – Einrichtung Schritt 3 „Shop einrichten“ (Integration, mit WooCommerce, ohne Netz)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php

@@ -34,10 +34,16 @@ final class PersonalData
 
             return $erasers;
         });
-        // Konto gelöscht (Admin/Kundenwunsch): Lerndaten mitlöschen, nicht zwecklos aufbewahren.
+        // Konto gelöscht (Admin/Kundenwunsch): Gruppenplätze freigeben (QA-05) und Lerndaten mitlöschen,
+        // nicht zwecklos aufbewahren.
         add_action('deleted_user', static function ($userId, $reassign = null, $user = null): void {
+            global $wpdb;
+            (new \Bootspruefung\Learning\Commerce\GroupService($wpdb))->releaseUser((int) $userId);
             self::eraseUser((int) $userId, $user instanceof \WP_User ? (string) $user->user_email : '');
         }, 10, 3);
+        // Bestätigte Löschanträge: Konto wirklich löschen; Selbstbedienung unter „Mein Konto“ (LAW-04, QA-08).
+        AccountDeletion::register();
+        SelfService::register();
         // Protokoll: Einträge älter als AUDIT_RETENTION_YEARS Jahre löschen (stündlicher Plugin-Cron).
         add_action('bp_learning_hourly', [self::class, 'pruneAuditLog']);
     }
@@ -218,6 +224,12 @@ final class PersonalData
     /** @return array{items_removed:bool,items_retained:bool,messages:list<string>,done:bool} */
     public static function eraseUser(int $userId, string $email): array
     {
+        /**
+         * Vor dem Löschen der Lerndaten (z. B. Geld-zurück-Garantie: Nutzungsstand an der Bestellung festschreiben).
+         *
+         * @param int $userId
+         */
+        do_action('bootspruefung_before_erase_user', $userId);
         $user = (object) ['ID' => $userId];
         global $wpdb;
         $removed = false;

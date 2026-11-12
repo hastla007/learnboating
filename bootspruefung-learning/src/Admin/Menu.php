@@ -225,6 +225,14 @@ final class Menu
             (int) $settings['expiry_reminder_days'],
             esc_html__('Tage vor dem Ablauf', 'bootspruefung-learning')
         );
+        printf(
+            '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[privacy_requests_auto]" value="0"><label><input type="checkbox" name="%2$s[privacy_requests_auto]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',
+            esc_html__('Datenschutz-Anträge', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            checked(! empty($settings['privacy_requests_auto']), true, false),
+            esc_html__('Bestätigte Anträge automatisch ausführen', 'bootspruefung-learning'),
+            esc_html__('Sobald jemand den Link in der Bestätigungsmail anklickt: Datenexport erzeugen und den Download-Link mailen bzw. Lerndaten löschen, Bestellungen anonymisieren (Nummer, Datum, Produkte und Beträge bleiben) und das Kundenkonto löschen. Konten mit Verwaltungsrechten werden nie automatisch gelöscht. Aus: Bestätigte Anträge erledigst du unter Werkzeuge → Personenbezogene Daten exportieren/löschen; das Konto bleibt dann bestehen.', 'bootspruefung-learning')
+        );
         echo '</tbody></table>';
         submit_button();
         echo '</form>';

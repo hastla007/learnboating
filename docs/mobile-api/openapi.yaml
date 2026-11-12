@@ -394,9 +394,11 @@ paths:
       description: >-
         Erweiterung (App-Store-Vorgabe von Apple): legt eine WordPress-Datenschutzanfrage
         „Personenbezogene Daten löschen“ an und schickt die Bestätigungs-E-Mail. Nach der
-        Bestätigung bearbeitet der Shop den Antrag (Werkzeuge → Personenbezogene Daten löschen,
-        danach Konto löschen); beim Löschen des Kontos werden Lernstand und App-Sitzungen
-        entfernt. Ein offener Antrag wird nicht doppelt angelegt (`already_requested: true`).
+        Bestätigung löscht der Shop sofort Lernstand, App-Sitzungen und das Konto selbst;
+        Bestellungen bleiben anonymisiert (ohne Namen und Kontaktdaten) für die
+        Aufbewahrungsfristen erhalten (Einstellung „Datenschutz-Anträge automatisch ausführen“, Standard
+        an; ist sie aus oder hat das Konto Verwaltungsrechte, bearbeitet der Shop den Antrag in den
+        WordPress-Werkzeugen). Ein offener Antrag wird nicht doppelt angelegt (`already_requested: true`).
         Seit 1.4.0: Sind im Shop App-Kennungen (Universal Links/App Links) eingetragen, zeigt der
         Bestätigungslink dieser Mail auf `https://<shop>/app/konto-loeschen/?request_id=…&confirm_key=…`
         (öffnet die App → `POST /me/deletion-request/confirm`); ohne App leitet die Website auf die
@@ -422,7 +424,9 @@ paths:
         Status „bestätigt“, Benachrichtigung an die Verwaltung). Nur Löschanträge. Ungültig,
         abgelaufen, schon bestätigt oder kein Löschantrag → einheitlich 422
         `DELETION_CONFIRMATION_INVALID`. Limit: 20 je IP und 10 je Antrag pro Stunde.
-        Danach bearbeitet der Shop den Antrag (siehe `POST /me/deletion-request`).
+        Danach wird der Antrag sofort ausgeführt (siehe `POST /me/deletion-request`): Antwort
+        `status: completed`, das Konto ist gelöscht, alle Tokens sind ungültig – die App meldet sich
+        ab und verwirft lokale Daten. `status: confirmed` = der Shop bearbeitet den Antrag von Hand.
       security: []
       requestBody:
         required: true
@@ -2403,7 +2407,12 @@ components:
           required: [request_id, status, already_requested, message]
           properties:
             request_id: {type: string}
-            status: {type: string, enum: [pending_confirmation, confirmed]}
+            status:
+              type: string
+              enum: [pending_confirmation, confirmed, completed]
+              description: >-
+                pending_confirmation = Mail verschickt; confirmed = bestätigt, der Shop bearbeitet den
+                Antrag; completed = ausgeführt (Konto gelöscht, Tokens ungültig).
             already_requested: {type: boolean}
             message: {type: string}
     Entitlement:

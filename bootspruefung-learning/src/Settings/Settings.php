@@ -27,6 +27,9 @@ final class Settings
         // Erinnerung per E-Mail vor Ablauf eines Zugangs zum Fragenkatalog (Festlegung 10.11.2026).
         'expiry_reminder_enabled' => true,
         'expiry_reminder_days' => 14,
+        // Bestätigte Datenschutz-Anträge sofort ausführen: Export per Download-Link, Löschung inkl. Kundenkonto
+        // (Bestellungen anonymisiert). Aus = WordPress-Standard (Betreiber erledigt sie in den Werkzeugen).
+        'privacy_requests_auto' => true,
     ];
 
     /** @return array<string,mixed> */
@@ -76,6 +79,7 @@ final class Settings
             // Formular sendet „0“ vor der Checkbox; fehlt der Schlüssel ganz, gilt der Standard (an).
             'expiry_reminder_enabled' => array_key_exists('expiry_reminder_enabled', $input) ? ! empty($input['expiry_reminder_enabled']) : self::DEFAULTS['expiry_reminder_enabled'],
             'expiry_reminder_days' => isset($input['expiry_reminder_days']) && (int) $input['expiry_reminder_days'] > 0 ? min(90, (int) $input['expiry_reminder_days']) : self::DEFAULTS['expiry_reminder_days'],
+            'privacy_requests_auto' => array_key_exists('privacy_requests_auto', $input) ? ! empty($input['privacy_requests_auto']) : self::DEFAULTS['privacy_requests_auto'],
             'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' ? mb_substr($brand, 0, 60) : self::DEFAULTS['brand_name'],
         ];
     }
