@@ -193,7 +193,7 @@ werden je Zielmandant ausgeführt. Für FAQ-Daten steht derselbe JSON-Export ber
 wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
 wp bootspruefung export entitlements <tenant-slug> --output=/tmp/mobile-entitlements.json
 wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
-wp bootspruefung export customer-faqs > /tmp/mobile-faqs.json
+wp bootspruefung export customer-faqs --output=/tmp/mobile-faqs.json
 ```
 
 Der Access-Export enthält auch den WP-Standard `default_access` und die
