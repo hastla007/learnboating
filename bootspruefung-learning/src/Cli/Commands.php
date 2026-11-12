@@ -706,9 +706,24 @@ final class Commands
             $relativePath = 'wp-course-files/'.$safeCourse.'/attachment-'.$id.$extension;
             $destination = $mediaRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
             if (! isset($copied[$id])) {
-                if (! wp_mkdir_p(dirname($destination)) || ! chmod(dirname($destination), 0700)
-                    || (! is_file($destination) && ! copy($realSource, $destination)) || ! chmod($destination, 0600)) {
+                if (! wp_mkdir_p(dirname($destination)) || ! chmod(dirname($destination), 0700)) {
                     WP_CLI::error("Geschützte Datei {$id} konnte nicht sicher ins Staging kopiert werden.");
+                }
+                $destinationDir = realpath(dirname($destination));
+                if ($destinationDir === false || ! str_starts_with($destinationDir, $mediaRoot.DIRECTORY_SEPARATOR)) {
+                    WP_CLI::error("Staging-Pfad für geschützte Datei {$id} liegt außerhalb des Exportverzeichnisses.");
+                }
+                $temporary = $destination.'.tmp-'.bin2hex(random_bytes(8));
+                $sourceHash = hash_file('sha256', $realSource);
+                if (! is_string($sourceHash) || ! copy($realSource, $temporary)) {
+                    @unlink($temporary);
+                    WP_CLI::error("Geschützte Datei {$id} konnte nicht sicher ins Staging kopiert werden.");
+                }
+                $stagedHash = hash_file('sha256', $temporary);
+                if (! is_string($stagedHash) || ! hash_equals($sourceHash, $stagedHash)
+                    || ! rename($temporary, $destination) || ! chmod($destination, 0600)) {
+                    @unlink($temporary);
+                    WP_CLI::error("Geschützte Datei {$id} wurde nicht vollständig ins Staging übernommen.");
                 }
                 $copied[$id] = $relativePath;
             }
