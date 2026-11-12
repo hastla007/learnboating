@@ -270,7 +270,16 @@ final class Integration
                     continue;
                 }
                 $seen[$parent->get_id()] = true;
-                $out[$feature][] = ['name' => $parent->get_name(), 'url' => (string) $parent->get_permalink(), 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8'), 'amount' => (float) $product->get_price(), 'rank' => self::offerRank((string) ($product->get_sku() ?: $parent->get_sku()))];
+                /**
+                 * Kauf-URL eines Angebots (Web und Mobile-API), z. B. um einen Partnercode aus der App anzuhängen.
+                 *
+                 * @param string      $url        Produkt-URL.
+                 * @param \WC_Product $parent     Produkt.
+                 * @param string      $courseCode Kurscode.
+                 * @param string      $feature    Bereich.
+                 */
+                $url = (string) apply_filters('bootspruefung_shop_offer_url', (string) $parent->get_permalink(), $parent, $courseCode, (string) $feature);
+                $out[$feature][] = ['name' => $parent->get_name(), 'url' => $url, 'price' => html_entity_decode(wp_strip_all_tags((string) $parent->get_price_html()), ENT_QUOTES, 'UTF-8'), 'amount' => (float) $product->get_price(), 'rank' => self::offerRank((string) ($product->get_sku() ?: $parent->get_sku()))];
             }
         }
         // Passendstes zuerst: Kurse (Einzelkurs, Kombi, Ergänzung) vor Bundle, Pässen und Gruppenpaketen, je Gruppe das
