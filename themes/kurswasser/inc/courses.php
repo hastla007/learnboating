@@ -128,7 +128,7 @@ function kurswasser_tile(string $slug): string
             $saving = round(array_sum(array_map(static fn ($s) => kurswasser_offer($s)['price'] ?? 0.0, $def['compare'])) - $main['price'], 2);
         }
         $t = ['title' => $def['title'], 'name' => $def['name'], 'eyebrow' => $def['eyebrow'], 'icon' => $def['icon'], 'teaser' => $def['teaser'], 'facts' => $facts,
-            'url' => kurswasser_course_url($slug), 'price' => $main['price'] ?? null, 'from' => class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class) && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main']]), 'cta' => __('Kurs ansehen', 'kurswasser'), 'saving' => $saving, 'signal' => ! empty($def['signal'])];
+            'url' => kurswasser_course_url($slug), 'price' => $main['price'] ?? null, 'from' => kurswasser_learning_compatible() && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main']]), 'cta' => __('Kurs ansehen', 'kurswasser'), 'saving' => $saving, 'signal' => ! empty($def['signal'])];
     } else {
         $t = kurswasser_special_tiles()[$slug] ?? null;
         if ($t === null) {
@@ -189,7 +189,7 @@ function kurswasser_course_from_price(array $def): ?float
 /** @return array{questions:int,nav:int,praxis:int,videos:int,papers:int} */
 function kurswasser_course_stats(array $def): array
 {
-    return class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)
+    return kurswasser_learning_compatible()
         ? \Bootspruefung\Learning\Commerce\ShopCatalog::courseStats($def['codes'] ?? [$def['code']])
         : ['questions' => 0, 'nav' => 0, 'praxis' => 0, 'videos' => 0, 'papers' => 0];
 }
@@ -406,7 +406,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $stats = kurswasser_course_stats($def);
     $main = kurswasser_offer($def['main'] ?? '');
     $from = $main['price'] ?? kurswasser_course_from_price($def);
-    $trial = home_url('/bootsscheine/'.(class_exists(\Bootspruefung\Learning\Content\Repositories\ContentRepository::class) ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '').'/');
+    $trial = home_url('/bootsscheine/'.(kurswasser_learning_compatible() ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '').'/');
 
     // Hero
     $photo = kurswasser_course_image($slug);
@@ -435,7 +435,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
         $features[] = ['cards', __('Praxiskarten', 'kurswasser'), sprintf(__('%d Karten zum Einprägen für den praktischen Teil.', 'kurswasser'), $stats['praxis'])];
     }
     if ($stats['videos']) {
-        $tiered = class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class) && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main'] ?? '']);
+        $tiered = kurswasser_learning_compatible() && isset(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_TIERS[$def['main'] ?? '']);
         $features[] = ['play', __('Videokurs', 'kurswasser'), sprintf($tiered
             ? __('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen – in der Komplett-Stufe oder als Upgrade; erste Lektion kostenlos.', 'kurswasser')
             : __('%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen.', 'kurswasser'), $stats['videos'])];
@@ -488,7 +488,7 @@ function kurswasser_course_guides(): string
 /** Prüfungsrahmen aus der Anleitung der Quelle (erste Prüfungsform des Kurses). */
 function kurswasser_course_exam(array $def): string
 {
-    if (($def['exam'] ?? true) === false || ! class_exists(\Bootspruefung\Learning\ExamGuide\ExamGuideService::class)) {
+    if (($def['exam'] ?? true) === false || ! kurswasser_learning_compatible()) {
         return '';
     }
     $tabs = array_values(array_filter((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->payload($def['code'])['tabs'] ?? [], static fn ($t) => ! empty($t['variants'])));
@@ -638,7 +638,7 @@ function kurswasser_course_has_sim(array $def): bool
 function kurswasser_sim_section(array $def): string
 {
     $codes = $def['codes'] ?? [$def['code'] ?? ''];
-    if (array_intersect($codes, ['SRC', 'UBI', 'SRC-UBI']) === [] || kurswasser_course_has_sim($def) || ! class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)) {
+    if (array_intersect($codes, ['SRC', 'UBI', 'SRC-UBI']) === [] || kurswasser_course_has_sim($def) || ! kurswasser_learning_compatible()) {
         return '';
     }
     $skus = \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_PASSES;

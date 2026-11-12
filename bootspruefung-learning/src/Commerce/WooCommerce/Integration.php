@@ -258,13 +258,17 @@ final class Integration
         }
         global $wpdb;
         $repo = new ProductAccessRepository($wpdb);
-        $out = [];
+        $refs = [];
         foreach ($features as $feature => $allowed) {
-            if ($allowed) {
-                continue;
+            if (! $allowed) {
+                $refs[$feature] = $repo->grantingProducts($courseCode, (string) $feature);
             }
+        }
+        self::primeProducts($repo, $refs);
+        $out = [];
+        foreach ($refs as $feature => $granting) {
             $seen = [];
-            foreach ($repo->grantingProducts($courseCode, $feature) as $ref) {
+            foreach ($granting as $ref) {
                 $product = wc_get_product($ref['variation_id'] ?: $ref['product_id']);
                 $parent = $product && $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
                 // Nicht im Shop gelistete Produkte (z. B. Checkout-Upgrade, nur mit Funkkurs kaufbar) nicht anbieten.
@@ -296,6 +300,47 @@ final class Integration
         }
 
         return $out;
+    }
+
+    /**
+     * Beiträge, Meta und Begriffe der Angebotsprodukte mit je einer Abfrage laden, statt je wc_get_product()
+     * drei. In einer lesenden REST-Anfrage (Kursübersicht) einmal für alle zugeordneten Produkte.
+     *
+     * @param array<string,list<array{product_id:int,variation_id:int}>> $refs
+     */
+    private static function primeProducts(ProductAccessRepository $repo, array $refs): void
+    {
+        $ids = [];
+        foreach ($refs as $list) {
+            foreach ($list as $ref) {
+                $ids[] = $ref['product_id'];
+                if ($ref['variation_id'] > 0) {
+                    $ids[] = $ref['variation_id'];
+                }
+            }
+        }
+        if (\Bootspruefung\Learning\Infrastructure\RequestMemo::active()) {
+            $primed = \Bootspruefung\Learning\Infrastructure\RequestMemo::get('offers_primed', static function () use ($repo): bool {
+                $all = [];
+                foreach ($repo->activeMappings() as $r) {
+                    $all[] = (int) $r->product_id;
+                    if ((int) $r->variation_id > 0) {
+                        $all[] = (int) $r->variation_id;
+                    }
+                }
+                if ($all !== []) {
+                    _prime_post_caches(array_values(array_unique($all)), true, true);
+                }
+
+                return true;
+            });
+            if ($primed) {
+                return;
+            }
+        }
+        if ($ids !== []) {
+            _prime_post_caches(array_values(array_unique($ids)), true, true);
+        }
     }
 
     /** 0 = Kurs aus dem Katalog (Einzelkurs, Kombi, Ergänzung, auch Komplett-Stufe), 1 = alles andere (Bundle, Pässe, Gruppen, fremde Produkte). */

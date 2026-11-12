@@ -13,6 +13,7 @@ if (! defined('ABSPATH')) {
 
 const KURSWASSER_VERSION = '2.0.0';
 
+require_once __DIR__.'/inc/learning.php';
 require_once __DIR__.'/inc/offers.php';
 require_once __DIR__.'/inc/courses.php';
 require_once __DIR__.'/inc/consent.php';
@@ -110,7 +111,7 @@ function kurswasser_url(string $target): string
         'shop' => function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/?post_type=product'),
         'account' => function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : wp_login_url(),
         'learn' => home_url('/bootsscheine/'),
-        'vertrag-widerrufen' => class_exists(\Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::class) ? \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::url() : home_url('/vertrag-widerrufen/'),
+        'vertrag-widerrufen' => kurswasser_learning_compatible() ? \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::url() : home_url('/vertrag-widerrufen/'),
         'tips' => home_url('/bootsscheine/tipps/'),
         'sbf', 'funk', 'seenot', 'ergaenzung', 'pakete', 'gruppen' => $cat($target),
         '' => home_url('/'),
@@ -205,7 +206,7 @@ add_shortcode('kurswasser_account', static function (): string {
 /** Markenname: Einstellung des Lern-Plugins, sonst Website-Titel. */
 function kurswasser_brand(): string
 {
-    if (class_exists(\Bootspruefung\Learning\Settings\Settings::class)) {
+    if (kurswasser_learning_compatible()) {
         return \Bootspruefung\Learning\Settings\Settings::brand();
     }
 

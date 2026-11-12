@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Learning\Services;
 
+use Bootspruefung\Learning\Infrastructure\RequestMemo;
 use Bootspruefung\Learning\Settings\Settings;
 
 /**
@@ -94,12 +95,14 @@ final class AccessService
         $now = current_time('mysql', true);
         $free = [];
         $limits = [];
-        foreach ($wpdb->get_results($wpdb->prepare(
+        $courseRules = $this->courseRules($courseCode);
+        $rows = $courseRules !== null ? self::groupFreeRules($courseRules, $now) : $wpdb->get_results($wpdb->prepare(
             "SELECT feature_code, access_type, MAX(limit_value) AS limit_value FROM {$wpdb->prefix}bp_access_rule
              WHERE course_code = %s AND module_code IS NULL AND access_type IN ('free', 'free_limited')
              AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s) GROUP BY feature_code, access_type",
             $courseCode, $now, $now
-        )) as $r) {
+        ));
+        foreach ($rows as $r) {
             if ($r->access_type === 'free') {
                 $free[(string) $r->feature_code] = true;
             } elseif ($r->limit_value !== null) {
@@ -259,10 +262,12 @@ final class AccessService
     {
         global $wpdb;
         $days = [];
-        foreach ($wpdb->get_results($wpdb->prepare(
+        $courseRules = $this->courseRules($courseCode);
+        $rows = $courseRules !== null ? self::groupDripRules($courseRules, $feature) : $wpdb->get_results($wpdb->prepare(
             "SELECT module_code, MAX(limit_value) AS days FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND access_type = 'drip' AND module_code IS NOT NULL GROUP BY module_code",
             $courseCode, $feature
-        )) as $r) {
+        ));
+        foreach ($rows as $r) {
             if ((int) $r->days > 0) {
                 $days[(string) $r->module_code] = (int) $r->days;
             }
@@ -278,10 +283,17 @@ final class AccessService
     public function unlockAt(int $userId, string $courseCode, string $feature, string $moduleCode): ?string
     {
         global $wpdb;
-        $days = $wpdb->get_var($wpdb->prepare(
-            "SELECT MAX(limit_value) FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND module_code = %s AND access_type = 'drip'",
-            $courseCode, $feature, $moduleCode
-        ));
+        $courseRules = $this->courseRules($courseCode);
+        if ($courseRules !== null) {
+            $grouped = self::groupDripRules($courseRules, $feature);
+            $match = array_values(array_filter($grouped, static fn ($r) => (string) $r->module_code === $moduleCode));
+            $days = $match === [] ? null : $match[0]->days;
+        } else {
+            $days = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(limit_value) FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND module_code = %s AND access_type = 'drip'",
+                $courseCode, $feature, $moduleCode
+            ));
+        }
         if ($days === null || (int) $days <= 0) {
             return null;
         }
@@ -300,6 +312,11 @@ final class AccessService
     /** Beginn des Zugangs: frühester aktiver Zugang, sonst Registrierung. */
     public function accessStart(int $userId, string $courseCode, string $feature): string
     {
+        return RequestMemo::get('access_start:'.$userId.'|'.$courseCode.'|'.$feature, fn (): string => $this->computeAccessStart($userId, $courseCode, $feature));
+    }
+
+    private function computeAccessStart(int $userId, string $courseCode, string $feature): string
+    {
         global $wpdb;
         $start = $wpdb->get_var($wpdb->prepare(
             "SELECT MIN(valid_from) FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d AND course_code = %s AND feature_code IN (%s, 'all') AND status = 'active'",
@@ -317,6 +334,16 @@ final class AccessService
     {
         global $wpdb;
         $now = current_time('mysql', true);
+        $courseRules = $this->courseRules($courseCode);
+        if ($courseRules !== null) {
+            foreach (self::groupFreeRules($courseRules, $now) as $r) {
+                if ($r->feature_code === $feature && $r->access_type === 'free') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT 1 FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND module_code IS NULL AND access_type = 'free'
@@ -329,6 +356,16 @@ final class AccessService
     {
         global $wpdb;
         $now = current_time('mysql', true);
+        $courseRules = $this->courseRules($courseCode);
+        if ($courseRules !== null) {
+            foreach (self::groupFreeRules($courseRules, $now) as $r) {
+                if ($r->feature_code === $feature && $r->access_type === 'free_limited') {
+                    return $r->limit_value === null ? null : max(0, (int) $r->limit_value);
+                }
+            }
+
+            return null;
+        }
         $value = $wpdb->get_var($wpdb->prepare(
             "SELECT MAX(limit_value) FROM {$wpdb->prefix}bp_access_rule WHERE course_code = %s AND feature_code = %s AND module_code IS NULL AND access_type = 'free_limited'
              AND (valid_from IS NULL OR valid_from <= %s) AND (valid_until IS NULL OR valid_until >= %s)",
@@ -351,6 +388,13 @@ final class AccessService
      */
     private function entitledFeatures(int $userId, string $courseCode, ?string $feature): array
     {
+        if (RequestMemo::active()) {
+            // Lesende REST-Anfrage: alle Kurse des Nutzers mit einer Abfrage (gleiche Bedingungen wie unten).
+            $all = RequestMemo::get('entitled:'.$userId, fn (): array => $this->entitledByCourse($userId));
+            $features = $all[$courseCode] ?? [];
+
+            return $feature === null ? $features : array_values(array_intersect($features, [$feature, 'all']));
+        }
         global $wpdb;
         $now = current_time('mysql', true);
         $t = $wpdb->prefix.'bp_entitlement';
@@ -369,5 +413,102 @@ final class AccessService
             $video, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
             self::QUESTION_BANK, $now, $now, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE, $video
         )));
+    }
+
+    /**
+     * Aktive, gültige Features je Kurs (wie entitledFeatures() ohne Kursfilter).
+     * @return array<string,list<string>>
+     */
+    private function entitledByCourse(int $userId): array
+    {
+        global $wpdb;
+        $now = current_time('mysql', true);
+        $t = $wpdb->prefix.'bp_entitlement';
+        $sim = implode(',', array_map(static fn ($c) => "'".esc_sql($c)."'", \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_COURSES));
+        $video = '%'.$wpdb->esc_like(\Bootspruefung\Learning\Commerce\ShopCatalog::VIDEO_SUFFIX);
+        $out = [];
+        foreach ($wpdb->get_results($wpdb->prepare(
+            "SELECT DISTINCT e.course_code, e.feature_code FROM {$t} e WHERE e.user_id = %d AND e.status = 'active'
+             AND (e.valid_from IS NULL OR e.valid_from <= %s) AND (e.valid_until IS NULL OR e.valid_until >= %s)
+             AND (e.sku_snapshot IS NULL OR (e.sku_snapshot NOT LIKE %s AND e.sku_snapshot <> %s) OR EXISTS (
+                SELECT 1 FROM {$t} th WHERE th.user_id = e.user_id AND th.feature_code IN (%s, 'all') AND th.status = 'active'
+                AND (th.valid_from IS NULL OR th.valid_from <= %s) AND (th.valid_until IS NULL OR th.valid_until >= %s)
+                AND (th.course_code = e.course_code OR (e.sku_snapshot = %s AND th.course_code IN ({$sim}))) AND (th.sku_snapshot IS NULL OR th.sku_snapshot NOT LIKE %s)))",
+            $userId, $now, $now,
+            $video, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE,
+            self::QUESTION_BANK, $now, $now, \Bootspruefung\Learning\Commerce\ShopCatalog::SIM_UPGRADE, $video
+        )) as $row) {
+            $out[(string) $row->course_code][] = (string) $row->feature_code;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Zugangsregeln eines Kurses aus dem Anfrage-Zwischenspeicher (alle Regeln mit einer Abfrage);
+     * null außerhalb einer lesenden REST-Anfrage – dann fragen die Methoden wie bisher einzeln.
+     * @return list<object>|null
+     */
+    private function courseRules(string $courseCode): ?array
+    {
+        if (! RequestMemo::active()) {
+            return null;
+        }
+        $all = RequestMemo::get('access_rules', static function (): array {
+            global $wpdb;
+            $out = [];
+            foreach ($wpdb->get_results("SELECT course_code, feature_code, module_code, access_type, limit_value, valid_from, valid_until FROM {$wpdb->prefix}bp_access_rule") as $r) {
+                $out[(string) $r->course_code][] = $r;
+            }
+
+            return $out;
+        });
+
+        return $all[$courseCode] ?? [];
+    }
+
+    /**
+     * Wie „SELECT feature_code, access_type, MAX(limit_value) … module_code IS NULL, free/free_limited, gültig … GROUP BY“.
+     * @param list<object> $rules
+     * @return list<object>
+     */
+    private static function groupFreeRules(array $rules, string $now): array
+    {
+        $groups = [];
+        foreach ($rules as $r) {
+            if ($r->module_code !== null || ! in_array($r->access_type, ['free', 'free_limited'], true)
+                || ($r->valid_from !== null && $r->valid_from > $now) || ($r->valid_until !== null && $r->valid_until < $now)) {
+                continue;
+            }
+            $key = $r->feature_code.'|'.$r->access_type;
+            $groups[$key] ??= (object) ['feature_code' => (string) $r->feature_code, 'access_type' => (string) $r->access_type, 'limit_value' => null];
+            if ($r->limit_value !== null) {
+                $groups[$key]->limit_value = $groups[$key]->limit_value === null ? (int) $r->limit_value : max((int) $groups[$key]->limit_value, (int) $r->limit_value);
+            }
+        }
+
+        return array_values($groups);
+    }
+
+    /**
+     * Wie „SELECT module_code, MAX(limit_value) AS days … drip, module_code IS NOT NULL … GROUP BY module_code“.
+     * @param list<object> $rules
+     * @return list<object>
+     */
+    private static function groupDripRules(array $rules, string $feature): array
+    {
+        $groups = [];
+        foreach ($rules as $r) {
+            if ($r->module_code === null || $r->access_type !== 'drip' || $r->feature_code !== $feature) {
+                continue;
+            }
+            $key = (string) $r->module_code;
+            $groups[$key] ??= (object) ['module_code' => $key, 'days' => null];
+            if ($r->limit_value !== null) {
+                $groups[$key]->days = $groups[$key]->days === null ? (int) $r->limit_value : max((int) $groups[$key]->days, (int) $r->limit_value);
+            }
+        }
+
+        return array_values($groups);
     }
 }

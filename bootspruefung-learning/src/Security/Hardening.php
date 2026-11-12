@@ -66,7 +66,7 @@ final class Hardening
 
         // Ablageordner (Pakete, geschützte Dateien) nach Updates an den geschützten Ort bringen.
         add_action('admin_init', [MediaStorage::class, 'relocateAll']);
-        add_action('bp_learning_hourly', [MediaStorage::class, 'relocateAll']);
+        add_action('bp_learning_hourly', \Bootspruefung\Learning\Infrastructure\Cron::guard('media_relocate', [MediaStorage::class, 'relocateAll']));
     }
 
     /** Ist die Härtung $feature aktiv? (Filter bootspruefung_hardening) */

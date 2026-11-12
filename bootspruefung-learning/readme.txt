@@ -1,9 +1,9 @@
 === Bootsprüfung Lernplattform ===
-Requires at least: 6.4
+Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.1
 Stable tag: 0.13.0
-WC requires at least: 8.0
+WC requires at least: 11.2
 WC tested up to: 11.3
 
 Lernplattform für Bootsführerscheine mit Fragenkatalog, Prüfungssimulation, Spezialtrainern und WooCommerce-Freischaltung.
