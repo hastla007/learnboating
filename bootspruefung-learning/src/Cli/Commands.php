@@ -24,6 +24,7 @@ final class Commands
         WP_CLI::add_command('bootspruefung shop setup', [self::class, 'shopSetup']);
         WP_CLI::add_command('bootspruefung rights release', [self::class, 'rightsRelease']);
         WP_CLI::add_command('bootspruefung chart', [self::class, 'chart']);
+        WP_CLI::add_command('bootspruefung export customer-faqs', [self::class, 'exportCustomerFaqs']);
     }
 
     /**
@@ -536,4 +537,91 @@ final class Commands
         }
         WP_CLI::success('Datenbankschema ist aktuell.');
     }
+
+    /**
+     * Exportiert veröffentlichte Kunden-FAQs im JSON-Format des Laravel-Imports.
+     *
+     *     wp bootspruefung export customer-faqs > mobile-faqs.json
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportCustomerFaqs(array $args, array $assoc): void
+    {
+        $taxonomy = \\Bootspruefung\\Learning\\Faq\\CustomerFaq::TAXONOMY;
+        $terms = get_terms(['taxonomy' => $taxonomy, 'hide_empty' => false]);
+        if (is_wp_error($terms)) {
+            WP_CLI::error($terms->get_error_message());
+        }
+
+        $termById = [];
+        foreach ($terms as $term) {
+            $termById[(int) $term->term_id] = $term;
+        }
+        $courseForTerm = [];
+        foreach ($termById as $id => $term) {
+            $root = $term;
+            $seen = [];
+            while ((int) $root->parent > 0 && isset($termById[(int) $root->parent]) && ! isset($seen[(int) $root->term_id])) {
+                $seen[(int) $root->term_id] = true;
+                $root = $termById[(int) $root->parent];
+            }
+            $courseForTerm[$id] = strtoupper(trim((string) get_term_meta($root->term_id, \\Bootspruefung\\Learning\\Faq\\CustomerFaq::TERM_KEY, true)));
+        }
+
+        $categories = [];
+        foreach ($termById as $id => $term) {
+            $courseCode = $courseForTerm[$id] ?? '';
+            if ($courseCode === '') {
+                continue;
+            }
+            $parentId = (int) $term->parent;
+            $categories[] = [
+                'source_key' => 'wp-term:'.$id,
+                'course_code' => $courseCode,
+                'name' => (string) $term->name,
+                'slug' => (string) $term->slug,
+                'parent_source_key' => $parentId > 0 && isset($termById[$parentId]) && ($courseForTerm[$parentId] ?? '') === $courseCode ? 'wp-term:'.$parentId : null,
+                'sort_order' => (int) get_term_meta($id, \\Bootspruefung\\Learning\\Faq\\CustomerFaq::TERM_ORDER, true),
+            ];
+        }
+
+        $posts = get_posts([
+            'post_type' => \\Bootspruefung\\Learning\\Faq\\CustomerFaq::POST_TYPE,
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'no_found_rows' => true,
+            'orderby' => ['menu_order' => 'ASC', 'ID' => 'ASC'],
+            'suppress_filters' => true,
+        ]);
+        $faqs = [];
+        foreach ($posts as $post) {
+            $assigned = get_the_terms($post, $taxonomy);
+            $categoryKeys = [];
+            foreach (is_array($assigned) ? $assigned : [] as $term) {
+                if (isset($termById[(int) $term->term_id]) && ($courseForTerm[(int) $term->term_id] ?? '') !== '') {
+                    $categoryKeys[] = 'wp-term:'.(int) $term->term_id;
+                }
+            }
+            $categoryKeys = array_values(array_unique($categoryKeys));
+            if ($categoryKeys === []) {
+                continue;
+            }
+            $faqs[] = [
+                'source_key' => 'wp-post:'.(int) $post->ID,
+                'question' => html_entity_decode(wp_strip_all_tags((string) $post->post_title), ENT_QUOTES, 'UTF-8'),
+                'answer' => \\Bootspruefung\\Learning\\Faq\\FaqRepository::renderAnswer((string) $post->post_content),
+                'status' => 'published',
+                'sort_order' => (int) $post->menu_order,
+                'category_source_keys' => $categoryKeys,
+            ];
+        }
+
+        WP_CLI::line((string) wp_json_encode(
+            ['categories' => $categories, 'faqs' => $faqs],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        ));
+    }
+
+
 }
