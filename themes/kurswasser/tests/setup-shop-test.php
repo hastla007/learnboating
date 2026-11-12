@@ -83,6 +83,15 @@ $snapshot = [];
 foreach ($optionKeys as $k) {
     $snapshot[$k] = get_option($k, '__kw_missing__');
 }
+// Shop-Seiten (der Assistent benennt englische Standardtitel um): Titel und Slug zum Zurücksetzen.
+$pagesAtStart = [];
+foreach (array_keys(kurswasser_shop_page_names()) as $opt) {
+    $pid = (int) get_option($opt, 0);
+    $post = $pid > 0 ? get_post($pid) : null;
+    if ($post instanceof WP_Post) {
+        $pagesAtStart[$pid] = [$post->post_title, $post->post_name];
+    }
+}
 $stashRates = $wpdb->get_results("SELECT * FROM {$rates}", ARRAY_A) ?: [];
 $stashLocations = $wpdb->get_results("SELECT * FROM {$locations}", ARRAY_A) ?: [];
 $wpdb->query("DELETE FROM {$locations}");
@@ -149,6 +158,14 @@ $check(trim(wp_strip_all_tags($notices)) === '' && ! str_contains($notices, 'woo
 wc_add_notice('Testhinweis Warenkorb', 'success');
 $check(str_contains(do_blocks('<!-- wp:woocommerce/store-notices /-->'), 'Testhinweis Warenkorb') && wc_notice_count() === 0, 'Hinweis wird ausgegeben und danach geleert');
 $check(str_contains((string) file_get_contents(dirname(__DIR__).'/assets/css/theme.css'), 'body .woocommerce table.shop_table_responsive tr td { display: flow-root; }'), 'mobiler Warenkorb: leere Zelle überlappt die nächste Zeile nicht');
+// Cookie-Banner auf Produktseiten: Die Bildergalerie (PhotoSwipe) liegt dort als verstecktes div.pswp[aria-modal="true"] im DOM
+// und darf das Banner nicht ausblenden – nur offene Dialoge zählen (Browser-Prüfung: tests/screenshots.mjs).
+$consentCss = (string) file_get_contents(dirname(__DIR__).'/assets/css/consent.css');
+$consentJs = (string) file_get_contents(dirname(__DIR__).'/assets/js/consent.js');
+$check(! str_contains($consentCss, 'body:has([aria-modal="true"]) .kw-consent') && str_contains($consentCss, '[aria-modal="true"]:not(.pswp)') && str_contains($consentCss, '.pswp.pswp--open'), 'Cookie-Banner (CSS): versteckte Bildergalerie blendet es nicht aus, geöffnete schon');
+$check(str_contains($consentJs, "classList.contains('pswp--open')") && str_contains($consentJs, 'getClientRects().length'), 'Cookie-Banner (JS): nur sichtbare Dialoge zählen');
+// Hinweis Zahlungsarten/Lieferung (Lern-Plugin, § 312j BGB) im Stil des Preis-Hinweises.
+$check(str_contains((string) file_get_contents(dirname(__DIR__).'/assets/css/theme.css'), '.bp-purchase-info {'), 'Hinweis Zahlungsarten/Lieferung gestaltet');
 
 echo "Schritt 3 nur mit WooCommerce\n";
 $fresh();
@@ -397,6 +414,61 @@ if (in_array('de_DE', get_available_languages(), true)) {
     remove_filter('translations_api', $offline);
 }
 
+echo "Shop-Seiten auf Deutsch\n";
+// Ausgangslage wie nach einer Aktivierung von WooCommerce vor der Sprachumstellung: „Cart“, „Checkout“, „My account“.
+$fresh();
+$pageBackup = [];
+$pageCreated = [];
+foreach (kurswasser_shop_page_names() as $opt => [$titles, $slug]) {
+    $pid = (int) get_option($opt, 0);
+    $post = $pid > 0 ? get_post($pid) : null;
+    if ($post instanceof WP_Post && $post->post_type === 'page') {
+        $pageBackup[$pid] = [$post->post_title, $post->post_name];
+    } else {
+        $pageCreated[] = [$opt, get_option($opt, '__kw_missing__')];
+        $pid = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => $titles[0]]);
+        update_option($opt, $pid);
+        $pageBackup[$pid] = null;
+    }
+    wp_update_post(['ID' => $pid, 'post_title' => $titles[0], 'post_name' => $slug]);
+}
+$pageIds = array_map(static fn (string $opt): int => (int) get_option($opt), array_keys(kurswasser_shop_page_names()));
+[$cartId, $checkoutId, $accountId] = $pageIds;
+$englishSlugs = array_map(static fn (int $id): string => (string) get_post_field('post_name', $id), $pageIds);
+$inPages = kurswasser_shop_input($base + ['tax' => 'own']);
+$planPages = kurswasser_shop_plan($inPages);
+$check(count($planPages['pages']) === 3 && in_array('pages', kurswasser_shop_default_selection($planPages), true), 'Vorschau: drei englische Shop-Seiten, Umbenennen vorausgewählt');
+$_GET['kw_view'] = 'shop';
+$_GET['kw_shop'] = $base + ['tax' => 'own'];
+$pagePreview = $html('kurswasser_setup_page');
+unset($_GET['kw_view'], $_GET['kw_shop']);
+$check(str_contains($pagePreview, '„Cart“ (/'.$englishSlugs[0].'/) → „Warenkorb“') && str_contains($pagePreview, '„My account“') && str_contains($pagePreview, 'value="pages" checked'), 'Vorschau zeigt „Cart“ → „Warenkorb“ usw. mit Häkchen');
+$check(get_the_title($cartId) === 'Cart', 'Vorschau ändert keine Seite');
+$repNoPages = kurswasser_shop_apply($inPages, array_values(array_diff(kurswasser_shop_default_selection($planPages), ['pages'])));
+$check(get_the_title($cartId) === 'Cart' && str_contains(implode(' ', $repNoPages['skipped']), 'Shop-Seiten: nicht umbenannt'), 'ohne Häkchen: Seiten bleiben');
+$repPages = kurswasser_shop_apply($inPages, kurswasser_shop_default_selection(kurswasser_shop_plan($inPages)));
+$slugOk = static fn (int $i, string $german): bool => $englishSlugs[$i] === ['cart', 'checkout', 'my-account'][$i]
+    ? str_starts_with((string) get_post_field('post_name', $pageIds[$i]), $german)
+    : get_post_field('post_name', $pageIds[$i]) === $englishSlugs[$i];
+$check(get_the_title($cartId) === 'Warenkorb' && get_the_title($checkoutId) === 'Kasse' && get_the_title($accountId) === 'Mein Konto', 'Titel: Warenkorb, Kasse, Mein Konto');
+$check($slugOk(0, 'warenkorb') && $slugOk(1, 'kasse') && $slugOk(2, 'mein-konto') && str_contains(implode(' ', $repPages['done']), 'Seite „Cart“'), 'Slugs deutsch (/warenkorb/, /kasse/, /mein-konto/), im Bericht');
+$check(wc_get_page_id('cart') === $cartId && wc_get_cart_url() === get_permalink($cartId), 'WooCommerce verlinkt die umbenannte Warenkorb-Seite (Seiten-ID bleibt)');
+$check(kurswasser_shop_plan($inPages)['pages'] === [], 'zweiter Lauf: nichts mehr umzubenennen');
+wp_update_post(['ID' => $cartId, 'post_title' => 'Cart', 'post_name' => 'mein-einkauf']);
+wp_update_post(['ID' => $checkoutId, 'post_title' => 'Bezahlen']);
+$planHand = kurswasser_shop_plan($inPages)['pages'];
+$check(count($planHand) === 1 && $planHand[0]['new_title'] === 'Warenkorb' && $planHand[0]['new_slug'] === 'mein-einkauf', 'von Hand benannte Seite bleibt; eigener Slug bleibt, nur der Titel wird deutsch');
+foreach ($pageBackup as $pid => $orig) {
+    if ($orig === null) {
+        wp_delete_post($pid, true);
+    } else {
+        wp_update_post(['ID' => $pid, 'post_title' => $orig[0], 'post_name' => $orig[1]]);
+    }
+}
+foreach ($pageCreated as [$opt, $value]) {
+    $value === '__kw_missing__' ? delete_option($opt) : update_option($opt, $value);
+}
+
 // Aufräumen
 remove_filter('pre_http_request', $noNet, 10);
 if ($hidden !== null) {
@@ -441,6 +513,9 @@ foreach ($stashLocations as $row) {
 WC_Cache_Helper::invalidate_cache_group('taxes');
 foreach ($snapshot as $k => $v) {
     $v === '__kw_missing__' ? delete_option($k) : update_option($k, $v);
+}
+foreach ($pagesAtStart as $pid => [$title, $slug]) {
+    wp_update_post(['ID' => $pid, 'post_title' => $title, 'post_name' => $slug]);
 }
 foreach ($testUsers as $u) {
     wp_delete_user((int) $u);

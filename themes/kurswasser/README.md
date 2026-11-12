@@ -101,7 +101,10 @@ Erscheint nur mit aktivem WooCommerce (sonst ein Satz im Einleitungstext). Ablau
    „EU + Schweiz“ (empfohlen) oder „alle Länder“, Häkchen: Produkte als Entwurf, Schnupper-Paket, Registrierung,
    Sprache Deutsch.
 2. **Vorschau** (`kw_view=shop`, ändert nichts): je Einstellung „aktuell → neu“ mit Häkchen, die EU-Steuertabelle mit
-   Stand, der Produkt-Probelauf (`applyProducts(true)`) und das Schnupper-Paket (`applyFreeTier(true)`).
+   Stand, der Produkt-Probelauf (`applyProducts(true)`) und das Schnupper-Paket (`applyFreeTier(true)`). Tragen die von
+   WooCommerce angelegten Seiten noch den englischen Standardtitel („Cart“, „Checkout“, „My account“), bietet die
+   Vorschau an, sie in „Warenkorb“, „Kasse“, „Mein Konto“ umzubenennen (Slugs `warenkorb`, `kasse`, `mein-konto`, nur
+   wenn der Slug noch der englische Standard ist; von Hand benannte Seiten bleiben).
 3. **Bestätigen** (POST an `admin-post.php?action=kurswasser_setup_shop`, Nonce, `manage_options` **und**
    `manage_woocommerce`) → **Ergebnis** (`kw_view=shop-result`): erledigt, übersprungen, Fehler, bei Produkten die Zeilen
    aus `applyProducts` (Artikelnummer, Ergebnis, von Hand geänderte Felder).
