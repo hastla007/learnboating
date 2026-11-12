@@ -566,8 +566,10 @@ final class Commands
             "SELECT id, course_code, module_code, feature_code, access_type, limit_value, valid_from, valid_until
              FROM {$table}
              WHERE (access_type = 'free' AND module_code IS NULL)
-                OR (access_type = 'free_limited' AND module_code IS NULL AND limit_value IS NOT NULL)
-                OR (access_type = 'drip' AND module_code IS NOT NULL AND limit_value IS NOT NULL)
+                OR (access_type = 'free_limited' AND module_code IS NULL AND limit_value IS NOT NULL
+                    AND feature_code IN ('question_bank','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads'))
+                OR (access_type = 'drip' AND module_code IS NOT NULL AND limit_value IS NOT NULL
+                    AND feature_code IN ('question_bank','video_course'))
              ORDER BY course_code, feature_code, module_code, id",
             ARRAY_A
         );
@@ -584,7 +586,7 @@ final class Commands
                 'feature_code' => (string) $row['feature_code'],
                 'access_type' => (string) $row['access_type'],
                 'module_code' => $moduleCode,
-                'limit_value' => $row['limit_value'] === null ? null : (int) $row['limit_value'],
+                'limit_value' => $row['access_type'] === 'free' || $row['limit_value'] === null ? null : (int) $row['limit_value'],
                 'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
                 'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
                 'source_key' => 'wp:rule:'.(int) $row['id'],
