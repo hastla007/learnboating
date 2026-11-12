@@ -635,9 +635,10 @@ $wpdb->delete($p.'override', ['reason' => 'Test-Sammelfreigabe']);
 wp_cache_flush_group('bootspruefung');
 $check(\Bootspruefung\Learning\Content\RightsRelease::releaseAll('x', true) === $preview, 'Testfreigaben zurückgenommen');
 $repoC = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
-$comboId = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'SBF-SEE-BIN'");
+// Entwurf: Ergänzung FKN → SKN (die Kombis sind seit FACH-06 aus den Einzelregelwerken verifiziert).
+$comboId = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'ADD-FKN-TO-SKN'");
 $rulesBefore = \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('Test-Regelfreigabe', true);
-$check(in_array('SBF-SEE-BIN', array_column($rulesBefore, 'course'), true) && ! $repoC->examRule($comboId)['live'], 'Kombi-Regelwerk (Entwurf der Quelle) vor Freigabe nur Übung');
+$check(in_array('ADD-FKN-TO-SKN', array_column($rulesBefore, 'course'), true) && ! $repoC->examRule($comboId)['live'], 'Regelwerk im Entwurf (Ergänzung FKN → SKN) vor Freigabe nur Übung');
 \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('Test-Regelfreigabe');
 $check($repoC->examRule($comboId)['live'] && \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules('x', true) === [], 'nach Freigabe: alle Regelwerke live');
 $wpdb->delete($p.'override', ['reason' => 'Test-Regelfreigabe']);

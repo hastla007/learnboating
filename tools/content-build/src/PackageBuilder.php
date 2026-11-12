@@ -610,6 +610,68 @@ final class PackageBuilder
         ]],
     ];
 
+    /**
+     * Kombis, deren Regelwerk als verifiziert gilt, weil es Teil für Teil aus verifizierten Regelwerken besteht
+     * (Herleitung 12.11.2026, Fachprüfung FACH-06; die Quelle führt die Kombis als Entwurf):
+     * - SBF See & Binnen = SBF See (Basis 5/7 + See 18/23, 60 Min.) + Ergänzung See → Binnen (Binnen 18/23, 35 Min.):
+     *   Bei gemeinsamer Prüfung kommen die Basisfragen nur einmal dran (pruefung_buchen.php, Variante „combo“; Migration 000477).
+     * - SRC & UBI = SRC (19/24, 30 Min.) + Ergänzung SRC → UBI (UBI-Ergänzung 8/10, 30 Min.); der Kurs führt das Modul
+     *   UBI_ERG statt UBI.
+     * comboMatchesSingles() prüft das beim Bau; weicht ein Teil ab, bleibt die Kombi Entwurf (Warnung im Bericht).
+     */
+    public const COMBO_VERIFIED_FROM = ['SBF-SEE-BIN' => ['SBF-SEE', 'ADD-SEE-TO-BIN'], 'SRC-UBI' => ['SRC', 'ADD-UBI-TO-SRC']];
+
+    /**
+     * Ergänzungskurse ohne belegte eigene Prüfungsform simulieren die volle Prüfung des Zielscheins (FACH-07): Ob und wie
+     * weit der FKN bei der SKN-Prüfung angerechnet wird, sagt laut Anleitung der Prüfungsausschuss. Das Regelwerk bleibt
+     * Entwurf (Übungsmodus), bis die Prüfungsform geklärt ist; vorher waren es erfundene 10 Fragen, 75 %.
+     */
+    public const ADDON_AS_FULL = ['ADD-FKN-TO-SKN' => 'SKN'];
+
+    public const ADDON_AS_FULL_NOTE = 'Ob und wie weit dein FKN bei der SKN-Prüfung angerechnet wird, sagt dir dein Prüfungsausschuss. Die Simulation entspricht deshalb der vollen SKN-Prüfung.';
+
+    /**
+     * Revierspezifische Praxis- und Wissenskarten des Zielscheins für die Ergänzungskurse (FACH-05, 12.11.2026; nicht in
+     * der Quelle): Wer vom Binnen- zum Seeschein wechselt, braucht Zeichen, Lichter, Schallsignale und Feuer auf See
+     * (umgekehrt die Binnen-Tafelzeichen usw.). Manöver und Knoten fehlen bewusst – die Praxis wird angerechnet bzw.
+     * ist verkürzt (Pflichtmanöver Binnen → See übernimmt schon die Quelle).
+     * Ziel => [Quellkurs, ID-Suffix, Kategorien]
+     */
+    public const PRAXIS_ADDON_CARDS = [
+        'ADD-BIN-TO-SEE' => ['SBF-SEE', '-BIN-SEE', ['Schallsignale auf See', 'Zeichen auf See', 'Lichter an Seefahrzeugen', 'Feuerarten auf Seekarten']],
+        'ADD-SEE-TO-BIN' => ['SBF-BIN-MOTOR', '-ADD-BIN', ['Schallzeichen Binnen', 'Tafelzeichen Binnen', 'Brücken und Schleusen', 'Lichter und Sichtzeichen Binnen', 'Fahrrinne und Betonnung']],
+    ];
+
+    /**
+     * Besteht eine Kombi Teil für Teil aus den Teilen verifizierter Regelwerke? Gleich sein müssen Modul, Mindestzahl
+     * richtiger Antworten und Fragenzahl je Teil; die Zeiten der Kombi-Teile eines Regelwerks ergeben dessen Zeit.
+     *
+     * @param list<array<string,mixed>> $comboParts Teile der Kombi (module, min_correct, of, seconds)
+     * @param array<string,array{parts:list<array<string,mixed>>,seconds:int}> $singles Code => Teile und Zeit
+     */
+    public static function comboMatchesSingles(array $comboParts, array $singles): bool
+    {
+        $key = static fn (array $p): string => $p['module'].'|'.(int) $p['min_correct'].'|'.(int) $p['of'];
+        $expected = [];
+        foreach ($singles as $single) {
+            $seconds = 0;
+            foreach ($single['parts'] as $part) {
+                $expected[] = $key($part);
+                foreach ($comboParts as $c) {
+                    $seconds += $c['module'] === $part['module'] ? (int) ($c['seconds'] ?? 0) : 0;
+                }
+            }
+            if ($seconds !== $single['seconds']) {
+                return false;
+            }
+        }
+        $actual = array_map($key, $comboParts);
+        sort($expected);
+        sort($actual);
+
+        return $expected !== [] && $expected === $actual;
+    }
+
     /** Kombi-Bögen mit Fragen außerhalb der Kursmodule (volle UBI-Bögen im SRC-&-UBI-Kurs) – nicht übernommen. */
     public const DROPPED_PAPERS = ['SRC-UBI#101', 'SRC-UBI#102', 'SRC-UBI#103', 'SRC-UBI#104', 'SRC-UBI#105', 'SRC-UBI#106', 'SRC-UBI#107', 'SRC-UBI#108', 'SRC-UBI#109', 'SRC-UBI#110', 'SRC-UBI#111', 'SRC-UBI#112'];
 
@@ -651,6 +713,20 @@ final class PackageBuilder
             'ADD-UBI-TO-SRC' => ['min_correct' => 8, 'of' => 10],
             'SKN' => ['min_correct' => 26, 'of' => 36],
         ];
+        foreach (self::ADDON_AS_FULL as $addon => $full) {
+            $passing[$addon] = $passing[$full] + ['note' => self::ADDON_AS_FULL_NOTE];
+            $counts[$addon] = $counts[$full];
+            $timeLimits[$addon] = $timeLimits[$full];
+        }
+        $singleParts = function (string $code) use ($passing, $timeLimits): array {
+            $rule = $passing[$code];
+            $modules = array_values(array_column(array_filter(self::COURSES, static fn ($c) => $c['code'] === $code), 'modules'))[0];
+
+            return [
+                'parts' => $rule['parts'] ?? [['module' => $modules[0], 'min_correct' => $rule['min_correct'], 'of' => $rule['of']]],
+                'seconds' => $timeLimits[$code],
+            ];
+        };
 
         $rules = [];
         foreach (self::COURSES as $course) {
@@ -670,6 +746,20 @@ final class PackageBuilder
                 ? ['min_correct_ratio' => 0.75]
                 : array_merge(['min_correct_ratio' => $rule['min_correct'] / $rule['of']], array_diff_key($rule, ['min_correct' => 1, 'of' => 1]));
             $isVerified = in_array($code, $verified, true);
+            if (isset(self::COMBO_VERIFIED_FROM[$code], self::COMBO_RULES[$code])) {
+                $singles = [];
+                foreach (self::COMBO_VERIFIED_FROM[$code] as $single) {
+                    if (! in_array($single, $verified, true)) {
+                        $singles = [];
+                        break;
+                    }
+                    $singles[$single] = $singleParts($single);
+                }
+                $isVerified = $singles !== [] && self::comboMatchesSingles(self::COMBO_RULES[$code]['parts'], $singles);
+                if (! $isVerified) {
+                    $this->report->warn('combo_rule_mismatch', 'exam_rule', $code.'@draft-2026-09', 'Kombi weicht von den Regelwerken '.implode(' + ', self::COMBO_VERIFIED_FROM[$code]).' ab; bleibt Entwurf.');
+                }
+            }
             $blueprints = [];
             foreach ($this->courseModules[$code] as $link) {
                 $override = $counts[$code] ?? 10;
@@ -882,6 +972,19 @@ final class PackageBuilder
             'SKN' => [['SKN', '', null], ['FKN', '-SKN', null]],
             'ADD-FKN-TO-SKN' => [['SKN', '-ADD-SKN', ['only' => $skn]]],
         ];
+        // Eigene Ergänzung (nicht in der Quelle): Wissenskarten des Zielscheins für die Ergänzungskurse.
+        foreach (self::PRAXIS_ADDON_CARDS as $target => [$source, $suffix, $categories]) {
+            if (isset($targets[$target])) {
+                // Gleicher Quellkurs und Suffix wie die Spiegelung der Quelle: nur deren Filter erweitern.
+                [$seederSource, $seederSuffix, $filter] = $targets[$target][0];
+                if (count($targets[$target]) !== 1 || $seederSource !== $source || $seederSuffix !== $suffix) {
+                    throw new RuntimeException("PRAXIS_ADDON_CARDS {$target}: passt nicht zur Spiegelung der Quelle");
+                }
+                $targets[$target][0][2]['only'] = array_merge($filter['only'], $categories);
+            } else {
+                $targets[$target] = [[$source, $suffix, ['only' => $categories]]];
+            }
+        }
         foreach ($targets as $target => $sources) {
             $offset = 0;
             $covered = [];

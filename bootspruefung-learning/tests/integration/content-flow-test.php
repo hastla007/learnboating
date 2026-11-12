@@ -242,7 +242,11 @@ $wpdb->update($p.'exam_session', ['deadline_at' => gmdate('Y-m-d H:i:s', time() 
 [, $e] = $req('GET', "/exam-sessions/{$paperSession}");
 $check($e['status'] === 'evaluated' && $e['result']['expired'] === true, 'abgelaufene Prüfung automatisch abgegeben');
 [, $o] = $req('GET', '/courses/SBF-SEE-BIN/exam');
-$check($o['live'] === false, 'unverifiziertes Regelwerk → Übungsmodus');
+$check($o['live'] === true, 'Kombi SBF See & Binnen: Regelwerk aus SBF See + Ergänzung See → Binnen, verifiziert (FACH-06)');
+[, $o] = $req('GET', '/courses/SRC-UBI/exam');
+$check($o['live'] === true, 'Kombi SRC & UBI: Regelwerk aus SRC + Ergänzung SRC → UBI, verifiziert (FACH-06)');
+[, $o] = $req('GET', '/courses/ADD-FKN-TO-SKN/exam');
+$check($o['live'] === false, 'unverifiziertes Regelwerk (Ergänzung FKN → SKN) → Übungsmodus');
 [, $d] = $req('GET', '/courses/FKN/next-question');
 if ($d['question']['type'] === 'open_text') {
     [$s, $r] = $req('POST', '/answers/reveal', ['token' => $d['question']['token']]);

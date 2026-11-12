@@ -218,6 +218,10 @@ foreach ($q('SELECT r.*, c.code FROM exam_rule_set r JOIN course_definition c ON
             $rule['note'] = PackageBuilder::NAV_NOTE;
         }
     }
+    // Kombis aus verifizierten Einzelregelwerken (PackageBuilder::COMBO_VERIFIED_FROM): im Paket veröffentlicht und verifiziert.
+    if (isset(PackageBuilder::COMBO_VERIFIED_FROM[$r['code']])) {
+        [$r['status'], $r['verified_at']] = ['published', 'combo'];
+    }
     ksort($bp);
     $lv[$r['code'].'@'.$r['version']] = [
         'time_limit_seconds' => (int) $r['time_limit_seconds'],
@@ -228,6 +232,15 @@ foreach ($q('SELECT r.*, c.code FROM exam_rule_set r JOIN course_definition c ON
         'verified' => $r['verified_at'] !== null,
         'blueprints' => $bp,
     ];
+}
+// Ergänzungen ohne belegte Prüfungsform simulieren die volle Prüfung des Zielscheins (PackageBuilder::ADDON_AS_FULL).
+foreach (PackageBuilder::ADDON_AS_FULL as $addon => $full) {
+    foreach ($lv as $key => $row) {
+        if (str_starts_with($key, $addon.'@') && isset($lv[$full.substr($key, strlen($addon))])) {
+            $target = $lv[$full.substr($key, strlen($addon))];
+            $lv[$key] = array_merge($target, ['note' => PackageBuilder::ADDON_AS_FULL_NOTE, 'status' => $row['status'], 'verified' => $row['verified']]);
+        }
+    }
 }
 $pk = [];
 foreach ($data('exam_rules') as $r) {
@@ -304,6 +317,16 @@ foreach ($q('SELECT c.code, p.*, ma.asset_key FROM praxis_task p JOIN course_def
         'answer' => $n($r['antwort']), 'explanation' => $n($r['erklaerung']), 'media' => $asset,
         'source' => $n($r['quelle']), 'source_url' => $n($r['quellen_url']), 'sort_order' => (int) $r['sort_order'],
     ];
+}
+// Eigene Ergänzung (PackageBuilder::PRAXIS_ADDON_CARDS): Wissenskarten des Zielscheins in den Ergänzungskursen,
+// Kopien der Karten des Quellkurses mit ID-Suffix und gleicher Reihenfolge.
+$laravelPraxis = $lv;
+foreach (PackageBuilder::PRAXIS_ADDON_CARDS as $target => [$source, $suffix, $categories]) {
+    foreach ($laravelPraxis as $id => $row) {
+        if ($row['course_code'] === $source && in_array($row['category'], $categories, true)) {
+            $lv[$id.$suffix] = ['course_code' => $target] + $row;
+        }
+    }
 }
 $pk = [];
 foreach ($data('praxis_tasks') as $p) {
