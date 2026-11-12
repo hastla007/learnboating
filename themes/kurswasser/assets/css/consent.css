@@ -26,7 +26,13 @@
  */
 /* Getrennte Regeln: Ein Browser ohne :has() verwirft sonst die ganze Liste samt Ersatz-Klasse. */
 .kw-consent-behind-modal .kw-consent { display: none; }
-body:has([aria-modal="true"]) .kw-consent { display: none; }
+/*
+ * Nur offene Dialoge zählen: Die Bildergalerie (PhotoSwipe) liegt auf jeder Produktseite als verstecktes
+ * div.pswp[aria-modal="true"] im DOM – sie gilt erst geöffnet (.pswp--open) als Dialog, sonst bliebe das Banner
+ * auf Produktseiten unsichtbar. Ebenso ausgeblendete Dialoge ([hidden], aria-hidden).
+ */
+body:has([aria-modal="true"]:not(.pswp):not([hidden]):not([aria-hidden="true"])) .kw-consent { display: none; }
+body:has(.pswp.pswp--open) .kw-consent { display: none; }
 body:has(.wc-block-components-drawer__screen-overlay:not(.wc-block-components-drawer__screen-overlay--is-hidden)) .kw-consent { display: none; }
 .kw-consent:focus { outline: 3px solid var(--kw-blue-dark, #0a6f91); outline-offset: 2px; }
 .kw-consent:focus:not(:focus-visible) { outline: none; }

@@ -118,6 +118,7 @@ final class Integration
         (new VideoUpgrade())->register();
         (new CartRelationHint())->register();
         (new PriceNote())->register();
+        (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();
         (new LegalTextsEmail())->register();

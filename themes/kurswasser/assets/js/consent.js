@@ -122,8 +122,20 @@
 	 */
 	var MODAL = '[aria-modal="true"], dialog[open]:modal, .wc-block-components-drawer__screen-overlay:not(.wc-block-components-drawer__screen-overlay--is-hidden)';
 	var modalObserver = null;
+	/*
+	 * Nur sichtbare Dialoge zählen: Die Bildergalerie (PhotoSwipe) liegt auf jeder Produktseite als verstecktes
+	 * div.pswp[aria-modal="true"] (display: none) im DOM; geöffnet trägt sie .pswp--open. Ohne diese Prüfung
+	 * erschien das Banner auf Produktseiten nie.
+	 */
+	function visible(el) {
+		if (el.hidden || el.getAttribute('aria-hidden') === 'true') { return false; }
+		if (el.classList.contains('pswp')) { return el.classList.contains('pswp--open'); }
+		return el.getClientRects().length > 0;
+	}
 	function modalOpen() {
-		try { return !!document.querySelector(MODAL); } catch (e) { return !!document.querySelector('[aria-modal="true"]'); }
+		var list;
+		try { list = document.querySelectorAll(MODAL); } catch (e) { list = document.querySelectorAll('[aria-modal="true"]'); }
+		return Array.prototype.some.call(list, function (el) { return el !== root && visible(el); });
 	}
 	function syncModal() {
 		var open = modalOpen();
@@ -136,7 +148,7 @@
 		if (typeof window.MutationObserver !== 'function') { return; }
 		if (on && !modalObserver) {
 			modalObserver = new window.MutationObserver(syncModal);
-			modalObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-modal', 'open', 'class'] });
+			modalObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-modal', 'open', 'class', 'hidden', 'aria-hidden'] });
 		} else if (!on && modalObserver) {
 			modalObserver.disconnect();
 			modalObserver = null;

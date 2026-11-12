@@ -4,7 +4,7 @@
  *
  * Ablauf: Formular (Land/Region, Anschrift, Mehrwertsteuer-Weg, Häkchen) → Vorschau „aktuell → neu“ je Einstellung,
  * Steuertabelle, Produkte (Probelauf) → Bestätigung per POST (Nonce, manage_options + manage_woocommerce) →
- * Ergebnis-Bericht. Sicherheitsregel des Betreibers: Was in WooCommerce schon eingestellt ist, wird nicht
+ * Ergebnis-Bericht. Shop-Seiten mit englischem WooCommerce-Standardtitel werden auf Wunsch deutsch benannt. Sicherheitsregel des Betreibers: Was in WooCommerce schon eingestellt ist, wird nicht
  * stillschweigend überschrieben – abweichende bestehende Werte sind in der Vorschau nicht angehakt, Steuersätze
  * werden nie gelöscht oder doppelt angelegt, Preise kommen ausschließlich von der Preis-Seite des Lern-Plugins.
  *
@@ -339,6 +339,40 @@ function kurswasser_shop_targets(array $input): array
 }
 
 /**
+ * Von WooCommerce angelegte Shop-Seiten: Option => [englische Standardtitel, englischer Standard-Slug, deutscher Titel, deutscher Slug].
+ * Wird WooCommerce vor der Sprachumstellung aktiviert, heißen die Seiten „Cart“, „Checkout“, „My account“ (UX-10).
+ */
+function kurswasser_shop_page_names(): array
+{
+    return [
+        'woocommerce_cart_page_id' => [['Cart'], 'cart', __('Warenkorb', 'kurswasser'), 'warenkorb'],
+        'woocommerce_checkout_page_id' => [['Checkout'], 'checkout', __('Kasse', 'kurswasser'), 'kasse'],
+        'woocommerce_myaccount_page_id' => [['My account', 'My Account'], 'my-account', __('Mein Konto', 'kurswasser'), 'mein-konto'],
+    ];
+}
+
+/**
+ * Shop-Seiten, die noch den englischen WooCommerce-Standardtitel tragen. Von Hand benannte Seiten bleiben, wie sie sind;
+ * der Slug wird nur ersetzt, wenn er noch der englische Standard ist.
+ *
+ * @return list<array{option:string,id:int,title:string,slug:string,new_title:string,new_slug:string}>
+ */
+function kurswasser_shop_pages_plan(): array
+{
+    $rows = [];
+    foreach (kurswasser_shop_page_names() as $option => [$titles, $slug, $newTitle, $newSlug]) {
+        $id = (int) get_option($option, 0);
+        $post = $id > 0 ? get_post($id) : null;
+        if (! $post instanceof WP_Post || $post->post_type !== 'page' || ! in_array(trim($post->post_title), $titles, true)) {
+            continue;
+        }
+        $rows[] = ['option' => $option, 'id' => $id, 'title' => $post->post_title, 'slug' => $post->post_name, 'new_title' => $newTitle, 'new_slug' => $post->post_name === $slug ? $newSlug : $post->post_name];
+    }
+
+    return $rows;
+}
+
+/**
  * Bestehende Steuersätze der Standard-Klasse.
  *
  * @return list<array{id:int,country:string,state:string,rate:float,name:string}>
@@ -444,7 +478,7 @@ function kurswasser_shop_plan(array $input): array
         $notes[] = ['info', __('Der Shop ist im WooCommerce-Modus „Demnächst verfügbar“: Gäste sehen Shop, Produkte, Warenkorb und Kasse nicht. Zum Livegang hier „Shop für Kunden sichtbar machen“ wählen oder unter WooCommerce › Einstellungen › Sichtbarkeit umstellen.', 'kurswasser')];
     }
 
-    return ['input' => $input, 'settings' => $settings, 'rates' => $rates, 'products' => $products, 'conflicts' => $conflicts, 'free' => $free, 'notes' => $notes];
+    return ['input' => $input, 'settings' => $settings, 'rates' => $rates, 'pages' => kurswasser_shop_pages_plan(), 'products' => $products, 'conflicts' => $conflicts, 'free' => $free, 'notes' => $notes];
 }
 
 /** Vorausgewählte Punkte der Vorschau (für WP-CLI ohne --overwrite und als Formular-Vorgabe). */
@@ -453,6 +487,9 @@ function kurswasser_shop_default_selection(array $plan, bool $overwrite = false)
     $keys = array_keys(array_filter($plan['settings'], static fn ($s) => $s['checked'] || ($overwrite && $s['state'] === 'differs')));
     if (array_filter($plan['rates']['rows'], static fn ($r) => $r['status'] === 'new')) {
         $keys[] = 'tax_rates';
+    }
+    if (($plan['pages'] ?? []) !== []) {
+        $keys[] = 'pages';
     }
     if ($plan['products'] !== null && $plan['conflicts'] === []) {
         $keys[] = 'products';
@@ -561,6 +598,20 @@ function kurswasser_shop_apply(array $input, array $selected, ?array $seen = nul
         }
         if ($exists > 0) {
             $report['skipped'][] = sprintf(_n('%d Steuersatz war schon vorhanden.', '%d Steuersätze waren schon vorhanden.', $exists, 'kurswasser'), $exists);
+        }
+    }
+
+    // Shop-Seiten mit englischem WooCommerce-Standardtitel umbenennen (Titel und Slug).
+    if ($plan['pages'] !== [] && ! in_array('pages', $selected, true)) {
+        $report['skipped'][] = __('Shop-Seiten: nicht umbenannt (nicht ausgewählt).', 'kurswasser');
+    } else {
+        foreach ($plan['pages'] as $page) {
+            $result = wp_update_post(['ID' => $page['id'], 'post_title' => $page['new_title'], 'post_name' => $page['new_slug']], true);
+            if (is_wp_error($result) || (int) $result === 0) {
+                $report['errors'][] = sprintf(__('Seite „%s“ konnte nicht umbenannt werden.', 'kurswasser'), $page['title']);
+                continue;
+            }
+            $report['done'][] = sprintf(__('Seite „%1$s“ (/%2$s/) → „%3$s“ (/%4$s/).', 'kurswasser'), $page['title'], $page['slug'], $page['new_title'], (string) get_post_field('post_name', $page['id']));
         }
     }
 
@@ -869,6 +920,13 @@ function kurswasser_setup_shop_view(string $view): void
             echo '<p>'.esc_html__('Keine Steuersätze anzulegen.', 'kurswasser').'</p>';
         }
     }
+    if ($plan['pages'] !== []) {
+        echo '<h3>'.esc_html__('Shop-Seiten', 'kurswasser').'</h3><p>'.esc_html__('WooCommerce hat diese Seiten mit englischem Namen angelegt. Neuer Titel und neue Adresse; WooCommerce verlinkt automatisch die neuen Adressen, die bisherigen gelten danach nicht mehr.', 'kurswasser').'</p><ul class="kw-rates">';
+        foreach ($plan['pages'] as $page) {
+            echo '<li>'.esc_html(sprintf('„%1$s“ (/%2$s/) → „%3$s“ (/%4$s/)', $page['title'], $page['slug'], $page['new_title'], $page['new_slug'])).'</li>';
+        }
+        echo '</ul><p><label><input type="checkbox" name="kw_apply[]" value="pages"'.checked(in_array('pages', $selected, true), true, false).'> '.esc_html__('Shop-Seiten auf Deutsch umbenennen', 'kurswasser').'</label></p>';
+    }
     if ($plan['products'] !== null) {
         $actions = array_count_values(array_map(static fn ($r) => str_replace(' (Vorschau)', '', $r['action']), $plan['products']));
         echo '<h3>'.esc_html__('Produkte', 'kurswasser').'</h3><p>'.esc_html(sprintf(__('%1$d Produkte aus dem Katalog des Lern-Plugins: %2$d neu (als Entwurf), %3$d schon vorhanden (Status bleibt; Preise kommen von der Preis-Seite, von Hand geänderte Felder bleiben).', 'kurswasser'), count($plan['products']), $actions['neu'] ?? 0, count($plan['products']) - ($actions['neu'] ?? 0))).'</p>';
@@ -1011,6 +1069,9 @@ if (defined('WP_CLI') && WP_CLI) {
         \WP_CLI\Utils\format_items('table', $items, ['Einstellung', 'Aktuell', 'Neu', 'Aktion']);
         if ($plan['rates']['rows'] !== []) {
             WP_CLI::log(sprintf('Steuersätze (Stand %s): ', KURSWASSER_EU_VAT_RATES_STAND).implode(', ', array_map(static fn ($r) => ($r['country'] ?: '*').' '.kurswasser_shop_rate_label($r['rate']).($r['status'] === 'new' ? ' (neu)' : ($r['status'] === 'exists' ? ' (vorhanden)' : ' (anderer Satz vorhanden, übersprungen)')), $plan['rates']['rows'])));
+        }
+        foreach ($plan['pages'] as $page) {
+            WP_CLI::log(sprintf('Shop-Seite: „%1$s“ (/%2$s/) → „%3$s“ (/%4$s/)', $page['title'], $page['slug'], $page['new_title'], $page['new_slug']));
         }
         if ($plan['products'] !== null) {
             $newCount = count(array_filter($plan['products'], static fn ($r) => str_starts_with($r['action'], 'neu')));

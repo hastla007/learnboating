@@ -1,6 +1,6 @@
 // Screenshots des Themes (Desktop + Mobil) für die Abnahme, z. B. in CI nach dem Kaufablauf-Test.
 //   BP_URL=http://127.0.0.1:8099 BP_SHOTS=/pfad node themes/kurswasser/tests/screenshots.mjs
-// Prüft nebenbei: Status 200, keine JS-Fehler, keine sichtbaren PHP-Hinweise.
+// Prüft nebenbei: Status 200, keine JS-Fehler, keine sichtbaren PHP-Hinweise, Cookie-Banner auf der Produktseite.
 import { createRequire } from 'node:module';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -42,6 +42,10 @@ async function run(width, suffix, ctxOptions = {}) {
 	if (await productLink.count()) {
 		const href = await productLink.getAttribute('href');
 		await shoot(href.replace(base, ''), 'produkt');
+		// Cookie-Banner auch auf Produktseiten (die versteckte Bildergalerie [aria-modal] blendete es aus).
+		if (!(await page.locator('#kw-consent').isVisible())) {
+			problems.push(`${href}: Cookie-Banner nicht sichtbar (${suffix})`);
+		}
 		await page.locator('button.single_add_to_cart_button').first().click().catch(() => {});
 		await page.waitForLoadState('load');
 		const cart = await firstExisting(['/warenkorb/', '/cart/']);
