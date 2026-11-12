@@ -18,10 +18,11 @@ namespace Bootspruefung\Learning\Faq;
  *
  * Nur Aussagen, die im Code oder in den Kursdaten belegt sind; keine Preise, keine Angebote. Belegstellen:
  *
- * [B1] Smarttrainer, „gefestigt“: src/Learning/Services/LearningService.php (Klassenkommentar: gefestigt =
- *      3 richtige Antworten in Folge; STREAK_GAP_SECONDS = 300; updateProgress: falsche Antwort setzt die
- *      Serie auf 0; spaced(): andere Fragen dazwischen zählen) und src/Frontend/Strings.php (smart_explain,
- *      mode_smart_desc: neue, falsche und schwache Fragen).
+ * [B1] Smarttrainer, „gefestigt“: src/Learning/Services/LearningService.php (Klassenkommentar: „sicher heute“ =
+ *      3 richtige Antworten in Folge, gefestigt = eine weitere richtige nach CONSOLIDATE_GAP_SECONDS = 20 h;
+ *      Wiederholung nach REVIEW_INTERVAL_DAYS; falsche nach REPEAT_WRONG_AFTER = 4 anderen Fragen;
+ *      STREAK_GAP_SECONDS = 300; applyProgress: falsche Antwort setzt die Serie auf 0; spaced(): andere Fragen
+ *      dazwischen zählen) und src/Frontend/Strings.php (smart_explain, mode_smart_desc).
  * [B2] Prüfungssimulation, Fragen je Teil, Zeit und Bestehensgrenzen: content-source/boatingschool/database/
  *      seeders/ExamRuleSetSeeder.php ($questionCountOverrides, $timeLimitOverrides, $passingRuleOverrides,
  *      $navigationNote) und die importierten Regelwerke (bp_exam_rule/bp_exam_blueprint: SBF-SEE 7+23, 3600 s,
@@ -134,9 +135,9 @@ final class DefaultCustomerFaqs
         // Gemeinsame FAQs (wortgleich für alle betroffenen Scheine) [B1, B6, B7, B8, B3, B9].
         $out[] = $faq(1, $all, self::LEARN, 1,
             'Wann gilt eine Frage im Smarttrainer als gefestigt?',
-            "Eine Frage gilt als gefestigt, wenn du sie **dreimal hintereinander richtig** beantwortet hast. Eine falsche Antwort setzt die Serie wieder auf null.\n\n"
+            "Hast du eine Frage **dreimal hintereinander richtig** beantwortet, ist sie „sicher heute“. Gefestigt ist sie, wenn du sie an einem anderen Tag (frühestens 20 Stunden später) noch einmal richtig beantwortest. Eine falsche Antwort setzt die Serie wieder auf null.\n\n"
             ."Damit nicht das Kurzzeitgedächtnis zählt, wird eine erneute richtige Antwort auf dieselbe Frage erst gewertet, wenn seit deiner letzten Antwort mindestens fünf Minuten vergangen sind oder du zwischendurch andere Fragen beantwortet hast.\n\n"
-            .'Der Smarttrainer wählt die nächste Frage für dich: zuerst neue, dann falsch beantwortete Fragen und Fragen aus Themen, die dir noch schwerfallen.',
+            .'Der Smarttrainer wählt die nächste Frage für dich: neue Fragen, falsch beantwortete nach wenigen anderen Fragen, Fragen aus Themen, die dir noch schwerfallen, und gefestigte Fragen nach einigen Tagen zur Wiederholung.',
             null,
             $copies(array_fill_keys($all, 1))
         );

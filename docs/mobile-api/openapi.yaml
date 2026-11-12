@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.10.0
+  version: 1.11.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -1101,7 +1101,14 @@ paths:
         Endet der Kurszugang während der Prüfung (Erstattung, Sperre, Ablauf), werden weitere
         Antworten, Markierungen und Aufdecken mit 403 `CONTENT_LOCKED` abgelehnt; die Abgabe
         (`POST /exams/{examId}/submit`) bleibt möglich und wertet die gespeicherten Antworten
-        (wie im Web).
+        (wie im Web). Seit 1.11.0 (Funkloch): Antworten, die das Gerät zwischengespeichert hat, mit
+        `age_ms` (Alter beim Senden in ms) oder `answered_at` (Gerätezeit) senden. Der Server nimmt sie
+        bis 120 Sekunden nach Fristende noch an, wenn sie vor Fristende gegeben wurden (sonst 410
+        `EXAM_EXPIRED`); erst danach wird eine abgelaufene Prüfung automatisch ausgewertet. Erneutes
+        Senden derselben Antwort ist idempotent; ein älterer Stand überschreibt keinen neueren
+        (`applied = false`, die Antwort enthält den gespeicherten Stand). Die App sollte Antworten bis
+        zur Bestätigung lokal halten, bei Netzfehlern wiederholen und erst nach Bestätigung aller
+        Antworten `submit` aufrufen (wie die Web-App).
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/ExamId'
@@ -2485,8 +2492,11 @@ components:
         total: {type: integer, minimum: 0, description: Fragen im freigeschalteten Umfang}
         new: {type: integer}
         unsure: {type: integer}
-        learning: {type: integer}
-        mastered: {type: integer}
+        learning: {type: integer, description: 'In Bearbeitung; enthält seit 1.11.0 auch „sicher heute“ (secure), damit new + unsure + learning + mastered = total bleibt'}
+        mastered: {type: integer, description: 'Gefestigt (seit 1.11.0: drei richtige in Folge und eine weitere richtige Antwort an einem anderen Tag)'}
+        secure: {type: integer, minimum: 0, description: 'Seit 1.11.0: „sicher heute“ – drei richtige Antworten in Folge, noch nicht an einem anderen Tag bestätigt (in learning enthalten)'}
+        secure_percent: {type: integer, minimum: 0, maximum: 100, description: 'Seit 1.11.0: Anteil „sicher heute“'}
+        due: {type: integer, minimum: 0, description: 'Seit 1.11.0: sichere bzw. gefestigte Fragen, deren Wiederholung jetzt fällig ist'}
     CourseSummary:
       type: object
       required: [id, code, name, access, progress, capabilities, features, webshop_url]
@@ -2727,6 +2737,8 @@ components:
       properties:
         learning_status: {type: string, enum: [new, unsure, learning, mastered], description: Lernstatus wie im Web}
         learning_state: {type: string, enum: [neu, in_bearbeitung, gefestigt], description: Abbildung auf den Konzept-Wertebereich}
+        stage: {type: string, enum: [new, unsure, learning, secure, mastered], description: 'Seit 1.11.0: Lernstufe mit „sicher heute“ (secure; learning_status meldet dafür weiterhin learning)'}
+        due_at: {type: [string, 'null'], format: date-time, description: 'Seit 1.11.0: nächste Wiederholung (ab secure frühestens 20 h später gefestigt; gefestigt: nach 7, 21, dann 60 Tagen)'}
         streak: {type: integer, minimum: 0}
         streak_required: {type: integer, const: 3}
         attempts: {type: integer, minimum: 0}
@@ -2776,8 +2788,8 @@ components:
         explanation_locked: {type: boolean}
         learning_status: {type: string, enum: [new, unsure, learning, mastered]}
         learning_state: {type: string, enum: [neu, in_bearbeitung, gefestigt]}
-        completed: {type: boolean, description: 'true, sobald die Frage gefestigt ist (3 richtige in Folge)'}
-        streak_counted: {type: [boolean, 'null'], description: Ob die richtige Antwort die Serie erhöht hat (Abstand)}
+        completed: {type: boolean, description: 'true, sobald die Frage gefestigt ist (seit 1.11.0: 3 richtige in Folge und eine weitere richtige an einem anderen Tag)'}
+        streak_counted: {type: [boolean, 'null'], description: 'Ob die richtige Antwort die Serie erhöht hat (Abstand; ab „sicher heute“ nur bei fälliger Wiederholung)'}
         repeated: {type: boolean}
         progress: {$ref: '#/components/schemas/LearningProgress'}
     TrainerAnswerResponse:
@@ -3239,6 +3251,8 @@ components:
         selected_answer_ids: {type: array, uniqueItems: true, items: {type: string}}
         known: {type: [boolean, 'null']}
         marked_for_review: {type: [boolean, 'null'], description: 'Seit 1.3.0: true/false setzt die Markierung (wie PUT …/flag), null lässt sie unverändert'}
+        age_ms: {type: [integer, 'null'], minimum: 0, description: 'Seit 1.11.0: Alter der Antwort beim Senden in Millisekunden (zwischengespeicherte Antwort); Vorrang vor answered_at, unabhängig von der Geräteuhr'}
+        answered_at: {type: [string, 'null'], format: date-time, description: 'Seit 1.11.0: Zeitpunkt der Antwort laut Gerät (falls kein age_ms); begrenzt auf Prüfungsstart bis Serverzeit'}
     ExamAnswerSavedResponse:
       type: object
       required: [data]
@@ -3248,6 +3262,7 @@ components:
           required: [saved, question_id, selected_answer_ids]
           properties:
             saved: {type: boolean, const: true}
+            applied: {type: boolean, description: 'Seit 1.11.0: false = auf dem Server lag bereits ein neuerer Stand; die Felder zeigen diesen'}
             question_id: {type: string}
             selected_answer_ids: {type: array, items: {type: string}}
             known: {type: [boolean, 'null']}
