@@ -426,7 +426,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
 
     // Das lernst du
     $html .= '<section class="kw-section kw-course-learn"><div class="kw-section-head"><p class="kw-eyebrow">'.esc_html__('Im Kurs enthalten', 'kurswasser').'</p><h2>'.esc_html__('Alles, was du für die Prüfung brauchst.', 'kurswasser').'</h2></div><div class="kw-feature-grid">';
-    $features = [['smart', __('Smarttrainer', 'kurswasser'), sprintf(__('Alle %d Prüfungsfragen mit Erklärungen. Zuerst neue, dann falsch beantwortete und unsichere Fragen – bis alles sitzt.', 'kurswasser'), $stats['questions'])],
+    $features = [['smart', __('Smarttrainer', 'kurswasser'), sprintf(__('Alle %d Prüfungsfragen mit Erklärungen. Falsch beantwortete Fragen kommen bald wieder, gefestigte später zur Wiederholung – bis alles sitzt.', 'kurswasser'), $stats['questions'])],
         ['exam', __('Prüfungssimulation', 'kurswasser'), $stats['papers'] ? sprintf(__('Prüfung mit Zeitlimit und Auswertung – als Zufallsprüfung oder mit %d festen Bögen.', 'kurswasser'), $stats['papers']) : __('Prüfung mit Zeitlimit und Auswertung, inklusive Rückblick auf jede Frage.', 'kurswasser')]];
     if ($stats['nav']) {
         $features[] = ['compass', __('Navigationsaufgaben', 'kurswasser'), sprintf(__('%d Kartenaufgaben zur Übungskarte D49 (gedruckte Karte nötig) mit Musterlösungen und Selbsteinschätzung.', 'kurswasser'), $stats['nav'])];

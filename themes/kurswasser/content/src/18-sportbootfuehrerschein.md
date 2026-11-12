@@ -162,7 +162,7 @@ Das Bundesverkehrsministerium hat eine Neuregelung der Sportbootführerscheine a
 Eyebrow: Online lernen
 Alle Funktionen im Detail: [So funktioniert die Lernplattform](/online-lernplattform-bootsfuehrerschein/).
 
-- **Smarttrainer** (Symbol smart): Erst neue, dann falsche und unsichere Fragen. Eine Frage gilt als gefestigt, wenn du sie dreimal hintereinander richtig beantwortest.
+- **Smarttrainer** (Symbol smart): Falsche Fragen kommen nach wenigen anderen wieder. Gefestigt ist eine Frage, wenn du sie dreimal hintereinander und an einem anderen Tag noch einmal richtig beantwortest.
 - **Prüfungssimulation** (exam): Zufallsprüfung oder feste Bögen mit Zeitlimit, Auswertung nach Themen und dein Prüfungsverlauf im Diagramm.
 - **Navigationsaufgaben** (compass): Für den SBF See – deine Werte werden automatisch geprüft. Die gedruckte Übungsseekarte D 49 brauchst du dafür selbst.
 - **Praxiskarten** (cards): Lichter, Schallsignale, Manöver, Knoten und Sicherheit für die praktische Prüfung wiederholen.

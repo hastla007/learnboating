@@ -77,7 +77,7 @@ Für die Funkzeugnisse [SRC](/kurse/src/) und [UBI](/kurse/ubi/) sowie für die 
 ### [B2] So lernst du den Katalog effizient {#lernen | Effizient lernen}
 Auswendiglernen allein trägt selten bis zur Prüfung. Diese Funktionen helfen dir, den Stoff wirklich zu sitzen:
 
-- **Smarttrainer:** zeigt zuerst neue, dann falsch beantwortete und unsichere Fragen. Nach drei richtigen Antworten in Folge gilt eine Frage als gefestigt. Du kannst nach Themen üben, nur falsch beantwortete Fragen wiederholen und Favoriten in eigenen Sammlungen ablegen.
+- **Smarttrainer:** zeigt neue Fragen und holt falsch beantwortete nach wenigen anderen wieder. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“, gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Du kannst nach Themen üben, nur falsch beantwortete Fragen wiederholen und Favoriten in eigenen Sammlungen ablegen.
 - **Prüfungssimulation:** ohne Lösungen und mit Zeitlimit, wie in der Prüfung. Unsichere Fragen markierst du und gehst sie am Ende noch einmal durch.
 - **Auswertung:** Ergebnis nach Themen, „Fehler aus der Prüfung lernen“ und dein Prüfungsverlauf als Diagramm.
 - **Navigationsaufgaben (SBF See):** Du trägst deine Werte ein; sie werden automatisch mit Toleranz geprüft. Dazu die amtliche Lösung der Aufgabe und Selbsteinschätzung. Für die Aufgaben brauchst du die gedruckte Übungsseekarte D 49.
