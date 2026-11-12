@@ -26,6 +26,8 @@ use WP_REST_Response;
  *   (App-Store-Vorgabe von Apple: Weg zur Kontolöschung in der App). Seit 1.4.0 zeigt der Link der
  *   Mail bei eingetragenen App-Kennungen auf /app/konto-loeschen/ (öffnet die App; ohne App
  *   Weiterleitung zur WordPress-Bestätigung); die App bestätigt mit POST /me/deletion-request/confirm.
+ *   Nach der Bestätigung löscht AccountDeletion Lerndaten und Konto sofort (Status „completed“), sofern
+ *   „Datenschutz-Anträge automatisch ausführen“ an ist; Bestellungen bleiben anonymisiert erhalten.
  */
 final class PrivacyController extends BaseController
 {
@@ -299,14 +301,20 @@ final class PrivacyController extends BaseController
     private function deletionPayload(int $requestId, bool $existing): array
     {
         $status = (string) get_post_status($requestId);
+        // Mit „Datenschutz-Anträge automatisch ausführen“ ist das Konto nach der Bestätigung gelöscht (AccountDeletion).
+        $completed = $status === 'request-completed';
 
         return [
             'request_id' => (string) $requestId,
-            'status' => $status === 'request-confirmed' ? 'confirmed' : 'pending_confirmation',
+            'status' => $completed ? 'completed' : ($status === 'request-confirmed' ? 'confirmed' : 'pending_confirmation'),
             'already_requested' => $existing,
-            'message' => $status === 'request-confirmed'
-                ? __('Du hast die Löschung bereits bestätigt. Wir bearbeiten deinen Antrag und melden uns per E-Mail.', 'bootspruefung-learning')
-                : __('Wir haben dir eine E-Mail geschickt. Bitte bestätige darin die Löschung deines Kontos.', 'bootspruefung-learning'),
+            'message' => $completed
+                ? (get_post_meta($requestId, \Bootspruefung\Learning\Privacy\AccountDeletion::DELETED_META, true)
+                    ? __('Dein Konto ist gelöscht. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen.', 'bootspruefung-learning')
+                    : __('Deine Daten sind gelöscht.', 'bootspruefung-learning'))
+                : ($status === 'request-confirmed'
+                    ? __('Du hast die Löschung bereits bestätigt. Wir bearbeiten deinen Antrag und melden uns per E-Mail.', 'bootspruefung-learning')
+                    : __('Wir haben dir eine E-Mail geschickt. Bitte bestätige darin die Löschung deines Kontos.', 'bootspruefung-learning')),
         ];
     }
 

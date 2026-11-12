@@ -79,7 +79,11 @@ final class GroupService
         }
         $decoded = json_decode((string) ($group->reason ?? ''), true);
         $manual = is_array($decoded) && ! empty($decoded['manual']);
-        $keep = $status === null || $status === EntitlementPlanner::PENDING || $status === $group->status || $group->status === self::REVOKED || ($manual && $status !== EntitlementPlanner::REVOKED);
+        // Widerrufen bleibt widerrufen – außer ein automatischer Widerruf (Storno/Erstattung der Bestellung) und die
+        // Bestellung ist wieder bezahlt, die Position nicht mehr erstattet (wie EntitlementPlanner, QA-11). Manuelle
+        // Widerrufe (Admin, verlorener Zahlungskonflikt) und Erstattungen ohne Positionsbezug leben nicht wieder auf.
+        $revive = $group->status === self::REVOKED && $status === EntitlementPlanner::ACTIVE && ! $manual && $order->unallocatedRefund <= 0.009;
+        $keep = $status === null || $status === EntitlementPlanner::PENDING || $status === $group->status || ($group->status === self::REVOKED && ! $revive) || ($manual && $status !== EntitlementPlanner::REVOKED);
 
         return ['group' => $group, 'per_unit' => $perUnit, 'create' => false, 'status' => $keep ? null : $status, 'reason' => (string) $reason,
             'seats' => $seats !== null && $seats > 0 && $seats !== (int) $group->seats ? $seats : null];
@@ -163,8 +167,10 @@ final class GroupService
             if ($member->status !== 'active') {
                 continue;
             }
+            // Aktive Gruppe: auch Zugänge aktiver Mitglieder, die mit der Gruppe widerrufen wurden, wieder freigeben
+            // (wiederbelebte Gruppe); entfernte Mitglieder (Platz freigegeben) sind oben ausgeschlossen.
             $this->db->query($this->db->prepare(
-                "UPDATE {$this->entitlements} SET status = %s, valid_until = %s, updated_at = %s WHERE reference_key = %s AND status NOT IN ('revoked')",
+                "UPDATE {$this->entitlements} SET status = %s, valid_until = %s, updated_at = %s WHERE reference_key = %s".($group->status === self::ACTIVE ? '' : " AND status NOT IN ('revoked')"),
                 $group->status === self::ACTIVE ? 'active' : $group->status, $group->valid_until, EntitlementService::now(), self::reference($groupId, (int) $member->id)
             ));
         }
@@ -317,6 +323,41 @@ final class GroupService
             $reason !== '' ? $reason : 'group_member_removed', $now, self::reference($groupId, $memberId)
         ));
         AuditLog::record('group_member_removed', 'group', (string) $groupId, $reason, ['member' => $memberId, 'user_id' => $member->user_id]);
+    }
+
+    /**
+     * Konto gelöscht (QA-05): Plätze des Kontos in fremden Gruppen freigeben (wie „Platz freigeben“, Zugänge der
+     * Plätze widerrufen) und Gruppen, die das Konto gekauft hat, vom Konto lösen. Eigene Gruppen bleiben als Teil
+     * der Bestellung bestehen: Mitglieder behalten ihre Plätze bis zum Ende der Laufzeit, offene Einladungen und
+     * der Gruppenlink gelten weiter; verwalten kann sie danach nur noch der Betreiber.
+     *
+     * @return array{released:int,owned:int}
+     */
+    public function releaseUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['released' => 0, 'owned' => 0];
+        }
+        $now = EntitlementService::now();
+        $members = $this->db->get_results($this->db->prepare("SELECT * FROM {$this->members} WHERE user_id = %d AND status IN ('active', 'invited')", $userId));
+        foreach ($members as $member) {
+            // Konto gibt es nicht mehr: auch die Adresse entfernen (removedFields() behält sie nur bei bestehendem Konto).
+            $this->db->update($this->members, ['email' => null] + self::removedFields($member, $now), ['id' => (int) $member->id]);
+            $this->db->query($this->db->prepare(
+                "UPDATE {$this->entitlements} SET status = 'revoked', reason = %s, updated_at = %s WHERE reference_key = %s",
+                'account_deleted', $now, self::reference((int) $member->group_id, (int) $member->id)
+            ));
+            AuditLog::record('group_member_removed', 'group', (string) $member->group_id, 'account_deleted', ['member' => (int) $member->id, 'cause' => 'account_deleted']);
+        }
+        $owned = $this->db->get_col($this->db->prepare("SELECT id FROM {$this->groups} WHERE owner_user_id = %d", $userId));
+        if ($owned !== []) {
+            $this->db->query($this->db->prepare("UPDATE {$this->groups} SET owner_user_id = 0, updated_at = %s WHERE owner_user_id = %d", $now, $userId));
+            foreach ($owned as $groupId) {
+                AuditLog::record('group_owner_deleted', 'group', (string) $groupId, 'account_deleted');
+            }
+        }
+
+        return ['released' => count($members), 'owned' => count($owned)];
     }
 
     /** Mitglieder über der Platzzahl entfernen (Einladungen zuerst, dann zuletzt Beigetretene). */

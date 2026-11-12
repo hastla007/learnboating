@@ -187,7 +187,7 @@ unset($_POST['bp_access_reason']);
 
 echo "Kundenansichten\n";
 $menu = apply_filters('woocommerce_account_menu_items', ['dashboard' => 'Dashboard', 'orders' => 'Bestellungen']);
-$check(array_keys($menu) === ['dashboard', 'mein-lernen', 'orders'], 'Mein Konto: Menüpunkt „Mein Lernen“');
+$check(array_keys($menu) === ['dashboard', 'mein-lernen', 'orders', 'meine-daten'], 'Mein Konto: Menüpunkte „Mein Lernen“ und „Meine Daten“');
 wp_set_current_user($alice);
 ob_start();
 do_action('woocommerce_account_mein-lernen_endpoint');

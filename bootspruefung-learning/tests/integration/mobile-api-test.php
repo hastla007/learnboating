@@ -1556,6 +1556,8 @@ $check($api('GET', '/me', [], $tok)['status'] === 401, 'Passwortänderung (wp_se
 $passA = 'Noch-ein-Passwort-555';
 
 echo "Kontolöschung: Link öffnet die App, Bestätigung in der App\n";
+// Zuerst der Weg ohne automatische Ausführung (Betreiber bearbeitet den bestätigten Antrag in den Werkzeugen).
+update_option(Settings::OPTION, array_merge(Settings::all(), ['privacy_requests_auto' => false]));
 $sent = [];
 $capture2 = static function ($return, $atts) use (&$sent) {
     $sent[] = ['to' => is_array($atts['to'] ?? null) ? implode(',', $atts['to']) : (string) ($atts['to'] ?? ''), 'subject' => (string) ($atts['subject'] ?? ''), 'message' => (string) ($atts['message'] ?? '')];
@@ -1598,9 +1600,27 @@ $r = $api('POST', '/me/deletion-request/confirm', ['request_id' => (string) $bob
 $check($r['status'] === 422 && $code($r) === 'DELETION_CONFIRMATION_INVALID' && count($sent) === 1, 'Link erneut benutzt → 422, keine zweite Benachrichtigung');
 $bd2 = $api('POST', '/me/deletion-request', [], $tokenB, ['X-Tenant-Slug' => null]);
 $check($bd2['status'] === 202 && $bd2['body']['data']['status'] === 'confirmed' && $bd2['body']['data']['already_requested'] === true, 'erneuter Antrag zeigt den bestätigten Antrag');
+$check(get_userdata($bob) !== false && $api('GET', '/me', [], $tokenB, ['X-Tenant-Slug' => null])['status'] === 200, 'ohne automatische Ausführung: Konto bleibt bis zur Bearbeitung bestehen');
 remove_filter('pre_wp_mail', $capture2, 10);
 MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => '']));
 wp_delete_post($bobReq, true);
+
+echo "Kontolöschung: nach der Bestätigung wird das Konto gelöscht (LAW-04)\n";
+update_option(Settings::OPTION, array_merge(Settings::all(), ['privacy_requests_auto' => true]));
+$eraseId = $customer('mobile_loeschen', 'Loeschen-Passwort-123');
+$eraseLogin = $login('mobile_loeschen@example.test', 'Loeschen-Passwort-123', 'Löschgerät');
+$eraseToken = (string) ($eraseLogin['body']['data']['access_token'] ?? '');
+$ed = $api('POST', '/me/deletion-request', [], $eraseToken, ['X-Tenant-Slug' => null]);
+$eraseReq = (int) ($ed['body']['data']['request_id'] ?? 0);
+$check($ed['status'] === 202 && $eraseReq > 0 && get_userdata($eraseId) !== false, 'Antrag gestellt: Konto besteht bis zur Bestätigung');
+$eraseKey = wp_generate_user_request_key($eraseReq);
+$r = $api('POST', '/me/deletion-request/confirm', ['request_id' => (string) $eraseReq, 'confirm_key' => $eraseKey], null, ['X-Tenant-Slug' => null]);
+$check($r['status'] === 200 && ($r['body']['data']['status'] ?? '') === 'completed' && str_contains((string) ($r['body']['data']['message'] ?? ''), 'Konto ist gelöscht'), 'Bestätigung → 200 status completed („Dein Konto ist gelöscht“)');
+clean_user_cache($eraseId);
+$check(get_userdata($eraseId) === false && get_post_status($eraseReq) === 'request-completed' && (int) get_post_meta($eraseReq, \Bootspruefung\Learning\Privacy\AccountDeletion::DELETED_META, true) > 0, 'Konto gelöscht (wp_delete_user), Antrag erledigt');
+$check($api('GET', '/me', [], $eraseToken, ['X-Tenant-Slug' => null])['status'] === 401 && $login('mobile_loeschen@example.test', 'Loeschen-Passwort-123')['status'] !== 200, 'Token ungültig, Anmeldung nicht mehr möglich');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}mobile_session WHERE user_id = %d", $eraseId)) === 0, 'App-Sitzungen entfernt');
+wp_delete_post($eraseReq, true);
 
 echo "Rate-Limit\n";
 for ($i = 0; $i < 10; $i++) {

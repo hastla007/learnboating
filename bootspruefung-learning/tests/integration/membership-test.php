@@ -447,9 +447,22 @@ $orders->put(910001, $buyer, 'refunded', '2026-09-01 10:00:00', [$item(1, 1, 300
 $sync->sync(910001);
 $check($groupsService->find((int) $group->id)->status === 'revoked' && ! $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank') && ! $access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank'), 'Erstattung: Gruppe beendet, alle Plätze widerrufen');
 $check(str_contains($invalid(fn () => $groupsService->join($token, $students[1])), 'nicht aktiv'), 'beendete Gruppe: kein Beitritt');
+// QA-11: Erstattung gelöscht bzw. Storno zurückgenommen → Gruppe lebt wieder auf (wie Einzelzugänge), Plätze aktiver Mitglieder auch.
 $orders->put(910001, $buyer, 'completed', '2026-09-01 10:00:00', [$item()], 'stripe');
 $sync->sync(910001);
-$check($groupsService->find((int) $group->id)->status === 'revoked', 'Beendigung nach Erstattung ist endgültig');
+$check($groupsService->find((int) $group->id)->status === 'active' && $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank') && $access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank') && ! $access->can($students[1], 'SBF-BIN-MOTOR', 'question_bank'), 'Erstattung zurückgenommen: Gruppe und Plätze aktiver Mitglieder leben wieder auf, entfernte nicht');
+$orders->put(910001, $buyer, 'cancelled', '2026-09-01 10:00:00', [$item()], 'stripe');
+$sync->sync(910001);
+$check($groupsService->find((int) $group->id)->status === 'revoked' && ! $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank'), 'Storno: Gruppe widerrufen');
+$orders->put(910001, $buyer, 'processing', '2026-09-01 10:00:00', [$item()], 'stripe');
+$sync->sync(910001);
+$check($groupsService->find((int) $group->id)->status === 'active' && $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank'), 'Storno zurückgenommen (wieder bezahlt): Gruppe lebt wieder auf');
+$sync->revokeOrder(910001, 'Zahlungskonflikt verloren');
+$sync->sync(910001);
+$check($groupsService->find((int) $group->id)->status === 'revoked' && ! $access->can($students[0], 'SBF-BIN-MOTOR', 'question_bank'), 'manueller Widerruf bleibt trotz bezahlter Bestellung');
+$orders->put(910001, $buyer, 'refunded', '2026-09-01 10:00:00', [$item(1, 1, 300.0)], 'stripe');
+$sync->sync(910001);
+$check($groupsService->find((int) $group->id)->status === 'revoked', 'Erstattung: Gruppe bleibt beendet');
 
 $orders->put(910002, $buyer, 'processing', '2026-10-01 10:00:00', [new OrderItemSnapshot(91200, 991001, 0, 2, 'SCHULE-3', 600.0)], 'klarna_payments');
 $sync->sync(910002);
@@ -466,6 +479,32 @@ $check((int) $groupsService->find((int) $g2->id)->seats === 3 && $groupsService-
 $activeMembers = array_values(array_filter($groupsService->membersOf((int) $g2->id), static fn ($m) => $m->status === 'active'));
 $check(count($activeMembers) === 3 && (int) $activeMembers[0]->user_id === $students[0] && ! $access->can($students[3], 'SBF-BIN-MOTOR', 'question_bank'), 'Teilerstattung: zuletzt beigetretenes Mitglied verliert den Platz, 3 bleiben');
 $check(count($groupsService->forOwner($buyer)) === 2, 'Besitzer sieht beide Gruppen');
+// QA-05: Konto eines Mitglieds gelöscht → Platz wird frei; Konto des Käufers gelöscht → Gruppe bleibt für die Mitglieder.
+require_once ABSPATH.'wp-admin/includes/user.php';
+$delOwner = $user('bp_group_owner_del');
+$delMember = $user('bp_group_member_del');
+$keepMember = $user('bp_group_member_keep');
+$orders->put(910003, $delOwner, 'processing', gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS), [new OrderItemSnapshot(91300, 991001, 0, 1, 'SCHULE-3', 300.0)], 'stripe');
+$sync->sync(910003);
+$g3 = $groupsService->forOrder(910003)[0];
+$groupsService->join((string) $g3->join_token, $delMember);
+$groupsService->join((string) $g3->join_token, $keepMember);
+$groupsService->invite((int) $g3->id, $delOwner, ['offen-del@example.test']);
+$check($groupsService->freeSeats($groupsService->find((int) $g3->id)) === 0 && $access->can($delMember, 'SBF-BIN-MOTOR', 'question_bank'), 'Gruppe voll (2 Mitglieder, 1 Einladung)');
+$delMemberRow = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE group_id = %d AND user_id = %d", $g3->id, $delMember));
+wp_delete_user($delMember);
+$delMemberRow = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}learning_group_member WHERE id = %d", $delMemberRow->id));
+$delEnt = $wpdb->get_col($wpdb->prepare("SELECT status FROM {$p}entitlement WHERE reference_key = %s", GroupService::reference((int) $g3->id, (int) $delMemberRow->id)));
+$check($delMemberRow->status === 'removed' && $delMemberRow->removed_at !== null && $delMemberRow->email === null && $groupsService->freeSeats($groupsService->find((int) $g3->id)) === 1 && $delEnt !== [] && array_unique($delEnt) === ['revoked'], 'Mitglied löscht Konto: Platz frei, Zugänge des Platzes widerrufen, Adresse entfernt');
+$groupsService->join((string) $g3->join_token, $students[2]);
+$check($access->can($students[2], 'SBF-BIN-MOTOR', 'question_bank'), 'frei gewordener Platz kann neu belegt werden');
+wp_delete_user($delOwner);
+$g3 = $groupsService->find((int) $g3->id);
+$check($g3->status === 'active' && (int) $g3->owner_user_id === 0 && $access->can($keepMember, 'SBF-BIN-MOTOR', 'question_bank') && $groupsService->forOwner($delOwner) === [], 'Käufer löscht Konto: Gruppe bleibt aktiv, Mitglieder behalten ihre Plätze, kein Verwalter mehr');
+$check($groupsService->describeToken((string) $g3->join_token) !== null && $invalid(fn () => $groupsService->invite((int) $g3->id, 1, ['betreiber@example.test'])) === '', 'Betreiber kann die Gruppe weiter verwalten');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE reference_key LIKE %s", 'group:'.(int) $g3->id.':%'));
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}learning_group_member WHERE group_id = %d", $g3->id));
+wp_delete_user($keepMember);
 // Gruppen: Name ohne Links, Einladungen begrenzt
 $groupsService->rename((int) $g2->id, $buyer, 'Segelclub https://evil.example Gewinn www.spam.de info@spam.de');
 $check($groupsService->find((int) $g2->id)->name === 'Segelclub Gewinn', 'Gruppenname ohne Links/Adressen');
@@ -557,6 +596,34 @@ $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] ==
 $MB = \Bootspruefung\Learning\Commerce\MoneyBack::class;
 $check(! $MB::limitReached(['percent' => 20.0, 'exact' => 19.95], 20.0) && $MB::limitReached(['percent' => 20.0, 'exact' => 20.0], 20.0) && $MB::limitReached(['percent' => 20.1], 20.0), 'Garantiegrenze: 19,95 % gilt als weniger als 20 % (ungerundet verglichen)');
 $wpdb->delete($p.'progress', ['user_id' => $mbUser]);
+// QA-01: In Prüfungssimulationen beantwortete Fragen zählen mit – vereinigt mit dem Smarttrainer, jede Frage einmal.
+$sknId = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'SKN'");
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}exam_session WHERE user_id = %d", $mbUser));
+$examSession = static function (array $ids, ?string $answeredAt) use ($wpdb, $p, $mbUser, $sknId): int {
+    $wpdb->insert($p.'exam_session', ['user_id' => $mbUser, 'course_id' => $sknId, 'mode' => 'random', 'rule_snapshot' => '{}', 'status' => 'submitted', 'start_token' => wp_generate_uuid4(), 'started_at' => gmdate('Y-m-d H:i:s'), 'submitted_at' => gmdate('Y-m-d H:i:s')]);
+    $sid = (int) $wpdb->insert_id;
+    foreach (array_values($ids) as $pos => $qid) {
+        $wpdb->insert($p.'exam_session_question', ['session_id' => $sid, 'position' => $pos + 1, 'question_id' => (int) $qid, 'revision_id' => (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}question_revision WHERE question_id = %d ORDER BY id DESC LIMIT 1", $qid)), 'answered_at' => $answeredAt, 'given_answer' => $answeredAt === null ? null : '[1]']);
+    }
+
+    return $sid;
+};
+$examSession(array_slice($qids, 0, 10), gmdate('Y-m-d H:i:s'));             // 10 beantwortet
+$examSession(array_slice($qids, 5, 7), gmdate('Y-m-d H:i:s'));              // 5 davon schon in Prüfung 1, 2 neu
+$examSession(array_slice($qids, 20, 10), null);                              // nur angezeigt, nicht beantwortet
+$examSession(array_slice($qids, 30, 10), gmdate('Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS)); // vor dem Kauf
+$answer(array_slice($qids, 10, 4), gmdate('Y-m-d H:i:s'));                  // Smarttrainer: 2 auch in Prüfung 2, 2 neu
+$exam = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder);
+$expectExam = round(14 * 100 / count($qids), 1);
+$check(count($qids) >= 50 && abs($exam['progress'] - $expectExam) < 0.01 && ($exam['usage']['done'] ?? 0) === 14 && $exam['eligible'], "Prüfungssimulationen zählen mit: {$exam['progress']} % (14 verschiedene Fragen, keine doppelt, unbeantwortete und vor dem Kauf nicht)");
+$examSession(array_slice($qids, 40, 10), gmdate('Y-m-d H:i:s'));
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'weitere Prüfungssimulation hebt den Stand über 20 %: keine Garantie mehr');
+// QA-06: Festgeschriebener Stand (vor einer Datenlöschung) gilt, auch wenn die Lerndaten danach fehlen.
+$frozenUsage = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['usage'] ?? [];
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}exam_session WHERE user_id = %d", $mbUser));
+$wpdb->delete($p.'progress', ['user_id' => $mbUser]);
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'eligible' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['usage' => $frozenUsage + ['at' => gmdate('Y-m-d H:i:s')]] + $mbOrder)['reason'] === 'too_much_progress', 'nach Datenlöschung: festgeschriebener Stand zählt weiter (Höchstwert)');
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['usage' => ['exact' => 'x']] + $mbOrder)['reason'] === 'eligible' && str_contains(\Bootspruefung\Learning\Commerce\MoneyBack::usageExplanation(), 'Prüfungssimulation'), 'ungültiger Wert wird ignoriert; Hinweis nennt Prüfungssimulationen');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['date_paid' => gmdate('Y-m-d H:i:s', time() - 15 * DAY_IN_SECONDS)] + $mbOrder)['reason'] === 'expired', 'nach 14 Tagen: Frist abgelaufen');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $paid, 'progress' => 1.0])['reason'] === 'requested', 'Anfrage gestellt: kein zweiter Antrag');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['refunded' => true] + $mbOrder)['reason'] === 'refunded' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => 991001, 'variation_id' => 0]]] + $mbOrder)['applies'] === false, 'erstattet bzw. Produkt ohne Garantie');

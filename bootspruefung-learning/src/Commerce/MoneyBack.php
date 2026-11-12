@@ -8,9 +8,14 @@ use Bootspruefung\Learning\Audit\AuditLog;
 
 /**
  * Geld-zurück-Garantie: innerhalb von N Tagen nach Zahlung, solange weniger als X % der
- * gekauften Kurse gelernt sind (beantwortete Fragen + abgeschlossene Video-Lektionen seit
- * Zahlung). Kunde stellt die Anfrage unter „Mein Lernen“, der Betreiber erstattet in
- * WooCommerce; die Erstattung entzieht den Zugang über die normale Erstattungsregel.
+ * gekauften Kurse gelernt sind (beantwortete Fragen im Lernmodus und in Prüfungssimulationen
+ * – jede Frage einmal – sowie abgeschlossene Video-Lektionen seit Zahlung). Kunde stellt die
+ * Anfrage unter „Mein Lernen“, der Betreiber erstattet in WooCommerce; die Erstattung entzieht
+ * den Zugang über die normale Erstattungsregel.
+ *
+ * Löscht der Kunde seine Lerndaten (Datenschutz-Löschung), wird der bis dahin gemessene Stand
+ * vorher an der Bestellung festgeschrieben (USAGE_META); status() rechnet mit dem Höchstwert
+ * aus festgeschriebenem und aktuellem Stand, damit eine Löschung die Grenze nicht zurücksetzt.
  *
  * Gilt zusätzlich zum gesetzlichen Widerrufsrecht und schränkt es nicht ein.
  */
@@ -18,6 +23,8 @@ final class MoneyBack
 {
     public const META = '_bp_money_back';
     public const REQUEST_META = '_bp_money_back_request';
+    /** Festgeschriebener Nutzungsstand vor einer Datenlöschung: {exact,percent,done,total,at}. */
+    public const USAGE_META = '_bp_money_back_usage';
 
     /** @return array{days:int,max_progress:float}|null */
     public static function policy(int $productId): ?array
@@ -53,7 +60,7 @@ final class MoneyBack
         $p = $wpdb->prefix.'bp_';
         $courses = array_values(array_unique(array_filter($courses)));
         if ($courses === []) {
-            return ['percent' => 0.0, 'done' => 0, 'total' => 0];
+            return ['percent' => 0.0, 'exact' => 0.0, 'done' => 0, 'total' => 0];
         }
         $in = implode(',', array_fill(0, count($courses), '%s'));
         $withQuestions = $questions;
@@ -66,9 +73,16 @@ final class MoneyBack
             WHERE c.code IN ({$in}) AND vl.is_placeholder = 0 AND vl.status <> 'source_archived' AND vm.status <> 'source_archived'";
         $qTotal = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$questions}) q", ...$courses));
         $lTotal = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$lessons}) l", ...$courses));
+        // Beantwortete Fragen: Lernmodus (bp_progress) und Prüfungssimulationen (beantwortete Positionen),
+        // vereinigt – jede Frage zählt einmal, auch wenn sie in beiden bzw. in mehreren Prüfungen vorkam.
         $qDone = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$p}progress pr WHERE pr.user_id = %d AND pr.attempts > 0 AND pr.last_answered_at >= %s AND pr.question_id IN ({$questions})",
-            $userId, $since, ...$courses
+            "SELECT COUNT(*) FROM (
+                SELECT pr.question_id FROM {$p}progress pr WHERE pr.user_id = %d AND pr.attempts > 0 AND pr.last_answered_at >= %s
+                UNION
+                SELECT sq.question_id FROM {$p}exam_session_question sq JOIN {$p}exam_session es ON es.id = sq.session_id
+                WHERE es.user_id = %d AND sq.answered_at IS NOT NULL AND sq.answered_at >= %s
+            ) used WHERE used.question_id IN ({$questions})",
+            $userId, $since, $userId, $since, ...$courses
         ));
         $lDone = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$p}video_progress vp WHERE vp.user_id = %d AND vp.completed = 1 AND vp.last_access_at >= %s AND vp.lesson_id IN ({$lessons})",
@@ -93,8 +107,9 @@ final class MoneyBack
     /**
      * Garantie-Status einer Bestellung.
      *
-     * @param array{id:int,user_id:int,status:string,date_paid:?string,refunded:bool,items:list<array{product_id:int,variation_id:int}>} $order
-     * @return array{applies:bool,eligible:bool,deadline:?string,progress:float,max_progress:float,requested:?array<string,mixed>,reason:string}
+     * @param array{id:int,user_id:int,status:string,date_paid:?string,refunded:bool,items:list<array{product_id:int,variation_id:int}>,usage?:mixed} $order
+     *        usage: festgeschriebener Stand (USAGE_META) oder null
+     * @return array{applies:bool,eligible:bool,deadline:?string,progress:float,max_progress:float,requested:?array<string,mixed>,reason:string,usage?:array{exact:float,percent:float,done:int,total:int}}
      */
     public static function status(array $order, ?array $requested = null, ?string $now = null): array
     {
@@ -141,8 +156,13 @@ final class MoneyBack
         }
         $deadline = gmdate('Y-m-d H:i:s', strtotime($order['date_paid'].' UTC') + $policy['days'] * DAY_IN_SECONDS);
         $measured = self::progress($order['user_id'], $courses, $order['date_paid'], $countQuestions, $countLessons || ! $countQuestions);
+        // Vor einer Datenlöschung festgeschriebener Stand: der höhere Wert gilt.
+        $frozen = self::frozenUsage($order['usage'] ?? null);
+        if ($frozen !== null && $frozen['exact'] > (float) $measured['exact']) {
+            $measured = $frozen;
+        }
         $progress = $measured['percent'];
-        $base = ['deadline' => $deadline, 'progress' => $progress] + $base;
+        $base = ['deadline' => $deadline, 'progress' => $progress, 'usage' => ['exact' => (float) $measured['exact'], 'percent' => (float) $measured['percent'], 'done' => (int) $measured['done'], 'total' => (int) $measured['total']]] + $base;
         if ($refunded) {
             return ['reason' => 'refunded'] + $base;
         }
@@ -157,6 +177,23 @@ final class MoneyBack
         }
 
         return ['eligible' => true, 'reason' => 'eligible'] + $base;
+    }
+
+    /** @return array{exact:float,percent:float,done:int,total:int}|null */
+    public static function frozenUsage(mixed $raw): ?array
+    {
+        if (! is_array($raw) || ! isset($raw['exact']) || ! is_numeric($raw['exact'])) {
+            return null;
+        }
+        $exact = max(0.0, min(100.0, (float) $raw['exact']));
+
+        return ['exact' => $exact, 'percent' => round($exact, 1), 'done' => (int) ($raw['done'] ?? 0), 'total' => (int) ($raw['total'] ?? 0)];
+    }
+
+    /** Was als Nutzung zählt – für Hinweise unter „Mein Lernen“, in der Anfrage und in der App. */
+    public static function usageExplanation(): string
+    {
+        return __('Als genutzt zählt seit Zahlungseingang, was du gekauft hast: jede Frage, die du im Smarttrainer, in den Quizfragen der Video-Lektionen oder in einer Prüfungssimulation beantwortet hast (jede Frage einmal), und jede abgeschlossene Video-Lektion (beim Video-Upgrade nur die Lektionen). Mehrere Kurse einer Bestellung zählen gemeinsam. Löschst du deine Lerndaten, bleibt der bis dahin erreichte Stand für die Garantie maßgeblich.', 'bootspruefung-learning');
     }
 
     public static function reasonLabel(string $reason): string

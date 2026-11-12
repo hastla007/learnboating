@@ -338,8 +338,11 @@ einen geschützten Übertragungsweg legen.
     zusätzlicher Pfad `/app/konto-loeschen/` (Android `pathPrefix`; iOS steht er in der
     `apple-app-site-association`). Die App zeigt eine Sicherheitsabfrage („Konto wirklich löschen?“)
     und ruft `POST /me/deletion-request/confirm` mit `request_id` und `confirm_key` auf – ohne
-    Anmeldung (der Link kann auch auf einem Gerät ohne angemeldete App geöffnet werden). 200 =
-    bestätigt (die Bootsschule bearbeitet den Antrag); 422 `DELETION_CONFIRMATION_INVALID` =
+    Anmeldung (der Link kann auch auf einem Gerät ohne angemeldete App geöffnet werden). 200 mit
+    `status: completed` = Konto gelöscht (Lernstand, Sitzungen, Konto; Bestellungen bleiben anonymisiert),
+    alle Tokens sind ungültig → abmelden und lokale Daten verwerfen; 200 mit `status: confirmed` =
+    bestätigt, die Bootsschule bearbeitet den Antrag von Hand (Einstellung aus oder Konto mit
+    Verwaltungsrechten); 422 `DELETION_CONFIRMATION_INVALID` =
     ungültig, abgelaufen (24 h) oder schon bestätigt → ggf. neu beantragen. Ohne App öffnet der
     Browser die Adresse und die Website leitet auf die WordPress-Bestätigung weiter.
 17. **Tipps & Tricks (seit 1.7.0):** `GET /tips` (mit `X-Tenant-Slug`, ohne Kurszugang) liefert dieselben
@@ -598,9 +601,11 @@ beibehalten, wo es passt. Abweichungen:
    Käufen digitaler Inhalte nur eingeschränkt bzw. je Land. Vor dem Release rechtlich klären, ob
    `webshop_url` angezeigt werden darf (z. B. als „Reader“-App ohne Kaufhinweis, oder nur im Web).
 2. **Tenant-Slug und Markenname** festlegen (derzeit Platzhalter `xxxx`/„XXXX“) – danach nicht mehr ändern.
-3. **Kontolöschung:** Nach der Bestätigung bearbeitet der Shop den Antrag in WordPress (Werkzeuge →
-   Personenbezogene Daten löschen, danach Konto löschen). Soll das automatisch passieren? (Achtung
-   Aufbewahrungsfristen für Bestellungen.)
+3. **Kontolöschung (entschieden):** Nach der Bestätigung löscht der Shop sofort Lerndaten und Konto
+   (`wp_delete_user`); WooCommerce-Bestellungen bleiben anonymisiert erhalten (Nummer, Datum, Produkte,
+   Beträge, Transaktionsnummer), Gruppenplätze werden frei. Abschaltbar in den Plugin-Einstellungen
+   („Datenschutz-Anträge automatisch ausführen“); Konten mit Verwaltungsrechten nie automatisch. Im Web
+   gibt es denselben Weg unter „Mein Konto“ → „Meine Daten“.
 4. **Funkgerät-Simulator (entschieden):** In der Handy-App gibt es vorerst keinen Simulator, nur den
    Hinweis „am Tablet oder im Browser öffnen“ mit `web_url`. Für die Tablet-App gibt es seit 1.3.0 die
    Sitzungsübergabe in eine eingebettete Webansicht (`POST /auth/web-session`); das Einbetten selbst
