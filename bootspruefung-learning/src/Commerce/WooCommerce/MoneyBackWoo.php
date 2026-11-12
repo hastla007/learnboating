@@ -166,14 +166,17 @@ final class MoneyBackWoo
                     .'<button type="submit" class="button bp-money-back">'.esc_html__('Geld zurück anfordern', 'bootspruefung-learning').'</button></form>';
             }
             $rows[] = sprintf(
-                '<tr><td>#%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s%s</td></tr>',
+                '<tr><td data-title="%s">#%d</td><td data-title="%s">%s</td><td data-title="%s">%s</td><td data-title="%s">%s</td><td class="actions bp-money-back-action">%s</td></tr>',
+                esc_attr__('Bestellung', 'bootspruefung-learning'),
                 (int) $order->get_id(),
+                esc_attr__('Gelernt / Grenze', 'bootspruefung-learning'),
                 // Erstattet bzw. ohne Frist: keine Lernstand-/Fristangaben (sonst „0 % / 0 %“, „dauerhaft“).
                 $s['deadline'] === null ? '–' : esc_html(wc_format_localized_decimal((string) $s['progress']).' % / '.wc_format_localized_decimal((string) $s['max_progress']).' %'),
+                esc_attr__('Frist bis', 'bootspruefung-learning'),
                 $s['deadline'] === null ? '–' : esc_html(self::deadlineLabel($s['deadline'])),
+                esc_attr__('Status', 'bootspruefung-learning'),
                 esc_html(MoneyBack::reasonLabel($s['reason'])),
-                $action,
-                ''
+                $action
             );
         }
         if ($rows === []) {
@@ -183,7 +186,9 @@ final class MoneyBackWoo
         echo '<p>'.esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart.', 'bootspruefung-learning'), \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_DAYS, (int) \Bootspruefung\Learning\Commerce\ShopCatalog::MONEY_BACK_MAX_PROGRESS)
             .' '.MoneyBack::usageExplanation()
             .' '.__('Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Gruppenpakete und Zugänge zum Funkgerät-Simulator sind von der Garantie ausgenommen. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung); Details stehen in den AGB.', 'bootspruefung-learning')).'</p>';
-        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
+        // Schmale Bildschirme (woocommerce-smallscreen.css): Zeilen gestapelt mit Beschriftung je Zelle, der Knopf in einer
+        // eigenen Zeile darunter – fünf Spalten mit „Geld zurück anfordern“ ragten bei 390 px über den Rand (wie Widerruf, UX-09).
+        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table shop_table_responsive bp-money-back-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Gelernt / Grenze', 'bootspruefung-learning').'</th><th>'.esc_html__('Frist bis', 'bootspruefung-learning').'</th><th>'.esc_html__('Status', 'bootspruefung-learning').'</th><th><span class="screen-reader-text">'.esc_html__('Aktion', 'bootspruefung-learning').'</span></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
     }
 
     public function handleRequest(): void

@@ -122,6 +122,7 @@ MoneyBackWoo::renderAccountSection($mbUser);
 $html = (string) ob_get_clean();
 wp_set_current_user(1);
 $check(str_contains($html, 'this.dataset.sent') && str_contains($html, 'Prüfungssimulation'), 'Knopf sperrt nach dem ersten Absenden; Hinweis nennt, was als Nutzung zählt (inkl. Prüfungssimulationen)');
+$check(str_contains($html, 'shop_table_responsive bp-money-back-table') && str_contains($html, 'data-title="Gelernt / Grenze"') && str_contains($html, 'data-title="Frist bis"') && str_contains($html, '<td class="actions bp-money-back-action"><form') && str_contains($html, '<span class="screen-reader-text">Aktion</span>'), 'Garantie-Tabelle mobil gestapelt (shop_table_responsive, Beschriftung je Zelle, Knopf eigene Zeile, Spaltenkopf „Aktion“ für Screenreader)');
 
 echo "Datenlöschung setzt die Garantie-Nutzung nicht zurück (QA-06)\n";
 $learn($mbUser, (int) ceil(count($qids) * 0.25));
