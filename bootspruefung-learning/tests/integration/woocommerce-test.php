@@ -232,6 +232,62 @@ if (function_exists('wc_load_cart')) {
     $check(get_option('woocommerce_enable_guest_checkout') === 'no' && get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes', 'Checkout-Block: Gastbestellung aus, Kontoanlage an');
     WC()->cart->empty_cart();
 }
+// Zahlungsarten, Verkaufsländer, Lieferung vor Beginn des Bestellvorgangs (§ 312j Abs. 1 BGB): Produktseite und Warenkorb.
+echo "Hinweis Zahlungsarten und Lieferung\n";
+$pi = \Bootspruefung\Learning\Commerce\WooCommerce\PurchaseInfo::class;
+$piOptions = [];
+foreach (['woocommerce_allowed_countries', 'woocommerce_specific_allowed_countries', 'woocommerce_all_except_countries'] as $k) {
+    $piOptions[$k] = get_option($k, '__bp_missing__');
+}
+$bacsTitle = trim(wp_strip_all_tags((string) (WC()->payment_gateways()->payment_gateways()['bacs'] ?? null)?->get_title()));
+$check($bacsTitle !== '' && in_array($bacsTitle, $pi::paymentMethods(), true), 'Zahlungsarten aus den aktiven Gateways („'.$bacsTitle.'“)');
+$noGateways = static fn () => [];
+add_filter('woocommerce_available_payment_gateways', $noGateways, 999);
+$check(! str_contains(implode(' ', $pi::lines(true)), 'Zahlungsarten'), 'ohne aktive Zahlungsart: keine Zahlungsarten-Zeile');
+remove_filter('woocommerce_available_payment_gateways', $noGateways, 999);
+update_option('woocommerce_allowed_countries', 'all');
+$check($pi::salesCountries() === '' && ! str_contains(implode(' ', $pi::lines(false)), 'Verkaufsländer'), 'Verkauf an alle Länder: keine Länder-Zeile');
+$euCh = array_merge(WC()->countries->get_european_union_countries(), ['CH']);
+update_option('woocommerce_allowed_countries', 'specific');
+update_option('woocommerce_specific_allowed_countries', $euCh);
+$chName = html_entity_decode(WC()->countries->get_countries()['CH'], ENT_QUOTES, 'UTF-8');
+$check($pi::salesCountries() === 'EU-Staaten, '.$chName, 'EU und Schweiz: „'.$pi::salesCountries().'“');
+update_option('woocommerce_specific_allowed_countries', ['DE', 'AT']);
+$check(str_contains($pi::salesCountries(), html_entity_decode(WC()->countries->get_countries()['AT'], ENT_QUOTES, 'UTF-8')) && ! str_contains($pi::salesCountries(), 'EU-Staaten'), 'einzelne Länder namentlich');
+update_option('woocommerce_allowed_countries', 'all_except');
+update_option('woocommerce_all_except_countries', ['US']);
+$check(str_starts_with($pi::salesCountries(), 'alle außer '), 'alle außer …: „'.$pi::salesCountries().'“');
+update_option('woocommerce_allowed_countries', 'specific');
+update_option('woocommerce_specific_allowed_countries', $euCh);
+// Produktseite (unter dem Kaufen-Knopf; auch im Block „add-to-cart-form“).
+$GLOBALS['product'] = wc_get_product($lern);
+ob_start();
+do_action('woocommerce_after_add_to_cart_form');
+$piProduct = (string) ob_get_clean();
+$check(str_contains($piProduct, 'class="bp-purchase-info"') && str_contains($piProduct, 'Zahlungsarten: ') && str_contains($piProduct, esc_html($bacsTitle)) && str_contains($piProduct, 'Verkaufsländer: EU-Staaten') && str_contains($piProduct, 'Lieferung: digital'), 'Produktseite: Zahlungsarten, Verkaufsländer, Lieferung digital');
+$GLOBALS['product'] = wc_get_product($book);
+ob_start();
+do_action('woocommerce_after_add_to_cart_form');
+$piBook = (string) ob_get_clean();
+$check(str_contains($piBook, 'Zahlungsarten: ') && ! str_contains($piBook, 'Lieferung'), 'kein Lernprodukt: keine Aussage zur Lieferung');
+unset($GLOBALS['product']);
+if (function_exists('wc_load_cart')) {
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($lern);
+    $piBlock = (string) apply_filters('render_block_woocommerce/cart', '<div class="wp-block-woocommerce-cart"></div>', ['blockName' => 'woocommerce/cart', 'attrs' => []]);
+    ob_start();
+    do_action('woocommerce_after_cart_totals');
+    $piClassic = (string) ob_get_clean();
+    $check(str_contains($piBlock, 'bp-purchase-info') && str_contains($piBlock, 'Zahlungsarten: ') && str_contains($piBlock, 'Lieferung: digital'), 'Warenkorb (Block): Hinweis mit Zahlungsarten und Lieferung');
+    $check(str_contains($piClassic, 'bp-purchase-info') && str_contains($piClassic, 'Zahlungsarten: ') && str_contains($piClassic, 'Verkaufsländer: '), 'Warenkorb (klassisch): Hinweis unter der Summe');
+    WC()->cart->add_to_cart($book);
+    $check(! $pi::cartIsDigital() && ! str_contains((string) apply_filters('render_block_woocommerce/cart', '', []), 'Lieferung'), 'gemischter Warenkorb: keine Aussage zur Lieferung');
+    WC()->cart->empty_cart();
+}
+foreach ($piOptions as $k => $v) {
+    $v === '__bp_missing__' ? delete_option($k) : update_option($k, $v);
+}
+
 $guest = wc_create_order(['customer_id' => 0]);
 $guest->add_product(wc_get_product($lern), 1);
 wp_set_current_user(0);
@@ -671,6 +727,17 @@ $wOrder->set_status('cancelled');
 $wOrder->save();
 $check(! $wf::offered($wOrder), 'stornierte Bestellung: nicht angeboten');
 $wOrder->delete(true);
+// „Mein Lernen“ bei 390 px: Tabelle stapelt (WooCommerce-Muster shop_table_responsive), Knopf nicht abgeschnitten, Spalte benannt.
+$wOrder = wc_create_order(['customer_id' => $alice]);
+$wOrder->set_status('pending');
+$wOrder->save();
+ob_start();
+$wf::renderAccountSection($alice);
+$wHtml = (string) ob_get_clean();
+$wNumber = $wOrder->get_order_number();
+$wOrder->delete(true);
+$check(str_contains($wHtml, 'shop_table_responsive bp-withdrawal-table') && str_contains($wHtml, 'data-title="Bestellung">#'.$wNumber) && str_contains($wHtml, 'data-title="Widerrufsfrist bis"'), 'Widerrufs-Tabelle: mobil gestapelt mit Beschriftung je Zelle');
+$check(str_contains($wHtml, '<td class="actions bp-withdrawal-action"><a class="button bp-withdrawal-button"') && str_contains($wHtml, '<span class="screen-reader-text">Aktion</span>') && ! str_contains($wHtml, '<th></th>'), 'Widerrufs-Knopf in eigener Zeile, Spaltenkopf „Aktion“ für Screenreader');
 
 // Widerrufe aus der früheren eigenen Funktion: erkannt, angezeigt, exportiert, anonymisiert.
 $lOrder = wc_create_order(['customer_id' => $alice]);

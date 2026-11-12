@@ -322,14 +322,23 @@ final class WithdrawalFunction
             $action = self::requested($order)
                 ? esc_html__('Widerruf eingegangen', 'bootspruefung-learning')
                 : self::button($order);
-            $rows[] = sprintf('<tr><td>#%s</td><td>%s</td><td>%s</td></tr>', esc_html($order->get_order_number()), esc_html(Labels::date(gmdate('Y-m-d H:i:s', (int) self::deadline($order)))), $action);
+            $rows[] = sprintf(
+                '<tr><td data-title="%s">#%s</td><td data-title="%s">%s</td><td class="actions bp-withdrawal-action">%s</td></tr>',
+                esc_attr__('Bestellung', 'bootspruefung-learning'),
+                esc_html($order->get_order_number()),
+                esc_attr__('Widerrufsfrist bis', 'bootspruefung-learning'),
+                esc_html(Labels::date(gmdate('Y-m-d H:i:s', (int) self::deadline($order)))),
+                $action
+            );
         }
         if ($rows === []) {
             return;
         }
         echo '<h3>'.esc_html__('Widerruf', 'bootspruefung-learning').'</h3>';
         echo '<p>'.esc_html__('Im Formular gibst du deinen Namen, deine E-Mail-Adresse und die Bestellnummer an; die Eingangsbestätigung kommt per E-Mail.', 'bootspruefung-learning').'</p>';
-        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table bp-withdrawal-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Widerrufsfrist bis', 'bootspruefung-learning').'</th><th></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
+        // Schmale Bildschirme (woocommerce-smallscreen.css): Zeilen gestapelt mit Beschriftung je Zelle, der Knopf in einer eigenen
+        // Zeile darunter – in drei Spalten ragte „Vertrag hier widerrufen“ bei 390 px aus der Tabelle (UX-09).
+        echo '<div class="bp-table-scroll" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="woocommerce-table shop_table shop_table_responsive bp-withdrawal-table"><thead><tr><th>'.esc_html__('Bestellung', 'bootspruefung-learning').'</th><th>'.esc_html__('Widerrufsfrist bis', 'bootspruefung-learning').'</th><th><span class="screen-reader-text">'.esc_html__('Aktion', 'bootspruefung-learning').'</span></th></tr></thead><tbody>'.implode('', $rows).'</tbody></table></div>';
     }
 
     public function orderDetails($order): void

@@ -489,6 +489,9 @@ html, body { overflow-x: clip; }
 /* Preisangabe (PAngV) */
 .bp-price-note, .kw-price-note { font-size: .8em; font-weight: 500; color: var(--kw-muted); white-space: nowrap; }
 .bp-price-note-total { margin: .75rem 0 0; text-align: right; font-size: .9rem; color: var(--kw-muted); }
+/* Zahlungsarten, Verkaufsländer, Lieferung (§ 312j BGB): unter dem Kaufen-Knopf; im Warenkorb bündig mit „Alle Preise …“ */
+.bp-purchase-info { margin: .75rem 0 0; font-size: .9rem; line-height: 1.5; color: var(--kw-muted); }
+.wp-block-woocommerce-cart ~ .bp-purchase-info, .cart_totals .bp-purchase-info { text-align: right; }
 
 /* ======================================================================
    Inhaltsseiten (Runde 2): Artikel mit Randspalte, Sprungleiste, Kurzantwort,
