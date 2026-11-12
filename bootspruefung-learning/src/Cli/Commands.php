@@ -638,7 +638,7 @@ final class Commands
             WP_CLI::error('Das Staging-Verzeichnis konnte nicht angelegt werden.');
         }
         $mediaRoot = realpath($mediaRootArg);
-        if ($mediaRoot === false || ! is_dir($mediaRoot)) {
+        if ($mediaRoot === false || ! is_dir($mediaRoot) || ! chmod($mediaRoot, 0700)) {
             WP_CLI::error('Das Staging-Verzeichnis ist nicht zugänglich.');
         }
 
@@ -701,8 +701,9 @@ final class Commands
             $relativePath = 'wp-course-files/'.$safeCourse.'/attachment-'.$id.$extension;
             $destination = $mediaRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
             if (! isset($copied[$id])) {
-                if (! wp_mkdir_p(dirname($destination)) || (! is_file($destination) && ! copy($realSource, $destination))) {
-                    WP_CLI::error("Geschützte Datei {$id} konnte nicht ins Staging kopiert werden.");
+                if (! wp_mkdir_p(dirname($destination)) || ! chmod(dirname($destination), 0700)
+                    || (! is_file($destination) && ! copy($realSource, $destination)) || ! chmod($destination, 0600)) {
+                    WP_CLI::error("Geschützte Datei {$id} konnte nicht sicher ins Staging kopiert werden.");
                 }
                 $copied[$id] = $relativePath;
             }
@@ -804,8 +805,8 @@ final class Commands
     private static function writeMobileExport(string $path, array $payload): void
     {
         $json = wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if (! is_string($json) || file_put_contents($path, $json.PHP_EOL, LOCK_EX) === false) {
-            WP_CLI::error("Export konnte nicht geschrieben werden: {$path}");
+        if (! is_string($json) || file_put_contents($path, $json.PHP_EOL, LOCK_EX) === false || ! chmod($path, 0600)) {
+            WP_CLI::error("Export konnte nicht sicher geschrieben werden: {$path}");
         }
     }
 
