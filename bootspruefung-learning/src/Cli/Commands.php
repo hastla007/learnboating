@@ -813,7 +813,7 @@ final class Commands
     /**
      * Exportiert veröffentlichte Kunden-FAQs im JSON-Format des Laravel-Imports.
      *
-     *     wp bootspruefung export customer-faqs > mobile-faqs.json
+     *     wp bootspruefung export customer-faqs --output=mobile-faqs.json
      *
      * @param list<string> $args
      * @param array<string,string> $assoc
@@ -889,8 +889,15 @@ final class Commands
             ];
         }
 
+        $payload = ['categories' => $categories, 'faqs' => $faqs];
+        if (isset($assoc['output']) && trim((string) $assoc['output']) !== '') {
+            self::writeMobileExport((string) $assoc['output'], $payload);
+            WP_CLI::success('Kunden-FAQs exportiert: '.(string) $assoc['output']);
+
+            return;
+        }
         WP_CLI::line((string) wp_json_encode(
-            ['categories' => $categories, 'faqs' => $faqs],
+            $payload,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         ));
     }
