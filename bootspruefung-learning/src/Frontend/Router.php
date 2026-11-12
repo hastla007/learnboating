@@ -91,7 +91,8 @@ final class Router
         }
         $file = $this->plugin->file();
         wp_enqueue_style('bp-learning-app', plugins_url('assets/build/app.css', $file), [], Plugin::VERSION);
-        if (! is_user_logged_in()) {
+        // Bestätigungsseite „Erinnerungen abbestellen“ wird serverseitig gerendert (auch ohne Anmeldung).
+        if (! is_user_logged_in() || \Bootspruefung\Learning\Commerce\ReminderOptOut::isRequest()) {
             return;
         }
         wp_enqueue_script('bp-learning-app', plugins_url('assets/build/app.js', $file), [], Plugin::VERSION, true);

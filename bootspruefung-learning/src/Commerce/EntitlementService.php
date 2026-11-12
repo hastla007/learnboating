@@ -396,7 +396,10 @@ final class EntitlementService
             $key = $row->course_code.'|'.$row->feature_code;
             $cur = $out[$key] ?? null;
             if ($cur === null || $rank[$status] > $rank[$cur['status']]) {
-                $out[$key] = ['course' => $row->course_code, 'feature' => $row->feature_code, 'status' => $status, 'valid_until' => $row->valid_until];
+                $days = (int) (EntitlementPlanner::meta($row)['duration_days'] ?? 0);
+                // Offene Zahlung: Laufzeit ab Zahlungseingang und Bestellung (statt „dauerhaft“, das Ende steht noch nicht fest).
+                $out[$key] = ['course' => $row->course_code, 'feature' => $row->feature_code, 'status' => $status, 'valid_until' => $row->valid_until,
+                    'duration_days' => $days > 0 ? $days : null, 'order_id' => $row->order_id !== null ? (int) $row->order_id : null];
             } elseif ($status === $cur['status'] && $cur['valid_until'] !== null) {
                 // Gleicher Status: spätestes Ende; dauerhaft (NULL) gewinnt.
                 $out[$key]['valid_until'] = $row->valid_until === null ? null : max($cur['valid_until'], $row->valid_until);

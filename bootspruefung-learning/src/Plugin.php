@@ -125,6 +125,7 @@ final class Plugin
             \Bootspruefung\Learning\Commerce\ExpiryReminder::schedule();
         });
         add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
+        (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
         PersonalData::register();
         \Bootspruefung\Learning\Security\Hardening::register();
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();

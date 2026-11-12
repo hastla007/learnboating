@@ -149,6 +149,8 @@ final class LearnerController
         // Empfehlungen/Ausblenden (eine Abfrage) und bald endende Zugänge (eine Abfrage).
         $relations = \Bootspruefung\Learning\Commerce\CourseRelations::forUser($user, array_keys($names), $unlocked);
         $expiring = \Bootspruefung\Learning\Commerce\ExpiryReminder::expiring($user)[$user] ?? [];
+        // Kaufstatus je Kurs (eine Abfrage): Zahlung offen, abgelaufen, gesperrt.
+        $states = \Bootspruefung\Learning\Commerce\AccessStatus::forUser($user);
         foreach ($courses as $course) {
             $scopes = $scopesBy[$course->code];
             $features = self::features($scopes);
@@ -156,6 +158,7 @@ final class LearnerController
             $trial = $features[AccessService::QUESTION_BANK] && isset(self::limits($scopes)[AccessService::QUESTION_BANK]);
             $relation = $relations[$course->code] ?? ['hidden' => false, 'recommended_for' => []];
             $expiresAt = $expiring[$course->code] ?? null;
+            $info = self::accessInfo($scopes, $states[$course->code] ?? null, (string) $course->code);
             $out[] = [
                 'code' => $course->code,
                 'trial' => $trial,
@@ -165,7 +168,8 @@ final class LearnerController
                 'features' => $features,
                 // Nur die Gesamtsumme (ohne Module/Themen wie in courseProgress()).
                 'progress' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseTotal($user, $course) : null,
-                'shop' => in_array(true, $features, true) && ! $trial ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
+                // Zahlung offen oder gesperrt: kein Kaufangebot (kein Doppelkauf).
+                'shop' => (in_array(true, $features, true) && ! $trial) || in_array($info['status'], ['pending', 'suspended'], true) ? [] : \Bootspruefung\Learning\Commerce\WooCommerce\Integration::offers($course->code, [AccessService::QUESTION_BANK => false]),
                 // Nicht freigeschaltet und durch einen besessenen Kurs abgedeckt → nicht mehr anbieten.
                 // Testkurse (kostenloser Teilumfang) bleiben sichtbar (Festlegung 10.11.2026).
                 'hidden' => $relation['hidden'] && ! $trial,
@@ -174,7 +178,9 @@ final class LearnerController
                 // Zugang zum Fragenkatalog endet bald (ohne Verlängerung): Ende (UTC) und Link zum Verlängern.
                 'expires_at' => $expiresAt,
                 'expires_soon' => $expiresAt !== null,
-                'renew_url' => $expiresAt !== null ? \Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl((string) $course->code) : null,
+                'renew_url' => $expiresAt !== null ? \Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl((string) $course->code, $user, $states) : null,
+                // Zugangsstatus (Zahlung offen, abgelaufen, gesperrt) mit Bestellung bzw. Verlängern-Link.
+                'access' => $info,
             ];
         }
 
@@ -187,6 +193,7 @@ final class LearnerController
         $user = get_current_user_id();
         $scopes = $this->access->scopes($user, $course->code);
         $features = self::features($scopes);
+        $info = self::accessInfo($scopes, \Bootspruefung\Learning\Commerce\AccessStatus::forUser($user)[$course->code] ?? null, (string) $course->code);
 
         return [
             'code' => $course->code,
@@ -198,8 +205,8 @@ final class LearnerController
             'favorites' => $features[AccessService::QUESTION_BANK] ? $this->learning->courseFavoriteCount($user, $course) : 0,
             'exam' => $features[AccessService::EXAM] ? $this->exams->overview($user, $course, (bool) $request['ergebnisse']) : null,
             'trainers' => (new \Bootspruefung\Learning\Rest\Controllers\TrainerController())->summary($user, $course),
-            // Produkte für gesperrte Features und solche im kostenlosen Teilumfang.
-            'shop' => $this->shopOffers($user, $course, $scopes),
+            // Produkte für gesperrte Features und solche im kostenlosen Teilumfang; Zahlung offen oder gesperrt: keine (kein Doppelkauf).
+            'shop' => in_array($info['status'], ['pending', 'suspended'], true) ? [] : $this->shopOffers($user, $course, $scopes),
             'limits' => self::limits($scopes),
             'downloads' => \Bootspruefung\Learning\Gate\DownloadService::items($user, $course->code),
             'files' => \Bootspruefung\Learning\Gate\SectionFiles::forCourse($user, $course->code),
@@ -208,6 +215,7 @@ final class LearnerController
             // Prüfungsanmeldung (Anleitung) nur, wenn freigeschaltet und eine Anleitung für den Kurs existiert.
             'exam_guide' => \Bootspruefung\Learning\ExamGuide\ExamGuideService::enabled() && ($pages = (new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->pagesFor((string) $course->code)) !== []
                 ? ['tabs' => array_map(static fn ($p) => $p['guide']['tab'], $pages)] : null,
+            'access' => $info,
             // Kunden-FAQ: Anzahl für Kunden des Kurses (voller Fragenkatalog), sonst 0 – Inhalte über /customer-faqs.
             'customer_faqs' => $scopes[AccessService::QUESTION_BANK]['full'] ? \Bootspruefung\Learning\Faq\CustomerFaqRepository::count((string) $course->code) : 0,
         ];
@@ -252,6 +260,24 @@ final class LearnerController
         $this->learning->setFavorite(get_current_user_id(), (int) $request['question'], $on);
 
         return ['favorite' => $on];
+    }
+
+    /**
+     * Zugangsstatus des Fragenkatalogs für die Web-App: active, pending (Zahlung offen), suspended (gesperrt),
+     * expired (abgelaufen), limited (nur kostenloser Teilumfang) oder not_granted – Kaufstatus vor dem Teilumfang,
+     * der weiter nutzbar bleibt. Dazu Bestellung (Nummer, Link in „Mein Konto“), Laufzeit ab Zahlungseingang,
+     * Ablaufdatum (UTC), Verlängern-Link (gekaufte Stufe) und Kontakt.
+     *
+     * @param array<string,array{full:bool,limit:?int}> $scopes
+     * @param array<string,mixed>|null $state AccessStatus::forUser()
+     * @return array<string,mixed>
+     */
+    private static function accessInfo(array $scopes, ?array $state, string $courseCode): array
+    {
+        $bank = $scopes[AccessService::QUESTION_BANK] ?? ['full' => false, 'limit' => null];
+        $status = \Bootspruefung\Learning\Commerce\AccessStatus::status($bank['full'], ! $bank['full'] && (int) ($bank['limit'] ?? 0) > 0, $state);
+
+        return ['status' => $status] + \Bootspruefung\Learning\Commerce\AccessStatus::details($status, $courseCode, $state);
     }
 
     /** @param array<string,array{full:bool,limit:?int}> $scopes @return array<string,bool> wie AccessService::features() */

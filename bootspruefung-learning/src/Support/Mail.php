@@ -10,7 +10,8 @@ namespace Bootspruefung\Learning\Support;
  */
 final class Mail
 {
-    public static function send(string $to, string $subject, string $body): bool
+    /** @param list<string> $extraHeaders zusätzliche Kopfzeilen, z. B. List-Unsubscribe */
+    public static function send(string $to, string $subject, string $body, array $extraHeaders = []): bool
     {
         $headers = [];
         $address = (string) get_option('woocommerce_email_from_address', '');
@@ -18,6 +19,10 @@ final class Mail
         if ($address !== '' && is_email($address)) {
             $headers[] = 'From: '.self::header($name).' <'.$address.'>';
             $headers[] = 'Reply-To: '.$address;
+        }
+
+        foreach ($extraHeaders as $line) {
+            $headers[] = (string) preg_replace('/[\r\n]+/', ' ', (string) $line);
         }
 
         return wp_mail($to, $subject, $body, $headers);

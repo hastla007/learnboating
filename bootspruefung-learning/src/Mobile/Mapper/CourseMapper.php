@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Mapper;
 
+use Bootspruefung\Learning\Commerce\AccessStatus;
 use Bootspruefung\Learning\Commerce\CourseRelations;
 use Bootspruefung\Learning\Commerce\EntitlementPlanner;
 use Bootspruefung\Learning\Commerce\ExpiryReminder;
@@ -47,6 +48,8 @@ final class CourseMapper
     private array $relations = [];
     /** @var array<int,array<string,string>> user_id => Kurscode => Ende des Fragenkatalog-Zugangs (bald) */
     private array $expiring = [];
+    /** @var array<int,array<string,array<string,mixed>>> user_id => Kurscode => Kaufstatus (AccessStatus) */
+    private array $states = [];
     /** @var array<string,object>|null Kurscode => veröffentlichter Kurs */
     private ?array $coursesByCode = null;
 
@@ -115,10 +118,19 @@ final class CourseMapper
         return $this->entitlements[$userId];
     }
 
+    /** @return array<string,array<string,mixed>> Kurscode => Kaufstatus (eine Abfrage je Nutzer) */
+    private function statesFor(int $userId): array
+    {
+        return $this->states[$userId] ??= AccessStatus::forUser($userId);
+    }
+
     /**
-     * Zugangsstatus des Kurses: active (voller Zugang zu mindestens einem Bereich), limited
-     * (nur kostenloser Teilumfang), sonst aus den Zugängen pending/suspended/expired/revoked
-     * oder not_granted. Laufzeit aus den gültigen Zugängen (null = unbegrenzt bzw. ohne Kauf).
+     * Zugangsstatus des Kurses: active (voller Zugang zu mindestens einem Bereich), sonst aus den Käufen
+     * pending (Zahlung offen), suspended (gesperrt) bzw. expired (abgelaufen) – seit 1.11.0 vor limited,
+     * der kostenlose Teilumfang bleibt nutzbar (trial, limits) –, dann limited (nur kostenloser Teilumfang),
+     * sonst aus den Zugängen revoked oder not_granted. Laufzeit aus den gültigen Zugängen (null = unbegrenzt
+     * bzw. ohne Kauf). Dazu order_number/order_url und duration_days (pending), renew_url (expired, bald
+     * endend) und contact_url (suspended).
      * @return array<string,mixed>
      */
     public function access(int $userId, object $course): array
@@ -145,8 +157,12 @@ final class CourseMapper
         $valid = array_filter($rows, static fn ($r) => $r->status === EntitlementPlanner::ACTIVE && ($r->valid_from === null || $r->valid_from <= $now) && ($r->valid_until === null || $r->valid_until >= $now));
         $statuses = array_map(static fn ($r) => $r->status === EntitlementPlanner::ACTIVE && $r->valid_until !== null && $r->valid_until < $now ? EntitlementPlanner::EXPIRED : (string) $r->status, $rows);
 
+        $state = $this->statesFor($userId)[(string) $course->code] ?? null;
+        $notice = $full ? null : AccessStatus::status(false, $limited, $state);
         if ($full) {
             $status = 'active';
+        } elseif (in_array($notice, AccessStatus::NOTICE_STATUSES, true)) {
+            $status = (string) $notice;
         } elseif ($limited) {
             $status = 'limited';
         } else {
@@ -172,6 +188,8 @@ final class CourseMapper
 
         // Bald endender Zugang zum Fragenkatalog ohne Verlängerung (wie Banner im Web und Erinnerungsmail).
         $expiresAt = ($scopes[AccessService::QUESTION_BANK]['full'] ?? false) ? ($this->expiringFor($userId)[(string) $course->code] ?? null) : null;
+        $details = AccessStatus::details($status, (string) $course->code, $state);
+        $renew = $details['renew_url'] ?? ($expiresAt !== null ? ExpiryReminder::renewUrl((string) $course->code, $userId, $this->statesFor($userId)) : null);
 
         return [
             'status' => $status,
@@ -182,7 +200,12 @@ final class CourseMapper
             'limits' => (object) $limits,
             'expires_soon' => $expiresAt !== null,
             'expires_at' => self::iso($expiresAt),
-            'renew_url' => $expiresAt !== null ? ExpiryReminder::renewUrl((string) $course->code) : null,
+            'renew_url' => $renew,
+            // Seit 1.11.0: Zahlung offen (Bestellung in „Mein Konto“ mit den Zahlungsdaten), Laufzeit ab Zahlungseingang, Kontakt bei Sperre.
+            'order_number' => $details['order']['number'] ?? null,
+            'order_url' => $details['order']['url'] ?? null,
+            'duration_days' => $details['duration_days'],
+            'contact_url' => $details['contact_url'],
         ];
     }
 
@@ -250,11 +273,17 @@ final class CourseMapper
         return $out;
     }
 
-    /** Passendstes Shop-Angebot für den Hauptbereich des Kurses (nur wenn kein Vollzugang besteht). */
+    /**
+     * Passendstes Shop-Angebot für den Hauptbereich des Kurses (nur wenn kein Vollzugang besteht).
+     * Zahlung offen oder gesperrt: kein Angebot (kein Doppelkauf); abgelaufen: die gekaufte Stufe (renew_url).
+     */
     public function webshopUrl(int $userId, object $course, array $access): ?string
     {
-        if ($access['status'] === 'active' && ! $access['trial']) {
+        if (($access['status'] === 'active' && ! $access['trial']) || in_array($access['status'], ['pending', 'suspended'], true)) {
             return null;
+        }
+        if ($access['status'] === 'expired' && ($access['renew_url'] ?? null) !== null) {
+            return (string) $access['renew_url'];
         }
         $caps = $this->capabilities($course);
         $feature = self::CAPABILITIES[$caps[0] ?? 'smarttrainer'] ?? AccessService::QUESTION_BANK;

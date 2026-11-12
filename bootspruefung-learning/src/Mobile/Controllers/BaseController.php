@@ -149,7 +149,7 @@ abstract class BaseController
         $message = match ($code) {
             'ENTITLEMENT_EXPIRED' => __('Dein Zugang zu diesem Kurs ist abgelaufen.', 'bootspruefung-learning'),
             'ENTITLEMENT_SUSPENDED' => __('Dein Zugang zu diesem Kurs ist derzeit ausgesetzt. Bitte wende dich an den Support.', 'bootspruefung-learning'),
-            default => $message ?? __('Dieser Bereich ist für deinen Kurs nicht freigeschaltet.', 'bootspruefung-learning'),
+            default => $access['status'] === 'pending' ? __('Deine Zahlung ist noch offen. Nach dem Zahlungseingang wird dieser Bereich automatisch freigeschaltet.', 'bootspruefung-learning') : ($message ?? __('Dieser Bereich ist für deinen Kurs nicht freigeschaltet.', 'bootspruefung-learning')),
         };
         $offers = $this->courses->offers($this->user(), $course);
 
@@ -157,7 +157,9 @@ abstract class BaseController
             'course_id' => (string) $course->id,
             'capability' => $cap !== false ? $cap : $feature,
             'access_status' => $access['status'],
-            'webshop_url' => $offers[$cap !== false ? $cap : $feature][0]['url'] ?? null,
+            // Zahlung offen/gesperrt: kein Kaufangebot (kein Doppelkauf); abgelaufen: Verlängern (gekaufte Stufe; Videokurs wie bisher).
+            'webshop_url' => in_array($access['status'], ['pending', 'suspended'], true) ? null
+                : ($access['status'] === 'expired' && $access['renew_url'] !== null && $feature !== \Bootspruefung\Learning\Learning\Services\AccessService::VIDEO ? $access['renew_url'] : ($offers[$cap !== false ? $cap : $feature][0]['url'] ?? null)),
         ]]);
     }
 
