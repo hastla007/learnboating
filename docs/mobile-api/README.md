@@ -472,6 +472,7 @@ Fehlerobjekt (`application/problem+json`):
 | `QUESTION_TOKEN_EXPIRED` | 409 | Frage neu laden |
 | `EXAM_NOT_STARTABLE` | 409 | Kein Regelwerk / keine freigegebenen Fragen |
 | `EXAM_ALREADY_SUBMITTED` | 409 | Prüfung schon abgegeben → Ergebnis laden |
+| `EXAM_ABORTED` | 409 | Prüfung wurde abgebrochen (seit 1.11.0) → keine Antworten, kein Ergebnis |
 | `EXAM_NOT_SUBMITTED` | 409 | Ergebnis vor Abgabe angefragt |
 | `EXAM_EXPIRED` | 410 | Zeit abgelaufen, Prüfung ausgewertet → Ergebnis laden |
 | `EXAM_ANSWER_LOCKED` | 409 | Offene Prüfungsfrage: erst Musterantwort aufdecken |
@@ -718,6 +719,12 @@ beibehalten, wo es passt. Abweichungen:
   wachsendem Abstand wiederholen und `submit` erst danach aufrufen (wie die Web-App).
 - Server: dieselbe Logik in `ExamService::saveAnswer` und `LearningService` für Web und App;
   Schema 1.14.0 (Spalte `bp_progress.due_at`). Test: `tests/integration/learning-review-test.php`.
+- **Neu: Prüfung abbrechen** `POST /exams/{examId}/abort`: beendet eine laufende Prüfung ohne Wertung
+  (`status: aborted`, `aborted_at`); sie erscheint nicht im Verlauf und nicht als letztes Ergebnis eines
+  Bogens, ihre Fragen sind im Lernmodus sofort wieder frei, gegebene Antworten bleiben gespeichert. Nach
+  Fristende wird stattdessen gewertet. Danach 409 `EXAM_ABORTED` für Antworten, Markieren und `result`;
+  `GET /exams/{examId}` liefert `status: aborted` ohne Fragen. Die App sollte vorher nachfragen
+  („Prüfung abbrechen? Sie wird nicht gewertet.“) und lokal gepufferte Antworten verwerfen.
 
 ### 1.10.0 (additiv)
 

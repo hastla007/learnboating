@@ -354,6 +354,7 @@ final class MobileApi
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/reveal', 'POST', [ExamController::class, 'reveal']);
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/flag', 'PUT', [ExamController::class, 'flag'], true, true, ['flagged' => ['type' => 'boolean', 'required' => true]]);
         self::route('/exams/'.sprintf($id, 'examId').'/submit', 'POST', [ExamController::class, 'submit']);
+        self::route('/exams/'.sprintf($id, 'examId').'/abort', 'POST', [ExamController::class, 'abort']);
         self::route('/exams/'.sprintf($id, 'examId').'/result', 'GET', [ExamController::class, 'result']);
 
         // Videos, Navigation, Praxis

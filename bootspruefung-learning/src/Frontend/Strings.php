@@ -426,6 +426,10 @@ final class Strings
             'exam_other_tab' => __('Diese Prüfung ist auch in einem anderen Tab oder Fenster geöffnet. Bearbeite sie nur an einer Stelle, sonst überschreiben sich deine Antworten.', $d),
             'submit_exam' => __('Prüfung abgeben', $d),
             'confirm_submit' => __('Prüfung jetzt abgeben?', $d),
+            // Prüfung abbrechen (ohne Wertung).
+            'abort_exam' => __('Prüfung abbrechen', $d),
+            'confirm_abort' => __('Prüfung abbrechen? Sie wird nicht gewertet und erscheint nicht in deinen Ergebnissen.', $d),
+            'exam_aborted' => __('Die Prüfung wurde abgebrochen und nicht gewertet.', $d),
             'confirm_submit_open' => __('{n} Fragen sind noch nicht beantwortet. Trotzdem abgeben?', $d),
             'confirm_submit_open_one' => __('1 Frage ist noch nicht beantwortet. Trotzdem abgeben?', $d),
             // Markieren in der Prüfungssimulation („zur Überprüfung“, ändert nichts an der Bewertung).

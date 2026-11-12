@@ -75,7 +75,7 @@ final class ExamService
         $unlockAt = $this->paperUnlockTimes($userId, $course, $paperQuestions);
         $lastByPaper = [];
         foreach ($this->db->get_results($this->db->prepare(
-            "SELECT id, paper_id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND course_id = %d AND paper_id IS NOT NULL ORDER BY (status = 'running') DESC, id DESC",
+            "SELECT id, paper_id, status, score, max_score, passed FROM {$this->t('exam_session')} WHERE user_id = %d AND course_id = %d AND paper_id IS NOT NULL AND status <> 'aborted' ORDER BY (status = 'running') DESC, id DESC",
             $userId,
             $course->id
         )) as $row) {
@@ -356,6 +356,10 @@ final class ExamService
             ];
         }
 
+        if ($session->status === 'aborted') {
+            return $base + ['aborted_at' => $session->submitted_at];
+        }
+
         return $base + ['result' => $this->resultView($session, $questions)];
     }
 
@@ -484,6 +488,39 @@ final class ExamService
         }
         // Hinweis „Zeit abgelaufen“ ab dem Fristende (die Kulanzzeit gilt nur für das Werten später Antworten).
         $this->evaluate($sessionId, $session->deadline_at !== null && time() >= strtotime($session->deadline_at.' UTC'));
+    }
+
+    /**
+     * Laufende Prüfung abbrechen (ohne Wertung): Status „aborted“, erscheint nicht im Verlauf und nicht als letztes
+     * Ergebnis eines Bogens, ihre Fragen sind im Lernmodus sofort wieder frei. Gegebene Antworten bleiben gespeichert
+     * (sie zählen z. B. als Nutzung für die Geld-zurück-Garantie). Eine abgelaufene Prüfung wird stattdessen
+     * gewertet (wie bisher); eine bereits beendete bleibt, wie sie ist. @return string Status danach
+     */
+    public function abort(int $userId, int $sessionId): string
+    {
+        $session = $this->session($userId, $sessionId);
+        if ($session->status !== 'running') {
+            return (string) $session->status;
+        }
+        if ($this->expired($session)) {
+            $this->evaluate($sessionId, true);
+
+            return (string) $this->session($userId, $sessionId)->status;
+        }
+        $this->db->query('START TRANSACTION');
+        try {
+            $locked = $this->db->get_row($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
+            if ($locked && $locked->status === 'running') {
+                $this->db->update($this->t('exam_session'), ['status' => 'aborted', 'submitted_at' => current_time('mysql', true)], ['id' => $sessionId]);
+            }
+            $this->db->query('COMMIT');
+        } catch (\Throwable $e) {
+            $this->db->query('ROLLBACK');
+
+            throw $e;
+        }
+
+        return (string) $this->session($userId, $sessionId)->status;
     }
 
     /** Falsch beantwortete Fragen einer eigenen, ausgewerteten Prüfung. @return list<int> */

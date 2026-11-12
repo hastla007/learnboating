@@ -46,6 +46,7 @@ final class Problem
         'QUESTION_TOKEN_EXPIRED' => 'Frage abgelaufen',
         'EXAM_NOT_STARTABLE' => 'Prüfung nicht startbar',
         'EXAM_ALREADY_SUBMITTED' => 'Prüfung bereits abgegeben',
+        'EXAM_ABORTED' => 'Prüfung abgebrochen',
         'EXAM_NOT_SUBMITTED' => 'Prüfung läuft noch',
         'EXAM_EXPIRED' => 'Prüfungszeit abgelaufen',
         'EXAM_ANSWER_LOCKED' => 'Antwort gesperrt',

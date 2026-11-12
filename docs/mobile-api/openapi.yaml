@@ -1210,6 +1210,41 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ExamResultResponse'}
         '404': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/abort:
+    post:
+      tags: [Exams]
+      operationId: abortExam
+      summary: Laufende Prüfung abbrechen (ohne Wertung)
+      description: >-
+        Seit 1.11.0. Beendet eine laufende Prüfung ohne Wertung (`status: aborted`). Sie erscheint nicht
+        im Verlauf und nicht als letztes Ergebnis eines Bogens; ihre Fragen sind im Lernmodus sofort wieder
+        frei. Bereits gegebene Antworten bleiben gespeichert. Ist die Prüfungszeit schon abgelaufen, wird sie
+        stattdessen gewertet (`status: evaluated` mit `result`). Erneuter Aufruf liefert denselben Stand.
+        Danach liefern Antworten, Markieren und `result` 409 `EXAM_ABORTED`.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/ExamId'
+      responses:
+        '200':
+          description: Abgebrochen bzw. (nach Fristende) gewertet
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [exam_id, status, aborted_at, result]
+                    properties:
+                      exam_id: {type: string}
+                      status: {type: string, enum: [aborted, evaluated]}
+                      aborted_at: {type: ['string', 'null'], format: date-time}
+                      result:
+                        oneOf:
+                          - {$ref: '#/components/schemas/ExamResult'}
+                          - type: 'null'
+        '404': {$ref: '#/components/responses/Problem'}
   /exams/{examId}/result:
     get:
       tags: [Exams]
@@ -2240,7 +2275,7 @@ components:
         message: {type: string, description: 'Gleich detail (Erweiterung, für einfache Clients)'}
         code:
           type: string
-          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, GROUP_NOT_ACTIVE, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, APP_UPDATE_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
+          enum: [UNAUTHENTICATED, REFRESH_TOKEN_REUSED, REFRESH_TOKEN_ROTATED, PASSWORD_RESET_INVALID_OR_EXPIRED, TENANT_MEMBERSHIP_REQUIRED, ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, ENTITLEMENT_SUSPENDED, CONTENT_LOCKED, RESOURCE_NOT_FOUND, VALIDATION_FAILED, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS, QUESTION_TOKEN_EXPIRED, EXAM_NOT_STARTABLE, EXAM_ALREADY_SUBMITTED, EXAM_NOT_SUBMITTED, EXAM_ABORTED, EXAM_EXPIRED, EXAM_ANSWER_LOCKED, COUPON_INVALID, COUPON_NOT_SUPPORTED, GROUP_NOT_ACTIVE, EXPORT_EXPIRED, EXPORT_NOT_READY, EXPORT_FAILED, RANGE_NOT_SATISFIABLE, DELETION_CONFIRMATION_INVALID, VERSION_CONFLICT, WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, RATE_LIMITED, MOBILE_API_DISABLED, HTTPS_REQUIRED, APP_UPDATE_REQUIRED, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
         request_id: {type: string}
         errors:
           type: object
@@ -3246,7 +3281,8 @@ components:
       required: [exam_id, status, course_id, started_at, server_time, question_count, questions, answers]
       properties:
         exam_id: {type: string}
-        status: {type: string, enum: [running, evaluated]}
+        status: {type: string, enum: [running, evaluated, aborted], description: 'aborted seit 1.11.0 (abgebrochen, ohne Wertung; result = null)'}
+        aborted_at: {type: ['string', 'null'], format: date-time, description: 'Nur bei aborted (seit 1.11.0)'}
         course_id: {type: string}
         course: {type: object, properties: {code: {type: string}, name: {type: string}}}
         mode: {type: string, enum: [simulation, paper]}

@@ -130,6 +130,7 @@ final class LearnerController
         ]);
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/reveal', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examReveal']), 'permission_callback' => $auth, 'args' => ['id' => $id, 'position' => $id]]);
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/submit', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examSubmit']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
+        register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/abort', ['methods' => WP_REST_Server::CREATABLE, 'callback' => self::wrap([$this, 'examAbort']), 'permission_callback' => $auth, 'args' => ['id' => $id]]);
     }
 
     public function courses(): array
@@ -421,6 +422,14 @@ final class LearnerController
     public function examSubmit(WP_REST_Request $request): array
     {
         $this->exams->submit(get_current_user_id(), (int) $request['id']);
+
+        return $this->exams->show(get_current_user_id(), (int) $request['id']);
+    }
+
+    /** Laufende Prüfung ohne Wertung abbrechen (abgelaufene werden stattdessen gewertet). */
+    public function examAbort(WP_REST_Request $request): array
+    {
+        $this->exams->abort(get_current_user_id(), (int) $request['id']);
 
         return $this->exams->show(get_current_user_id(), (int) $request['id']);
     }

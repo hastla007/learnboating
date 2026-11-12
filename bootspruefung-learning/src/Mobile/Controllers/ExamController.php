@@ -172,10 +172,26 @@ final class ExamController extends BaseController
         return $this->ok(self::resultPayload($id, $view));
     }
 
+    /** Laufende Prüfung ohne Wertung abbrechen (seit 1.11.0); eine abgelaufene wird stattdessen gewertet. */
+    public function abort(WP_REST_Request $request): WP_REST_Response
+    {
+        $id = (int) $request['examId'];
+        $status = $this->exams->abort($this->user(), $id);
+        $view = $this->exams->show($this->user(), $id);
+        if ($status === 'aborted') {
+            return $this->ok(['exam_id' => (string) $id, 'status' => 'aborted', 'aborted_at' => TokenAuth::iso($view['aborted_at'] ?? null), 'result' => null]);
+        }
+
+        return $this->ok(['exam_id' => (string) $id, 'status' => (string) $view['status'], 'aborted_at' => null, 'result' => self::resultPayload($id, $view)]);
+    }
+
     public function result(WP_REST_Request $request): WP_REST_Response
     {
         $id = (int) $request['examId'];
         $view = $this->exams->show($this->user(), $id);
+        if ($view['status'] === 'aborted') {
+            throw self::abortedError();
+        }
         if ($view['status'] === 'running') {
             throw new ApiException('EXAM_NOT_SUBMITTED', __('Diese Prüfung läuft noch. Gib sie ab, um das Ergebnis zu sehen.', 'bootspruefung-learning'), 409);
         }
@@ -193,6 +209,9 @@ final class ExamController extends BaseController
         if (! $row) {
             throw ApiException::notFound(__('Prüfung nicht gefunden.', 'bootspruefung-learning'));
         }
+        if ($row->status === 'aborted') {
+            throw self::abortedError();
+        }
         if ($row->status !== 'running') {
             $result = json_decode((string) $row->result, true) ?: [];
             if (! empty($result['expired'])) {
@@ -200,6 +219,11 @@ final class ExamController extends BaseController
             }
             throw new ApiException('EXAM_ALREADY_SUBMITTED', __('Diese Prüfung ist bereits abgegeben.', 'bootspruefung-learning'), 409);
         }
+    }
+
+    private static function abortedError(): ApiException
+    {
+        return new ApiException('EXAM_ABORTED', __('Diese Prüfung wurde abgebrochen und nicht gewertet.', 'bootspruefung-learning'), 409);
     }
 
     /** @return array<string,mixed> ExamSession */
@@ -224,6 +248,9 @@ final class ExamController extends BaseController
             'time_limit_seconds' => (int) $view['rule']['time_limit_seconds'] > 0 ? (int) $view['rule']['time_limit_seconds'] : null,
             'pass_rule' => ['description' => (string) $view['rule']['passing'], 'note' => $view['rule']['note']],
         ];
+        if ($view['status'] === 'aborted') {
+            return $base + ['question_count' => 0, 'flagged_count' => 0, 'remaining_seconds' => 0, 'questions' => [], 'answers' => [], 'result' => null, 'aborted_at' => TokenAuth::iso($view['aborted_at'] ?? null)];
+        }
         if ($view['status'] !== 'running') {
             $result = self::resultPayload($id, $view);
 

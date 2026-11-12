@@ -271,6 +271,63 @@ try {
 $shown = $exams->show($lea, $sid2);
 $check($err !== null && in_array($err->errorCode(), [DomainException::EXAM_EXPIRED, DomainException::EXAM_FINISHED], true) && $shown['status'] === 'evaluated' && $shown['result']['expired'] === true, 'nach Ende der Kulanz: abgewiesen und automatisch ausgewertet');
 
+echo "Prüfung abbrechen (ohne Wertung)\n";
+$ab = $exams->start($lea, $course, null);
+$abRev = (int) $wpdb->get_var($wpdb->prepare("SELECT revision_id FROM {$p}exam_session_question WHERE session_id = %d AND position = 1", $ab));
+$abQ = (int) $wpdb->get_var($wpdb->prepare("SELECT question_id FROM {$p}exam_session_question WHERE session_id = %d AND position = 1", $ab));
+$exams->saveAnswer($lea, $ab, 1, $correctIds($abRev), null);
+$check(in_array($abQ, LearningService::blockedByRunningExam($lea), true), 'laufende Prüfung sperrt ihre Fragen im Lernmodus');
+$historyBefore = count($exams->overview($lea, $course)['history']);
+wp_set_current_user($lea);
+$res = $rest('POST', "/exam-sessions/{$ab}/abort");
+wp_set_current_user(0);
+$row = $wpdb->get_row($wpdb->prepare("SELECT status, score, submitted_at FROM {$p}exam_session WHERE id = %d", $ab));
+$check($res->get_status() === 200 && $res->get_data()['status'] === 'aborted' && ! isset($res->get_data()['result']) && $row->status === 'aborted' && $row->score === null && $row->submitted_at !== null, 'Web-REST: POST /exam-sessions/{id}/abort → abgebrochen, ohne Wertung');
+$overview = $exams->overview($lea, $course);
+$check(count($overview['history']) === $historyBefore && $overview['running_simulation'] === null, 'abgebrochene Prüfung nicht im Verlauf und nicht mehr als laufend');
+$check(! in_array($abQ, LearningService::blockedByRunningExam($lea), true), 'Fragen im Lernmodus sofort wieder frei');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}exam_session_question WHERE session_id = %d AND answered_at IS NOT NULL", $ab)) === 1, 'gegebene Antwort bleibt gespeichert (zählt z. B. als Nutzung)');
+$err = null;
+try {
+    $exams->saveAnswer($lea, $ab, 2, [1], null);
+} catch (\Throwable $e) {
+    $err = $e;
+}
+$check($err !== null, 'nach dem Abbruch keine Antworten mehr');
+$exams->submit($lea, $ab);
+$check($exams->abort($lea, $ab) === 'aborted' && $exams->show($lea, $ab)['status'] === 'aborted', 'Abgabe bzw. erneuter Abbruch ändern nichts (idempotent)');
+$foreign = null;
+try {
+    $exams->abort($ole, $ab);
+} catch (\Throwable $e) {
+    $foreign = $e;
+}
+$check($foreign !== null && $exams->show($lea, $ab)['status'] === 'aborted', 'fremde Prüfung lässt sich nicht abbrechen');
+// Bogen: abgebrochener Versuch verdrängt nicht das letzte Ergebnis.
+$paperId = (int) ($exams->overview($lea, $course)['papers'][0]['id'] ?? 0);
+if ($paperId > 0) {
+    $pa = $exams->start($lea, $course, $paperId);
+    $exams->submit($lea, $pa);
+    $pb = $exams->start($lea, $course, $paperId);
+    $exams->abort($lea, $pb);
+    $last = null;
+    foreach ($exams->overview($lea, $course)['papers'] as $paper) {
+        if ((int) $paper['id'] === $paperId) {
+            $last = $paper['last'];
+        }
+    }
+    $check(is_array($last) && $last['session_id'] === $pa && $last['status'] === 'evaluated', 'Bogen: letztes Ergebnis bleibt der gewertete Versuch, nicht der abgebrochene');
+}
+// Abgelaufene Prüfung wird beim Abbruch gewertet statt verworfen.
+$ex = $exams->start($lea, $course, null);
+$wpdb->update($p.'exam_session', ['deadline_at' => gmdate('Y-m-d H:i:s', time() - 3 * HOUR_IN_SECONDS), 'started_at' => gmdate('Y-m-d H:i:s', time() - 5 * HOUR_IN_SECONDS)], ['id' => $ex]);
+$check($exams->abort($lea, $ex) === 'evaluated', 'abgelaufene Prüfung: Abbruch wertet sie stattdessen');
+$abortRoute = false;
+foreach (array_keys(rest_get_server()->get_routes()) as $route) {
+    $abortRoute = $abortRoute || (str_starts_with($route, '/boatingschool/v1/exams/') && str_ends_with($route, '/abort'));
+}
+$check($abortRoute, 'App-API: POST /exams/{examId}/abort registriert');
+
 echo "QA-10: Zugangsende während einer Zufallsprüfung\n";
 $now = current_time('mysql', true);
 $wpdb->insert($p.'access_rule', ['course_code' => 'SBF-SEE', 'feature_code' => 'exam_simulation', 'access_type' => 'free_limited', 'limit_type' => AccessService::LIMIT_TYPES['exam_simulation'], 'limit_value' => 1, 'created_at' => $now, 'updated_at' => $now]);

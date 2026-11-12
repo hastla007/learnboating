@@ -3868,6 +3868,9 @@
 		return api('GET', 'exam-sessions/' + sessionId).then(function (s) {
 			if (s.status === 'running') {
 				examRun(slug, s);
+			} else if (s.status === 'aborted') {
+				// Abgebrochene Prüfung hat kein Ergebnis: zurück zur Prüfungsübersicht des Kurses.
+				navigate(slug + '/pruefung/');
 			} else {
 				examResult(slug, s);
 			}
@@ -4094,6 +4097,15 @@
 					if (retryTimer) { clearTimeout(retryTimer); }
 					retryTimer = null;
 				};
+			},
+			// Prüfung abgebrochen: Nachsenden beenden und gepufferte Antworten verwerfen.
+			discard: function () {
+				stopped = true;
+				finished = true;
+				window.removeEventListener('online', onOnline);
+				if (retryTimer) { clearTimeout(retryTimer); }
+				retryTimer = null;
+				outbox.clear();
 			},
 			submit: function () {
 				submitWaiting = true;
@@ -4334,6 +4346,28 @@
 		var submitButton = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('submit_exam') });
 		submitButton.addEventListener('click', function () { submit(false); });
 
+		// Prüfung abbrechen: ohne Wertung beenden (nach Rückfrage); gepufferte Antworten werden verworfen.
+		var abortButton = el('button', { type: 'button', class: 'bp-link-button bp-exam-abort', text: t('abort_exam') });
+		abortButton.addEventListener('click', function () {
+			if (submitting || isBusy(abortButton) || !window.confirm(t('confirm_abort'))) {
+				return;
+			}
+			submitting = true;
+			setBusy(abortButton, true);
+			api('POST', 'exam-sessions/' + s.id + '/abort').then(function (r) {
+				sender.discard();
+				if (r.status === 'aborted') {
+					navigate(slug + '/pruefung/');
+					return;
+				}
+				examResult(slug, r);
+			}).catch(function (e) {
+				submitting = false;
+				setBusy(abortButton, false);
+				status.textContent = e.message;
+			});
+		});
+
 		mount([
 			el('header', { class: 'bp-hero bp-exam-hero' }, [
 				el('div', { class: 'bp-hero-text' }, [
@@ -4351,7 +4385,7 @@
 					el('div', { class: 'bp-exam-flags' }, [flagCount, el('p', { class: 'bp-switch' }, [onlyFlagged, el('label', { for: 'bp-exam-only-flagged', text: t('exam_only_flagged') })])]),
 					nav,
 					el('p', { class: 'bp-exam-legend', 'aria-hidden': 'true' }, [el('span', { class: 'is-answered' }), t('answered'), el('span'), t('unanswered'), el('span', { class: 'is-flagged' }), t('exam_flagged')]),
-					el('div', { class: 'bp-exam-footer' }, [submitButton, status])
+					el('div', { class: 'bp-exam-footer' }, [submitButton, abortButton, status])
 				])
 			])
 		], examTitle(s));
