@@ -512,10 +512,27 @@ final class ExamService
         }
         $ids = $this->db->get_col($this->db->prepare($sql, $args));
         foreach ($ids as $id) {
-            $this->evaluate((int) $id, true);
+            try {
+                $this->evaluate((int) $id, true);
+            } catch (\Throwable $e) {
+                $this->markBroken((int) $id, $e);
+            }
         }
 
         return count($ids);
+    }
+
+    /**
+     * Eine Sitzung, die sich nicht auswerten lässt (z. B. defekter Regel-Snapshot), blockiert den
+     * Wartungslauf nicht: protokollieren und auf „error“ setzen, damit sie nicht jede Stunde erneut scheitert.
+     */
+    private function markBroken(int $sessionId, \Throwable $e): void
+    {
+        \Bootspruefung\Learning\Infrastructure\Cron::recordError('exam_expire', $e, 'exam_session '.$sessionId);
+        $this->db->update($this->t('exam_session'), [
+            'status' => 'error',
+            'result' => wp_json_encode(['error' => mb_substr($e->getMessage(), 0, 300)]),
+        ], ['id' => $sessionId, 'status' => 'running']);
     }
 
     // ------------------------------------------------------------------
@@ -552,7 +569,8 @@ final class ExamService
                 $correctCount += $isCorrect ? 1 : 0;
             }
             $total = max(count($questions), 1);
-            $parts = $this->partResults($snapshot['passing'], $questions, isset($snapshot['question_parts']) ? (array) $snapshot['question_parts'] : null);
+            $snapshot = is_array($snapshot) ? $snapshot : [];
+            $parts = $this->partResults((array) ($snapshot['passing'] ?? []), $questions, isset($snapshot['question_parts']) ? (array) $snapshot['question_parts'] : null);
             $minRatio = (float) ($snapshot['passing']['min_correct_ratio'] ?? 0.75);
             $passed = $correctCount / $total >= $minRatio - 1e-9 && array_reduce($parts, static fn ($ok, $p) => $ok && $p['passed'], true);
             $this->db->update($this->t('exam_session'), [

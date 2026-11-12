@@ -46,7 +46,7 @@ final class MobileApi
         add_filter('rest_pre_dispatch', [self::class, 'preDispatch'], 10, 3);
         add_filter('rest_request_after_callbacks', [self::class, 'afterCallbacks'], 10, 3);
         add_filter('rest_post_dispatch', [self::class, 'postDispatch'], 10, 3);
-        add_action('bp_learning_hourly', [self::class, 'cleanup']);
+        add_action('bp_learning_hourly', \Bootspruefung\Learning\Infrastructure\Cron::guard('mobile_cleanup', [self::class, 'cleanup']));
         // Datenexport im Hintergrund (Action Scheduler bzw. WP-Cron, seit 1.4.0).
         add_action(PrivacyController::GENERATE_HOOK, [PrivacyController::class, 'generate']);
         // Passwortänderung (Reset, Profil, WooCommerce „Konto-Details“) beendet alle App-Sitzungen.

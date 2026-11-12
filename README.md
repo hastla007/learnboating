@@ -51,6 +51,13 @@ wp bootspruefung reconcile
 wp bootspruefung reconcile --apply
 ```
 
+Zusätzlich gleicht der stündliche Wartungslauf automatisch die seit dem letzten Lauf geänderten Bestellungen ab
+(höchstens 100 je Lauf, nach einer Plugin-Deaktivierung ab deren Zeitpunkt). Er räumt außerdem alte Paketkopien
+(behalten werden das aktive Paket und die letzten zwei veröffentlichten) und Import-Protokolle auf
+(„unverändert“ nach 14, übrige Einträge nach 180 Tagen; Filter `bootspruefung_import_keep_packages`,
+`bootspruefung_import_log_unchanged_days`, `bootspruefung_import_log_days`). Fehler einzelner Einträge bricht
+der Lauf nicht ab; sie stehen in der Option `bp_learning_cron_errors` und im PHP-Fehlerprotokoll.
+
 Prüfung anmelden: Lernende melden sich selbst beim Prüfungsausschuss an; der Lernbereich zeigt je Kurs die
 Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen; für Lernende
 unter Einstellungen › Prüfungsanmeldung freischalten (Standard: aus).

@@ -45,7 +45,7 @@ final class PersonalData
         AccountDeletion::register();
         SelfService::register();
         // Protokoll: Einträge älter als AUDIT_RETENTION_YEARS Jahre löschen (stündlicher Plugin-Cron).
-        add_action('bp_learning_hourly', [self::class, 'pruneAuditLog']);
+        add_action('bp_learning_hourly', \Bootspruefung\Learning\Infrastructure\Cron::guard('audit_prune', [self::class, 'pruneAuditLog']));
     }
 
     /** Aufbewahrung des Protokolls (Nachweis von Zugangs-/Kaufvorgängen, regelmäßige Verjährung 3 Jahre ab Jahresende). */

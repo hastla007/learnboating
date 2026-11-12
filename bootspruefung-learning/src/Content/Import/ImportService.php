@@ -412,6 +412,8 @@ final class ImportService
             }
             throw $e instanceof RuntimeException ? $e : new RuntimeException($e->getMessage(), 0, $e);
         } finally {
+            // Jeder Schritt schreibt Inhalte (Kurse, Module, Fragen): zwischengespeicherte Abfragen verwerfen.
+            \Bootspruefung\Learning\Content\Repositories\ContentCache::invalidate();
             $this->releaseLock($batchId);
         }
     }
@@ -498,7 +500,7 @@ final class ImportService
         $this->updateBatch($batchId, $update);
         if ($done) {
             update_option('bp_learning_active_package', $batch->package_id, true);
-            wp_cache_flush_group('bootspruefung');
+            \Bootspruefung\Learning\Content\Repositories\ContentCache::invalidate();
             AuditLog::record(isset($stats['rollback_of']) ? 'import_rolled_back' : 'import_published', 'import_batch', (string) $batchId, $stats['rollback_reason'] ?? null, ['package_id' => $batch->package_id, 'actions' => $stats['actions'], 'rollback_of' => $stats['rollback_of'] ?? null]);
         }
 
@@ -654,6 +656,12 @@ final class ImportService
         return MediaStorage::packagesDir().'/batch-'.$batchId;
     }
 
+    /** Ablageordner der Paketdateien eines Imports (für Aufräumen und Anzeige; Pfad nur hier festgelegt). */
+    public function packageDir(int $batchId): string
+    {
+        return $this->batchDir($batchId);
+    }
+
     /**
      * Nach einer Neuinstallation beginnen die Import-IDs wieder bei 1; ein noch
      * vorhandener Ordner eines früheren Imports darf nicht mit dem neuen Paket
@@ -668,26 +676,14 @@ final class ImportService
 
     private function acquireLock(int $batchId): bool
     {
-        if (add_option(self::LOCK, $batchId.':'.time(), '', false)) {
-            return true;
-        }
-        [, $since] = array_pad(explode(':', (string) get_option(self::LOCK)), 2, '0');
-        if (time() - (int) $since > 600) {
-            delete_option(self::LOCK);
-
-            return add_option(self::LOCK, $batchId.':'.time(), '', false);
-        }
-
-        return false;
+        // Atomare Sperre (INSERT IGNORE) mit der Import-ID als Besitzer; eine hängengebliebene verfällt nach 10 Minuten.
+        return \Bootspruefung\Learning\Infrastructure\Lock::acquire(self::LOCK, 600, (string) $batchId);
     }
 
     /** Sperre nur freigeben, wenn sie noch diesem Lauf gehört (nach Ablauf kann ein anderer sie übernommen haben). */
     private function releaseLock(int $batchId): void
     {
-        [$owner] = array_pad(explode(':', (string) get_option(self::LOCK, '')), 1, '');
-        if ($owner === (string) $batchId) {
-            delete_option(self::LOCK);
-        }
+        \Bootspruefung\Learning\Infrastructure\Lock::release(self::LOCK, (string) $batchId);
     }
 
     private static function copyDir(string $from, string $to): void
