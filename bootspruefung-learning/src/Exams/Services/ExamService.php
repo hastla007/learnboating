@@ -20,7 +20,11 @@ use RuntimeException;
  *   desselben Bogens wird fortgesetzt statt dupliziert;
  * - keine Lösungen während der Prüfung; offene Fragen erst nach „Musterantwort
  *   anzeigen“ selbst einschätzbar;
- * - Zeit und Bewertung serverseitig; Antworten nach Fristende zählen nicht;
+ * - Zeit und Bewertung serverseitig; Antworten nach Fristende zählen nicht. Antworten, die laut Gerät
+ *   (age_ms bzw. answered_at) vor Fristende gegeben, aber z. B. wegen eines Funklochs später gesendet
+ *   wurden, nimmt der Server bis LATE_TOLERANCE_SECONDS nach Fristende noch an; erst danach wird eine
+ *   abgelaufene Sitzung automatisch ausgewertet. Speichern ist idempotent (gleiche Antwort zweimal =
+ *   einmal), ein älterer Stand überschreibt keinen neueren;
  * - Bestehen = Gesamtquote und alle Teilgrenzen (z. B. Basis 5/7, See 18/23); die Zuordnung
  *   Frage → Teil wird beim Start im Snapshot festgehalten (spätere Modul-Änderungen ändern
  *   keine Ergebnisse); ein Teil ohne Fragen wird nicht gewertet;
@@ -32,6 +36,8 @@ use RuntimeException;
 final class ExamService
 {
     private const GRACE_SECONDS = 5;
+    /** So lange nach Fristende nimmt der Server noch Antworten an, die vor Fristende gegeben wurden (offline gepuffert). */
+    public const LATE_TOLERANCE_SECONDS = 120;
 
     private \wpdb $db;
 
@@ -353,13 +359,35 @@ final class ExamService
         return $base + ['result' => $this->resultView($session, $questions)];
     }
 
-    /** @param list<int> $answerIds */
-    public function saveAnswer(int $userId, int $sessionId, int $position, array $answerIds, ?bool $known): void
+    /**
+     * Speichert die Antwort einer laufenden Prüfung. Zeitpunkt der Antwort: Serverzeit, oder – für Antworten,
+     * die das Gerät zwischengespeichert und später gesendet hat – Serverzeit minus $ageMs bzw. $answeredAt
+     * (Gerätezeit), begrenzt auf [Start (bei offenen Fragen: Anzeige der Musterantwort), jetzt]. Liegt dieser
+     * Zeitpunkt nach Fristende (+ GRACE_SECONDS), wird die Antwort abgewiesen; liegt er vor dem bereits
+     * gespeicherten Stand (verspätet zugestellte ältere Anfrage), bleibt der gespeicherte Stand (applied = false).
+     * @param list<int> $answerIds
+     * @return array{applied:bool,selected_ids:list<int>,known:?bool,answered:bool,answered_at:?string}
+     */
+    public function saveAnswer(int $userId, int $sessionId, int $position, array $answerIds, ?bool $known, ?int $ageMs = null, ?string $answeredAt = null): array
     {
         $session = $this->runningSession($userId, $sessionId);
         $sq = $this->sessionQuestion($sessionId, $position);
         $revision = $this->presenter->revision((int) $sq->revision_id);
-        $data = ['answered_at' => current_time('mysql', true)];
+        $now = time();
+        $at = $now;
+        if ($ageMs !== null) {
+            $at = $now - intdiv(max(0, $ageMs), 1000);
+        } elseif ($answeredAt !== null && $answeredAt !== '' && ($ts = strtotime($answeredAt)) !== false) {
+            $at = min($now, $ts);
+        }
+        $at = max($at, (int) strtotime($session->started_at.' UTC'));
+        if ($revision->question_type === 'open_text' && $sq->revealed_at !== null) {
+            $at = max($at, (int) strtotime($sq->revealed_at.' UTC'));
+        }
+        if ($session->deadline_at !== null && $at > strtotime($session->deadline_at.' UTC') + self::GRACE_SECONDS) {
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_EXPIRED, __('Die Prüfungszeit ist abgelaufen. Diese Antwort wurde nicht mehr gespeichert.', 'bootspruefung-learning'));
+        }
+        $data = ['answered_at' => gmdate('Y-m-d H:i:s', $at)];
         if ($revision->question_type === 'open_text') {
             if ($known === null) {
                 throw new RuntimeException('Bitte Selbsteinschätzung angeben.');
@@ -392,8 +420,23 @@ final class ExamService
             $this->db->query('ROLLBACK');
             throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_FINISHED, 'Die Prüfung ist bereits beendet.');
         }
-        $this->db->update($this->t('exam_session_question'), $data, ['id' => (int) $sq->id]);
+        $current = $this->db->get_row($this->db->prepare("SELECT given_answer, self_assessed_known, answered_at FROM {$this->t('exam_session_question')} WHERE id = %d FOR UPDATE", (int) $sq->id));
+        // Ein älterer Stand (z. B. verspätet nachgesendet) überschreibt keinen neueren.
+        $applied = ! ($current && $current->answered_at !== null && strtotime($current->answered_at.' UTC') > $at);
+        if ($applied) {
+            $this->db->update($this->t('exam_session_question'), $data, ['id' => (int) $sq->id]);
+            $current = $this->db->get_row($this->db->prepare("SELECT given_answer, self_assessed_known, answered_at FROM {$this->t('exam_session_question')} WHERE id = %d", (int) $sq->id));
+        }
         $this->db->query('COMMIT');
+        $given = json_decode((string) ($current->given_answer ?? ''), true) ?: [];
+
+        return [
+            'applied' => $applied,
+            'selected_ids' => array_map('intval', (array) ($given['answer_ids'] ?? [])),
+            'known' => $current && $current->self_assessed_known !== null ? (bool) $current->self_assessed_known : null,
+            'answered' => $current && $current->answered_at !== null,
+            'answered_at' => $current->answered_at ?? null,
+        ];
     }
 
     /**
@@ -403,7 +446,7 @@ final class ExamService
      */
     public function setFlag(int $userId, int $sessionId, int $position, bool $flagged): int
     {
-        $this->runningSession($userId, $sessionId);
+        $this->assertBeforeDeadline($this->runningSession($userId, $sessionId));
         $sq = $this->sessionQuestion($sessionId, $position);
         $this->db->query('START TRANSACTION');
         $status = $this->db->get_var($this->db->prepare("SELECT status FROM {$this->t('exam_session')} WHERE id = %d FOR UPDATE", $sessionId));
@@ -420,7 +463,7 @@ final class ExamService
     /** Musterantwort einer offenen Frage freigeben (Voraussetzung für die Selbsteinschätzung). */
     public function reveal(int $userId, int $sessionId, int $position): string
     {
-        $this->runningSession($userId, $sessionId);
+        $this->assertBeforeDeadline($this->runningSession($userId, $sessionId));
         $sq = $this->sessionQuestion($sessionId, $position);
         $revision = $this->presenter->revision((int) $sq->revision_id);
         if ($revision->question_type !== 'open_text') {
@@ -460,8 +503,9 @@ final class ExamService
     /** Schließt abgelaufene Sitzungen (Cron und vor jedem Zugriff). */
     public function expireRunning(?int $userId = null): int
     {
+        // Erst nach der Kulanz für nachgesendete Antworten auswerten (siehe LATE_TOLERANCE_SECONDS).
         $sql = "SELECT id FROM {$this->t('exam_session')} WHERE status = 'running' AND deadline_at IS NOT NULL AND deadline_at < %s";
-        $args = [gmdate('Y-m-d H:i:s', time() - self::GRACE_SECONDS)];
+        $args = [gmdate('Y-m-d H:i:s', time() - self::LATE_TOLERANCE_SECONDS)];
         if ($userId !== null) {
             $sql .= ' AND user_id = %d';
             $args[] = $userId;
@@ -883,9 +927,18 @@ final class ExamService
         return $timeLimit > 0 ? $summary.' · '.sprintf(__('%d Minuten', 'bootspruefung-learning'), intdiv($timeLimit, 60)) : $summary;
     }
 
+    /** Automatisch auszuwerten: Fristende plus Kulanz für nachgesendete Antworten vorbei. */
     private function expired(object $session): bool
     {
-        return $session->deadline_at !== null && time() > strtotime($session->deadline_at.' UTC') + self::GRACE_SECONDS;
+        return $session->deadline_at !== null && time() > strtotime($session->deadline_at.' UTC') + self::LATE_TOLERANCE_SECONDS;
+    }
+
+    /** Nach Fristende (+ GRACE_SECONDS) keine Musterantworten und Markierungen mehr (Sitzung läuft nur noch für Nachzügler). */
+    private function assertBeforeDeadline(object $session): void
+    {
+        if ($session->deadline_at !== null && time() > strtotime($session->deadline_at.' UTC') + self::GRACE_SECONDS) {
+            throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_EXPIRED, __('Die Prüfungszeit ist abgelaufen.', 'bootspruefung-learning'));
+        }
     }
 
     private function session(int $userId, int $sessionId): object
@@ -908,6 +961,14 @@ final class ExamService
         $code = (string) (json_decode((string) $session->rule_snapshot, true)['course_code'] ?? '');
         if ($code !== '' && ! $this->access->can($userId, $code, AccessService::EXAM)) {
             throw new AccessDenied('Kein Zugriff mehr auf die Prüfungssimulation dieses Kurses.');
+        }
+        // Nur noch der kostenlose Teilumfang (z. B. nach Erstattung, QA-10): wie beim Start nur dessen Bögen.
+        $limit = $code !== '' ? $this->access->limit($userId, $code, AccessService::EXAM) : null;
+        if ($limit !== null) {
+            $allowed = array_slice(array_map(static fn ($p) => (int) $p->id, $this->content->papers((int) $session->course_id)), 0, $limit);
+            if ($session->paper_id === null || ! in_array((int) $session->paper_id, $allowed, true)) {
+                throw new AccessDenied('Kein Zugriff mehr auf die Prüfungssimulation dieses Kurses.');
+            }
         }
         if ($this->expired($session)) {
             $this->evaluate($sessionId, true);

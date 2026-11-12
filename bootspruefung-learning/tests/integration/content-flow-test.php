@@ -238,7 +238,8 @@ $check($s === 422, 'nach Abgabe keine Antworten mehr');
 $paperSession = $d['session_id'];
 [, $e] = $req('GET', "/exam-sessions/{$paperSession}");
 $check($e['mode'] === 'paper' && count($e['questions']) === 30, 'fester Bogen 1 mit 30 Fragen');
-$wpdb->update($p.'exam_session', ['deadline_at' => gmdate('Y-m-d H:i:s', time() - 60)], ['id' => $paperSession]);
+// Fristende plus Kulanz für nachgesendete Antworten (LATE_TOLERANCE_SECONDS) vorbei.
+$wpdb->update($p.'exam_session', ['deadline_at' => gmdate('Y-m-d H:i:s', time() - \Bootspruefung\Learning\Exams\Services\ExamService::LATE_TOLERANCE_SECONDS - 60)], ['id' => $paperSession]);
 [, $e] = $req('GET', "/exam-sessions/{$paperSession}");
 $check($e['status'] === 'evaluated' && $e['result']['expired'] === true, 'abgelaufene Prüfung automatisch abgegeben');
 [, $o] = $req('GET', '/courses/SBF-SEE-BIN/exam');
