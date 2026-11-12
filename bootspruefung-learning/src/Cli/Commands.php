@@ -657,6 +657,7 @@ final class Commands
         ]);
         $files = [];
         $copied = [];
+        $copiedHashes = [];
         $sectionCapabilities = [
             'exam_simulation' => 'exam',
             'navigation_trainer' => 'navigation',
@@ -726,6 +727,7 @@ final class Commands
                     WP_CLI::error("Geschützte Datei {$id} wurde nicht vollständig ins Staging übernommen.");
                 }
                 $copied[$id] = $relativePath;
+                $copiedHashes[$id] = $sourceHash;
             }
 
             foreach (array_values(array_unique($courseCodes)) as $courseCode) {
@@ -734,6 +736,7 @@ final class Commands
                     'course_code' => (string) $courseCode,
                     'source_key' => 'wp:attachment:'.$id,
                     'file' => $copied[$id],
+                    'sha256' => $copiedHashes[$id],
                     'category' => $category,
                     'section_key' => $sectionKey,
                     'title' => html_entity_decode(wp_strip_all_tags((string) get_the_title($post)), ENT_QUOTES, 'UTF-8'),
