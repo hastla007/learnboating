@@ -30,10 +30,11 @@ final class ContentRepository
     /** @return list<object> veröffentlichte Kurse in Sortierung */
     public function courses(): array
     {
-        return $this->db->get_results($this->db->prepare(
+        // Ändert sich nur beim Import (ContentCache::invalidate()).
+        return ContentCache::remember($this->db->prefix.'courses', fn (): array => $this->db->get_results($this->db->prepare(
             "SELECT * FROM {$this->t('course')} WHERE status = 'published' AND source_system = %s ORDER BY sort_order, id",
             EntityImporter::SOURCE_SYSTEM
-        ));
+        )));
     }
 
     public function courseByCode(string $code): ?object
@@ -56,12 +57,29 @@ final class ContentRepository
     /** @return list<object> Module des Kurses (id, code, name, sort_order) */
     public function modules(int $courseId): array
     {
-        return $this->db->get_results($this->db->prepare(
-            "SELECT m.id, m.code, m.name, cm.sort_order FROM {$this->t('course_module')} cm JOIN {$this->t('module')} m ON m.id = cm.module_id
-             WHERE cm.course_id = %d AND m.status <> %s ORDER BY cm.sort_order, m.id",
-            $courseId,
-            EntityImporter::ARCHIVED
-        ));
+        return $this->modulesByCourse()[$courseId] ?? [];
+    }
+
+    /**
+     * Module aller Kurse mit einer Abfrage (Kursübersichten fragen sonst je Kurs mehrfach).
+     * @return array<int,list<object>> course_id => Module (id, code, name, sort_order)
+     */
+    private function modulesByCourse(): array
+    {
+        return ContentCache::remember($this->db->prefix.'modules_by_course', function (): array {
+            $out = [];
+            foreach ($this->db->get_results($this->db->prepare(
+                "SELECT cm.course_id, m.id, m.code, m.name, cm.sort_order FROM {$this->t('course_module')} cm JOIN {$this->t('module')} m ON m.id = cm.module_id
+                 WHERE m.status <> %s ORDER BY cm.course_id, cm.sort_order, m.id",
+                EntityImporter::ARCHIVED
+            )) as $row) {
+                $courseId = (int) $row->course_id;
+                unset($row->course_id);
+                $out[$courseId][] = $row;
+            }
+
+            return $out;
+        });
     }
 
     /** WHERE-Bedingung für auslieferbare Fragen (Aliase q, r, o). */
@@ -100,14 +118,16 @@ final class ContentRepository
             return [];
         }
         $in = implode(',', array_map('intval', $moduleIds));
+        // Je Modulmenge und Tag (Gültigkeitsdaten der Revisionen) zwischenspeichern; Import und Overrides leeren.
+        $key = $this->db->prefix.'questions:'.md5($in).':'.current_time('Y-m-d');
 
-        return $this->db->get_results(
+        return ContentCache::remember($key, fn (): array => $this->db->get_results(
             "SELECT q.id AS question_id, r.id AS revision_id, mq.module_id, COALESCE(NULLIF(r.smart_category, ''), r.topic) AS topic, r.question_type
              FROM {$this->t('module_question')} mq JOIN {$this->t('question')} q ON q.id = mq.question_id
              JOIN {$this->t('question_revision')} r ON r.id = q.current_revision_id ".Overrides::rightsJoin('question', 'q', 'o')."
              WHERE mq.module_id IN ({$in}) AND ".$this->deliverableQuestionSql().'
              ORDER BY FIELD(mq.module_id, '.$in.'), COALESCE(mq.sort_order, 2147483647), q.id'
-        );
+        ));
     }
 
     public function isDeliverable(int $questionId): bool

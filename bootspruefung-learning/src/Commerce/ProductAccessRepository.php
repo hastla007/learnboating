@@ -124,11 +124,34 @@ final class ProductAccessRepository
      */
     public function grantingProducts(string $courseCode, string $feature): array
     {
+        if (\Bootspruefung\Learning\Infrastructure\RequestMemo::active()) {
+            // Lesende REST-Anfrage (Kursübersicht): alle Zuordnungen einmal laden statt je Kurs und Bereich.
+            $out = [];
+            foreach ($this->activeMappings() as $r) {
+                if ($r->course_code === $courseCode && in_array($r->feature_code, [$feature, self::FEATURE_ALL], true)) {
+                    $out[$r->product_id.'|'.$r->variation_id] = ['product_id' => (int) $r->product_id, 'variation_id' => (int) $r->variation_id];
+                }
+            }
+            usort($out, static fn ($a, $b) => [$a['product_id'], $a['variation_id']] <=> [$b['product_id'], $b['variation_id']]);
+
+            return array_values($out);
+        }
         $rows = $this->db->get_results($this->db->prepare(
             "SELECT DISTINCT product_id, variation_id FROM {$this->table} WHERE active = 1 AND course_code = %s AND feature_code IN (%s, %s) ORDER BY product_id",
             $courseCode, $feature, self::FEATURE_ALL
         ));
 
         return array_map(static fn ($r) => ['product_id' => (int) $r->product_id, 'variation_id' => (int) $r->variation_id], $rows);
+    }
+
+    /**
+     * Alle aktiven Zuordnungen (Kurs, Bereich, Produkt, Variation) – innerhalb einer lesenden REST-Anfrage nur einmal geladen.
+     * @return list<object>
+     */
+    public function activeMappings(): array
+    {
+        return \Bootspruefung\Learning\Infrastructure\RequestMemo::get('product_access_active:'.$this->table, fn (): array => $this->db->get_results(
+            "SELECT DISTINCT course_code, feature_code, product_id, variation_id FROM {$this->table} WHERE active = 1 ORDER BY product_id, variation_id"
+        ));
     }
 }

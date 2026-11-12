@@ -91,7 +91,7 @@ final class Overrides
             $count++;
         }
         AuditLog::record('override_'.$field, $type, implode(',', array_slice($ids, 0, 50)).(count($ids) > 50 ? ',…' : ''), $reason, ['value' => $value, 'count' => count($ids)]);
-        wp_cache_flush_group('bootspruefung');
+        ContentCache::invalidate();
 
         return $count;
     }
