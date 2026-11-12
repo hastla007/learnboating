@@ -117,6 +117,7 @@ final class Integration
         (new SimUpgrade())->register();
         (new VideoUpgrade())->register();
         (new CartRelationHint())->register();
+        (new CartDuplicateHint())->register(); // Hinweis gegen Doppelkäufe (schon gekauft bzw. bestellt, Verlängerung)
         (new PriceNote())->register();
         (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
@@ -347,8 +348,8 @@ final class Integration
         $groups = [];
         $sim = [];
         foreach ($rows as $row) {
-            $key = $row['course'].'|'.$row['status'].'|'.$row['valid_until'];
-            $groups[$key] ??= ['course' => $row['course'], 'status' => $row['status'], 'valid_until' => $row['valid_until'], 'features' => []];
+            $key = $row['course'].'|'.$row['status'].'|'.$row['valid_until'].'|'.($row['status'] === EntitlementPlanner::PENDING ? (int) ($row['order_id'] ?? 0) : '');
+            $groups[$key] ??= ['course' => $row['course'], 'status' => $row['status'], 'valid_until' => $row['valid_until'], 'duration_days' => $row['duration_days'] ?? null, 'order_id' => $row['order_id'] ?? null, 'features' => []];
             $groups[$key]['features'][] = (string) $row['feature'];
         }
         foreach ($groups as $key => $g) {
@@ -375,14 +376,37 @@ final class Integration
             $cell = $g['status'] === EntitlementPlanner::ACTIVE
                 ? '<a href="'.esc_url(Router::url(ContentRepository::slug($g['course']))).'">'.esc_html($course).'</a>'
                 : esc_html($course);
-            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', $cell, esc_html($scope($g['features'])), esc_html(Labels::status($g['status'])), esc_html(Labels::date($g['valid_until'])));
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', $cell, esc_html($scope($g['features'])), self::statusCell($g), esc_html(Labels::validity($g['status'], $g['valid_until'], $g['duration_days'])));
         }
         foreach ($sim as $g) {
-            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html__('Funkgerät-Simulator (SRC/UBI)', 'bootspruefung-learning'), esc_html(Labels::feature(\Bootspruefung\Learning\Learning\Services\AccessService::DEVICE)), esc_html(Labels::status($g['status'])), esc_html(Labels::date($g['valid_until'])));
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html__('Funkgerät-Simulator (SRC/UBI)', 'bootspruefung-learning'), esc_html(Labels::feature(\Bootspruefung\Learning\Learning\Services\AccessService::DEVICE)), self::statusCell(['course' => ''] + $g), esc_html(Labels::validity($g['status'], $g['valid_until'], $g['duration_days'])));
         }
         echo '</tbody></table></div>';
+        \Bootspruefung\Learning\Commerce\ReminderOptOut::renderAccountSection(get_current_user_id());
         MoneyBackWoo::renderAccountSection(get_current_user_id());
         WithdrawalFunction::renderAccountSection(get_current_user_id());
+    }
+
+    /**
+     * Status-Zelle in „Mein Lernen“ (maskiertes HTML): offene Zahlung mit Link zur Bestellung (dort stehen die
+     * Zahlungsdaten), abgelaufen mit „Verlängern“ (gekaufte Stufe).
+     * @param array<string,mixed> $g
+     */
+    private static function statusCell(array $g): string
+    {
+        $html = esc_html(Labels::status((string) $g['status']));
+        if ($g['status'] === EntitlementPlanner::PENDING && ! empty($g['order_id'])) {
+            $order = \Bootspruefung\Learning\Commerce\AccessStatus::order((int) $g['order_id']);
+            if ($order !== null && $order['url'] !== null) {
+                /* translators: %s: order number */
+                $html .= ' · <a href="'.esc_url($order['url']).'">'.esc_html(sprintf(__('Bestellung #%s', 'bootspruefung-learning'), $order['number'])).'</a>';
+            }
+        } elseif ($g['status'] === EntitlementPlanner::EXPIRED && ! empty($g['course'])) {
+            $url = \Bootspruefung\Learning\Commerce\ExpiryReminder::renewUrl((string) $g['course'], get_current_user_id());
+            $html .= ' · <a href="'.esc_url($url).'">'.esc_html__('Verlängern', 'bootspruefung-learning').'</a>';
+        }
+
+        return $html;
     }
 
     public function thankYou($orderId): void

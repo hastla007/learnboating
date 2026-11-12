@@ -17,6 +17,11 @@ use Bootspruefung\Learning\Support\Mail;
  * mehrere Kurse eines Nutzers in einer Mail. Keine Erinnerung, wenn für denselben Kurs ein späterer
  * (z. B. Verlängerung) oder unbefristeter Zugang besteht, für den kostenlosen Teilumfang (keine
  * Zugänge) und solange „Zugang ohne Shop“ alle angemeldeten Nutzer freischaltet.
+ *
+ * Die Mail ist sachlich („Zugang läuft am … ab“), das Verlängern steht nur als Link darin (gekaufte Stufe).
+ * Weil sie trotzdem als Werbung gelten kann (Bestandskunden, § 7 Abs. 3 UWG), enthält jede Mail den
+ * Hinweis auf das Widerspruchsrecht mit Abmeldelink (ReminderOptOut, auch als List-Unsubscribe);
+ * wer widersprochen hat, bekommt keine Erinnerung mehr.
  */
 final class ExpiryReminder
 {
@@ -136,12 +141,19 @@ final class ExpiryReminder
         return array_fill_keys(array_map('strval', $codes), true);
     }
 
-    /** Verlängern: erstes passendes Shop-Angebot für den Fragenkatalog, sonst die Kursseite im Lernbereich. */
-    public static function renewUrl(string $courseCode): string
+    /**
+     * Verlängern: mit Nutzer die gekaufte Stufe (Produkt des Zugangs, mit Videokurs die Komplett-Stufe),
+     * sonst bzw. ohne kaufbares Produkt das erste passende Shop-Angebot, ohne Shop die Kursseite im Lernbereich.
+     *
+     * @param array<string,array<string,mixed>>|null $states Kaufstatus des Nutzers (AccessStatus::forUser), falls schon geladen
+     */
+    public static function renewUrl(string $courseCode, ?int $userId = null, ?array $states = null): string
     {
-        $offers = Integration::offers($courseCode, [AccessService::QUESTION_BANK => false]);
+        if ($userId !== null && $userId > 0) {
+            $states ??= AccessStatus::forUser($userId);
+        }
 
-        return (string) ($offers[AccessService::QUESTION_BANK][0]['url'] ?? Router::url(strtolower($courseCode)));
+        return AccessStatus::renewUrl($courseCode, $states[$courseCode] ?? null);
     }
 
     /** Ablaufdatum im deutschen Format (Zeitzone der Website). */
@@ -162,8 +174,8 @@ final class ExpiryReminder
         $sent = 0;
         foreach (self::expiring(null, null, $now) as $userId => $courses) {
             $user = get_userdata($userId);
-            if (! $user || ! is_email((string) $user->user_email)) {
-                continue;
+            if (! $user || ! is_email((string) $user->user_email) || ReminderOptOut::optedOut($userId)) {
+                continue; // ohne Adresse oder nach Widerspruch keine Erinnerung
             }
             $done = self::reminded($userId, $now);
             $new = [];
@@ -177,7 +189,7 @@ final class ExpiryReminder
             }
             asort($new);
             [$subject, $body] = self::mail($user, $new);
-            if (! Mail::send((string) $user->user_email, $subject, $body)) {
+            if (! Mail::send((string) $user->user_email, $subject, $body, ['List-Unsubscribe: <'.ReminderOptOut::url($userId).'>'])) {
                 continue; // beim nächsten Lauf erneut versuchen
             }
             foreach ($new as $code => $until) {
@@ -211,35 +223,40 @@ final class ExpiryReminder
     }
 
     /**
+     * Sachliche Erinnerung: welcher Zugang wann abläuft, Lernstand bleibt; Verlängern nur als Link zur
+     * gekauften Stufe; Hinweis auf das Widerspruchsrecht mit Abmeldelink (ohne Anmeldung).
+     *
      * @param array<string,string> $courses Kurscode => Ende
      * @return array{0:string,1:string} Betreff, Text
      */
     public static function mail(\WP_User $user, array $courses): array
     {
         $d = 'bootspruefung-learning';
+        $userId = (int) $user->ID;
+        $states = AccessStatus::forUser($userId);
         $name = trim((string) $user->first_name);
         /* translators: %s: first name */
         $lines = [$name !== '' ? sprintf(__('Hallo %s,', $d), $name) : __('Hallo,', $d), ''];
         if (count($courses) === 1) {
             $code = (string) array_key_first($courses);
             $course = Labels::course($code);
-            /* translators: %s: course name */
-            $subject = sprintf(__('Dein Zugang zu %s endet bald', $d), $course);
             /* translators: 1: course name, 2: date */
-            $lines[] = sprintf(__('dein Zugang zu %1$s endet am %2$s.', $d), $course, self::date($courses[$code]));
+            $subject = sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab', $d), $course, self::date($courses[$code]));
+            /* translators: 1: course name, 2: date */
+            $lines[] = sprintf(__('dein Zugang zu %1$s läuft am %2$s ab.', $d), $course, self::date($courses[$code]));
             $lines[] = __('Dein Lernstand bleibt erhalten.', $d);
             $lines[] = '';
             /* translators: %s: link */
-            $lines[] = sprintf(__('Jetzt verlängern: %s', $d), self::renewUrl($code));
+            $lines[] = sprintf(__('Verlängern: %s', $d), self::renewUrl($code, $userId, $states));
         } else {
-            $subject = __('Deine Lernzugänge enden bald', $d);
-            $lines[] = __('diese Zugänge enden bald:', $d);
+            $subject = __('Deine Lernzugänge laufen bald ab', $d);
+            $lines[] = __('diese Zugänge laufen bald ab:', $d);
             $lines[] = '';
             foreach ($courses as $code => $until) {
                 /* translators: 1: course name, 2: date */
-                $lines[] = '- '.sprintf(__('%1$s: endet am %2$s', $d), Labels::course($code), self::date($until));
+                $lines[] = '- '.sprintf(__('%1$s: läuft am %2$s ab', $d), Labels::course($code), self::date($until));
                 /* translators: %s: link */
-                $lines[] = '  '.sprintf(__('Jetzt verlängern: %s', $d), self::renewUrl($code));
+                $lines[] = '  '.sprintf(__('Verlängern: %s', $d), self::renewUrl($code, $userId, $states));
             }
             $lines[] = '';
             $lines[] = __('Dein Lernstand bleibt erhalten.', $d);
@@ -247,11 +264,17 @@ final class ExpiryReminder
         $lines[] = '';
         /* translators: %s: link */
         $lines[] = sprintf(__('Zum Lernbereich: %s', $d), Router::url());
+        $lines[] = '';
+        $lines[] = '-- ';
+        $lines[] = __('Du bekommst diese Erinnerung, weil du bei uns einen Lernzugang gekauft hast.', $d);
+        /* translators: %s: link */
+        $lines[] = sprintf(__('Du kannst diesen Erinnerungen jederzeit widersprechen, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen. Abbestellen: %s', $d), ReminderOptOut::url($userId));
+        $lines[] = __('Oder in deinem Konto unter „Mein Lernen“.', $d);
 
         return [$subject, implode("\n", $lines)];
     }
 
-    /** Datenschutz-Löschung: Merker entfernen. */
+    /** Datenschutz-Löschung: Merker entfernen (der Widerspruch bleibt bestehen). */
     public static function forget(int $userId): bool
     {
         return (bool) delete_user_meta($userId, self::META);

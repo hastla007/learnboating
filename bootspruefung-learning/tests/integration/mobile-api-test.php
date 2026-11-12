@@ -352,8 +352,43 @@ $wpdb->insert($p.'access_rule', ['course_code' => 'UBI', 'feature_code' => 'ques
 $trialRule = (int) $wpdb->insert_id;
 $list3 = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code');
 $check(($list3['UBI']['access']['trial'] ?? false) === true && $list3['UBI']['access']['expires_soon'] === false && $list3['SRC']['relation']['recommended'] === false && $list3['SRC-UBI']['relation']['hidden'] === false, 'Teilumfang UBI: keine Empfehlung, nichts ausgeblendet, kein Ablaufhinweis');
+echo "Kaufstatus: Zahlung offen, abgelaufen, gesperrt (1.11.0)\n";
+// Teilumfang UBI bleibt aktiv: pending/expired/suspended haben Vorrang vor limited (bisher immer limited).
+$stNow = current_time('mysql', true);
+$pendOrder = 990777;
+$pendNumber = '990777';
+if (function_exists('wc_create_order')) {
+    $o = wc_create_order(['customer_id' => $alice]);
+    $o->set_payment_method('bacs');
+    $o->set_status('on-hold');
+    $o->save();
+    $pendOrder = (int) $o->get_id();
+    $pendNumber = (string) $o->get_order_number();
+}
+$stRow = static fn (string $status, ?string $from, ?string $until, string $ref) => ['user_id' => $alice, 'course_code' => 'UBI', 'feature_code' => 'question_bank', 'status' => $status, 'valid_from' => $from, 'valid_until' => $until,
+    'source' => 'woo', 'reference_key' => 'app-st-'.$ref, 'order_id' => $pendOrder, 'sku_snapshot' => 'BP-UBI', 'meta' => wp_json_encode(['duration_days' => 365]), 'created_at' => $stNow, 'updated_at' => $stNow];
+$wpdb->insert($p.'entitlement', $stRow('pending', null, null, 'pend'));
+$u = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code')['UBI'] ?? [];
+$check(($u['access']['status'] ?? null) === 'pending' && $u['access']['trial'] === true && $u['access']['order_number'] === $pendNumber && $u['access']['duration_days'] === 365 && $u['webshop_url'] === null && ($u['features']['smarttrainer']['available'] ?? false) === true,
+    'Zahlung offen: status pending (nicht limited) mit Bestellnummer und Laufzeit, kein Shop-Link, Teilumfang nutzbar');
+$check(! function_exists('wc_create_order') || (is_string($u['access']['order_url']) && str_contains($u['access']['order_url'], (string) $pendOrder)), 'Zahlung offen: order_url zur Bestellung in „Mein Konto“');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE reference_key LIKE %s", 'app-st-%'));
+$wpdb->insert($p.'entitlement', $stRow('active', gmdate('Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS), gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS), 'exp'));
+$u = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code')['UBI'] ?? [];
+$check(($u['access']['status'] ?? null) === 'expired' && $u['access']['trial'] === true && is_string($u['access']['renew_url']) && $u['access']['renew_url'] !== '' && $u['webshop_url'] === $u['access']['renew_url'] && $u['access']['valid_until'] !== null,
+    'abgelaufen: status expired (nicht limited) mit renew_url (auch webshop_url) und Ende');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE reference_key LIKE %s", 'app-st-%'));
+$wpdb->insert($p.'entitlement', $stRow('suspended', gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS), gmdate('Y-m-d H:i:s', time() + 300 * DAY_IN_SECONDS), 'susp'));
+$u = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code')['UBI'] ?? [];
+$check(($u['access']['status'] ?? null) === 'suspended' && array_key_exists('contact_url', $u['access']) && $u['webshop_url'] === null, 'gesperrt: status suspended mit contact_url, kein Shop-Link');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE reference_key LIKE %s", 'app-st-%'));
+if (function_exists('wc_create_order') && isset($o)) {
+    $o->delete(true);
+}
+$u = array_column($api('GET', '/courses?per_page=100', [], $tokenA)['body']['data'], null, 'code')['UBI'] ?? [];
+$check(($u['access']['status'] ?? null) === 'limited' && $u['access']['order_number'] === null && $u['access']['renew_url'] === null, 'ohne Kauf wieder limited');
 $wpdb->delete($p.'access_rule', ['id' => $trialRule]);
-$ov = $api('GET', "/courses/{$courseId}/overview", [], $tokenA);
+$ov =$api('GET', "/courses/{$courseId}/overview", [], $tokenA);
 $check($ov['status'] === 200 && count($ov['body']['data']['modules']) > 0 && $ov['body']['data']['continue_learning']['mode'] === 'smarttrainer', 'Übersicht mit Modulen und Weiterlernen');
 $cl = $ov['body']['data']['continue_learning'];
 $clMod = array_values(array_filter($ov['body']['data']['modules'], static fn ($m) => $m['id'] === $cl['module_id']))[0] ?? null;

@@ -8,6 +8,12 @@
 defined('ABSPATH') || exit;
 
 $bp_content = static function (): void {
+    if (\Bootspruefung\Learning\Commerce\ReminderOptOut::isRequest()) {
+        // Abmeldelink der Ablauf-Erinnerung: ohne Anmeldung und ohne App-Skript.
+        echo '<div class="bp-app">'.\Bootspruefung\Learning\Commerce\ReminderOptOut::page().'</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- in page() maskiert
+
+        return;
+    }
     echo '<div id="bp-app" class="bp-app" aria-live="polite">';
     if (! is_user_logged_in()) {
         $here = home_url(add_query_arg([], (string) wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));

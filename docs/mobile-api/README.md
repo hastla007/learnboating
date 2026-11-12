@@ -233,6 +233,16 @@ einen geschützten Übertragungsweg legen.
    Zahlung offen, `expired`, `suspended`, `revoked`, `not_granted`), `features` je Bereich,
    `webshop_url` (im Systembrowser öffnen; nach dem Kauf mit demselben Konto ist der Zugang sofort da –
    Kursliste neu laden). Details mit Kaufangeboten je Bereich: `GET /courses/{id}`.
+   **Kaufstatus (seit 1.11.0):** `pending`, `suspended` und `expired` haben Vorrang vor `limited`; der
+   kostenlose Teilumfang bleibt nutzbar (erkennbar an `trial: true`, `limits` und `features`).
+   - `pending` → Screen 88 „Zahlung noch offen“: Bestellung `access.order_number`, Link
+     `access.order_url` (Bestellung in „Mein Konto“ mit den Zahlungsdaten, im Systembrowser öffnen),
+     Laufzeit `access.duration_days` ab Zahlungseingang; `webshop_url` ist `null` (kein Doppelkauf).
+     „Kurse erneut laden“ = `GET /courses`.
+   - `expired` → Screen 25 „Kurszugang abgelaufen“: Ende in `access.valid_until`, „Kurszugang
+     verlängern“ über `access.renew_url` (gekaufte Stufe; auch `webshop_url`). Der Lernstand bleibt.
+   - `suspended` → Screen 89 „Zugang ausgesetzt“ (z. B. Zahlungsstreit/Rückbuchung): Kontakt über
+     `access.contact_url` (bzw. `legal.contact` aus `/health`); `webshop_url` ist `null`.
 6. **Smarttrainer:** `GET /courses/{id}/trainer/next?mode=…` → Frage + `answer_token` (2 h gültig).
    Antwort: `POST /courses/{id}/attempts` mit `answer_token`, `selected_answer_ids` und Header
    `Idempotency-Key` (UUID, pro Antwort neu, bei Netzwiederholung gleich). Offene Fragen
@@ -519,7 +529,7 @@ beibehalten, wo es passt. Abweichungen:
 | E-Mail-Bestätigung | eingeschränkte Sitzung, `EMAIL_NOT_VERIFIED`, `POST /auth/email/verification-notification` | Konten gelten als bestätigt (`email_verified: true`); der Endpunkt ist entfernt (seit 1.1.0 → 404). Die App bietet **keinen** Bestätigungsablauf an | WooCommerce-Konten haben keine Bestätigung; keine künstliche Sperre |
 | Tenant | mehrere Mitgliedschaften | Ein Shop = ein Tenant (Slug einstellbar); Mitglied = jedes angemeldete Kundenkonto | Plattform ist ein Shop |
 | IDs | Strings | Strings mit numerischen Werten; `courseId` = `bp_course.id`, Kurscode wird auch akzeptiert | Vorgabe; Code bequem für Tests |
-| Zugangsstatus | active/expired/suspended/revoked/not_granted | zusätzlich `limited` (Schnupper-Umfang) und `pending` (Zahlung offen), dazu `trial`, `purchased`, `limits` | Plattform kennt Teilumfang und Zahlungsstatus |
+| Zugangsstatus | active/expired/suspended/revoked/not_granted | zusätzlich `limited` (Schnupper-Umfang) und `pending` (Zahlung offen, seit 1.11.0 vor `limited`), dazu `trial`, `purchased`, `limits`, `order_url`, `renew_url` | Plattform kennt Teilumfang und Zahlungsstatus |
 | Fähigkeiten | feste Liste | nur was der Kurs enthält (+ `favorites`, `funk`); `features` mit Zugriff je Bereich | Kurse unterscheiden sich stark |
 | Shop-Link | Link je Tenant | passendstes WooCommerce-Angebot (`Integration::offers`, günstigstes zuerst); Details: Angebote je gesperrtem Bereich | wie im Web-Lernbereich |
 | Smarttrainer-Regel | „3 gespeicherte Versuche → erledigt“ | Regeln des Web-Smarttrainers: gefestigt nach 3 richtigen in Folge mit Abstand; Felder `attempts_completed/attempts_required/attempt_number` entfallen, dafür `progress` (Status, Serie, Versuche) | Gleicher Lernstand Web/App; Regel des Konzepts widerspricht der Plattform |
@@ -664,6 +674,30 @@ beibehalten, wo es passt. Abweichungen:
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.11.0 (additiv)
+
+- **Kaufstatus sichtbar (Zahlung offen, abgelaufen, gesperrt):** `access.status` liefert `pending`,
+  `suspended` bzw. `expired` jetzt auch, wenn der Kurs einen kostenlosen Teilumfang hat (bisher kam
+  dann immer `limited`, entgegen dieser Doku). Reihenfolge: `active` vor `pending` vor `suspended` vor
+  `expired` vor `limited` vor `revoked`/`not_granted`. Der Teilumfang bleibt nutzbar (`trial`, `limits`,
+  `features` unverändert). Grundlage ist der Zugang zum Fragenkatalog (`AccessService::purchaseStates`,
+  dieselbe Logik wie im Web-Lernbereich). „Zahlung offen“ gilt nur, solange die Bestellung im Shop
+  ausstehend oder in Wartestellung ist.
+- Neue Felder im Zugangs-Objekt `access`: `order_number`, `order_url` (bei `pending`; Bestellansicht in
+  „Mein Konto“), `duration_days` (bei `pending`: Laufzeit ab Zahlungseingang, `null` = unbefristet),
+  `contact_url` (bei `suspended`). `renew_url` gibt es jetzt auch bei `expired` und führt (auch bei
+  `expires_soon`) zur **gekauften Stufe** (Theorie bzw. Komplett, wenn der Videokurs dabei war; Kombi,
+  Bundle, Pass) statt zum ersten Angebot.
+- `webshop_url` (Kurs und 403-`details`) ist bei `pending` und `suspended` `null`, bei `expired` der
+  Verlängern-Link. Meldung bei 403 `ENTITLEMENT_REQUIRED` mit `access_status: pending`: „Deine Zahlung
+  ist noch offen …“.
+- **Ältere App-Versionen:** Wer `limited` als einzigen Testkurs-Status behandelt, sieht einen Testkurs mit
+  offener Zahlung bzw. abgelaufenem Kauf jetzt als `pending`/`expired`; der Teilumfang ist weiter über
+  `trial`/`features` erkennbar.
+- Server (nicht App-sichtbar): Ablauf-Erinnerung mit Widerspruchshinweis und Abmeldelink, Schalter
+  unter „Mein Konto“ › „Mein Lernen“; Hinweis im Warenkorb bei schon gekauften bzw. bestellten Kursen.
+  Keine Datenbankänderung, keine neuen Routen.
 
 ### 1.10.0 (additiv)
 

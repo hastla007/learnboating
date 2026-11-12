@@ -138,8 +138,119 @@ final class AccessService
     }
 
     /**
-     * Zeitpunkt (UTC), ab dem ein Modul/Kapitel freigegeben ist; null = sofort.
+     * Kaufstatus des Fragenkatalogs je Kurs (eine Abfrage je Nutzer) für Hinweise in Lernbereich,
+     * App und Warenkorb: „Zahlung offen“, „Abgelaufen – verlängern“, „Gesperrt“. Rechte entscheiden
+     * weiter scope()/scopes(); der kostenlose Teilumfang bleibt davon unberührt.
+     *
+     * @param callable(int):bool|null $orderOpen prüft, ob die Bestellung eines offenen Zugangs noch auf Zahlung
+     *                                         wartet (z. B. WooCommerce-Status); sonst zählt der Zugang nicht als offen
+     * @return array<string,array<string,mixed>> Kurscode => siehe stateFromRows()
      */
+    public function purchaseStates(int $userId, ?string $now = null, ?callable $orderOpen = null): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT course_code, feature_code, status, valid_from, valid_until, order_id, product_id, sku_snapshot, source, meta
+             FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d AND feature_code IN (%s, %s, 'all') ORDER BY id",
+            $userId, self::QUESTION_BANK, self::VIDEO
+        ));
+        $by = [];
+        $open = [];
+        foreach ($rows as $row) {
+            if ($row->status === 'pending' && $orderOpen !== null) {
+                $id = (int) $row->order_id;
+                if (! ($open[$id] ??= $id > 0 && $orderOpen($id))) {
+                    continue;
+                }
+            }
+            $by[(string) $row->course_code][] = $row;
+        }
+        $now ??= current_time('mysql', true);
+        $out = [];
+        foreach ($by as $code => $list) {
+            $state = self::stateFromRows($list, $now);
+            if ($state !== null) {
+                $out[$code] = $state;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Kaufstatus eines Kurses aus seinen Zugängen (ohne Datenbank).
+     *
+     * Reihenfolge: active (gültiger Zugang, Ende = spätestes Ende inkl. angeschlossener Verlängerung,
+     * null = unbefristet) vor pending (Bestellung wartet auf Zahlung) vor suspended (gesperrt, z. B.
+     * Zahlungsstreit/Rückbuchung, solange die Laufzeit nicht vorbei ist) vor expired (Laufzeit vorbei).
+     * Erstattete/stornierte Zugänge (revoked) ergeben keinen Status. Offene Bestellungen stehen
+     * zusätzlich in `pending_orders` (auch neben einem aktiven Zugang, z. B. Verlängerung per Überweisung).
+     *
+     * @param list<object> $rows Zugänge eines Kurses (feature_code question_bank, video_course oder all)
+     * @return array{status:string,valid_until:?string,order_id:?int,product_id:?int,sku:?string,source:?string,duration_days:?int,pending_orders:list<int>,video:bool}|null
+     */
+    public static function stateFromRows(array $rows, string $now): ?array
+    {
+        $bank = array_values(array_filter($rows, static fn ($r) => in_array((string) $r->feature_code, [self::QUESTION_BANK, 'all'], true)));
+        $isActive = static fn ($r): bool => $r->status === 'active' && ($r->valid_until === null || $r->valid_until >= $now);
+        $current = array_filter($bank, static fn ($r) => $isActive($r) && ($r->valid_from === null || $r->valid_from <= $now));
+        $pending = array_values(array_filter($bank, static fn ($r) => $r->status === 'pending'));
+        $suspended = array_values(array_filter($bank, static fn ($r) => $r->status === 'suspended' && ($r->valid_until === null || $r->valid_until >= $now)));
+        $ended = array_values(array_filter($bank, static fn ($r) => ($r->status === 'active' || $r->status === 'expired') && $r->valid_until !== null && $r->valid_until < $now));
+        $pendingOrders = array_values(array_unique(array_filter(array_map(static fn ($r) => (int) $r->order_id, $pending))));
+        $latest = static function (array $list): object {
+            usort($list, static fn ($a, $b) => strcmp((string) $b->valid_until, (string) $a->valid_until));
+
+            return $list[0];
+        };
+        $days = static function (object $row): ?int {
+            $meta = json_decode((string) ($row->meta ?? ''), true);
+            $d = is_array($meta) && isset($meta['duration_days']) ? (int) $meta['duration_days'] : 0;
+
+            return $d > 0 ? $d : null;
+        };
+        if ($current !== []) {
+            $status = 'active';
+            $valid = array_filter($bank, $isActive); // inkl. angeschlossener Verlängerung (beginnt später)
+            $ends = array_map(static fn ($r) => $r->valid_until, $valid);
+            $until = in_array(null, $ends, true) ? null : (string) max($ends);
+            $ref = $until === null ? array_values($valid)[0] : $latest(array_values($valid));
+        } elseif ($pending !== []) {
+            $status = 'pending';
+            $ref = $pending[count($pending) - 1]; // jüngste offene Bestellung
+            $until = null;
+        } elseif ($suspended !== []) {
+            $status = 'suspended';
+            $ref = $suspended[count($suspended) - 1];
+            $until = $ref->valid_until;
+        } elseif ($ended !== []) {
+            $status = 'expired';
+            $ref = $latest($ended);
+            $until = (string) $ref->valid_until;
+        } else {
+            return null;
+        }
+        // Videokurs gehörte zum Zugang (Komplett-Stufe, „alle Funktionen“ oder Video-Upgrade), z. B. für „Verlängern“.
+        $video = (string) $ref->feature_code === 'all' || array_filter($rows, static fn ($r) => (string) $r->feature_code === self::VIDEO
+            && in_array((string) $r->status, ['active', 'expired', 'pending', 'suspended'], true)
+            && (($ref->order_id !== null && (int) $r->order_id === (int) $ref->order_id) || ($r->valid_until !== null && $ref->valid_until !== null && $r->valid_until >= $ref->valid_until))) !== [];
+
+        return [
+            'status' => $status,
+            'valid_until' => $until,
+            'order_id' => $ref->order_id !== null ? (int) $ref->order_id : null,
+            'product_id' => $ref->product_id !== null ? (int) $ref->product_id : null,
+            'sku' => $ref->sku_snapshot !== null ? (string) $ref->sku_snapshot : null,
+            'source' => isset($ref->source) ? (string) $ref->source : null,
+            'duration_days' => $days($ref),
+            'pending_orders' => $pendingOrders,
+            'video' => $video,
+        ];
+    }
+
     /**
      * Freigabezeitpunkte aller Module/Kapitel eines Kurses mit einer Abfrage (plus Zugangsbeginn, falls nötig).
      * @return array<string,string> module_code => Zeitpunkt (UTC); fehlende = sofort frei

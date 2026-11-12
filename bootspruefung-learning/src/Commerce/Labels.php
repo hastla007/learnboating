@@ -60,6 +60,36 @@ final class Labels
         return self::$courses;
     }
 
+    /** Laufzeit wie in den Produkttexten (ShopCatalog): „12 Monate“, „6 Monate“, „3 Monate“, sonst Tage. */
+    public static function duration(int $days): string
+    {
+        $d = 'bootspruefung-learning';
+
+        return match (true) {
+            $days >= 360 => __('12 Monate', $d),
+            $days >= 180 => __('6 Monate', $d),
+            $days >= 90 => __('3 Monate', $d),
+            /* translators: %d: number of days */
+            default => sprintf(_n('%d Tag', '%d Tage', $days, $d), $days),
+        };
+    }
+
+    /**
+     * „Gültig bis“ in „Mein Lernen“: offene Zahlung = Laufzeit ab Zahlungseingang (das Ende steht erst dann fest),
+     * sonst Datum bzw. „dauerhaft“.
+     */
+    public static function validity(string $status, ?string $mysqlGmt, ?int $durationDays): string
+    {
+        if ($status === EntitlementPlanner::PENDING) {
+            return $durationDays !== null && $durationDays > 0
+                /* translators: %s: duration, e.g. "12 Monate" */
+                ? sprintf(__('%s ab Zahlungseingang', 'bootspruefung-learning'), self::duration($durationDays))
+                : __('dauerhaft ab Zahlungseingang', 'bootspruefung-learning');
+        }
+
+        return self::date($mysqlGmt);
+    }
+
     public static function date(?string $mysqlGmt): string
     {
         if ($mysqlGmt === null || $mysqlGmt === '') {
