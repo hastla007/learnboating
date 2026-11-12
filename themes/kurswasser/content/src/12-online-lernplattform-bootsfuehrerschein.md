@@ -54,7 +54,7 @@ Mit einem kostenlosen Kundenkonto testest du jeden Kurs: 10 Fragen je Lernmodul,
 Button: Kostenlos testen | /bootsscheine/
 
 ### [B2] Smarttrainer: wiederholen, bis es sitzt {#smarttrainer | Smarttrainer}
-Der Smarttrainer enthält alle Prüfungsfragen deines Kurses, jeweils mit Erklärung. Er zeigt dir neue Fragen und holt falsch beantwortete nach wenigen anderen Fragen wieder. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung. Du kannst gezielt nach Themen üben, nur falsch beantwortete Fragen wiederholen oder deine Favoriten in eigenen Sammlungen ablegen.
+Der Smarttrainer enthält alle Prüfungsfragen deines Kurses, jeweils mit Erklärung. Er zeigt dir zuerst neue Fragen, dann falsch beantwortete und unsichere. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung. Du kannst gezielt nach Themen üben, nur falsch beantwortete Fragen wiederholen oder deine Favoriten in eigenen Sammlungen ablegen.
 
 ### [B2] Prüfungssimulation mit Auswertung {#simulation | Prüfungssimulation}
 In jedem Kurs simulierst du die Prüfung – als Zufallsprüfung oder, je nach Kurs, mit festen Prüfungsbögen. Wie in der Prüfung läuft ein Zeitlimit, Lösungen siehst du erst am Ende. Unsichere Fragen markierst du und gehst sie vor der Abgabe noch einmal durch. Danach bekommst du dein Ergebnis nach Themen, kannst die Fehler gezielt nachüben („Fehler aus der Prüfung lernen“) und siehst deinen Prüfungsverlauf als Diagramm.

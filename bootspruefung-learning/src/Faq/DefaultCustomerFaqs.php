@@ -20,7 +20,7 @@ namespace Bootspruefung\Learning\Faq;
  *
  * [B1] Smarttrainer, „gefestigt“: src/Learning/Services/LearningService.php (Klassenkommentar: „sicher heute“ =
  *      3 richtige Antworten in Folge, gefestigt = eine weitere richtige nach CONSOLIDATE_GAP_SECONDS = 20 h;
- *      Wiederholung nach REVIEW_INTERVAL_DAYS; falsche nach REPEAT_WRONG_AFTER = 4 anderen Fragen;
+ *      Wiederholung nach REVIEW_INTERVAL_DAYS; Reihenfolge: neue → falsche → fällige Wiederholungen;
  *      STREAK_GAP_SECONDS = 300; applyProgress: falsche Antwort setzt die Serie auf 0; spaced(): andere Fragen
  *      dazwischen zählen) und src/Frontend/Strings.php (smart_explain, mode_smart_desc).
  * [B2] Prüfungssimulation, Fragen je Teil, Zeit und Bestehensgrenzen: content-source/boatingschool/database/
@@ -137,7 +137,7 @@ final class DefaultCustomerFaqs
             'Wann gilt eine Frage im Smarttrainer als gefestigt?',
             "Hast du eine Frage **dreimal hintereinander richtig** beantwortet, ist sie „sicher heute“. Gefestigt ist sie, wenn du sie an einem anderen Tag (frühestens 20 Stunden später) noch einmal richtig beantwortest. Eine falsche Antwort setzt die Serie wieder auf null.\n\n"
             ."Damit nicht das Kurzzeitgedächtnis zählt, wird eine erneute richtige Antwort auf dieselbe Frage erst gewertet, wenn seit deiner letzten Antwort mindestens fünf Minuten vergangen sind oder du zwischendurch andere Fragen beantwortet hast.\n\n"
-            .'Der Smarttrainer wählt die nächste Frage für dich: neue Fragen, falsch beantwortete nach wenigen anderen Fragen, Fragen aus Themen, die dir noch schwerfallen, und gefestigte Fragen nach einigen Tagen zur Wiederholung.',
+            .'Der Smarttrainer wählt die nächste Frage für dich: zuerst neue Fragen, danach falsch beantwortete, fällige Wiederholungen und Fragen aus Themen, die dir noch schwerfallen. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung.',
             null,
             $copies(array_fill_keys($all, 1))
         );

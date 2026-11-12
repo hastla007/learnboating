@@ -42,7 +42,7 @@ open_items:
 ### [B2] Alles, was du für die Theorieprüfung übst {#lernen | Was du online lernst}
 Bei {{brand}} lernst du die Theorie für deinen Sportbootführerschein direkt im Browser – am Rechner, Tablet oder Smartphone. Dein Lernstand wird in deinem Konto gespeichert, du machst also dort weiter, wo du aufgehört hast.
 
-- **Smarttrainer:** alle Prüfungsfragen deines Kurses mit Erklärungen. Falsch beantwortete Fragen holt er nach wenigen anderen wieder. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“, gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest.
+- **Smarttrainer:** alle Prüfungsfragen deines Kurses mit Erklärungen. Er zeigt dir zuerst neue, dann falsch beantwortete und unsichere Fragen. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“, gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest.
 - **Prüfungssimulation:** in jedem Kurs als Zufallsprüfung oder mit festen Prüfungsbögen, mit Zeitlimit und Auswertung nach Themen.
 - **Navigationsaufgaben (SBF See):** Kartenaufgaben mit automatischer Prüfung deiner Werte, der amtlichen Lösung der Aufgabe und Selbsteinschätzung – enthalten in SBF See, Kombi und Kapitäns-Bundle.
 - **Praxiskarten:** Lichter und Zeichen, Schallsignale, Manöver, Knoten und Sicherheit – zum Einprägen für die praktische Prüfung.

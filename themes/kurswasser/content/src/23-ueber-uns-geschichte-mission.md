@@ -52,7 +52,7 @@ Der Weg aufs Wasser beginnt oft am Schreibtisch: mit Fragenkatalogen, Lichterfü
 :::
 
 ### [B5 Karten] Wofür wir stehen
-- **Lernen mit System** (Symbol smart): Der Smarttrainer holt falsch beantwortete Fragen nach wenigen anderen wieder. Eine Frage gilt erst als gefestigt, wenn du sie dreimal hintereinander und an einem anderen Tag noch einmal richtig beantwortest.
+- **Lernen mit System** (Symbol smart): Der Smarttrainer zeigt dir zuerst neue, dann falsch beantwortete und unsichere Fragen. Eine Frage gilt erst als gefestigt, wenn du sie dreimal hintereinander und an einem anderen Tag noch einmal richtig beantwortest.
 - **Üben wie in der Prüfung** (Symbol exam): Die Prüfungssimulation folgt den Regeln der jeweiligen Prüfung. Ist ein Regelwerk noch nicht fachlich verifiziert, kennzeichnen wir die Simulation als „Übungsmodus“.
 - **Fair und klar** (Symbol shield): Einmalzahlung statt Abo, kostenlos testen mit Kundenkonto und eine [Geld-zurück-Garantie](/geld-zurueck-garantie-bootsfuehrerschein/) mit klaren Bedingungen.
 

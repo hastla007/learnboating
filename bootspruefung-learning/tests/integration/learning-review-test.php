@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /*
  * Integrationstest Smarttrainer mit verteilter Wiederholung und Prüfung ohne Netz (Expertenrunde 3):
- * - FACH-01: falsch beantwortete Fragen kommen nach wenigen anderen Fragen wieder (nicht erst nach dem Katalog);
+ * - Reihenfolge wie bisher (Betreiber-Entscheidung): zuerst neue Fragen, dann falsch beantwortete, dann fällige
+ *   Wiederholungen; falsche Fragen bleiben im Modus „Falsch beantwortete“ sofort abrufbar;
  * - FACH-02: drei richtige in Folge = „sicher heute“, gefestigt erst mit einer richtigen Antwort an einem
  *   anderen Tag (≥ 20 h), danach Wiedervorlage nach wachsendem Abstand; Bestand „gefestigt“ bleibt
  *   gefestigt und wird nach 7 Tagen wieder vorgelegt; Zählung je Stufe und App-Felder (abwärtskompatibel);
@@ -103,12 +104,13 @@ foreach ($learning->courseProgress($lea, $course)['modules'] as $m) {
 }
 $moduleId = (int) $module['id'];
 
-echo "FACH-01: Fehler kommen nach wenigen Fragen wieder\n";
+echo "Reihenfolge: zuerst neue, dann falsche Fragen (wie bisher)\n";
 $first = $learning->next($lea, $course, $moduleId, 'smart');
 $r = $answer($lea, $first, false);
 $check($r['correct'] === false && $r['progress']['status'] === 'unsure', 'erste Frage falsch beantwortet');
 $back = null;
 $seen = [];
+$reasons = [];
 for ($i = 1; $i <= 12; $i++) {
     $q = $learning->next($lea, $course, $moduleId, 'smart');
     if ($q['question_id'] === $first['question_id']) {
@@ -116,12 +118,15 @@ for ($i = 1; $i <= 12; $i++) {
         break;
     }
     $seen[] = $q['question_id'];
+    $reasons[$q['reason']] = true;
     $answer($lea, $q, true);
 }
-$check($back !== null && $back >= LearningService::REPEAT_WRONG_AFTER + 1 && $back <= LearningService::REPEAT_WRONG_AFTER + 2, 'falsche Frage kommt nach '.LearningService::REPEAT_WRONG_AFTER.' anderen Fragen wieder (Schritt '.var_export($back, true).', nicht erst nach '.$module['available'].' neuen)');
+$check($back === null && array_keys($reasons) === ['Noch nie gesehen'], 'solange neue Fragen da sind, kommen neue zuerst (falsche Frage nicht nach 12 Schritten)');
 $check(count(array_unique($seen)) === count($seen), 'dazwischen keine Frage doppelt');
-$q = $learning->next($lea, $course, $moduleId, 'smart');
-$check($q['question_id'] === $first['question_id'] && $q['reason'] === 'Zuletzt falsch beantwortet', 'Grund „Zuletzt falsch beantwortet“');
+$q = $learning->next($lea, $course, $moduleId, 'wrong');
+$check($q['question_id'] === $first['question_id'], 'Modus „Falsch beantwortete“ liefert die falsche Frage sofort');
+$q = $learning->next($lea, $course, $moduleId, 'smart', null, [(int) $first['question_id'], (int) $seen[0]]);
+$check($q['question_id'] === $first['question_id'] && $q['reason'] === 'Zuletzt falsch beantwortet', 'ohne neue Fragen: falsche vor richtig beantworteten, Grund „Zuletzt falsch beantwortet“');
 
 echo "FACH-02: sicher heute, gefestigt an einem anderen Tag, Wiedervorlage\n";
 $qid = (int) $first['question_id'];
@@ -149,8 +154,11 @@ $check($summary['secure'] === 1 && $summary['mastered'] === 0 && $summary['perce
 $wpdb->update($p.'progress', ['due_at' => gmdate('Y-m-d H:i:s', time() - 60), 'last_answered_at' => gmdate('Y-m-d H:i:s', time() - 21 * HOUR_IN_SECONDS)], ['user_id' => $lea, 'question_id' => $qid]);
 $wpdb->query($wpdb->prepare("UPDATE {$p}attempt SET created_at = %s WHERE user_id = %d", gmdate('Y-m-d H:i:s', time() - 21 * HOUR_IN_SECONDS), $lea));
 $check($learning->summary($lea, [$qid])['due'] === 1, 'Zählung: 1 fällig');
-$q = $learning->next($lea, $course, $moduleId, 'smart');
-$check($q['question_id'] === $qid && str_contains($q['reason'], 'neuen Tag'), 'fällige „sicher heute“-Frage kommt vor neuen Fragen ('.$q['reason'].')');
+$fresh = (int) $learning->next($lea, $course, $moduleId, 'new')['question_id'];
+$q = $learning->next($lea, $course, $moduleId, 'smart', null, [$qid, $fresh]);
+$check($q['question_id'] === $fresh && $q['reason'] === 'Noch nie gesehen', 'neue Frage weiter vor der fälligen Wiederholung (Reihenfolge wie bisher)');
+$q = $learning->next($lea, $course, $moduleId, 'smart', null, [$qid, (int) $seen[0], (int) $seen[1]]);
+$check($q['question_id'] === $qid && str_contains($q['reason'], 'neuen Tag'), 'fällige „sicher heute“-Frage kommt vor nicht fälligen ('.$q['reason'].')');
 $r = $answer($lea, $q, true);
 $row = $progressRow($lea, $qid);
 $check($r['streak_counted'] === true && $r['progress']['status'] === 'mastered' && abs(strtotime($row->due_at.' UTC') - time() - 7 * DAY_IN_SECONDS) < 60, 'richtig an einem anderen Tag: gefestigt, nächste Wiederholung in 7 Tagen');
@@ -158,7 +166,7 @@ $r = $answer($lea, $tokenFor($lea, $qid), true);
 $check($r['streak_counted'] === false && $r['progress']['status'] === 'mastered' && $progressRow($lea, $qid)->due_at === $row->due_at, 'gefestigt und nicht fällig: zählt nicht, Fälligkeit unverändert');
 $wpdb->update($p.'progress', ['due_at' => gmdate('Y-m-d H:i:s', time() - 60)], ['user_id' => $lea, 'question_id' => $qid]);
 $wpdb->query($wpdb->prepare("UPDATE {$p}attempt SET created_at = %s WHERE user_id = %d", gmdate('Y-m-d H:i:s', time() - 3 * HOUR_IN_SECONDS), $lea));
-$q = $learning->next($lea, $course, $moduleId, 'smart');
+$q = $learning->next($lea, $course, $moduleId, 'smart', null, [$qid, (int) $seen[0], (int) $seen[1]]);
 $check($q['question_id'] === $qid && $q['reason'] === 'Wiederholung fällig', 'fällige gefestigte Frage wird wieder vorgelegt');
 $r = $answer($lea, $q, true);
 $check($r['streak_counted'] === true && abs(strtotime($progressRow($lea, $qid)->due_at.' UTC') - time() - 21 * DAY_IN_SECONDS) < 60, 'Wiederholung richtig: nächster Abstand 21 Tage (wachsend)');

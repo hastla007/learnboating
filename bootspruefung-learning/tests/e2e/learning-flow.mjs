@@ -177,7 +177,8 @@ await page.goto(`${base}/bootsscheine/sbf-see/pruefung/`);
 await page.getByRole('button', { name: 'Bogen 1: läuft' }).waitFor();
 
 step('Übungsmodus bei unverifiziertem Regelwerk');
-await page.goto(`${base}/bootsscheine/sbf-see-bin/pruefung/`);
+// Die Kombis sind seit FACH-06 verifiziert; Entwurf bleibt die Ergänzung FKN → SKN (FACH-07).
+await page.goto(`${base}/bootsscheine/add-fkn-to-skn/pruefung/`);
 await page.getByText('Übungsmodus', { exact: true }).waitFor();
 
 step('Tipps & Tricks');

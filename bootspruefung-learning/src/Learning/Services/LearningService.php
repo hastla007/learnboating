@@ -22,11 +22,10 @@ use RuntimeException;
  *   nur, wenn die Wiederholung fällig ist (due_at);
  * - gefestigte Fragen kommen nach wachsendem Abstand wieder (REVIEW_INTERVAL_DAYS: 7, 21, dann 60 Tage);
  *   eine falsche Antwort setzt jede Stufe auf „unsicher“ zurück;
- * - Priorität im Smarttrainer: zuletzt falsch und seit REPEAT_WRONG_AFTER anderen Antworten (bzw.
- *   REPEAT_AFTER_SECONDS) nicht mehr gesehen (1100 + 10 je Fehler) → fällige Wiederholung (1050)
- *   → in Bearbeitung und seit REPEAT_LEARNING_AFTER Antworten nicht gesehen (1020) → nie gesehen (1000)
- *   → zuletzt falsch, noch zu frisch (800 + 10 je Fehler) → schwaches Thema (< 60 % richtig, +150)
- *   → übrige nach Lernstand; Gleichstand nach Modul- und Fragenreihenfolge, also deterministisch;
+ * - Priorität im Smarttrainer wie bisher (Betreiber-Entscheidung): nie gesehen (1000) → zuletzt falsch
+ *   (800 + 10 je Fehler) → fällige Wiederholung („sicher heute“ an einem neuen Tag bzw. gefestigt nach
+ *   7/21/60 Tagen, 700) → schwaches Thema (< 60 % richtig, +150) → übrige nach Lernstand; Gleichstand
+ *   nach Modul- und Fragenreihenfolge, also deterministisch;
  * - Bestand aus der Zeit vor 1.14.0: „gefestigt“ bleibt gefestigt (kein rückwirkender Verlust); solche
  *   Fragen haben kein due_at und gelten 7 Tage nach der letzten Antwort als fällig;
  * - die zuletzt beantworteten Fragen (RECENT_EXCLUDE) kommen nicht sofort wieder, solange
@@ -47,12 +46,6 @@ final class LearningService
     public const CONSOLIDATE_GAP_SECONDS = 20 * HOUR_IN_SECONDS;
     /** Abstände (Tage) der Wiederholungen gefestigter Fragen; danach bleibt es beim letzten Wert. */
     public const REVIEW_INTERVAL_DAYS = [7, 21, 60];
-    /** Falsch beantwortete Fragen nach so vielen anderen Antworten wieder vorlegen … */
-    public const REPEAT_WRONG_AFTER = 4;
-    /** … Fragen in Bearbeitung (1–2 richtige in Folge) nach so vielen … */
-    public const REPEAT_LEARNING_AFTER = 8;
-    /** … bzw. in jedem Fall, wenn die letzte Antwort so lange (Sekunden) zurückliegt. */
-    public const REPEAT_AFTER_SECONDS = 600;
     /** Laufende Prüfungen ohne Zeitlimit sperren ihre Fragen nur so lange (Sekunden). */
     public const OPEN_EXAM_BLOCK_SECONDS = DAY_IN_SECONDS;
 
@@ -129,7 +122,7 @@ final class LearningService
             if ($mode === 'wrong' && ! self::lastWrong($p)) {
                 continue;
             }
-            [$score, $reason] = $this->score($q, $p, $topicAccuracy, $steps[$id] ?? null, $now);
+            [$score, $reason] = $this->score($q, $p, $topicAccuracy, $now);
             if (isset($recent[$id])) {
                 if ($fallback === null || $score > $fallback['score']) {
                     $fallback = ['question' => $q, 'score' => $score, 'reason' => $reason];
@@ -695,29 +688,22 @@ final class LearningService
 
     /**
      * @param array<string,float> $topicAccuracy
-     * @param int|null $steps andere Antworten seit der letzten Antwort auf diese Frage (null = länger her)
      * @return array{0:float,1:string}
      */
-    private function score(object $q, ?object $p, array $topicAccuracy, ?int $steps = null, ?int $now = null): array
+    private function score(object $q, ?object $p, array $topicAccuracy, ?int $now = null): array
     {
         $now ??= time();
         if ($p === null || (int) $p->attempts === 0) {
             return [1000, __('Noch nie gesehen', 'bootspruefung-learning')];
         }
-        $since = ! empty($p->last_answered_at) ? $now - (int) strtotime($p->last_answered_at.' UTC') : PHP_INT_MAX;
-        $ripe = static fn (int $after): bool => $steps === null || $steps >= $after || $since >= self::REPEAT_AFTER_SECONDS;
         if (self::lastWrong($p)) {
-            // Fehler nach wenigen anderen Fragen wiederholen – vor neuen Fragen (FACH-01).
-            return [($ripe(self::REPEAT_WRONG_AFTER) ? 1100 : 800) + min((int) $p->wrong_count, 10) * 10, __('Zuletzt falsch beantwortet', 'bootspruefung-learning')];
+            return [800 + min((int) $p->wrong_count, 10) * 10, __('Zuletzt falsch beantwortet', 'bootspruefung-learning')];
         }
         $status = (string) $p->learn_status;
         if (self::isDue($p, $now)) {
-            return [1050, $status === 'secure'
+            return [700, $status === 'secure'
                 ? __('Heute sicher – Wiederholung an einem neuen Tag', 'bootspruefung-learning')
                 : __('Wiederholung fällig', 'bootspruefung-learning')];
-        }
-        if ($status === 'learning' && $ripe(self::REPEAT_LEARNING_AFTER)) {
-            return [1020, __('Wiederholung zur Festigung', 'bootspruefung-learning')];
         }
         $base = (1 - (float) $p->mastery_score) * 300;
         if ($status === 'secure' || $status === 'mastered') {

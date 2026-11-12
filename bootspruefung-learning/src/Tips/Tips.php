@@ -16,6 +16,9 @@ final class Tips
     public const POST_TYPE = 'bp_tip';
     public const TAXONOMY = 'bp_tip_category';
     public const SEEDED_OPTION = 'bp_learning_tips_seeded';
+    /** Textstand der Starttexte; weicht er ab, werden unbearbeitete Starttexte nachgezogen (updateDefaults). */
+    public const VERSION = '2';
+    public const VERSION_OPTION = 'bp_learning_tips_version';
 
     public function register(): void
     {
@@ -42,13 +45,22 @@ final class Tips
         ]);
     }
 
-    /** Starttexte einmalig anlegen (später gelöschte Tipps kommen nicht zurück). */
+    /**
+     * Starttexte einmalig anlegen (später gelöschte Tipps kommen nicht zurück). Auf bestehenden Installationen
+     * werden bei neuem Textstand unbearbeitete Starttexte nachgezogen (updateDefaults).
+     */
     public static function maybeSeed(): void
     {
         if (get_option(self::SEEDED_OPTION)) {
+            if (get_option(self::VERSION_OPTION) !== self::VERSION) {
+                update_option(self::VERSION_OPTION, self::VERSION, false);
+                self::updateDefaults();
+            }
+
             return;
         }
         update_option(self::SEEDED_OPTION, gmdate('Y-m-d H:i:s'), false);
+        update_option(self::VERSION_OPTION, self::VERSION, false);
         $order = 0;
         foreach (StarterTips::all() as $category => $tips) {
             $term = term_exists($category, self::TAXONOMY);
@@ -60,6 +72,38 @@ final class Tips
                 }
             }
         }
+    }
+
+    /**
+     * Unbearbeitete Starttexte auf den aktuellen Text bringen: nur Tipps (nicht im Papierkorb) mit dem Titel eines
+     * Starttexts, deren Text genau einer früheren Fassung entspricht. Vom Betreiber geänderte Tipps bleiben.
+     *
+     * @return list<int> aktualisierte Tipp-IDs
+     */
+    public static function updateDefaults(): array
+    {
+        $current = [];
+        foreach (StarterTips::all() as $tips) {
+            foreach ($tips as [$title, $body]) {
+                $current[$title] = $body;
+            }
+        }
+        $updated = [];
+        foreach (StarterTips::previous() as $title => $oldBodies) {
+            if (! isset($current[$title])) {
+                continue;
+            }
+            $posts = get_posts(['post_type' => self::POST_TYPE, 'post_status' => ['publish', 'draft', 'pending', 'private', 'future'], 'title' => $title, 'numberposts' => 20]);
+            foreach ($posts as $post) {
+                $content = trim((string) $post->post_content);
+                if ($content !== $current[$title] && in_array($content, $oldBodies, true)) {
+                    wp_update_post(['ID' => (int) $post->ID, 'post_content' => $current[$title]]);
+                    $updated[] = (int) $post->ID;
+                }
+            }
+        }
+
+        return $updated;
     }
 
     public function routes(): void

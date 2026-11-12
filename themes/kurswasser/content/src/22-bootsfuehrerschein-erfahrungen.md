@@ -75,7 +75,7 @@ Wir zeigen hier [[Betreiber: Auswahlkriterium, z. B. „alle freigegebenen Rück
 ### [B5 Karten] Was dir beim Lernen hilft
 Eyebrow: Funktionen
 
-- **Smarttrainer** (smart): falsche Fragen kommen nach wenigen anderen wieder – gefestigt ist eine Frage nach drei richtigen Antworten in Folge und einer weiteren an einem anderen Tag.
+- **Smarttrainer** (smart): erst neue, dann falsche und unsichere Fragen – gefestigt ist eine Frage nach drei richtigen Antworten in Folge und einer weiteren an einem anderen Tag.
 - **Prüfungssimulation** (exam): mit Zeitlimit, Auswertung nach Themen und Prüfungsverlauf.
 - **Lernfortschritt** (phone): im Browser auf Rechner, Tablet und Smartphone, gespeichert in deinem Konto.
 

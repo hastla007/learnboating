@@ -700,8 +700,8 @@ beibehalten, wo es passt. Abweichungen:
   Keine neuen Routen.
 - **Smarttrainer mit verteilter Wiederholung (wie im Web):** Drei richtige Antworten in Folge ergeben die
   Stufe „sicher heute“; gefestigt ist eine Frage erst mit einer weiteren richtigen Antwort frühestens 20 h
-  später (an einem anderen Tag). Gefestigte Fragen kommen nach 7, 21, dann 60 Tagen wieder; falsch
-  beantwortete Fragen kommen nach 4 anderen Fragen (bzw. 10 Minuten) wieder statt erst nach allen neuen.
+  später (an einem anderen Tag). Gefestigte Fragen kommen nach 7, 21, dann 60 Tagen wieder. Die
+  Reihenfolge bleibt wie bisher: zuerst neue Fragen, dann falsch beantwortete, dann fällige Wiederholungen.
   `trainer/next` liefert sie automatisch; die App muss dafür nichts ändern.
 - **Neue Felder, alte unverändert:** `LearningProgress.stage` (`new|unsure|learning|secure|mastered`) und
   `LearningProgress.due_at`; `learning_status`/`learning_state` behalten ihren Wertebereich („sicher heute“

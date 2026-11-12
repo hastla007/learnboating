@@ -244,7 +244,7 @@ final class Strings
             // Zweite Stufe der Fortschrittsanzeige (FACH-02): drei richtige in Folge, noch nicht an einem anderen Tag bestätigt.
             'progress_secure' => __('{n} sicher heute', $d),
             'section_learn' => __('Lernen', $d),
-            'smart_explain' => __('Der Smarttrainer zeigt dir neue Fragen und holt falsch beantwortete nach wenigen anderen Fragen wieder. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung.', $d),
+            'smart_explain' => __('Der Smarttrainer zeigt dir zuerst neue Fragen, danach falsch beantwortete und unsichere. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung.', $d),
             'mode_smart' => __('Smarttrainer', $d),
             'mode_new' => __('Neue Fragen', $d),
             'mode_wrong' => __('Falsch beantwortete Fragen', $d),

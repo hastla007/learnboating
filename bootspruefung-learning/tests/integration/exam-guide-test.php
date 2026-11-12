@@ -43,6 +43,17 @@ $tips = \Bootspruefung\Learning\Tips\Tips::payload();
 $tipText = wp_json_encode($tips, JSON_UNESCAPED_UNICODE);
 $check(array_column($tips, 'name') === ['Lernen mit der Plattform', 'Prüfungsvorbereitung', 'Anmeldung und Prüfungstag'] && array_sum(array_map(static fn ($g) => count($g['tips']), $tips)) === 13, 'Tipps: 3 Kategorien, 13 Starttexte');
 $check(! preg_match('/€|\bEuro\b|\d+\s*(Jahre|Tage vor|Wochen vor)|Bootsschule/u', $tipText), 'Tipps ohne Gebühren, Altersgrenzen, Fristen oder Bootsschul-Bezug');
+// Neuer Textstand: unbearbeitete Starttexte werden nachgezogen, bearbeitete bleiben.
+$smartTip = get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'title' => 'Mit dem Smarttrainer starten', 'numberposts' => 1])[0] ?? null;
+$oldBody = \Bootspruefung\Learning\Tips\StarterTips::previous()['Mit dem Smarttrainer starten'][0];
+$newBody = \Bootspruefung\Learning\Tips\StarterTips::all()['Lernen mit der Plattform'][0][1];
+$keepTip = (int) wp_insert_post(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'draft', 'post_title' => 'Mit dem Smarttrainer starten', 'post_content' => $oldBody.' Eigener Zusatz.']);
+wp_update_post(['ID' => $smartTip->ID, 'post_content' => $oldBody]);
+update_option(\Bootspruefung\Learning\Tips\Tips::VERSION_OPTION, '1', false);
+\Bootspruefung\Learning\Tips\Tips::maybeSeed();
+$check(get_post_field('post_content', $smartTip->ID) === $newBody && get_option(\Bootspruefung\Learning\Tips\Tips::VERSION_OPTION) === \Bootspruefung\Learning\Tips\Tips::VERSION, 'Tipps: unbearbeiteter alter Starttext wird beim neuen Textstand nachgezogen');
+$check(str_ends_with((string) get_post_field('post_content', $keepTip), 'Eigener Zusatz.'), 'Tipps: vom Betreiber bearbeiteter Tipp bleibt unverändert');
+wp_delete_post($keepTip, true);
 $prevUser = get_current_user_id();
 wp_set_current_user(0);
 $check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/tips'))->get_status() === 401, 'Tipps nur angemeldet');

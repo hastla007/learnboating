@@ -26,7 +26,8 @@ namespace Bootspruefung\Learning\Faq;
  */
 final class CustomerFaqImporter
 {
-    public const VERSION = '2';
+    /** 3: Antwort von FAQ 1 (Smarttrainer: „sicher heute“, gefestigt an einem anderen Tag) – unbearbeitete FAQs werden nachgezogen. */
+    public const VERSION = '3';
     public const OPTION_VERSION = 'bp_learning_cfaq_version';
     /** Ergebnis des letzten automatischen Updates (Admin-Hinweis). */
     public const OPTION_REPORT = 'bp_learning_cfaq_report';

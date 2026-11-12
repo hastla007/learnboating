@@ -15,12 +15,27 @@ namespace Bootspruefung\Learning\Tips;
 final class StarterTips
 {
     /** @return array<string,list<array{0:string,1:string}>> Kategorie => [Titel, Text] */
+    /**
+     * Frühere Fassungen der Starttexte (Titel => Liste alter Texte). Tipps, deren Text noch genau einer früheren
+     * Fassung entspricht (vom Betreiber nicht bearbeitet), zieht Tips::maybeSeed() auf den aktuellen Text nach.
+     *
+     * @return array<string,list<string>>
+     */
+    public static function previous(): array
+    {
+        return [
+            'Mit dem Smarttrainer starten' => [
+                'Der Smarttrainer stellt dir zuerst neue Fragen, danach falsch beantwortete und Fragen aus Themen, in denen du noch unsicher bist. Eine Frage gilt als gefestigt, wenn du sie dreimal hintereinander richtig beantwortet hast. So musst du nicht selbst planen, was als Nächstes dran ist.',
+            ],
+        ];
+    }
+
     public static function all(): array
     {
         return [
             'Lernen mit der Plattform' => [
                 ['Mit dem Smarttrainer starten',
-                    'Der Smarttrainer stellt dir neue Fragen, holt falsch beantwortete nach wenigen anderen Fragen wieder und übt Themen, in denen du noch unsicher bist. Hast du eine Frage dreimal hintereinander richtig beantwortet, ist sie „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung. So musst du nicht selbst planen, was als Nächstes dran ist.'],
+                    'Der Smarttrainer stellt dir zuerst neue Fragen, danach falsch beantwortete und Fragen aus Themen, in denen du noch unsicher bist. Hast du eine Frage dreimal hintereinander richtig beantwortet, ist sie „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung. So musst du nicht selbst planen, was als Nächstes dran ist.'],
                 ['Falsch beantwortete Fragen gezielt wiederholen',
                     'Über „Falsch beantwortete“ übst du nur die Fragen, bei denen du zuletzt danebenlagst. Nimm dir diese Liste regelmäßig vor, bis sie leer ist – dort steckt der größte Lerngewinn.'],
                 ['Favoriten für knifflige Fragen',
