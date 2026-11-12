@@ -25,6 +25,7 @@ final class Commands
         WP_CLI::add_command('bootspruefung rights release', [self::class, 'rightsRelease']);
         WP_CLI::add_command('bootspruefung export access-rules', [self::class, 'exportMobileAccessRules']);
         WP_CLI::add_command('bootspruefung export course-files', [self::class, 'exportMobileCourseFiles']);
+        WP_CLI::add_command('bootspruefung export entitlements', [self::class, 'exportMobileEntitlements']);
         WP_CLI::add_command('bootspruefung export customer-faqs', [self::class, 'exportCustomerFaqs']);
         WP_CLI::add_command('bootspruefung chart', [self::class, 'chart']);
     }
@@ -582,8 +583,8 @@ final class Commands
                 'access_type' => (string) $row['access_type'],
                 'module_code' => $moduleCode,
                 'limit_value' => $row['limit_value'] === null ? null : (int) $row['limit_value'],
-                'valid_from' => $row['valid_from'] ?: null,
-                'valid_until' => $row['valid_until'] ?: null,
+                'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
+                'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
                 'source_key' => 'wp:rule:'.(int) $row['id'],
             ];
             if ($item['feature_code'] === 'video_course' && $moduleCode !== null) {
@@ -725,6 +726,79 @@ final class Commands
         }
         self::writeMobileExport($output, ['files' => $files]);
         WP_CLI::success(sprintf('%d Datei-Zuordnungen exportiert, %d Quelldatei(en) kopiert: %s', count($files), count($copied), $output));
+    }
+
+
+    /**
+     * Exportiert aktuell aktive Mobile-Kurszugänge bestehender WP-Konten.
+     *
+     * <tenant-slug>
+     * : Vorhandener Schul-Slug im Laravel-Original.
+     *
+     * --output=<file>
+     * : JSON-Zieldatei. Sie enthält E-Mail-Adressen und muss geschützt übertragen werden.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportMobileEntitlements(array $args, array $assoc): void
+    {
+        $tenantSlug = sanitize_title((string) ($args[0] ?? ''));
+        $output = (string) ($assoc['output'] ?? '');
+        if ($tenantSlug === '' || $output === '') {
+            WP_CLI::error('Aufruf: wp bootspruefung export entitlements <tenant-slug> --output=<datei.json>');
+        }
+        global $wpdb;
+        $table = $wpdb->prefix.'bp_entitlement';
+        $features = "'all','question_bank','learning_explanations','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads'";
+        $rows = $wpdb->get_results(
+            "SELECT e.id, e.course_code, e.feature_code, e.valid_from, e.valid_until,
+                    u.user_email, u.user_registered
+             FROM {$table} e
+             INNER JOIN {$wpdb->users} u ON u.ID = e.user_id
+             WHERE e.status = 'active'
+               AND (e.valid_from IS NULL OR e.valid_from <= UTC_TIMESTAMP())
+               AND (e.valid_until IS NULL OR e.valid_until >= UTC_TIMESTAMP())
+               AND e.feature_code IN ({$features})
+             ORDER BY u.user_email, e.course_code, e.feature_code, e.id",
+            ARRAY_A
+        );
+        if ($wpdb->last_error !== '') {
+            WP_CLI::error('Kurszugänge konnten nicht gelesen werden: '.$wpdb->last_error);
+        }
+
+        $entitlements = [];
+        foreach ((array) $rows as $row) {
+            $entitlements[] = [
+                'email' => strtolower(trim((string) $row['user_email'])),
+                'course_code' => (string) $row['course_code'],
+                'feature_code' => (string) $row['feature_code'],
+                'status' => 'active',
+                'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
+                'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
+                'user_registered' => self::mobileExportUtc($row['user_registered'] ?? null),
+                'source_key' => 'wp:entitlement:'.(int) $row['id'],
+            ];
+        }
+        self::writeMobileExport($output, [
+            'tenant_slug' => $tenantSlug,
+            'default_access' => \Bootspruefung\Learning\Settings\Settings::get('default_access'),
+            'entitlements' => $entitlements,
+        ]);
+        WP_CLI::success(sprintf('%d aktive Kurszugänge exportiert: %s', count($entitlements), $output));
+    }
+
+    private static function mobileExportUtc(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+        try {
+            return (new \DateTimeImmutable($value, new \DateTimeZone('UTC')))
+                ->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s\\Z');
+        } catch (\Throwable) {
+            WP_CLI::error('Ein UTC-Datum konnte nicht exportiert werden.');
+        }
     }
 
     private static function writeMobileExport(string $path, array $payload): void
