@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
-/** Mindestanforderungen (Konzept Kap. 8). */
+/**
+ * Mindestanforderungen (Konzept Kap. 8). Ehrlich nach getestetem Stand: Die CI prüft WordPress 7.1.4 mit
+ * WooCommerce 11.2.2 (und 11.3 Beta); WooCommerce 11.2 setzt selbst WordPress 7.0 voraus. Ältere
+ * Versionen sind nicht getestet (u. a. bedingte Pflichtfelder im Checkout-Block, DigitalConsent).
+ */
 final class Requirements
 {
     public const MIN_PHP = '8.1';
-    public const MIN_WP = '6.4';
-    public const MIN_WC = '8.0';
+    public const MIN_WP = '7.0';
+    public const MIN_WC = '11.2';
 
     /** @return list<string> Fehlermeldungen; leer, wenn alles erfüllt ist. */
     public static function problems(): array

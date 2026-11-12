@@ -53,7 +53,7 @@ function kurswasser_shop_available(): bool
 
 function kurswasser_shop_learning_active(): bool
 {
-    return class_exists('\Bootspruefung\Learning\Commerce\ShopCatalog') && class_exists('\Bootspruefung\Learning\Settings\Settings');
+    return kurswasser_learning_compatible();
 }
 
 /** Gleicher Bruttopreis in allen EU-Ländern (OSS): WooCommerce rechnet sonst vom Netto des Shop-Landes hoch. */

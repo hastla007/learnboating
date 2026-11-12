@@ -24,6 +24,8 @@ final class Connector
     /** Query-Parameter bzw. HTTP-Header, mit dem die App den Partnercode aus dem Deep Link mitschickt. */
     public const PARAM = 'partner';
     public const HEADER = 'HTTP_X_PARTNER_CODE';
+    /** Mindestversion der Lernplattform (videoUpgradeSkus() seit 0.12, Versionsvertrag seit 0.13). */
+    public const MIN_LEARNING = '0.13.0';
 
     /** Grund, warum der Connector inaktiv ist ('' = aktiv). */
     private static string $problem = '';
@@ -56,8 +58,37 @@ final class Connector
         if (! class_exists(ShopCatalog::class) || ! class_exists(MoneyBack::class) || ! class_exists(ProductAccessRepository::class)) {
             return __('Die Bootsprüfung-Lernplattform ist nicht aktiv oder zu alt.', 'learnboating-affiliate-connector');
         }
+        if (! self::learningCompatible()) {
+            /* translators: %s: benötigte Version der Lernplattform */
+            return sprintf(__('Die Bootsprüfung-Lernplattform ist zu alt oder inkompatibel (benötigt ab Version %s).', 'learnboating-affiliate-connector'), self::MIN_LEARNING);
+        }
 
         return '';
+    }
+
+    /**
+     * Versionsvertrag der Lernplattform (bootspruefung_learning_compatible()) und alle genutzten Methoden.
+     * Ohne Prüfung führte ein älteres Plugin zu einem Fatal Error im Provisionsfilter (Bestellpfad).
+     */
+    private static function learningCompatible(): bool
+    {
+        if (function_exists('bootspruefung_learning_compatible')) {
+            if (! bootspruefung_learning_compatible(self::MIN_LEARNING, 1)) {
+                return false;
+            }
+        } elseif (class_exists(\Bootspruefung\Learning\Plugin::class)) {
+            // Plugin ohne Vertragsfunktion: Versionsnummer prüfen.
+            if (! defined(\Bootspruefung\Learning\Plugin::class.'::VERSION') || version_compare((string) constant(\Bootspruefung\Learning\Plugin::class.'::VERSION'), self::MIN_LEARNING, '<')) {
+                return false;
+            }
+        }
+        foreach ([[ShopCatalog::class, 'find'], [ShopCatalog::class, 'videoUpgradeSkus'], [MoneyBack::class, 'policy'], [ProductAccessRepository::class, 'rows'], [ProductAccessRepository::class, 'seats']] as [$class, $method]) {
+            if (! method_exists($class, $method)) {
+                return false;
+            }
+        }
+
+        return defined(ShopCatalog::class.'::SIM_UPGRADE');
     }
 
     public static function active(): bool

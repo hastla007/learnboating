@@ -3,9 +3,10 @@
  * Plugin Name:       LearnBoating Partnerprogramm-Connector
  * Description:       Verbindet die Bootsprüfung-Lernplattform mit WP Affiliate Captain: Partnercode aus der App bis in den Shop, Ausschluss von Gruppenpaketen und Upgrades, Haltefrist aus Geld-zurück-Garantie und Widerrufsfrist.
  * Version:           1.0.0
- * Requires at least: 6.4
+ * Requires at least: 7.0
  * Requires PHP:      8.1
  * Requires Plugins:  bootspruefung-learning, wp-affiliate-captain
+ * Update URI:        false
  * Text Domain:       learnboating-affiliate-connector
  * License:           proprietary
  */

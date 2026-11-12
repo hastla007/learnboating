@@ -26,13 +26,13 @@ function kurswasser_offer_tabs(): array
 /** Preisangabe (PAngV), z. B. „inkl. MwSt.“ – aus den Plugin-Einstellungen. */
 function kurswasser_price_note(): string
 {
-    return class_exists(\Bootspruefung\Learning\Settings\Settings::class) ? \Bootspruefung\Learning\Settings\Settings::priceNote() : 'inkl. MwSt.';
+    return kurswasser_learning_compatible() ? \Bootspruefung\Learning\Settings\Settings::priceNote() : 'inkl. MwSt.';
 }
 
 /** @return array{name:string,price:float,days:int,url:?string,buy:?string,items:list<string>}|null */
 function kurswasser_offer(string $sku): ?array
 {
-    if (! class_exists(\Bootspruefung\Learning\Commerce\ShopCatalog::class)) {
+    if (! kurswasser_learning_compatible()) {
         return null;
     }
     static $cache = [];

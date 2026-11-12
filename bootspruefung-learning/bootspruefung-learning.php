@@ -3,13 +3,14 @@
  * Plugin Name:       Bootsprüfung Lernplattform
  * Description:       Lernplattform für Bootsführerscheine (SBF, SRC, UBI, SKN, FKN) mit Prüfungssimulation, Spezialtrainern und WooCommerce-Freischaltung.
  * Version:           0.13.0
- * Requires at least: 6.4
+ * Requires at least: 7.0
  * Requires PHP:      8.1
  * Author:            hastla007
  * Text Domain:       bootspruefung-learning
  * Domain Path:       /languages
- * WC requires at least: 8.0
+ * WC requires at least: 11.2
  * WC tested up to:     11.3
+ * Update URI:        false
  *
  * @package Bootspruefung\Learning
  */
@@ -41,5 +42,8 @@ require_once __DIR__.'/src/functions.php';
 
 register_activation_hook(__FILE__, [\Bootspruefung\Learning\Plugin::class, 'activate']);
 register_deactivation_hook(__FILE__, [\Bootspruefung\Learning\Plugin::class, 'deactivate']);
+
+// Versionsvertrag für Theme und Add-ons (siehe bootspruefung_learning_contract()).
+define('BP_LEARNING_VERSION', \Bootspruefung\Learning\Plugin::VERSION);
 
 \Bootspruefung\Learning\Plugin::boot(__FILE__);
