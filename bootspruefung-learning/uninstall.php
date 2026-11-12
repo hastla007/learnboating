@@ -24,6 +24,8 @@ if (! Settings::get('delete_data_on_uninstall')) {
 }
 
 global $wpdb;
+// Paketordner merken, bevor die Optionen (mit dem Ordnergeheimnis) gelöscht werden.
+$packagesDir = \Bootspruefung\Learning\Content\Media\MediaStorage::layout()['packages'] ?? null;
 // Lizenzierte Seekarten (BSH) ganz löschen – sie dürfen nach der Deinstallation nicht öffentlich werden.
 foreach (get_posts(['post_type' => 'attachment', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_bp_chart']) as $chartId) {
     wp_delete_attachment((int) $chartId, true);
@@ -73,10 +75,14 @@ if (function_exists('as_unschedule_all_actions')) {
     as_unschedule_all_actions('bp_mobile_export_generate');
 }
 // Importierte Medien und Pakete löschen. Geschützte Kurs-PDFs bleiben im gesperrten Ordner
-// uploads/bootspruefung/protected-*/ (nicht öffentlich abrufbar), damit nichts ungewollt frei wird.
+// protected-<geheim>/ (nicht öffentlich abrufbar), damit nichts ungewollt frei wird.
 $dir = \Bootspruefung\Learning\Content\Media\MediaStorage::baseDir();
-foreach (['media', 'packages'] as $sub) {
-    if (is_dir($dir.'/'.$sub)) {
-        \Bootspruefung\Learning\Content\Import\ImportService::removeDir($dir.'/'.$sub);
+$remove = [$dir.'/media', $dir.'/packages'];
+if (is_string($packagesDir) && preg_match('#/packages-[A-Za-z0-9_-]+$#', $packagesDir)) {
+    $remove[] = $packagesDir;
+}
+foreach ($remove as $sub) {
+    if (is_dir($sub)) {
+        \Bootspruefung\Learning\Content\Import\ImportService::removeDir($sub);
     }
 }

@@ -128,6 +128,7 @@ final class Menu
             $this->renderShopStatus($woo);
         }
         $this->renderBackupHint();
+        SystemStatus::renderStorageSelfTest();
         echo '<h2>'.esc_html__('Tabellen', 'bootspruefung-learning').'</h2>';
         echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>'.esc_html__('Tabelle', 'bootspruefung-learning').'</th><th>Engine</th><th>'.esc_html__('Zeilen (ca.)', 'bootspruefung-learning').'</th></tr></thead><tbody>';
         foreach ($status['tables'] as $table => $info) {
