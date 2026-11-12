@@ -191,12 +191,17 @@ werden je Zielmandant ausgeführt. Für FAQ-Daten steht derselbe JSON-Export ber
 
 ```sh
 wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
+wp bootspruefung export entitlements <tenant-slug> --output=/tmp/mobile-entitlements.json
 wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
 wp bootspruefung export customer-faqs > /tmp/mobile-faqs.json
 ```
 
 Der Access-Export enthält auch den WP-Standard `default_access` und die
-Zeitfenster der Regeln. Video-Drip-Regeln enthalten Kapiteltitel und Reihenfolge,
+Zeitfenster der Regeln. Der Entitlement-Export enthält aktuell gültige Zugänge
+und E-Mail-Adressen bestehender WP-Nutzer; er enthält keine Passwörter und muss
+als personenbezogene Datei geschützt übertragen werden. Geräte-Simulator-Freigaben
+sind WP-seitige Einstellungen und werden nicht als Lernzugang exportiert.
+Video-Drip-Regeln enthalten Kapiteltitel und Reihenfolge,
 damit der Laravel-Importer die WP-Quell-ID dem passenden nativen Videokapitel
 zuordnet. Der Datei-Export kopiert geschützte Anhänge ins Staging-Verzeichnis
 und erhält Download-, Abschnitts- und Seekarten-Zuordnungen. Die exportierten
