@@ -697,7 +697,27 @@ beibehalten, wo es passt. Abweichungen:
   `trial`/`features` erkennbar.
 - Server (nicht App-sichtbar): Ablauf-Erinnerung mit Widerspruchshinweis und Abmeldelink, Schalter
   unter „Mein Konto“ › „Mein Lernen“; Hinweis im Warenkorb bei schon gekauften bzw. bestellten Kursen.
-  Keine Datenbankänderung, keine neuen Routen.
+  Keine neuen Routen.
+- **Smarttrainer mit verteilter Wiederholung (wie im Web):** Drei richtige Antworten in Folge ergeben die
+  Stufe „sicher heute“; gefestigt ist eine Frage erst mit einer weiteren richtigen Antwort frühestens 20 h
+  später (an einem anderen Tag). Gefestigte Fragen kommen nach 7, 21, dann 60 Tagen wieder; falsch
+  beantwortete Fragen kommen nach 4 anderen Fragen (bzw. 10 Minuten) wieder statt erst nach allen neuen.
+  `trainer/next` liefert sie automatisch; die App muss dafür nichts ändern.
+- **Neue Felder, alte unverändert:** `LearningProgress.stage` (`new|unsure|learning|secure|mastered`) und
+  `LearningProgress.due_at`; `learning_status`/`learning_state` behalten ihren Wertebereich („sicher heute“
+  = `learning`/`in_bearbeitung`). `ProgressSummary.secure`, `secure_percent` und `due`; `learning` zählt
+  „sicher heute“ mit, damit `new + unsure + learning + mastered = total` bleibt; `percent`/`completed`
+  bleiben der Anteil bzw. die Zahl gefestigter Fragen. Lernstand vor 1.11.0: „gefestigt“ bleibt gefestigt
+  und gilt 7 Tage nach der letzten Antwort als fällig (keine rückwirkende Herabstufung).
+- **Prüfung im Funkloch:** `PUT /exams/{examId}/answers/{questionId}` nimmt `age_ms` (Alter der
+  zwischengespeicherten Antwort beim Senden) bzw. `answered_at` (Gerätezeit) an. Vor Fristende gegebene
+  Antworten werden bis 120 s nach Fristende noch angenommen, spätere mit 410 `EXAM_EXPIRED` abgelehnt;
+  abgelaufene Prüfungen werden erst danach automatisch ausgewertet. Gleiche Antwort zweimal = einmal; ein
+  älterer Stand überschreibt keinen neueren (`applied: false` in der Antwort, die den gespeicherten Stand
+  zeigt). Empfehlung: Antworten lokal halten, bis der Server sie bestätigt hat, bei Netzfehlern mit
+  wachsendem Abstand wiederholen und `submit` erst danach aufrufen (wie die Web-App).
+- Server: dieselbe Logik in `ExamService::saveAnswer` und `LearningService` für Web und App;
+  Schema 1.14.0 (Spalte `bp_progress.due_at`). Test: `tests/integration/learning-review-test.php`.
 
 ### 1.10.0 (additiv)
 

@@ -522,6 +522,7 @@ final class Schema
   learn_status varchar(16) NOT NULL DEFAULT 'new',
   first_answered_at datetime NULL,
   last_answered_at datetime NULL,
+  due_at datetime NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY user_question (user_id,question_id),
   KEY question_id (question_id),

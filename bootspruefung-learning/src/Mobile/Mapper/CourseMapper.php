@@ -310,7 +310,11 @@ final class CourseMapper
         return $out;
     }
 
-    /** @return array{percent:int,completed:int,total:int} */
+    /**
+     * Seit 1.11.0 zusätzlich die Stufe „sicher heute“ (secure, secure_percent) und fällige Wiederholungen (due).
+     * Abwärtskompatibel: learning zählt „sicher heute“ weiterhin mit (new + unsure + learning + mastered = total).
+     * @return array<string,int>
+     */
     public static function progressSummary(?array $summary): array
     {
         return [
@@ -319,8 +323,11 @@ final class CourseMapper
             'total' => (int) ($summary['questions'] ?? 0),
             'new' => (int) ($summary['new'] ?? 0),
             'unsure' => (int) ($summary['unsure'] ?? 0),
-            'learning' => (int) ($summary['learning'] ?? 0),
+            'learning' => (int) ($summary['learning'] ?? 0) + (int) ($summary['secure'] ?? 0),
             'mastered' => (int) ($summary['mastered'] ?? 0),
+            'secure' => (int) ($summary['secure'] ?? 0),
+            'secure_percent' => (int) ($summary['secure_percent'] ?? 0),
+            'due' => (int) ($summary['due'] ?? 0),
         ];
     }
 

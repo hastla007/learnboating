@@ -12,13 +12,23 @@ final class QuestionMapper
 {
     public const SELECTION = ['single_choice' => 'single', 'multi_choice' => 'multiple', 'open_text' => 'open'];
 
-    /** Lernstatus wie im Web (new/unsure/learning/mastered) → Vertrag (neu/in_bearbeitung/gefestigt). */
+    /** Lernstatus wie im Web (new/unsure/learning/secure/mastered) → Vertrag (neu/in_bearbeitung/gefestigt). */
     public static function learningState(?string $status): string
     {
         return match ($status) {
             'mastered' => 'gefestigt',
-            'unsure', 'learning' => 'in_bearbeitung',
+            'unsure', 'learning', 'secure' => 'in_bearbeitung',
             default => 'neu',
+        };
+    }
+
+    /** learning_status im alten Wertebereich (bis 1.10.0): „sicher heute“ (secure) zählt als learning. */
+    public static function legacyStatus(?string $status): string
+    {
+        return match ($status) {
+            'secure' => 'learning',
+            'unsure', 'learning', 'mastered' => $status,
+            default => 'new',
         };
     }
 
@@ -44,12 +54,21 @@ final class QuestionMapper
         ];
     }
 
-    /** @param array{status:string,streak:int,attempts:int}|null $p @return array<string,mixed> */
+    /**
+     * Seit 1.11.0 zusätzlich stage (mit „secure“ = sicher heute) und due_at (nächste Wiederholung);
+     * learning_status/learning_state behalten ihren Wertebereich.
+     * @param array{status:string,streak:int,attempts:int,due_at?:?string}|null $p
+     * @return array<string,mixed>
+     */
     public static function progress(?array $p): array
     {
+        $status = $p['status'] ?? 'new';
+
         return [
-            'learning_status' => $p['status'] ?? 'new',
-            'learning_state' => self::learningState($p['status'] ?? null),
+            'learning_status' => self::legacyStatus($status),
+            'learning_state' => self::learningState($status),
+            'stage' => in_array($status, ['new', 'unsure', 'learning', 'secure', 'mastered'], true) ? $status : 'new',
+            'due_at' => isset($p['due_at']) && $p['due_at'] !== null ? CourseMapper::iso($p['due_at']) : null,
             'streak' => (int) ($p['streak'] ?? 0),
             'streak_required' => 3,
             'attempts' => (int) ($p['attempts'] ?? 0),

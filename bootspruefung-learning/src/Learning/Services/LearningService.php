@@ -10,15 +10,25 @@ use Bootspruefung\Learning\Support\NotFound;
 use RuntimeException;
 
 /**
- * Lernmodus und Smarttrainer (Kap. 6.1, 6.2), fachlich wie die Quelle
- * (SmarttrainerService, MasteryCalculator, LearningService):
- * - Priorität: nie gesehen (1000) → zuletzt falsch (800 + 10 je Fehler, max. 10)
- *   → schwaches Thema (< 60 % richtig, +150) → gefestigt; Gleichstand nach
- *   Modul- und Fragenreihenfolge, also deterministisch;
- * - gefestigt = 3 richtige Antworten in Folge; eine richtige Antwort zählt für die Serie nur,
- *   wenn seit der letzten Antwort auf diese Frage mindestens STREAK_GAP_SECONDS vergangen sind
- *   oder inzwischen andere Fragen beantwortet wurden (kein Kurzzeitgedächtnis, keine doppelte
- *   Zählung aus zwei Tabs);
+ * Lernmodus und Smarttrainer (Kap. 6.1, 6.2), ursprünglich wie die Quelle
+ * (SmarttrainerService, MasteryCalculator, LearningService), seit Schema 1.14.0 mit verteilter
+ * Wiederholung (Expertenrunde 3, FACH-01/FACH-02):
+ * - Stufen (learn_status): neu → unsicher (zuletzt falsch) → in Bearbeitung (1–2 richtige in Folge)
+ *   → „sicher heute“ (secure, SECURE_STREAK = 3 richtige in Folge) → gefestigt (mastered: eine weitere
+ *   richtige Antwort frühestens CONSOLIDATE_GAP_SECONDS nach „sicher heute“, also an einem anderen Tag);
+ * - eine richtige Antwort zählt für die Serie bis „sicher heute“ nur, wenn seit der letzten Antwort auf
+ *   diese Frage mindestens STREAK_GAP_SECONDS vergangen sind oder inzwischen andere Fragen beantwortet
+ *   wurden (kein Kurzzeitgedächtnis, keine doppelte Zählung aus zwei Tabs); ab „sicher heute“ zählt sie
+ *   nur, wenn die Wiederholung fällig ist (due_at);
+ * - gefestigte Fragen kommen nach wachsendem Abstand wieder (REVIEW_INTERVAL_DAYS: 7, 21, dann 60 Tage);
+ *   eine falsche Antwort setzt jede Stufe auf „unsicher“ zurück;
+ * - Priorität im Smarttrainer: zuletzt falsch und seit REPEAT_WRONG_AFTER anderen Antworten (bzw.
+ *   REPEAT_AFTER_SECONDS) nicht mehr gesehen (1100 + 10 je Fehler) → fällige Wiederholung (1050)
+ *   → in Bearbeitung und seit REPEAT_LEARNING_AFTER Antworten nicht gesehen (1020) → nie gesehen (1000)
+ *   → zuletzt falsch, noch zu frisch (800 + 10 je Fehler) → schwaches Thema (< 60 % richtig, +150)
+ *   → übrige nach Lernstand; Gleichstand nach Modul- und Fragenreihenfolge, also deterministisch;
+ * - Bestand aus der Zeit vor 1.14.0: „gefestigt“ bleibt gefestigt (kein rückwirkender Verlust); solche
+ *   Fragen haben kein due_at und gelten 7 Tage nach der letzten Antwort als fällig;
  * - die zuletzt beantworteten Fragen (RECENT_EXCLUDE) kommen nicht sofort wieder, solange
  *   andere Fragen im Modus verfügbar sind;
  * - Fragen laufender Prüfungen werden im Lernmodus nicht gezeigt.
@@ -31,6 +41,18 @@ final class LearningService
     public const STREAK_GAP_SECONDS = 300;
     /** So viele zuletzt beantwortete Fragen nicht sofort wieder anbieten. */
     public const RECENT_EXCLUDE = 3;
+    /** Richtige Antworten in Folge für „sicher heute“. */
+    public const SECURE_STREAK = 3;
+    /** Mindestabstand (Sekunden) von „sicher heute“ bis zur Antwort, die „gefestigt“ macht (anderer Tag). */
+    public const CONSOLIDATE_GAP_SECONDS = 20 * HOUR_IN_SECONDS;
+    /** Abstände (Tage) der Wiederholungen gefestigter Fragen; danach bleibt es beim letzten Wert. */
+    public const REVIEW_INTERVAL_DAYS = [7, 21, 60];
+    /** Falsch beantwortete Fragen nach so vielen anderen Antworten wieder vorlegen … */
+    public const REPEAT_WRONG_AFTER = 4;
+    /** … Fragen in Bearbeitung (1–2 richtige in Folge) nach so vielen … */
+    public const REPEAT_LEARNING_AFTER = 8;
+    /** … bzw. in jedem Fall, wenn die letzte Antwort so lange (Sekunden) zurückliegt. */
+    public const REPEAT_AFTER_SECONDS = 600;
     /** Laufende Prüfungen ohne Zeitlimit sperren ihre Fragen nur so lange (Sekunden). */
     public const OPEN_EXAM_BLOCK_SECONDS = DAY_IN_SECONDS;
 
@@ -93,7 +115,9 @@ final class LearningService
         $progress = $this->progressFor($userId, array_keys($questions));
         $topicAccuracy = $this->topicAccuracy($questions, $progress);
         // Abstand: die zuletzt beantworteten Fragen nur, wenn sonst nichts im Modus übrig ist.
-        $recent = array_flip($this->recentlyAnswered($userId, array_keys($questions)));
+        $steps = $this->stepsSinceLastAnswer($userId, array_keys($questions));
+        $recent = array_flip(array_slice(array_keys($steps), 0, self::RECENT_EXCLUDE));
+        $now = time();
 
         $best = null;
         $fallback = null;
@@ -105,7 +129,7 @@ final class LearningService
             if ($mode === 'wrong' && ! self::lastWrong($p)) {
                 continue;
             }
-            [$score, $reason] = $this->score($q, $p, $topicAccuracy);
+            [$score, $reason] = $this->score($q, $p, $topicAccuracy, $steps[$id] ?? null, $now);
             if (isset($recent[$id])) {
                 if ($fallback === null || $score > $fallback['score']) {
                     $fallback = ['question' => $q, 'score' => $score, 'reason' => $reason];
@@ -399,20 +423,35 @@ final class LearningService
         return $questions;
     }
 
-    /** @param list<int> $questionIds @return array{questions:int,new:int,unsure:int,learning:int,mastered:int,percent:int} */
+    /**
+     * @param list<int> $questionIds
+     * @return array{questions:int,new:int,unsure:int,learning:int,secure:int,mastered:int,percent:int,secure_percent:int,due:int}
+     */
     public function summary(int $userId, array $questionIds): array
     {
         return self::summaryFrom($questionIds, $this->progressFor($userId, $questionIds));
     }
 
-    /** @param list<int> $questionIds @param array<int,object> $progress @return array{questions:int,new:int,unsure:int,learning:int,mastered:int,percent:int} */
+    /**
+     * Zählung je Stufe. percent = Anteil gefestigt (wie bisher); secure = „sicher heute“ (noch nicht
+     * gefestigt), secure_percent dessen Anteil; due = sichere bzw. gefestigte Fragen, deren Wiederholung fällig ist.
+     * @param list<int> $questionIds @param array<int,object> $progress
+     * @return array{questions:int,new:int,unsure:int,learning:int,secure:int,mastered:int,percent:int,secure_percent:int,due:int}
+     */
     private static function summaryFrom(array $questionIds, array $progress): array
     {
-        $out = ['questions' => count($questionIds), 'new' => 0, 'unsure' => 0, 'learning' => 0, 'mastered' => 0, 'percent' => 0];
+        $out = ['questions' => count($questionIds), 'new' => 0, 'unsure' => 0, 'learning' => 0, 'secure' => 0, 'mastered' => 0, 'percent' => 0, 'secure_percent' => 0, 'due' => 0];
+        $now = time();
         foreach ($questionIds as $id) {
-            $out[$progress[$id]->learn_status ?? 'new']++;
+            $p = $progress[$id] ?? null;
+            $status = (string) ($p->learn_status ?? 'new');
+            $out[in_array($status, ['unsure', 'learning', 'secure', 'mastered'], true) ? $status : 'new']++;
+            if ($p !== null && self::isDue($p, $now)) {
+                $out['due']++;
+            }
         }
         $out['percent'] = $out['questions'] > 0 ? (int) floor($out['mastered'] * 100 / $out['questions']) : 0;
+        $out['secure_percent'] = $out['questions'] > 0 ? (int) floor($out['secure'] * 100 / $out['questions']) : 0;
 
         return $out;
     }
@@ -446,9 +485,10 @@ final class LearningService
     // ------------------------------------------------------------------
 
     /**
-     * Wie MasteryCalculator der Quelle; Zeile wird für die Aktualisierung gesperrt.
-     * Eine richtige Antwort erhöht die Serie nur mit Abstand (siehe Klassenkommentar);
-     * sonst bleibt die Serie unverändert (falsch setzt sie wie bisher auf 0).
+     * Wie MasteryCalculator der Quelle, erweitert um die Stufen „sicher heute“ und „gefestigt“ mit
+     * Fälligkeit (siehe Klassenkommentar); Zeile wird für die Aktualisierung gesperrt.
+     * Eine richtige Antwort erhöht die Serie nur mit Abstand bzw. wenn die Wiederholung fällig ist;
+     * sonst bleiben Serie, Stufe und Fälligkeit unverändert (falsch setzt alles auf „unsicher“ zurück).
      * @return bool|null null bei falscher Antwort, sonst ob die Serie erhöht wurde
      */
     private function applyProgress(int $userId, int $questionId, bool $correct, string $now): ?bool
@@ -458,10 +498,29 @@ final class LearningService
         $attempts = (int) $p->attempts + 1;
         $correctCount = (int) $p->correct_count + ($correct ? 1 : 0);
         $wrongCount = (int) $p->wrong_count + ($correct ? 0 : 1);
-        $counted = $correct ? $this->spaced($userId, $questionId, $p->last_answered_at, $now) : null;
-        $streak = $correct ? (int) $p->streak + ($counted ? 1 : 0) : 0;
+        $previous = (string) $p->learn_status;
+        $nowTs = (int) strtotime($now.' UTC');
+        $dueAt = $p->due_at ?? null;
+        if (! $correct) {
+            $counted = null;
+            $streak = 0;
+            $status = 'unsure';
+            $dueAt = null;
+        } elseif ($previous === 'secure' || $previous === 'mastered') {
+            // Ab „sicher heute“ zählt nur die fällige Wiederholung (anderer Tag bzw. wachsender Abstand).
+            $counted = self::isDue($p, $nowTs);
+            $streak = (int) $p->streak + ($counted ? 1 : 0);
+            $status = $counted ? 'mastered' : $previous;
+            if ($counted) {
+                $dueAt = gmdate('Y-m-d H:i:s', $nowTs + self::reviewInterval($streak));
+            }
+        } else {
+            $counted = $this->spaced($userId, $questionId, $p->last_answered_at, $now);
+            $streak = (int) $p->streak + ($counted ? 1 : 0);
+            $status = $streak >= self::SECURE_STREAK ? 'secure' : 'learning';
+            $dueAt = $status === 'secure' ? gmdate('Y-m-d H:i:s', $nowTs + self::CONSOLIDATE_GAP_SECONDS) : null;
+        }
         $mastery = round(min(1, 0.4 * ($correctCount / $attempts) + 0.6 * (min($streak, 3) / 3)), 4);
-        $status = $streak >= 3 ? 'mastered' : ($streak === 0 ? 'unsure' : 'learning');
         $this->db->update($this->t('progress'), [
             'attempts' => $attempts,
             'correct_count' => $correctCount,
@@ -471,9 +530,44 @@ final class LearningService
             'learn_status' => $status,
             'first_answered_at' => $p->first_answered_at ?: $now,
             'last_answered_at' => $now,
+            'due_at' => $dueAt,
         ], ['id' => (int) $p->id]);
 
         return $counted;
+    }
+
+    /** Abstand bis zur nächsten Wiederholung einer gefestigten Frage mit dieser Serie (Sekunden). */
+    private static function reviewInterval(int $streak): int
+    {
+        $days = self::REVIEW_INTERVAL_DAYS;
+        $index = max(0, min(count($days) - 1, $streak - self::SECURE_STREAK - 1));
+
+        return $days[$index] * DAY_IN_SECONDS;
+    }
+
+    /**
+     * Fälligkeit der nächsten Wiederholung (UTC, „Y-m-d H:i:s“) ab „sicher heute“, sonst null. Ohne due_at
+     * (Bestand vor 1.14.0): „sicher heute“ CONSOLIDATE_GAP_SECONDS, gefestigt 7 Tage nach der letzten Antwort.
+     */
+    public static function dueAt(?object $p): ?string
+    {
+        $status = (string) ($p->learn_status ?? '');
+        if ($p === null || ($status !== 'secure' && $status !== 'mastered')) {
+            return null;
+        }
+        if (! empty($p->due_at)) {
+            return (string) $p->due_at;
+        }
+        $last = ! empty($p->last_answered_at) ? (int) strtotime($p->last_answered_at.' UTC') : time();
+
+        return gmdate('Y-m-d H:i:s', $last + ($status === 'secure' ? self::CONSOLIDATE_GAP_SECONDS : self::REVIEW_INTERVAL_DAYS[0] * DAY_IN_SECONDS));
+    }
+
+    private static function isDue(object $p, int $now): bool
+    {
+        $due = self::dueAt($p);
+
+        return $due !== null && (int) strtotime($due.' UTC') <= $now;
     }
 
     /**
@@ -500,11 +594,13 @@ final class LearningService
     }
 
     /**
-     * Die zuletzt beantworteten Fragen (höchstens RECENT_EXCLUDE, letzte 2 Stunden) aus der Auswahl.
+     * Wie viele andere Antworten (alle Lernbereiche) seit der letzten Antwort auf die Fragen der Auswahl
+     * gegeben wurden – nur für Fragen unter den letzten 100 Antworten der letzten 2 Stunden, die zuletzt
+     * beantwortete zuerst; fehlende Fragen liegen länger zurück.
      * @param list<int> $questionIds
-     * @return list<int>
+     * @return array<int,int> question_id => Anzahl anderer Antworten seitdem
      */
-    private function recentlyAnswered(int $userId, array $questionIds): array
+    private function stepsSinceLastAnswer(int $userId, array $questionIds): array
     {
         if ($questionIds === []) {
             return [];
@@ -515,13 +611,10 @@ final class LearningService
             "SELECT question_id FROM {$this->t('attempt')} WHERE user_id = %d AND created_at >= %s ORDER BY created_at DESC, id DESC LIMIT 100",
             $userId,
             gmdate('Y-m-d H:i:s', time() - 2 * HOUR_IN_SECONDS)
-        )) as $id) {
+        )) as $index => $id) {
             $id = (int) $id;
-            if (isset($in[$id]) && ! in_array($id, $out, true)) {
-                $out[] = $id;
-                if (count($out) >= self::RECENT_EXCLUDE) {
-                    break;
-                }
+            if (isset($in[$id]) && ! isset($out[$id])) {
+                $out[$id] = $index;
             }
         }
 
@@ -552,10 +645,10 @@ final class LearningService
         ];
     }
 
-    /** @return array{status:string,streak:int,attempts:int}|null */
+    /** @return array{status:string,streak:int,attempts:int,due_at:?string}|null due_at: nächste Wiederholung (UTC) ab „sicher heute“ */
     private function progressPayload(?object $p): ?array
     {
-        return $p === null ? null : ['status' => (string) $p->learn_status, 'streak' => (int) $p->streak, 'attempts' => (int) $p->attempts];
+        return $p === null ? null : ['status' => (string) $p->learn_status, 'streak' => (int) $p->streak, 'attempts' => (int) $p->attempts, 'due_at' => self::dueAt($p)];
     }
 
     /** @return list<int> */
@@ -600,25 +693,45 @@ final class LearningService
         return $out;
     }
 
-    /** @param array<string,float> $topicAccuracy @return array{0:float,1:string} */
-    private function score(object $q, ?object $p, array $topicAccuracy): array
+    /**
+     * @param array<string,float> $topicAccuracy
+     * @param int|null $steps andere Antworten seit der letzten Antwort auf diese Frage (null = länger her)
+     * @return array{0:float,1:string}
+     */
+    private function score(object $q, ?object $p, array $topicAccuracy, ?int $steps = null, ?int $now = null): array
     {
+        $now ??= time();
         if ($p === null || (int) $p->attempts === 0) {
             return [1000, __('Noch nie gesehen', 'bootspruefung-learning')];
         }
+        $since = ! empty($p->last_answered_at) ? $now - (int) strtotime($p->last_answered_at.' UTC') : PHP_INT_MAX;
+        $ripe = static fn (int $after): bool => $steps === null || $steps >= $after || $since >= self::REPEAT_AFTER_SECONDS;
         if (self::lastWrong($p)) {
-            return [800 + min((int) $p->wrong_count, 10) * 10, __('Zuletzt falsch beantwortet', 'bootspruefung-learning')];
+            // Fehler nach wenigen anderen Fragen wiederholen – vor neuen Fragen (FACH-01).
+            return [($ripe(self::REPEAT_WRONG_AFTER) ? 1100 : 800) + min((int) $p->wrong_count, 10) * 10, __('Zuletzt falsch beantwortet', 'bootspruefung-learning')];
+        }
+        $status = (string) $p->learn_status;
+        if (self::isDue($p, $now)) {
+            return [1050, $status === 'secure'
+                ? __('Heute sicher – Wiederholung an einem neuen Tag', 'bootspruefung-learning')
+                : __('Wiederholung fällig', 'bootspruefung-learning')];
+        }
+        if ($status === 'learning' && $ripe(self::REPEAT_LEARNING_AFTER)) {
+            return [1020, __('Wiederholung zur Festigung', 'bootspruefung-learning')];
+        }
+        $base = (1 - (float) $p->mastery_score) * 300;
+        if ($status === 'secure' || $status === 'mastered') {
+            // Noch nicht fällig: nur, wenn sonst nichts übrig ist (z. B. alles sicher, Modus „Favoriten“).
+            return [$base * 0.1, $status === 'mastered'
+                ? __('Gefestigt, niedrige Priorität', 'bootspruefung-learning')
+                : __('Heute sicher, niedrige Priorität', 'bootspruefung-learning')];
         }
         $topic = $q->topic ?? null;
-        $base = (1 - (float) $p->mastery_score) * 300;
         if ($topic && ($topicAccuracy[$topic] ?? 1) < 0.6) {
             return [$base + 150, sprintf(__('Schwaches Thema: %s', 'bootspruefung-learning'), $topic)];
         }
 
-        // „Gefestigt“ nur bei echter Festigung (3 richtige in Folge, wie im Fortschritt), sonst Wiederholung.
-        return [$base, (int) ($p->streak ?? 0) >= 3
-            ? __('Gefestigt, niedrige Priorität', 'bootspruefung-learning')
-            : __('Wiederholung zur Festigung', 'bootspruefung-learning')];
+        return [$base, __('Wiederholung zur Festigung', 'bootspruefung-learning')];
     }
 
     /** Gemerkte Fragen im freigeschalteten Umfang des Kurses. */
@@ -680,7 +793,8 @@ final class LearningService
              WHERE s.user_id = %d AND s.status = 'running'
                AND ((s.deadline_at IS NOT NULL AND s.deadline_at > %s) OR (s.deadline_at IS NULL AND s.started_at > %s))",
             $userId,
-            gmdate('Y-m-d H:i:s', $now),
+            // Bis zum Ende der Kulanz für nachgesendete Prüfungsantworten gesperrt (nicht nachschlagen und nachreichen).
+            gmdate('Y-m-d H:i:s', $now - \Bootspruefung\Learning\Exams\Services\ExamService::LATE_TOLERANCE_SECONDS),
             gmdate('Y-m-d H:i:s', $now - self::OPEN_EXAM_BLOCK_SECONDS)
         )));
     }

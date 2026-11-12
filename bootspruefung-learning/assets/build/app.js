@@ -159,6 +159,7 @@
 					var error = new Error((data && data.message) || t('error_generic'));
 					error.status = response.status;
 					error.code = code;
+					error.reason = data && data.data && data.data.reason ? String(data.data.reason) : null; // Fachcode, z. B. exam_expired
 					throw error;
 				}
 				return data;
@@ -273,15 +274,18 @@
 
 	function progressBar(p, label) {
 		var total = Math.max(p.questions, 1);
-		var bar = el('div', { class: 'bp-progress', role: 'img', 'aria-label': t('progress_aria', { mastered: p.mastered, learning: p.learning, unsure: p.unsure, total: p.questions }) });
-		[['mastered', p.mastered], ['learning', p.learning], ['unsure', p.unsure]].forEach(function (seg) {
+		var secure = p.secure || 0;
+		var bar = el('div', { class: 'bp-progress', role: 'img', 'aria-label': t('progress_aria', { mastered: p.mastered, secure: secure, learning: p.learning, unsure: p.unsure, total: p.questions }) });
+		// Zwei Stufen: gefestigt (an einem anderen Tag bestätigt) und „sicher heute“ (drei richtige in Folge).
+		[['mastered', p.mastered], ['secure', secure], ['learning', p.learning], ['unsure', p.unsure]].forEach(function (seg) {
 			if (seg[1] > 0) {
 				bar.appendChild(el('span', { class: 'bp-progress-' + seg[0], style: 'width:' + (seg[1] * 100 / total) + '%' }));
 			}
 		});
+		var text = label || t('progress_label', { percent: p.percent, mastered: p.mastered, total: p.questions });
 		return el('div', { class: 'bp-progress-wrap' }, [
 			bar,
-			el('p', { class: 'bp-progress-label', text: label || t('progress_label', { percent: p.percent, mastered: p.mastered, total: p.questions }) })
+			el('p', { class: 'bp-progress-label', text: secure > 0 ? text + ' · ' + t('progress_secure', { n: secure }) : text })
 		]);
 	}
 
@@ -615,8 +619,9 @@
 			} else {
 				var join = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_join') });
 				join.addEventListener('click', function () {
-					join.disabled = true;
-					api('POST', 'groups/join', { token: token }).then(function () { navigate(''); }).catch(function (e) { join.disabled = false; alertMessage(box, e); });
+					if (isBusy(join)) { return; }
+					setBusy(join, true); // aria-disabled statt disabled: Fokus bleibt auf dem Knopf (UX-05)
+					api('POST', 'groups/join', { token: token }).then(function () { navigate(''); }).catch(function (e) { setBusy(join, false); alertMessage(box, e); });
 				});
 				box.appendChild(el('div', { class: 'bp-actions' }, [join]));
 			}
@@ -684,12 +689,12 @@
 				var send = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_invite') });
 				send.addEventListener('click', function () {
 					var list = emails.value.split(/[\s,;]+/).filter(Boolean);
-					if (!list.length) { return; }
-					send.disabled = true;
+					if (!list.length || isBusy(send)) { return; }
+					setBusy(send, true); // aria-disabled statt disabled: Fokus bleibt auf dem Knopf (UX-05)
 					api('POST', 'me/groups/' + g.id + '/invite', { emails: list }).then(function (r) {
 						render(r.group);
 						if (r.skipped.length) { alertMessage(card, t('group_skipped', { list: r.skipped.join(', ') })); }
-					}).catch(function (e) { send.disabled = false; alertMessage(card, e); });
+					}).catch(function (e) { setBusy(send, false); alertMessage(card, e); });
 				});
 				card.appendChild(el('h3', { text: t('group_invite_emails') }));
 				card.appendChild(el('div', { class: 'bp-actions' }, [emails, send]));
@@ -969,7 +974,7 @@
 				el('div', { class: 'bp-hub-progress-body' }, [
 					el('div', { class: 'bp-hub-ring-wrap' }, [ring(p.percent), el('p', {}, [el('strong', { text: p.percent + ' %' }), el('span', { text: t('course_hero_mastered') })])]),
 					el('ul', { class: 'bp-hub-legend' }, [
-						['mastered', t('status_mastered'), p.mastered], ['learning', t('status_learning'), p.learning], ['unsure', t('status_unsure'), p.unsure], ['new', t('hub_open'), p.new]
+						['mastered', t('status_mastered'), p.mastered], ['secure', t('status_secure'), p.secure || 0], ['learning', t('status_learning'), p.learning], ['unsure', t('status_unsure'), p.unsure], ['new', t('hub_open'), p.new]
 					].map(function (r) { return el('li', { class: 'is-' + r[0] }, [el('span', { class: 'bp-hub-dot', 'aria-hidden': 'true' }), el('span', { text: r[1] }), el('strong', { text: String(r[2]) })]); }))
 				]),
 				el('p', { class: 'bp-hub-hint' }, [el('span', { class: 'bp-ico bp-ico-flag', 'aria-hidden': 'true' }), p.mastered >= p.questions ? t('hub_hint_done') : t('hub_hint', { n: p.questions - p.mastered })]),
@@ -1744,6 +1749,40 @@
 		}
 	}
 
+	// Nach einer erfolgreichen Auswertung: veraltete Fehlermeldung entfernen (UX-06) und den Fokus auf die
+	// Überschrift des Ergebnisses legen statt ihn an <body> zu verlieren (UX-05). tabindex=-1 macht sie
+	// fokussierbar, ohne sie in die Tab-Reihenfolge aufzunehmen; Screenreader lesen sie beim Fokus vor.
+	function focusResult(container, target) {
+		clearAlert(container);
+		var node = target || container;
+		if (!node || !node.focus) {
+			return;
+		}
+		node.setAttribute('tabindex', '-1');
+		node.focus({ preventScroll: true });
+	}
+
+	// Rückmeldung oberhalb einer unten fixierten Knopfleiste (Smarttrainer mobil, UX-07) in den Blick holen:
+	// so weit scrollen, dass das Ende der Rückmeldung über der Leiste steht, höchstens bis ihr Anfang oben ankommt.
+	function revealAboveBar(node, bar) {
+		if (!node || !node.getBoundingClientRect) {
+			return;
+		}
+		var vh = window.innerHeight || document.documentElement.clientHeight;
+		var limit = vh;
+		if (bar && bar.getBoundingClientRect && window.getComputedStyle && window.getComputedStyle(bar).position === 'sticky') {
+			var b = bar.getBoundingClientRect();
+			if (b.top > 0 && b.top < vh) {
+				limit = b.top;
+			}
+		}
+		var r = node.getBoundingClientRect();
+		var by = Math.min(r.bottom + 12 - limit, r.top - 80);
+		if (by > 0) {
+			window.scrollBy({ top: by, behavior: scrollBehavior() });
+		}
+	}
+
 	function startExam(slug, paperId) {
 		return api('POST', 'courses/' + encodeURIComponent(slug) + '/exam-sessions', { paper_id: paperId }).then(function (r) {
 			navigate(slug + '/pruefung/' + r.session_id + '/');
@@ -2033,6 +2072,21 @@
 		return btn;
 	}
 
+	// Hinweis zur Lernstufe nach einer richtigen Antwort (FACH-02): „sicher heute“, gefestigt mit Wiedervorlage
+	// oder „zählt erst mit Abstand“. @return Textschlüssel oder null
+	function learnStageNote(r) {
+		if (!r.correct || !r.progress) {
+			return null;
+		}
+		if (r.progress.status === 'secure') {
+			return 'secure_note';
+		}
+		if (r.progress.status === 'mastered' && r.streak_counted) {
+			return 'review_note';
+		}
+		return r.streak_counted === false ? 'streak_not_counted' : null;
+	}
+
 	function questionCard(slug, moduleId, mode, q, container, topic) {
 		var started = Date.now();
 		var key = uuid();
@@ -2066,9 +2120,9 @@
 			} else if (r.explanation_locked) {
 				feedback.appendChild(el('p', { class: 'bp-muted', text: t('explanation_locked') }));
 			}
-			if (r.correct && r.streak_counted === false) {
-				// Richtig, aber zu kurz nach der letzten Antwort: zählt nicht für die Serie.
-				feedback.appendChild(el('p', { class: 'bp-muted bp-streak-note', text: t('streak_not_counted') }));
+			var note = learnStageNote(r);
+			if (note) {
+				feedback.appendChild(el('p', { class: 'bp-muted bp-streak-note', text: t(note) }));
 			}
 			if (r.progress) {
 				var dots = el('span', { class: 'bp-streak-dots', 'aria-hidden': 'true' });
@@ -2080,7 +2134,10 @@
 			actions.textContent = '';
 			actions.appendChild(next);
 			actions.appendChild(favoriteButton(q));
-			next.focus();
+			clearAlert(feedback); // alte Fehlermeldung (z. B. offline) nicht neben dem Ergebnis stehen lassen (UX-06)
+			next.focus({ preventScroll: true });
+			// Mobil liegt die Leiste mit „Nächste Frage“ fixiert unten: Rückmeldung und Erklärung darüber zeigen (UX-07).
+			revealAboveBar(feedback, actions);
 		}
 
 		function send(body, fieldset, button, other) {
@@ -2106,6 +2163,7 @@
 				if (isBusy(reveal)) { return; }
 				setBusy(reveal, true);
 				api('POST', 'answers/reveal', { token: q.token }).then(function (r) {
+					clearAlert(feedback);
 					card.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]), feedback);
 					actions.textContent = '';
 					var yes = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('known_yes') });
@@ -2620,6 +2678,7 @@
 						q.answer = r.answer;
 						q.my_answer = r.my_answer !== undefined ? r.my_answer : area.value;
 						q.check = r.check || null;
+						clearAlert(item);
 						render('official');
 					}).catch(function (e) { setBusy(reveal, false); alertMessage(item, e); });
 				});
@@ -2646,6 +2705,7 @@
 						q.my_answer = r && r.my_answer !== undefined ? r.my_answer : area.value;
 						if (r && r.check !== undefined) { q.check = r.check; }
 						item.classList.add('is-correct');
+						clearAlert(item);
 						render('assess-' + a);
 						if (onDone) { onDone(); }
 					}).catch(function (e) { buttons.forEach(function (x) { setBusy(x, false); }); alertMessage(item, e); });
@@ -2916,7 +2976,7 @@
 			});
 			video.addEventListener('pause', function () { saveProgress(null).catch(function () { /* nächster Versuch beim Takt */ }); });
 			video.addEventListener('ended', function () {
-				saveProgress(true).then(function () { setDone(true); }).catch(function (e) { alertMessage(doneBtn.parentNode, e); });
+				saveProgress(true).then(function () { setDone(true); clearAlert(doneBtn.parentNode); }).catch(function (e) { alertMessage(doneBtn.parentNode, e); });
 			});
 		}
 		// Titelkarte über dem Video (Kapitel, Lektion, Kurs) bis zum Start
@@ -3014,9 +3074,8 @@
 				feedback.appendChild(multiline('p', r.explanation, 'bp-explanation'));
 			}
 			actions.textContent = '';
-			// Der geklickte Knopf ist weg: Fokus auf die Rückmeldung (nicht auf <body>).
-			feedback.setAttribute('tabindex', '-1');
-			feedback.focus({ preventScroll: true });
+			// Der geklickte Knopf ist weg: Fokus auf die Rückmeldung (nicht auf <body>), alte Fehlermeldung weg (UX-06).
+			focusResult(feedback, feedback);
 			bringIntoView(feedback);
 		}
 		function send(body, fieldset, button, other) {
@@ -3034,6 +3093,7 @@
 				if (isBusy(reveal)) { return; }
 				setBusy(reveal, true);
 				api('POST', 'answers/reveal', { token: q.token }).then(function (r) {
+					clearAlert(feedback);
 					card.insertBefore(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('model_answer') }), multiline('p', r.model_answer)]), actions);
 					actions.textContent = '';
 					var yes = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('known_yes') });
@@ -3280,6 +3340,7 @@
 						x.done = r.done;
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+						clearAlert(doneBtn.parentNode || doneBtn);
 					}).catch(function (e) {
 						alertMessage(doneBtn.parentNode || doneBtn, e);
 					});
@@ -3337,7 +3398,9 @@
 					}
 					var evalBtn = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('radio_evaluate') });
 					evalBtn.addEventListener('click', function () {
-						evalBtn.disabled = true;
+						// aria-disabled statt disabled: sonst fällt der Fokus auf <body> (UX-05).
+						if (isBusy(evalBtn)) { return; }
+						setBusy(evalBtn, true);
 						api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/texts/' + x.id + '/evaluate', { direction: translation ? direction : '', transcript: transcript.value, translation: trans ? trans.value : '' }).then(function (r) {
 							result.textContent = '';
 							result.appendChild(evaluationBox(t('radio_transcript'), r.transcript) || el('span'));
@@ -3346,7 +3409,9 @@
 								result.appendChild(tr);
 							}
 							result.appendChild(el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', r.solution.from), r.solution.to ? multiline('p', r.solution.to) : null]));
-						}).catch(function (e) { alertMessage(result, e); }).finally(function () { evalBtn.disabled = false; });
+							focusResult(result, result.querySelector('.bp-feedback-title, .bp-model-title'));
+							bringIntoView(result);
+						}).catch(function (e) { alertMessage(result, e); }).finally(function () { setBusy(evalBtn, false); });
 					});
 					body.appendChild(el('div', { class: 'bp-actions' }, [evalBtn]));
 				}
@@ -3411,7 +3476,9 @@
 					e.preventDefault();
 					var answers = {};
 					Object.keys(inputs).forEach(function (k) { answers[k] = inputs[k].value; });
-					submit.disabled = true;
+					// aria-disabled statt disabled: sonst fällt der Fokus auf <body> (UX-05).
+					if (isBusy(submit)) { return; }
+					setBusy(submit, true);
 					api('POST', 'courses/' + encodeURIComponent(slug) + '/radio/practice/' + x.id + '/evaluate', { answers: answers }).then(function (r) {
 						result.textContent = '';
 						result.appendChild(el('p', { class: 'bp-feedback-title', text: t('practice_score', { passed: r.passed, total: r.total }) }));
@@ -3422,8 +3489,9 @@
 								el('div', { class: 'bp-model' }, [el('p', { class: 'bp-model-title', text: t('radio_solution') }), multiline('p', f.solution)])
 							]));
 						});
+						focusResult(result, result.querySelector('.bp-feedback-title'));
 						result.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
-					}).catch(function (err) { alertMessage(result, err); }).finally(function () { submit.disabled = false; });
+					}).catch(function (err) { alertMessage(result, err); }).finally(function () { setBusy(submit, false); });
 				});
 				var doneBtn = el('button', { type: 'button', class: 'bp-button', 'aria-pressed': x.done ? 'true' : 'false', text: x.done ? t('radio_done') : t('radio_mark_done') });
 				doneBtn.addEventListener('click', function () {
@@ -3431,6 +3499,7 @@
 						x.done = r.done;
 						doneBtn.textContent = x.done ? t('radio_done') : t('radio_mark_done');
 						doneBtn.setAttribute('aria-pressed', x.done ? 'true' : 'false');
+						clearAlert(doneBtn.parentNode || doneBtn);
 					}).catch(function (e) {
 						alertMessage(doneBtn.parentNode || doneBtn, e);
 					});
@@ -3809,6 +3878,281 @@
 		return s.paper_number ? t('paper_title', { number: s.paper_number }) : t('simulation_title');
 	}
 
+	// Zwischenspeicher der Prüfungsantworten im Browser (QA-02), je Sitzung und Frage ein localStorage-Eintrag
+	// (zwei Tabs löschen sich so keine Einträge). Ein Eintrag bleibt, bis der Server genau diesen Stand bestätigt
+	// hat; „lost“ = kam erst nach Fristende an. Ohne localStorage (privater Modus) nur im Arbeitsspeicher.
+	function examOutbox(sessionId) {
+		var prefix = 'bp-exam-' + sessionId + '-';
+		var memory = {};
+		function store() {
+			try { return window.localStorage || null; } catch (e) { return null; }
+		}
+		function read(position) {
+			var st = store();
+			if (st) {
+				try {
+					var raw = st.getItem(prefix + position);
+					return raw ? JSON.parse(raw) : null;
+				} catch (e) { /* Arbeitsspeicher */ }
+			}
+			return memory[position] || null;
+		}
+		function write(position, entry) {
+			memory[position] = entry;
+			var st = store();
+			if (st) {
+				try {
+					if (entry) { st.setItem(prefix + position, JSON.stringify(entry)); } else { st.removeItem(prefix + position); }
+				} catch (e) { /* Speicher voll: bleibt im Arbeitsspeicher */ }
+			}
+			if (!entry) { delete memory[position]; }
+		}
+		function positions() {
+			var out = Object.keys(memory).map(Number);
+			var st = store();
+			if (st) {
+				try {
+					for (var i = 0; i < st.length; i++) {
+						var k = st.key(i);
+						var n = k && k.indexOf(prefix) === 0 ? Number(k.slice(prefix.length)) : NaN;
+						if (!isNaN(n) && out.indexOf(n) === -1) { out.push(n); }
+					}
+				} catch (e) { /* nur Arbeitsspeicher */ }
+			}
+			return out.sort(function (a, b) { return a - b; });
+		}
+		return {
+			put: function (position, body) {
+				var entry = { id: uuid(), at: Date.now(), body: body };
+				write(position, entry);
+				return entry;
+			},
+			get: read,
+			// Bestätigt: entfernen, wenn inzwischen kein neuerer Stand gespeichert wurde.
+			done: function (position, id) {
+				var cur = read(position);
+				if (cur && cur.id === id) { write(position, null); }
+			},
+			lose: function (position, id) {
+				var cur = read(position);
+				if (cur && (!id || cur.id === id)) { cur.lost = true; write(position, cur); }
+			},
+			pending: function () {
+				return positions().filter(function (p) { var e = read(p); return e && !e.lost; });
+			},
+			lostCount: function () {
+				return positions().filter(function (p) { var e = read(p); return e && e.lost; }).length;
+			},
+			clear: function () {
+				positions().forEach(function (p) { write(p, null); });
+			}
+		};
+	}
+
+	// Senden der gepufferten Prüfungsantworten: je Frage höchstens eine Anfrage, neuerer Stand gewinnt; Netz-
+	// und Serverfehler mit wachsendem Abstand (1 s … 30 s) bzw. sofort bei „online“ wiederholen; das Alter der
+	// Antwort (age_ms) geht mit, damit der Server sie bis kurz nach Fristende noch annimmt. submit() gibt erst ab,
+	// wenn alles bestätigt ist, und wartet ohne Netz mit klarer Meldung.
+	function examSender(s, opts) {
+		var outbox = examOutbox(s.id);
+		var status = opts.status;
+		var busy = {};
+		var failures = 0;
+		var offline = false;
+		var retryTimer = null;
+		var stopped = false;
+		var finished = false;
+		var submitWaiting = false;
+		var idleWaiters = [];
+
+		function inFlight() {
+			return Object.keys(busy).length;
+		}
+		function idle() {
+			return finished || (outbox.pending().length === 0 && inFlight() === 0);
+		}
+		function retryable(e) {
+			return e.status === 0 || e.status === 401 || e.status === 408 || e.status === 429 || e.status >= 500;
+		}
+		function report(error) {
+			var n = outbox.pending().length;
+			if (offline && n > 0) {
+				status.textContent = submitWaiting ? t('exam_submit_waiting', { n: n }) : t('exam_offline', { n: n });
+			} else if (error) {
+				status.textContent = error.message;
+			} else if (n > 0 || inFlight()) {
+				status.textContent = t('saving');
+			} else {
+				status.textContent = t('saved');
+			}
+			opts.onState();
+		}
+		function settle() {
+			if (idle()) {
+				var w = idleWaiters;
+				idleWaiters = [];
+				w.forEach(function (fn) { fn(); });
+			}
+		}
+		function delay() {
+			return Math.min(30000, 1000 * Math.pow(2, Math.min(failures, 5)));
+		}
+		function schedule() {
+			if (stopped || retryTimer) {
+				return;
+			}
+			retryTimer = setTimeout(function () { retryTimer = null; flush(); }, delay());
+		}
+		function flush() {
+			outbox.pending().forEach(send);
+		}
+		function send(position) {
+			if (stopped || finished || busy[position]) {
+				return;
+			}
+			var entry = outbox.get(position);
+			if (!entry || entry.lost) {
+				return;
+			}
+			busy[position] = true;
+			var body = {};
+			Object.keys(entry.body).forEach(function (k) { body[k] = entry.body[k]; });
+			body.age_ms = Math.max(0, Date.now() - entry.at);
+			api('PUT', 'exam-sessions/' + s.id + '/answers/' + position, body).then(function (r) {
+				delete busy[position];
+				failures = 0;
+				offline = false;
+				outbox.done(position, entry.id);
+				if (r && r.applied === false) {
+					opts.onServerState(position, r);
+				}
+				var next = outbox.get(position);
+				if (next && !next.lost) {
+					send(position); // neuerer Stand wartet: der gilt
+				}
+				report();
+				settle();
+			}, function (e) {
+				delete busy[position];
+				if (retryable(e)) {
+					failures++;
+					offline = e.status === 0;
+					report(offline ? null : e);
+					schedule();
+					return;
+				}
+				if (e.reason === 'exam_finished' || (e.status === 422 && e.reason !== 'exam_expired' && /abgeschlossen|beendet/i.test(e.message))) {
+					// Prüfung schon ausgewertet: nichts mehr nachsendbar; Ergebnis zeigen (mit Hinweis auf Verlorenes).
+					outbox.pending().forEach(function (p) { outbox.lose(p, null); });
+					finished = true;
+					settle();
+					opts.onFinished();
+					return;
+				}
+				if (e.reason === 'exam_expired' || (e.status === 422 && /abgelaufen/i.test(e.message))) {
+					outbox.lose(position, entry.id); // nach Fristende gegeben bzw. zu spät angekommen
+				} else {
+					outbox.done(position, entry.id); // ungültig: nicht endlos wiederholen
+				}
+				report(e);
+				settle();
+			});
+		}
+		function onOnline() {
+			failures = 0;
+			if (retryTimer) {
+				clearTimeout(retryTimer);
+				retryTimer = null;
+			}
+			flush();
+		}
+
+		return {
+			save: function (position, body) {
+				outbox.put(position, body);
+				report();
+				send(position);
+			},
+			// Gepufferte Antworten (z. B. nach Neuladen ohne Netz) übernehmen und nachsenden. @return Aufräumfunktion
+			start: function (questions) {
+				outbox.pending().forEach(function (position) {
+					var entry = outbox.get(position);
+					var q = questions.filter(function (x) { return x.position === position; })[0];
+					if (q && entry && entry.body) {
+						if (entry.body.answer_ids) { q.selected_ids = entry.body.answer_ids.slice(); }
+						if (entry.body.known === true || entry.body.known === false) { q.known = entry.body.known; }
+					}
+				});
+				window.addEventListener('online', onOnline);
+				if (outbox.pending().length) {
+					report();
+					flush();
+				}
+				return function () {
+					stopped = true;
+					window.removeEventListener('online', onOnline);
+					if (retryTimer) { clearTimeout(retryTimer); }
+					retryTimer = null;
+				};
+			},
+			submit: function () {
+				submitWaiting = true;
+				return new Promise(function (resolve, reject) {
+					function attempt() {
+						if (stopped) { return; }
+						flush();
+						report();
+						new Promise(function (r) { if (idle()) { r(); } else { idleWaiters.push(r); } }).then(function () {
+							if (finished) { return null; }
+							return api('POST', 'exam-sessions/' + s.id + '/submit');
+						}).then(function (r) {
+							if (r) { submitWaiting = false; resolve(r); }
+						}, function (e) {
+							if (retryable(e) && !stopped) {
+								failures++;
+								offline = e.status === 0;
+								status.textContent = offline ? t('exam_submit_offline') : e.message;
+								setTimeout(attempt, delay());
+								return;
+							}
+							submitWaiting = false;
+							reject(e);
+						});
+					}
+					attempt();
+				});
+			}
+		};
+	}
+
+	// Hinweis, wenn dieselbe Prüfung zugleich in einem anderen Tab läuft (QA-13; BroadcastChannel, falls vorhanden).
+	// @return Aufräumfunktion
+	function examTabNotice(sessionId) {
+		var channel = null;
+		try { channel = window.BroadcastChannel ? new window.BroadcastChannel('bp-exam-' + sessionId) : null; } catch (e) { channel = null; }
+		if (!channel) {
+			return function () {};
+		}
+		var me = uuid();
+		var shown = false;
+		channel.onmessage = function (e) {
+			var d = e.data || {};
+			if (d.from === me) {
+				return;
+			}
+			if (d.type === 'hello') {
+				channel.postMessage({ type: 'here', from: me });
+			}
+			var side = root.querySelector('.bp-exam-side');
+			if (!shown && side) {
+				shown = true;
+				side.insertBefore(el('p', { class: 'bp-note', role: 'status', text: t('exam_other_tab') }), side.firstChild);
+			}
+		};
+		channel.postMessage({ type: 'hello', from: me });
+		return function () { try { channel.close(); } catch (e) { /* schon zu */ } };
+	}
+
 	function examRun(slug, s) {
 		var current = 0;
 		var questions = s.questions;
@@ -3873,70 +4217,26 @@
 			return b;
 		}
 
-		// Speichern je Frage strikt nacheinander: höchstens eine Anfrage gleichzeitig, der zuletzt gewählte
-		// Stand gewinnt (Zwischenstände werden zusammengefasst). „Gespeichert“ erst, wenn nichts mehr offen ist.
-		var queues = {};
-		var idleWaiters = [];
-		var saveFailed = false;
-
-		function queuesIdle() {
-			return Object.keys(queues).every(function (k) { return !queues[k].busy && !queues[k].next; });
-		}
-
-		function whenIdle() {
-			return queuesIdle() ? Promise.resolve() : new Promise(function (resolve) { idleWaiters.push(resolve); });
-		}
+		// Speichern über einen Zwischenspeicher im Browser (QA-02): jede Antwort landet zuerst im localStorage
+		// und wird dann je Frage strikt nacheinander gesendet (der zuletzt gewählte Stand gewinnt). Ohne Netz
+		// bleibt sie gespeichert und wird mit wachsendem Abstand bzw. sobald der Browser wieder online ist
+		// nachgesendet – mit ihrem Alter (age_ms), damit der Server sie bis kurz nach Fristende noch annimmt.
+		var sender = examSender(s, {
+			onState: function () { renderNav(); },
+			onServerState: function (position, r) {
+				// Auf dem Server liegt ein neuerer Stand (z. B. aus einem anderen Tab): den anzeigen.
+				var q = questions.filter(function (x) { return x.position === position; })[0];
+				if (!q) { return; }
+				q.selected_ids = r.selected_ids || [];
+				q.known = r.known === undefined ? q.known : r.known;
+				if (questions[current] === q && !submitting) { renderQuestion(false); }
+			},
+			onFinished: function () { viewExam(slug, s.id).catch(showError); },
+			status: status
+		});
 
 		function save(q, body) {
-			var qu = queues[q.position] || (queues[q.position] = { busy: false, next: null, waiters: [] });
-			qu.next = body;
-			saveFailed = false;
-			status.textContent = t('saving');
-			var done = new Promise(function (resolve) { qu.waiters.push(resolve); });
-			pump(q.position);
-			return done;
-		}
-
-		function pump(position) {
-			var qu = queues[position];
-			if (qu.busy || !qu.next) {
-				return;
-			}
-			var body = qu.next;
-			qu.next = null;
-			qu.busy = true;
-			api('PUT', 'exam-sessions/' + s.id + '/answers/' + position, body).then(function () {
-				finish(position, null);
-			}, function (e) {
-				finish(position, e);
-			});
-		}
-
-		function finish(position, error) {
-			var qu = queues[position];
-			qu.busy = false;
-			if (qu.next) {
-				pump(position); // neuerer Stand wartet: der gilt, Zwischenergebnis nicht melden
-				return;
-			}
-			var waiters = qu.waiters;
-			qu.waiters = [];
-			if (error) {
-				saveFailed = true;
-				status.textContent = error.message;
-				if (error.status === 422 && /abgelaufen|abgeschlossen/i.test(error.message)) {
-					viewExam(slug, s.id).catch(showError);
-				}
-			} else if (queuesIdle() && !saveFailed) {
-				status.textContent = t('saved');
-			}
-			renderNav();
-			waiters.forEach(function (w) { w(!error); });
-			if (queuesIdle()) {
-				var idle = idleWaiters;
-				idleWaiters = [];
-				idle.forEach(function (w) { w(); });
-			}
+			return sender.save(q.position, body);
 		}
 
 		function renderQuestion(focus) {
@@ -4023,15 +4323,11 @@
 				return;
 			}
 			submitting = true;
-			// Erst abgeben, wenn alle Antworten gespeichert sind (sonst fehlt evtl. die letzte Auswahl).
-			whenIdle().then(function () {
-				return api('POST', 'exam-sessions/' + s.id + '/submit');
-			}).then(function (r) { examResult(slug, r); }).catch(function (e) {
+			// Erst abgeben, wenn der Server alle Antworten bestätigt hat (auch nachgesendete); ohne Netz wartet die
+			// Abgabe mit klarer Meldung und sendet weiter, sobald die Verbindung zurück ist.
+			sender.submit().then(function (r) { examResult(slug, r); }).catch(function (e) {
 				submitting = false;
 				status.textContent = e.message;
-				if (auto) {
-					clearTimers(); // nicht jede Sekunde erneut abgeben; Knopf bleibt zum erneuten Versuch
-				}
 			});
 		}
 
@@ -4059,11 +4355,16 @@
 				])
 			])
 		], examTitle(s));
+		// Nach mount (das räumt Timer und Aufräumfunktionen der vorigen Ansicht ab): gepufferte Antworten
+		// übernehmen und nachsenden; beim Seitenwechsel Wiederholungen und Listener beenden.
+		cleanups.push(sender.start(questions));
+		cleanups.push(examTabNotice(s.id));
 		renderQuestion();
 
 		if (deadline) {
 			var warned5 = false;
 			var warned1 = false;
+			var tickId = null;
 			var tick = function () {
 				var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
 				var m = Math.floor(left / 60);
@@ -4080,13 +4381,15 @@
 					status.textContent = t('five_minutes');
 				}
 				if (left <= 0) {
-					clearTimers();
+					// Nur den Takt anhalten (nicht clearTimers: das Nachsenden gepufferter Antworten läuft weiter).
+					clearInterval(tickId);
 					status.textContent = t('time_up');
 					submit(true);
 				}
 			};
+			tickId = setInterval(tick, 1000);
+			timers.push(tickId);
 			tick();
-			timers.push(setInterval(tick, 1000));
 		}
 	}
 
@@ -4122,6 +4425,10 @@
 
 	function examResult(slug, s) {
 		var r = s.result;
+		// Zwischenspeicher dieser Prüfung leeren; was nicht mehr ankam, als Hinweis zeigen (QA-02).
+		var outbox = examOutbox(s.id);
+		var lost = outbox.lostCount() + outbox.pending().length;
+		outbox.clear();
 		var list = el('ol', { class: 'bp-review' });
 		var onlyWrong = el('input', { type: 'checkbox', id: 'bp-only-wrong' });
 		var onlyFlagged = el('input', { type: 'checkbox', id: 'bp-only-flagged' });
@@ -4192,6 +4499,7 @@
 						el('p', { class: 'bp-verdict-title' }, [el('span', { class: 'bp-verdict-icon', 'aria-hidden': 'true' }), r.passed ? t('verdict_passed') : t('verdict_failed')]),
 						el('p', { class: 'bp-verdict-score', text: t('score_line', { score: r.score, max: r.max, percent: percent }) }),
 						r.expired ? el('p', { class: 'bp-verdict-note', text: t('expired_note') }) : null,
+						lost ? el('p', { class: 'bp-verdict-note', text: t('exam_late_lost', { n: lost }) }) : null,
 						s.reduced || r.reduced ? el('p', { class: 'bp-verdict-note', text: t('exam_reduced') }) : (!s.live ? el('p', { class: 'bp-verdict-note', text: t('practice_result_note') }) : null),
 						r.open_text.total > 0 ? el('p', { class: 'bp-verdict-note', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null
 					]),

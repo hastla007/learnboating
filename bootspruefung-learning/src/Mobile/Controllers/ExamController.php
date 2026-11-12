@@ -115,7 +115,9 @@ final class ExamController extends BaseController
         $this->requireRunning($id);
         $selected = QuestionMapper::ids($request['selected_answer_ids']);
         $known = $request['known'] === null ? null : (bool) $request['known'];
-        $this->exams->saveAnswer($this->user(), $id, $position, $selected, $known);
+        // Gleiche Serverlogik wie im Web: offline gepufferte Antworten bis zur Kulanz nach Fristende, idempotent,
+        // ein älterer Stand überschreibt keinen neueren (applied = false).
+        $state = $this->exams->saveAnswer($this->user(), $id, $position, $selected, $known, $request['age_ms'] === null ? null : (int) $request['age_ms'], $request['answered_at'] === null ? null : (string) $request['answered_at']);
         // Seit 1.3.0: marked_for_review (Konzept) = Markierung „zur Überprüfung“ (wie PUT …/flag).
         if ($request['marked_for_review'] !== null) {
             $this->exams->setFlag($this->user(), $id, $position, (bool) $request['marked_for_review']);
@@ -126,6 +128,7 @@ final class ExamController extends BaseController
 
         return $this->ok([
             'saved' => true,
+            'applied' => (bool) $state['applied'],
             'question_id' => (string) $position,
             'selected_answer_ids' => array_map('strval', (array) ($given['answer_ids'] ?? [])),
             'known' => $row && $row->self_assessed_known !== null ? (bool) $row->self_assessed_known : null,

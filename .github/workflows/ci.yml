@@ -211,6 +211,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/security-test.php | tee security.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" security.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Smarttrainer mit verteilter Wiederholung, Prüfung ohne Netz (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/learning-review-test.php | tee learning-review.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" learning-review.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Teilumfänge, Freigaben, Schutz, Gruppen (Integration)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/membership-test.php | tee membership.log

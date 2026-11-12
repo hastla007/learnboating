@@ -117,7 +117,9 @@ final class LearnerController
             'methods' => 'PUT',
             'callback' => self::wrap([$this, 'examAnswer']),
             'permission_callback' => $auth,
-            'args' => ['id' => $id, 'position' => $id, 'answer_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'default' => [], 'maxItems' => 26], 'known' => ['type' => ['boolean', 'null'], 'default' => null]],
+            'args' => ['id' => $id, 'position' => $id, 'answer_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'default' => [], 'maxItems' => 26], 'known' => ['type' => ['boolean', 'null'], 'default' => null],
+                // Offline gepufferte Antwort: Alter in Millisekunden beim Senden (bzw. Gerätezeit), siehe ExamService::saveAnswer.
+                'age_ms' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null], 'answered_at' => ['type' => ['string', 'null'], 'maxLength' => 40, 'default' => null]],
         ]);
         // Frage „zur Überprüfung markieren“ (nur laufende Prüfung; ändert weder Antwort noch Bewertung).
         register_rest_route($ns, '/exam-sessions/(?P<id>\d+)/answers/(?P<position>\d+)/flag', [
@@ -389,9 +391,18 @@ final class LearnerController
 
     public function examAnswer(WP_REST_Request $request): array
     {
-        $this->exams->saveAnswer(get_current_user_id(), (int) $request['id'], (int) $request['position'], array_map('intval', (array) $request['answer_ids']), $request['known'] === null ? null : (bool) $request['known']);
+        $state = $this->exams->saveAnswer(
+            get_current_user_id(),
+            (int) $request['id'],
+            (int) $request['position'],
+            array_map('intval', (array) $request['answer_ids']),
+            $request['known'] === null ? null : (bool) $request['known'],
+            $request['age_ms'] === null ? null : (int) $request['age_ms'],
+            $request['answered_at'] === null ? null : (string) $request['answered_at']
+        );
 
-        return ['saved' => true];
+        // applied = false: auf dem Server liegt ein neuerer Stand (z. B. aus einem anderen Tab); den zeigt die Web-App an.
+        return ['saved' => true, 'position' => (int) $request['position']] + $state;
     }
 
     public function examFlag(WP_REST_Request $request): array
@@ -438,6 +449,9 @@ final class LearnerController
                 return new WP_Error('bp_forbidden', $e->getMessage(), ['status' => 403]);
             } catch (NotFound $e) {
                 return new WP_Error('bp_not_found', $e->getMessage(), ['status' => 404]);
+            } catch (\Bootspruefung\Learning\Support\DomainException $e) {
+                // Stabiler Fachcode (z. B. exam_expired) zusätzlich zur Meldung, damit die Web-App nicht am Text erkennen muss.
+                return new WP_Error('bp_invalid', $e->getMessage(), ['status' => 422, 'reason' => $e->errorCode()]);
             } catch (\RuntimeException $e) {
                 return new WP_Error('bp_invalid', $e->getMessage(), ['status' => 422]);
             }

@@ -13,8 +13,9 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 900 }, dev
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const external = new Set();
+let offlineStep = false; // gewollt ohne Netz (Prüfung offline): fehlgeschlagene Anfragen sind dort kein Fehler
 // Durch Seitenwechsel abgebrochene Anfragen (net::ERR_ABORTED) sind kein Fehler.
-page.on('requestfailed', (r) => { if (r.failure()?.errorText === 'net::ERR_ABORTED') { return; } if (!r.url().startsWith(base)) { external.add(new URL(r.url()).host); } else { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
+page.on('requestfailed', (r) => { if (r.failure()?.errorText === 'net::ERR_ABORTED' || offlineStep) { return; } if (!r.url().startsWith(base)) { external.add(new URL(r.url()).host); } else { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
 // Fehler externer Ressourcen (z. B. Emoji-CDN des Themes) betreffen das Plugin nicht.
 page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
 const shot = async (name) => { if (shots) { await page.screenshot({ path: `${shots}/${name}.png`, fullPage: true }); } };
@@ -69,6 +70,25 @@ await page.getByRole('button', { name: 'Merken', pressed: true }).waitFor();
 await page.getByRole('button', { name: 'Nächste Frage' }).click();
 await page.waitForFunction((t) => document.querySelector('.bp-question-text')?.innerText !== t, firstText);
 
+step('Smarttrainer mobil (390 px): Rückmeldung über der fixierten Knopfleiste (UX-07)');
+await page.setViewportSize({ width: 390, height: 844 });
+await page.emulateMedia({ reducedMotion: 'reduce' });
+await page.locator('.bp-answer label').first().click();
+await page.getByRole('button', { name: 'Antwort prüfen' }).click();
+await page.locator('.bp-feedback-title').waitFor();
+const layout = await page.evaluate(() => {
+  const f = document.querySelector('.bp-feedback').getBoundingClientRect();
+  const bar = document.querySelector('.bp-question > .bp-actions').getBoundingClientRect();
+  return { top: f.top, bottom: f.bottom, bar: bar.top, focus: document.activeElement?.textContent ?? '' };
+});
+assert.ok(layout.top >= 0 && layout.top < layout.bar - 40, `Rückmeldung beginnt sichtbar über der Leiste (${JSON.stringify(layout)})`);
+assert.ok(layout.bottom <= layout.bar + 1 || layout.top <= 120, 'Rückmeldung endet über der Leiste oder beginnt oben im Bild');
+assert.match(layout.focus, /Nächste Frage/, 'Fokus auf „Nächste Frage“');
+await page.setViewportSize({ width: 1200, height: 900 });
+await page.emulateMedia({ reducedMotion: null });
+await page.getByRole('button', { name: 'Nächste Frage' }).click();
+await page.locator('.bp-question').waitFor();
+
 step('Zurück zur Kursseite, Favoriten enthalten die Frage');
 await page.getByRole('navigation', { name: 'Brotkrümelnavigation' }).getByRole('link', { name: 'SBF See' }).click();
 const favLink = page.locator('#bp-app').getByRole('link', { name: /^Favoriten \(\d+\)$/ });
@@ -115,6 +135,22 @@ await page.reload();
 await page.locator('.bp-exam-nav-item.is-answered').nth(2).waitFor();
 assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 3, 'Antworten nach Neuladen erhalten');
 assert.equal(await page.locator('.bp-exam-nav-item.is-flagged').count(), 1, 'Markierung nach Neuladen erhalten');
+
+step('Prüfung ohne Netz: Antwort puffern, Hinweis, nachsenden (QA-02)');
+offlineStep = true;
+await page.context().setOffline(true);
+await page.locator('.bp-exam-nav-item').nth(4).click();
+await page.locator('.bp-answer label').first().click();
+await page.locator('.bp-save-status', { hasText: 'Offline – 1 Antwort wird gespeichert und nachgesendet.' }).waitFor();
+assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 4);
+assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => /^bp-exam-\d+-5$/.test(k)).length), 1, 'Antwort im Browser zwischengespeichert');
+await page.context().setOffline(false);
+await page.locator('.bp-save-status', { hasText: /^Gespeichert$/ }).waitFor({ timeout: 15000 });
+assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => /^bp-exam-/.test(k)).length), 0, 'Zwischenspeicher nach Bestätigung leer');
+offlineStep = false;
+await page.reload();
+await page.locator('.bp-exam-nav-item.is-answered').nth(3).waitFor();
+assert.equal(await page.locator('.bp-exam-nav-item.is-answered').count(), 4, 'nachgesendete Antwort ist auf dem Server');
 
 step('Abgeben');
 let confirmText = '';

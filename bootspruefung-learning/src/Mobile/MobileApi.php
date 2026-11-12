@@ -348,6 +348,8 @@ final class MobileApi
         self::route('/exams/'.sprintf($id, 'examId'), 'GET', [ExamController::class, 'show']);
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId'), 'PUT', [ExamController::class, 'answer'], true, true, [
             'selected_answer_ids' => $ids, 'known' => $bool, 'marked_for_review' => $bool,
+            // Seit 1.11.0: offline gepufferte Antwort (Alter beim Senden in ms bzw. Gerätezeit), siehe ExamService::saveAnswer.
+            'age_ms' => ['type' => ['integer', 'null'], 'minimum' => 0, 'default' => null], 'answered_at' => ['type' => ['string', 'null'], 'maxLength' => 40, 'default' => null],
         ]);
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/reveal', 'POST', [ExamController::class, 'reveal']);
         self::route('/exams/'.sprintf($id, 'examId').'/answers/'.sprintf($id, 'questionId').'/flag', 'PUT', [ExamController::class, 'flag'], true, true, ['flagged' => ['type' => 'boolean', 'required' => true]]);
