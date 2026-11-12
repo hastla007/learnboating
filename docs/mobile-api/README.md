@@ -204,8 +204,9 @@ sind WP-seitige Einstellungen und werden nicht als Lernzugang exportiert.
 Video-Drip-Regeln enthalten Kapiteltitel und Reihenfolge,
 damit der Laravel-Importer die WP-Quell-ID dem passenden nativen Videokapitel
 zuordnet. Der Datei-Export kopiert geschützte Anhänge ins Staging-Verzeichnis
-und erhält Download-, Abschnitts- und Seekarten-Zuordnungen. Die exportierten
-JSON-Dateien und Medien sind Kundendaten bzw. lizenzierte Kursinhalte; nur in
+und erhält Download-, Abschnitts- und Seekarten-Zuordnungen. Vorhandene Staging-Dateien
+werden bei jedem Export aktualisiert; jede Dateizuordnung enthält eine SHA-256-Prüfsumme,
+die der Original-Importer vor und nach dem Kopieren prüft. Die exportierten JSON-Dateien und Medien sind Kundendaten bzw. lizenzierte Kursinhalte; nur in
 einen geschützten Übertragungsweg legen.
 
 ---
