@@ -99,9 +99,11 @@ try {
   await page.getByText(/sobald die Zahlung eingegangen ist/).waitFor();
   await shot(page, '53-bestaetigung');
 
-  step('Vor Zahlungseingang gesperrt, danach frei');
+  step('Vor Zahlungseingang „Zahlung offen“ statt Kaufangebot, danach frei');
   await page.goto(`${base}/bootsscheine/sbf-bin-segel/`);
-  await page.getByText('Freischalten mit:').first().waitFor();
+  // QA-03/UX-01: bei offener Zahlung Hinweis statt erneutem Kaufangebot (kein Doppelkauf).
+  await page.getByText('Zahlung noch offen').first().waitFor();
+  assert.equal(await page.getByText('Freischalten mit:').count(), 0, 'bei offener Zahlung kein erneutes Kaufangebot');
   console.log('  ', setup('pay'));
   await page.goto(`${base}/bootsscheine/sbf-bin-segel/smarttrainer/`);
   await page.locator('.bp-module-list a.bp-topic').first().waitFor();
