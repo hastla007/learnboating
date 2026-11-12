@@ -60,7 +60,7 @@ final class FaqImporter
             }
             update_option(self::OPTION_VERSION, self::VERSION, true);
         } finally {
-            delete_option(self::OPTION_LOCK);
+            \Bootspruefung\Learning\Infrastructure\Lock::release(self::OPTION_LOCK);
         }
     }
 
@@ -361,17 +361,7 @@ final class FaqImporter
 
     private static function acquireLock(): bool
     {
-        // add_option ist atomar (UNIQUE auf option_name) – wie die Sperre des Migrators.
-        if (add_option(self::OPTION_LOCK, (string) time(), '', false)) {
-            return true;
-        }
-        $since = (int) get_option(self::OPTION_LOCK);
-        if ($since > 0 && time() - $since > self::LOCK_TTL) {
-            delete_option(self::OPTION_LOCK);
-
-            return add_option(self::OPTION_LOCK, (string) time(), '', false);
-        }
-
-        return false;
+        // Atomare Sperre (INSERT IGNORE); eine hängengebliebene verfällt nach LOCK_TTL.
+        return \Bootspruefung\Learning\Infrastructure\Lock::acquire(self::OPTION_LOCK, self::LOCK_TTL);
     }
 }
