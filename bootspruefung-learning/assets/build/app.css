@@ -57,6 +57,7 @@
 
 .bp-progress { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--bp-border); }
 .bp-progress-mastered { background: var(--bp-ok); }
+.bp-progress-secure { background: color-mix(in srgb, var(--bp-ok) 72%, #fff); }
 .bp-progress-learning { background: color-mix(in srgb, var(--bp-ok) 45%, #fff); }
 .bp-progress-unsure { background: color-mix(in srgb, var(--bp-bad) 70%, #fff); }
 .bp-progress-label { font-size: 0.88rem; margin: 0.35rem 0 0; opacity: 0.8; }
@@ -754,6 +755,7 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-hub-legend li { display: grid; grid-template-columns: 0.7rem 1fr auto; align-items: center; gap: 0.5rem; }
 .bp-hub-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: color-mix(in srgb, currentColor 20%, transparent); }
 .is-mastered .bp-hub-dot { background: var(--bp-ok); }
+.is-secure .bp-hub-dot { background: color-mix(in srgb, var(--bp-ok) 72%, #fff); }
 .is-learning .bp-hub-dot { background: color-mix(in srgb, var(--bp-ok) 45%, #fff); }
 .is-unsure .bp-hub-dot { background: color-mix(in srgb, var(--bp-bad) 70%, #fff); }
 .bp-hub-hint { display: flex; gap: 0.5rem; align-items: center; margin: 1.1rem 0 0; padding-top: 1rem; border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent); font-size: 0.88rem; }

@@ -150,10 +150,16 @@ await page.getByRole('heading', { name: 'SRC-Funkpraxis' }).waitFor();
 assert.equal(await page.locator('.bp-section', { hasText: 'SRC-Funkpraxis' }).locator('.bp-paper').count(), 42);
 await page.goto(`${base}/bootsscheine/src/funk/praxis/SRC-01/`);
 await page.getByRole('heading', { name: 'Lage' }).waitFor();
+// Leer auswerten: Fehlermeldung; danach erfolgreich per Tastatur – Meldung weg (UX-06), Fokus auf dem Ergebnis (UX-05).
+await page.getByRole('button', { name: 'Auswerten' }).click();
+await page.locator('.bp-inline-error').waitFor();
 await page.getByLabel('Rang').fill('Notverkehr');
 await page.getByLabel('Meldung (Sprechfunk)').fill('MAYDAY MAYDAY MAYDAY this is');
-await page.getByRole('button', { name: 'Auswerten' }).click();
+await page.getByRole('button', { name: 'Auswerten' }).focus();
+await page.keyboard.press('Enter');
 await page.getByText(/von \d+ Prüfpunkten erfüllt/).waitFor();
+assert.equal(await page.locator('.bp-inline-error').count(), 0, 'alte Fehlermeldung nach erfolgreicher Auswertung entfernt');
+assert.match(await page.evaluate(() => document.activeElement?.textContent ?? ''), /von \d+ Prüfpunkten erfüllt/, 'Fokus auf dem Ergebnis statt auf <body>');
 assert.ok(await page.locator('.bp-checklist .is-ok').count() > 0);
 assert.ok(await page.locator('.bp-checklist .is-missing').count() > 0);
 assert.ok(await page.locator('.bp-practice-result .bp-model').count() >= 4, 'Musterlösung je Feld');
