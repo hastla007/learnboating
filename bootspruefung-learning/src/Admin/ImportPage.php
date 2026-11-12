@@ -219,7 +219,7 @@ final class ImportPage
             echo '<p><strong>'.esc_html__('Noch nicht im Paket:', 'bootspruefung-learning').'</strong> '.esc_html(implode(', ', array_column($notConverted, 'entity'))).'</p>';
         }
 
-        if (in_array($batch->status, ['importing', 'published'], true)) {
+        if (in_array($batch->status, ['importing', 'published', 'failed'], true)) {
             $this->renderLog($batchId);
         }
     }
@@ -340,13 +340,13 @@ final class ImportPage
         $page = max(1, absint($_GET['log_page'] ?? 1));
         $logs = Plugin::instance()->importService()->logs($batchId, $filter === '' ? null : $filter, 100, ($page - 1) * 100);
         echo '<h3>'.esc_html__('Protokoll', 'bootspruefung-learning').'</h3><p>';
-        foreach (['' => __('alle', 'bootspruefung-learning'), 'create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning')] as $value => $label) {
+        foreach (['' => __('alle', 'bootspruefung-learning'), 'create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning'), 'rejected' => __('abgelehnt', 'bootspruefung-learning')] as $value => $label) {
             printf('<a class="button%s" href="%s">%s</a> ', $filter === $value ? ' button-primary' : '', esc_url(Ui::url(self::SLUG, ['batch' => $batchId, 'log_action' => $value])), esc_html($label));
         }
         echo '</p>';
         $rows = [];
         foreach ($logs as $log) {
-            $rows[] = [esc_html(Ui::entityLabel($log->entity)), '<code>'.esc_html((string) $log->source_id).'</code>', esc_html(['create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning')][$log->action] ?? $log->action), esc_html((string) $log->message)];
+            $rows[] = [esc_html(Ui::entityLabel($log->entity)), '<code>'.esc_html((string) $log->source_id).'</code>', esc_html(['create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning'), 'rejected' => __('abgelehnt', 'bootspruefung-learning')][$log->action] ?? $log->action), esc_html((string) $log->message)];
         }
         Ui::table([__('Bereich', 'bootspruefung-learning'), 'ID', __('Aktion', 'bootspruefung-learning'), __('Meldung', 'bootspruefung-learning')], $rows, __('Keine Einträge.', 'bootspruefung-learning'));
         Ui::pager($page, count($logs) === 100, fn (int $p) => Ui::url(self::SLUG, ['batch' => $batchId, 'log_action' => $filter, 'log_page' => $p]));

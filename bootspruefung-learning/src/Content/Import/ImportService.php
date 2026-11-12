@@ -241,6 +241,10 @@ final class ImportService
             'status' => $errors === [] ? 'validated' : 'failed',
             'error' => $errors === [] ? null : implode("\n", $errors),
         ]);
+        // Abgelehnte Mediendateien (Dateityp nicht erlaubt) einzeln im Import-Protokoll.
+        $this->db->delete($this->t('import_item_log'), ['batch_id' => $batchId, 'action' => 'rejected']);
+        $rejected = $package->mediaTypeErrors();
+        $this->writeLogs($batchId, array_map(static fn (string $path, string $message): array => ['media', $path, 'rejected', $message], array_keys($rejected), array_values($rejected)));
         AuditLog::record($errors === [] ? 'import_validated' : 'import_validation_failed', 'import_batch', (string) $batchId, null, ['errors' => count($errors)]);
 
         return $errors === [];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Package;
 
+use Bootspruefung\Learning\Content\Media\MediaStorage;
 use RuntimeException;
 use ZipArchive;
 
@@ -19,6 +20,9 @@ final class Package
 
     /** @var array<string,list<array<string,mixed>>> */
     private array $cache = [];
+
+    /** @var array<string,string>|null */
+    private ?array $mediaErrors = null;
 
     public function __construct(public readonly string $dir)
     {
@@ -119,6 +123,10 @@ final class Package
             return ["Schema-Version {$manifest['schema_version']} wird nicht unterstützt."];
         }
 
+        // Nur erlaubte Medientypen (kein PHP, HTML, SVG …), sie landen im öffentlichen Medienordner.
+        foreach ($this->mediaTypeErrors() as $path => $message) {
+            $errors[] = "Medium nicht erlaubt: {$path} – {$message}";
+        }
         $listed = [];
         foreach ($manifest['files'] as $file) {
             $listed[$file['path']] = true;
@@ -154,6 +162,48 @@ final class Package
         }
 
         return $this->referenceErrors();
+    }
+
+    /**
+     * Nicht erlaubte Mediendateien: Endung, angegebener MIME-Typ (data/media.json) und am Inhalt
+     * erkannter MIME-Typ, für alle Medien-Datensätze und alle Dateien unter media/ im Manifest.
+     * @return array<string,string> Pfad im Paket => Fehlermeldung
+     */
+    public function mediaTypeErrors(): array
+    {
+        if ($this->mediaErrors !== null) {
+            return $this->mediaErrors;
+        }
+        $declared = [];
+        try {
+            foreach ($this->entities('media') as $record) {
+                if (is_array($record) && is_string($record['path'] ?? null)) {
+                    $declared[$record['path']] = is_string($record['mime_type'] ?? null) ? $record['mime_type'] : null;
+                }
+            }
+        } catch (RuntimeException) {
+            // Ungültiges media.json meldet die Schemaprüfung.
+        }
+        $paths = array_keys($declared);
+        try {
+            foreach ((array) ($this->manifest()['files'] ?? []) as $file) {
+                $path = is_array($file) ? (string) ($file['path'] ?? '') : '';
+                if (str_starts_with($path, 'media/')) {
+                    $paths[] = $path;
+                }
+            }
+        } catch (RuntimeException) {
+        }
+        $errors = [];
+        foreach (array_unique($paths) as $path) {
+            $full = $this->path($path);
+            $error = MediaStorage::mediaTypeError($path, $declared[$path] ?? null, is_file($full) ? $full : null);
+            if ($error !== null) {
+                $errors[$path] = $error;
+            }
+        }
+
+        return $this->mediaErrors = $errors;
     }
 
     /** @return list<string> */
