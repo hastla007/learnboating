@@ -10,6 +10,7 @@ use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Mobile\TokenAuth;
 use Bootspruefung\Learning\Mobile\WebSession;
+use Bootspruefung\Learning\Security\LoginGuard;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -26,10 +27,10 @@ final class AuthController extends BaseController
      * insgesamt (deutlich höher – sonst könnte jeder mit 5 falschen Passwörtern ein fremdes Konto
      * sperren). Eine erfolgreiche Anmeldung setzt den Zähler E-Mail + IP zurück.
      */
-    public const LOGIN_FAILS_PER_IP = 10;
-    public const LOGIN_FAILS_PER_EMAIL_IP = 5;
-    public const LOGIN_FAILS_PER_EMAIL = 30;
-    public const LOGIN_WINDOW = 15 * MINUTE_IN_SECONDS;
+    public const LOGIN_FAILS_PER_IP = LoginGuard::FAILS_PER_IP;
+    public const LOGIN_FAILS_PER_EMAIL_IP = LoginGuard::FAILS_PER_LOGIN_IP;
+    public const LOGIN_FAILS_PER_EMAIL = LoginGuard::FAILS_PER_LOGIN;
+    public const LOGIN_WINDOW = LoginGuard::WINDOW;
 
     public function login(WP_REST_Request $request): WP_REST_Response
     {
@@ -51,24 +52,21 @@ final class AuthController extends BaseController
         }
         $ip = RateLimiter::clientIp();
         $limitMessage = __('Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.', 'bootspruefung-learning');
-        $buckets = [
-            'login-ip|'.$ip => self::LOGIN_FAILS_PER_IP,
-            'login-email-ip|'.strtolower($email).'|'.$ip => self::LOGIN_FAILS_PER_EMAIL_IP,
-            'login-email|'.strtolower($email) => self::LOGIN_FAILS_PER_EMAIL,
-        ];
+        // Dieselben Zähler wie wp-login/WooCommerce-Login (LoginGuard): Web und App teilen die Fehlversuche.
+        $buckets = LoginGuard::buckets($email, $ip);
         foreach ($buckets as $bucket => $limit) {
             RateLimiter::check($bucket, $limit, self::LOGIN_WINDOW, $limitMessage);
         }
 
         // E-Mail oder Benutzername (wie das Web-Login von WordPress/WooCommerce).
-        $user = wp_authenticate($email, $password);
+        $user = LoginGuard::uncounted(static fn () => wp_authenticate($email, $password));
         if (is_wp_error($user) || ! $user instanceof \WP_User || ! apply_filters('bootspruefung_mobile_user_allowed', true, $user)) {
             foreach (array_keys($buckets) as $bucket) {
                 RateLimiter::increment($bucket, self::LOGIN_WINDOW);
             }
             throw new ApiException('UNAUTHENTICATED', __('E-Mail-Adresse oder Passwort ist nicht korrekt.', 'bootspruefung-learning'), 401);
         }
-        RateLimiter::clear('login-email-ip|'.strtolower($email).'|'.$ip);
+        LoginGuard::succeeded($email, $ip);
         $platform = in_array($request['device_platform'], ['ios', 'android'], true) ? (string) $request['device_platform'] : null;
         $tokens = TokenAuth::issue((int) $user->ID, $device, $platform, $request['app_version'] !== null ? sanitize_text_field((string) $request['app_version']) : null);
         /** Aktion: erfolgreiche App-Anmeldung (Protokoll, Statistik). */

@@ -454,7 +454,9 @@ Fehlerobjekt (`application/problem+json`):
 
 Limits (seit 1.4.0 atomare Zähler in `bp_mobile_rate_limit`, Fenster ab dem ersten Treffer): Login
 5 Fehlversuche je E-Mail + IP, 10 je IP und 30 je E-Mail insgesamt in 15 Min. (Erfolg setzt E-Mail + IP
-zurück); Passwort vergessen 10/IP, 3/E-Mail pro Stunde; Refresh 120/IP in 15 Min.; Antworten 60/Min.
+zurück; dieselben Zähler wie beim Web-Login über wp-login.php bzw. „Mein Konto“, `Security\LoginGuard` –
+Fehlversuche im Web zählen also auch für die App und umgekehrt; Benutzername und E-Mail eines Kontos zählen
+gemeinsam); Passwort vergessen 10/IP, 3/E-Mail pro Stunde; Refresh 120/IP in 15 Min.; Antworten 60/Min.
 (wie Web); Codes 10/Std. (Wiederholungen mit gleichem Idempotency-Key zählen nicht); Export und
 Löschantrag 5/Tag; Löschbestätigung 20/IP und 10/Antrag pro Stunde; Web-Anmeldecodes 20 je Konto in
 15 Min.; seit 1.7.0 Gruppen-Einladungen 20 Vorgänge je Konto und Stunde (Wiederholungen mit gleichem

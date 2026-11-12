@@ -58,8 +58,12 @@ unter Einstellungen › Prüfungsanmeldung freischalten (Standard: aus).
 Membership-Funktionen (ohne Zusatz-Plugin): kostenlose Teilumfänge und zeitgesteuerte Freigaben unter
 Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „Lernzugang erforderlich“,
 Abschnitte über den Block „Nur mit Lernzugang“ bzw. `[bootspruefung_zugang kurs="SBF-SEE" funktion="video_course"]…[/bootspruefung_zugang]`,
-geschützte PDFs über das Feld „Lernzugang erforderlich“ in der Mediathek (nginx: Ordner
-`uploads/bootspruefung/protected-*` zusätzlich sperren); Gruppenlizenzen über „Plätze je Stück“ im
+geschützte PDFs über das Feld „Lernzugang erforderlich“ in der Mediathek (Content-Pakete und geschützte
+Dateien liegen in `uploads/bootspruefung/packages-<geheim>` bzw. `protected-<geheim>`; unter nginx diese Ordner
+zusätzlich sperren – die passende Regel und ein Selbsttest stehen unter Bootsprüfung → Systemstatus – oder mit
+`define( 'BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots' );` in `wp-config.php` ganz aus dem Webroot
+nehmen); Login-Härtung (Sperre nach Fehlversuchen für wp-login, „Mein Konto“ und App, XML-RPC aus, keine
+Benutzer-Aufzählung) einzeln abschaltbar über den Filter `bootspruefung_hardening`; Gruppenlizenzen über „Plätze je Stück“ im
 Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte. PDFs für die Downloadliste eines
 Kurses in der Mediathek mit „Kurs · Downloads (PDF)“ markieren. Dispute-Webhooks (PayPal, allgemein für Klarna u. a.)
 unter Bootsprüfung → Einstellungen › Zahlungskonflikte einrichten.
