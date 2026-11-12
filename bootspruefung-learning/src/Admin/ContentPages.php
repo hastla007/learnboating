@@ -117,6 +117,8 @@ final class ContentPages
             [$unverified, __('Kurse ohne gültiges, verifiziertes Prüfungsregelwerk (nur Übungsmodus)', 'bootspruefung-learning'), Ui::url('bootspruefung-rules')],
             [$missingFiles, __('Medien ohne Datei', 'bootspruefung-learning'), Ui::url('bootspruefung-media', ['missing' => 1])],
         ];
+        $nav = \Bootspruefung\Learning\Trainers\NavigationCheck::coverage();
+        $items[] = [$nav['total'] > 0 && $nav['with'] === 0 ? 1 : 0, sprintf(__('Paket ohne Lösungswerte der Navigationsaufgaben (automatische Prüfung aus; %1$d von %2$d Teilaufgaben mit Werten) – aktuelles Paket importieren', 'bootspruefung-learning'), $nav['with'], $nav['total']), Ui::url(ImportPage::SLUG)];
         $shop = \Bootspruefung\Learning\Commerce\MappingCheck::summary();
         $items[] = [$shop['mapping_errors'], __('Fehler in WooCommerce-Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];
         $items[] = [$shop['mapping_warnings'], __('Hinweise zu Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];

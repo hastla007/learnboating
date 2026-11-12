@@ -3533,7 +3533,9 @@ components:
         Seit 1.4.0. Automatische Prüfung der eigenen Antwort gegen die strukturierten Lösungswerte – nur
         als Hilfe zur Selbsteinschätzung. Gelesen werden u. a. „rwK = 79°“, „079“, „0,8 sm“, „15:12“,
         „15.12 Uhr“, „46 min“, „6 kn“ und Positionen wie „53°55,8'N 7°51,3'E“ oder „53 55.8 N 007 51.3 E“
-        (Dezimalkomma oder -punkt). Mehrere Werte werden über Beschriftungen in der Antwort zugeordnet
+        (Dezimalkomma oder -punkt), auch „Breite … Länge …“, „53-55,8N 007-51,3E“, „3/4 Stunde“,
+        „Fahrzeit 1:42 h“ (Dauer) und Rechenwege wie „MgP 168 + 2 = rwP 170“ (nur das Ergebnis zählt).
+        Mehrere Werte werden über Beschriftungen in der Antwort zugeordnet
         (z. B. „ST 065°, 4a 170°“), sonst in der Reihenfolge. Toleranzen: Kurs/Peilung/Winkel ±2°
         (über 360° hinweg), Distanz ±0,2 sm, Position ±0,3' je Breite/Länge, Uhrzeit ±3 min,
         Fahrt ±0,3 kn, Dauer ±3 min.
