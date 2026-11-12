@@ -6,6 +6,7 @@ namespace Bootspruefung\Learning\Commerce\Disputes;
 
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
+use Bootspruefung\Learning\Infrastructure\Lock;
 use Bootspruefung\Learning\Rest\RestRegistrar;
 use WP_Error;
 use WP_REST_Request;
@@ -27,10 +28,25 @@ use WP_REST_Response;
  * Ergebnis: Konflikt eröffnet → aussetzen; zugunsten des Händlers geklärt →
  * aufheben; zugunsten des Käufers → widerrufen. Jedes Ereignis wird nur einmal
  * verarbeitet und protokolliert.
+ *
+ * Reihenfolge: Webhooks kommen verspätet, doppelt oder vertauscht an. Je Bestellung und
+ * Konfliktfall (PayPal: dispute_id; allgemein: dispute_id bzw. Quelle) steht der Stand mit
+ * Ereigniszeit in der Bestellung (META_STATE). Ein abgeschlossener Fall (gewonnen/verloren)
+ * ist endgültig: Ein später zugestelltes „eröffnet“ öffnet ihn nicht wieder; zwischen zwei
+ * Ergebnissen gilt das jüngere. Verarbeitete Ereignis-IDs stehen ebenfalls in der Bestellung
+ * (nicht nur im Transient), Wiederholungen sind damit dauerhaft wirkungslos.
  */
 final class DisputeWebhooks
 {
     public const OPTION = 'bp_learning_disputes';
+
+    /** Order-Meta: Stand je Konfliktfall [Fall => [status, time, event]]. */
+    public const META_STATE = '_bp_dispute_state';
+
+    /** Order-Meta: bereits verarbeitete Ereignisse (Schlüssel, höchstens MAX_EVENTS). */
+    public const META_EVENTS = '_bp_dispute_events';
+
+    private const MAX_EVENTS = 100;
 
     public function register(): void
     {
@@ -75,7 +91,32 @@ final class DisputeWebhooks
         }
         $transactions = array_filter(array_map(static fn ($t) => (string) ($t['seller_transaction_id'] ?? ''), (array) ($event['resource']['disputed_transactions'] ?? [])));
 
-        return new WP_REST_Response($this->handle('paypal', (string) $event['id'], $action, null, $transactions, (string) ($event['resource']['dispute_id'] ?? '')), 200);
+        $disputeId = (string) ($event['resource']['dispute_id'] ?? '');
+        $time = self::eventTime($event['resource']['update_time'] ?? $event['create_time'] ?? null);
+
+        return self::respond($this->handle('paypal', (string) $event['id'], $action, null, $transactions, $disputeId, $time, $disputeId !== '' ? $disputeId : null));
+    }
+
+    /** @param array<string,mixed> $result */
+    private static function respond(array $result): WP_REST_Response
+    {
+        // Gleichzeitiges Ereignis derselben Bestellung: 409, das Gateway stellt erneut zu.
+        return new WP_REST_Response($result, ! empty($result['retry']) ? 409 : 200);
+    }
+
+    /** Ereigniszeit aus ISO 8601 oder Unix-Zeit; null = unbekannt (dann Zeitpunkt des Eingangs). */
+    public static function eventTime(mixed $value): ?int
+    {
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            return (int) $value > 0 ? (int) $value : null;
+        }
+        if (is_string($value) && $value !== '') {
+            $ts = strtotime($value);
+
+            return $ts !== false ? $ts : null;
+        }
+
+        return null;
     }
 
     /**
@@ -86,6 +127,10 @@ final class DisputeWebhooks
     public static function paypalAction(array $event): ?string
     {
         $type = (string) $event['event_type'];
+        // UPDATED meldet auch die Klärung (resource.status = RESOLVED) – dann wie RESOLVED auswerten.
+        if ($type === 'CUSTOMER.DISPUTE.UPDATED' && strtoupper((string) ($event['resource']['status'] ?? '')) === 'RESOLVED') {
+            $type = 'CUSTOMER.DISPUTE.RESOLVED';
+        }
         if (in_array($type, ['CUSTOMER.DISPUTE.CREATED', 'CUSTOMER.DISPUTE.UPDATED'], true)) {
             return 'opened';
         }
@@ -175,21 +220,39 @@ final class DisputeWebhooks
         if (! in_array($action, ['opened', 'won', 'lost'], true) || (empty($data['order_id']) && empty($data['transaction_id']))) {
             return new WP_Error('bp_invalid', 'Expected event (opened|won|lost) and order_id or transaction_id.', ['status' => 400]);
         }
-        $eventId = (string) ($data['id'] ?? hash('sha256', $body));
+        // Ohne ID: Hash über den normalisierten Inhalt (Leerzeichen oder Schlüsselreihenfolge ändern nichts).
+        $eventId = (string) ($data['id'] ?? hash('sha256', (string) wp_json_encode(self::normalize($data))));
+        $disputeId = (string) ($data['dispute_id'] ?? '');
 
-        return new WP_REST_Response($this->handle((string) ($data['source'] ?? 'generic'), $eventId, $action, empty($data['order_id']) ? null : (int) $data['order_id'],
-            empty($data['transaction_id']) ? [] : [(string) $data['transaction_id']], (string) ($data['reason'] ?? '')), 200);
+        return self::respond($this->handle((string) ($data['source'] ?? 'generic'), $eventId, $action, empty($data['order_id']) ? null : (int) $data['order_id'],
+            empty($data['transaction_id']) ? [] : [(string) $data['transaction_id']], (string) ($data['reason'] ?? ''), self::eventTime($data['timestamp'] ?? $data['occurred_at'] ?? null), $disputeId !== '' ? $disputeId : null));
+    }
+
+    /** @param array<mixed> $data @return array<mixed> rekursiv nach Schlüsseln sortiert */
+    private static function normalize(array $data): array
+    {
+        ksort($data);
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $data[$k] = self::normalize($v);
+            }
+        }
+
+        return $data;
     }
 
     // ------------------------------------------------------------------ gemeinsam
 
     /**
      * @param list<string> $transactions
+     * @param int|null     $eventTime Zeitpunkt des Ereignisses beim Gateway (Unix-Zeit), null = Eingang
+     * @param string|null  $caseId    Konfliktfall (z. B. PayPal-dispute_id), null = ein Fall je Quelle
      * @return array<string,mixed>
      */
-    public function handle(string $source, string $eventId, string $action, ?int $orderId, array $transactions, string $reference): array
+    public function handle(string $source, string $eventId, string $action, ?int $orderId, array $transactions, string $reference, ?int $eventTime = null, ?string $caseId = null): array
     {
-        $key = 'bp_dispute_'.md5($source.'|'.$eventId);
+        $eventKey = md5($source.'|'.$eventId);
+        $key = 'bp_dispute_'.$eventKey;
         if (get_transient($key)) {
             return ['duplicate' => true];
         }
@@ -211,22 +274,93 @@ final class DisputeWebhooks
 
             return ['matched' => false];
         }
-        $reason = sprintf('%s-Konflikt %s%s', $source === 'paypal' ? 'PayPal' : ucfirst($source), ['opened' => 'eröffnet', 'won' => 'gewonnen', 'lost' => 'verloren'][$action], $reference !== '' ? ' ('.$reference.')' : '');
+        $eventTime ??= time();
+        $case = $source.'|'.($caseId ?? '');
+        $labels = ['opened' => 'eröffnet', 'won' => 'gewonnen', 'lost' => 'verloren'];
+        $reason = sprintf('%s-Konflikt %s%s', $source === 'paypal' ? 'PayPal' : ucfirst($source), $labels[$action], $reference !== '' ? ' ('.$reference.')' : '');
         $sync = Integration::sync();
+        $applied = [];
+        $ignored = [];
+        $duplicates = 0;
         foreach ($orderIds as $id) {
-            match ($action) {
-                'opened' => $sync->suspendOrder($id, $reason),
-                'won' => $sync->releaseOrder($id, $reason),
-                'lost' => $sync->revokeOrder($id, $reason),
-            };
-            if (($order = wc_get_order($id)) instanceof \WC_Order) {
-                $order->add_order_note(__('Lernzugang:', 'bootspruefung-learning').' '.$reason);
+            // Ereignisse derselben Bestellung nacheinander auswerten (gleichzeitige Zustellung).
+            if (! Lock::acquire('bp_dispute_lock_'.$id, MINUTE_IN_SECONDS)) {
+                return ['retry' => true];
             }
-            AuditLog::record('dispute_'.$action, 'order', (string) $id, $reason, ['source' => $source, 'event' => $eventId]);
+            try {
+                $order = wc_get_order($id);
+                if (! $order instanceof \WC_Order) {
+                    continue;
+                }
+                $events = is_array($stored = $order->get_meta(self::META_EVENTS)) ? $stored : [];
+                if (in_array($eventKey, $events, true)) {
+                    $duplicates++;
+                    continue;
+                }
+                $states = is_array($stored = $order->get_meta(self::META_STATE)) ? $stored : [];
+                $decision = self::decide(is_array($states[$case] ?? null) ? $states[$case] : null, $action, $eventTime);
+                if ($decision === 'apply') {
+                    match ($action) {
+                        'opened' => $sync->suspendOrder($id, $reason),
+                        'won' => $sync->releaseOrder($id, $reason),
+                        'lost' => $sync->revokeOrder($id, $reason),
+                    };
+                    $states[$case] = ['status' => $action, 'time' => $eventTime, 'event' => mb_substr($eventId, 0, 64)];
+                    $order = wc_get_order($id); // nach dem Abgleich neu laden (Notizen, Meta)
+                    $order->add_order_note(__('Lernzugang:', 'bootspruefung-learning').' '.$reason);
+                    AuditLog::record('dispute_'.$action, 'order', (string) $id, $reason, ['source' => $source, 'event' => $eventId, 'event_time' => gmdate('c', $eventTime)]);
+                    $applied[] = $id;
+                } else {
+                    $previous = (string) ($states[$case]['status'] ?? '');
+                    if ($decision === 'ignore') {
+                        // Abgeschlossener Fall bzw. veraltetes Ergebnis: Zugang bleibt, für den Betreiber sichtbar vermerken.
+                        $order->add_order_note(sprintf(
+                            /* translators: 1: Ereignis, z. B. „PayPal-Konflikt eröffnet“, 2: Stand des Falls, z. B. „gewonnen“ */
+                            __('Lernzugang: %1$s nicht angewendet – der Konfliktfall ist bereits %2$s (neuerer Stand).', 'bootspruefung-learning'),
+                            $reason,
+                            $labels[$previous] ?? $previous
+                        ));
+                        AuditLog::record('dispute_ignored', 'order', (string) $id, $reason, ['source' => $source, 'event' => $eventId, 'case_status' => $previous, 'event_time' => gmdate('c', $eventTime)]);
+                    }
+                    $ignored[] = $id;
+                }
+                $events[] = $eventKey;
+                $order->update_meta_data(self::META_EVENTS, array_slice(array_values(array_unique($events)), -self::MAX_EVENTS));
+                $order->update_meta_data(self::META_STATE, $states);
+                $order->save();
+            } finally {
+                Lock::release('bp_dispute_lock_'.$id);
+            }
         }
         set_transient($key, 1, 90 * DAY_IN_SECONDS);
+        if ($applied === [] && $ignored === [] && $duplicates > 0) {
+            return ['duplicate' => true];
+        }
 
-        return ['matched' => true, 'orders' => $orderIds, 'action' => $action];
+        return ['matched' => true, 'orders' => $orderIds, 'action' => $action] + ($ignored !== [] ? ['ignored' => $ignored] : []);
+    }
+
+    /**
+     * Entscheidet über ein Ereignis anhand des bisherigen Stands des Konfliktfalls.
+     *
+     * @param array{status?:string,time?:int}|null $case
+     * @return string apply | ignore (abgeschlossen bzw. veraltet) | noop (Fall bereits eröffnet bzw. gleiches Ergebnis)
+     */
+    public static function decide(?array $case, string $action, int $eventTime): string
+    {
+        $status = (string) ($case['status'] ?? '');
+        $time = (int) ($case['time'] ?? 0);
+        $closed = in_array($status, ['won', 'lost'], true);
+        if ($action === 'opened') {
+            // Ein abgeschlossener Fall ist endgültig – auch ein später zugestelltes „eröffnet“ öffnet ihn nicht.
+            return $closed ? 'ignore' : ($status === 'opened' ? 'noop' : 'apply');
+        }
+        // Ergebnis: schließt einen offenen Fall immer; gegenüber einem anderen Ergebnis gilt das jüngere.
+        if ($closed && $eventTime < $time) {
+            return 'ignore';
+        }
+
+        return $closed && $status === $action ? 'noop' : 'apply';
     }
 
     public function saveSettings(): void
@@ -270,7 +404,7 @@ final class DisputeWebhooks
         printf('<tr><th>%s</th><td><label><input type="radio" name="paypal_mode" value="live" %s> Live</label> <label><input type="radio" name="paypal_mode" value="sandbox" %s> Sandbox</label> <label style="margin-left:16px"><input type="checkbox" name="clear_paypal" value="1"> %s</label></td></tr>',
             esc_html__('Umgebung', 'bootspruefung-learning'), checked($s['paypal_mode'], 'live', false), checked($s['paypal_mode'], 'sandbox', false), esc_html__('PayPal-Zugangsdaten löschen', 'bootspruefung-learning'));
         printf('<tr><th>%s</th><td><code>%s</code><p class="description">%s</p>%s</td></tr>', esc_html__('Allgemeiner Dispute-Webhook (Klarna u. a.)', 'bootspruefung-learning'), esc_html(rest_url(RestRegistrar::NAMESPACE.'/webhooks/dispute')),
-            esc_html__('POST mit JSON {"event":"opened|won|lost","order_id":123 oder "transaction_id":"…","id":"eindeutige Ereignis-ID","source":"klarna"} und Header X-Bootspruefung-Signature: sha256=HMAC-SHA256(Rohtext, Schlüssel). Geeignet für Benachrichtigungen aus dem Klarna-Händlerportal über eine Automatisierung (z. B. E-Mail-/Webhook-Weiterleitung).', 'bootspruefung-learning'),
+            esc_html__('POST mit JSON {"event":"opened|won|lost","order_id":123 oder "transaction_id":"…","id":"eindeutige Ereignis-ID","source":"klarna","dispute_id":"Fall-ID","timestamp":"2026-11-12T10:00:00Z"} und Header X-Bootspruefung-Signature: sha256=HMAC-SHA256(Rohtext, Schlüssel). dispute_id und timestamp sind optional, aber empfohlen: Ein gewonnener oder verlorener Fall ist endgültig, ein später eintreffendes „opened“ desselben Falls wird ignoriert. Geeignet für Benachrichtigungen aus dem Klarna-Händlerportal über eine Automatisierung (z. B. E-Mail-/Webhook-Weiterleitung).', 'bootspruefung-learning'),
             $s['generic_secret'] !== '' ? '<p>'.esc_html__('Schlüssel:', 'bootspruefung-learning').' <code>'.esc_html($s['generic_secret']).'</code> <label><input type="checkbox" name="regenerate_secret" value="1"> '.esc_html__('neu erzeugen', 'bootspruefung-learning').'</label></p>' : '<p>'.esc_html__('Der Schlüssel wird beim Speichern erzeugt.', 'bootspruefung-learning').'</p>');
         echo '</tbody></table>';
         submit_button(__('Konflikt-Einstellungen speichern', 'bootspruefung-learning'));
