@@ -817,6 +817,7 @@ if ($guideWeb['tabs'] === []) {
 } else {
     $check($g['status'] === 200 && count($gd['guides']) === count($guideWeb['tabs']) && $gd['guides'][0]['title'] === $guideWeb['tabs'][0]['title'] && $gd['registration_in_app'] === false, 'Anleitung wie im Web (ExamGuideService::payload)');
     $check(count($gd['committees']) === count($guideWeb['committees']) && is_string($gd['committees'][0]['id'] ?? null) && array_key_exists('matches', $gd['committees'][0]), 'Prüfungsausschüsse mit passenden zuerst');
+    $check(($gd['committees_note'] ?? null) === $guideWeb['committees_note'] && str_starts_with((string) $gd['committees_note'], 'Die Liste ist nicht vollständig'), 'Hinweis: Liste der Prüfungsausschüsse nicht vollständig (FACH-09)');
     $check(str_ends_with((string) $gd['web_url'], '/bootsscheine/'.strtolower($courseCode).'/pruefung-anmelden/'), 'Link zur Web-Seite „Prüfung anmelden“');
     $er = $api('GET', "/courses/{$courseId}", [], $tokenA)['body']['data']['exam_registration'] ?? [];
     $check(($er['available'] ?? false) === true && $er['web_url'] === $gd['web_url'], 'Kursdetails: exam_registration mit Link');

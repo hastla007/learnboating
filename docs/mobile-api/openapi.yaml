@@ -3047,6 +3047,7 @@ components:
         course_id: {type: string}
         web_url: {type: string, format: uri, description: 'Web-Seite …/bootsscheine/<kurs>/pruefung-anmelden/'}
         registration_in_app: {type: boolean, const: false}
+        committees_note: {type: string, description: 'Hinweis, dass die Liste der Prüfungsausschüsse nicht vollständig ist (unter der Liste anzeigen)'}
         guides:
           type: array
           description: Eine Anleitung je Prüfung des Kurses (Reiter im Web), Felder wie ExamGuideService::payload
@@ -3072,7 +3073,7 @@ components:
               providers: {description: Anbieter/Prüfungsorganisationen}
         committees:
           type: array
-          description: Alle Prüfungsausschüsse, die für den Kurs zuständigen zuerst (`matches`)
+          description: Prüfungsausschüsse aus dem Content-Paket (nicht vollständig, siehe `committees_note`), die für den Kurs zuständigen zuerst (`matches`)
           items:
             type: object
             required: [id, label, commission, matches]

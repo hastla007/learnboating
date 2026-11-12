@@ -2280,6 +2280,7 @@
 				return el('li', { class: 'bp-card' }, [el('strong', { text: p.name }), el('span', { class: 'bp-muted', text: ' ' + p.full }), el('p', { text: p.text }), el('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'bp-button', text: t('guide_to_provider', { name: p.name }) })]);
 			})),
 			el('div', { class: 'bp-committee-bar' }, [el('h3', { text: t('guide_committees', { n: committees.length }) }), el('div', { class: 'bp-committee-filter' }, [stateSelect, input, count])]),
+			el('p', { class: 'bp-muted bp-committee-incomplete', text: t('guide_committee_incomplete') }),
 			el('div', { class: 'bp-committee-layout' }, [
 				el('div', { class: 'bp-committee-mapcol' }, [mapBox, el('p', { class: 'bp-muted bp-map-note', text: t('guide_map_note') })]),
 				el('div', { class: 'bp-committee-listcol' }, [stateBar, list])

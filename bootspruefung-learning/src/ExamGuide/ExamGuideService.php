@@ -11,7 +11,8 @@ use Bootspruefung\Learning\Settings\Settings;
  * Seite „Prüfung anmelden“ (wie ExamBooking/exam-booking der Quelle): Lernende
  * melden sich selbst beim Prüfungsausschuss an; die Seite zeigt je Prüfung
  * Gebühr, Fristen, Mindestalter, Unterlagen, Prüfungsformen mit Umfang und
- * Bestehensgrenze, Prüfungsteile und FAQ – dazu alle Prüfungsausschüsse.
+ * Bestehensgrenze, Prüfungsteile und FAQ – dazu die Liste der Prüfungsausschüsse
+ * (aus dem Content-Paket; nicht vollständig, die Seite weist darauf hin).
  * Kein Formular, keine Buchung, keine Personendaten.
  */
 final class ExamGuideService
@@ -60,7 +61,11 @@ final class ExamGuideService
         foreach ($this->guides() as $guide) {
             foreach ($guide['courses'] as $c) {
                 if ($c['course_code'] === $courseCode) {
-                    $pages[] = ['guide' => $guide, 'first' => $c['first_variant'], 'order' => (int) $c['tab_order']];
+                    $pages[] = [
+                        'guide' => GuideCorrections::forCourse($guide, $courseCode),
+                        'first' => GuideCorrections::firstVariant($courseCode, (string) $guide['key'], (string) $c['first_variant']),
+                        'order' => (int) $c['tab_order'],
+                    ];
                 }
             }
         }
@@ -84,7 +89,16 @@ final class ExamGuideService
             ];
         }
 
-        return ['tabs' => $tabs, 'committees' => $this->committees($courseCode)];
+        return ['tabs' => $tabs, 'committees' => $this->committees($courseCode), 'committees_note' => self::committeesNote()];
+    }
+
+    /**
+     * Hinweis zur Liste der Prüfungsausschüsse: Das Content-Paket enthält nur einen Teil (derzeit die DMYV-Liste der
+     * Quelle, keine DSV-Ausschüsse) – die Liste darf nicht als vollständig erscheinen (Fachprüfung FACH-09).
+     */
+    public static function committeesNote(): string
+    {
+        return __('Die Liste ist nicht vollständig. Fehlt dein Prüfungsausschuss, findest du ihn über die Verbände oben – im Zweifel frag direkt beim zuständigen Prüfungsausschuss nach.', 'bootspruefung-learning');
     }
 
     /**
