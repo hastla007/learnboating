@@ -565,7 +565,9 @@ final class Commands
         $rows = $wpdb->get_results(
             "SELECT id, course_code, module_code, feature_code, access_type, limit_value, valid_from, valid_until
              FROM {$table}
-             WHERE access_type IN ('free','free_limited','drip')
+             WHERE (access_type = 'free' AND module_code IS NULL)
+                OR (access_type = 'free_limited' AND module_code IS NULL AND limit_value IS NOT NULL)
+                OR (access_type = 'drip' AND module_code IS NOT NULL AND limit_value IS NOT NULL)
              ORDER BY course_code, feature_code, module_code, id",
             ARRAY_A
         );
@@ -597,11 +599,12 @@ final class Commands
                     $item['course_code'],
                     $moduleCode
                 ), ARRAY_A);
-                if (is_array($videoModule)) {
-                    $item['module_title'] = (string) $videoModule['title'];
-                    $item['module_group'] = $videoModule['group_label'] === null ? null : (string) $videoModule['group_label'];
-                    $item['module_sort_order'] = (int) $videoModule['sort_order'];
+                if (! is_array($videoModule)) {
+                    WP_CLI::error('Video-Drip-Regel wp:rule:'.(int) $row['id'].' verweist auf kein importierbares Videokapitel.');
                 }
+                $item['module_title'] = (string) $videoModule['title'];
+                $item['module_group'] = $videoModule['group_label'] === null ? null : (string) $videoModule['group_label'];
+                $item['module_sort_order'] = (int) $videoModule['sort_order'];
             }
             $rules[] = $item;
         }
