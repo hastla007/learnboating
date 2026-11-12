@@ -23,6 +23,10 @@ final class Commands
         WP_CLI::add_command('bootspruefung access', [self::class, 'access']);
         WP_CLI::add_command('bootspruefung shop setup', [self::class, 'shopSetup']);
         WP_CLI::add_command('bootspruefung rights release', [self::class, 'rightsRelease']);
+        WP_CLI::add_command('bootspruefung export access-rules', [self::class, 'exportMobileAccessRules']);
+        WP_CLI::add_command('bootspruefung export course-files', [self::class, 'exportMobileCourseFiles']);
+        WP_CLI::add_command('bootspruefung export entitlements', [self::class, 'exportMobileEntitlements']);
+        WP_CLI::add_command('bootspruefung export customer-faqs', [self::class, 'exportCustomerFaqs']);
         WP_CLI::add_command('bootspruefung chart', [self::class, 'chart']);
     }
 
@@ -536,4 +540,389 @@ final class Commands
         }
         WP_CLI::success('Datenbankschema ist aktuell.');
     }
+
+    /**
+     * Exportiert Mobile-API-Zugangsregeln für genau einen Zielmandanten.
+     *
+     * <tenant-slug>
+     * : Vorhandener Schul-Slug im Laravel-Original.
+     *
+     * --output=<file>
+     * : JSON-Zieldatei für app:import-mobile-access-rules.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportMobileAccessRules(array $args, array $assoc): void
+    {
+        $tenantSlug = sanitize_title((string) ($args[0] ?? ''));
+        $output = (string) ($assoc['output'] ?? '');
+        if ($tenantSlug === '' || $output === '') {
+            WP_CLI::error('Aufruf: wp bootspruefung export access-rules <tenant-slug> --output=<datei.json>');
+        }
+        global $wpdb;
+        $table = $wpdb->prefix.'bp_access_rule';
+        $rows = $wpdb->get_results(
+            "SELECT id, course_code, module_code, feature_code, access_type, limit_value, valid_from, valid_until
+             FROM {$table}
+             WHERE (access_type = 'free' AND module_code IS NULL)
+                OR (access_type = 'free_limited' AND module_code IS NULL AND limit_value IS NOT NULL
+                    AND feature_code IN ('question_bank','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads'))
+                OR (access_type = 'drip' AND module_code IS NOT NULL AND limit_value IS NOT NULL
+                    AND feature_code IN ('question_bank','video_course'))
+             ORDER BY course_code, feature_code, module_code, id",
+            ARRAY_A
+        );
+        if ($wpdb->last_error !== '') {
+            WP_CLI::error('Zugangsregeln konnten nicht gelesen werden: '.$wpdb->last_error);
+        }
+
+        $rules = [];
+        foreach ((array) $rows as $row) {
+            $moduleCode = $row['module_code'] === null ? null : (string) $row['module_code'];
+            $item = [
+                'tenant_slug' => $tenantSlug,
+                'course_code' => (string) $row['course_code'],
+                'feature_code' => (string) $row['feature_code'],
+                'access_type' => (string) $row['access_type'],
+                'module_code' => $moduleCode,
+                'limit_value' => $row['access_type'] === 'free' || $row['limit_value'] === null ? null : (int) $row['limit_value'],
+                'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
+                'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
+                'source_key' => 'wp:rule:'.(int) $row['id'],
+            ];
+            if ($item['feature_code'] === 'video_course' && $moduleCode !== null) {
+                $videoModule = $wpdb->get_row($wpdb->prepare(
+                    "SELECT vm.title, vm.group_label, vm.sort_order
+                     FROM {$wpdb->prefix}bp_video_module vm
+                     INNER JOIN {$wpdb->prefix}bp_course c ON c.id = vm.course_id
+                     WHERE c.code = %s AND vm.source_id = %s
+                     LIMIT 1",
+                    $item['course_code'],
+                    $moduleCode
+                ), ARRAY_A);
+                if (! is_array($videoModule)) {
+                    WP_CLI::error('Video-Drip-Regel wp:rule:'.(int) $row['id'].' verweist auf kein importierbares Videokapitel.');
+                }
+                $item['module_title'] = (string) $videoModule['title'];
+                $item['module_group'] = $videoModule['group_label'] === null ? null : (string) $videoModule['group_label'];
+                $item['module_sort_order'] = (int) $videoModule['sort_order'];
+            }
+            $rules[] = $item;
+        }
+        self::writeMobileExport($output, [
+            'default_access' => \Bootspruefung\Learning\Settings\Settings::get('default_access'),
+            'rules' => $rules,
+        ]);
+        WP_CLI::success(sprintf('%d Zugangsregel(n) exportiert: %s', count($rules), $output));
+    }
+
+    /**
+     * Exportiert geschützte Mobile-Dateien samt Staging-Kopie.
+     *
+     * <tenant-slug>
+     * : Vorhandener Schul-Slug im Laravel-Original.
+     *
+     * --media-root=<directory>
+     * : Verzeichnis für die kopierten Quelldateien.
+     * --output=<file>
+     * : JSON-Manifest für app:import-mobile-course-files.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportMobileCourseFiles(array $args, array $assoc): void
+    {
+        $tenantSlug = sanitize_title((string) ($args[0] ?? ''));
+        $mediaRootArg = (string) ($assoc['media-root'] ?? '');
+        $output = (string) ($assoc['output'] ?? '');
+        if ($tenantSlug === '' || $mediaRootArg === '' || $output === '') {
+            WP_CLI::error('Aufruf: wp bootspruefung export course-files <tenant-slug> --media-root=<verzeichnis> --output=<datei.json>');
+        }
+        if (! wp_mkdir_p($mediaRootArg)) {
+            WP_CLI::error('Das Staging-Verzeichnis konnte nicht angelegt werden.');
+        }
+        $mediaRoot = realpath($mediaRootArg);
+        if ($mediaRoot === false || ! is_dir($mediaRoot) || ! chmod($mediaRoot, 0700)) {
+            WP_CLI::error('Das Staging-Verzeichnis ist nicht zugänglich.');
+        }
+
+        $posts = get_posts([
+            'post_type' => 'attachment',
+            'post_status' => 'inherit',
+            'numberposts' => -1,
+            'meta_key' => \Bootspruefung\Learning\Gate\ProtectedFiles::META,
+            'orderby' => ['menu_order' => 'ASC', 'title' => 'ASC'],
+            'suppress_filters' => false,
+        ]);
+        $files = [];
+        $copied = [];
+        $copiedHashes = [];
+        $sectionCapabilities = [
+            'exam_simulation' => 'exam',
+            'navigation_trainer' => 'navigation',
+            'praxis_trainer' => 'praxis',
+            'radio_training' => 'funk',
+        ];
+        foreach ($posts as $post) {
+            $id = (int) $post->ID;
+            $requirement = \Bootspruefung\Learning\Gate\ProtectedFiles::requirement($id);
+            if ($requirement === null) {
+                continue;
+            }
+            $sourceCourse = (string) $requirement['course'];
+            $feature = (string) $requirement['feature'];
+            $chartCode = (string) get_post_meta($id, '_bp_chart', true);
+            if ($chartCode !== '') {
+                $chart = \Bootspruefung\Learning\Gate\Charts::catalog()[$chartCode] ?? null;
+                if (! is_array($chart)) {
+                    WP_CLI::error("Anhang {$id} verweist auf eine unbekannte Seekarte {$chartCode}.");
+                }
+                $category = 'chart';
+                $capability = 'navigation';
+                $sectionKey = $chartCode;
+                $courseCodes = $chart['courses'];
+            } elseif ($feature === 'downloads') {
+                $category = 'download';
+                $capability = 'downloads';
+                $sectionKey = null;
+                $courseCodes = [$sourceCourse];
+            } elseif (isset($sectionCapabilities[$feature])) {
+                $category = 'section';
+                $capability = $sectionCapabilities[$feature];
+                $sectionKey = $feature;
+                $courseCodes = array_merge([$sourceCourse], \Bootspruefung\Learning\Gate\SectionFiles::includedIn($sourceCourse));
+            } else {
+                continue;
+            }
+
+            $sourcePath = get_attached_file($id);
+            $realSource = is_string($sourcePath) ? realpath($sourcePath) : false;
+            if ($realSource === false || ! is_file($realSource) || ! is_readable($realSource)) {
+                WP_CLI::error("Geschützte Datei {$id} fehlt im WordPress-Storage; Export abgebrochen.");
+            }
+            $extension = strtolower((string) pathinfo($realSource, PATHINFO_EXTENSION));
+            $extension = preg_match('/^[a-z0-9]{1,10}$/', $extension) ? '.'.$extension : '';
+            $safeCourse = preg_replace('/[^A-Za-z0-9_-]/', '_', $sourceCourse);
+            $relativePath = 'wp-course-files/'.$safeCourse.'/attachment-'.$id.$extension;
+            $destination = $mediaRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+            if (! isset($copied[$id])) {
+                if (! wp_mkdir_p(dirname($destination)) || ! chmod(dirname($destination), 0700)) {
+                    WP_CLI::error("Geschützte Datei {$id} konnte nicht sicher ins Staging kopiert werden.");
+                }
+                $destinationDir = realpath(dirname($destination));
+                if ($destinationDir === false || ! str_starts_with($destinationDir, $mediaRoot.DIRECTORY_SEPARATOR)) {
+                    WP_CLI::error("Staging-Pfad für geschützte Datei {$id} liegt außerhalb des Exportverzeichnisses.");
+                }
+                $temporary = $destination.'.tmp-'.bin2hex(random_bytes(8));
+                $sourceHash = hash_file('sha256', $realSource);
+                if (! is_string($sourceHash) || ! copy($realSource, $temporary)) {
+                    @unlink($temporary);
+                    WP_CLI::error("Geschützte Datei {$id} konnte nicht sicher ins Staging kopiert werden.");
+                }
+                $stagedHash = hash_file('sha256', $temporary);
+                if (! is_string($stagedHash) || ! hash_equals($sourceHash, $stagedHash)
+                    || ! rename($temporary, $destination) || ! chmod($destination, 0600)) {
+                    @unlink($temporary);
+                    WP_CLI::error("Geschützte Datei {$id} wurde nicht vollständig ins Staging übernommen.");
+                }
+                $copied[$id] = $relativePath;
+                $copiedHashes[$id] = $sourceHash;
+            }
+
+            foreach (array_values(array_unique($courseCodes)) as $courseCode) {
+                $files[] = [
+                    'tenant_slug' => $tenantSlug,
+                    'course_code' => (string) $courseCode,
+                    'source_key' => 'wp:attachment:'.$id,
+                    'file' => $copied[$id],
+                    'sha256' => $copiedHashes[$id],
+                    'category' => $category,
+                    'section_key' => $sectionKey,
+                    'title' => html_entity_decode(wp_strip_all_tags((string) get_the_title($post)), ENT_QUOTES, 'UTF-8'),
+                    'description' => wp_strip_all_tags((string) $post->post_excerpt),
+                    'mime_type' => (string) get_post_mime_type($id),
+                    'required_capability' => $capability,
+                    'sort_order' => (int) $post->menu_order,
+                    'published' => true,
+                ];
+            }
+        }
+        self::writeMobileExport($output, ['files' => $files]);
+        WP_CLI::success(sprintf('%d Datei-Zuordnungen exportiert, %d Quelldatei(en) kopiert: %s', count($files), count($copied), $output));
+    }
+
+
+    /**
+     * Exportiert aktuell aktive Mobile-Kurszugänge bestehender WP-Konten.
+     *
+     * <tenant-slug>
+     * : Vorhandener Schul-Slug im Laravel-Original.
+     *
+     * --output=<file>
+     * : JSON-Zieldatei. Sie enthält E-Mail-Adressen und muss geschützt übertragen werden.
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportMobileEntitlements(array $args, array $assoc): void
+    {
+        $tenantSlug = sanitize_title((string) ($args[0] ?? ''));
+        $output = (string) ($assoc['output'] ?? '');
+        if ($tenantSlug === '' || $output === '') {
+            WP_CLI::error('Aufruf: wp bootspruefung export entitlements <tenant-slug> --output=<datei.json>');
+        }
+        global $wpdb;
+        $table = $wpdb->prefix.'bp_entitlement';
+        $features = "'all','question_bank','learning_explanations','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads'";
+        $rows = $wpdb->get_results(
+            "SELECT e.id, e.course_code, e.feature_code, e.valid_from, e.valid_until,
+                    u.user_email, u.user_registered
+             FROM {$table} e
+             INNER JOIN {$wpdb->users} u ON u.ID = e.user_id
+             WHERE e.status = 'active'
+               AND (e.valid_from IS NULL OR e.valid_from <= UTC_TIMESTAMP())
+               AND (e.valid_until IS NULL OR e.valid_until >= UTC_TIMESTAMP())
+               AND e.feature_code IN ({$features})
+             ORDER BY u.user_email, e.course_code, e.feature_code, e.id",
+            ARRAY_A
+        );
+        if ($wpdb->last_error !== '') {
+            WP_CLI::error('Kurszugänge konnten nicht gelesen werden: '.$wpdb->last_error);
+        }
+
+        $entitlements = [];
+        foreach ((array) $rows as $row) {
+            $entitlements[] = [
+                'email' => strtolower(trim((string) $row['user_email'])),
+                'course_code' => (string) $row['course_code'],
+                'feature_code' => (string) $row['feature_code'],
+                'status' => 'active',
+                'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
+                'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
+                'user_registered' => self::mobileExportUtc($row['user_registered'] ?? null),
+                'source_key' => 'wp:entitlement:'.(int) $row['id'],
+            ];
+        }
+        self::writeMobileExport($output, [
+            'tenant_slug' => $tenantSlug,
+            'default_access' => \Bootspruefung\Learning\Settings\Settings::get('default_access'),
+            'entitlements' => $entitlements,
+        ]);
+        WP_CLI::success(sprintf('%d aktive Kurszugänge exportiert: %s', count($entitlements), $output));
+    }
+
+    private static function mobileExportUtc(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+        try {
+            return (new \DateTimeImmutable($value, new \DateTimeZone('UTC')))
+                ->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s\\Z');
+        } catch (\Throwable) {
+            WP_CLI::error('Ein UTC-Datum konnte nicht exportiert werden.');
+        }
+    }
+
+    private static function writeMobileExport(string $path, array $payload): void
+    {
+        $json = wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (! is_string($json) || file_put_contents($path, $json.PHP_EOL, LOCK_EX) === false || ! chmod($path, 0600)) {
+            WP_CLI::error("Export konnte nicht sicher geschrieben werden: {$path}");
+        }
+    }
+
+    /**
+     * Exportiert veröffentlichte Kunden-FAQs im JSON-Format des Laravel-Imports.
+     *
+     *     wp bootspruefung export customer-faqs --output=mobile-faqs.json
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function exportCustomerFaqs(array $args, array $assoc): void
+    {
+        $taxonomy = \Bootspruefung\Learning\Faq\CustomerFaq::TAXONOMY;
+        $terms = get_terms(['taxonomy' => $taxonomy, 'hide_empty' => false]);
+        if (is_wp_error($terms)) {
+            WP_CLI::error($terms->get_error_message());
+        }
+
+        $termById = [];
+        foreach ($terms as $term) {
+            $termById[(int) $term->term_id] = $term;
+        }
+        $courseForTerm = [];
+        foreach ($termById as $id => $term) {
+            $root = $term;
+            $seen = [];
+            while ((int) $root->parent > 0 && isset($termById[(int) $root->parent]) && ! isset($seen[(int) $root->term_id])) {
+                $seen[(int) $root->term_id] = true;
+                $root = $termById[(int) $root->parent];
+            }
+            $courseForTerm[$id] = strtoupper(trim((string) get_term_meta($root->term_id, \Bootspruefung\Learning\Faq\CustomerFaq::TERM_KEY, true)));
+        }
+
+        $categories = [];
+        foreach ($termById as $id => $term) {
+            $courseCode = $courseForTerm[$id] ?? '';
+            if ($courseCode === '') {
+                continue;
+            }
+            $parentId = (int) $term->parent;
+            $categories[] = [
+                'source_key' => 'wp-term:'.$id,
+                'course_code' => $courseCode,
+                'name' => (string) $term->name,
+                'slug' => (string) $term->slug,
+                'parent_source_key' => $parentId > 0 && isset($termById[$parentId]) && ($courseForTerm[$parentId] ?? '') === $courseCode ? 'wp-term:'.$parentId : null,
+                'sort_order' => (int) get_term_meta($id, \Bootspruefung\Learning\Faq\CustomerFaq::TERM_ORDER, true),
+            ];
+        }
+
+        $posts = get_posts([
+            'post_type' => \Bootspruefung\Learning\Faq\CustomerFaq::POST_TYPE,
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'no_found_rows' => true,
+            'orderby' => ['menu_order' => 'ASC', 'ID' => 'ASC'],
+            'suppress_filters' => true,
+        ]);
+        $faqs = [];
+        foreach ($posts as $post) {
+            $assigned = get_the_terms($post, $taxonomy);
+            $categoryKeys = [];
+            foreach (is_array($assigned) ? $assigned : [] as $term) {
+                if (isset($termById[(int) $term->term_id]) && ($courseForTerm[(int) $term->term_id] ?? '') !== '') {
+                    $categoryKeys[] = 'wp-term:'.(int) $term->term_id;
+                }
+            }
+            $categoryKeys = array_values(array_unique($categoryKeys));
+            if ($categoryKeys === []) {
+                continue;
+            }
+            $faqs[] = [
+                'source_key' => 'wp-post:'.(int) $post->ID,
+                'question' => html_entity_decode(wp_strip_all_tags((string) $post->post_title), ENT_QUOTES, 'UTF-8'),
+                'answer' => \Bootspruefung\Learning\Faq\FaqRepository::renderAnswer((string) $post->post_content),
+                'status' => 'published',
+                'sort_order' => (int) $post->menu_order,
+                'category_source_keys' => $categoryKeys,
+            ];
+        }
+
+        $payload = ['categories' => $categories, 'faqs' => $faqs];
+        if (isset($assoc['output']) && trim((string) $assoc['output']) !== '') {
+            self::writeMobileExport((string) $assoc['output'], $payload);
+            WP_CLI::success('Kunden-FAQs exportiert: '.(string) $assoc['output']);
+
+            return;
+        }
+        WP_CLI::line((string) wp_json_encode(
+            $payload,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        ));
+    }
+
 }
