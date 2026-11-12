@@ -863,12 +863,14 @@ $headers = implode("\n", (array) ($sent[0]['headers'] ?? []));
 $check(count($sent) === 1 && str_contains($headers, 'List-Unsubscribe: <'.$OO::url($ooUser).'>'), 'Erinnerung mit Kopfzeile List-Unsubscribe');
 $sig = $OO::signature($ooUser);
 $check($OO::verify($ooUser, $sig) && ! $OO::verify($ooUser, str_repeat('0', 32)) && ! $OO::verify($ooUser + 100000, $sig) && str_contains($OO::url($ooUser), '/'.$OO::PATH.'/'), 'Abmeldelink signiert (falsche Signatur oder anderes Konto abgelehnt)');
+parse_str((string) parse_url($OO::url($ooUser), PHP_URL_QUERY), $ooArgs);
+$check(array_intersect(array_keys($ooArgs), $GLOBALS['wp']->public_query_vars) === [], 'Abmeldelink ohne WordPress-Abfrageparameter (sonst Suche statt Bestätigungsseite)');
 set_query_var('bp_app', '1');
 set_query_var('bp_path', $OO::PATH);
-$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => $sig];
+$_REQUEST = $_GET = [$OO::ARG_USER => (string) $ooUser, $OO::ARG_SIG => $sig];
 $page = $OO::page();
 $check($OO::isRequest() && str_contains($page, 'Erinnerungen abbestellen') && str_contains($page, 'method="post"') && ! $OO::optedOut($ooUser), 'Bestätigungsseite ohne Anmeldung: Knopf statt Abmeldung beim Aufruf');
-$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => 'falsch'];
+$_REQUEST = $_GET = [$OO::ARG_USER => (string) $ooUser, $OO::ARG_SIG => 'falsch'];
 $check(str_contains($OO::page(), 'ungültig') && ! str_contains($OO::page(), 'method="post"'), 'falsche Signatur: Hinweis, kein Knopf');
 $redirected = null;
 $stop = static function ($location) use (&$redirected) {
@@ -877,15 +879,15 @@ $stop = static function ($location) use (&$redirected) {
 };
 add_filter('wp_redirect', $stop, 1);
 $_SERVER['REQUEST_METHOD'] = 'POST';
-$_POST = ['u' => (string) $ooUser, 's' => $sig, 'bp_reminder' => 'off'];
+$_POST = [$OO::ARG_USER => (string) $ooUser, $OO::ARG_SIG => $sig, 'bp_reminder' => 'off'];
 try {
     (new $OO())->handle();
 } catch (RuntimeException) {
 }
-$check($OO::optedOut($ooUser) && is_string($redirected) && str_contains($redirected, 'done=off'), 'Bestätigen (POST) bestellt ab und leitet auf die Bestätigung');
-$_REQUEST = $_GET = ['u' => (string) $ooUser, 's' => $sig, 'done' => 'off'];
+$check($OO::optedOut($ooUser) && is_string($redirected) && str_contains($redirected, $OO::ARG_DONE.'=off'), 'Bestätigen (POST) bestellt ab und leitet auf die Bestätigung');
+$_REQUEST = $_GET = [$OO::ARG_USER => (string) $ooUser, $OO::ARG_SIG => $sig, $OO::ARG_DONE => 'off'];
 $check(str_contains($OO::page(), 'Erledigt') && str_contains($OO::page(), 'wieder einschalten'), 'Bestätigung mit „wieder einschalten“');
-$_POST = ['u' => (string) $ooUser, 's' => 'falsch', 'bp_reminder' => 'on'];
+$_POST = [$OO::ARG_USER => (string) $ooUser, $OO::ARG_SIG => 'falsch', 'bp_reminder' => 'on'];
 $redirected = null;
 try {
     (new $OO())->handle();
