@@ -183,6 +183,28 @@ entfernt).
 
 ---
 
+### Export der Zugangs- und Kursdateien für das Laravel-Original
+
+Die Zugangsregeln und geschützten Kursdateien können mit WP-CLI exportiert werden.
+Der Schul-Slug muss bereits im Laravel-Original angelegt sein; Export und Import
+werden je Zielmandant ausgeführt. Für FAQ-Daten steht derselbe JSON-Export bereit.
+
+```sh
+wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
+wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
+wp bootspruefung export customer-faqs > /tmp/mobile-faqs.json
+```
+
+Der Access-Export enthält auch den WP-Standard `default_access` und die
+Zeitfenster der Regeln. Video-Drip-Regeln enthalten Kapiteltitel und Reihenfolge,
+damit der Laravel-Importer die WP-Quell-ID dem passenden nativen Videokapitel
+zuordnet. Der Datei-Export kopiert geschützte Anhänge ins Staging-Verzeichnis
+und erhält Download-, Abschnitts- und Seekarten-Zuordnungen. Die exportierten
+JSON-Dateien und Medien sind Kundendaten bzw. lizenzierte Kursinhalte; nur in
+einen geschützten Übertragungsweg legen.
+
+---
+
 ## 3. Ablauf für App-Entwickler
 
 1. **Start:** optional `GET /health` (Wartung? `status: disabled`).
