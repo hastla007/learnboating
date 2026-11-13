@@ -20,7 +20,8 @@ let offline = false;
 async function newPage(viewport = { width: 1200, height: 900 }) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
-  page.on('pageerror', (e) => errors.push(e.message));
+  // Mit Seite und erster Stack-Zeile, damit fremde Skriptfehler zuordenbar sind.
+  page.on('pageerror', (e) => errors.push(`${page.url()}: ${e.message} @ ${(e.stack || '').split('\n').slice(1, 3).join(' | ').trim()}`));
   page.on('requestfailed', (r) => { if (!offline && r.url().startsWith(base) && r.failure()?.errorText !== 'net::ERR_ABORTED') { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
 
   return page;
