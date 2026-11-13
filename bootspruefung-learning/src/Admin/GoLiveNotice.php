@@ -30,23 +30,54 @@ final class GoLiveNotice
             return false;
         }
 
-        return self::publishedLearningProducts() > 0;
+        return GoLiveCheck::publishedLearningProducts() > 0;
     }
 
-    private static function publishedLearningProducts(): int
+    /** Shop für Kunden sichtbar (WooCommerce aktiv, „Demnächst verfügbar“ aus)? */
+    public static function shopVisible(): bool
     {
-        global $wpdb;
-        $ids = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->productIds();
-        if ($ids === []) {
-            return 0;
-        }
-        $in = implode(',', array_map('intval', $ids));
+        return class_exists('WooCommerce') && get_option('woocommerce_coming_soon') !== 'yes';
+    }
 
-        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE ID IN ({$in}) AND post_status = 'publish'"); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nur Ganzzahlen
+    /**
+     * Livegang-Ampel als Hinweis (T97): Ist der Shop schon sichtbar und ist ein Punkt rot, Warnung auf Dashboard,
+     * Bootsprüfung-Übersicht und WooCommerce-Einstellungen. Ist er noch „Demnächst verfügbar“, zeigt der Reiter
+     * WooCommerce › Einstellungen › Sichtbarkeit die Ampel vor dem Umschalten (Rot blockiert nicht).
+     */
+    public static function ampelNotice(): string
+    {
+        if (! class_exists('WooCommerce') || ! current_user_can('manage_woocommerce')) {
+            return '';
+        }
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        $id = $screen ? (string) $screen->id : '';
+        $tab = sanitize_key((string) ($_GET['tab'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification -- nur Anzeige
+        if (self::shopVisible()) {
+            if ($screen && ! in_array($id, ['dashboard', 'toplevel_page_bootspruefung', 'woocommerce_page_wc-settings'], true)) {
+                return '';
+            }
+            $checks = GoLiveCheck::run();
+            if (GoLiveCheck::allGreen($checks)) {
+                return '';
+            }
+
+            return '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Der Shop ist für Kunden sichtbar, aber die Livegang-Ampel hat offene Punkte.', 'bootspruefung-learning').'</strong></p>'
+                .GoLiveCheck::html($checks).'</div>';
+        }
+        if ($id !== 'woocommerce_page_wc-settings' || $tab !== 'site-visibility') {
+            return '';
+        }
+        $checks = GoLiveCheck::run();
+        $green = GoLiveCheck::allGreen($checks);
+
+        return '<div class="notice notice-'.($green ? 'success' : 'warning').'"><p><strong>'.esc_html__('Bootsprüfung: Livegang-Ampel vor „Shop für Kunden sichtbar machen“', 'bootspruefung-learning').'</strong> '
+            .esc_html($green ? __('Alle Punkte sind grün.', 'bootspruefung-learning') : __('Es sind noch Punkte offen. Sichtbar machen ist trotzdem möglich – bitte nur bewusst.', 'bootspruefung-learning')).'</p>'
+            .GoLiveCheck::html($checks).'</div>';
     }
 
     public function render(): void
     {
+        echo self::ampelNotice(); // phpcs:ignore WordPress.Security.EscapeOutput -- in ampelNotice maskiert
         if (! current_user_can('manage_options') || ! self::shouldWarn()) {
             return;
         }

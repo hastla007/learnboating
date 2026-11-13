@@ -208,9 +208,36 @@ $planNoLive = kurswasser_shop_plan(kurswasser_shop_input(['country' => 'DE', 'ta
 $check(! isset($planNoLive['settings']['woocommerce_coming_soon']) && str_contains(wp_json_encode($planNoLive['notes'], JSON_UNESCAPED_UNICODE), 'Demnächst verfügbar'), 'ohne Häkchen: Shop bleibt verborgen, Vorschau weist auf „Demnächst verfügbar“ hin');
 $planLive = kurswasser_shop_plan(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1']));
 $soon = $planLive['settings']['woocommerce_coming_soon'] ?? null;
-$check($soon !== null && $soon['new'] === 'no' && $soon['state'] === 'default' && $soon['checked'] && ! str_contains(wp_json_encode($planLive['notes'], JSON_UNESCAPED_UNICODE), 'Demnächst verfügbar'), 'mit Häkchen „Shop sichtbar“: Modus wird ausgeschaltet (vorausgewählt)');
+$check($soon !== null && $soon['new'] === 'no' && $soon['state'] === 'default' && ! str_contains(wp_json_encode($planLive['notes'], JSON_UNESCAPED_UNICODE), 'Demnächst verfügbar'), 'mit Häkchen „Shop sichtbar“: Modus wird ausgeschaltet');
+// T97: „Shop sichtbar“ nie vorausgewählt (Formular), nur ausdrücklich (WP-CLI --live).
+$check(! in_array('woocommerce_coming_soon', kurswasser_shop_default_selection($planLive), true) && in_array('woocommerce_coming_soon', kurswasser_shop_default_selection($planLive, false, true), true), 'Vorschau: „Shop für Kunden sichtbar“ nicht vorausgewählt (WP-CLI --live wählt ihn)');
+$savedSetup = get_option('kurswasser_shop_setup', null);
+update_option('kurswasser_shop_setup', ['country' => 'DE', 'tax' => 'own', 'live' => '1'], false);
+$check(empty(kurswasser_shop_form_values()['live']), 'früherer Lauf mit „sichtbar“: Formular wählt es nicht wieder vor');
+$savedSetup === null ? delete_option('kurswasser_shop_setup') : update_option('kurswasser_shop_setup', $savedSetup, false);
+// Livegang-Ampel: rot → nur mit Bestätigung, grün → direkt.
+$red = static fn (array $c): array => array_merge([['key' => 'test_rot', 'label' => 'Testpunkt rot', 'ok' => false, 'detail' => 'fehlt', 'url' => admin_url(), 'link' => 'hin']], $c);
+$green = static fn (array $c): array => array_map(static fn (array $x): array => array_merge($x, ['ok' => true]), $c);
+$checks = kurswasser_shop_golive_checks();
+$check($checks !== [] && in_array('legal', array_column($checks, 'key'), true) && in_array('products', array_column($checks, 'key'), true), 'Ampel: gemeinsame Prüfung (Rechtstexte, Produkte …)');
+add_filter('kurswasser_golive_checks', $red);
+$report = kurswasser_shop_apply(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1']), ['woocommerce_coming_soon']);
+$check(get_option('woocommerce_coming_soon') === 'yes' && str_contains(implode(' ', $report['skipped']), 'Livegang-Ampel') && str_contains(implode(' ', $report['skipped']), 'Testpunkt rot'), 'Ampel rot, ohne Bestätigung: Shop bleibt verborgen, Bericht nennt den Punkt');
+wp_set_current_user(1);
+$_GET['kw_shop'] = ['country' => 'DE', 'tax' => 'own', 'live' => '1'];
+ob_start();
+kurswasser_setup_shop_view('shop');
+$view = (string) ob_get_clean();
+unset($_GET['kw_shop']);
+$check(str_contains($view, 'Livegang-Ampel') && str_contains($view, 'data-golive="test_rot" data-ok="0"') && str_contains($view, 'name="kw_shop[live_confirm]"') && ! preg_match('/name="kw_shop\[live_confirm\]"[^>]*checked/', $view) && ! preg_match('/value="woocommerce_coming_soon"[^>]*checked/', $view), 'Vorschau: Ampel mit Link, Bestätigung „Trotzdem sichtbar machen“ nicht angehakt, „sichtbar“ nicht vorausgewählt');
+$report = kurswasser_shop_apply(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1', 'live_confirm' => '1']), ['woocommerce_coming_soon']);
+$check(get_option('woocommerce_coming_soon') === 'no' && str_contains(wp_json_encode($report['notes'], JSON_UNESCAPED_UNICODE), 'trotz offener Punkte'), 'Ampel rot, bestätigt: Shop sichtbar, Hinweis im Bericht');
+remove_filter('kurswasser_golive_checks', $red);
+update_option('woocommerce_coming_soon', 'yes');
+add_filter('kurswasser_golive_checks', $green);
 kurswasser_shop_apply(kurswasser_shop_input(['country' => 'DE', 'tax' => 'own', 'live' => '1']), ['woocommerce_coming_soon']);
-$check(get_option('woocommerce_coming_soon') === 'no', 'angewendet: Shop sichtbar');
+$check(get_option('woocommerce_coming_soon') === 'no', 'Ampel grün: angewendet, Shop sichtbar');
+remove_filter('kurswasser_golive_checks', $green);
 $soonBefore === null ? delete_option('woocommerce_coming_soon') : update_option('woocommerce_coming_soon', $soonBefore);
 
 echo "EU-Steuertabelle\n";

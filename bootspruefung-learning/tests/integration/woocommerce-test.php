@@ -1760,6 +1760,42 @@ $check($probe > 0 && \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), '
 \Bootspruefung\Learning\Admin\GoLiveNotice::apply();
 $check(Settings::get('default_access') === 'entitled_only' && ! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Umstellen: nur kostenlose Regeln und Freischaltungen, Warnung weg');
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bp_audit_log WHERE action = 'settings_default_access'") > 0, 'Umstellung im Audit-Log');
+
+echo "Livegang-Ampel (T97)\n";
+$GC = \Bootspruefung\Learning\Admin\GoLiveCheck::class;
+$checks = array_column($GC::run(), null, 'key');
+$check(array_keys($checks) === ['legal', 'products', 'exam_rules', 'free_tier', 'access', 'package'], 'Ampel: Rechtstexte, Produkte, Regelwerke, Schnupper-Paket, Zugang ohne Shop, Inhaltspaket');
+$check(array_filter($checks, static fn ($c) => $c['url'] === '') === [], 'jeder Punkt mit Link zur Stelle');
+$check($checks['access']['ok'] === true, '„Zugang ohne Shop“ eingerichtet: grün');
+update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'logged_in']));
+$checks = array_column($GC::run(), null, 'key');
+$check($checks['access']['ok'] === false && ! $GC::allGreen() && in_array($checks['access']['label'], $GC::redLabels(), true), '„Alle angemeldeten Nutzer“: rot, Ampel nicht grün');
+$check(str_contains($checks['products']['detail'], 'Katalogprodukten veröffentlicht') && ($checks['products']['ok'] === false || $GC::publishedLearningProducts() > 0), 'Produkte: Stand des Katalogs, grün nur mit veröffentlichtem Lernprodukt');
+$legalPage = wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'AGB Ampeltest', 'post_content' => 'Anbieter: [[Betreiber: Name]]']);
+$termsBak = get_option('woocommerce_terms_page_id');
+update_option('woocommerce_terms_page_id', $legalPage);
+$checks = array_column($GC::run(), null, 'key');
+$check($checks['legal']['ok'] === false && str_contains($checks['legal']['detail'], 'Platzhalter'), 'Rechtstext mit Platzhalter: rot (vorhandene Platzhalter-Prüfung)');
+update_option('woocommerce_terms_page_id', $termsBak);
+wp_delete_post($legalPage, true);
+$filter = static function (array $c): array {
+    $c[] = ['key' => 'eigen', 'label' => 'Eigener Punkt', 'ok' => true, 'url' => 'https://example.invalid/'];
+
+    return $c;
+};
+add_filter('bootspruefung_golive_checks', $filter);
+$check(in_array('eigen', array_column($GC::run(), 'key'), true), 'Filter bootspruefung_golive_checks ergänzt Punkte');
+remove_filter('bootspruefung_golive_checks', $filter);
+$html = $GC::html();
+$check(str_contains($html, 'data-golive="access" data-ok="0"') && str_contains($html, 'Einstellungen'), 'Ampel als Liste mit Status und Link');
+$userBak = get_current_user_id();
+wp_set_current_user(1);
+update_option('woocommerce_coming_soon', 'no');
+$check(str_contains(\Bootspruefung\Learning\Admin\GoLiveNotice::ampelNotice(), 'Livegang-Ampel hat offene Punkte'), 'Shop sichtbar und Ampel rot: Hinweis im Admin');
+update_option('woocommerce_coming_soon', 'yes');
+$check(\Bootspruefung\Learning\Admin\GoLiveNotice::ampelNotice() === '', 'Shop noch „Demnächst verfügbar“: kein Hinweis außerhalb des Sichtbarkeits-Reiters');
+wp_set_current_user($userBak);
+\Bootspruefung\Learning\Admin\GoLiveNotice::apply();
 update_option('woocommerce_coming_soon', $soonBak);
 if ($probe && $probeStatus) {
     wp_update_post(['ID' => $probe, 'post_status' => $probeStatus]);

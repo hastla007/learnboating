@@ -157,6 +157,8 @@ function kurswasser_shop_input(array $raw): array
         'tax' => $tax, 'rate' => $rate, 'note' => $note, 'sell' => $sell,
         'products' => ! empty($raw['products']), 'free' => ! empty($raw['free']),
         'registration' => ! empty($raw['registration']), 'language' => ! empty($raw['language']), 'live' => ! empty($raw['live']),
+        // Bestätigung „Trotzdem sichtbar machen“ bei roter Livegang-Ampel (wird nie vorausgefüllt).
+        'live_confirm' => ! empty($raw['live_confirm']),
         'errors' => $errors,
     ];
 }
@@ -169,7 +171,8 @@ function kurswasser_shop_form_values(): array
     }
     $saved = get_option('kurswasser_shop_setup');
     if (is_array($saved) && $saved !== []) {
-        return $saved;
+        // „Shop für Kunden sichtbar“ nie aus einem früheren Lauf vorauswählen (T97).
+        return array_merge($saved, ['live' => '', 'live_confirm' => '']);
     }
     [$country, $state] = array_pad(explode(':', (string) get_option('woocommerce_default_country', '')), 2, '');
     $country = isset(kurswasser_shop_countries()[$country]) ? $country : 'DE';
@@ -481,10 +484,16 @@ function kurswasser_shop_plan(array $input): array
     return ['input' => $input, 'settings' => $settings, 'rates' => $rates, 'pages' => kurswasser_shop_pages_plan(), 'products' => $products, 'conflicts' => $conflicts, 'free' => $free, 'notes' => $notes];
 }
 
-/** Vorausgewählte Punkte der Vorschau (für WP-CLI ohne --overwrite und als Formular-Vorgabe). */
-function kurswasser_shop_default_selection(array $plan, bool $overwrite = false): array
+/**
+ * Vorausgewählte Punkte der Vorschau (für WP-CLI ohne --overwrite und als Formular-Vorgabe). „Shop für Kunden
+ * sichtbar“ ist im Formular nie vorausgewählt (Entscheidung Betreiber); WP-CLI mit --live wählt ihn ausdrücklich ($live).
+ */
+function kurswasser_shop_default_selection(array $plan, bool $overwrite = false, bool $live = false): array
 {
     $keys = array_keys(array_filter($plan['settings'], static fn ($s) => $s['checked'] || ($overwrite && $s['state'] === 'differs')));
+    if (! $live) {
+        $keys = array_values(array_diff($keys, ['woocommerce_coming_soon']));
+    }
     if (array_filter($plan['rates']['rows'], static fn ($r) => $r['status'] === 'new')) {
         $keys[] = 'tax_rates';
     }
@@ -499,6 +508,63 @@ function kurswasser_shop_default_selection(array $plan, bool $overwrite = false)
     }
 
     return $keys;
+}
+
+/**
+ * Livegang-Ampel vor „Shop für Kunden sichtbar machen“ (T97). Mit Lern-Plugin dessen gemeinsame Prüfung
+ * (GoLiveCheck: Rechtstexte, Produkte, Prüfungsregelwerke, Schnupper-Paket, „Zugang ohne Shop“, Inhaltspaket);
+ * ohne Plugin eine kleinere Prüfung des Themes (Rechtstexte, Produkte) und der Punkt „Lern-Plugin aktiv“.
+ * Filter kurswasser_golive_checks.
+ *
+ * @return list<array{key:string,label:string,ok:bool,detail:string,url:string,link:string}>
+ */
+function kurswasser_shop_golive_checks(): array
+{
+    if (class_exists('\Bootspruefung\Learning\Admin\GoLiveCheck')) {
+        $checks = \Bootspruefung\Learning\Admin\GoLiveCheck::run();
+    } else {
+        $open = [];
+        foreach (kurswasser_legal_open_issues() as $item) {
+            $open[] = $item['title'].' ('.implode(', ', $item['issues']).')';
+        }
+        $published = function_exists('wc_get_products') ? count(wc_get_products(['status' => 'publish', 'limit' => 1, 'return' => 'ids'])) : 0;
+        $checks = [
+            ['key' => 'legal', 'label' => __('Rechtstexte veröffentlicht, ohne Platzhalter', 'kurswasser'), 'ok' => $open === [], 'detail' => implode('; ', $open),
+                'url' => admin_url('themes.php?page=kurswasser-operator'), 'link' => __('Betreiberangaben ausfüllen', 'kurswasser')],
+            ['key' => 'products', 'label' => __('Produkte veröffentlicht', 'kurswasser'), 'ok' => $published > 0, 'detail' => $published > 0 ? '' : __('Noch kein Produkt veröffentlicht.', 'kurswasser'),
+                'url' => admin_url('edit.php?post_type=product'), 'link' => __('Produkte', 'kurswasser')],
+            ['key' => 'learning', 'label' => __('Lern-Plugin aktiv', 'kurswasser'), 'ok' => false,
+                'detail' => __('Ohne das Plugin „Bootsprüfung Lernplattform“ gibt es keine Lernzugänge, Prüfungsregelwerke und kein Schnupper-Paket.', 'kurswasser'),
+                'url' => admin_url('plugins.php'), 'link' => __('Plugins', 'kurswasser')],
+        ];
+    }
+    $checks = apply_filters('kurswasser_golive_checks', $checks);
+
+    return array_values(array_filter((array) $checks, static fn ($c) => is_array($c) && isset($c['key'], $c['label'])));
+}
+
+/** Rote Punkte der Livegang-Ampel (Bezeichnungen). @return list<string> */
+function kurswasser_shop_golive_red(?array $checks = null): array
+{
+    return array_values(array_map(static fn ($c) => (string) $c['label'], array_filter($checks ?? kurswasser_shop_golive_checks(), static fn ($c) => empty($c['ok']))));
+}
+
+/** Ampel als Liste (grün/rot, Erklärung, Link zur Stelle). */
+function kurswasser_shop_golive_html(array $checks): string
+{
+    if (class_exists('\Bootspruefung\Learning\Admin\GoLiveCheck')) {
+        return \Bootspruefung\Learning\Admin\GoLiveCheck::html(array_map(static fn ($c) => $c + ['detail' => '', 'url' => '', 'link' => '', 'ok' => false], $checks));
+    }
+    $html = '<ul class="kw-golive" style="list-style:none;margin:.5em 0;padding:0">';
+    foreach ($checks as $c) {
+        $ok = ! empty($c['ok']);
+        $html .= '<li data-golive="'.esc_attr((string) $c['key']).'" data-ok="'.($ok ? '1' : '0').'" style="margin:.35em 0"><span aria-hidden="true" style="display:inline-block;width:.8em;height:.8em;border-radius:50%;background:'.($ok ? '#00a32a' : '#d63638').';margin-right:.4em"></span>'
+            .'<span class="screen-reader-text">'.esc_html($ok ? __('erfüllt:', 'kurswasser') : __('offen:', 'kurswasser')).' </span><strong>'.esc_html((string) $c['label']).'</strong>'
+            .(! empty($c['detail']) ? ' – '.esc_html((string) $c['detail']) : '')
+            .(! empty($c['url']) ? ' <a href="'.esc_url((string) $c['url']).'">'.esc_html((string) ($c['link'] ?: __('Zur Stelle', 'kurswasser'))).'</a>' : '').'</li>';
+    }
+
+    return $html.'</ul>';
 }
 
 function kurswasser_shop_seen_hash($value): string
@@ -554,6 +620,20 @@ function kurswasser_shop_apply(array $input, array $selected, ?array $seen = nul
         if ($key === 'WPLANG') {
             $language = $s;
             continue; // zuletzt (Download)
+        }
+        if ($key === 'woocommerce_coming_soon' && $s['new'] === 'no') {
+            // T97: Livegang-Ampel. Rot blockiert nicht, braucht aber die ausdrückliche Bestätigung.
+            $red = kurswasser_shop_golive_red();
+            if ($red !== [] && empty($input['live_confirm'])) {
+                $report['skipped'][] = sprintf(__('%1$s: nicht umgestellt – die Livegang-Ampel hat offene Punkte (%2$s). Zum Sichtbarmachen trotzdem „Trotzdem sichtbar machen“ ankreuzen bzw. in WP-CLI --force-live angeben.', 'kurswasser'), $name, implode(', ', $red));
+                continue;
+            }
+            if ($red !== []) {
+                $report['notes'][] = ['warning', sprintf(__('Shop trotz offener Punkte der Livegang-Ampel sichtbar gemacht: %s.', 'kurswasser'), implode(', ', $red))];
+                if (class_exists('\\Bootspruefung\\Learning\\Audit\\AuditLog')) {
+                    \Bootspruefung\Learning\Audit\AuditLog::record('shop_live_confirmed', 'settings', 'woocommerce_coming_soon', __('Shop trotz offener Punkte der Livegang-Ampel sichtbar gemacht', 'kurswasser'), ['open' => $red]);
+                }
+            }
         }
         if ($key === 'bp_price_note') {
             $all = \Bootspruefung\Learning\Settings\Settings::all();
@@ -820,7 +900,7 @@ function kurswasser_setup_shop_card(): void
     }
     echo '<label><input type="checkbox" name="kw_shop[registration]" value="1"'.checked($on('registration'), true, false).'> '.esc_html__('Kunden-Registrierung einschalten (Konto anlegen auf „Mein Konto“)', 'kurswasser').'</label><br>';
     echo '<label><input type="checkbox" name="kw_shop[language]" value="1"'.checked($on('language'), true, false).'> '.esc_html__('Website-Sprache Deutsch (lädt das Sprachpaket von wordpress.org)', 'kurswasser').'</label><br>';
-    echo '<label><input type="checkbox" name="kw_shop[live]" value="1"'.checked($on('live'), true, false).'> '.esc_html__('Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus) – erst zum Livegang', 'kurswasser').'</label>';
+    echo '<label><input type="checkbox" name="kw_shop[live]" value="1"'.checked($on('live'), true, false).'> '.esc_html__('Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus) – erst zum Livegang; die Vorschau zeigt vorher die Livegang-Ampel', 'kurswasser').'</label>';
     echo '</fieldset></td></tr></tbody></table>';
     echo '<p><button type="submit" class="button button-primary">'.esc_html__('Vorschau anzeigen', 'kurswasser').'</button> <span class="description">'.esc_html__('Es wird noch nichts geändert.', 'kurswasser').'</span></p></form>';
     // Vorschläge nach Land (ohne JavaScript gilt der Vorschlag, wenn das Feld leer ist).
@@ -893,6 +973,21 @@ function kurswasser_setup_shop_view(string $view): void
             .'<td>'.esc_html(kurswasser_shop_value_label($key, $s['current'])).'<br>'.$status.'</td><td>'.esc_html(kurswasser_shop_value_label($key, $s['new'])).'</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
     }
     echo '</tbody></table>';
+
+    // T97: Livegang-Ampel vor „Shop für Kunden sichtbar“ (nicht vorausgewählt; bei Rot zusätzlich bestätigen).
+    if (isset($plan['settings']['woocommerce_coming_soon']) && $plan['settings']['woocommerce_coming_soon']['state'] !== 'same') {
+        $checks = kurswasser_shop_golive_checks();
+        $red = kurswasser_shop_golive_red($checks);
+        echo '<div class="notice notice-'.($red === [] ? 'success' : 'warning').' inline" id="kw-golive"><p><strong>'.esc_html__('Livegang-Ampel: Ist alles bereit, damit Kunden den Shop sehen?', 'kurswasser').'</strong></p>';
+        echo kurswasser_shop_golive_html($checks); // phpcs:ignore WordPress.Security.EscapeOutput -- in der Funktion maskiert
+        if ($red === []) {
+            echo '<p>'.esc_html__('Alle Punkte sind grün. „Shop für Kunden sichtbar“ oben anhaken, um den Shop sichtbar zu machen.', 'kurswasser').'</p>';
+        } else {
+            echo '<p>'.esc_html__('Es sind noch Punkte offen. Du kannst den Shop trotzdem sichtbar machen – dann bitte zusätzlich bestätigen:', 'kurswasser').'</p>'
+                .'<p><label><input type="checkbox" name="kw_shop[live_confirm]" value="1"> '.esc_html__('Trotzdem sichtbar machen (ich habe die offenen Punkte gesehen)', 'kurswasser').'</label></p>';
+        }
+        echo '</div>';
+    }
 
     $rows = $plan['rates']['rows'];
     if ($rows !== []) {
@@ -1034,6 +1129,9 @@ if (defined('WP_CLI') && WP_CLI) {
      * [--live]
      * : Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus). Standard: aus.
      *
+     * [--force-live]
+     * : Mit --live: auch sichtbar machen, wenn die Livegang-Ampel offene (rote) Punkte zeigt.
+     *
      * [--overwrite]
      * : Auch Werte überschreiben, die schon anders eingestellt sind.
      *
@@ -1055,7 +1153,7 @@ if (defined('WP_CLI') && WP_CLI) {
             'country' => $assoc['country'] ?? '', 'state' => $assoc['state'] ?? '', 'address' => $assoc['address'] ?? '', 'postcode' => $assoc['postcode'] ?? '',
             'city' => $assoc['city'] ?? '', 'tax' => $assoc['tax'] ?? '', 'rate' => $assoc['rate'] ?? '', 'note' => $assoc['note'] ?? '', 'sell' => $assoc['sell'] ?? 'eu',
             'products' => $flag('products', false), 'free' => $flag('free', false), 'registration' => $flag('registration', true), 'language' => $flag('language', true),
-            'live' => $flag('live', false),
+            'live' => $flag('live', false), 'live_confirm' => $flag('force-live', false),
         ]);
         if ($input['errors'] !== []) {
             WP_CLI::error(implode(' ', $input['errors']));
@@ -1080,12 +1178,21 @@ if (defined('WP_CLI') && WP_CLI) {
         foreach ($plan['notes'] as [$type, $text]) {
             $type === 'info' ? WP_CLI::log($text) : WP_CLI::warning($text);
         }
+        if (isset($plan['settings']['woocommerce_coming_soon']) && $plan['settings']['woocommerce_coming_soon']['state'] !== 'same') {
+            WP_CLI::log('Livegang-Ampel:');
+            foreach (kurswasser_shop_golive_checks() as $c) {
+                WP_CLI::log(sprintf('  [%s] %s%s', $c['ok'] ? 'grün' : 'ROT ', $c['label'], ! empty($c['detail']) ? ' – '.$c['detail'] : ''));
+            }
+            if (kurswasser_shop_golive_red() !== [] && empty($input['live_confirm'])) {
+                WP_CLI::warning('Offene Punkte: Der Shop wird nur mit --force-live sichtbar gemacht.');
+            }
+        }
         if (empty($assoc['yes'])) {
             WP_CLI::log('Vorschau – nichts geändert. Mit --yes ausführen.');
 
             return;
         }
-        $report = kurswasser_shop_apply($input, kurswasser_shop_default_selection($plan, ! empty($assoc['overwrite'])));
+        $report = kurswasser_shop_apply($input, kurswasser_shop_default_selection($plan, ! empty($assoc['overwrite']), $input['live']));
         foreach ($report['done'] as $line) {
             WP_CLI::log('erledigt: '.$line);
         }

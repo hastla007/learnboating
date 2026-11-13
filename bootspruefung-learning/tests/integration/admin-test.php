@@ -317,7 +317,13 @@ if (function_exists('wc_get_product_id_by_sku')) {
     echo "Katalog-Abgleich: von Hand geänderte Preise und zurückgestellte Entwürfe (T98)\n";
     $sknId = (int) wc_get_product_id_by_sku('BP-SKN');
     $fknId = (int) wc_get_product_id_by_sku('BP-FKN');
-    $statusBak = [$sknId => get_post_status($sknId), $fknId => get_post_status($fknId)];
+    // Stand aller Katalogprodukte sichern (der Test veröffentlicht), am Ende wiederherstellen.
+    $statusBak = [];
+    foreach (ShopCatalog::products() as $def) {
+        if ($pid = (int) wc_get_product_id_by_sku($def['sku'])) {
+            $statusBak[$pid] = [get_post_status($pid), get_post_meta($pid, ShopCatalog::STATUS_META, true), get_post_meta($pid, ShopCatalog::MANUAL_STATUS_META, true)];
+        }
+    }
     $catalogSkn = ShopCatalog::find('BP-SKN')['price'];
     ShopCatalog::applyProducts();
     $check(get_post_meta($sknId, ShopCatalog::PRICE_META, true) === number_format((float) $catalogSkn, 2, '.', ''), 'zuletzt geschriebener Katalogpreis gemerkt');
@@ -381,9 +387,13 @@ if (function_exists('wc_get_product_id_by_sku')) {
     ShopCatalog::applyProducts(false, true, ['publish_held' => true]);
     $check(get_post_status($legacyId) === 'draft', 'deaktivierter Kurs wird auch mit „veröffentlichen“ nicht veröffentlicht');
     wp_delete_post($legacyId, true);
-    foreach ($statusBak as $pid => $st) {
-        wp_update_post(['ID' => $pid, 'post_status' => $st]);
-        delete_post_meta($pid, ShopCatalog::MANUAL_STATUS_META);
+    foreach ($statusBak as $pid => [$st, $catalogMeta, $manualMeta]) {
+        if (get_post_status($pid) !== $st) {
+            wp_update_post(['ID' => $pid, 'post_status' => $st]);
+        }
+        foreach ([ShopCatalog::STATUS_META => $catalogMeta, ShopCatalog::MANUAL_STATUS_META => $manualMeta] as $key => $value) {
+            $value === '' ? delete_post_meta($pid, $key) : update_post_meta($pid, $key, $value);
+        }
     }
 }
 

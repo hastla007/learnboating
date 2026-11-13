@@ -146,7 +146,7 @@ Preis-Seite sind Bruttopreise, vgl. Systemstatus des Plugins), Anzeige inkl. in 
 `users_can_register` für „Konto anlegen“); `WPLANG` = de_DE nur, wenn `wp_download_language_pack()` das Paket laden
 konnte (danach Versuch, die Übersetzungen der Plugins zu laden) – sonst klare Meldung, alles andere läuft weiter.
 
-**Sichtbarkeit:** Neue WooCommerce-Shops starten im Modus „Demnächst verfügbar“ (Gäste sehen Shop, Warenkorb und Kasse nicht). Der Assistent schaltet ihn nur mit dem Häkchen „Shop für Kunden sichtbar machen“ aus (`woocommerce_coming_soon` = no; WP-CLI `--live`) – erst zum Livegang. Ohne Häkchen weist die Vorschau darauf hin.
+**Sichtbarkeit:** Neue WooCommerce-Shops starten im Modus „Demnächst verfügbar“ (Gäste sehen Shop, Warenkorb und Kasse nicht). Der Assistent schaltet ihn nur mit dem Häkchen „Shop für Kunden sichtbar machen“ aus (`woocommerce_coming_soon` = no; WP-CLI `--live`) – erst zum Livegang. Ohne Häkchen weist die Vorschau darauf hin. Mit Häkchen zeigt die Vorschau die Livegang-Ampel (T97, gemeinsame Prüfung `Bootspruefung\Learning\Admin\GoLiveCheck` des Lern-Plugins, Filter `bootspruefung_golive_checks`; ohne Plugin eine kleinere Prüfung des Themes, Filter `kurswasser_golive_checks`). Die Zeile „Shop für Kunden sichtbar“ ist nicht vorausgewählt; ist ein Punkt rot, wird nur mit der Bestätigung „Trotzdem sichtbar machen“ umgeschaltet (WP-CLI: `--force-live`), sonst meldet der Bericht die offenen Punkte.
 
 **Was nicht überschrieben wird**
 

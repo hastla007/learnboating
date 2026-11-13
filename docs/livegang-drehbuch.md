@@ -57,7 +57,7 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 | T−15 min | **Echtgeld-Testkauf** mit eigenem Kundenkonto: kleinstes Produkt, je Zahlungsart einmal (Überweisung kann vorab erfolgen). Prüfen: Bestellmail mit Rechtstexten, Laufzeit und Garantie-Erklärung, Freischaltung im Lernbereich, „Mein Lernen“ | ☐ |
 | T−10 min | Testkäufe erstatten (WooCommerce › Bestellung › Erstattung über die Zahlungsart). Prüfen: Zugang endet, Erstattungsmail kommt, Geld kommt zurück (Kontoauszug in den Folgetagen) | ☐ |
 | T−5 min | Assistent „Zugang ohne Shop“ prüfen (T15), Inhaltsseiten veröffentlicht | ☐ |
-| T 0 | Design › Kurswasser einrichten › Schritt 3 „Shop für Kunden sichtbar machen“ | ☐ |
+| T 0 | Design › Kurswasser einrichten › Schritt 3 „Shop für Kunden sichtbar machen“: Die Vorschau zeigt die **Livegang-Ampel** (Rechtstexte ohne Platzhalter, Produkte veröffentlicht, Prüfungsregelwerke freigegeben, Schnupper-Paket, „Zugang ohne Shop“, Inhaltspaket aktiv; je Punkt mit Link). „Shop für Kunden sichtbar“ ist nie vorausgewählt; bei Rot zusätzlich „Trotzdem sichtbar machen“ (WP-CLI `--live --force-live`). Dieselbe Ampel steht in Bootsprüfung › Übersicht und unter WooCommerce › Einstellungen › Sichtbarkeit | ☐ |
 | T+5 min | Als Gast: Startseite, Kursseite, Warenkorb, Kasse mit Produkt und Summe, Rechtstexte erreichbar; am Handy (390 px) | ☐ |
 | T+15 min | Überwachung meldet „ok“; Fehler-Log leer | ☐ |
 | T+24 h | Bestellungen, Freischaltungen und Mails des ersten Tages durchsehen; Systemstatus › Bestellabgleich ohne Rückstand | ☐ |
