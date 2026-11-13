@@ -149,6 +149,93 @@ ob_start();
 $oss::renderStatus();
 $check(str_contains((string) ob_get_clean(), 'Steuer: OSS-Schwelle'), 'Abschnitt im Systemstatus');
 remove_filter('bootspruefung_oss_threshold', $lowThreshold);
+
+echo "OSS-Schwelle: Summen per SQL, Jahreswechsel (T85)\n";
+// Erwartung wie bisher aus den Bestellobjekten berechnen und mit den SQL-Summen vergleichen.
+$ossExpected = static function (int $y) use ($oss): array {
+    $tz = wp_timezone();
+    $from = (new DateTimeImmutable($y.'-01-01 00:00:00', $tz))->getTimestamp();
+    $to = (new DateTimeImmutable(($y + 1).'-01-01 00:00:00', $tz))->getTimestamp() - 1;
+    $foreign = array_diff($oss::euCountries(), [$oss::baseCountry()]);
+    $out = ['total' => 0.0, 'orders' => 0, 'by_country' => []];
+    foreach (wc_get_orders(['status' => ['processing', 'completed'], 'date_paid' => $from.'...'.$to, 'limit' => -1, 'type' => 'shop_order']) as $o) {
+        $c = strtoupper((string) $o->get_billing_country());
+        if (! in_array($c, $foreign, true)) {
+            continue;
+        }
+        $net = (float) $o->get_total() - (float) $o->get_total_tax() - ((float) $o->get_total_refunded() - (float) $o->get_total_tax_refunded());
+        $out['by_country'][$c] = round(($out['by_country'][$c] ?? 0.0) + $net, 2);
+        $out['total'] = round($out['total'] + $net, 2);
+        $out['orders']++;
+    }
+
+    return $out;
+};
+$partial = $ossOrder('NL');
+wc_create_refund(['order_id' => $partial, 'amount' => 5, 'reason' => 'Teilerstattung']);
+$expected = $ossExpected($year);
+$queriesBefore = $wpdb->num_queries;
+$sqlTotals = $oss::totals($year, true);
+$ossQueries = $wpdb->num_queries - $queriesBefore;
+$check(abs($sqlTotals['total'] - $expected['total']) < 0.02 && $sqlTotals['orders'] === $expected['orders'] && abs(($sqlTotals['by_country']['NL'] ?? 0) - ($expected['by_country']['NL'] ?? -1)) < 0.01, 'SQL-Summen gleich den Bestellobjekten (inkl. Teilerstattung)');
+$check($ossQueries <= 4, 'Summen mit wenigen Abfragen statt Bestellobjekten ('.$ossQueries.' Abfragen)');
+$tz = wp_timezone();
+$from = (new DateTimeImmutable($year.'-01-01 00:00:00', $tz))->getTimestamp();
+$to = (new DateTimeImmutable(($year + 1).'-01-01 00:00:00', $tz))->getTimestamp() - 1;
+$foreign = array_values(array_diff($oss::euCountries(), ['DE']));
+$cptRows = $oss::sums($from, $to, $foreign, false);
+// HPOS-Variante: Bestellungen in die HPOS-Tabellen übertragen (wie die WooCommerce-Synchronisierung) und vergleichen.
+$hposChecked = false;
+$syncClass = \Automattic\WooCommerce\Internal\DataStores\Orders\DataSynchronizer::class;
+if (! $oss::hposActive() && class_exists($syncClass)) {
+    try {
+        $syncer = wc_get_container()->get($syncClass);
+        $hadTables = $syncer->check_orders_table_exists();
+        if ($hadTables || $syncer->create_database_tables()) {
+            $all = array_map('intval', $wpdb->get_col("SELECT ID FROM {$wpdb->posts} WHERE post_type IN ('shop_order', 'shop_order_refund') ORDER BY ID"));
+            foreach (array_chunk($all, 100) as $chunk) {
+                $syncer->process_batch($chunk);
+            }
+            $norm = static function (array $rows): array {
+                $out = [];
+                foreach ($rows as $r) {
+                    $out[$r['country']] = [$r['orders'], round($r['total'], 2), round($r['tax'], 2), round($r['refunded'], 2), round($r['tax_refunded'], 2)];
+                }
+                ksort($out);
+
+                return $out;
+            };
+            $hposRows = $oss::sums($from, $to, $foreign, true);
+            $check($norm($hposRows) === $norm($cptRows) && $hposRows !== [], 'HPOS-Tabellen (wc_orders) liefern dieselben Summen wie wp_posts');
+            $hposChecked = true;
+            if (! $hadTables) {
+                $syncer->delete_database_tables();
+            }
+        }
+    } catch (Throwable $e) {
+        echo '  (HPOS-Vergleich übersprungen: '.$e->getMessage().")\n";
+    }
+} elseif ($oss::hposActive()) {
+    $check($oss::sums($from, $to, $foreign, true) !== [], 'HPOS aktiv: Summen aus wc_orders');
+    $hposChecked = true;
+}
+$check($hposChecked || ! class_exists($syncClass), 'HPOS-Variante geprüft');
+// Jahreswechsel: 31.12. 23:30 UTC ist in Berlin schon der 1.1. – der Schlüssel folgt der Zeitzone der Website.
+$tzBak = [get_option('timezone_string'), get_option('gmt_offset')];
+update_option('timezone_string', 'Europe/Berlin');
+$silvester = gmmktime(23, 30, 0, 12, 31, 2026);
+$check($oss::cacheYear($silvester) === 2027 && (int) gmdate('Y', $silvester) === 2026, 'Jahreswechsel: Schlüsseljahr nach Ortszeit (2027), nicht UTC (2026)');
+set_transient('bp_oss_totals_2027', ['year' => 2027], HOUR_IN_SECONDS);
+set_transient('bp_oss_totals_2026', ['year' => 2026], HOUR_IN_SECONDS);
+set_transient('bp_oss_totals_2025', ['year' => 2025], HOUR_IN_SECONDS);
+$oss::flush($silvester);
+$check(get_transient('bp_oss_totals_2027') === false && get_transient('bp_oss_totals_2026') === false && is_array(get_transient('bp_oss_totals_2025')), 'Silvesternacht: laufendes Jahr (2027) und Vorjahr geleert, älteres Jahr unberührt');
+delete_transient('bp_oss_totals_2025');
+update_option('timezone_string', $tzBak[0]);
+update_option('gmt_offset', $tzBak[1]);
+set_transient('bp_oss_totals_'.$oss::cacheYear(), ['year' => 1], HOUR_IN_SECONDS);
+wc_get_order($partial)->update_status('completed');
+$check(get_transient('bp_oss_totals_'.$oss::cacheYear()) === false, 'Statuswechsel leert den Zwischenspeicher des laufenden Jahres');
 update_option('woocommerce_default_country', $ossBase);
 delete_transient('bp_oss_totals_'.$year);
 
@@ -309,6 +396,95 @@ if (function_exists('wc_load_cart')) {
     WC()->cart->empty_cart();
     $check(\Bootspruefung\Learning\Commerce\WooCommerce\Integration::guestCartSummary() === '', 'leerer Warenkorb: keine Übersicht');
 }
+echo "Zwischenspeicher Shop: Zuordnungen, Warenkorb, Mitgliedskurse (T85)\n";
+$shopCache = \Bootspruefung\Learning\Commerce\WooCommerce\ShopCache::class;
+$tableQueries = ['bp_product_access' => 0, 'bp_entitlement' => 0];
+$countTables = static function ($q) use (&$tableQueries) {
+    foreach (array_keys($tableQueries) as $t) {
+        if (is_string($q) && str_contains($q, $t) && stripos(ltrim($q), 'SELECT') === 0) {
+            $tableQueries[$t]++;
+        }
+    }
+
+    return $q;
+};
+add_filter('query', $countTables);
+$shopCache::flush();
+$products = array_map('wc_get_product', [$lern, $video, $book]);
+for ($i = 0; $i < 10; $i++) {
+    foreach ($products as $prod) {
+        Integration::productHasLearning($prod);
+        Integration::isGroupProduct($prod);
+    }
+}
+$check($tableQueries['bp_product_access'] === 1, 'Produktzuordnungen einmal je Anfrage geladen statt je Produkt (60 Prüfungen, '.$tableQueries['bp_product_access'].' Abfrage)');
+$check(Integration::productHasLearning($products[0]) && ! Integration::productHasLearning($products[2]) && ! Integration::isGroupProduct($products[0]), 'Ergebnis unverändert (Lernpaket ja, Buch nein)');
+$repoT85 = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+$repoT85->save($book, 0, [['course_code' => $course, 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund', 3);
+$check(Integration::productHasLearning(wc_get_product($book)) && Integration::isGroupProduct(wc_get_product($book)), 'Zuordnung geändert → Zwischenspeicher sofort ungültig (Lernzugang, Plätze)');
+$repoT85->save($book, 0, [], null, 'extend', 'revoke_on_full_refund');
+$check(! Integration::productHasLearning(wc_get_product($book)), 'Zuordnung entfernt → wieder kein Lernprodukt');
+if (function_exists('wc_load_cart')) {
+    wc_load_cart();
+    WC()->cart->empty_cart();
+    WC()->cart->add_to_cart($book);
+    $loads = $shopCache::$loads['carts'];
+    for ($i = 0; $i < 5; $i++) {
+        get_option('woocommerce_enable_guest_checkout');
+        apply_filters('woocommerce_checkout_registration_required', false);
+    }
+    $check($shopCache::$loads['carts'] - $loads === 1 && Integration::cartHasLearning() === false, 'Warenkorb einmal je Stand geprüft (10 Abfragen der Kasse, 1 Prüfung)');
+    WC()->cart->add_to_cart($lern);
+    $check(Integration::cartHasLearning() === true && $shopCache::$loads['carts'] - $loads === 2, 'Warenkorb geändert → neu geprüft');
+    WC()->cart->empty_cart();
+    $check(Integration::cartHasLearning() === false, 'Warenkorb geleert → kein Lernprodukt');
+}
+$md85 = \Bootspruefung\Learning\Commerce\WooCommerce\MemberDiscounts::class;
+update_option($md85::OPTION, []);
+$md85::add('', 10, 'other', 'Test T85');
+$shopCache::flush();
+$tableQueries['bp_entitlement'] = 0;
+foreach ($products as $prod) {
+    for ($i = 0; $i < 5; $i++) {
+        $md85::discountFor($alice, $prod);
+    }
+}
+$check($tableQueries['bp_entitlement'] === 1 && $md85::memberCourses($alice) !== [], 'Mitgliedskurse einmal je Nutzer und Anfrage (15 Preisprüfungen, '.$tableQueries['bp_entitlement'].' Abfrage)');
+$aliceUntil = $wpdb->get_results($wpdb->prepare("SELECT id, valid_until FROM {$p}entitlement WHERE user_id = %d AND status = 'active'", $alice));
+$wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET valid_until = '2000-01-01 00:00:00' WHERE user_id = %d AND status = 'active'", $alice));
+$check($md85::memberCourses($alice) === [], 'Zugang geändert → Mitgliedskurse neu gelesen');
+foreach ($aliceUntil as $row) {
+    $wpdb->update($p.'entitlement', ['valid_until' => $row->valid_until], ['id' => (int) $row->id]);
+}
+$check($md85::memberCourses($alice) !== [] && $md85::memberCourses($customer('wc_ohne_zugang')) === [], 'je Nutzer getrennt');
+update_option($md85::OPTION, []);
+remove_filter('query', $countTables);
+
+echo "Kennzahlen der Kurse zwischengespeichert (T85)\n";
+$catalog = \Bootspruefung\Learning\Commerce\ShopCatalog::class;
+$memo = new ReflectionProperty($catalog, 'statsMemo');
+$memo->setAccessible(true);
+$catalog::flushCourseStats();
+$fresh = $catalog::courseStats([$course]);
+$stored = get_transient($catalog::STATS_TRANSIENT);
+$check(is_array($stored) && ($stored['stats'][$course] ?? null) === $fresh && $fresh['questions'] > 0, 'Kennzahlen im Transient abgelegt');
+$memo->setValue(null, []); // neue Anfrage
+$stored['stats'][$course]['questions'] = 4242;
+set_transient($catalog::STATS_TRANSIENT, $stored, HOUR_IN_SECONDS);
+$q0 = $wpdb->num_queries;
+$cached = $catalog::courseStats([$course]);
+$check($cached['questions'] === 4242 && $wpdb->num_queries - $q0 <= 1, 'nächste Anfrage: aus dem Transient, ohne Zählabfragen');
+\Bootspruefung\Learning\Content\Repositories\ContentCache::invalidate();
+$check(get_transient($catalog::STATS_TRANSIENT) === false && $catalog::courseStats([$course]) === $fresh, 'Import/Paketwechsel (ContentCache::invalidate) leert die Kennzahlen');
+$stored = get_transient($catalog::STATS_TRANSIENT);
+$stored['stamp'] = 'anderes-paket';
+$stored['stats'][$course]['questions'] = 4242;
+set_transient($catalog::STATS_TRANSIENT, $stored, HOUR_IN_SECONDS);
+$memo->setValue(null, []);
+$check($catalog::courseStats([$course]) === $fresh, 'anderes aktives Paket: Kennzahlen neu gezählt');
+wc_get_product($book)->save();
+$check(get_transient($catalog::STATS_TRANSIENT) === false, 'Produktänderung leert die Kennzahlen');
+
 // Zahlungsarten, Verkaufsländer, Lieferung vor Beginn des Bestellvorgangs (§ 312j Abs. 1 BGB): Produktseite und Warenkorb.
 echo "Hinweis Zahlungsarten und Lieferung\n";
 $pi = \Bootspruefung\Learning\Commerce\WooCommerce\PurchaseInfo::class;

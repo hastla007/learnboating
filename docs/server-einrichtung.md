@@ -28,6 +28,11 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   `wp cron event run --due-now` alle 5 Minuten). Das Lern-Plugin braucht den Cron für Aufräumen, Erinnerungen,
   Bestellabgleich und Datenexporte.
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
+- **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
+  für eine Anfrage und werden bei jeder Änderung sofort verworfen. Die Kennzahlen der Kurse (Fragen, Aufgaben, Videos
+  für Produkttexte und Kurskarten) liegen bis zu einem Tag im Transient `bp_learning_course_stats`; Import,
+  Paketwechsel, Rechte-Änderungen und Produktänderungen leeren ihn. Mit persistentem Object-Cache (Redis/Memcached)
+  liegt der Transient dort, sonst in der Optionstabelle. Nichts davon muss von Hand geleert werden.
 - **Ordner außerhalb des Webroots (empfohlen, für beide Server):** in `wp-config.php`
   `define('BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots');`. Dann liegen Content-Pakete und
   geschützte PDFs gar nicht im Webordner, und die Sperrregeln unten sind nur noch eine zweite Sicherung.

@@ -637,30 +637,66 @@ final class ShopCatalog
      * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
      * @return array{short:string,long:string}
      */
+    /** Transient mit den Kennzahlen je Kursmenge (T85). */
+    public const STATS_TRANSIENT = 'bp_learning_course_stats';
+
+    /** @var array<string,array{questions:int,nav:int,praxis:int,videos:int,papers:int}> */
+    private static array $statsMemo = [];
+
     /**
      * Kennzahlen über eine Kursmenge (Fragen als Vereinigung, Rest summiert).
+     *
+     * Zwischengespeichert (T85): je Anfrage im Speicher und anfrageübergreifend im Transient STATS_TRANSIENT
+     * (ein Optionswert statt fünf Zählabfragen je Kurskarte). Der Schlüssel enthält das aktive Inhaltspaket;
+     * Import, Paketwechsel und Rechte-Änderungen (ContentCache::invalidate()) sowie Produktänderungen leeren ihn
+     * (flushCourseStats()).
      *
      * @param list<string> $courses
      * @return array{questions:int,nav:int,praxis:int,videos:int,papers:int}
      */
     public static function courseStats(array $courses): array
     {
-        global $wpdb;
-        $p = $wpdb->prefix.'bp_';
         $courses = array_values(array_unique($courses));
         if ($courses === []) {
             return ['questions' => 0, 'nav' => 0, 'praxis' => 0, 'videos' => 0, 'papers' => 0];
         }
-        static $cache = [];
         $key = implode(',', $courses);
-        if (isset($cache[$key])) {
-            return $cache[$key];
+        if (isset(self::$statsMemo[$key])) {
+            return self::$statsMemo[$key];
         }
+        $stamp = (string) get_option('bp_learning_active_package', '');
+        $stored = get_transient(self::STATS_TRANSIENT);
+        $stored = is_array($stored) && ($stored['stamp'] ?? null) === $stamp && is_array($stored['stats'] ?? null) ? $stored : ['stamp' => $stamp, 'stats' => []];
+        if (is_array($stored['stats'][$key] ?? null)) {
+            return self::$statsMemo[$key] = $stored['stats'][$key];
+        }
+        $stats = self::countCourseStats($courses);
+        $stored['stats'][$key] = $stats;
+        set_transient(self::STATS_TRANSIENT, $stored, DAY_IN_SECONDS);
+
+        return self::$statsMemo[$key] = $stats;
+    }
+
+    /** Zwischengespeicherte Kennzahlen verwerfen (Import, Paketwechsel, Rechte-Änderung, Produktänderung). */
+    public static function flushCourseStats(): void
+    {
+        self::$statsMemo = [];
+        delete_transient(self::STATS_TRANSIENT);
+    }
+
+    /**
+     * @param list<string> $courses
+     * @return array{questions:int,nav:int,praxis:int,videos:int,papers:int}
+     */
+    private static function countCourseStats(array $courses): array
+    {
+        global $wpdb;
+        $p = $wpdb->prefix.'bp_';
         $in = implode(',', array_fill(0, count($courses), '%s'));
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Platzhalter dynamisch
         $count = static fn (string $sql): int => (int) $wpdb->get_var($wpdb->prepare($sql, ...$courses));
 
-        return $cache[$key] = [
+        return [
             // Nur veröffentlichte Fragen (wie im Lernbereich), keine Entwürfe/Archivierten.
             'questions' => $count("SELECT COUNT(DISTINCT mq.question_id) FROM {$p}course c JOIN {$p}course_module cm ON cm.course_id = c.id JOIN {$p}module_question mq ON mq.module_id = cm.module_id JOIN {$p}question q ON q.id = mq.question_id AND q.status = 'published' WHERE c.code IN ({$in})"),
             'nav' => $count("SELECT COUNT(DISTINCT x.task_id) FROM {$p}navigation_task_course x JOIN {$p}course c ON c.id = x.course_id WHERE c.code IN ({$in})"),

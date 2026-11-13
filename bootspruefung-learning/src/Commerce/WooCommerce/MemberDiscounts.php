@@ -85,8 +85,19 @@ final class MemberDiscounts
         return apply_filters('bootspruefung_member_discount', $best, $userId, $product);
     }
 
-    /** @return list<string> Kurse mit aktivem Zugang (ohne Free-Regeln). */
+    /**
+     * Kurse mit aktivem Zugang (ohne Free-Regeln). Je Anfrage und Nutzer einmal abgefragt (T85: Preisanzeige je
+     * Produkt im Shop, Warenkorb je Position); Änderungen an Zugängen verwerfen den Zwischenspeicher (ShopCache).
+     *
+     * @return list<string>
+     */
     public static function memberCourses(int $userId): array
+    {
+        return ShopCache::memberCourses($userId, static fn (): array => self::loadMemberCourses($userId));
+    }
+
+    /** @return list<string> */
+    private static function loadMemberCourses(int $userId): array
     {
         global $wpdb;
         $now = current_time('mysql', true);

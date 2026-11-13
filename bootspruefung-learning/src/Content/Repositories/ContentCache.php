@@ -45,6 +45,7 @@ final class ContentCache
         }
         wp_cache_set('generation', self::newGeneration(), self::GROUP);
         delete_transient('bp_learning_video_hosts'); // Video-Hosts für die Banner-Kategorie „Externe Medien“
+        \Bootspruefung\Learning\Commerce\ShopCatalog::flushCourseStats(); // Kennzahlen der Kurskarten/Produkttexte (T85)
     }
 
     private static function generation(): string

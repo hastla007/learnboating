@@ -123,6 +123,10 @@ final class Integration
         (new PriceNote())->register();
         (new ContractSummary())->register(); // Laufzeit je Position und Garantie-Erklärung in der Bestellmail (T52)
         OssMonitor::register(); // OSS-Schwelle überwachen (T53)
+        // Kennzahlen der Kurse (Produkttexte, Kurskarten) nach Produktänderungen neu zählen (T85).
+        foreach (['woocommerce_new_product', 'woocommerce_update_product', 'woocommerce_delete_product', 'woocommerce_trash_product'] as $hook) {
+            add_action($hook, [ShopCatalog::class, 'flushCourseStats'], 10, 0);
+        }
         (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();
@@ -157,7 +161,7 @@ final class Integration
             return;
         }
         foreach ($order->get_items('line_item') as $item) {
-            if ($item instanceof \WC_Order_Item_Product && $this->products()->hasAccess((int) $item->get_product_id(), (int) $item->get_variation_id())) {
+            if ($item instanceof \WC_Order_Item_Product && ShopCache::itemHasLearning((int) $item->get_product_id(), (int) $item->get_variation_id())) {
                 $message = __('Für Lernzugänge ist ein Kundenkonto erforderlich. Bitte melde dich an oder lege beim Bezahlen ein Konto an.', 'bootspruefung-learning');
                 if (class_exists(\Automattic\WooCommerce\StoreApi\Exceptions\RouteException::class)) {
                     throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException('bootspruefung_account_required', $message, 400);
@@ -239,48 +243,48 @@ final class Integration
         }
     }
 
+    /**
+     * Enthält der Warenkorb ein Lernprodukt? Je Warenkorbstand nur einmal geprüft (T85: die Kasse liest die
+     * Gast-Optionen viele Male je Anfrage); ändert sich der Warenkorb oder der Nutzer, wird neu geprüft.
+     */
     public static function cartHasLearning(): bool
     {
         if (! function_exists('WC') || WC()->cart === null) {
             return false;
         }
-        foreach (WC()->cart->get_cart() as $line) {
-            if (isset($line['data']) && $line['data'] instanceof \WC_Product && self::productHasLearning($line['data'])) {
-                return true;
-            }
-        }
+        $cart = WC()->cart;
 
-        return false;
+        return ShopCache::cart($cart, static function () use ($cart): bool {
+            foreach ($cart->get_cart() as $line) {
+                if (isset($line['data']) && $line['data'] instanceof \WC_Product && self::productHasLearning($line['data'])) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 
     /** Gruppenlizenzen dürfen in Mengen gekauft werden (Menge = Anzahl Pakete). */
     public static function isGroupProduct(\WC_Product $product): bool
     {
-        global $wpdb;
-        $repo = new ProductAccessRepository($wpdb);
-        $rows = $product->is_type('variation') ? $repo->forItem((int) $product->get_parent_id(), (int) $product->get_id()) : $repo->rows((int) $product->get_id(), 0, true);
-
-        return ProductAccessRepository::seats($rows) !== null;
+        return $product->is_type('variation')
+            ? ShopCache::itemSeats((int) $product->get_parent_id(), (int) $product->get_id()) !== null
+            : ShopCache::itemSeats((int) $product->get_id()) !== null;
     }
 
+    /** Hat das Produkt einen aktiven Lernzugang? Zuordnungen werden je Anfrage einmal geladen (ShopCache, T85). */
     public static function productHasLearning(\WC_Product $product): bool
     {
-        global $wpdb;
-        $repo = new ProductAccessRepository($wpdb);
         if ($product->is_type('variation')) {
-            return $repo->hasAccess((int) $product->get_parent_id(), (int) $product->get_id());
+            return ShopCache::itemHasLearning((int) $product->get_parent_id(), (int) $product->get_id());
         }
-        if ($repo->rows((int) $product->get_id(), 0, true) !== []) {
+        if (ShopCache::itemHasLearning((int) $product->get_id())) {
             return true;
         }
-        // Variables Produkt: Zuordnung nur an Variationen.
-        foreach ($product->get_children() as $childId) {
-            if ($repo->rows((int) $product->get_id(), (int) $childId, true) !== []) {
-                return true;
-            }
-        }
 
-        return false;
+        // Variables Produkt: Zuordnung nur an Variationen.
+        return ShopCache::anyVariationHasLearning((int) $product->get_id(), array_map('intval', $product->get_children()));
     }
 
     /**
@@ -582,7 +586,7 @@ final class Integration
             return;
         }
         $rows = $this->entitlements()->forItem((int) $itemId);
-        if ($rows === [] && ! $this->products()->hasAccess((int) $item->get_product_id(), (int) $item->get_variation_id())) {
+        if ($rows === [] && ! ShopCache::itemHasLearning((int) $item->get_product_id(), (int) $item->get_variation_id())) {
             return;
         }
         echo '<div class="bp-item-access" style="margin-top:6px"><strong>'.esc_html__('Lernzugang', 'bootspruefung-learning').':</strong> ';
@@ -667,12 +671,5 @@ final class Integration
     private function entitlements(): EntitlementService
     {
         return self::sync()->entitlements();
-    }
-
-    private function products(): ProductAccessRepository
-    {
-        global $wpdb;
-
-        return new ProductAccessRepository($wpdb);
     }
 }
