@@ -8,8 +8,9 @@ use Bootspruefung\Learning\Audit\AuditLog;
 
 /**
  * Geld-zurück-Garantie: innerhalb von N Tagen nach Zahlung, solange weniger als X % der
- * gekauften Kurse gelernt sind (beantwortete Fragen im Lernmodus und in Prüfungssimulationen
- * – jede Frage einmal – sowie abgeschlossene Video-Lektionen seit Zahlung). Kunde stellt die
+ * gekauften Kurse gelernt sind (beantwortete Fragen im Smarttrainer und in den Quizfragen der Video-Lektionen
+ * – jede Frage einmal – sowie abgeschlossene Video-Lektionen seit Zahlung). Prüfungssimulationen zählen nicht
+ * (Entscheidung des Betreibers zu T43, wie AGB Nr. 9, Garantieseite und FAQ). Kunde stellt die
  * Anfrage unter „Mein Lernen“, der Betreiber erstattet in WooCommerce; die Erstattung entzieht
  * den Zugang über die normale Erstattungsregel.
  *
@@ -73,16 +74,12 @@ final class MoneyBack
             WHERE c.code IN ({$in}) AND vl.is_placeholder = 0 AND vl.status <> 'source_archived' AND vm.status <> 'source_archived'";
         $qTotal = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$questions}) q", ...$courses));
         $lTotal = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ({$lessons}) l", ...$courses));
-        // Beantwortete Fragen: Lernmodus (bp_progress) und Prüfungssimulationen (beantwortete Positionen),
-        // vereinigt – jede Frage zählt einmal, auch wenn sie in beiden bzw. in mehreren Prüfungen vorkam.
+        // Beantwortete Fragen im Lernmodus (bp_progress: Smarttrainer und Quizfragen der Video-Lektionen), jede
+        // Frage einmal. Prüfungssimulationen zählen nicht (T43, wie AGB Nr. 9).
         $qDone = ! $withQuestions ? 0 : (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM (
-                SELECT pr.question_id FROM {$p}progress pr WHERE pr.user_id = %d AND pr.attempts > 0 AND pr.last_answered_at >= %s
-                UNION
-                SELECT sq.question_id FROM {$p}exam_session_question sq JOIN {$p}exam_session es ON es.id = sq.session_id
-                WHERE es.user_id = %d AND sq.answered_at IS NOT NULL AND sq.answered_at >= %s
-            ) used WHERE used.question_id IN ({$questions})",
-            $userId, $since, $userId, $since, ...$courses
+            "SELECT COUNT(DISTINCT pr.question_id) FROM {$p}progress pr
+             WHERE pr.user_id = %d AND pr.attempts > 0 AND pr.last_answered_at >= %s AND pr.question_id IN ({$questions})",
+            $userId, $since, ...$courses
         ));
         $lDone = ! $withLessons ? 0 : (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$p}video_progress vp WHERE vp.user_id = %d AND vp.completed = 1 AND vp.last_access_at >= %s AND vp.lesson_id IN ({$lessons})",
@@ -201,7 +198,7 @@ final class MoneyBack
     /** Was als Nutzung zählt – für Hinweise unter „Mein Lernen“, in der Anfrage und in der App. */
     public static function usageExplanation(): string
     {
-        return __('Als genutzt zählt seit Zahlungseingang, was du gekauft hast: jede Frage, die du im Smarttrainer, in den Quizfragen der Video-Lektionen oder in einer Prüfungssimulation beantwortet hast (jede Frage einmal), und jede abgeschlossene Video-Lektion (beim Video-Upgrade nur die Lektionen). Mehrere Kurse einer Bestellung zählen gemeinsam. Löschst du deine Lerndaten, bleibt der bis dahin erreichte Stand für die Garantie maßgeblich.', 'bootspruefung-learning');
+        return __('Als genutzt zählt seit Zahlungseingang, was du gekauft hast: jede Frage, die du im Smarttrainer oder in den Quizfragen der Video-Lektionen beantwortet hast (jede Frage einmal; Prüfungssimulationen zählen nicht), und jede abgeschlossene Video-Lektion (beim Video-Upgrade nur die Lektionen). Mehrere Kurse einer Bestellung zählen gemeinsam. Löschst du deine Lerndaten, bleibt der bis dahin erreichte Stand für die Garantie maßgeblich.', 'bootspruefung-learning');
     }
 
     public static function reasonLabel(string $reason): string

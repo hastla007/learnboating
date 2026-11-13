@@ -614,16 +614,18 @@ $examSession(array_slice($qids, 20, 10), null);                              // 
 $examSession(array_slice($qids, 30, 10), gmdate('Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS)); // vor dem Kauf
 $answer(array_slice($qids, 10, 4), gmdate('Y-m-d H:i:s'));                  // Smarttrainer: 2 auch in Prüfung 2, 2 neu
 $exam = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder);
-$expectExam = round(14 * 100 / count($qids), 1);
-$check(count($qids) >= 50 && abs($exam['progress'] - $expectExam) < 0.01 && ($exam['usage']['done'] ?? 0) === 14 && $exam['eligible'], "Prüfungssimulationen zählen mit: {$exam['progress']} % (14 verschiedene Fragen, keine doppelt, unbeantwortete und vor dem Kauf nicht)");
+$expectExam = round(4 * 100 / count($qids), 1);
+$check(count($qids) >= 50 && abs($exam['progress'] - $expectExam) < 0.01 && ($exam['usage']['done'] ?? 0) === 4 && $exam['eligible'], "Prüfungssimulationen zählen nicht (T43, wie AGB Nr. 9): {$exam['progress']} % – nur die 4 Smarttrainer-Fragen");
 $examSession(array_slice($qids, 40, 10), gmdate('Y-m-d H:i:s'));
-$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'weitere Prüfungssimulation hebt den Stand über 20 %: keine Garantie mehr');
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'eligible', 'weitere Prüfungssimulation ändert den Stand nicht');
+$answer(array_slice($qids, 14, (int) ceil(count($qids) * 0.2)), gmdate('Y-m-d H:i:s'));
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'too_much_progress', 'Smarttrainer über 20 %: keine Garantie mehr');
 // QA-06: Festgeschriebener Stand (vor einer Datenlöschung) gilt, auch wenn die Lerndaten danach fehlen.
 $frozenUsage = \Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['usage'] ?? [];
 $wpdb->query($wpdb->prepare("DELETE FROM {$p}exam_session WHERE user_id = %d", $mbUser));
 $wpdb->delete($p.'progress', ['user_id' => $mbUser]);
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder)['reason'] === 'eligible' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['usage' => $frozenUsage + ['at' => gmdate('Y-m-d H:i:s')]] + $mbOrder)['reason'] === 'too_much_progress', 'nach Datenlöschung: festgeschriebener Stand zählt weiter (Höchstwert)');
-$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['usage' => ['exact' => 'x']] + $mbOrder)['reason'] === 'eligible' && str_contains(\Bootspruefung\Learning\Commerce\MoneyBack::usageExplanation(), 'Prüfungssimulation'), 'ungültiger Wert wird ignoriert; Hinweis nennt Prüfungssimulationen');
+$check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['usage' => ['exact' => 'x']] + $mbOrder)['reason'] === 'eligible' && str_contains(\Bootspruefung\Learning\Commerce\MoneyBack::usageExplanation(), 'Prüfungssimulationen zählen nicht'), 'ungültiger Wert wird ignoriert; Hinweis: Prüfungssimulationen zählen nicht');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['date_paid' => gmdate('Y-m-d H:i:s', time() - 15 * DAY_IN_SECONDS)] + $mbOrder)['reason'] === 'expired', 'nach 14 Tagen: Frist abgelaufen');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status($mbOrder, ['at' => $paid, 'progress' => 1.0])['reason'] === 'requested', 'Anfrage gestellt: kein zweiter Antrag');
 $check(\Bootspruefung\Learning\Commerce\MoneyBack::status(['refunded' => true] + $mbOrder)['reason'] === 'refunded' && \Bootspruefung\Learning\Commerce\MoneyBack::status(['items' => [['product_id' => 991001, 'variation_id' => 0]]] + $mbOrder)['applies'] === false, 'erstattet bzw. Produkt ohne Garantie');
