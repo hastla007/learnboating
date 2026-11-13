@@ -1232,6 +1232,14 @@ $many = $flushed();
 $check(str_contains($many, 'Bootsprüfung: 3 Hinweise') && substr_count($many, 'class="notice ') === 1 && strpos($many, 'Fehler') < strpos($many, 'Warnung'), 'mehrere Hinweise: ein Sammel-Hinweis, Fehler zuerst');
 $check(str_contains($many, 'Für 7 Tage ausblenden') && str_contains($many, 'Für 1 Tag ausblenden') && ! preg_match('/data-bp-notice="t99_none".*?bp-notice-dismiss.*?data-bp-notice/s', $many.'data-bp-notice'), 'Warnung vertagbar, Fehler nur vertagbar (nicht dauerhaft), „none“ ohne Ausblenden');
 $check($flushed() === '', 'nach der Ausgabe ist die Sammlung leer');
+// T126: Zähler und Farbe nach dem Wegklicken (Skript), Ausblenden-Link nennt den Hinweis.
+Notices::add(['key' => 't126_a', 'type' => 'warning', 'title' => 'Titel B', 'text' => 'Text B']);
+Notices::add(['key' => 't126_b', 'type' => 'error', 'text' => 'Fehlertext C']);
+(new ReflectionProperty(Notices::class, 'scriptPrinted'))->setValue(null, false); // Skript wird je Anfrage nur einmal ausgegeben
+$t126 = $flushed();
+$check(str_contains($t126, 'data-bp-type="error"') && str_contains($t126, 'data-bp-type="warning"') && str_contains($t126, 'class="bp-notices-count"') && str_contains($t126, 'data-bp-one="Bootsprüfung: 1 Hinweis"') && str_contains($t126, 'data-bp-many="Bootsprüfung: %d Hinweise"'), 'Sammel-Hinweis: Art je Hinweis und Vorlagen für den Zähler');
+$check(str_contains($t126, 'aria-label="Für 7 Tage ausblenden: Titel B"') && str_contains($t126, 'aria-label="Für 1 Tag ausblenden: Fehlertext C"'), '„Ausblenden“ mit Hinweistitel für Bildschirmleser');
+$check(str_contains($t126, 'function bpRecount(') && str_contains($t126, 'bpRecount(outer)'), 'Skript setzt Zähler und Art nach dem Wegklicken neu');
 Notices::dismiss('t99_info');
 Notices::add(['key' => 't99_info', 'type' => 'info', 'text' => 'Text A']);
 $check(Notices::isDismissed('t99_info') && ! isset(Notices::queued()['t99_info']), 'dauerhaft ausgeblendet (Nutzer-Meta je Schlüssel)');
@@ -1291,6 +1299,23 @@ ob_start();
 (new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview();
 $ov = (string) ob_get_clean();
 $check(str_contains($ov, 'id="bp-golive-checklist"') && ! str_contains($ov, 'docs/livegang-drehbuch'), 'Übersicht zeigt die Livegang-Checkliste (statt Verweis auf docs/)');
+// T126: geprüfter Zustand neben dem Haken, Inhaltsseiten automatisch, Knöpfe mit Namen, keine Überschrift in summary.
+$mailBak = get_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, null);
+update_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, ['at' => time(), 'to' => 'x@example.test', 'ok' => false, 'error' => 'Test'], false);
+delete_transient('bp_golive_backup_state');
+$items = array_column($GL::items(), null, 'key');
+$check(($items['mail']['checked']['ok'] ?? null) === false && str_contains($items['mail']['checked']['text'], 'fehlgeschlagen') && isset($items['backup']['checked']['text']) && str_starts_with($items['backup']['checked']['text'], 'Geprüft:'), 'Mail und Backup: geprüfter Zustand (Testmail, Prüfung nach dem Wiederherstellen) am Punkt');
+$mailBak === null ? delete_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST) : update_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, $mailBak, false);
+if (function_exists('kurswasser_content_open_items')) {
+    $check(isset($items['content_pages']) && $items['content_pages']['auto'] === true && $items['content_pages']['ok'] === (kurswasser_content_open_items() === []), 'Inhaltsseiten ohne Warnung: automatisch geprüft (Theme aktiv)');
+} else {
+    $check(! isset($items['content_pages']), 'ohne Theme Kurswasser: kein Punkt „Inhaltsseiten“');
+}
+$check(str_contains((string) $GL::label('content_pages'), 'Inhaltsseiten') && $GL::label('tax') !== null, 'Bezeichnungen für das Protokoll (auch früher abhakbare Punkte)');
+ob_start();
+$GL::render();
+$cl = (string) ob_get_clean();
+$check(preg_match('#<summary[^>]*>(?:(?!</summary>).)*<h[1-6]#s', $cl) === 0 && preg_match('#aria-label="Abhaken: [^"]+"#', $cl) === 1 && str_contains($cl, 'class="bp-checked"'), 'keine Überschrift in summary, Knöpfe mit Punkt im Namen, geprüfter Zustand sichtbar');
 
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);

@@ -216,7 +216,7 @@ final class GoLiveCheck
             'label' => __('Inhaltspaket aktiv', 'bootspruefung-learning'),
             'ok' => $active !== '' && $aborted === null,
             'detail' => $active === '' ? __('Noch kein Inhaltspaket importiert.', 'bootspruefung-learning')
-                : ($aborted !== null ? sprintf(__('Import #%d ist abgebrochen (Mischstand).', 'bootspruefung-learning'), $aborted) : $active),
+                : ($aborted !== null ? sprintf(__('Import #%d wurde abgebrochen: Die Inhalte stammen teils aus dem neuen, teils aus dem bisherigen Paket (Mischstand). Unter „Inhaltspakete“ den Import fortsetzen oder verwerfen und den aktiven Stand wiederherstellen.', 'bootspruefung-learning'), $aborted) : $active),
             'url' => Ui::url(ImportPage::SLUG),
             'link' => __('Inhaltspakete', 'bootspruefung-learning'),
         ];

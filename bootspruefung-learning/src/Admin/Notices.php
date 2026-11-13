@@ -89,7 +89,9 @@ final class Notices
         $rank = ['error' => 3, 'warning' => 2, 'info' => 1, 'success' => 0];
         usort($notices, static fn ($a, $b) => $rank[$b['type']] <=> $rank[$a['type']]);
         $type = $notices[0]['type'];
-        $html = '<div class="notice notice-'.esc_attr($type).' bp-notices"><p><strong>'.esc_html(sprintf(__('Bootsprüfung: %d Hinweise', 'bootspruefung-learning'), count($notices))).'</strong></p>';
+        // T126: Vorlagen für den Zähler, den das Skript nach dem Wegklicken neu setzt (Einzahl/Mehrzahl).
+        $html = '<div class="notice notice-'.esc_attr($type).' bp-notices" data-bp-one="'.esc_attr(sprintf(_n('Bootsprüfung: %d Hinweis', 'Bootsprüfung: %d Hinweise', 1, 'bootspruefung-learning'), 1)).'" data-bp-many="'.esc_attr(_n('Bootsprüfung: %d Hinweis', 'Bootsprüfung: %d Hinweise', 2, 'bootspruefung-learning')).'">'
+            .'<p><strong class="bp-notices-count">'.esc_html(sprintf(_n('Bootsprüfung: %d Hinweis', 'Bootsprüfung: %d Hinweise', count($notices), 'bootspruefung-learning'), count($notices))).'</strong></p>';
         foreach ($notices as $n) {
             $html .= self::render($n, true);
         }
@@ -109,7 +111,7 @@ final class Notices
         }
         $colors = ['error' => '#d63638', 'warning' => '#dba617', 'info' => '#72aee6', 'success' => '#00a32a'];
         $open = $inner
-            ? '<div class="bp-notice-item" data-bp-notice="'.esc_attr($n['key']).'" style="border-left:4px solid '.esc_attr($colors[$n['type']]).';padding:.1em 0 .1em .8em;margin:.6em 0">'
+            ? '<div class="bp-notice-item" data-bp-notice="'.esc_attr($n['key']).'" data-bp-type="'.esc_attr($n['type']).'" style="border-left:4px solid '.esc_attr($colors[$n['type']]).';padding:.1em 0 .1em .8em;margin:.6em 0">'
             : '<div class="notice notice-'.esc_attr($n['type']).' bp-notice" data-bp-notice="'.esc_attr($n['key']).'">';
         $title = $n['title'] !== '' ? $n['title'] : '';
         $html = $open.'<p>'.($inner ? '' : '<strong>'.esc_html(self::SENDER).'</strong> ').($title !== '' ? '<strong>'.esc_html($title).'</strong>' : '')
@@ -125,7 +127,10 @@ final class Notices
             $label = $days > 0
                 ? sprintf(_n('Für %d Tag ausblenden', 'Für %d Tage ausblenden', $days, 'bootspruefung-learning'), $days)
                 : __('Ausblenden', 'bootspruefung-learning');
-            $actions[] = '<a class="button-link bp-notice-dismiss" href="'.esc_url($url).'" data-key="'.esc_attr($n['key']).'" data-days="'.(int) $days.'" data-v="'.esc_attr($n['version']).'" data-sig="'.esc_attr($sig).'">'.esc_html($label).'</a>';
+            // T126: Bildschirmleser hören, welcher Hinweis ausgeblendet wird.
+            $about = $n['title'] !== '' ? $n['title'] : wp_html_excerpt($n['text'], 60, '…');
+            $aria = $about !== '' ? ' aria-label="'.esc_attr($label.': '.$about).'"' : '';
+            $actions[] = '<a class="button-link bp-notice-dismiss" href="'.esc_url($url).'"'.$aria.' data-key="'.esc_attr($n['key']).'" data-days="'.(int) $days.'" data-v="'.esc_attr($n['version']).'" data-sig="'.esc_attr($sig).'">'.esc_html($label).'</a>';
         }
         if ($actions !== []) {
             $html .= '<p class="bp-notice-actions">'.implode(' ', $actions).'</p>';
@@ -265,10 +270,15 @@ final class Notices
         }
         self::$scriptPrinted = true;
         $nonce = wp_create_nonce(self::ACTION);
-        echo '<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest(".bp-notice-dismiss");if(!a){return;}e.preventDefault();'
+        // T126: Sammel-Hinweis nach dem Wegklicken – Zähler und Farbe (dringendster übriger Hinweis) neu setzen.
+        echo '<script>function bpRecount(o){var it=o.querySelectorAll("[data-bp-notice]"),n=it.length,r={error:3,warning:2,info:1,success:0},t="success";'
+            .'it.forEach(function(i){var x=i.getAttribute("data-bp-type")||"info";if((r[x]||0)>r[t]){t=x;}});var c=o.querySelector(".bp-notices-count");'
+            .'if(c){c.textContent=String((n===1?o.getAttribute("data-bp-one"):o.getAttribute("data-bp-many"))||"").replace("%d",n);}'
+            .'o.className=o.className.replace(/\bnotice-(error|warning|info|success)\b/,"notice-"+t);}'
+            .'document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest(".bp-notice-dismiss");if(!a){return;}e.preventDefault();'
             .'var d=new FormData();d.append("action",'.wp_json_encode(self::ACTION).');d.append("_ajax_nonce",'.wp_json_encode($nonce).');d.append("key",a.dataset.key);d.append("days",a.dataset.days);d.append("v",a.dataset.v||"");d.append("sig",a.dataset.sig||"");'
             .'fetch('.wp_json_encode(admin_url('admin-ajax.php')).',{method:"POST",body:d,credentials:"same-origin"}).then(function(r){if(!r.ok){window.location.href=a.href;return;}'
             .'var box=a.closest("[data-bp-notice]");var outer=box&&box.parentNode&&box.parentNode.closest?box.parentNode.closest(".bp-notices"):null;if(box){box.remove();}'
-            .'if(outer&&!outer.querySelector("[data-bp-notice]")){outer.remove();}}).catch(function(){window.location.href=a.href;});});</script>'; // phpcs:ignore
+            .'if(outer&&!outer.querySelector("[data-bp-notice]")){outer.remove();}else if(outer){bpRecount(outer);}}).catch(function(){window.location.href=a.href;});});</script>'; // phpcs:ignore
     }
 }
