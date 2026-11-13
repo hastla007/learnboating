@@ -281,7 +281,8 @@ final class ProductPanel
         $this->persist((int) $postId, 0, $input);
         $mb = self::moneyBackFromInput($input);
         MoneyBack::setPolicy((int) $postId, $mb['days'], $mb['max_progress']);
-        if (class_exists('WC_Admin_Meta_Boxes')) {
+        // Ohne Autoload: das Laden der Klasse würde WooCommerce-Hooks registrieren (im Admin ist sie geladen).
+        if (class_exists('WC_Admin_Meta_Boxes', false)) {
             foreach ($mb['notes'] as $note) {
                 \WC_Admin_Meta_Boxes::add_error($note); // erscheint nach dem Speichern über dem Produkt
             }
