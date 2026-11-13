@@ -6,7 +6,9 @@ namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Commerce\Labels;
+use Bootspruefung\Learning\Commerce\MoneyBack;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
+use Bootspruefung\Learning\Commerce\ShopCatalog;
 
 /**
  * Produktfeld „Lernzugang“ (Kap. 7.1/7.6): Kurse × Funktionen, Laufzeit,
@@ -38,16 +40,7 @@ final class ProductPanel
         echo '<div id="bp_learning_access_data" class="panel woocommerce_options_panel hidden"><div class="options_group" style="padding:0 12px 12px">';
         echo '<p>'.esc_html__('Kurse und Funktionen, die der Kauf dieses Produkts freischaltet. Zugang entsteht erst bei bezahlter Bestellung; Preise und Zahlarten regelt WooCommerce.', 'bootspruefung-learning').'</p>';
         $this->fields('bp_access', $this->repo()->rows($productId, 0));
-        $mb = \Bootspruefung\Learning\Commerce\MoneyBack::policy($productId);
-        printf(
-            '<p><label>%s <input type="number" min="0" step="1" name="bp_access[mb_days]" value="%s" style="width:70px"> %s</label> <label>%s <input type="number" min="0" max="100" step="0.5" name="bp_access[mb_progress]" value="%s" style="width:70px"> %%</label><br><span class="description">%s</span></p>',
-            esc_html__('Geld-zurück-Garantie:', 'bootspruefung-learning'),
-            esc_attr($mb ? (string) $mb['days'] : ''),
-            esc_html__('Tage', 'bootspruefung-learning'),
-            esc_html__('solange gelernt unter', 'bootspruefung-learning'),
-            esc_attr($mb ? (string) $mb['max_progress'] : ''),
-            esc_html__('leer = keine Garantie. Kunden fordern die Erstattung unter „Mein Lernen“ an; du erstattest in der Bestellung.', 'bootspruefung-learning')
-        );
+        $this->moneyBackFields($productId);
         if ($productId > 0 && metadata_exists('post', $productId, \Bootspruefung\Learning\Commerce\ShopCatalog::FIELDS_META)) {
             echo '<p class="description"><strong>'.esc_html__('Produkt aus dem Shop-Katalog:', 'bootspruefung-learning').'</strong> '.esc_html__('Von Hand geänderte Felder (Name, Texte, Kategorien, Sichtbarkeit, Einzelverkauf, Lernzugang, Geld-zurück-Garantie) überschreibt der Katalog-Abgleich nicht mehr. Der reguläre Preis kommt immer von der Seite „Preise“.', 'bootspruefung-learning').'</p>';
         }
@@ -62,7 +55,141 @@ final class ProductPanel
         $name = 'bp_var_access['.(int) $loop.']';
         echo '<div class="bp-variation-access" style="clear:both;padding:8px 0"><p><label><input type="checkbox" name="'.esc_attr($name.'[own]').'" value="1" '.checked($rows !== [], true, false).'> '.esc_html__('Eigener Lernzugang für diese Variation (sonst wie Produkt)', 'bootspruefung-learning').'</label></p>';
         $this->fields($name, $rows);
+        echo self::variationMoneyBackNote((int) $variation->post_parent); // phpcs:ignore WordPress.Security.EscapeOutput -- in der Methode maskiert
         echo '</div>';
+    }
+
+    /**
+     * Felder „Geld-zurück-Garantie“ (T107): bei neuen Produkten mit den AGB-Werten aus dem Shop-Katalog vorbelegt.
+     * „Keine Garantie“ nur ausdrücklich per Checkbox; ein gespeicherter Zustand bleibt so sichtbar, wie er ist.
+     */
+    private function moneyBackFields(int $productId): void
+    {
+        $mb = MoneyBack::policy($productId);
+        $none = $mb === null && ! self::isNewProduct($productId);
+        $days = $mb !== null ? (string) $mb['days'] : (string) ShopCatalog::MONEY_BACK_DAYS;
+        $progress = $mb !== null && $mb['max_progress'] > 0 ? self::number($mb['max_progress']) : self::number(ShopCatalog::MONEY_BACK_MAX_PROGRESS);
+        printf(
+            '<fieldset class="bp-money-back" style="margin:8px 0"><legend><strong>%1$s</strong></legend><input type="hidden" name="bp_access[mb_form]" value="1">'
+            .'<p><label for="bp-mb-days">%2$s</label> <input type="number" id="bp-mb-days" min="1" step="1" name="bp_access[mb_days]" value="%3$s" style="width:70px">'
+            .' <label for="bp-mb-progress">%4$s</label> <input type="text" inputmode="decimal" id="bp-mb-progress" name="bp_access[mb_progress]" value="%5$s" style="width:70px"> %%'
+            .' <label><input type="checkbox" name="bp_access[mb_none]" value="1" %6$s> %7$s</label><br><span class="description">%8$s</span></p>',
+            esc_html__('Geld-zurück-Garantie', 'bootspruefung-learning'),
+            esc_html__('Tage ab Zahlungseingang', 'bootspruefung-learning'),
+            esc_attr($days),
+            esc_html__('solange gelernt unter', 'bootspruefung-learning'),
+            esc_attr($progress),
+            checked($none, true, false),
+            esc_html__('keine Geld-zurück-Garantie', 'bootspruefung-learning'),
+            esc_html(sprintf(
+                /* translators: 1: Tage, 2: Prozent */
+                __('Vorbelegt mit den Werten der AGB: %1$d Tage, unter %2$s %%. Ein leeres Feld speichert den AGB-Wert; 0 %% ist nicht möglich (jede Anfrage wäre sofort abgelehnt). Kunden fordern die Erstattung unter „Mein Lernen“ an; du erstattest in der Bestellung.', 'bootspruefung-learning'),
+                ShopCatalog::MONEY_BACK_DAYS,
+                self::number(ShopCatalog::MONEY_BACK_MAX_PROGRESS)
+            ))
+        );
+        $warning = self::moneyBackWarning($mb);
+        if ($warning !== '') {
+            echo '<p class="bp-money-back-warning" style="border-left:4px solid #dba617;padding-left:8px"><strong>'.esc_html__('Hinweis:', 'bootspruefung-learning').'</strong> '.esc_html($warning).'</p>';
+        }
+        echo '</fieldset>';
+    }
+
+    /** Neues, noch nie gespeichertes Produkt? Dann wird die Garantie vorbelegt (sonst gilt der gespeicherte Zustand). */
+    private static function isNewProduct(int $productId): bool
+    {
+        $post = $productId > 0 ? get_post($productId) : null;
+
+        return ! $post || $post->post_status === 'auto-draft';
+    }
+
+    /**
+     * Hinweis, wenn die gespeicherte Garantie unbrauchbar ist (Grenze 0 %) oder von den AGB-Werten (Shop-Katalog) abweicht.
+     * @param array{days:int,max_progress:float}|null $mb
+     */
+    public static function moneyBackWarning(?array $mb): string
+    {
+        if ($mb === null) {
+            return '';
+        }
+        if ($mb['max_progress'] <= 0) {
+            return sprintf(
+                /* translators: %s: Prozent laut AGB */
+                __('Gespeichert ist die Grenze 0 %%. Damit gilt jede Anfrage sofort als überschritten – Kunden können die Garantie nicht nutzen. Bitte die Grenze eintragen (AGB: unter %s %%) und speichern.', 'bootspruefung-learning'),
+                self::number(ShopCatalog::MONEY_BACK_MAX_PROGRESS)
+            );
+        }
+        if ($mb['days'] !== ShopCatalog::MONEY_BACK_DAYS || abs($mb['max_progress'] - ShopCatalog::MONEY_BACK_MAX_PROGRESS) > 0.001) {
+            return sprintf(
+                /* translators: 1: Tage, 2: Prozent (Produkt), 3: Tage, 4: Prozent (AGB) */
+                __('Die Garantie weicht von den AGB-Werten ab (hier %1$d Tage, unter %2$s %%; AGB: %3$d Tage, unter %4$s %%). Bitte prüfen, ob AGB, Garantieseite und Produkttext dazu passen.', 'bootspruefung-learning'),
+                $mb['days'],
+                self::number($mb['max_progress']),
+                ShopCatalog::MONEY_BACK_DAYS,
+                self::number(ShopCatalog::MONEY_BACK_MAX_PROGRESS)
+            );
+        }
+
+        return '';
+    }
+
+    /** Variationen: Die Garantie gilt wie beim Produkt – zur Kontrolle hier anzeigen, mit Hinweis bei Abweichung. */
+    public static function variationMoneyBackNote(int $parentId): string
+    {
+        $mb = MoneyBack::policy($parentId);
+        $text = $mb === null
+            ? __('Geld-zurück-Garantie: wie beim Produkt (keine).', 'bootspruefung-learning')
+            : sprintf(
+                /* translators: 1: Tage, 2: Prozent */
+                __('Geld-zurück-Garantie: wie beim Produkt (%1$d Tage, unter %2$s %%).', 'bootspruefung-learning'),
+                $mb['days'],
+                self::number($mb['max_progress'])
+            );
+        $warning = self::moneyBackWarning($mb);
+
+        return '<p class="description bp-variation-money-back">'.esc_html($text).($warning !== '' ? ' <strong>'.esc_html__('Hinweis:', 'bootspruefung-learning').'</strong> '.esc_html($warning) : '').'</p>';
+    }
+
+    /**
+     * Garantie aus dem Formular (T107): „keine Garantie“ nur per Checkbox. Leere Tage bzw. ein leeres oder 0-%-Feld
+     * werden durch die AGB-Werte ersetzt (nie stillschweigend 0 %); jede Ersetzung steht in 'notes' und wird
+     * nach dem Speichern über dem Produkt angezeigt. Ohne das neue Formular (kein mb_form) gilt weiter:
+     * Tage leer = keine Garantie.
+     *
+     * @param array<string,mixed> $input
+     * @return array{days:?int,max_progress:?float,notes:list<string>}
+     */
+    public static function moneyBackFromInput(array $input): array
+    {
+        $rawDays = trim((string) ($input['mb_days'] ?? ''));
+        $rawProgress = trim(str_replace(',', '.', (string) ($input['mb_progress'] ?? '')));
+        if (! empty($input['mb_none']) || (empty($input['mb_form']) && absint($rawDays) < 1)) {
+            return ['days' => null, 'max_progress' => null, 'notes' => []];
+        }
+        $notes = [];
+        $days = absint($rawDays);
+        if ($days < 1) {
+            $days = ShopCatalog::MONEY_BACK_DAYS;
+            /* translators: %d: Tage laut AGB */
+            $notes[] = sprintf(__('Geld-zurück-Garantie: keine Tage eingetragen – gespeichert mit %d Tagen (AGB).', 'bootspruefung-learning'), $days);
+        }
+        $progress = is_numeric($rawProgress) ? (float) $rawProgress : 0.0;
+        if ($progress <= 0) {
+            $progress = ShopCatalog::MONEY_BACK_MAX_PROGRESS;
+            $notes[] = sprintf(
+                /* translators: %s: Prozent laut AGB */
+                __('Geld-zurück-Garantie: Grenze leer oder 0 %% – gespeichert mit „unter %s %%“ (AGB). Mit 0 %% wäre jede Anfrage sofort abgelehnt.', 'bootspruefung-learning'),
+                self::number($progress)
+            );
+        }
+
+        return ['days' => $days, 'max_progress' => min(100.0, $progress), 'notes' => $notes];
+    }
+
+    /** Zahl ohne überflüssige Nachkommastellen, mit deutschem Komma (20 bzw. 12,5). */
+    private static function number(float $value): string
+    {
+        return str_replace('.', ',', rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.'));
     }
 
     /** @param list<object> $rows */
@@ -152,8 +279,13 @@ final class ProductPanel
             return;
         }
         $this->persist((int) $postId, 0, $input);
-        $days = isset($input['mb_days']) && $input['mb_days'] !== '' ? absint($input['mb_days']) : null;
-        \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy((int) $postId, $days, isset($input['mb_progress']) ? (float) str_replace(',', '.', (string) $input['mb_progress']) : 0.0);
+        $mb = self::moneyBackFromInput($input);
+        MoneyBack::setPolicy((int) $postId, $mb['days'], $mb['max_progress']);
+        if (class_exists('WC_Admin_Meta_Boxes')) {
+            foreach ($mb['notes'] as $note) {
+                \WC_Admin_Meta_Boxes::add_error($note); // erscheint nach dem Speichern über dem Produkt
+            }
+        }
     }
 
     public function saveVariation($variationId, $loop): void

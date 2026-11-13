@@ -21,6 +21,22 @@ Checkbox.
 - Übersicht › „Produktzuordnungen prüfen“ nennt jedes Produkt mit Laufzeit „ohne Ablauf“ als Hinweis. Ist das gewollt
   (z. B. ein Sonderprodukt), kann der Hinweis stehen bleiben.
 
+## Geld-zurück-Garantie am Produkt (T107)
+
+Produkt › Reiter „Lernzugang“ › „Geld-zurück-Garantie“ (Tage ab Zahlungseingang, „solange gelernt unter … %“):
+
+- **Vorbelegung:** Neue Produkte sind mit den Werten der AGB vorbelegt (Shop-Katalog: 14 Tage, unter 20 %).
+  „Keine Geld-zurück-Garantie“ gibt es nur ausdrücklich per Checkbox. Ein bestehendes Produkt ohne Garantie zeigt die
+  Checkbox angekreuzt und bleibt so.
+- **Leere Felder:** Ein leeres Tage- oder %-Feld speichert den AGB-Wert. 0 % wird nie gespeichert (damit wäre jede
+  Anfrage sofort abgelehnt). Jede solche Ersetzung steht nach dem Speichern als Meldung über dem Produkt.
+- **Abweichung:** Weichen Tage oder Grenze von den AGB-Werten ab, zeigt das Produkt einen Hinweis („bitte prüfen, ob AGB,
+  Garantieseite und Produkttext dazu passen“). Variationen zeigen die Garantie des Produkts (sie gilt für alle
+  Variationen) mit demselben Hinweis.
+- **Altbestand:** Früher konnte ein leeres %-Feld als 0 % gespeichert werden. Solche Produkte stehen in der Übersicht
+  unter „Produktzuordnungen prüfen“ als Hinweis. Abhilfe: Produkt öffnen, Grenze prüfen (vorgeschlagen sind 20 %),
+  speichern.
+
 ## Protokoll (T102)
 
 Bootsprüfung › Protokoll zeigt die Tabelle `bp_audit_log` lesbar an. Nur für Administratoren (Recht „Optionen

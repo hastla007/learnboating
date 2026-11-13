@@ -440,6 +440,57 @@ if (function_exists('wc_get_product')) {
     unset($GLOBALS['post']);
 }
 
+echo "Geld-zurück-Garantie am Produkt (T107)\n";
+$mbIn = [\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::class, 'moneyBackFromInput'];
+$mbCat = [ShopCatalog::MONEY_BACK_DAYS, ShopCatalog::MONEY_BACK_MAX_PROGRESS];
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '14', 'mb_progress' => '']);
+$check($r['days'] === 14 && $r['max_progress'] === $mbCat[1] && count($r['notes']) === 1, 'leeres %-Feld bei gesetzten Tagen: AGB-Wert statt 0 %, mit Meldung');
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '30', 'mb_progress' => '0']);
+$check($r['max_progress'] === $mbCat[1] && $r['notes'] !== [], '0 % wird nie stillschweigend gespeichert');
+$r = $mbIn(['mb_days' => '30', 'mb_progress' => '']);
+$check($r['days'] === 30 && $r['max_progress'] === $mbCat[1], 'auch ohne neues Formular: leeres % = AGB-Wert');
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '', 'mb_progress' => '12,5']);
+$check($r['days'] === $mbCat[0] && $r['max_progress'] === 12.5 && count($r['notes']) === 1, 'leere Tage = AGB-Tage, Komma als Dezimalzeichen');
+$check($mbIn(['mb_form' => '1', 'mb_none' => '1', 'mb_days' => '14', 'mb_progress' => '20'])['days'] === null && $mbIn(['mb_days' => ''])['days'] === null, '„keine Garantie“ nur per Checkbox (altes Formular: Tage leer)');
+$check(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => $mbCat[0], 'max_progress' => $mbCat[1]]) === ''
+    && str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => 30, 'max_progress' => 10.0]), 'weicht von den AGB-Werten ab')
+    && str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => 14, 'max_progress' => 0.0]), '0 %'), 'Hinweis bei Abweichung von den AGB-Werten bzw. bei 0 %');
+if (function_exists('wc_get_product')) {
+    $renderMb = static function (int $id): string {
+        $GLOBALS['post'] = get_post($id);
+        ob_start();
+        (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->panel();
+
+        return (string) ob_get_clean();
+    };
+    $newId = (int) wp_insert_post(['post_type' => 'product', 'post_status' => 'auto-draft', 'post_title' => 'Admin-Test T107 neu']);
+    $panel = $renderMb($newId);
+    $check(str_contains($panel, 'name="bp_access[mb_days]" value="'.$mbCat[0].'"') && str_contains($panel, 'name="bp_access[mb_progress]" value="20"') && preg_match('#name="bp_access\[mb_none\]" value="1"\s*>#', $panel) === 1, 'neues Produkt: 14 Tage / 20 % vorbelegt, „keine Garantie“ nicht angekreuzt');
+    wp_delete_post($newId, true);
+    $mbProduct = new WC_Product_Simple();
+    $mbProduct->set_name('Admin-Test T107');
+    $mbId = (int) $mbProduct->save();
+    $panel = $renderMb($mbId);
+    $check(preg_match('#name="bp_access\[mb_none\]" value="1"\s+checked#', $panel) === 1, 'bestehendes Produkt ohne Garantie: bleibt „keine Garantie“ (keine stille Änderung)');
+    // Altbestand: Tage gesetzt, Grenze 0 % (aus dem früheren leeren Feld).
+    update_post_meta($mbId, \Bootspruefung\Learning\Commerce\MoneyBack::META, ['days' => 14, 'max_progress' => 0.0]);
+    $mbIssues = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $mbId && str_contains($i['problem'], 'Grenze 0 %')));
+    $check(count($mbIssues) === 1 && $mbIssues[0]['severity'] === 'warning', 'Produktzuordnungen prüfen: Warnung bei Garantie mit 0 %');
+    $panel = $renderMb($mbId);
+    $check(str_contains($panel, 'bp-money-back-warning') && str_contains($panel, 'Gespeichert ist die Grenze 0') && str_contains($panel, 'name="bp_access[mb_progress]" value="20"'), 'Produkt zeigt Warnung und schlägt den AGB-Wert vor');
+    $_POST['bp_access'] = ['present' => '1', 'mb_form' => '1', 'mb_days' => '14', 'mb_progress' => ''];
+    (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->save($mbId);
+    unset($_POST['bp_access']);
+    $saved = \Bootspruefung\Learning\Commerce\MoneyBack::policy($mbId);
+    $check($saved !== null && $saved['max_progress'] === $mbCat[1] && ! \Bootspruefung\Learning\Commerce\MoneyBack::limitReached(['percent' => 0.0, 'exact' => 0.0], $saved['max_progress']), 'Speichern mit leerem %-Feld: AGB-Grenze, Garantie wieder nutzbar');
+    $check(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $mbId && str_contains($i['problem'], 'Grenze 0 %')) === [], 'danach keine Warnung mehr');
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbId, 30, 10.0);
+    $check(str_contains($renderMb($mbId), 'weicht von den AGB-Werten ab'), 'Produkt mit abweichenden Werten: Hinweis');
+    $check(str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::variationMoneyBackNote($mbId), 'wie beim Produkt (30 Tage, unter 10 %)'), 'Variationen zeigen die Garantie des Produkts');
+    wp_delete_post($mbId, true);
+    unset($GLOBALS['post']);
+}
+
 echo "Protokoll im Admin (T102)\n";
 require_once ABSPATH.'wp-admin/includes/template.php';
 require_once ABSPATH.'wp-admin/includes/user.php';

@@ -68,6 +68,43 @@ final class MappingCheck
             }
         }
 
+        return array_merge($out, self::moneyBackIssues());
+    }
+
+    /**
+     * T107: gespeicherte Geld-zurück-Garantien mit Tagen, aber Grenze 0 % (früher entstanden aus einem leeren
+     * %-Feld). MoneyBack::limitReached() wäre dann immer erreicht – Kunden könnten die Garantie nie nutzen.
+     * @return list<array{product_id:int,variation_id:int,problem:string,severity:string,deleted:bool}>
+     */
+    public static function moneyBackIssues(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT pm.post_id, pm.meta_value, p.post_type, p.post_parent FROM {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE pm.meta_key = %s AND p.post_status NOT IN ('trash', 'auto-draft') ORDER BY pm.post_id",
+            MoneyBack::META
+        ));
+        $out = [];
+        foreach ($rows as $row) {
+            $raw = maybe_unserialize($row->meta_value);
+            if (! is_array($raw) || (int) ($raw['days'] ?? 0) < 1 || (float) ($raw['max_progress'] ?? 0) > 0) {
+                continue;
+            }
+            $variation = $row->post_type === 'product_variation';
+            $out[] = [
+                'product_id' => $variation ? (int) $row->post_parent : (int) $row->post_id,
+                'variation_id' => $variation ? (int) $row->post_id : 0,
+                'problem' => sprintf(
+                    /* translators: 1: Tage, 2: Prozent laut AGB */
+                    __('Geld-zurück-Garantie mit %1$d Tagen, aber Grenze 0 %%: Jede Anfrage gilt sofort als überschritten. Bitte im Produkt unter „Lernzugang“ die Grenze eintragen (AGB: unter %2$d %%) und speichern.', 'bootspruefung-learning'),
+                    (int) $raw['days'],
+                    (int) ShopCatalog::MONEY_BACK_MAX_PROGRESS
+                ),
+                'severity' => 'warning',
+                'deleted' => false,
+            ];
+        }
+
         return $out;
     }
 
