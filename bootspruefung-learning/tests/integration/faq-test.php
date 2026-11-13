@@ -311,6 +311,40 @@ $drafts = rest_do_request(new WP_REST_Request('GET', '/wp/v2/'.Faq::POST_TYPE))-
 $check(is_array($drafts) && array_filter($drafts, static fn ($p) => ($p['status'] ?? 'publish') !== 'publish') === [], 'Editor-REST zeigt Gästen keine Entwürfe');
 wp_set_current_user(1);
 
+echo "Dynamischer Block in der Antwort: je Person beim Ausgeben gerendert (T116)\n";
+$gateSecret = 'FAQ-Geheimnis '.wp_generate_password(8, false);
+$gateFaq = (int) wp_insert_post(wp_slash(['post_type' => Faq::POST_TYPE, 'post_status' => 'publish', 'post_title' => 'Testfrage mit Lernzugang-Block', 'post_content' => '<!-- wp:paragraph --><p>Für alle.</p><!-- /wp:paragraph --><!-- wp:bootspruefung/zugang {"course":"SBF-SEE"} --><p>'.$gateSecret.'</p><!-- /wp:bootspruefung/zugang -->']));
+$gateUser = (int) wp_insert_user(['user_login' => 'faq_t116_kunde', 'user_pass' => wp_generate_password(), 'user_email' => 'faq_t116_kunde@example.test', 'role' => 'subscriber']);
+(new \Bootspruefung\Learning\Commerce\EntitlementService($GLOBALS['wpdb']))->grantManual($gateUser, 'SBF-SEE', ['all'], null, 'FAQ-Test T116');
+$gateAnswer = static function () use ($gateFaq): string {
+    foreach (FaqRepository::query() as $faq) {
+        if ($faq['id'] === $gateFaq) {
+            return $faq['answer_html'];
+        }
+    }
+
+    return '';
+};
+$check(FaqRepository::hasDynamicBlocks((string) get_post_field('post_content', $gateFaq)) && ! FaqRepository::hasDynamicBlocks('<!-- wp:paragraph --><p>x</p><!-- /wp:paragraph -->') && FaqRepository::cacheableAnswer('<p>x</p>')['answer_raw'] === null, 'nur Antworten mit dynamischen Blöcken bleiben als Rohinhalt im Zwischenspeicher');
+wp_set_current_user(0);
+$asGuest = $gateAnswer();
+$check(str_contains($asGuest, 'Für alle.') && str_contains($asGuest, 'bp-gate-notice') && ! str_contains($asGuest, $gateSecret), 'Gast: Hinweis statt geschütztem Abschnitt');
+$check(is_array(wp_cache_get('all-v2:'.wp_cache_get_last_changed(Faq::CACHE_GROUP), Faq::CACHE_GROUP)), 'Zwischenspeicher ist warm');
+wp_set_current_user($gateUser);
+$check(str_contains($gateAnswer(), $gateSecret), 'mit Lernzugang (warmer Zwischenspeicher): Abschnitt sichtbar');
+$restGate = array_values(array_filter(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/faqs'))->get_data(), static fn ($f) => $f['id'] === $gateFaq));
+$check(str_contains((string) ($restGate[0]['answer_html'] ?? ''), $gateSecret), 'REST mit Lernzugang: Abschnitt sichtbar');
+$check(str_contains(do_shortcode('[bootspruefung_faq]'), $gateSecret), 'Shortcode mit Lernzugang: Abschnitt sichtbar');
+wp_set_current_user(0);
+$check(! str_contains($gateAnswer(), $gateSecret) && ! str_contains(do_shortcode('[bootspruefung_faq]'), $gateSecret), 'danach als Gast: Abschnitt bleibt verborgen (Funktion und Shortcode)');
+$restGate = array_values(array_filter(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/faqs'))->get_data(), static fn ($f) => $f['id'] === $gateFaq));
+$check(! str_contains((string) ($restGate[0]['answer_html'] ?? ''), $gateSecret) && str_contains((string) ($restGate[0]['answer_html'] ?? ''), 'bp-gate-notice'), 'REST als Gast: Hinweis statt Abschnitt');
+wp_set_current_user(1);
+wp_delete_post($gateFaq, true);
+$GLOBALS['wpdb']->delete($GLOBALS['wpdb']->prefix.'bp_entitlement', ['user_id' => $gateUser]);
+require_once ABSPATH.'wp-admin/includes/user.php';
+wp_delete_user($gateUser);
+
 echo "Admin\n";
 $type = get_post_type_object(Faq::POST_TYPE);
 $check($type->cap->edit_posts === Capabilities::MANAGE_CONTENT && $type->cap->edit_post === Capabilities::MANAGE_CONTENT && ! $type->public && ! $type->publicly_queryable && $type->show_in_rest && ! $type->has_archive, 'Beitragstyp: nicht öffentlich, Block-Editor, Recht manage_bp_content');

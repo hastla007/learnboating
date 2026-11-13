@@ -27,7 +27,9 @@ use Bootspruefung\Learning\Gate\SectionFiles;
  * (FaqController) und Web-App (Kurs-Hub) nutzen diese Gruppen, die Anzahl (count) zählt jede FAQ einmal.
  *
  * Zwischenspeicher wie FaqRepository (Gruppe „bp_cfaq“, last_changed); Antworten werden mit wp_kses_post
- * gefiltert gespeichert, Platzhalter ({{agb}}, {{link:/pfad/|Text}}) erst beim Abruf ersetzt.
+ * gefiltert gespeichert, Platzhalter ({{agb}}, {{link:/pfad/|Text}}) erst beim Abruf ersetzt. Antworten mit
+ * dynamischen Blöcken (z. B. „Nur mit Lernzugang“) liegen als Rohinhalt im Speicher und werden beim Abruf gerendert
+ * (FaqRepository::cacheableAnswer(), T116).
  */
 final class CustomerFaqRepository
 {
@@ -48,7 +50,7 @@ final class CustomerFaqRepository
     {
         $tokens = FaqRepository::tokens();
         $render = static function (array $faqs) use ($tokens): array {
-            return array_map(static fn (array $f): array => ['id' => $f['id'], 'question' => $f['question'], 'answer_html' => FaqRepository::links(strtr($f['answer_html'], $tokens))], $faqs);
+            return array_map(static fn (array $f): array => ['id' => $f['id'], 'question' => $f['question'], 'answer_html' => FaqRepository::links(strtr(FaqRepository::answerHtml($f), $tokens))], $faqs);
         };
         $groups = self::groups($courseCode);
         foreach ($groups as &$group) {
@@ -145,11 +147,12 @@ final class CustomerFaqRepository
     /**
      * Begriffe, Kinder je Begriff (sortiert) und veröffentlichte FAQs je zugewiesenem Begriff (sortiert).
      *
-     * @return array{terms:array<int,array<string,mixed>>,children:array<int,list<int>>,faqs:array<int,list<array{id:int,question:string,answer_html:string}>>}
+     * @return array{terms:array<int,array<string,mixed>>,children:array<int,list<int>>,faqs:array<int,list<array{id:int,question:string,answer_html:string,answer_raw:?string}>>}
      */
     private static function data(): array
     {
-        $key = 'data:'.wp_cache_get_last_changed(CustomerFaq::CACHE_GROUP);
+        // „v2“: Einträge mit answer_raw (T116); ältere Einträge im persistenten Objekt-Cache werden nicht mehr gelesen.
+        $key = 'data-v2:'.wp_cache_get_last_changed(CustomerFaq::CACHE_GROUP);
         $cached = wp_cache_get($key, CustomerFaq::CACHE_GROUP);
         if (is_array($cached)) {
             return $cached;
@@ -175,8 +178,7 @@ final class CustomerFaqRepository
             $row = [
                 'id' => (int) $post->ID,
                 'question' => html_entity_decode(wp_strip_all_tags((string) $post->post_title), ENT_QUOTES, 'UTF-8'),
-                'answer_html' => FaqRepository::filterAnswer((string) $post->post_content),
-            ];
+            ] + FaqRepository::cacheableAnswer((string) $post->post_content);
             foreach (is_array($assigned) ? $assigned : [] as $term) {
                 if (isset($terms[(int) $term->term_id])) {
                     $faqs[(int) $term->term_id][] = $row;

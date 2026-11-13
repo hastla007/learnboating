@@ -10,6 +10,8 @@ namespace Bootspruefung\Learning\Faq;
  * Zwischenspeicher: Objekt-Cache-Gruppe „bp_faq“ mit last_changed-Schlüssel; Faq leert ihn beim
  * Speichern, Löschen, Umsortieren usw. Gespeichert wird die gefilterte Antwort mit Platzhaltern
  * ({{agb}}, {{link:/pfad/|Text}}); ersetzt werden sie erst beim Abruf, damit z. B. ein neuer AGB-Link sofort wirkt.
+ * Antworten mit dynamischen Blöcken (z. B. „Nur mit Lernzugang“) liegen als Rohinhalt im Speicher und werden erst
+ * beim Ausgeben gerendert – je Person (Gast, Käufer) richtig, Shortcode/Theme wie REST/App (T116).
  */
 final class FaqRepository
 {
@@ -37,7 +39,7 @@ final class FaqRepository
             if ($sub !== '' && $row['subcategory'] !== $sub) {
                 continue;
             }
-            $row['answer_html'] = self::links(strtr($row['answer_html'], $tokens));
+            $row['answer_html'] = self::links(strtr(self::answerHtml($row), $tokens));
             $out[] = array_intersect_key($row, array_flip(self::FIELDS));
         }
 
@@ -108,10 +110,59 @@ final class FaqRepository
         return trim(wp_kses_post($html));
     }
 
+    /**
+     * Antwort für den Zwischenspeicher (T116): ohne dynamische Blöcke fertig gefiltert (answer_html), mit dynamischen
+     * Blöcken nur der Rohinhalt (answer_raw) – gerendert wird dann erst beim Ausgeben (answerHtml()), denn das Ergebnis
+     * hängt von der Person ab (Block „Nur mit Lernzugang“) oder ändert sich laufend.
+     *
+     * @return array{answer_html:string,answer_raw:?string}
+     */
+    public static function cacheableAnswer(string $content): array
+    {
+        return self::hasDynamicBlocks($content)
+            ? ['answer_html' => '', 'answer_raw' => $content]
+            : ['answer_html' => self::filterAnswer($content), 'answer_raw' => null];
+    }
+
+    /** Gefilterte Antwort eines gespeicherten Eintrags (dynamische Blöcke jetzt rendern). @param array<string,mixed> $row */
+    public static function answerHtml(array $row): string
+    {
+        return isset($row['answer_raw']) && is_string($row['answer_raw']) ? self::filterAnswer($row['answer_raw']) : (string) ($row['answer_html'] ?? '');
+    }
+
+    /** Enthält der Inhalt dynamische (serverseitig gerenderte) oder unbekannte Blöcke? */
+    public static function hasDynamicBlocks(string $content): bool
+    {
+        if (! has_blocks($content)) {
+            return false;
+        }
+        $registry = \WP_Block_Type_Registry::get_instance();
+        $walk = static function (array $blocks) use (&$walk, $registry): bool {
+            foreach ($blocks as $block) {
+                $name = $block['blockName'] ?? null;
+                if (is_string($name) && $name !== '') {
+                    $type = $registry->get_registered($name);
+                    // Unbekannt (noch nicht registriert) gilt vorsichtshalber als dynamisch.
+                    if ($type === null || $type->is_dynamic()) {
+                        return true;
+                    }
+                }
+                if (! empty($block['innerBlocks']) && $walk($block['innerBlocks'])) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        return $walk(parse_blocks($content));
+    }
+
     /** @return list<array<string,mixed>> alle veröffentlichten FAQs (sortiert, Platzhalter noch nicht ersetzt) */
     private static function all(): array
     {
-        $key = 'all:'.wp_cache_get_last_changed(Faq::CACHE_GROUP);
+        // „v2“: Einträge mit answer_raw (T116); ältere Einträge im persistenten Objekt-Cache werden nicht mehr gelesen.
+        $key = 'all-v2:'.wp_cache_get_last_changed(Faq::CACHE_GROUP);
         $cached = wp_cache_get($key, Faq::CACHE_GROUP);
         if (is_array($cached)) {
             return $cached;
@@ -126,11 +177,13 @@ final class FaqRepository
             $assigned = get_the_terms($post, Faq::TAXONOMY); // Term-Cache ist durch get_posts() schon gefüllt
             [$rubric, $sub] = self::placement(is_array($assigned) ? wp_list_pluck($assigned, 'term_id') : [], $terms);
             $ref = get_post_meta($post->ID, Faq::META_REF, true);
+            $answer = self::cacheableAnswer((string) $post->post_content);
             $rows[] = [
                 'id' => (int) $post->ID,
                 'ref' => $ref === '' ? null : (int) $ref,
                 'question' => html_entity_decode(wp_strip_all_tags((string) $post->post_title), ENT_QUOTES, 'UTF-8'),
-                'answer_html' => self::filterAnswer((string) $post->post_content),
+                'answer_html' => $answer['answer_html'],
+                'answer_raw' => $answer['answer_raw'],
                 'rubric' => $rubric['key'] ?? '',
                 'rubric_slug' => $rubric['slug'] ?? '',
                 'rubric_label' => $rubric['name'] ?? '',

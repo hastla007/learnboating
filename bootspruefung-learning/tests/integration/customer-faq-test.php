@@ -381,6 +381,42 @@ $summary = $api('/courses/'.$seeId, $customerToken)['body']['data'] ?? [];
 $trialSummary = $api('/courses/'.$seeId, $token($trial))['body']['data'] ?? [];
 $check(($summary['faq_count'] ?? null) === 5 && ($trialSummary['faq_count'] ?? null) === 0, 'faq_count in der Kurs-Zusammenfassung (Kunde 5, Testkurs 0)');
 
+echo "Dynamischer Block in der Antwort: je Person beim Ausgeben gerendert (T116)\n";
+$gateSecret = 'Kunden-Geheimnis '.wp_generate_password(8, false);
+$gateFaq = $insert('Kunden-Testfrage mit Lernzugang-Block', '<!-- wp:paragraph --><p>Für alle.</p><!-- /wp:paragraph --><!-- wp:bootspruefung/zugang {"course":"SBF-SEE","feature":"question_bank"} --><p>'.$gateSecret.'</p><!-- /wp:bootspruefung/zugang -->', (int) $learn->term_id, 5);
+$gateAnswer = static function (array $groups) use ($gateFaq): string {
+    foreach ($groups as $gr) {
+        foreach (array_merge($gr['faqs'], ...array_column($gr['subcategories'], 'faqs')) as $f) {
+            if ((int) $f['id'] === $gateFaq) {
+                return (string) $f['answer_html'];
+            }
+        }
+    }
+
+    return '';
+};
+wp_set_current_user($nobody);
+$asNobody = $gateAnswer(CustomerFaqRepository::forCourse('SBF-SEE'));
+$check(str_contains($asNobody, 'Für alle.') && str_contains($asNobody, 'bp-gate-notice') && ! str_contains($asNobody, $gateSecret), 'ohne Zugang: Hinweis statt geschütztem Abschnitt');
+$check(is_array(wp_cache_get('data-v2:'.wp_cache_get_last_changed(CustomerFaq::CACHE_GROUP), CustomerFaq::CACHE_GROUP)), 'Zwischenspeicher ist warm');
+wp_set_current_user($customer);
+$check(str_contains($gateAnswer(CustomerFaqRepository::forCourse('SBF-SEE')), $gateSecret), 'Kunde mit Zugang (warmer Zwischenspeicher): Abschnitt sichtbar');
+unset($_SERVER['HTTP_AUTHORIZATION']); // App-Anmeldung aus dem Abschnitt davor nicht mitschicken
+TokenAuth::reset();
+$gateWeb = $web($customer, 'sbf-see');
+$check($gateWeb->get_status() === 200 && str_contains($gateAnswer((array) $gateWeb->get_data()), $gateSecret), 'Web-REST (Kunde): Abschnitt sichtbar');
+$appGate = '';
+foreach ($api('/courses/'.$seeId.'/faqs', $customerToken)['body']['data'] ?? [] as $gr) {
+    foreach (array_merge($gr['faqs'], ...array_column($gr['subcategories'], 'faqs')) as $f) {
+        $appGate .= (string) $f['id'] === (string) $gateFaq ? (string) $f['answer_html'] : '';
+    }
+}
+$check(str_contains($appGate, $gateSecret), 'App (Kunde): Abschnitt sichtbar');
+wp_set_current_user($nobody);
+$check(! str_contains($gateAnswer(CustomerFaqRepository::forCourse('SBF-SEE')), $gateSecret), 'danach wieder ohne Zugang: Abschnitt bleibt verborgen (kein fertiges HTML im Zwischenspeicher)');
+wp_set_current_user(1);
+wp_delete_post($gateFaq, true);
+
 echo "Gemeinsame FAQ in mehreren Scheinen\n";
 // Web-Anfragen wieder ohne App-Token (wie beim Aufräumen).
 unset($_SERVER['HTTP_AUTHORIZATION']);
