@@ -2941,10 +2941,31 @@
 		return layout;
 	}
 
+	// Einwilligung „Externe Medien“: Banner des Themes (window.kwConsent), sonst eine Merkung im Browser.
+	function externalMediaAllowed() {
+		var kc = window.kwConsent;
+		if (kc && typeof kc.has === 'function') { return kc.has('extern'); }
+		try { return window.localStorage.getItem('bp_external_media') === '1'; } catch (e) { return false; }
+	}
+	function allowExternalMedia() {
+		var kc = window.kwConsent;
+		if (kc && typeof kc.grant === 'function') { kc.grant('extern'); return; }
+		try { window.localStorage.setItem('bp_external_media', '1'); } catch (e) { /* nur für diesen Aufruf */ }
+	}
+
 	function renderLesson(slug, c, v, l) {
 		var path = 'courses/' + encodeURIComponent(slug) + '/videos/' + l.id + '/progress';
 		// Platzhalter-Lektionen: keine Video-URL vom Server, kein Player – nur ein Hinweis (Quiz/Schritte bleiben nutzbar).
-		var video = (!l.placeholder && l.video_url) ? el('video', { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+		// Video auf einem fremden Server (l.video_host): erst laden, wenn „Externe Medien“ erlaubt ist oder die Person
+		// auf das Vorschaubild klickt (T23). Ohne src lädt der Browser nichts vom fremden Server.
+		var external = !l.placeholder && !!l.video_url && !!l.video_host && !externalMediaAllowed();
+		var video = (!l.placeholder && l.video_url) ? el('video', external ? { class: 'bp-video', controls: true, preload: 'none' } : { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+		var alwaysBox = null;
+		if (external) {
+			var always = el('input', { type: 'checkbox', id: 'bp-vc-external-always' });
+			always.addEventListener('change', function () { if (always.checked) { allowExternalMedia(); } });
+			alwaysBox = el('p', { class: 'bp-switch bp-vc-external' }, [always, el('label', { for: 'bp-vc-external-always', text: t('video_external_always') })]);
+		}
 		var status = el('span', { class: 'bp-vc-status', text: l.completed ? t('video_status_done') : t('video_status_open') });
 		var doneBtn = el('button', { type: 'button', class: 'bp-vc-mark', 'aria-pressed': l.completed ? 'true' : 'false', text: l.completed ? t('video_done') : t('video_mark_done') });
 		var layout;
@@ -2982,19 +3003,34 @@
 		// Titelkarte über dem Video (Kapitel, Lektion, Kurs) bis zum Start
 		var poster = null;
 		if (video) {
-			poster = el('button', { type: 'button', class: 'bp-vc-poster', 'aria-label': t('video_play', { title: l.title }) }, [
+			poster = el('button', { type: 'button', class: 'bp-vc-poster', 'aria-label': external ? t('video_external_load', { host: l.video_host, title: l.title }) : t('video_play', { title: l.title }) }, [
 				el('span', { class: 'bp-vc-poster-kicker', text: t('video_chapter') }),
 				el('span', { class: 'bp-vc-poster-title', text: l.module }),
-				el('span', { class: 'bp-vc-poster-sub', text: c.name }),
+				el('span', { class: 'bp-vc-poster-sub', text: external ? t('video_external_note', { host: l.video_host }) : c.name }),
 				el('span', { class: 'bp-vc-poster-play', 'aria-hidden': 'true' })
 			]);
 			poster.addEventListener('click', function () {
+				if (!video.getAttribute('src')) { video.setAttribute('src', l.video_url); }
 				var p = video.play();
 				if (p && p.catch) { p.catch(function () { /* Wiedergabe blockiert: Steuerung bleibt sichtbar */ }); }
 				poster.hidden = true;
 				video.focus();
 			});
 			video.addEventListener('play', function () { poster.hidden = true; });
+			if (external) {
+				// Einwilligung im Banner (oder Häkchen) erteilt: Video jetzt vorladen, Hinweis entfernen.
+				var onConsent = function () {
+					if (!externalMediaAllowed() || !document.body.contains(video)) { return; }
+					document.removeEventListener('kw-consent-change', onConsent);
+					if (!video.getAttribute('src')) { video.setAttribute('preload', 'metadata'); video.setAttribute('src', l.video_url); }
+					poster.setAttribute('aria-label', t('video_play', { title: l.title }));
+					var sub = poster.querySelector('.bp-vc-poster-sub');
+					if (sub) { sub.textContent = c.name; }
+					if (alwaysBox) { alwaysBox.hidden = true; }
+				};
+				document.addEventListener('kw-consent-change', onConsent);
+				if (alwaysBox) { alwaysBox.querySelector('input').addEventListener('change', onConsent); }
+			}
 		}
 		var quiz = null;
 		var cta = null;
@@ -3014,6 +3050,7 @@
 			el('p', { class: 'bp-vc-module', text: l.module }),
 			el('h1', { class: 'bp-vc-title', text: l.title }),
 			video ? el('div', { class: 'bp-video-wrap' }, [video, poster]) : el('p', { class: l.placeholder ? 'bp-note bp-vc-pending' : 'bp-vc-missing', text: t(l.placeholder ? 'video_placeholder' : 'video_missing') }),
+			alwaysBox,
 			el('div', { class: 'bp-vc-bar-row' }, [el('div', { class: 'bp-vc-state' }, [status, doneBtn]), cta]),
 			l.steps.length ? el('section', { class: 'bp-section' }, [el('h2', { text: t('video_steps') }), el('ol', { class: 'bp-steps' }, l.steps.map(function (st) { return el('li', { text: st.title }); }))]) : null,
 			quiz,

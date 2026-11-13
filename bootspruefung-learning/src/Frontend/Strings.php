@@ -546,6 +546,10 @@ final class Strings
             'video_next_locked' => __('Die weiteren Lektionen gehören zum Vollzugang.', $d),
             'video_chapter' => __('Kapitel', $d),
             'video_play' => __('Video abspielen: {title}', $d),
+            // Video auf einem fremden Server (T23): erst nach Einwilligung „Externe Medien“ bzw. Klick laden.
+            'video_external_note' => __('Das Video wird von {host} geladen. Dabei erhält der Anbieter deine IP-Adresse.', $d),
+            'video_external_load' => __('Video von {host} laden und abspielen: {title}', $d),
+            'video_external_always' => __('Videos von externen Diensten künftig ohne Nachfrage laden', $d),
             'video_chapters' => __('Kapitel des Videokurses', $d),
             'video_toggle_menu' => __('Kapitelmenü ein- oder ausblenden', $d),
             'video_none' => __('In diesem Kurs ist noch keine Lektion für dich freigeschaltet.', $d),

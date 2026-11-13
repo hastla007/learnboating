@@ -96,6 +96,54 @@ final class VideoService
         ];
     }
 
+    /**
+     * Hostname eines Videos auf einem fremden Server, sonst null (eigene Domain, relative URL, Platzhalter).
+     * Als eigen gelten die Domain der Website und ihre Subdomains sowie Hosts aus dem Filter
+     * bootspruefung_video_first_party_hosts (z. B. eigenes CDN mit Auftragsverarbeitung).
+     */
+    public static function externalHost(string $url): ?string
+    {
+        $host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+        if ($host === '') {
+            return null;
+        }
+        $own = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $own = (string) preg_replace('/^www\./', '', $own);
+        if ($own !== '' && ($host === $own || str_ends_with($host, '.'.$own))) {
+            return null;
+        }
+        $firstParty = array_map('strtolower', (array) apply_filters('bootspruefung_video_first_party_hosts', []));
+
+        return in_array($host, $firstParty, true) ? null : $host;
+    }
+
+    /**
+     * Fremde Video-Hosts aller nicht als Platzhalter markierten Lektionen (für die Banner-Kategorie „Externe
+     * Medien“ des Themes, Filter kurswasser_consent_external_hosts). Eine Stunde zwischengespeichert.
+     * @return list<string>
+     */
+    public static function externalHosts(): array
+    {
+        $cached = get_transient('bp_learning_video_hosts');
+        if (is_array($cached)) {
+            return $cached;
+        }
+        global $wpdb;
+        $urls = $wpdb->get_col("SELECT DISTINCT video_url FROM {$wpdb->prefix}bp_video_lesson WHERE is_placeholder = 0 AND video_url IS NOT NULL AND video_url <> ''");
+        $hosts = [];
+        foreach ((array) $urls as $url) {
+            $host = self::externalHost((string) $url);
+            if ($host !== null) {
+                $hosts[$host] = true;
+            }
+        }
+        $hosts = array_keys($hosts);
+        sort($hosts);
+        set_transient('bp_learning_video_hosts', $hosts, HOUR_IN_SECONDS);
+
+        return $hosts;
+    }
+
     /** @return array<string,mixed> */
     public function lesson(int $userId, object $course, int $lessonId): array
     {
@@ -141,6 +189,8 @@ final class VideoService
             'title' => $lesson->title,
             'module' => $lesson->module_title,
             'video_url' => $lesson->is_placeholder ? null : ($lesson->video_url ?: null),
+            // Liegt das Video auf einem fremden Server, lädt die Web-App es erst nach Einwilligung bzw. Klick (T23).
+            'video_host' => $lesson->is_placeholder ? null : self::externalHost((string) $lesson->video_url),
             'placeholder' => (bool) $lesson->is_placeholder,
             'duration' => $lesson->duration_seconds === null ? null : (int) $lesson->duration_seconds,
             'completed' => (bool) ($progress->completed ?? false),

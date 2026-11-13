@@ -74,6 +74,10 @@ Benutzer-Aufzählung) einzeln abschaltbar über den Filter `bootspruefung_harden
 Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte. PDFs für die Downloadliste eines
 Kurses in der Mediathek mit „Kurs · Downloads (PDF)“ markieren. Dispute-Webhooks (PayPal, allgemein für Klarna u. a.)
 unter Bootsprüfung → Einstellungen › Zahlungskonflikte einrichten.
+Videos auf einem fremden Server (anderer Host als die eigene Domain samt Subdomains) lädt die Lern-App erst nach
+Klick oder mit der Einwilligung „Externe Medien“ im Cookie-Banner des Themes; die Kategorie erscheint dort automatisch,
+sobald eine Videolektion fremd gehostet ist. Einen Dienstleister mit Auftragsverarbeitung als eigenen Server behandeln:
+Filter `bootspruefung_video_first_party_hosts` (Liste von Hostnamen).
 
 ### Tests des Plugins
 

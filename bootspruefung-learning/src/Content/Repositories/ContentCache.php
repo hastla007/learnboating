@@ -44,6 +44,7 @@ final class ContentCache
             wp_cache_flush_group(self::GROUP);
         }
         wp_cache_set('generation', self::newGeneration(), self::GROUP);
+        delete_transient('bp_learning_video_hosts'); // Video-Hosts für die Banner-Kategorie „Externe Medien“
     }
 
     private static function generation(): string

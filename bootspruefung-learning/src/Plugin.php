@@ -132,6 +132,8 @@ final class Plugin
         (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
         PersonalData::register();
         \Bootspruefung\Learning\Security\Hardening::register();
+        // Videos auf fremden Servern: Theme Kurswasser zeigt dann die Banner-Kategorie „Externe Medien“ (T23).
+        add_filter('kurswasser_consent_external_hosts', static fn ($hosts) => array_merge((array) $hosts, \Bootspruefung\Learning\Trainers\VideoService::externalHosts()));
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();
         (new \Bootspruefung\Learning\Gate\Charts())->register();
