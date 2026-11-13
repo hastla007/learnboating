@@ -17,7 +17,8 @@ use WP_REST_Response;
  * per E-Mail verschickten Zugangscodes. Echte Zugangscodes sind nur die Beitrittscodes von
  * Gruppenlizenzen (Einladungslink „…/gruppe/<code>/“); diese werden über GroupService::join
  * eingelöst wie im Web. WooCommerce-Gutscheine sind Rabatte für den Kauf und werden mit klarer
- * Meldung abgelehnt.
+ * Meldung abgelehnt. Kursgutscheine (seit 1.12.0, über einen Gutschein-Connector) werden hier nicht eingelöst:
+ * 422 COURSE_VOUCHER verweist auf POST /vouchers/redeem.
  *
  * Seit 1.4.0 zuerst Idempotenz, dann Rate-Limit: Eine Netzwiederholung mit demselben
  * Idempotency-Key liefert die gespeicherte Antwort, ohne einen Versuch zu verbrauchen.
@@ -54,6 +55,10 @@ final class CouponController extends BaseController
             return new WP_REST_Response($body, $status);
         }
         $limit();
+        if (VoucherController::isCourseVoucher($raw)) {
+            // Kursgutscheine (Voucher Captain) schalten einen Kurs frei – über die eigene Route, nicht als Gruppencode.
+            throw new ApiException('COURSE_VOUCHER', __('Das ist ein Kursgutschein. Löse ihn unter „Mein Lernen“ › „Kursgutschein einlösen“ ein.', 'bootspruefung-learning'), 422, ['details' => ['redeem_path' => '/vouchers/redeem', 'check_path' => '/vouchers/check']]);
+        }
         if (function_exists('wc_get_coupon_id_by_code') && wc_get_coupon_id_by_code($raw) > 0) {
             throw new ApiException('COUPON_NOT_SUPPORTED', __('Das ist ein Gutscheincode für den Shop. Löse ihn beim Kauf im Shop ein – dein Zugang wird nach dem Kauf automatisch freigeschaltet.', 'bootspruefung-learning'), 422);
         }

@@ -1086,6 +1086,60 @@ if ($couponId > 0) {
 }
 $r = $api('POST', '/coupons/redeem', ['code' => 'g'.str_repeat('0', 32)], $tokenA);
 $check($r['status'] === 422 && $code($r) === 'COUPON_INVALID', 'ungültiger Gruppen-Beitrittscode → 422');
+
+echo "Kursgutscheine (App-Route /vouchers, seit 1.12.0)\n";
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234'], $tokenA);
+$check($r['status'] === 503 && $code($r) === 'COURSE_VOUCHERS_UNAVAILABLE', 'ohne Gutschein-Connector → 503 COURSE_VOUCHERS_UNAVAILABLE');
+$check($api('POST', '/vouchers/redeem', ['code' => 'KURS-1234'])['status'] === 401, 'ohne Anmeldung → 401');
+// Nachgebildeter Connector: merkt sich, für welchen Nutzer eingelöst wird, und liefert je Code einen Fehler.
+$fake = new class ($courseCode) {
+    public array $calls = [];
+    public function __construct(public string $course) {}
+    public function is_course_voucher(string $code): bool { return str_starts_with(strtoupper($code), 'KURS-'); }
+    private function target(): array { return ['product_id' => 77, 'variation_id' => 0, 'name' => 'Kurs per Gutschein', 'scopes' => [['course' => $this->course, 'course_id' => 4711, 'course_name' => 'Testkurs', 'feature' => 'question_bank', 'existing' => 'none', 'starts_at' => '2026-11-13 10:00:00', 'ends_at' => '2027-11-13 10:00:00']]]; }
+    private function fail(string $code) {
+        $map = ['KURS-RES' => 'vcap_reserved', 'KURS-USED' => 'vcap_already_redeemed', 'KURS-OLD' => 'vcap_expired', 'KURS-VOID' => 'vcap_cancelled', 'KURS-NONE' => 'vcap_not_found', 'KURS-GONE' => 'lb_course_unavailable', 'KURS-HAVE' => 'lb_access_exists', 'KURS-TEMP' => 'lb_temporary_failure', 'KURS-SHOP' => 'lb_not_course_voucher', 'KURS-MAIL' => 'vcap_not_allowed'];
+        return isset($map[strtoupper($code)]) ? new \WP_Error($map[strtoupper($code)], 'Grund aus dem Grant-Service', ['status' => 409]) : null;
+    }
+    public function check(string $code, int $user) { $this->calls[] = ['check', $code, $user]; return $this->fail($code) ?? ['voucher' => ['code_hint' => '…1234', 'expires_at' => '2029-12-31 22:59:59'], 'target' => $this->target()]; }
+    public function redeem(string $code, int $user) { $this->calls[] = ['redeem', $code, $user]; return $this->fail($code) ?? ['voucher' => ['code_hint' => '…1234', 'expires_at' => null], 'target' => $this->target(), 'grant' => ['grant_id' => 'voucher:learnboating:grant:1', 'created' => count(array_filter($this->calls, static fn ($c) => $c[0] === 'redeem')) === 1, 'entitlements' => [['course' => $this->course, 'feature' => 'question_bank', 'status' => 'active', 'valid_from' => '2026-11-13 10:00:00', 'valid_until' => '2027-11-13 10:00:00']]]]; }
+};
+$redeemer = static fn () => $fake;
+add_filter('bootspruefung_course_voucher_redeemer_v1', $redeemer);
+$r = $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA);
+$check($r['status'] === 200 && $r['body']['data']['kind'] === 'course_voucher' && $r['body']['data']['redeemed'] === false && $r['body']['data']['courses'][0]['course_id'] === '4711' && $r['body']['data']['preview'][0]['ends_at'] === '2027-11-13T10:00:00Z', 'Vorschau: Kurs und geplante Laufzeit (ISO 8601)');
+$key = $uuid();
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234', 'user_id' => $bob], $tokenA, ['Idempotency-Key' => $key]);
+$check($r['status'] === 200 && $r['body']['data']['redeemed'] === true && $r['body']['data']['reused'] === false && $r['body']['data']['entitlements'][0]['valid_until'] === '2027-11-13T10:00:00Z', 'Einlösung liefert die Freischaltung');
+$last = end($fake->calls);
+$check($last[0] === 'redeem' && $last[2] === $alice, 'eingelöst für den Nutzer des Tokens – user_id im Request wird ignoriert');
+$calls = count($fake->calls);
+$r2 = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234'], $tokenA, ['Idempotency-Key' => $key]);
+$check($r2['status'] === 200 && $r2['body'] === $r['body'] && count($fake->calls) === $calls, 'gleicher Idempotency-Key: gespeicherte Antwort, kein zweiter Aufruf');
+$r3 = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234'], $tokenA);
+$check($r3['status'] === 200 && $r3['body']['data']['reused'] === true, 'ohne Key erneut gesendet: dieselbe Freischaltung (reused)');
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234', 'course_id' => '9999'], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'VOUCHER_WRONG_COURSE' && str_contains((string) $r['body']['detail'], 'anderen Kurs'), 'aus einem anderen Kurs heraus → 422 VOUCHER_WRONG_COURSE');
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234', 'course_id' => '4711'], $tokenA);
+$check($r['status'] === 200, 'passender Kurs → eingelöst');
+foreach ([
+    'KURS-NONE' => [422, 'VOUCHER_INVALID'], 'KURS-VOID' => [410, 'VOUCHER_INVALID'], 'KURS-RES' => [409, 'VOUCHER_RESERVED'],
+    'KURS-USED' => [409, 'VOUCHER_REDEEMED'], 'KURS-OLD' => [410, 'VOUCHER_EXPIRED'], 'KURS-SHOP' => [422, 'VOUCHER_NOT_FOR_COURSES'],
+    'KURS-MAIL' => [403, 'VOUCHER_NOT_ALLOWED'], 'KURS-GONE' => [409, 'ACCESS_NOT_POSSIBLE'], 'KURS-HAVE' => [409, 'ACCESS_NOT_POSSIBLE'],
+    'KURS-TEMP' => [503, 'TEMPORARY_ERROR'],
+] as $voucherCode => [$status, $expected]) {
+    $r = $api('POST', '/vouchers/redeem', ['code' => $voucherCode], $tokenA);
+    $check($r['status'] === $status && $code($r) === $expected && (string) ($r['body']['detail'] ?? '') !== '', "{$voucherCode} → {$status} {$expected} mit Nutzertext");
+}
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-TEMP'], $tokenA);
+$check(($r['body']['retry_after'] ?? 0) > 0 && ($r['body']['details']['reason'] ?? '') === 'lb_temporary_failure', 'vorübergehender Fehler mit retry_after und Grund');
+$r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-GONE'], $tokenA);
+$check(str_contains((string) $r['body']['detail'], 'Grund aus dem Grant-Service'), 'ACCESS_NOT_POSSIBLE zeigt den fachlichen Grund der Lernplattform');
+$r = $api('POST', '/coupons/redeem', ['code' => 'KURS-1234'], $tokenA);
+$check($r['status'] === 422 && $code($r) === 'COURSE_VOUCHER' && ($r['body']['details']['redeem_path'] ?? '') === '/vouchers/redeem', '/coupons/redeem verweist Kursgutscheine auf /vouchers/redeem');
+remove_filter('bootspruefung_course_voucher_redeemer_v1', $redeemer);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 // Gruppen-Beitrittscode: Idempotenz vor Rate-Limit (Netzwiederholung verbraucht keinen Versuch).
 $joinToken = 'g'.bin2hex(random_bytes(16));
 $wpdb->insert($p.'learning_group', ['owner_user_id' => $bob, 'name' => 'App-Testgruppe', 'scopes' => wp_json_encode([['course' => $courseCode, 'feature' => 'question_bank']]), 'seats' => 3, 'status' => 'active', 'join_token' => $joinToken]);

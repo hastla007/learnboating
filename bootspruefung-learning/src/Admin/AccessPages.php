@@ -74,7 +74,7 @@ final class AccessPages
             $statuses[$s] = Labels::status($s);
         }
         $this->selectField('status', $statuses, $filter['status']);
-        $this->selectField('source', ['' => __('alle Quellen', 'bootspruefung-learning'), 'woocommerce' => 'WooCommerce', 'manual' => __('manuell', 'bootspruefung-learning'), 'group' => __('Gruppe', 'bootspruefung-learning')], $filter['source']);
+        $this->selectField('source', ['' => __('alle Quellen', 'bootspruefung-learning'), 'woocommerce' => 'WooCommerce', 'manual' => __('manuell', 'bootspruefung-learning'), 'group' => __('Gruppe', 'bootspruefung-learning'), EntitlementService::SOURCE_VOUCHER => __('Kursgutschein', 'bootspruefung-learning')], $filter['source']);
         if ($filter['order'] > 0) {
             printf('<input type="hidden" name="order" value="%d"> <span>%s</span> ', $filter['order'], esc_html(sprintf(__('Bestellung #%d', 'bootspruefung-learning'), $filter['order'])));
         }
@@ -120,6 +120,15 @@ final class AccessPages
             return '<a href="'.esc_url(Ui::url(self::GROUP_SLUG, ['group' => (int) $m[1]])).'">'.esc_html(sprintf(__('Gruppe #%d', 'bootspruefung-learning'), (int) $m[1])).'</a>';
         }
 
+        if ($row->source === EntitlementService::SOURCE_VOUCHER) {
+            $meta = EntitlementPlanner::meta($row);
+            $label = sprintf(__('Kursgutschein #%s', 'bootspruefung-learning'), isset($meta['voucher_id']) ? (string) (int) $meta['voucher_id'] : '–');
+            /** Link zum Gutschein im Gutschein-Plugin (vom Connector gesetzt), sonst nur Text. */
+            $url = (string) apply_filters('bootspruefung_voucher_admin_url', '', $meta, $row);
+
+            return $url !== '' ? '<a href="'.esc_url($url).'">'.esc_html($label).'</a>' : esc_html($label);
+        }
+
         return esc_html__('manuell', 'bootspruefung-learning').($row->granted_by ? ' ('.esc_html((string) (get_userdata((int) $row->granted_by)->display_name ?? '#'.$row->granted_by)).')' : '');
     }
 
@@ -144,6 +153,11 @@ final class AccessPages
             __('Quelle', 'bootspruefung-learning') => $this->sourceCell($row),
             __('Produkt/SKU', 'bootspruefung-learning') => esc_html(trim(($row->product_id ? '#'.$row->product_id.($row->variation_id ? '/'.$row->variation_id : '') : '–').' '.($row->sku_snapshot ?? ''))),
             __('Letzter Grund', 'bootspruefung-learning') => esc_html((string) $row->reason),
+            // Supportansicht Kursgutschein: Gutschein, Einlöse-ID, Zeitpunkt und Herkunft der Freischaltung.
+            __('Gutschein', 'bootspruefung-learning') => $row->source === EntitlementService::SOURCE_VOUCHER ? esc_html(trim((isset($meta['voucher_id']) ? '#'.(int) $meta['voucher_id'] : '–').' '.(string) ($meta['grant_source'] ?? ''))) : '–',
+            __('Einlöse-ID', 'bootspruefung-learning') => $row->source === EntitlementService::SOURCE_VOUCHER ? '<code>'.esc_html((string) ($meta['redemption_key'] ?? '')).'</code>' : '–',
+            __('Eingelöst am', 'bootspruefung-learning') => $row->source === EntitlementService::SOURCE_VOUCHER ? esc_html(Ui::date((string) ($meta['redeemed_at'] ?? $row->created_at))) : '–',
+            __('Herkunft', 'bootspruefung-learning') => $row->source === EntitlementService::SOURCE_VOUCHER ? esc_html((string) ($meta['source_reference'] ?? '')) : '–',
             __('Manuelle Entscheidung', 'bootspruefung-learning') => isset($meta['manual']) ? esc_html(sprintf('%s – %s (%s)', Labels::status((string) $meta['manual']['status']), (string) $meta['manual']['reason'], Ui::date((string) $meta['manual']['at']))) : '–',
         ]);
 

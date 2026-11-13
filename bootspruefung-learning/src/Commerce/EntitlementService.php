@@ -16,6 +16,8 @@ final class EntitlementService
 {
     public const SOURCE_WOO = 'woocommerce';
     public const SOURCE_MANUAL = 'manual';
+    /** Kursgutschein (externe Einlösung, z. B. Voucher Captain) – siehe VoucherGrants. */
+    public const SOURCE_VOUCHER = 'voucher';
 
     private string $table;
 
@@ -238,6 +240,85 @@ final class EntitlementService
         }
     }
 
+    // ------------------------------------------------------------ Zugänge aus externen Einlösungen (Kursgutscheine)
+
+    /** @return list<object> Zugänge mit dieser Referenz (eine Einlösung = eine Referenz, je Kurs/Bereich ein Zugang) */
+    public function forReference(string $reference): array
+    {
+        return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->table} WHERE reference_key = %s ORDER BY course_code, feature_code", $reference));
+    }
+
+    /**
+     * Legt je Zuordnungszeile („Lernzugang“ des Kursprodukts) einen aktiven Zugang mit derselben Referenz an.
+     * Idempotent über den eindeutigen Schlüssel reference_scope: eine Wiederholung legt nichts doppelt an.
+     * Laufzeit wie beim Kauf: ab $start, Dauer und Verlängerungsregel aus der Zuordnung (setValidity()).
+     *
+     * @param list<object>        $mappings Zeilen aus ProductAccessRepository::forItem()
+     * @param array<string,mixed> $context  zusätzliche Angaben für meta (voucher_id, redemption_key, …)
+     * @return array{ids:list<int>,created:int}
+     */
+    public function grantFromReference(string $source, string $reference, int $userId, array $mappings, int $productId, int $variationId, string $sku, string $start, array $context, string $reason): array
+    {
+        $ids = [];
+        $created = 0;
+        $now = self::now();
+        foreach ($mappings as $m) {
+            $data = [
+                'user_id' => $userId, 'course_code' => $m->course_code, 'feature_code' => $m->feature_code, 'status' => EntitlementPlanner::ACTIVE,
+                'source' => $source, 'reference_key' => $reference, 'order_id' => null, 'order_item_id' => null,
+                'product_id' => $productId ?: null, 'variation_id' => $variationId ?: null, 'sku_snapshot' => $sku !== '' ? substr($sku, 0, 100) : null,
+                'idempotency_key' => substr(hash('sha256', $reference.'|'.$m->course_code.'|'.$m->feature_code), 0, 64),
+                'meta' => wp_json_encode(['duration_days' => $m->duration_days !== null ? (int) $m->duration_days : null, 'renewal_mode' => (string) $m->renewal_mode, 'refund_rule' => (string) $m->refund_rule] + $context),
+                'reason' => $reason, 'created_at' => $now, 'updated_at' => $now,
+            ];
+            $suppress = $this->db->suppress_errors(true);
+            $ok = $this->db->insert($this->table, $data);
+            $this->db->suppress_errors($suppress);
+            if ($ok) {
+                $id = (int) $this->db->insert_id;
+                $this->setValidity($id, $start);
+                $created++;
+                $ids[] = $id;
+                continue;
+            }
+            // Gleichzeitig oder früher angelegt (eindeutiger Schlüssel): den vorhandenen Zugang zurückgeben.
+            $existing = $this->db->get_var($this->db->prepare(
+                "SELECT id FROM {$this->table} WHERE reference_key = %s AND course_code = %s AND feature_code = %s",
+                $reference, $m->course_code, $m->feature_code
+            ));
+            if ($existing !== null) {
+                $ids[] = (int) $existing;
+            }
+        }
+
+        return ['ids' => $ids, 'created' => $created];
+    }
+
+    /**
+     * Widerruft die Zugänge einer Referenz nach ihrer Erstattungsregel: „keep“ bleibt bestehen, sonst widerrufen.
+     *
+     * @return array{revoked:int,kept:int}
+     */
+    public function revokeReference(string $reference, string $reason): array
+    {
+        $revoked = 0;
+        $kept = 0;
+        foreach ($this->forReference($reference) as $row) {
+            if ((EntitlementPlanner::meta($row)['refund_rule'] ?? '') === 'keep') {
+                $kept++;
+                continue;
+            }
+            if ($row->status === EntitlementPlanner::REVOKED) {
+                continue;
+            }
+            $this->db->update($this->table, ['status' => EntitlementPlanner::REVOKED, 'reason' => $reason, 'updated_at' => self::now()], ['id' => (int) $row->id]);
+            $this->restackIfNeeded($row, EntitlementPlanner::REVOKED);
+            $revoked++;
+        }
+
+        return ['revoked' => $revoked, 'kept' => $kept];
+    }
+
     // ------------------------------------------------------------ manuelle Aktionen (Kap. 7.6)
 
     /**
@@ -352,8 +433,9 @@ final class EntitlementService
         $args = [];
         if (($filter['search'] ?? '') !== '') {
             $like = '%'.$this->db->esc_like($filter['search']).'%';
-            $where[] = '(u.user_email LIKE %s OR u.user_login LIKE %s OR u.display_name LIKE %s OR e.sku_snapshot LIKE %s OR e.user_id = %d)';
-            array_push($args, $like, $like, $like, $like, (int) $filter['search']);
+            // Auch nach Referenz (z. B. Einlöse-ID eines Kursgutscheins „voucher:…“) für den Support.
+            $where[] = '(u.user_email LIKE %s OR u.user_login LIKE %s OR u.display_name LIKE %s OR e.sku_snapshot LIKE %s OR e.reference_key LIKE %s OR e.user_id = %d)';
+            array_push($args, $like, $like, $like, $like, $like, (int) $filter['search']);
         }
         foreach (['course' => 'e.course_code', 'status' => 'e.status', 'source' => 'e.source'] as $key => $col) {
             if (($filter[$key] ?? '') !== '') {

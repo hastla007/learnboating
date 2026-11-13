@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.11.0
+  version: 1.12.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -2012,6 +2012,73 @@ paths:
               schema: {$ref: '#/components/schemas/CouponRedemptionResponse'}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
+  /vouchers/check:
+    post:
+      tags: [Coupons]
+      operationId: checkCourseVoucher
+      summary: Kursgutschein prüfen (Vorschau, löst nichts ein)
+      description: >-
+        Seit 1.12.0. Kursgutscheine (z. B. aus dem Voucher-Captain-Shop) schalten einen Kurs frei. Der Nutzer
+        ist immer der angemeldete Nutzer des Tokens. Liefert Kursprodukt, Kurse und die geplante Laufzeit je
+        Bereich (`starts_at`/`ends_at` ab jetzt; bei vorhandenem befristetem Zugang und Verlängerungsregel
+        „verlängern“ ab dessen Ende). Optional `course_id`: gehört der Gutschein zu einem anderen Kurs →
+        422 `VOUCHER_WRONG_COURSE`. Fehlercodes wie bei `/vouchers/redeem`. Limit: 30 Versuche je Stunde.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CourseVoucherRequest'}
+      responses:
+        '200':
+          description: Gutschein einlösbar
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CourseVoucherResponse'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+  /vouchers/redeem:
+    post:
+      tags: [Coupons]
+      operationId: redeemCourseVoucher
+      summary: Kursgutschein einlösen („Mein Lernen“)
+      description: >-
+        Seit 1.12.0. Reserviert den Gutschein, schaltet den Kurs über die Produktzuordnung „Lernzugang“ frei
+        und verbucht den Gutschein erst danach. Die Laufzeit beginnt mit der Einlösung. Erneutes Senden
+        (auch ohne Idempotency-Key) ist sicher: derselbe Gutschein liefert dieselbe Freischaltung
+        (`reused: true`), es entsteht nie ein zweiter Zugang. Fehler: 422 `VOUCHER_INVALID` (unbekannt),
+        410 `VOUCHER_INVALID` (ungültig gemacht), 409 `VOUCHER_RESERVED` (gerade in einer offenen
+        Bestellung o. Ä.), 409 `VOUCHER_REDEEMED`, 410 `VOUCHER_EXPIRED`, 409 `VOUCHER_NOT_YET_VALID`,
+        422 `VOUCHER_WRONG_COURSE`, 422 `VOUCHER_NOT_FOR_COURSES` (Shop-Gutschein), 403
+        `VOUCHER_NOT_ALLOWED` (für ein anderes Konto), 409 `ACCESS_NOT_POSSIBLE` (Kurs nicht angeboten,
+        Kursprodukt entfernt, Kurs schon dauerhaft freigeschaltet – `details.reason` nennt den Grund), 503
+        `TEMPORARY_ERROR` mit `retry_after` (Gutschein bleibt erhalten; erneut senden), 503
+        `COURSE_VOUCHERS_UNAVAILABLE` (kein Gutschein-Connector aktiv), 429 `RATE_LIMITED`.
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CourseVoucherRequest'}
+      responses:
+        '200':
+          description: Kurs freigeschaltet (oder bereits mit diesem Gutschein freigeschaltet)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CourseVoucherResponse'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /groups/join/{token}:
     get:
       tags: [Groups]
@@ -3659,6 +3726,64 @@ components:
         source: {type: [string, 'null']}
         source_url: {type: [string, 'null']}
         status: {type: string, enum: [known, practice, open]}
+    CourseVoucherRequest:
+      type: object
+      required: [code]
+      properties:
+        code: {type: string, minLength: 1, maxLength: 100}
+        course_id: {type: [string, integer, 'null'], description: 'Optional: Kurs, aus dem heraus eingelöst wird'}
+    CourseVoucherResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [kind, redeemed, product, courses]
+          properties:
+            kind: {type: string, enum: [course_voucher]}
+            redeemed: {type: boolean}
+            reused: {type: boolean, description: 'Nur bei redeem: true = dieser Gutschein war schon freigeschaltet'}
+            voucher:
+              type: object
+              properties:
+                code_hint: {type: string, description: 'letzte vier Zeichen'}
+                expires_at: {type: [string, 'null'], format: date-time}
+            product:
+              type: object
+              properties:
+                id: {type: integer}
+                variation_id: {type: integer}
+                name: {type: string}
+            courses:
+              type: array
+              items:
+                type: object
+                properties:
+                  course_id: {type: string}
+                  code: {type: string}
+                  name: {type: string}
+            preview:
+              type: array
+              description: 'Nur bei check'
+              items:
+                type: object
+                properties:
+                  course: {type: string}
+                  feature: {type: string}
+                  existing: {type: string, enum: [none, until, permanent]}
+                  starts_at: {type: [string, 'null'], format: date-time}
+                  ends_at: {type: [string, 'null'], format: date-time}
+            entitlements:
+              type: array
+              description: 'Nur bei redeem'
+              items:
+                type: object
+                properties:
+                  course: {type: string}
+                  feature: {type: string}
+                  status: {type: string}
+                  valid_from: {type: [string, 'null'], format: date-time}
+                  valid_until: {type: [string, 'null'], format: date-time}
     CouponRedemptionResponse:
       type: object
       required: [data]
