@@ -448,6 +448,90 @@ $check($target !== null && str_contains($target, 'checkemail=confirm') && count(
 $GLOBALS['pagenow'] = 'index.php';
 $r = $redirectOf(static fn () => retrieve_password('niemand@example.test'));
 $check($r === null, 'außerhalb von wp-login/„Mein Konto“ (z. B. App, Admin) greift die Umleitung nicht');
+remove_filter('wp_redirect', [LoginGuard::class, 'padRedirect'], PHP_INT_MAX);
+
+echo "Passwort vergessen: Antwortzeit verrät kein Konto (T110)\n";
+use Bootspruefung\Learning\Support\AfterResponse;
+
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$GLOBALS['pagenow'] = 'wp-login.php';
+$t110Login = 'sec_t110_'.wp_generate_password(6, false, false);
+$t110Id = wp_create_user($t110Login, wp_generate_password(20), $t110Login.'@example.test');
+// Unbekannte Adressen zählen im IP-Zähler mit: nach 10 Anfragen bekommt auch ein echtes Konto keine Mail mehr.
+$_SERVER['REMOTE_ADDR'] = '203.0.113.110';
+$mailsBefore = count($mails);
+for ($i = 0; $i < LoginGuard::FORGOT_PER_IP; $i++) {
+    $redirectOf(static fn () => retrieve_password('niemand-'.$i.'-'.wp_generate_password(6, false, false).'@example.test'));
+}
+$target = $redirectOf(static fn () => retrieve_password($t110Login));
+$check($target !== null && str_contains($target, 'checkemail=confirm') && count($mails) === $mailsBefore, 'unbekannte Adressen zählen je IP mit: danach dieselbe Bestätigung, keine Mail');
+// Antwort vor dem Mailversand (PHP-FPM/LiteSpeed): erst die Weiterleitung, dann Schlüssel und Mail; die Weiterleitung
+// von WordPress danach läuft ins Leere.
+$_SERVER['REMOTE_ADDR'] = '203.0.113.111';
+$defer = static fn () => true;
+add_filter('bootspruefung_defer_after_response', $defer);
+$seen = [];
+$record = static function ($location) use (&$seen, &$mails) {
+    $seen[] = [(string) $location, count($mails)];
+
+    return false; // in der Kommandozeile keine Kopfzeilen senden
+};
+add_filter('wp_redirect', $record, 0);
+$mailsBefore = count($mails);
+$r = retrieve_password($t110Login);
+$check($r === true && count($seen) === 1 && str_contains($seen[0][0], 'checkemail=confirm') && $seen[0][1] === $mailsBefore && count($mails) === $mailsBefore + 1, 'bekanntes Konto (wp-login): gleiche Bestätigung zuerst, Mail erst danach');
+$check(wp_safe_redirect(admin_url()) === false, 'zweite Weiterleitung nach vorzeitig gesendeter Antwort unterdrückt');
+remove_filter('wp_redirect', [LoginGuard::class, 'suppressRedirect'], PHP_INT_MAX);
+remove_filter('wp_redirect', $record, 0);
+$target = $redirectOf(static fn () => retrieve_password('niemand-'.wp_generate_password(6, false, false).'@example.test'));
+$check($target !== null && str_contains($target, 'checkemail=confirm') && count($mails) === $mailsBefore + 1, 'unbekannte Adresse: dieselbe Weiterleitung sofort, keine Mail');
+if (class_exists('WC_Shortcode_My_Account') && function_exists('wc_get_account_endpoint_url')) {
+    // WooCommerce „Mein Konto › Passwort vergessen“: gleiche Reihenfolge.
+    $GLOBALS['pagenow'] = 'index.php';
+    $_POST = ['wc_reset_password' => 'true', 'user_login' => $t110Login.'@example.test'];
+    $seen = [];
+    $mailsBefore = count($mails);
+    add_filter('wp_redirect', $record, 0);
+    $r = WC_Shortcode_My_Account::retrieve_password();
+    remove_filter('wp_redirect', $record, 0);
+    $check($r === true && count($seen) === 1 && str_contains($seen[0][0], 'reset-link-sent=true') && $seen[0][1] === $mailsBefore && count($mails) === $mailsBefore + 1, 'WooCommerce „Mein Konto“: Bestätigung zuerst, Mail danach');
+    remove_filter('wp_redirect', [LoginGuard::class, 'suppressRedirect'], PHP_INT_MAX);
+    $_POST['user_login'] = 'niemand-'.wp_generate_password(6, false, false).'@example.test';
+    $target = $redirectOf(static fn () => WC_Shortcode_My_Account::retrieve_password());
+    $check($target !== null && str_contains($target, 'reset-link-sent=true') && count($mails) === $mailsBefore + 1, 'WooCommerce „Mein Konto“: unbekannte Adresse bekommt dieselbe Bestätigung');
+    $_POST = [];
+    $GLOBALS['pagenow'] = 'wp-login.php';
+} else {
+    echo "  (WooCommerce nicht aktiv: „Mein Konto“-Teil übersprungen)\n";
+}
+remove_filter('bootspruefung_defer_after_response', $defer);
+// Rückfall ohne vorzeitiges Senden (mod_php): jede Antwort dauert gleich lang (Mindestdauer).
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$_SERVER['REMOTE_ADDR'] = '203.0.113.112';
+$short = static fn () => 0.4;
+add_filter('bootspruefung_neutral_response_seconds', $short);
+$requestStart = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+$_SERVER['REQUEST_TIME_FLOAT'] = $t0 = microtime(true);
+$redirectOf(static fn () => retrieve_password('niemand-'.wp_generate_password(6, false, false).'@example.test'));
+$unknownTime = microtime(true) - $t0;
+$_SERVER['REQUEST_TIME_FLOAT'] = $t0 = microtime(true);
+$mailsBefore = count($mails);
+$seen = [];
+add_filter('wp_redirect', $record, 0); // zeichnet auf, ohne abzubrechen – die Mindestdauer hängt an der letzten Priorität
+if (retrieve_password($t110Login) === true) {
+    wp_safe_redirect('wp-login.php?checkemail=confirm'); // wie wp-login.php nach dem Versand
+}
+$knownTime = microtime(true) - $t0;
+remove_filter('wp_redirect', $record, 0);
+$check(count($mails) === $mailsBefore + 1 && count($seen) === 1 && $unknownTime >= 0.38 && $knownTime >= 0.38 && abs($knownTime - $unknownTime) < 0.25, sprintf('Rückfall: bekannte und unbekannte Adresse gleich lang (%.2f s / %.2f s, Mindestdauer 0,4 s)', $knownTime, $unknownTime));
+$check(! has_filter('wp_redirect', [LoginGuard::class, 'padRedirect']), 'Rückfall: Mindestdauer nur für diese eine Weiterleitung');
+$requestStart === null ? $_SERVER['REQUEST_TIME_FLOAT'] = microtime(true) : $_SERVER['REQUEST_TIME_FLOAT'] = $requestStart;
+remove_filter('bootspruefung_neutral_response_seconds', $short);
+$check(AfterResponse::minSeconds() === AfterResponse::MIN_SECONDS && AfterResponse::possible() === false, 'Standard: 2 Sekunden Mindestdauer; Kommandozeile ohne vorzeitiges Senden');
+$GLOBALS['pagenow'] = 'index.php';
+require_once ABSPATH.'wp-admin/includes/user.php';
+wp_delete_user((int) $t110Id);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 remove_filter('pre_wp_mail', $catchMail, 10);
 
 echo "XML-RPC, Sitemap, Autoren, REST (SEC-01/SEC-02)\n";

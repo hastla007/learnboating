@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Security;
 
 use Bootspruefung\Learning\Mobile\RateLimiter;
+use Bootspruefung\Learning\Support\AfterResponse;
 use WP_Error;
 use WP_User;
 
@@ -62,6 +63,9 @@ final class LoginGuard
         add_filter('woocommerce_lost_password_confirmation_message', static fn ($message): string => trim((string) $message.' '.self::resetHint()));
         add_filter('wp_login_errors', [self::class, 'resetHintOnLogin'], 10, 1);
         add_filter('shake_error_codes', static fn ($codes): array => array_merge((array) $codes, ['bp_login_failed', 'bp_login_locked']));
+        // Passwort vergessen (T110): Bestätigung vor dem Mailversand senden (lostPassword selbst hängt Hardening an).
+        add_filter('lostpassword_errors', [self::class, 'lostPasswordErrors'], PHP_INT_MAX, 2);
+        add_action('lostpassword_post', [self::class, 'lostPasswordLate'], PHP_INT_MAX, 2);
     }
 
     /**
@@ -346,15 +350,28 @@ final class LoginGuard
         return new WP_Error('bp_login_locked', '<strong>'.__('Fehler:', 'bootspruefung-learning').'</strong> '.__('Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.', 'bootspruefung-learning'));
     }
 
+    /** Reset-Mails je IP und Stunde (bekannte und unbekannte Adressen zählen, T110) bzw. je Konto und Stunde. */
+    public const FORGOT_PER_IP = 10;
+    public const FORGOT_PER_ACCOUNT = 3;
+
+    /** Ziel der Bestätigung, wenn die Mail für ein bekanntes Konto nach dem Senden der Antwort folgen soll. */
+    private static ?string $pendingReset = null;
+
     /**
      * Passwort vergessen (wp-login.php und WooCommerce „Mein Konto“): unbekannte Benutzernamen bzw.
-     * E-Mail-Adressen bekommen dieselbe Bestätigung wie bekannte; Reset-Mails je IP (10/h) und je
-     * Konto (3/h) begrenzt – wie in der App. Aktion lostpassword_post (wird von beiden aufgerufen).
+     * E-Mail-Adressen bekommen dieselbe Bestätigung wie bekannte; Reset-Mails je IP (10/h, unbekannte Adressen
+     * zählen mit) und je Konto (3/h) begrenzt – wie in der App. Aktion lostpassword_post (wird von beiden aufgerufen).
+     *
+     * Antwortzeit (T110): Für ein bekanntes Konto wird erst die Bestätigung gesendet (gleiche Weiterleitung wie bei
+     * unbekannten Adressen), danach erzeugen WordPress bzw. WooCommerce Schlüssel und Mail – siehe respondEarly().
+     * Wo sich die Antwort nicht vorzeitig abschließen lässt (mod_php), dauert jede Antwort gleich lang
+     * (AfterResponse::pad, Standard 2 Sekunden).
      * @param mixed $errors
      * @param mixed $userData
      */
     public static function lostPassword($errors, $userData = false): void
     {
+        self::$pendingReset = null;
         if (! $errors instanceof WP_Error || ! Hardening::enabled('lost_password')) {
             return;
         }
@@ -367,15 +384,90 @@ final class LoginGuard
         if ($target === null) {
             return; // anderer Aufrufer (Admin „Link senden“, App): nicht eingreifen
         }
+        // Je IP zählt jede Anfrage, auch für unbekannte Adressen (sonst ließen sich Adressen unbegrenzt durchprobieren).
+        $perIp = RateLimiter::increment('forgot-ip|'.RateLimiter::clientKey(), HOUR_IN_SECONDS);
         if ($userData instanceof WP_User) {
-            $perIp = RateLimiter::increment('forgot-ip|'.RateLimiter::clientKey(), HOUR_IN_SECONDS);
             $perUser = RateLimiter::increment('forgot-email|'.strtolower((string) $userData->user_email), HOUR_IN_SECONDS);
-            if ($perIp <= 10 && $perUser <= 3) {
-                return; // Mail wird wie gewohnt verschickt
+            if ($perIp <= self::FORGOT_PER_IP && $perUser <= self::FORGOT_PER_ACCOUNT) {
+                self::$pendingReset = $target; // Mail folgt; Antwort vorher senden (lostPasswordErrors / lostPasswordLate)
+
+                return;
             }
+        }
+        if (! AfterResponse::possible()) {
+            AfterResponse::pad(); // so lange wie eine Anfrage mit Mailversand
         }
         wp_safe_redirect($target);
         exit;
+    }
+
+    /**
+     * wp-login.php: Filter lostpassword_errors (letzte Priorität) – danach erzeugt WordPress Schlüssel und Mail.
+     * Ohne Fehler die Bestätigung jetzt senden.
+     * @param mixed $errors
+     * @param mixed $userData
+     * @return mixed
+     */
+    public static function lostPasswordErrors($errors, $userData = false)
+    {
+        $target = self::$pendingReset;
+        self::$pendingReset = null;
+        if ($target !== null && $errors instanceof WP_Error && ! $errors->has_errors() && $userData instanceof WP_User) {
+            self::respondEarly($target);
+        }
+
+        return $errors;
+    }
+
+    /**
+     * WooCommerce „Mein Konto › Passwort vergessen“: Aktion lostpassword_post (letzte Priorität) – WooCommerce kennt
+     * lostpassword_errors nicht und erzeugt direkt danach Schlüssel und Mail.
+     * @param mixed $errors
+     * @param mixed $userData
+     */
+    public static function lostPasswordLate($errors, $userData = false): void
+    {
+        if (self::$pendingReset === null || ! isset($_POST['wc_reset_password'])) { // phpcs:ignore WordPress.Security.NonceVerification -- WooCommerce prüft die Nonce vorher
+            return;
+        }
+        $target = self::$pendingReset;
+        self::$pendingReset = null;
+        if ($errors instanceof WP_Error && ! $errors->has_errors() && $userData instanceof WP_User) {
+            self::respondEarly($target);
+        }
+    }
+
+    /**
+     * Bekanntes Konto: Bestätigung (dieselbe Weiterleitung wie für unbekannte Adressen) sofort senden und die
+     * Verbindung schließen; WordPress bzw. WooCommerce erzeugen danach Schlüssel und Mail, ihre eigene Weiterleitung
+     * läuft ins Leere (suppressRedirect). Rückfall ohne fastcgi_finish_request: Mail sofort, die Weiterleitung
+     * danach wird auf die gemeinsame Mindestdauer gestreckt (padRedirect).
+     */
+    private static function respondEarly(string $target): void
+    {
+        if (AfterResponse::possible()) {
+            wp_safe_redirect($target);
+            AfterResponse::finish();
+            add_filter('wp_redirect', [self::class, 'suppressRedirect'], PHP_INT_MAX);
+
+            return;
+        }
+        add_filter('wp_redirect', [self::class, 'padRedirect'], PHP_INT_MAX);
+    }
+
+    /** Nach vorzeitig gesendeter Antwort: keine zweite Weiterleitung (Kopfzeilen sind schon weg). */
+    public static function suppressRedirect(mixed $location): bool
+    {
+        return false;
+    }
+
+    /** Rückfall: Weiterleitung nach dem Mailversand erst nach der Mindestdauer (einmalig). */
+    public static function padRedirect(mixed $location): mixed
+    {
+        remove_filter('wp_redirect', [self::class, 'padRedirect'], PHP_INT_MAX);
+        AfterResponse::pad();
+
+        return $location;
     }
 
     /** Ziel der Erfolgsmeldung im aktuellen Formular, sonst null. */

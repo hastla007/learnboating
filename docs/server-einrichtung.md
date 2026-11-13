@@ -86,6 +86,9 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   Ordner `uploads/bootspruefung-import/` wird nach dem Update einmalig geleert (Inhalt in den neuen Ordner
   verschoben) und gelöscht; solange dort noch etwas liegt, prüft ihn der Selbsttest mit, und die Importseite warnt.
   Nach einer erfolgreichen Übernahme löscht das Plugin die abgelegte ZIP-Datei bzw. den Paketordner.
+- **PHP-FPM bzw. LiteSpeed empfohlen (T110):** „Passwort vergessen“ (Web und App) schickt die Antwort vor dem
+  Mailversand ab (`fastcgi_finish_request` bzw. `litespeed_finish_request`), damit die Antwortzeit nicht verrät, ob
+  es ein Konto gibt. Mit mod_php dauert stattdessen jede dieser Antworten mindestens 2 Sekunden.
 - **Prüfen:** Bootsprüfung → Systemstatus, Abschnitt „Dateischutz“ (Selbsttest) und
   Bootsprüfung → Mobile App → „Server prüfen“ (kommt der Authorization-Header an?).
 

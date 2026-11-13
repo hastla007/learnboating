@@ -11,6 +11,7 @@ use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Mobile\TokenAuth;
 use Bootspruefung\Learning\Mobile\WebSession;
 use Bootspruefung\Learning\Security\LoginGuard;
+use Bootspruefung\Learning\Support\AfterResponse;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -117,45 +118,28 @@ final class AuthController extends BaseController
                 }
             });
         }
+        if (! AfterResponse::possible()) {
+            AfterResponse::pad(); // Rückfall (mod_php): Mail lief sofort – jede Antwort gleich lang machen (T110)
+        }
 
         return new WP_REST_Response(null, 202);
     }
 
-    /** @var list<callable():void> nach dem Senden der Antwort auszuführen */
-    private static array $deferred = [];
-
     /**
      * Arbeit nach dem Senden der Antwort erledigen (PHP-FPM: fastcgi_finish_request, LiteSpeed:
      * litespeed_finish_request). Ohne diese Möglichkeit (z. B. mod_php, Kommandozeile) sofort.
-     * Filter bootspruefung_defer_after_response erzwingt bzw. verhindert das Verschieben.
+     * Filter bootspruefung_defer_after_response erzwingt bzw. verhindert das Verschieben. Gemeinsam mit dem
+     * Web-Formular „Passwort vergessen“ (T110): Support\AfterResponse.
      */
     public static function afterResponse(callable $fn): void
     {
-        $finish = function_exists('fastcgi_finish_request') || function_exists('litespeed_finish_request');
-        if (! (bool) apply_filters('bootspruefung_defer_after_response', $finish && PHP_SAPI !== 'cli')) {
-            $fn();
-
-            return;
-        }
-        if (self::$deferred === []) {
-            add_action('shutdown', static function (): void {
-                if (function_exists('fastcgi_finish_request')) {
-                    fastcgi_finish_request();
-                } elseif (function_exists('litespeed_finish_request')) {
-                    litespeed_finish_request();
-                }
-                self::runDeferred();
-            }, 0);
-        }
-        self::$deferred[] = $fn;
+        AfterResponse::run($fn);
     }
 
     /** Verschobene Arbeit jetzt ausführen (Ende der Anfrage; Tests). */
     public static function runDeferred(): void
     {
-        while (($fn = array_shift(self::$deferred)) !== null) {
-            $fn();
-        }
+        AfterResponse::runDeferred();
     }
 
     /**

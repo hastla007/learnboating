@@ -151,6 +151,14 @@ Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Buil
   niemanden – nie den Anzeigenamen (oft der Anmeldename).
 - **Passwort vergessen in der App:** Antwort immer 202, gleich für bekannte und unbekannte Adressen. Reset-Schlüssel
   und Mail entstehen erst nach dem Senden der Antwort (PHP-FPM bzw. LiteSpeed), damit die Antwortzeit nichts verrät.
+- **Passwort vergessen im Web (T110):** wp-login.php und WooCommerce „Mein Konto › Passwort vergessen“ senden für ein
+  bekanntes Konto zuerst dieselbe Weiterleitung wie für unbekannte Adressen (`checkemail=confirm` bzw.
+  `reset-link-sent=true`) und schließen die Verbindung (`fastcgi_finish_request` bzw. `litespeed_finish_request`);
+  erst danach erzeugen WordPress bzw. WooCommerce Schlüssel und Mail. Ohne diese Funktionen (z. B. mod_php) dauert
+  jede Antwort – mit und ohne Konto – gleich lang, mindestens 2 Sekunden (Filter
+  `bootspruefung_neutral_response_seconds`; gilt ebenso für die App). Je IP zählen alle Anfragen, auch für unbekannte
+  Adressen (10 je Stunde), je Konto 3 Mails je Stunde; darüber kommt dieselbe Bestätigung ohne Mail.
+  Hinweis: Schlägt im Rückfall der Mailversand selbst fehl, zeigt wp-login.php weiter die Fehlermeldung von WordPress.
 - **Tipps:** Über die WordPress-Schnittstelle `/wp/v2/bp_tip` (und die Kategorien) lesen nur Konten mit
   Bearbeitungsrecht; der Block-Editor funktioniert wie bisher. Lernende lesen Tipps im Lernbereich.
 - **IPv6:** Alle Limits je IP zählen IPv6-Adressen je /64-Netz (`RateLimiter::clientKey()`): Anmeldung, Passwort
