@@ -128,6 +128,7 @@ final class Plugin
         \Bootspruefung\Learning\Infrastructure\RequestMemo::register();
         // Während einer fälligen Migration schreibende Lern-API-Anfragen mit 503 abweisen (T47).
         \Bootspruefung\Learning\Infrastructure\Maintenance::register();
+        \Bootspruefung\Learning\Admin\MailStatus::register(); // Absender angleichen, Testmail (T54)
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
         \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY, [self::class, 'hourly']);

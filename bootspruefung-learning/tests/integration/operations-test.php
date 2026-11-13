@@ -326,5 +326,41 @@ wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
 $after = rest_do_request(new WP_REST_Request('POST', '/bootspruefung/v1/courses/SBF-SEE/answers'));
 $check($after->get_status() !== 503, 'nach der Migration wieder normal');
 
+echo "Mailversand (T54)\n";
+$ms = \Bootspruefung\Learning\Admin\MailStatus::class;
+$fromBefore = get_option('woocommerce_email_from_address', null);
+$nameBefore = get_option('woocommerce_email_from_name', null);
+update_option('woocommerce_email_from_address', 'kurse@example.test');
+update_option('woocommerce_email_from_name', 'Testschule');
+$check(apply_filters('wp_mail_from', 'wordpress@example.test') === 'kurse@example.test' && apply_filters('wp_mail_from_name', 'WordPress') === 'Testschule', 'WordPress-Mails mit dem Shop-Absender');
+$check(apply_filters('wp_mail_from', 'info@eigene.test') === 'info@eigene.test' && apply_filters('wp_mail_from_name', 'Eigener Name') === 'Eigener Name', 'eigene Absender-Einstellung bleibt');
+update_option('woocommerce_email_from_address', 'keine-adresse');
+$check(apply_filters('wp_mail_from', 'wordpress@example.test') === 'wordpress@example.test', 'ohne gültigen Shop-Absender unverändert');
+update_option('woocommerce_email_from_address', 'kurse@example.test');
+$sent = [];
+$catchMail = static function ($short, $atts) use (&$sent) { $sent[] = $atts; return true; };
+add_filter('pre_wp_mail', $catchMail, 10, 2);
+$res = $ms::sendTest('admin@example.test');
+$check($res['ok'] && count($sent) === 1 && $sent[0]['to'] === 'admin@example.test' && str_contains(implode("\n", (array) $sent[0]['headers']), 'From: Testschule <kurse@example.test>') && get_option($ms::OPTION_TEST)['ok'] === true, 'Testmail mit Absender, Ergebnis gespeichert');
+$check(str_contains($ms::transport(), 'pre_wp_mail'), 'Versandweg erkannt');
+remove_filter('pre_wp_mail', $catchMail, 10);
+$failMail = static function () {
+    do_action('wp_mail_failed', new WP_Error('wp_mail_failed', 'SMTP connect() failed.'));
+
+    return false;
+};
+add_filter('pre_wp_mail', $failMail);
+$res = $ms::sendTest('admin@example.test');
+$check(! $res['ok'] && $res['error'] === 'SMTP connect() failed.', 'fehlgeschlagene Testmail mit Fehlermeldung');
+remove_filter('pre_wp_mail', $failMail);
+$rows = $ms::rows();
+$check(isset($rows['SPF'], $rows['DMARC'], $rows['DKIM']) && str_contains($rows['Letzte Testmail'], 'fehlgeschlagen: SMTP connect() failed.') && $ms::domain('a@B.example') === 'b.example', 'Statuszeilen (SPF, DMARC, DKIM, letzte Testmail)');
+ob_start();
+$ms::render();
+$check(str_contains((string) ob_get_clean(), 'E-Mail-Versand'), 'Abschnitt im Systemstatus');
+delete_option($ms::OPTION_TEST);
+$fromBefore === null ? delete_option('woocommerce_email_from_address') : update_option('woocommerce_email_from_address', $fromBefore);
+$nameBefore === null ? delete_option('woocommerce_email_from_name') : update_option('woocommerce_email_from_name', $nameBefore);
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);
