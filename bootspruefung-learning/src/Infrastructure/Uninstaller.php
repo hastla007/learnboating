@@ -47,6 +47,7 @@ final class Uninstaller
         'bp_money_back_notice_', 'bp_price_errors_', 'bp_price_input_', 'bp_catalog_skipped_', 'bp_privacy_notice_',
         'bp_voucher_notice_', 'bp_protect_notice_', 'bp_oss_totals_', 'bp_paypal_token_', 'bp_webhook_rejected_',
         'bp_dispute_',             // verarbeitete Konflikt-Webhooks (Doppel-Erkennung)
+        'bp_rl_',                  // Antwort-Begrenzung je Nutzer und Minute (LearningService)
     ];
 
     /** Eigene Transients mit festem Namen. */

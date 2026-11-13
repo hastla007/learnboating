@@ -44,7 +44,7 @@ if ($deleting) {
         'bp_learning_uninstall_probe' => 1, 'bp_dispute_lock_42' => 'x|'.time(), 'bp_voucher_grant_'.md5('t82') => 'x|'.time()] as $name => $value) {
         update_option($name, $value, false);
     }
-    foreach (['bp_learning_video_hosts', 'bp_paypal_token_'.md5('t82'), 'bp_oss_totals_2026', 'bp_webhook_rejected_paypal', 'bp_paypal_verify_calls', 'bp_learning_flash_1', 'bp_dispute_'.md5('t82')] as $name) {
+    foreach (['bp_learning_video_hosts', 'bp_paypal_token_'.md5('t82'), 'bp_oss_totals_2026', 'bp_webhook_rejected_paypal', 'bp_paypal_verify_calls', 'bp_learning_flash_1', 'bp_dispute_'.md5('t82'), 'bp_rl_1_1'] as $name) {
         set_transient($name, 'x', HOUR_IN_SECONDS);
     }
     foreach ($foreignOptions as $name) {
