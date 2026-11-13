@@ -145,6 +145,25 @@ final class VideoService
     }
 
     /** @return array<string,mixed> */
+    /**
+     * Untertitel einer Lektion (T62). Einstellung „WebVTT neben dem Video“: gleiche Adresse, Endung .vtt statt
+     * .mp4/.webm/.m4v/.mov. Filter bootspruefung_video_captions_url für andere Ablagen (null = keine Untertitel).
+     * Liegt die .vtt-Datei auf einem fremden Server, muss er CORS erlauben (Access-Control-Allow-Origin).
+     */
+    public static function captionsUrl(string $videoUrl, int $lessonId): ?string
+    {
+        $default = null;
+        if ($videoUrl !== '' && \Bootspruefung\Learning\Settings\Settings::get('video_captions') === 'vtt') {
+            $path = (string) wp_parse_url($videoUrl, PHP_URL_PATH);
+            if (preg_match('/\.(mp4|webm|m4v|mov)$/i', $path)) {
+                $default = (string) preg_replace('/\.(mp4|webm|m4v|mov)(?=($|[?#]))/i', '.vtt', $videoUrl, 1);
+            }
+        }
+        $url = apply_filters('bootspruefung_video_captions_url', $default, $videoUrl, $lessonId);
+
+        return is_string($url) && str_starts_with($url, 'https://') || is_string($url) && str_starts_with($url, home_url('/')) ? $url : null;
+    }
+
     public function lesson(int $userId, object $course, int $lessonId): array
     {
         $this->require($userId, $course);
@@ -192,6 +211,8 @@ final class VideoService
             // Liegt das Video auf einem fremden Server, lädt die Web-App es erst nach Einwilligung bzw. Klick (T23).
             'video_host' => $lesson->is_placeholder ? null : self::externalHost((string) $lesson->video_url),
             'placeholder' => (bool) $lesson->is_placeholder,
+            // Untertitel (WebVTT, T62): null ohne Untertitel.
+            'captions_url' => $lesson->is_placeholder ? null : self::captionsUrl((string) $lesson->video_url, (int) $lesson->id),
             'duration' => $lesson->duration_seconds === null ? null : (int) $lesson->duration_seconds,
             'completed' => (bool) ($progress->completed ?? false),
             'position' => (int) ($progress->position_seconds ?? 0),

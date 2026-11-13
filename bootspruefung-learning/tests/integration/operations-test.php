@@ -389,5 +389,20 @@ $hourlyBefore === null ? delete_option($mon::OPTION_HOURLY) : update_option($mon
 $dropins = dirname(__DIR__, 2).'/dropins';
 $check(is_file($dropins.'/maintenance.php') && is_file($dropins.'/php-error.php') && str_contains((string) file_get_contents($dropins.'/maintenance.php'), 'http_response_code(503)'), 'Vorlagen für Wartungs- und Fehlerseite (Drop-ins)');
 
+echo "Untertitel der Lernvideos (T62)\n";
+$vs = \Bootspruefung\Learning\Trainers\VideoService::class;
+$setBefore = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
+$check($vs::captionsUrl('https://videos.example.test/sbf/lektion-01.mp4', 1) === null, 'Standard: keine Untertitel');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['video_captions' => 'vtt']));
+$check($vs::captionsUrl('https://videos.example.test/sbf/lektion-01.mp4', 1) === 'https://videos.example.test/sbf/lektion-01.vtt'
+    && $vs::captionsUrl('https://videos.example.test/a.webm?sig=x', 1) === 'https://videos.example.test/a.vtt?sig=x'
+    && $vs::captionsUrl('https://player.example.test/embed/123', 1) === null, 'WebVTT neben dem Video (auch mit Parametern), keine Vermutung ohne Dateiendung');
+$capFilter = static fn ($default, $video, $id) => $id === 7 ? 'https://cdn.example.test/untertitel/7.vtt' : ($id === 8 ? 'http://unsicher.example.test/8.vtt' : $default);
+add_filter('bootspruefung_video_captions_url', $capFilter, 10, 3);
+$check($vs::captionsUrl('https://videos.example.test/x.mp4', 7) === 'https://cdn.example.test/untertitel/7.vtt' && $vs::captionsUrl('https://videos.example.test/x.mp4', 8) === null, 'Filter für eigene Ablage; nur HTTPS');
+remove_filter('bootspruefung_video_captions_url', $capFilter, 10);
+$check(\Bootspruefung\Learning\Settings\Settings::sanitize(['video_captions' => 'quatsch'])['video_captions'] === 'off', 'Einstellung nur off/vtt');
+$setBefore === false ? delete_option(\Bootspruefung\Learning\Settings\Settings::OPTION) : update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $setBefore);
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

@@ -31,6 +31,8 @@ final class Settings
         // Bestätigte Datenschutz-Anträge sofort ausführen: Export per Download-Link, Löschung inkl. Kundenkonto
         // (Bestellungen je nach WooCommerce-Einstellung anonymisiert). Aus = WordPress-Standard (Werkzeuge).
         'privacy_requests_auto' => true,
+        // Untertitel der Lernvideos (T62): 'vtt' = WebVTT-Datei neben dem Video (gleicher Name, Endung .vtt).
+        'video_captions' => 'off',
     ];
 
     /** @return array<string,mixed> */
@@ -102,6 +104,7 @@ final class Settings
             'expiry_reminder_enabled' => array_key_exists('expiry_reminder_enabled', $input) ? ! empty($input['expiry_reminder_enabled']) : self::DEFAULTS['expiry_reminder_enabled'],
             'expiry_reminder_days' => isset($input['expiry_reminder_days']) && (int) $input['expiry_reminder_days'] > 0 ? min(90, (int) $input['expiry_reminder_days']) : self::DEFAULTS['expiry_reminder_days'],
             'privacy_requests_auto' => array_key_exists('privacy_requests_auto', $input) ? ! empty($input['privacy_requests_auto']) : self::DEFAULTS['privacy_requests_auto'],
+            'video_captions' => in_array($input['video_captions'] ?? '', ['off', 'vtt'], true) ? $input['video_captions'] : 'off',
             'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' && $brand !== self::BRAND_PLACEHOLDER ? mb_substr($brand, 0, 60) : '',
         ];
     }

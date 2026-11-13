@@ -458,4 +458,24 @@ final class PackageTest extends TestCase
             self::assertLessThan((int) ceil($rule['passing_rule']['min_correct_ratio'] * $total - 1e-9), $free, $code);
         }
     }
+
+    /** Echte Videos (T62): Pflegedatei data/video_urls.json – Kommentare, nur HTTPS. */
+    public function testVideoUrlsFile(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'vu');
+        file_put_contents($file, json_encode(['_hinweis' => 'Kommentar', 'SBF-SEE::Kapitel::Lektion' => 'https://videos.example.test/a.mp4']));
+        self::assertSame(['SBF-SEE::Kapitel::Lektion' => 'https://videos.example.test/a.mp4'], PackageBuilder::videoUrls($file));
+        file_put_contents($file, json_encode(['SBF-SEE::Kapitel::Lektion' => 'http://unsicher.example.test/a.mp4']));
+        try {
+            PackageBuilder::videoUrls($file);
+            self::fail('http:// muss abgelehnt werden');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('https://', $e->getMessage());
+        } finally {
+            unlink($file);
+        }
+        self::assertSame([], PackageBuilder::videoUrls(sys_get_temp_dir().'/gibt-es-nicht.json'));
+        // Ausgelieferte Datei ist gültig (leer oder mit HTTPS-Adressen).
+        self::assertIsArray(PackageBuilder::videoUrls());
+    }
 }

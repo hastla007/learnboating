@@ -3033,6 +3033,11 @@
 		// auf das Vorschaubild klickt (T23). Ohne src lädt der Browser nichts vom fremden Server.
 		var external = !l.placeholder && !!l.video_url && !!l.video_host && !externalMediaAllowed();
 		var video = (!l.placeholder && l.video_url) ? el('video', external ? { class: 'bp-video', controls: true, preload: 'none' } : { class: 'bp-video', controls: true, preload: 'metadata', src: l.video_url }) : null;
+		// Untertitel (WebVTT, T62): Spur „Deutsch“, standardmäßig an. Fremde Server brauchen CORS (crossorigin).
+		if (video && l.captions_url) {
+			if (l.video_host) { video.setAttribute('crossorigin', 'anonymous'); }
+			video.appendChild(el('track', { kind: 'subtitles', srclang: 'de', label: t('video_captions_de'), src: l.captions_url, default: true }));
+		}
 		var alwaysBox = null;
 		if (external) {
 			var always = el('input', { type: 'checkbox', id: 'bp-vc-external-always' });

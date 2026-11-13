@@ -228,6 +228,7 @@ trait BuildsVideoCourses
     {
         $groups = SourceLiterals::constant($this->supportFile('ComboVideoGroups'), 'GROUPS');
         $placeholder = SourceLiterals::constant($this->seederFile('VideoCourseSeeder'), 'PLACEHOLDER_VIDEO');
+        $realUrls = self::videoUrls();
         $out = [];
         foreach (self::COURSES as $course) {
             $code = $course['code'];
@@ -242,6 +243,11 @@ trait BuildsVideoCourses
                 $lessons = [];
                 foreach ($this->vLessonsOf($moduleId) as $lesson) {
                     $lessonKey = $moduleKey.'::'.$lesson['title'];
+                    // Echte Videos (T62): eigene Pflegedatei data/video_urls.json ersetzt das Platzhaltervideo der Quelle.
+                    if (isset($realUrls[$lessonKey])) {
+                        $lesson['video_url'] = $realUrls[$lessonKey];
+                        unset($realUrls[$lessonKey]);
+                    }
                     $questions = $lesson['questions'];
                     asort($questions);
                     $lessons[] = [
@@ -272,6 +278,9 @@ trait BuildsVideoCourses
                 }
             }
         }
+        foreach (array_keys($realUrls) as $unknown) {
+            $this->report->warn('video_url_unknown_lesson', 'video_modules', (string) $unknown, 'data/video_urls.json nennt eine Lektion, die es nicht gibt (Schreibweise „Kurs::Kapitel::Lektion“ prüfen).');
+        }
         if ($this->placeholderLessons > 0) {
             $this->report->warn('video_placeholder', 'video_modules', null, "{$this->placeholderLessons} Lektionen verweisen auf das Platzhaltervideo der Quelle und müssen vor dem Livegang ersetzt werden.");
         }
@@ -280,6 +289,32 @@ trait BuildsVideoCourses
     }
 
     private int $placeholderLessons = 0;
+
+    /**
+     * Eigene Pflegedatei data/video_urls.json: Lektion („Kurs::Kapitel::Lektion“) => HTTPS-Adresse des echten Videos
+     * (T62). Schlüssel mit „_“ am Anfang sind Kommentare.
+     *
+     * @return array<string,string>
+     */
+    public static function videoUrls(string $file = __DIR__.'/../../data/video_urls.json'): array
+    {
+        if (! is_file($file)) {
+            return [];
+        }
+        $raw = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
+        $out = [];
+        foreach (is_array($raw) ? $raw : [] as $key => $url) {
+            if (is_string($key) && str_starts_with($key, '_')) {
+                continue; // Kommentare
+            }
+            if (! is_string($url) || ! preg_match('#^https://\S+$#', $url)) {
+                throw new \InvalidArgumentException('data/video_urls.json: Adresse für „'.$key.'“ muss mit https:// beginnen.');
+            }
+            $out[(string) $key] = $url;
+        }
+
+        return $out;
+    }
 
     // ------------------------------------------------------------------
 

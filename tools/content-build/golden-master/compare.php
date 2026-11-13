@@ -361,7 +361,9 @@ foreach ($q('SELECT c.code, m.title AS module, m.sort_order AS msort, l.id, l.ti
     $key = $r['code'].'::'.$n($r['module']);
     $lv[$key] ??= ['sort_order' => (int) $r['msort'], 'lessons' => []];
     if ($r['id'] !== null) {
-        $lv[$key]['lessons'][] = [$n($r['title']), (int) $r['sort_order'], (int) $r['duration_seconds'], $r['video_url'], $steps[$r['id']] ?? [], $quiz[$r['id']] ?? []];
+        // Eigene Pflegedatei data/video_urls.json (echte Videos statt Platzhalter, T62) auch auf der Laravel-Seite anwenden.
+        $videoUrls ??= PackageBuilder::videoUrls();
+        $lv[$key]['lessons'][] = [$n($r['title']), (int) $r['sort_order'], (int) $r['duration_seconds'], $videoUrls[$key.'::'.$n($r['title'])] ?? $r['video_url'], $steps[$r['id']] ?? [], $quiz[$r['id']] ?? []];
     }
 }
 $pk = [];

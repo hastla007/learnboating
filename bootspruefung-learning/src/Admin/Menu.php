@@ -192,6 +192,11 @@ final class Menu
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['default_access'], $value, false), esc_html($label));
         }
         echo '</select><p class="description">'.esc_html__('„Alle angemeldeten Nutzer“ ist für die Zeit vor dem Shopstart gedacht. Sobald Lernprodukte in WooCommerce verkauft werden, auf „Nur kostenlose Regeln und Freischaltungen“ umstellen – erst dann sperren Käufe, Erstattungen und Aussetzungen tatsächlich.', 'bootspruefung-learning').'</p></td></tr>';
+        printf('<tr><th scope="row">%s</th><td><select name="%s[video_captions]">', esc_html__('Untertitel der Lernvideos', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
+        foreach (['off' => __('Keine', 'bootspruefung-learning'), 'vtt' => __('WebVTT-Datei neben dem Video (gleicher Name, Endung .vtt)', 'bootspruefung-learning')] as $value => $label) {
+            printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['video_captions'] ?? 'off', $value, false), esc_html($label));
+        }
+        echo '</select><p class="description">'.esc_html__('Zum Beispiel lektion-01.mp4 und lektion-01.vtt im selben Ordner. Erst einschalten, wenn zu jedem Video eine Untertitel-Datei vorliegt. Bei einem fremden Video-Server muss dieser CORS für die Website erlauben.', 'bootspruefung-learning').'</p></td></tr>';
         printf('<tr><th scope="row">%s</th><td><select name="%s[radio_voice_output]">', esc_html__('Sprachausgabe Funktrainer', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['browser' => __('Browserstimme', 'bootspruefung-learning'), 'recording' => __('Lizenzierte Aufnahmen', 'bootspruefung-learning'), 'off' => __('Aus', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['radio_voice_output'], $value, false), esc_html($label));
