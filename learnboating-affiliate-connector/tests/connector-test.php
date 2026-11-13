@@ -18,8 +18,9 @@ namespace {
     $GLOBALS['test_hooks'] = [];
     $GLOBALS['test_contract'] = '1.1.0';
     $GLOBALS['wp'] = (object) ['query_vars' => ['rest_route' => '/boatingschool/v1/courses/1']];
-    function __($t, $d = null) { return $t; }
-    function esc_html__($t, $d = null) { return $t; }
+    $GLOBALS['test_translated'] = 0;
+    function __($t, $d = null) { $GLOBALS['test_translated']++; return $t; }
+    function esc_html__($t, $d = null) { $GLOBALS['test_translated']++; return $t; }
     function add_action(...$a) { return true; }
     function add_filter($hook, $cb, $p = 10, $n = 1) { $GLOBALS['test_hooks'][$hook] = $cb; return true; }
     function get_option($k, $d = false) { return $GLOBALS['test_options'][$k] ?? $d; }
@@ -75,6 +76,7 @@ namespace {
     $woo = ['source' => 'woocommerce', 'paid_at' => '2026-11-01 10:00:00', 'items' => []];
 
     Connector::boot();
+    $check($GLOBALS['test_translated'] === 0, 'T122: boot() (plugins_loaded, vor init) übersetzt nichts');
     $check(Connector::active() && isset($GLOBALS['test_hooks']['wpac_commission_base'], $GLOBALS['test_hooks']['wpac_hold_until'], $GLOBALS['test_hooks']['bootspruefung_shop_offer_url']), 'aktiv bei Vertrag 1.x, Filter registriert');
 
     $check(5000 === Connector::commissionBase(5000, ['sku' => 'BP-SBF-SEE', 'product_id' => 10], $woo), 'Kurs bleibt provisionsfähig');
@@ -123,8 +125,11 @@ namespace {
 
     $GLOBALS['test_contract'] = '2.0.0';
     $GLOBALS['test_hooks'] = [];
+    $GLOBALS['test_translated'] = 0;
     Connector::boot();
-    $check(! Connector::active() && str_contains(Connector::diagnose(), '2.0.0') && ! isset($GLOBALS['test_hooks']['wpac_commission_base']), 'inkompatibler Vertrag: kontrolliert inaktiv mit verständlicher Meldung');
+    $check($GLOBALS['test_translated'] === 0 && Connector::diagnose() === Connector::PROBLEM_CONTRACT && Connector::problem() === Connector::PROBLEM_CONTRACT, 'T122: inaktiv – boot() und diagnose() liefern nur den Fehlercode, ohne zu übersetzen');
+    $check(! Connector::active() && str_contains(Connector::problemText(), '2.0.0') && $GLOBALS['test_translated'] > 0 && ! isset($GLOBALS['test_hooks']['wpac_commission_base']), 'inkompatibler Vertrag: kontrolliert inaktiv, verständliche Meldung erst bei der Anzeige');
+    $check(Connector::problemText('') === '' && Connector::problemText(Connector::PROBLEM_CAPTAIN) !== '' && str_contains(Connector::problemText(Connector::PROBLEM_LEARNING_VERSION), Connector::MIN_LEARNING), 'Meldungen zu allen Fehlercodes');
 
     echo "\nAdd-on-Versionen (T92)\n";
     foreach (['learnboating-affiliate-connector' => 'LBAC_VERSION', 'learnboating-voucher-connector' => 'LBVC_VERSION'] as $slug => $const) {

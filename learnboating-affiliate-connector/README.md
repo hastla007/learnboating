@@ -11,7 +11,7 @@ Separat installierbares Add-on, das die **Bootsprüfung-Lernplattform** (`bootsp
 | Keine Provision auf | Gruppenpakete (Katalog-Gruppe `groups` oder Plätze in der Produktfreischaltung), Upgrades im Checkout (Videokurs-Upgrade `*-VIDEO`, `SIM-UPGRADE-CHECKOUT`) und frei konfigurierbare Artikelnummern (`BP-ADD-*`, `BP-PASS-1M`, …). Ergänzungskurse `BP-ADD-*` sind standardmäßig provisionsfähig. |
 | Haltefrist | Provision wird frühestens nach dem späteren Ende von **Geld-zurück-Garantie** (je Produkt, `_bp_money_back`) und **Widerrufsfrist** (Standard 14 Tage) plus Puffer (Standard 2 Tage) freigegeben. Ein späteres Datum von Affiliate Captain (Standard-Haltefrist) bleibt bestehen. |
 | Kurszugangscodes | `POST /coupons/redeem` und die Zugangscodes der App bleiben unberührt – Partnercodes und Zugangscodes sind getrennt. |
-| Diagnose | Fehlt Affiliate Captain oder meldet es eine andere Vertrags-Hauptversion, bleibt der Connector kontrolliert inaktiv und zeigt im Admin einen verständlichen Hinweis. Status auch unter *Affiliate Captain → Integrationen*. |
+| Diagnose | Fehlt Affiliate Captain oder meldet es eine andere Vertrags-Hauptversion, bleibt der Connector kontrolliert inaktiv und zeigt im Admin einen verständlichen Hinweis. Status auch unter *Affiliate Captain → Integrationen*. Die Prüfung beim Start (`plugins_loaded`) speichert nur einen Fehlercode (`Connector::diagnose()`), übersetzt wird erst bei der Anzeige (`Connector::problemText()`), also nie vor `init`. |
 
 Einstellungen: *Einstellungen → LearnBoating-Partner*.
 

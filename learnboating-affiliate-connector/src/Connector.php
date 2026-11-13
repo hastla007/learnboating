@@ -27,7 +27,13 @@ final class Connector
     /** Mindestversion der Lernplattform (videoUpgradeSkus() seit 0.12, Versionsvertrag seit 0.13). */
     public const MIN_LEARNING = '0.13.0';
 
-    /** Grund, warum der Connector inaktiv ist ('' = aktiv). */
+    /** Fehlercodes von diagnose() (T122: boot() läuft an plugins_loaded, vor init – dort wird nichts übersetzt). */
+    public const PROBLEM_CAPTAIN = 'captain_missing';
+    public const PROBLEM_CONTRACT = 'contract_mismatch';
+    public const PROBLEM_LEARNING = 'learning_missing';
+    public const PROBLEM_LEARNING_VERSION = 'learning_incompatible';
+
+    /** Fehlercode, warum der Connector inaktiv ist ('' = aktiv); der Text entsteht erst bei der Anzeige (problemText()). */
     private static string $problem = '';
     /** @var array<string,string> Partnercode je Rohwert, einmal je Anfrage aufgelöst. */
     private static array $resolved = [];
@@ -51,25 +57,52 @@ final class Connector
         add_filter('rest_post_dispatch', [self::class, 'leaveRest'], 99, 3);
     }
 
-    /** Leerer String, wenn alles kompatibel ist; sonst verständliche Fehlermeldung. */
+    /**
+     * Leerer String, wenn alles kompatibel ist; sonst ein Fehlercode (PROBLEM_*). Übersetzt nichts: boot() ruft das an
+     * plugins_loaded auf, vor init (sonst lädt WordPress die Übersetzung zu früh und meldet das, T122).
+     */
     public static function diagnose(): string
     {
         if (! function_exists('wpac_contract_version') || ! function_exists('wpac_resolve_partner_code')) {
-            return __('WP Affiliate Captain ist nicht aktiv.', 'learnboating-affiliate-connector');
+            return self::PROBLEM_CAPTAIN;
         }
         if (strtok((string) wpac_contract_version(), '.') !== strtok(self::CONTRACT, '.')) {
-            /* translators: 1: installierte Vertragsversion, 2: unterstützte Version */
-            return sprintf(__('WP Affiliate Captain meldet Vertragsversion %1$s; unterstützt wird %2$s.x.', 'learnboating-affiliate-connector'), (string) wpac_contract_version(), strtok(self::CONTRACT, '.'));
+            return self::PROBLEM_CONTRACT;
         }
         if (! class_exists(ShopCatalog::class) || ! class_exists(MoneyBack::class) || ! class_exists(ProductAccessRepository::class)) {
-            return __('Die Bootsprüfung-Lernplattform ist nicht aktiv oder zu alt.', 'learnboating-affiliate-connector');
+            return self::PROBLEM_LEARNING;
         }
         if (! self::learningCompatible()) {
-            /* translators: %s: benötigte Version der Lernplattform */
-            return sprintf(__('Die Bootsprüfung-Lernplattform ist zu alt oder inkompatibel (benötigt ab Version %s).', 'learnboating-affiliate-connector'), self::MIN_LEARNING);
+            return self::PROBLEM_LEARNING_VERSION;
         }
 
         return '';
+    }
+
+    /** Verständliche Meldung zu einem Fehlercode (Standard: aktueller Grund); erst bei der Anzeige übersetzt. */
+    public static function problemText(?string $code = null): string
+    {
+        $code ??= self::$problem;
+        switch ($code) {
+            case '':
+                return '';
+            case self::PROBLEM_CAPTAIN:
+                return __('WP Affiliate Captain ist nicht aktiv.', 'learnboating-affiliate-connector');
+            case self::PROBLEM_CONTRACT:
+                /* translators: 1: installierte Vertragsversion, 2: unterstützte Version */
+                return sprintf(__('WP Affiliate Captain meldet Vertragsversion %1$s; unterstützt wird %2$s.x.', 'learnboating-affiliate-connector'), function_exists('wpac_contract_version') ? (string) wpac_contract_version() : '?', strtok(self::CONTRACT, '.'));
+            case self::PROBLEM_LEARNING:
+                return __('Die Bootsprüfung-Lernplattform ist nicht aktiv oder zu alt.', 'learnboating-affiliate-connector');
+            default:
+                /* translators: %s: benötigte Version der Lernplattform */
+                return sprintf(__('Die Bootsprüfung-Lernplattform ist zu alt oder inkompatibel (benötigt ab Version %s).', 'learnboating-affiliate-connector'), self::MIN_LEARNING);
+        }
+    }
+
+    /** Aktueller Fehlercode ('' = aktiv). */
+    public static function problem(): string
+    {
+        return self::$problem;
     }
 
     /**
@@ -287,7 +320,7 @@ final class Connector
         if (self::$problem === '' || ! current_user_can('activate_plugins')) {
             return;
         }
-        printf('<div class="notice notice-error"><p><strong>%s</strong> %s %s</p></div>', esc_html__('LearnBoating-Partnerprogramm-Connector inaktiv:', 'learnboating-affiliate-connector'), esc_html(self::$problem), esc_html__('Bestellungen werden weiter von Affiliate Captain erfasst, aber ohne LearnBoating-Regeln.', 'learnboating-affiliate-connector'));
+        printf('<div class="notice notice-error"><p><strong>%s</strong> %s %s</p></div>', esc_html__('LearnBoating-Partnerprogramm-Connector inaktiv:', 'learnboating-affiliate-connector'), esc_html(self::problemText()), esc_html__('Bestellungen werden weiter von Affiliate Captain erfasst, aber ohne LearnBoating-Regeln.', 'learnboating-affiliate-connector'));
     }
 
     public static function menu(): void
@@ -299,7 +332,7 @@ final class Connector
     {
         $s = self::settings();
         echo '<div class="wrap"><h1>'.esc_html__('LearnBoating-Partnerprogramm', 'learnboating-affiliate-connector').'</h1>';
-        echo '<p>'.(self::$problem === '' ? '✅ '.esc_html__('Verbunden mit WP Affiliate Captain (Vertrag 1.x).', 'learnboating-affiliate-connector') : '⚠️ '.esc_html(self::$problem)).'</p>';
+        echo '<p>'.(self::$problem === '' ? '✅ '.esc_html__('Verbunden mit WP Affiliate Captain (Vertrag 1.x).', 'learnboating-affiliate-connector') : '⚠️ '.esc_html(self::problemText())).'</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="lbac_save">';
         wp_nonce_field('lbac_save');
         echo '<table class="form-table" role="presentation">';

@@ -11,6 +11,8 @@ Die Version steht im Plugin-Kopf (`Version:`) und in der Konstante `LBAC_VERSION
 - `Requires at least: 7.0`, `Update URI: false`, Autor „LearnBoating“ (Projektname, vom Betreiber festzulegen).
 - `uninstall.php` löscht die Einstellungen (`lbac_settings`), bei Multisite je Website (T82).
 - Übersetzbar: Sprachordner `languages/` mit Vorlage `.pot`, Text-Domain wird geladen (T89).
+- Keine Übersetzung mehr vor `init`: Die Prüfung beim Start (`plugins_loaded`) merkt sich nur einen Fehlercode,
+  der Hinweistext entsteht erst bei der Anzeige (sonst meldet WordPress das zu frühe Laden der Übersetzung, T122).
 
 ## 1.0.0 – 11.11.2026
 
