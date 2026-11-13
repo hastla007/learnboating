@@ -2823,6 +2823,12 @@ components:
         height: {type: [integer, 'null']}
         duration_seconds: {type: [integer, 'null']}
         placeholder_reason: {type: [string, 'null'], enum: [awaiting_asset, unavailable, null]}
+        external_host:
+          type: [string, 'null']
+          description: >-
+            Seit 1.11.0, nur bei Videos: Hostname eines fremden Video-Servers (nicht die Shop-Domain). Dann das Video
+            erst nach Einwilligung bzw. Antippen laden und vorher sagen, dass der Anbieter die IP-Adresse erhält
+            (wie der Web-Lernbereich). null = eigener Server.
     QuestionAnswerOption:
       type: object
       required: [id, label, text]

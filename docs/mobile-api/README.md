@@ -631,7 +631,8 @@ beibehalten, wo es passt. Abweichungen:
 6. **Sprache der WordPress-Mails** (Reset, Löschbestätigung) folgt der Website-Sprache; auf Staging
    englisch, live mit deutschem Sprachpaket deutsch.
 7. **Medien:** Videos sind Platzhalter. Für echte Videos klären: Hosting (Datenschutz, keine
-   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Fragenbilder liegen wie im
+   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Seit 1.11.0 meldet
+   `Media.external_host` einen fremden Video-Server; die App fragt dann vor dem Laden (wie das Web). Fragenbilder liegen wie im
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“ (seit 1.3.0 in der App):** serverseitig gespeichert
    (`PUT /exams/{examId}/answers/{position}/flag`, `flagged` in Prüfung und Ergebnis). Entschieden:
@@ -683,6 +684,9 @@ beibehalten, wo es passt. Abweichungen:
   „Bootsprüfung → Mobile App“; `null`, solange die App nicht im Store steht). Beim Pflicht-Update (426
   `APP_UPDATE_REQUIRED`) steht der Link der eigenen Plattform in `details.store_url`. Mit App-Store-Link
   zeigt Safari auf der Website das App-Banner (`apple-itunes-app`).
+- **Videos auf fremden Servern:** `Media.external_host` (nur Videos) nennt den Hostnamen, wenn das Video nicht auf
+  der Shop-Domain liegt. Die App lädt es dann erst nach Einwilligung bzw. Antippen und sagt vorher, dass der
+  Anbieter die IP-Adresse erhält (wie das Web: Hinweis im Vorschaubild, „künftig ohne Nachfrage“).
 
 - **Kursgutscheine (Gutschein-Plugin):** `POST /coupons/redeem` löst – wenn ein Gutschein-Plugin den
   WordPress-Filter `bootspruefung_voucher_redeem` belegt – auch Kursgutscheine ein. Der Kurs wird über

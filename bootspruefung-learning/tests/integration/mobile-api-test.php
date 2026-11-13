@@ -187,6 +187,8 @@ if ($draftWithdrawal !== null) {
 }
 $check(($h['body']['data']['min_app_version'] ?? null) === ['ios' => null, 'android' => null], '/health: ohne Vorgabe keine Mindestversion');
 $check(($h['body']['data']['store_urls'] ?? null) === ['ios' => null, 'android' => null], '/health: ohne Store-Einträge keine Store-Links');
+$mm = '\\Bootspruefung\\Learning\\Mobile\\Mapper\\MediaMapper';
+$check($mm::video('https://cdn.example-video.com/a.mp4', false, 60, 'T')['external_host'] === 'cdn.example-video.com' && $mm::video(home_url('/wp-content/uploads/a.mp4'), false, 60, 'T')['external_host'] === null, 'Video-Medium nennt fremden Host (external_host), eigener Server null');
 $meLinks = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null])['body']['data']['memberships'][0]['links'] ?? [];
 $check(($meLinks['imprint'] ?? null) === $legal['imprint'] && array_key_exists('terms', $meLinks), '/me: Links enthalten die Rechtstexte');
 $mobileBefore = MobileSettings::all();
