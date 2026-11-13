@@ -79,7 +79,11 @@ Reihenfolge:
 ## Updates einspielen
 
 Updates kommen nicht über die automatische Update-Funktion von WordPress (`Update URI: false` in allen vier
-Paketen). Sie werden von Hand als ZIP hochgeladen:
+Paketen). Sie werden von Hand als ZIP hochgeladen. Damit du von neuen Versionen erfährst, kannst du unter
+Bootsprüfung › Einstellungen › Betrieb „Auf neue Versionen prüfen“ einschalten (Standard aus): Höchstens einmal am Tag
+fragt die Website die GitHub-Releases ab (ohne Daten der Website); eine neuere Version erscheint als Admin-Hinweis und
+im Systemstatus („Neue Version“) mit Link zur Release-Seite – installiert wird nichts automatisch. Sicherheitsupdates
+erscheinen als Warnung (`docs/release-regel.md`, „Sicherheitsmitteilung“).
 
 1. **Vorher:** Änderungsprotokoll lesen (Text des Releases bzw. `CHANGELOG.md` im Paket; Plugin-Version, Schema- und
    App-API-Version). Sicherung von Datenbank und Uploads (`docs/backup-restore.md`).

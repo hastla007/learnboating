@@ -156,6 +156,7 @@ final class Menu
         echo '<table class="widefat striped" style="max-width:720px"><tbody>';
         $rows = [
             __('Plugin-Version', 'bootspruefung-learning') => $status['plugin_version'],
+            __('Neue Version', 'bootspruefung-learning') => \Bootspruefung\Learning\Infrastructure\UpdateCheck::statusLine(), // T117
             __('Datenbank-Schema', 'bootspruefung-learning') => sprintf('%s (%s: %s)', $status['schema_version'] ?? '–', __('erwartet', 'bootspruefung-learning'), $status['expected_schema_version']),
             __('Fremdschlüssel', 'bootspruefung-learning') => (string) $status['foreign_keys'],
             __('WooCommerce aktiv', 'bootspruefung-learning') => $woo['active'] ? $yes.' ('.$woo['version'].')' : $no,
@@ -233,7 +234,7 @@ final class Menu
         }
         settings_errors('bp_learning');
         // T104: Bereiche statt einer langen Liste; die Option-Schlüssel bleiben gleich.
-        echo '<p>'.esc_html__('Bereiche:', 'bootspruefung-learning').' <a href="#bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</a> · <a href="#bp-set-display">'.esc_html__('Darstellung und Lernen', 'bootspruefung-learning').'</a> · <a href="#bp-set-privacy">'.esc_html__('Datenschutz und Daten', 'bootspruefung-learning').'</a> · <a href="#bp-set-security">'.esc_html__('Sicherheit', 'bootspruefung-learning').'</a> · <a href="#bp-set-disputes">'.esc_html__('Zahlungskonflikte', 'bootspruefung-learning').'</a></p>';
+        echo '<p>'.esc_html__('Bereiche:', 'bootspruefung-learning').' <a href="#bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</a> · <a href="#bp-set-display">'.esc_html__('Darstellung und Lernen', 'bootspruefung-learning').'</a> · <a href="#bp-set-privacy">'.esc_html__('Datenschutz und Daten', 'bootspruefung-learning').'</a> · <a href="#bp-set-operations">'.esc_html__('Betrieb', 'bootspruefung-learning').'</a> · <a href="#bp-set-security">'.esc_html__('Sicherheit', 'bootspruefung-learning').'</a> · <a href="#bp-set-disputes">'.esc_html__('Zahlungskonflikte', 'bootspruefung-learning').'</a></p>';
         echo '<form method="post" action="options.php">';
         settings_fields('bp_learning');
         echo '<h2 id="bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
@@ -298,6 +299,7 @@ final class Menu
             esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände, Zugänge, Einstellungen, Tipps und importierten Medien entfernen (Seekarten werden gelöscht, geschützte Kurs-PDFs bleiben gesperrt unter uploads/bootspruefung/)', 'bootspruefung-learning')
         );
         echo '</tbody></table>';
+        \Bootspruefung\Learning\Infrastructure\UpdateCheck::renderSettingsSection($settings); // T117: Abschnitt „Betrieb“
         submit_button();
         echo '</form>';
         $this->renderSecurity();

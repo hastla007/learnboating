@@ -46,6 +46,33 @@ Installation, ZIP-Dateien und Reihenfolge: `docs/installation-und-updates.md`.
    `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“). Danach im Dashboard den Hinweis
    „Inhaltsseiten“ prüfen: Seiten mit Warnung „von dir bearbeitet“ von Hand angleichen.
 
+## Sicherheitsmitteilung (T117)
+
+Betreiber erfahren von neuen Versionen nur, wenn sie unter Bootsprüfung › Einstellungen › Betrieb „Auf neue Versionen
+prüfen“ eingeschaltet haben (Standard aus; keine Anfrage ohne Zustimmung, keine Telemetrie). Dann fragt das Plugin
+höchstens einmal am Tag `https://api.github.com/repos/hastla007/learnboating/releases/latest` ab (Konstante
+`BOOTSPRUEFUNG_UPDATE_SOURCE` bzw. Filter `bootspruefung_update_source`, nur https), ohne Daten der Website zu senden.
+Ist das neueste Release (kein Entwurf, keine Vorabversion) neuer als die installierte Version, erscheinen ein
+Admin-Hinweis (Dashboard, Plugins, Aktualisierungen, Bootsprüfung-Seiten) und im Systemstatus die Zeile „Neue
+Version“, beide mit Link zur Release-Seite. Installiert wird nie automatisch.
+
+Ablauf bei einer Sicherheitslücke:
+
+1. **Nicht öffentlich melden lassen**, bevor es eine Korrektur gibt: Meldungen über GitHub „Report a vulnerability“
+   (Security Advisory, privat) bzw. direkt an den Betreiber. Kein öffentliches Issue mit Details.
+2. Korrektur als **PATCH-Version** (z. B. 0.14.1), nur die Korrektur, ohne neue Funktionen. Schema nur ändern, wenn
+   es für die Korrektur nötig ist.
+3. Im obersten Eintrag von `bootspruefung-learning/CHANGELOG.md` als erste Zeile **„Sicherheitsupdate:“** mit einer
+   kurzen, für Betreiber verständlichen Beschreibung (was betroffen ist, ob Daten gefährdet waren, was zu tun ist –
+   keine Anleitung zum Ausnutzen). Das Wort „Sicherheitsupdate“ landet so im Text des GitHub-Releases; das Plugin
+   zeigt den Hinweis dann als Warnung („Sicherheitsupdate – bitte zeitnah einspielen“), die sich nur um einen Tag
+   vertagen lässt.
+4. Normaler Ablauf (CI grün, Tag, Release, Staging, Live), aber zügig. Eigene Websites sofort aktualisieren.
+5. Betreiber ohne eingeschaltete Prüfung zusätzlich direkt informieren (E-Mail), mit Link zum Release und dem Hinweis,
+   vorher zu sichern.
+6. Nach einer angemessenen Frist (wenn die Betreiber aktualisieren konnten) das GitHub Security Advisory
+   veröffentlichen.
+
 ## Downgrade
 
 Migrationen laufen nur vorwärts. Ein älteres Plugin auf einer neueren Datenbank migriert nichts mehr zurück und zeigt
