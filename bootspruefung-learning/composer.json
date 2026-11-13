@@ -6,8 +6,32 @@
     "require": {
         "php": ">=8.1"
     },
+    "require-dev": {
+        "php-stubs/woocommerce-stubs": "^10.0",
+        "php-stubs/wordpress-stubs": "^7.1",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.1",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "wp-coding-standards/wpcs": "^3.1"
+    },
     "autoload": {
         "psr-4": { "Bootspruefung\\Learning\\": "src/" }
     },
-    "config": { "sort-packages": true }
+    "scripts": {
+        "phpstan": "phpstan analyse --memory-limit=2G --no-progress",
+        "phpcs": "phpcs",
+        "phpcs-style": "phpcs --standard=WordPress --extensions=php --report=source --ignore=*/tests/*,*/vendor/* --runtime-set ignore_errors_on_exit 1 --runtime-set ignore_warnings_on_exit 1 bootspruefung-learning.php uninstall.php src dropins ../themes/kurswasser/functions.php ../themes/kurswasser/inc ../learnboating-affiliate-connector ../learnboating-voucher-connector"
+    },
+    "scripts-descriptions": {
+        "phpstan": "Statische Analyse (phpstan.neon.dist, Baseline phpstan-baseline.neon)",
+        "phpcs": "WordPress-Sicherheitsregeln als Fehler (phpcs.xml.dist, Baseline phpcs-baseline.xml)",
+        "phpcs-style": "Alle WordPress-Regeln als Übersicht, nie rot"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true
+        }
+    }
 }

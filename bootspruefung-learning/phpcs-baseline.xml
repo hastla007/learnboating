@@ -1,0 +1,178 @@
+<?xml version="1.0"?>
+<!--
+  Baseline der Sicherheitsregeln (T94, erzeugt aus dem Stand vom 13.11.2026): bekannte Funde je Regel und Datei.
+  Nicht erweitern. Eine Datei hier herausnehmen, sobald ihre Funde behoben oder begründet
+  (phpcs:ignore mit Begründung) sind. Zahl im Kommentar = Funde beim Erzeugen.
+-->
+<ruleset name="LearnBoating-Sicherheit-Baseline">
+    <rule ref="WordPress.DB.PreparedSQL.InterpolatedNotPrepared">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/AccessPages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Cli/Commands\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ExpiryReminder\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ShopCatalog\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Import/Retention\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Repositories/Overrides\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/RightsRelease\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Infrastructure/BackupCheck\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/AccessService\.php$</exclude-pattern><!-- 7 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/QuestionPresenter\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Mapper/CourseMapper\.php$</exclude-pattern><!-- 10 -->
+        <exclude-pattern>/bootspruefung-learning/src/Privacy/AccountDeletion\.php$</exclude-pattern><!-- 2 -->
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQL.NotPrepared">
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/MappingCheck\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ShopCatalog\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Repositories/Overrides\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/RightsRelease\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/QuestionPresenter\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/CourseController\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/PrivacyController\.php$</exclude-pattern><!-- 14 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Idempotency\.php$</exclude-pattern><!-- 10 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Mapper/CourseMapper\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/RateLimiter\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/TokenAuth\.php$</exclude-pattern><!-- 22 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/WebSession\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Privacy/PersonalData\.php$</exclude-pattern><!-- 14 -->
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber">
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ExpiryReminder\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/MoneyBack\.php$</exclude-pattern><!-- 2 -->
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare">
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/MappingCheck\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/MoneyBack\.php$</exclude-pattern><!-- 2 -->
+    </rule>
+    <rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped">
+        <exclude-pattern>/bootspruefung-learning/src/Cli/Commands\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/EntitlementService\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/GroupService\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/MappingCheck\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ShopCatalog\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/DigitalConsent\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/Integration\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/MemberDiscounts\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Import/EntityImporter\.php$</exclude-pattern><!-- 12 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Import/ImportService\.php$</exclude-pattern><!-- 25 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Media/MediaStorage\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Package/Package\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Package/SchemaValidator\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Content/Repositories/Overrides\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Exams/Services/ExamService\.php$</exclude-pattern><!-- 13 -->
+        <exclude-pattern>/bootspruefung-learning/src/Faq/CustomerFaq\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Gate/Charts\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Infrastructure/Database/Migrator\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/CollectionService\.php$</exclude-pattern><!-- 11 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/LearningService\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Learning/Services/QuestionPresenter\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/AppSettings\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/AccountController\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/AuthController\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/BaseController\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/CouponController\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/CourseController\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/ExamController\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/FaqController\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/FileController\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/GroupController\.php$</exclude-pattern><!-- 8 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/LearningController\.php$</exclude-pattern><!-- 29 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/PrivacyController\.php$</exclude-pattern><!-- 7 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/RadioController\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/SettingsController\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/TrainingController\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Controllers/VoucherController\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Idempotency\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/RateLimiter\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/TokenAuth\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/WebSession\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Rest/Controllers/ExamGuideController\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Rest/Controllers/GroupController\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Rest/Controllers/LearnerController\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Rest/Controllers/TrainerController\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Trainers/DeviceSimService\.php$</exclude-pattern><!-- 10 -->
+        <exclude-pattern>/bootspruefung-learning/src/Trainers/RadioPracticeService\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Trainers/RadioService\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Trainers/TrainerService\.php$</exclude-pattern><!-- 9 -->
+        <exclude-pattern>/bootspruefung-learning/src/Trainers/VideoService\.php$</exclude-pattern><!-- 5 -->
+    </rule>
+    <rule ref="WordPress.Security.EscapeOutput.OutputNotEscaped">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/AccessPages\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ContentPages\.php$</exclude-pattern><!-- 7 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/CustomerFaqAdmin\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/GoLiveNotice\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ImportPage\.php$</exclude-pattern><!-- 44 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/PricePage\.php$</exclude-pattern><!-- 11 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/Ui\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/Disputes/DisputeWebhooks\.php$</exclude-pattern><!-- 9 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ReminderOptOut\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/Integration\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/MoneyBackWoo\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/WithdrawalFunction\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Admin/MobileAdminPage\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Privacy/SelfService\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/themes/kurswasser/inc/content-pages\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/themes/kurswasser/inc/legal\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/themes/kurswasser/inc/setup\.php$</exclude-pattern><!-- 1 -->
+    </rule>
+    <rule ref="WordPress.Security.NonceVerification.Missing">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/AccessPages\.php$</exclude-pattern><!-- 34 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ImportPage\.php$</exclude-pattern><!-- 4 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/DigitalConsent\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Admin/MobileAdminPage\.php$</exclude-pattern><!-- 4 -->
+    </rule>
+    <rule ref="WordPress.Security.NonceVerification.Recommended">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ContentPages\.php$</exclude-pattern><!-- 9 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ImportPage\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/Menu\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/CartRelationHint\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/WithdrawalFunction\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/themes/kurswasser/inc/setup\.php$</exclude-pattern><!-- 3 -->
+    </rule>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput.InputNotSanitized">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ContentPages\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ExamGuidePages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ImportPage\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/PricePage\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/Disputes/DisputeWebhooks\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ReminderOptOut\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/ProductPanel\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/WithdrawalFunction\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Frontend/ReturnAfterLogin\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Gate/ContentGate\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Admin/MobileAdminPage\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/AppLinks\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/MobileApi\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/RateLimiter\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/TokenAuth\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/WebSession\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Privacy/AccountDeletion\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Security/Hardening\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Security/KnownDevice\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Security/LoginGuard\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/learnboating-affiliate-connector/src/Connector\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/themes/kurswasser/inc/content-pages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/themes/kurswasser/inc/operator\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/themes/kurswasser/inc/setup-shop\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/themes/kurswasser/inc/setup\.php$</exclude-pattern><!-- 1 -->
+    </rule>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput.MissingUnslash">
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ContentPages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/CustomerFaqAdmin\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/ExamGuidePages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Admin/FaqAdmin\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/Disputes/DisputeWebhooks\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/ReminderOptOut\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/bootspruefung-learning/src/Commerce/WooCommerce/WithdrawalFunction\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Frontend/ReturnAfterLogin\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/Admin/MobileAdminPage\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/AppLinks\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/MobileApi\.php$</exclude-pattern><!-- 5 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/RateLimiter\.php$</exclude-pattern><!-- 6 -->
+        <exclude-pattern>/bootspruefung-learning/src/Mobile/WebSession\.php$</exclude-pattern><!-- 2 -->
+        <exclude-pattern>/bootspruefung-learning/src/Privacy/AccountDeletion\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/bootspruefung-learning/src/Security/LoginGuard\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/learnboating-affiliate-connector/src/Connector\.php$</exclude-pattern><!-- 3 -->
+        <exclude-pattern>/themes/kurswasser/inc/content-pages\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/themes/kurswasser/inc/operator\.php$</exclude-pattern><!-- 1 -->
+        <exclude-pattern>/themes/kurswasser/inc/setup\.php$</exclude-pattern><!-- 1 -->
+    </rule>
+</ruleset>

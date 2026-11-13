@@ -1,0 +1,37 @@
+# Statische Analyse (T94): Lern-Plugin, Theme Kurswasser und beide Add-ons gegen die WordPress- und
+# WooCommerce-Stubs (szepeviktor/phpstan-wordpress, php-stubs/woocommerce-stubs; über phpstan/extension-installer).
+#
+#   cd bootspruefung-learning && composer install && composer phpstan
+#
+# Stufe: so hoch, dass der heutige Stand ohne neue Funde durchläuft; bekannte Funde stehen in
+# phpstan-baseline.neon (nicht von Hand pflegen: `vendor/bin/phpstan analyse --generate-baseline`).
+# Neue Funde lassen die CI rot werden. Die Baseline soll nur kleiner werden.
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    phpVersion:
+        min: 80100
+        max: 80500
+    paths:
+        - bootspruefung-learning.php
+        - uninstall.php
+        - src
+        - dropins
+        - ../themes/kurswasser/functions.php
+        - ../themes/kurswasser/inc
+        - ../learnboating-affiliate-connector/learnboating-affiliate-connector.php
+        - ../learnboating-affiliate-connector/src
+        - ../learnboating-voucher-connector/learnboating-voucher-connector.php
+        - ../learnboating-voucher-connector/src
+    bootstrapFiles:
+        - tests/phpstan/bootstrap.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
+        - tests/phpstan/wp-cli-stubs.php
+    # WP Affiliate Captain und Voucher Captain liegen nicht in diesem Repo; ihre Funktionen/Klassen sind
+    # unbekannt und stehen deshalb in der Baseline.
+    reportUnmatchedIgnoredErrors: true
+    tmpDir: ../build/phpstan

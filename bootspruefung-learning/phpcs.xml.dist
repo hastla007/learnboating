@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+  WordPress Coding Standards, Sicherheitsregeln (T94) für Lern-Plugin, Theme Kurswasser und beide Add-ons.
+
+    cd bootspruefung-learning && composer install
+    composer phpcs            Sicherheitsregeln als Fehler (wie in der CI; rot bei neuen Funden)
+    composer phpcs-style      alle WordPress-Regeln als Übersicht (nur zur Information, nie rot)
+
+  Blockierend sind nur WordPress.Security.* und WordPress.DB.PreparedSQL*. Der Code-Stil weicht bewusst von den
+  WordPress-Regeln ab (PSR-12-artig, Klassen mit Namensraum); diese Funde stehen nur in der Übersicht.
+  Bekannte Sicherheitsfunde stehen in phpcs-baseline.xml (Ausnahmen je Regel und Datei). Die Liste soll nur
+  kürzer werden: Funde in anderen Dateien oder unter anderen Regeln lassen die CI rot werden.
+-->
+<ruleset name="LearnBoating-Sicherheit">
+    <description>WordPress-Sicherheitsregeln als Fehler.</description>
+
+    <file>bootspruefung-learning.php</file>
+    <file>uninstall.php</file>
+    <file>src</file>
+    <file>dropins</file>
+    <file>../themes/kurswasser/functions.php</file>
+    <file>../themes/kurswasser/inc</file>
+    <file>../themes/kurswasser/patterns</file>
+    <file>../themes/kurswasser/legal</file>
+    <file>../learnboating-affiliate-connector/learnboating-affiliate-connector.php</file>
+    <file>../learnboating-affiliate-connector/src</file>
+    <file>../learnboating-voucher-connector/learnboating-voucher-connector.php</file>
+    <file>../learnboating-voucher-connector/src</file>
+
+    <arg name="extensions" value="php"/>
+    <arg name="basepath" value=".."/>
+    <arg name="parallel" value="8"/>
+    <arg value="sp"/>
+    <config name="minimum_wp_version" value="7.0"/>
+
+    <rule ref="WordPress.Security">
+        <type>error</type>
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQL">
+        <type>error</type>
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders">
+        <type>error</type>
+    </rule>
+
+    <rule ref="./phpcs-baseline.xml"/>
+</ruleset>

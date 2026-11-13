@@ -124,3 +124,25 @@ baut die ZIPs und legt das GitHub-Release mit ZIPs, `SHA256SUMS` und Änderungen
 
 Ein Tag gilt für alle vier Pakete. Ändert sich nur das Theme oder ein Add-on, ist das trotzdem eine Auslieferung;
 nach der Release-Regel bekommt dann auch das Lern-Plugin eine neue PATCH-Version, damit der Tag eindeutig bleibt.
+
+## Prüfungen in der CI vor einem Release (T90, T94)
+
+| Job | Prüft |
+|---|---|
+| WordPress-Plugin (Matrix) | alle Integrations- und Browser-Tests; PHP 8.5/WP 7.1.4 (Ziel), WooCommerce 11.3 Beta (informativ), Untergrenze PHP 8.1/WP 7.0.0/MariaDB 10.11 |
+| Auslieferungs-ZIP | baut die ZIPs mit `tools/release/build-zips.sh` (Artefakt `release-zips-<commit>`), installiert sie statt der Repo-Ordner und lässt Rauchtest, Import/Lernen, Zugänge, Betrieb und den Versionsabgleich des Themes laufen |
+| Update von der Vorversion | Vorversion 0.13.0 (fester Commit `PREV_REF`; ab dem ersten Release der letzte Tag) mit Daten, dann die neue ZIP darüber, Migration und Datenbestand prüfen, Tests weiter grün |
+| Statische Analyse | PHPStan Stufe 5 mit WordPress- und WooCommerce-Stubs (`bootspruefung-learning/phpstan.neon.dist`), WordPress Coding Standards: Sicherheitsregeln als Fehler (`phpcs.xml.dist`), alle übrigen Regeln nur als Übersicht |
+| Voucher Captain | Connector-Abnahme mit Voucher Captain aus dem externen Repo (fester Commit, informativ, darf scheitern) |
+
+Bekannte Funde stehen in Baselines (`bootspruefung-learning/phpstan-baseline.neon`, `phpcs-baseline.xml`); neue
+Funde machen die CI rot. Die Baselines sollen nur kleiner werden. Lokal:
+
+```bash
+cd bootspruefung-learning
+composer install          # nur Entwicklerwerkzeuge (require-dev); nicht auf dem Server
+composer phpstan
+composer phpcs            # Sicherheitsregeln (blockierend)
+composer phpcs-style      # alle WordPress-Regeln als Übersicht
+rm -rf vendor             # danach entfernen: ohne vendor/ nutzt das Plugin seinen eigenen Autoloader
+```
