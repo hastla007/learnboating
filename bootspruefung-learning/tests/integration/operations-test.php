@@ -508,7 +508,7 @@ for ($i = 0; $i < $level; $i++) {
 }
 $check($cleared, 'Ausgabepuffer vor der Datei vollständig geleert');
 $cd = $pf::contentDisposition('inline', 'Prüfungsbogen Küste "1".pdf');
-$check($cd === 'inline; filename="Prufungsbogen_Kuste_1.pdf"; filename*=UTF-8\'\''.rawurlencode('Prüfungsbogen Küste 1.pdf'), 'Content-Disposition mit filename und filename*=UTF-8 (Umlaute, ohne Anführungszeichen)');
+$check($cd === 'inline; filename="Prufungsbogen_Kuste_1_.pdf"; filename*=UTF-8\'\''.rawurlencode('Prüfungsbogen Küste "1".pdf'), 'Content-Disposition mit filename und filename*=UTF-8 (Umlaute, Anführungszeichen kodiert)');
 $check(\Bootspruefung\Learning\Mobile\Controllers\FileController::contentDisposition('attachment', 'ä.json') === $pf::contentDisposition('attachment', 'ä.json'), 'App und Web nutzen dieselbe Kopfzeile');
 // Speicherordner-Umzug nur, wenn etwas ansteht (nicht bei jedem Admin-Aufruf).
 $ms = \Bootspruefung\Learning\Content\Media\MediaStorage::class;

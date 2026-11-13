@@ -386,7 +386,7 @@ final class ProtectedFiles
      */
     public static function contentDisposition(string $type, string $filename): string
     {
-        $filename = str_replace(["\r", "\n", "\0", '"', '\\'], '', $filename);
+        $filename = str_replace(["\r", "\n", "\0"], '', $filename); // Anführungszeichen sind im ASCII-Teil ersetzt, im UTF-8-Teil kodiert
         $ascii = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', remove_accents($filename));
         $ascii = trim($ascii, '_') !== '' ? $ascii : 'download';
 
