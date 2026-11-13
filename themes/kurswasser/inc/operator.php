@@ -132,6 +132,20 @@ function kurswasser_operator_replacements(?array $data = null): array
     return array_filter($map, static fn ($v) => trim((string) $v) !== '');
 }
 
+/**
+ * Garantiegeber für Bestellmail und „Mein Lernen“ (Lern-Plugin, Filter bootspruefung_guarantor; To-do T52): Anbieter
+ * mit Anschrift und E-Mail aus den Betreiberangaben. Ohne vollständige Angaben bleibt der Standard des Plugins.
+ */
+add_filter('bootspruefung_guarantor', static function ($default) {
+    $d = kurswasser_operator_data();
+    if ($d['firma'] === '' || $d['strasse'] === '' || $d['plz_ort'] === '') {
+        return $default;
+    }
+    $parts = array_filter([$d['firma'], $d['strasse'], $d['plz_ort'], $d['land'], $d['email']], static fn ($v) => $v !== '');
+
+    return implode(', ', $parts);
+});
+
 /** Platzhalter einer Vorlage mit den eingetragenen Angaben ersetzen (Werte HTML-maskiert). */
 function kurswasser_operator_fill(string $html, ?array $data = null): string
 {

@@ -664,7 +664,10 @@ final class ShopCatalog
             'bundle' => str_starts_with($def['sku'], 'BP-PASS')
                 ? sprintf('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', $months)
                 : 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.',
-            'addon' => sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
+            // FKN → SKN: keine belegte verkürzte Prüfung; der Kurs enthält den vollständigen SKN-Katalog (T52/LIVE-07).
+            'addon' => $all === ['ADD-FKN-TO-SKN']
+                ? 'Du hast schon den Fachkundenachweis Seenotsignalmittel (FKN) und willst den SKN? Dieser Kurs enthält den vollständigen SKN-Fragenkatalog mit Prüfungssimulation. Welche Prüfungsteile dir angerechnet werden, sagt dir dein Prüfungsausschuss.'
+                : sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
             default => sprintf('Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone.', trim((string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0]))),
         };
         $items = [];

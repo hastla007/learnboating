@@ -120,6 +120,7 @@ final class Integration
         (new CartDuplicateHint())->register(); // Hinweis gegen Doppelkäufe (schon gekauft bzw. bestellt, Verlängerung)
         (new BankDetails())->register(); // Bankdaten bei offener Überweisung auch in der Bestellansicht (T50)
         (new PriceNote())->register();
+        (new ContractSummary())->register(); // Laufzeit je Position und Garantie-Erklärung in der Bestellmail (T52)
         (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();

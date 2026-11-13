@@ -111,6 +111,32 @@ $check(count($entitlements->forOrder($bacs)) === 2 && $statuses($bacs) === ['act
 $notes = wc_get_order_notes(['order_id' => $bacs]);
 $check((bool) array_filter($notes, static fn ($n) => str_contains($n->content, 'Lernzugang')), 'Bestellnotiz für den Support');
 
+echo "Vertragsbestätigung: Laufzeit je Position und Garantie (T52)\n";
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($video, 14, 20.0);
+$cs = \Bootspruefung\Learning\Commerce\WooCommerce\ContractSummary::class;
+$order = wc_create_order(['customer_id' => $alice]);
+$order->add_product(wc_get_product($video), 1);
+$order->add_product(wc_get_product($lern), 1);
+$order->add_product(wc_get_product($book), 1);
+$order->set_payment_method('bacs');
+$order->calculate_totals();
+$order->update_status('on-hold', 'Warte auf Überweisung');
+$csId = (int) $order->get_id();
+$text = $cs::text(wc_get_order($csId));
+$check(str_contains($text, 'Videokurs Test: 12 Monate ab Zahlungseingang') && str_contains($text, 'Lernpaket Test: unbefristet') && ! str_contains($text, 'Buch'), 'vor Zahlung: Laufzeit ab Zahlungseingang, nur Lernprodukte');
+wc_get_order($csId)->update_status('processing', 'Zahlung eingegangen');
+$text = $cs::text(wc_get_order($csId));
+$check((bool) preg_match('/Videokurs Test: 12 Monate, bis \S+/u', $text), 'nach Zahlung: Enddatum je Position');
+$guarantorFilter = static fn () => 'Muster GmbH, Hafenstraße 1, 20457 Hamburg';
+add_filter('bootspruefung_guarantor', $guarantorFilter);
+$text = $cs::text(wc_get_order($csId));
+$check(str_contains($text, 'Für Videokurs Test gilt unsere kostenlose Geld-zurück-Garantie') && ! str_contains($text, 'Für Videokurs Test, Lernpaket') && str_contains($text, 'Garantiegeber: Muster GmbH, Hafenstraße 1, 20457 Hamburg.') && str_contains($text, 'gesetzlichen Rechte bei Mängeln'), 'Garantie-Erklärung: begünstigte Position, Garantiegeber, Mängelrechte');
+remove_filter('bootspruefung_guarantor', $guarantorFilter);
+ob_start();
+(new $cs())->email(wc_get_order($csId), false, false, (object) ['id' => 'customer_refunded_order']);
+$check(trim((string) ob_get_clean()) === '', 'nicht in der Erstattungsmail');
+\Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($video, null, null);
+
 echo "Bezahlt per Gateway, Dispute, Erstattung\n";
 $order = wc_create_order(['customer_id' => $bob]);
 $lernItem = $order->add_product(wc_get_product($lern), 1);

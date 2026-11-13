@@ -89,7 +89,7 @@ final class DefaultFaqs
                         'answer' => 'Beide Stufen enthalten alle Prüfungsfragen im Smarttrainer, die Prüfungssimulation und die Trainer des Kurses. „Komplett“ enthält zusätzlich den Videokurs. Du kannst auch mit „Theorie“ starten und den Videokurs später als Upgrade dazubuchen. Die erste Video-Lektion ist in jedem Kurs kostenlos.',
                         'note' => null],
                     ['ref' => 96, 'theme' => false, 'question' => 'Ich habe schon einen Schein – muss ich den ganzen Kurs kaufen?',
-                        'answer' => 'Nein. Für Inhaber eines Scheins gibt es Ergänzungskurse mit nur den zusätzlichen Inhalten: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI und FKN → SKN. Hast du einen Kurs schon gekauft, schlagen wir dir im Lernbereich und im Warenkorb die passende Ergänzung vor.',
+                        'answer' => 'Nein. Für Inhaber eines Scheins gibt es Ergänzungskurse mit nur den zusätzlichen Inhalten: See → Binnen, Binnen → See, Binnen → Segeln und SRC → UBI. Für FKN-Inhaber gibt es die Ergänzung FKN → SKN mit dem vollständigen SKN-Fragenkatalog. Hast du einen Kurs schon gekauft, schlagen wir dir im Lernbereich und im Warenkorb die passende Ergänzung vor.',
                         'note' => null],
                 ]],
                 ['name' => 'Lernmaterial', 'slug' => 'allgemein-lernmaterial', 'faqs' => [

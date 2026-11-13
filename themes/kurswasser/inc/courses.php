@@ -102,7 +102,7 @@ function kurswasser_special_tiles(): array
             'facts' => [['sail', __('Binnen unter Segel', 'kurswasser')], ['flare', __('SKN und FKN', 'kurswasser')]],
             'url' => kurswasser_url('kurse'), 'price' => $min(['BP-SBF-BIN-SEGEL', 'BP-SKN', 'BP-FKN', 'BP-PASS-1M']), 'from' => true, 'cta' => __('Alle Kurse', 'kurswasser')],
         'ergaenzung' => ['title' => __('Ergänzungen', 'kurswasser'), 'name' => __('Ergänzungskurse', 'kurswasser'), 'eyebrow' => __('Schon einen Schein?', 'kurswasser'), 'icon' => 'plus',
-            'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI, FKN → SKN.', 'kurswasser'),
+            'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI – und FKN → SKN mit dem ganzen SKN-Katalog.', 'kurswasser'),
             'facts' => [['clock', __('6 Monate Zugang', 'kurswasser')]],
             'url' => kurswasser_url('ergaenzung'), 'price' => $min(['BP-ADD-SEE-TO-BIN', 'BP-ADD-BIN-TO-SEE', 'BP-ADD-BIN-SEGEL', 'BP-ADD-UBI-TO-SRC', 'BP-ADD-FKN-TO-SKN']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
         'paesse' => ['title' => __('Pässe', 'kurswasser'), 'name' => __('1- und 3-Monats-Pass', 'kurswasser'), 'eyebrow' => __('Alle Inhalte', 'kurswasser'), 'icon' => 'clock',
