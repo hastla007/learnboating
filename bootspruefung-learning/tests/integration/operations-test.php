@@ -594,6 +594,61 @@ $check($tipsBefore >= 13 && $tipCount() === $tipsBefore && get_option($T::SEEDED
 $check(Lock::holder($T::SEED_LOCK) === null, 'Sperre der Tipps-Anlage freigegeben');
 $seededBefore !== false ? update_option($T::SEEDED_OPTION, $seededBefore, false) : null;
 
+echo "Aktivieren und Deaktivieren: Permalinks und Cron (T81)\n";
+$ruleKeys = static fn (): string => implode("\n", array_keys((array) get_option('rewrite_rules')));
+$base = preg_quote(\Bootspruefung\Learning\Frontend\Router::base(), '#');
+foreach (Plugin::CRON_HOOKS as $hook) {
+    wp_schedule_single_event(time() + 600, $hook, in_array($hook, [\Bootspruefung\Learning\Mobile\Controllers\PrivacyController::GENERATE_HOOK, \Bootspruefung\Learning\Privacy\AccountDeletion::EXPORT_HOOK], true) ? ['ops-t81'] : []);
+}
+// Mit „schönen“ Permalinks prüfen (die Testinstallation nutzt sonst einfache Links ohne Regeln).
+global $wp_rewrite;
+$permalinkBefore = (string) get_option('permalink_structure');
+$wp_rewrite->set_permalink_structure('/%postname%/');
+if (function_exists('WC')) {
+    WC()->query->add_endpoints(); // set_permalink_structure() verwirft die Endpunkte dieser Anfrage
+}
+flush_rewrite_rules(false);
+$check(str_contains($ruleKeys(), '^'.$base.'/?$') && (! class_exists('WooCommerce') || str_contains($ruleKeys(), '/mein-lernen(')), 'Ausgangslage: Lernbereich und Endpunkte in den Permalinks');
+$check(count(Plugin::CRON_HOOKS) === 6 && in_array('bp_learning_migrate', Plugin::CRON_HOOKS, true) && in_array('bp_privacy_export_generate', Plugin::CRON_HOOKS, true), 'vollständige Liste der eigenen Cron-Ereignisse');
+Plugin::deactivate();
+$cronLeft = array_filter(Plugin::CRON_HOOKS, static function (string $hook): bool {
+    foreach ((array) _get_cron_array() as $events) {
+        if (isset($events[$hook])) {
+            return true;
+        }
+    }
+
+    return false;
+});
+$check($cronLeft === [], 'Deaktivieren: alle eigenen Cron-Ereignisse ausgetragen (auch einmalige und mit Argumenten)'.($cronLeft ? ' – übrig: '.implode(', ', $cronLeft) : ''));
+$afterDeactivate = $ruleKeys();
+$check(! str_contains($afterDeactivate, '^'.$base.'/'), 'Deaktivieren: /'.\Bootspruefung\Learning\Frontend\Router::base().'/ nicht mehr in den Permalinks');
+$check(! str_contains($afterDeactivate, '/mein-lernen(') && ! str_contains($afterDeactivate, '/meine-daten('), 'Deaktivieren: Endpunkte „mein-lernen“/„meine-daten“ entfernt');
+$check(get_option(\Bootspruefung\Learning\Frontend\Router::REWRITE_OPTION) === false && get_option(\Bootspruefung\Learning\Privacy\SelfService::REWRITE_OPTION) === false, 'Deaktivieren: Permalink-Stand vergessen (nach Reaktivierung neu schreiben)');
+// Reaktivierung: wie in der echten Aktivierungsanfrage fehlen die Endpunkte (Filter wirkten nach init nicht mehr).
+Plugin::activate();
+$afterActivate = $ruleKeys();
+$check(str_contains($afterActivate, '^'.$base.'/?$') && str_contains($afterActivate, '^'.$base.'/(.+?)/?$'), 'Reaktivieren: /'.\Bootspruefung\Learning\Frontend\Router::base().'/ wieder in den Permalinks');
+if (class_exists('WooCommerce')) {
+    $check(str_contains($afterActivate, '/mein-lernen(') && str_contains($afterActivate, '/meine-daten('), 'Reaktivieren: „mein-lernen“ und „meine-daten“ sofort erreichbar (kein 404)');
+    $wpq = new WP();
+    $wpq->main_query_vars = [];
+    $_SERVER['REQUEST_URI'] = '/'.get_post_field('post_name', (int) get_option('woocommerce_myaccount_page_id')).'/mein-lernen/';
+    $wpq->parse_request();
+    $_SERVER['REQUEST_URI'] = '/';
+    $check(array_key_exists('mein-lernen', $wpq->query_vars), 'Reaktivieren: /mein-konto/mein-lernen/ wird erkannt');
+}
+$check(wp_get_schedule(Cron::HOURLY) === 'hourly' && wp_get_schedule(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK) === 'daily', 'Reaktivieren: stündlicher und täglicher Lauf wieder geplant');
+$check(get_option(\Bootspruefung\Learning\Frontend\Router::REWRITE_OPTION) === false, 'Reaktivieren: nächste Anfrage schreibt die Permalinks mit allen Hooks neu');
+(new \Bootspruefung\Learning\Frontend\Router(Plugin::instance()))->init();
+$check(get_option(\Bootspruefung\Learning\Frontend\Router::REWRITE_OPTION) !== false && str_contains($ruleKeys(), '^'.$base.'/?$'), 'nächste Anfrage: Permalinks neu geschrieben');
+wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK);
+$wp_rewrite->set_permalink_structure($permalinkBefore);
+if (function_exists('WC')) {
+    WC()->query->add_endpoints();
+}
+flush_rewrite_rules(false);
+
 echo "Überwachung und Zeitzone (T55)\n";
 $mon = \Bootspruefung\Learning\Infrastructure\Monitor::class;
 $hourlyBefore = get_option($mon::OPTION_HOURLY, null);

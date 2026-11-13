@@ -80,8 +80,15 @@ final class Plugin
             wp_die(esc_html(implode(' ', $problems)));
         }
         Capabilities::grantToAdministrator();
+        // Permalinks: Lernbereich und „Mein Konto“-Endpunkte sofort eintragen. Die Endpunkte hängen an
+        // WooCommerce-Filtern, die in der Aktivierungsanfrage (nach init) noch nicht wirkten – ohne diesen Schritt
+        // lieferten „mein-lernen“/„meine-daten“ nach einer Reaktivierung 404 (T81).
         \Bootspruefung\Learning\Frontend\Router::addRules();
+        self::addAccountEndpoints();
         flush_rewrite_rules(false);
+        // Bei der nächsten Anfrage (alle Hooks registriert) zusätzlich neu schreiben.
+        delete_option(\Bootspruefung\Learning\Frontend\Router::REWRITE_OPTION);
+        delete_option(\Bootspruefung\Learning\Privacy\SelfService::REWRITE_OPTION);
         self::ensureSchedules();
         \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::activated();
         global $wpdb;
@@ -104,12 +111,72 @@ final class Plugin
     public static function deactivate(): void
     {
         // Bewusst keine Daten- oder Tabellenlöschung (Kap. 8: sichere Deaktivierung).
-        wp_clear_scheduled_hook('bp_learning_hourly');
-        wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK);
-        wp_clear_scheduled_hook(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK);
+        self::clearCron();
         // Merken, damit der Abgleich nach der Reaktivierung verpasste Bestellungen nachzieht.
         \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::deactivated();
+        // Erst die eigenen Regeln abmelden, dann neu schreiben: sonst blieben /bootsscheine/ und die Endpunkte
+        // nach der Deaktivierung in den gespeicherten Permalinks (T81).
+        \Bootspruefung\Learning\Frontend\Router::removeRules();
+        self::removeAccountEndpoints();
         flush_rewrite_rules(false);
+        delete_option(\Bootspruefung\Learning\Frontend\Router::REWRITE_OPTION);
+        delete_option(\Bootspruefung\Learning\Privacy\SelfService::REWRITE_OPTION);
+    }
+
+    /**
+     * Alle eigenen Cron-Ereignisse (WP-Cron, auch einmalige und solche mit Argumenten): stündliche Wartung,
+     * Ablauf-Erinnerung, Bestellabgleich, Migration, App-Datenexport, Datenschutz-Export.
+     */
+    public const CRON_HOOKS = [
+        \Bootspruefung\Learning\Infrastructure\Cron::HOURLY,
+        \Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK,
+        \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK,
+        self::MIGRATE_HOOK,
+        \Bootspruefung\Learning\Mobile\Controllers\PrivacyController::GENERATE_HOOK,
+        \Bootspruefung\Learning\Privacy\AccountDeletion::EXPORT_HOOK,
+    ];
+
+    /** Trägt alle eigenen Cron-Ereignisse aus (Deaktivierung, Deinstallation), auch im Action Scheduler. */
+    public static function clearCron(): void
+    {
+        foreach (self::CRON_HOOKS as $hook) {
+            wp_unschedule_hook($hook);
+            if (function_exists('as_unschedule_all_actions')) {
+                as_unschedule_all_actions($hook);
+            }
+        }
+    }
+
+    /** „Mein Konto“-Endpunkte des Plugins (WooCommerce). @return list<string> */
+    public static function accountEndpoints(): array
+    {
+        return [\Bootspruefung\Learning\Commerce\WooCommerce\Integration::ACCOUNT_ENDPOINT, \Bootspruefung\Learning\Privacy\SelfService::ENDPOINT];
+    }
+
+    /** Endpunkte wie WooCommerce eintragen (gleiche Maske), falls WooCommerce aktiv ist. */
+    private static function addAccountEndpoints(): void
+    {
+        if (! function_exists('WC') || ! is_object(WC()->query ?? null)) {
+            return;
+        }
+        $mask = method_exists(WC()->query, 'get_endpoints_mask') ? (int) WC()->query->get_endpoints_mask() : EP_PAGES;
+        foreach (self::accountEndpoints() as $endpoint) {
+            add_rewrite_endpoint($endpoint, $mask);
+        }
+    }
+
+    /** Endpunkte für diese Anfrage abmelden (vor dem Neuschreiben bei der Deaktivierung). */
+    private static function removeAccountEndpoints(): void
+    {
+        global $wp_rewrite;
+        if ($wp_rewrite instanceof \WP_Rewrite) {
+            $wp_rewrite->endpoints = array_values(array_filter((array) $wp_rewrite->endpoints, static fn ($ep) => ! in_array($ep[1] ?? '', self::accountEndpoints(), true)));
+        }
+        if (function_exists('WC') && is_object(WC()->query ?? null) && is_array(WC()->query->query_vars ?? null)) {
+            foreach (self::accountEndpoints() as $endpoint) {
+                unset(WC()->query->query_vars[$endpoint]);
+            }
+        }
     }
 
     private function registerHooks(): void

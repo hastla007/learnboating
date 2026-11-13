@@ -18,7 +18,7 @@ final class SelfService
     public const ENDPOINT = 'meine-daten';
     /** Bei Änderung der Endpunkte neu schreiben (Permalinks). */
     private const REWRITE_VERSION = '1';
-    private const REWRITE_OPTION = 'bp_privacy_endpoint_version';
+    public const REWRITE_OPTION = 'bp_privacy_endpoint_version';
     private const TYPES = ['export' => 'export_personal_data', 'delete' => 'remove_personal_data'];
 
     public static function register(): void

@@ -31,6 +31,10 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   z. B. nach einem Umzug oder einem Restore ohne Cron-Einträge, plant das Plugin sie bei der nächsten Anfrage
   von selbst neu. Die Ablauf-Erinnerung läuft nie doppelt parallel; ein Fehler bei einer Mail steht unter
   Systemstatus › Wartung und hält die übrigen Mails nicht auf.
+- **Deaktivieren und Reaktivieren** des Plugins ist gefahrlos: Beim Deaktivieren trägt das Plugin alle eigenen
+  Cron-Ereignisse aus (`Plugin::CRON_HOOKS`) und nimmt `/bootsscheine/` sowie die „Mein Konto“-Endpunkte
+  „mein-lernen“ und „meine-daten“ aus den Permalinks. Beim Aktivieren trägt es sie sofort wieder ein und schreibt
+  die Permalinks bei der nächsten Anfrage noch einmal. Daten bleiben bei beidem erhalten.
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
 - **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
   für eine Anfrage und werden bei jeder Änderung sofort verworfen. Die Kennzahlen der Kurse (Fragen, Aufgaben, Videos

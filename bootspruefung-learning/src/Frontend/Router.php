@@ -20,6 +20,8 @@ final class Router
 {
     public const BASE = 'bootsscheine';
     private const REWRITE_VERSION = '2';
+    /** Stand der geschriebenen Permalinks; fehlt er (z. B. nach Aktivierung), schreibt init sie neu. */
+    public const REWRITE_OPTION = 'bp_learning_rewrite_version';
 
     public function __construct(private readonly Plugin $plugin)
     {
@@ -73,11 +75,34 @@ final class Router
         return $html.'<p>'.esc_html__('Melde dich an oder lege ein Konto an. Danach kommst du direkt hierher zurück und kannst der Gruppe beitreten.', 'bootspruefung-learning').'</p>';
     }
 
-    public static function addRules(): void
+    /** Umschreibregeln des Lernbereichs. @return array<string,string> Muster => Ziel */
+    public static function rules(): array
     {
         $base = preg_quote(self::base(), '#');
-        add_rewrite_rule('^'.$base.'/?$', 'index.php?bp_app=1', 'top');
-        add_rewrite_rule('^'.$base.'/(.+?)/?$', 'index.php?bp_app=1&bp_path=$matches[1]', 'top');
+
+        return [
+            '^'.$base.'/?$' => 'index.php?bp_app=1',
+            '^'.$base.'/(.+?)/?$' => 'index.php?bp_app=1&bp_path=$matches[1]',
+        ];
+    }
+
+    public static function addRules(): void
+    {
+        foreach (self::rules() as $regex => $query) {
+            add_rewrite_rule($regex, $query, 'top');
+        }
+    }
+
+    /** Regeln für diese Anfrage wieder abmelden (Deaktivierung, vor dem Neuschreiben der Permalinks). */
+    public static function removeRules(): void
+    {
+        global $wp_rewrite;
+        if (! $wp_rewrite instanceof \WP_Rewrite) {
+            return;
+        }
+        foreach (array_keys(self::rules()) as $regex) {
+            unset($wp_rewrite->extra_rules_top[$regex]);
+        }
     }
 
     public function register(): void
@@ -104,9 +129,9 @@ final class Router
     {
         self::addRules();
         $version = self::REWRITE_VERSION.':'.self::base().':'.(class_exists('WooCommerce') ? 'wc' : '-');
-        if (get_option('bp_learning_rewrite_version') !== $version) {
+        if (get_option(self::REWRITE_OPTION) !== $version) {
             flush_rewrite_rules(false);
-            update_option('bp_learning_rewrite_version', $version, true);
+            update_option(self::REWRITE_OPTION, $version, true);
         }
     }
 
