@@ -29,6 +29,20 @@ final class ReminderOptOut
     public function register(): void
     {
         add_action('template_redirect', [$this, 'handle'], 1);
+        // Hinweis auf die Erinnerung und das Widerspruchsrecht schon bei der Erhebung der E-Mail-Adresse (T44):
+        // Kasse (klassisch und Block, nur mit Lernprodukt) und Registrierung (WooCommerce „Mein Konto“, wp-login).
+        add_action('woocommerce_review_order_before_submit', static function (): void {
+            if (\Bootspruefung\Learning\Commerce\WooCommerce\Integration::cartHasLearning()) {
+                echo ExpiryReminder::collectionNoticeHtml(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- maskiert
+            }
+        }, 20);
+        add_filter('render_block_woocommerce/checkout', static fn ($content): string => is_admin() || ! \Bootspruefung\Learning\Commerce\WooCommerce\Integration::cartHasLearning() ? (string) $content : (string) $content.ExpiryReminder::collectionNoticeHtml(), 31, 1);
+        add_action('woocommerce_register_form', static function (): void {
+            echo ExpiryReminder::collectionNoticeHtml(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- maskiert
+        }, 30);
+        add_action('register_form', static function (): void {
+            echo ExpiryReminder::collectionNoticeHtml(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- maskiert
+        }, 30);
     }
 
     public static function optedOut(int $userId): bool

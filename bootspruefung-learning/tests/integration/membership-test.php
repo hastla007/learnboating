@@ -719,6 +719,7 @@ $relUsers = ['bin' => $user('bp_rel_binnen'), 'combo' => $user('bp_rel_kombi'), 
 $expUsers = ['a' => $user('bp_exp_a'), 'b' => $user('bp_exp_b'), 'later' => $user('bp_exp_later'), 'open' => $user('bp_exp_open'), 'far' => $user('bp_exp_far')];
 $relAll = implode(',', array_merge($relUsers, $expUsers));
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$relAll})");
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $giftUser));
 foreach (array_merge($relUsers, $expUsers) as $uid) {
     delete_user_meta($uid, \Bootspruefung\Learning\Commerce\ExpiryReminder::META);
 }
@@ -786,6 +787,12 @@ $wpdb->update($p.'entitlement', ['valid_from' => $in(4)], ['id' => $next[0]]); /
 $entitlements->grantManual($expUsers['open'], 'SRC', ['question_bank'], $in(2), 'Test Ablauf');
 $entitlements->grantManual($expUsers['open'], 'SRC', ['question_bank'], null, 'unbefristet');
 $entitlements->grantManual($expUsers['far'], 'SRC', ['question_bank'], $in(30), 'Test Ablauf');
+// Erinnerungsmail nur an Käufer (T44): Zugänge der Testkäufer als Bestellzugang kennzeichnen (ohne Shop zählt die Quelle).
+foreach (['a', 'b', 'later', 'open', 'far'] as $k) {
+    $wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET source = 'woocommerce', order_id = %d WHERE user_id = %d", 970000 + (int) $expUsers[$k], $expUsers[$k]));
+}
+$giftUser = $user('bp_exp_member');
+$entitlements->grantManual($giftUser, 'SBF-SEE', ['question_bank'], $in(5), 'Gruppenplatz/manuell');
 $expiryMails = [];
 $catch = static function ($null, $atts) use (&$expiryMails) {
     $expiryMails[] = $atts;
@@ -806,6 +813,8 @@ $check(count($mailA) === 1 && str_contains($mailA[0]['subject'], $names['SBF-SEE
 $mailB = $to($expUsers['b']);
 $check(count($mailB) === 1 && str_contains($mailB[0]['message'], $names['SRC']) && str_contains($mailB[0]['message'], $names['UBI']), 'zwei Kurse eines Nutzers in einer Mail gebündelt');
 $check($to($expUsers['later']) === [] && $to($expUsers['open']) === [], 'keine Erinnerung bei späterem (Verlängerung) oder unbefristetem Zugang');
+$check($to($giftUser) === [] && isset($ER::expiring($giftUser)[$giftUser]['SBF-SEE']), 'nicht gekauft (Gruppe, manuell, Gutschein): keine Mail, aber Hinweis unter „Mein Lernen“ (T44)');
+$check(str_contains($ER::collectionNoticeHtml(), 'jederzeit widersprechen') && has_action('woocommerce_register_form') !== false && has_action('register_form') !== false && has_filter('render_block_woocommerce/checkout') !== false, 'Hinweis auf Erinnerung und Widerspruch bei Kasse und Registrierung (§ 7 Abs. 3 UWG)');
 $check($to($relUsers['trial']) === [] && $to($expUsers['far']) === [], 'keine Erinnerung im kostenlosen Teilumfang und außerhalb des Fensters');
 $check(array_key_exists('SBF-SEE|'.$untilA, (array) get_user_meta($expUsers['a'], $ER::META, true)), 'gemerkt je Kurs und Ablaufdatum (Nutzer-Meta)');
 $ER::run();
@@ -845,6 +854,7 @@ if ($hourly !== false) {
 }
 $ER::schedule();
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$relAll})");
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $giftUser));
 foreach (array_merge($relUsers, $expUsers) as $uid) {
     delete_user_meta($uid, $ER::META);
 }
@@ -912,6 +922,7 @@ delete_user_meta($ooUser, $ER::META);
 delete_user_meta($ooUser, $OO::META);
 $ooUntil = gmdate('Y-m-d H:i:s', time() + 4 * DAY_IN_SECONDS);
 $entitlements->grantManual($ooUser, 'SRC', ['question_bank'], $ooUntil, 'Test Widerspruch');
+$wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET source = 'woocommerce', order_id = %d WHERE user_id = %d", 970000 + $ooUser, $ooUser)); // als Kauf (T44)
 $ooMails = [];
 $ooCatch = static function ($null, $atts) use (&$ooMails) {
     $ooMails[] = $atts;

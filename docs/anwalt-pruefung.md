@@ -23,14 +23,19 @@ T56 (Barrierefreiheit, Österreich), T72 (Widerruf und Garantie).
 - Unter „Mein Lernen“ gibt es einen Schalter zum Widersprechen und Wieder-Einschalten.
 - Die Mail ist sachlich: „Zugang läuft am … ab“, Verlängern nur als Link.
 
-**Bekannte Lücken** (Expertenrunde 4, T44, Entwicklung):
-- Die Erinnerung geht heute auch an Gruppenmitglieder und manuell Freigeschaltete, nicht nur an Käufer.
-- Der Hinweis auf den Widerspruch fehlt noch bei der Erhebung der E-Mail-Adresse (Kasse, Registrierung).
+**Seit T44 behoben:**
+- Die Erinnerungsmail geht nur an Käufer, also bei einem Zugang aus einer eigenen, bezahlten Bestellung über 0 €.
+  Gruppenmitglieder, manuell Freigeschaltete und Gutschein-Einlöser bekommen keine Mail, sehen den Hinweis aber unter
+  „Mein Lernen“.
+- Der Hinweis auf Erinnerung und Widerspruch steht schon bei der Erhebung der E-Mail-Adresse: in der Kasse (mit
+  Lernprodukt) und bei der Registrierung (WooCommerce „Mein Konto“ und wp-login). Wortlaut: „Kurz bevor ein gekaufter
+  Zugang abläuft, erinnern wir dich per E-Mail daran. Du kannst dem jederzeit widersprechen – über den Link in jeder
+  Erinnerung oder unter „Mein Lernen“ –, ohne dass dir dafür andere als die Übermittlungskosten nach den
+  Basistarifen entstehen.“
 
 **Bitte prüfen:**
 1. Trägt § 7 Abs. 3 UWG die Erinnerung? Ist sie Werbung oder Vertragsinformation?
-2. Wortlaut des Hinweises bei der Erhebung der E-Mail-Adresse (Kasse, Registrierung).
-3. Darf die Erinnerung an Gruppenmitglieder gehen, die nicht selbst gekauft haben?
+2. Wortlaut des Hinweises bei der Erhebung der E-Mail-Adresse (Kasse, Registrierung), siehe oben.
 
 ## T36 b) Hinweis „Lieferung: digital, kein Versand – Zugang nach Zahlungseingang“
 

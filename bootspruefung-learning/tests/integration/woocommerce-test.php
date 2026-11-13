@@ -466,6 +466,16 @@ $send = static function (array $data) use ($req, $sign) {
 };
 // Gewonnen kommt vor eröffnet an (Zustellverzögerung): der Zugang bleibt aktiv.
 $k2 = $paidOrder($bob, 'klarna_payments');
+// Ablauf-Erinnerung nur an Käufer (T44): eigene bezahlte Bestellung zählt, 0-€-Bestellung nicht.
+$erUser = $customer('wc_kunde_erinnerung');
+$erOrder = $paidOrder($erUser, 'bacs');
+$erCode = (string) $wpdb->get_var($wpdb->prepare("SELECT course_code FROM {$p}entitlement WHERE order_id = %d LIMIT 1", $erOrder));
+$ERm = \Bootspruefung\Learning\Commerce\ExpiryReminder::class;
+$check($erCode !== '' && $ERm::boughtCourses($erUser, [$erCode => '2099-01-01 00:00:00']) === [$erCode => '2099-01-01 00:00:00'], 'Erinnerung: eigene bezahlte Bestellung zählt als Kauf');
+$zeroOrder = wc_get_order($erOrder);
+$zeroOrder->set_total(0);
+$zeroOrder->save();
+$check($ERm::boughtCourses($erUser, [$erCode => '2099-01-01 00:00:00']) === [], 'Erinnerung: 0-€-Bestellung (z. B. Gutschein) zählt nicht als Kauf');
 $r = $send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-10T12:00:00Z']);
 $check($r->get_status() === 200 && $statuses($k2) === ['active'], '„gewonnen“ vor „eröffnet“: Zugang aktiv');
 $r = $send(['id' => 'K2-open', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-01T12:00:00Z']);
@@ -587,6 +597,13 @@ $fam = wc_get_product($byS['GRP-FAM-02']['product_id']);
 $famRows = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->forItem($fam->get_id(), 0);
 $check($fam->get_regular_price() === '148.90' && \Bootspruefung\Learning\Commerce\ProductAccessRepository::seats($famRows) === 3 && \Bootspruefung\Learning\Commerce\MoneyBack::policy($fam->get_id()) === null && ! $fam->is_sold_individually(), 'Familien-Flotte: 3 Plätze, 148,90 €, ohne Geld-zurück-Garantie');
 $check(wc_get_product($byS['GRP-CLUB-50']['product_id'])->get_regular_price() === '1725.00', 'Partner-Flat 50: 1.725,00 €');
+// Verlängern für Gruppenmitglieder (T44): nie das Gruppenpaket, sondern ein Einzelangebot des Kurses.
+$grpRenew = \Bootspruefung\Learning\Commerce\AccessStatus::renewUrl('SBF-SEE', ['sku' => 'GRP-PAIR-01']);
+parse_str((string) wp_parse_url($grpRenew, PHP_URL_QUERY), $grpQuery);
+$grpPost = get_page_by_path((string) ($grpQuery['product'] ?? basename((string) wp_parse_url($grpRenew, PHP_URL_PATH))), OBJECT, 'product');
+$grpRenewId = $grpPost ? (int) $grpPost->ID : url_to_postid($grpRenew);
+$grpRenewSku = $grpRenewId ? (string) wc_get_product($grpRenewId)->get_sku() : '';
+$check($grpRenewId > 0 && ! str_starts_with($grpRenewSku, 'GRP-'), 'Gruppenmitglied: Verlängern führt zum Einzelangebot, nicht zum Gruppenpaket ('.$grpRenewSku.')');
 $skn = wc_get_product($byS['BP-SKN']['product_id']);
 $skn->set_status('publish');
 $skn->save();

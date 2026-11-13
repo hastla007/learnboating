@@ -177,6 +177,11 @@ final class ExpiryReminder
             if (! $user || ! is_email((string) $user->user_email) || ReminderOptOut::optedOut($userId)) {
                 continue; // ohne Adresse oder nach Widerspruch keine Erinnerung
             }
+            // Nur an Käufer (§ 7 Abs. 3 UWG): Kurse, die die Person selbst bezahlt gekauft hat (T44).
+            $courses = self::boughtCourses((int) $userId, $courses);
+            if ($courses === []) {
+                continue;
+            }
             $done = self::reminded($userId, $now);
             $new = [];
             foreach ($courses as $code => $until) {
@@ -200,6 +205,51 @@ final class ExpiryReminder
         }
 
         return $sent;
+    }
+
+    /**
+     * Nur Kurse, die die Person selbst gekauft und bezahlt hat (Zugang aus einer WooCommerce-Bestellung mit Betrag über
+     * 0 €). Gruppenmitglieder, manuell Freigeschaltete und Gutschein-Einlöser bekommen keine Erinnerungsmail; den
+     * Hinweis unter „Mein Lernen“ sehen alle (T44).
+     *
+     * @param array<string,string> $courses Kurscode => Ende
+     * @return array<string,string>
+     */
+    public static function boughtCourses(int $userId, array $courses): array
+    {
+        if ($courses === []) {
+            return [];
+        }
+        global $wpdb;
+        $in = implode(',', array_fill(0, count($courses), '%s'));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT DISTINCT course_code, order_id FROM {$wpdb->prefix}bp_entitlement WHERE user_id = %d AND source = %s AND order_id IS NOT NULL AND course_code IN ({$in})",
+            $userId, EntitlementService::SOURCE_WOO, ...array_keys($courses)
+        ));
+        $bought = [];
+        foreach ((array) $rows as $r) {
+            if (function_exists('wc_get_order')) {
+                // Mit Shop zusätzlich: eigene, bezahlte Bestellung über 0 € (keine Gutschein-Einlösung).
+                $order = wc_get_order((int) $r->order_id);
+                if (! $order instanceof \WC_Order || (int) $order->get_customer_id() !== $userId || (float) $order->get_total() <= 0 || $order->get_date_paid() === null) {
+                    continue;
+                }
+            }
+            $bought[(string) $r->course_code] = true;
+        }
+
+        return array_intersect_key($courses, $bought);
+    }
+
+    /** Hinweis bei der Erhebung der E-Mail-Adresse (§ 7 Abs. 3 Nr. 4 UWG): Kasse und Registrierung. */
+    public static function collectionNotice(): string
+    {
+        return __('Kurz bevor ein gekaufter Zugang abläuft, erinnern wir dich per E-Mail daran. Du kannst dem jederzeit widersprechen – über den Link in jeder Erinnerung oder unter „Mein Lernen“ –, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen.', 'bootspruefung-learning');
+    }
+
+    public static function collectionNoticeHtml(): string
+    {
+        return self::enabled() ? '<p class="bp-reminder-notice"><small>'.esc_html(self::collectionNotice()).'</small></p>' : '';
     }
 
     /** Bereits erinnerte Zugänge (Kurs|Ende => gesendet am), ohne vergangene Ablaufdaten. @return array<string,string> */
