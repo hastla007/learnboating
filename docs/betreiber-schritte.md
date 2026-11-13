@@ -83,7 +83,9 @@ Alle Admin-Hinweise von Plugin und Theme laufen über eine gemeinsame Hilfsklass
 im Theme `kurswasser_admin_notice()`): Absender „Bootsprüfung:“, mehrere gleichzeitige Hinweise als ein Sammel-Hinweis,
 wegklickbar je Hinweis und Person (Nutzer-Meta `bp_notices_dismissed`). Fehler und dringende Hinweise lassen sich nur
 vertagen (1 bzw. 3–7 Tage), nicht dauerhaft ausblenden; ändert sich der Inhalt (z. B. neue offene Punkte), erscheint
-der Hinweis wieder.
+der Hinweis wieder. Der Ausblenden-Link ist je Person signiert (T125): Er gilt nur für den gezeigten Hinweis und
+genau die angebotene Dauer; ein veralteter oder veränderter Link blendet nichts aus („Link ungültig oder veraltet“,
+Seite neu laden). Je Person werden höchstens 50 ausgeblendete Hinweise gemerkt (abgelaufene fallen zuerst weg).
 
 | Hinweis | Datei | Art |
 |---|---|---|

@@ -977,6 +977,30 @@ update_user_meta(1, Notices::META, $meta);
 $check(! Notices::isDismissed('t99_warn'), 'nach Ablauf der Vertagung wieder sichtbar');
 $check(! Notices::isDismissed('t99_warn', '', 2), 'Ausblenden gilt je Nutzer');
 delete_user_meta(1, Notices::META);
+
+echo "Hinweise wegklicken: nur signierte Links, Fehler mindestens 1 Tag, höchstens 50 Einträge (T125)\n";
+$errHtml = Notices::render(['key' => 't125_err', 'type' => 'error', 'text' => 'Fehler', 'version' => 'v1']);
+preg_match('/data-days="(\d+)" data-v="([^"]*)" data-sig="([a-z0-9]+)"/', $errHtml, $m);
+$check(($m[1] ?? '') === '1' && ($m[2] ?? '') === 'v1' && strlen($m[3] ?? '') === 24 && str_contains($errHtml, 'sig='.($m[3] ?? 'x')), 'Ausblenden-Link trägt Signatur (Link und JavaScript), Fehler: 1 Tag');
+$sig = $m[3] ?? '';
+$check(! Notices::dismissFromRequest(['key' => 't125_err', 'days' => '0', 'v' => 'v1', 'sig' => $sig]) && ! Notices::isDismissed('t125_err', 'v1'), 'Fehler-Hinweis: days=0 (dauerhaft) mit derselben Signatur abgelehnt');
+$check(! Notices::dismissFromRequest(['key' => 'erfunden', 'days' => '0', 'v' => '', 'sig' => $sig]) && ! Notices::dismissFromRequest(['key' => 'erfunden', 'days' => '0', 'v' => '']) && get_user_meta(1, Notices::META, true) === '', 'unbekannter Schlüssel bzw. ohne Signatur: nichts gespeichert');
+$check(Notices::signature('t125_err', 1, 'v1', 2) !== $sig, 'Signatur gilt nur für den Nutzer, dem der Hinweis gezeigt wurde');
+$check(Notices::dismissFromRequest(['key' => 't125_err', 'days' => '1', 'v' => 'v1', 'sig' => $sig]) && Notices::isDismissed('t125_err', 'v1'), 'gültiger Link: für 1 Tag ausgeblendet');
+$meta = get_user_meta(1, Notices::META, true);
+$check((int) $meta['t125_err']['until'] > time() && (int) $meta['t125_err']['until'] <= time() + DAY_IN_SECONDS, 'Fehler-Hinweis nur vertagt, nicht dauerhaft');
+// Höchstens 50 Einträge: abgelaufene Vertagungen zuerst, dann die ältesten.
+$many = [];
+for ($i = 0; $i < 60; $i++) {
+    $many['t125_k'.$i] = ['until' => 0, 'v' => '', 'at' => time() - 1000 + $i];
+}
+$many['t125_abgelaufen'] = ['until' => time() - 10, 'v' => '', 'at' => time()];
+update_user_meta(1, Notices::META, $many);
+Notices::dismiss('t125_neu');
+$meta = get_user_meta(1, Notices::META, true);
+$check(is_array($meta) && count($meta) === Notices::MAX_ENTRIES && isset($meta['t125_neu'], $meta['t125_k59']) && ! isset($meta['t125_abgelaufen']) && ! isset($meta['t125_k0']), 'Nutzer-Meta auf 50 Einträge begrenzt (neuester bleibt, abgelaufene und älteste fallen weg)');
+delete_user_meta(1, Notices::META);
+$check(str_contains((string) file_get_contents(dirname(__DIR__, 2).'/src/Admin/Notices.php'), 'd.append("sig",a.dataset.sig'), 'Wegklicken ohne Neuladen schickt die Signatur mit');
 $check(has_action('admin_notices', [Notices::class, 'flush']) !== false && has_action('wp_ajax_'.Notices::ACTION) !== false, 'Sammel-Ausgabe und Wegklicken registriert');
 
 $GL = \Bootspruefung\Learning\Admin\GoLiveChecklist::class;

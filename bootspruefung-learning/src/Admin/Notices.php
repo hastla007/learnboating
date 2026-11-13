@@ -14,6 +14,10 @@ namespace Bootspruefung\Learning\Admin;
  *  - 'none':    nicht wegklickbar (einmalige Meldungen, kritische Fehler).
  * Fehler-Hinweise (type error) sind nie dauerhaft wegklickbar, höchstens vertagbar.
  *
+ * Wegklicken nur mit gültigem Link (T125): Schlüssel, Tage und Version sind je Nutzer signiert (wp_hash), so lassen
+ * sich nur tatsächlich gezeigte Hinweise ausblenden – mit genau der angebotenen Dauer (bei Fehlern mindestens 1 Tag).
+ * Das Nutzer-Meta behält höchstens MAX_ENTRIES Einträge (abgelaufene Vertagungen fallen zuerst heraus).
+ *
  * Aufruf: Notices::add([...]) im Hook admin_notices (Priorität < 100); ausgegeben wird gesammelt bei Priorität 100.
  * Das Theme ruft dieselbe Klasse über kurswasser_admin_notice() auf (Fallback ohne Plugin).
  */
@@ -22,6 +26,8 @@ final class Notices
     public const META = 'bp_notices_dismissed';
     public const ACTION = 'bp_notice_dismiss';
     public const SENDER = 'Bootsprüfung:';
+    /** Höchstzahl gemerkter Einträge je Nutzer (Nutzer-Meta). */
+    public const MAX_ENTRIES = 50;
 
     /** @var array<string,array<string,mixed>> */
     private static array $queue = [];
@@ -114,11 +120,12 @@ final class Notices
         }
         if ($n['dismiss'] !== 'none' && get_current_user_id() > 0) {
             $days = $n['dismiss'] === 'snooze' ? $n['snooze_days'] : 0;
-            $url = wp_nonce_url(add_query_arg(['action' => self::ACTION, 'key' => $n['key'], 'days' => $days, 'v' => $n['version']], admin_url('admin-post.php')), self::ACTION);
+            $sig = self::signature($n['key'], $days, $n['version']);
+            $url = wp_nonce_url(add_query_arg(['action' => self::ACTION, 'key' => $n['key'], 'days' => $days, 'v' => $n['version'], 'sig' => $sig], admin_url('admin-post.php')), self::ACTION);
             $label = $days > 0
                 ? sprintf(_n('Für %d Tag ausblenden', 'Für %d Tage ausblenden', $days, 'bootspruefung-learning'), $days)
                 : __('Ausblenden', 'bootspruefung-learning');
-            $actions[] = '<a class="button-link bp-notice-dismiss" href="'.esc_url($url).'" data-key="'.esc_attr($n['key']).'" data-days="'.(int) $days.'" data-v="'.esc_attr($n['version']).'">'.esc_html($label).'</a>';
+            $actions[] = '<a class="button-link bp-notice-dismiss" href="'.esc_url($url).'" data-key="'.esc_attr($n['key']).'" data-days="'.(int) $days.'" data-v="'.esc_attr($n['version']).'" data-sig="'.esc_attr($sig).'">'.esc_html($label).'</a>';
         }
         if ($actions !== []) {
             $html .= '<p class="bp-notice-actions">'.implode(' ', $actions).'</p>';
@@ -171,7 +178,10 @@ final class Notices
         return $until === 0 || $until > time();
     }
 
-    /** Ausblenden: $days = 0 dauerhaft, sonst vertagen. */
+    /**
+     * Ausblenden: $days = 0 dauerhaft, sonst vertagen. Hält höchstens MAX_ENTRIES Einträge je Nutzer: abgelaufene
+     * Vertagungen fallen weg, danach die am längsten zurückliegenden.
+     */
     public static function dismiss(string $key, int $days = 0, string $version = '', ?int $userId = null): void
     {
         $userId ??= get_current_user_id();
@@ -181,8 +191,45 @@ final class Notices
         }
         $all = get_user_meta($userId, self::META, true);
         $all = is_array($all) ? $all : [];
-        $all[$key] = ['until' => $days > 0 ? time() + min(90, $days) * DAY_IN_SECONDS : 0, 'v' => substr(sanitize_key($version), 0, 40)];
+        $now = time();
+        unset($all[$key]);
+        $all = array_filter($all, static fn ($e): bool => is_array($e) && ((int) ($e['until'] ?? 0) === 0 || (int) $e['until'] > $now));
+        if (count($all) >= self::MAX_ENTRIES) {
+            uasort($all, static fn ($a, $b): int => (int) ($b['at'] ?? 0) <=> (int) ($a['at'] ?? 0));
+            $all = array_slice($all, 0, self::MAX_ENTRIES - 1, true);
+        }
+        $all[$key] = ['until' => $days > 0 ? $now + min(90, $days) * DAY_IN_SECONDS : 0, 'v' => substr(sanitize_key($version), 0, 40), 'at' => $now];
         update_user_meta($userId, self::META, $all);
+    }
+
+    /**
+     * Signatur eines Ausblenden-Links (T125): bindet Schlüssel, Tage und Version an den Nutzer. Nur render() erzeugt
+     * sie – damit lassen sich nur gezeigte Hinweise wegklicken, und ein Fehler-Hinweis (mindestens 1 Tag) nicht
+     * durch Ändern von days=0 dauerhaft.
+     */
+    public static function signature(string $key, int $days, string $version, ?int $userId = null): string
+    {
+        $userId ??= get_current_user_id();
+
+        return substr(wp_hash('bp_notice_dismiss|'.$userId.'|'.sanitize_key($key).'|'.max(0, $days).'|'.substr(sanitize_key($version), 0, 40), 'nonce'), 0, 24);
+    }
+
+    /**
+     * Wegklick-Anfrage auswerten (AJAX bzw. Link): nur mit gültiger Signatur. true = ausgeblendet.
+     * @param array<string,mixed> $input $_POST bzw. $_GET
+     */
+    public static function dismissFromRequest(array $input): bool
+    {
+        $key = sanitize_key(wp_unslash((string) ($input['key'] ?? '')));
+        $days = absint($input['days'] ?? 0);
+        $version = sanitize_key(wp_unslash((string) ($input['v'] ?? '')));
+        $sig = sanitize_key(wp_unslash((string) ($input['sig'] ?? '')));
+        if ($key === '' || $sig === '' || ! hash_equals(self::signature($key, $days, $version), $sig)) {
+            return false;
+        }
+        self::dismiss($key, $days, $version);
+
+        return true;
     }
 
     public static function ajaxDismiss(): void
@@ -191,7 +238,9 @@ final class Notices
         if (! is_user_logged_in() || ! current_user_can('read')) {
             wp_send_json_error(null, 403);
         }
-        self::dismiss(sanitize_key(wp_unslash($_POST['key'] ?? '')), absint($_POST['days'] ?? 0), sanitize_key(wp_unslash($_POST['v'] ?? '')));
+        if (! self::dismissFromRequest($_POST)) { // phpcs:ignore WordPress.Security.NonceVerification -- oben geprüft
+            wp_send_json_error(null, 400);
+        }
         wp_send_json_success();
     }
 
@@ -201,7 +250,9 @@ final class Notices
         if (! is_user_logged_in()) {
             wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), 403);
         }
-        self::dismiss(sanitize_key(wp_unslash($_GET['key'] ?? '')), absint($_GET['days'] ?? 0), sanitize_key(wp_unslash($_GET['v'] ?? '')));
+        if (! self::dismissFromRequest($_GET)) { // phpcs:ignore WordPress.Security.NonceVerification -- oben geprüft
+            wp_die(esc_html__('Dieser Link zum Ausblenden ist ungültig oder veraltet. Bitte die Seite neu laden.', 'bootspruefung-learning'), '', ['response' => 400, 'back_link' => true]);
+        }
         wp_safe_redirect(wp_get_referer() ?: admin_url());
         exit;
     }
@@ -215,7 +266,7 @@ final class Notices
         self::$scriptPrinted = true;
         $nonce = wp_create_nonce(self::ACTION);
         echo '<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest(".bp-notice-dismiss");if(!a){return;}e.preventDefault();'
-            .'var d=new FormData();d.append("action",'.wp_json_encode(self::ACTION).');d.append("_ajax_nonce",'.wp_json_encode($nonce).');d.append("key",a.dataset.key);d.append("days",a.dataset.days);d.append("v",a.dataset.v||"");'
+            .'var d=new FormData();d.append("action",'.wp_json_encode(self::ACTION).');d.append("_ajax_nonce",'.wp_json_encode($nonce).');d.append("key",a.dataset.key);d.append("days",a.dataset.days);d.append("v",a.dataset.v||"");d.append("sig",a.dataset.sig||"");'
             .'fetch('.wp_json_encode(admin_url('admin-ajax.php')).',{method:"POST",body:d,credentials:"same-origin"}).then(function(r){if(!r.ok){window.location.href=a.href;return;}'
             .'var box=a.closest("[data-bp-notice]");var outer=box&&box.parentNode&&box.parentNode.closest?box.parentNode.closest(".bp-notices"):null;if(box){box.remove();}'
             .'if(outer&&!outer.querySelector("[data-bp-notice]")){outer.remove();}}).catch(function(){window.location.href=a.href;});});</script>'; // phpcs:ignore

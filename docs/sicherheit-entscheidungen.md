@@ -181,3 +181,9 @@ Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Buil
   übersprungen (nicht entpackt, nicht kopiert); alles andere Unerwartete lehnt die Vorprüfung weiter ab.
 - **Link-Import:** nur https; Weiterleitungen verfolgt das Plugin selbst (höchstens drei, jede wieder nur auf https
   und keine interne Adresse). Optional eine SHA-256-Prüfsumme: Stimmt sie nicht, wird die Datei verworfen.
+
+## 8. Admin-Hinweise (T125)
+
+- **Wegklicken:** Der Link (bzw. die AJAX-Anfrage) trägt eine Signatur über Nutzer, Schlüssel,
+  Tage und Version (`wp_hash`). Damit lassen sich nur gezeigte Hinweise ausblenden, Fehler-Hinweise nicht per
+  `days=0` dauerhaft; das Nutzer-Meta `bp_notices_dismissed` bleibt bei höchstens 50 Einträgen.
