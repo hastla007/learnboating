@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+use Bootspruefung\Learning\Admin\Notices;
 use Bootspruefung\Learning\Commerce\ExpiryReminder;
+use Bootspruefung\Learning\Commerce\ShopCatalog;
 use Bootspruefung\Learning\Commerce\ReminderOptOut;
 use Bootspruefung\Learning\Content\Import\ImportService;
+use Bootspruefung\Learning\Content\Import\ImportSources;
 use Bootspruefung\Learning\Content\Media\MediaStorage;
 use Bootspruefung\Learning\Extensions\Tickets;
 use Bootspruefung\Learning\Faq\CustomerFaq;
@@ -56,7 +59,7 @@ final class Uninstaller
     /** Eigene Nutzer-Meta. @return list<string> */
     public static function userMetaKeys(): array
     {
-        return [AppSettings::META, ExpiryReminder::META, ReminderOptOut::META, Tickets::META, Tickets::LOOKUP_META];
+        return [AppSettings::META, ExpiryReminder::META, ReminderOptOut::META, Tickets::META, Tickets::LOOKUP_META, Notices::META];
     }
 
     /** Einstiegspunkt aus uninstall.php. */
@@ -129,6 +132,11 @@ final class Uninstaller
 
         self::deleteOptions();
 
+        // Merkwerte des Katalog-Abgleichs an Produkten (Preis und Status, T98). Die Produkte selbst bleiben.
+        foreach ([ShopCatalog::PRICE_META, ShopCatalog::STATUS_META, ShopCatalog::MANUAL_STATUS_META] as $metaKey) {
+            delete_post_meta_by_key($metaKey);
+        }
+
         // Importierte Medien und Pakete löschen. Geschützte Kurs-PDFs bleiben im gesperrten Ordner
         // protected-<geheim>/ (nicht öffentlich abrufbar), damit nichts ungewollt frei wird.
         $dir = MediaStorage::baseDir();
@@ -136,6 +144,9 @@ final class Uninstaller
         if (is_string($packagesDir) && preg_match('#/packages-[A-Za-z0-9_-]+$#', $packagesDir)) {
             $remove[] = $packagesDir;
         }
+        // Ablageordner für den Import ohne Hochladen (T96) mit den dort abgelegten Paketen.
+        $uploads = wp_upload_dir(null, false);
+        $remove[] = rtrim((string) $uploads['basedir'], '/').'/'.ImportSources::DROP_FOLDER;
         foreach ($remove as $sub) {
             if (is_dir($sub)) {
                 ImportService::removeDir($sub);

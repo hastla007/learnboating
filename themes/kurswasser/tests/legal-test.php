@@ -152,6 +152,7 @@ wp_set_current_user(1);
 require_once ABSPATH.'wp-admin/includes/admin.php';
 delete_user_meta(1, 'bp_notices_dismissed');
 $open = kurswasser_legal_open_issues();
+set_current_screen('dashboard'); // wie im echten Admin (WooCommerce-Hinweise erwarten einen Bildschirm)
 ob_start();
 do_action('admin_notices');
 $adminNotice = (string) ob_get_clean();

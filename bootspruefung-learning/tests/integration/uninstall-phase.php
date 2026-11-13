@@ -63,6 +63,15 @@ if ($deleting) {
     update_option('lbac_settings', ['enabled' => true], false);
     update_option('lbvc_pending', [1 => ['t82']], false);
     set_transient('lbvc_broken_targets', [1], HOUR_IN_SECONDS);
+    // Katalog-Merkwerte an einem Produkt (T98) und Ablageordner für den Import (T96).
+    $catalogPost = (int) wp_insert_post(['post_type' => 'post', 'post_title' => 'T82 Katalog-Merkwert', 'post_status' => 'draft']);
+    foreach (['_bp_catalog_price' => '49.00', '_bp_catalog_status' => 'draft', '_bp_manual_status' => 'draft'] as $metaKey => $metaValue) {
+        update_post_meta($catalogPost, $metaKey, $metaValue);
+    }
+    update_option('t82_catalog_post', $catalogPost, false);
+    $dropDir = rtrim((string) wp_upload_dir(null, false)['basedir'], '/').'/bootspruefung-import';
+    wp_mkdir_p($dropDir);
+    file_put_contents($dropDir.'/paket.zip', 'x');
     // Tipps: veröffentlicht, Entwurf und im Papierkorb, mit Kategorie.
     Tips::registerTypes();
     $term = wp_insert_term('T82 Kategorie', Tips::TAXONOMY);
@@ -116,6 +125,12 @@ $check($tipsLeft === 0, 'alle Tipps gelöscht, auch Entwurf und Papierkorb');
 $termsLeft = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->term_taxonomy} WHERE taxonomy IN (%s, %s, %s)", Tips::TAXONOMY, \Bootspruefung\Learning\Faq\Faq::TAXONOMY, \Bootspruefung\Learning\Faq\CustomerFaq::TAXONOMY));
 $check($termsLeft === 0, 'Tipp-, FAQ- und Kunden-FAQ-Kategorien gelöscht');
 $check(! $optionExists('lbac_settings') && ! $optionExists('lbvc_pending') && ! $optionExists('_transient_lbvc_broken_targets'), 'Add-ons: Optionen und Transients gelöscht');
+$catalogPost = (int) get_option('t82_catalog_post');
+$catalogMetaLeft = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key IN ('_bp_catalog_price', '_bp_catalog_status', '_bp_manual_status')");
+$check($catalogMetaLeft === 0 && get_post($catalogPost) !== null, 'Katalog-Merkwerte an Produkten gelöscht, Produkte bleiben (T98)');
+$check(! is_dir(rtrim((string) wp_upload_dir(null, false)['basedir'], '/').'/bootspruefung-import'), 'Ablageordner für den Import gelöscht (T96)');
+wp_delete_post($catalogPost, true);
+delete_option('t82_catalog_post');
 // Multisite: beim Löschen einer Website gehen auch die eigenen Tabellen (abhängige zuerst).
 $dropped = Plugin::dropTablesOnSiteDelete([$wpdb->prefix.'posts'], 1);
 $check(in_array($wpdb->prefix.'bp_course', $dropped, true) && array_search($wpdb->prefix.'bp_attempt_answer', $dropped, true) < array_search($wpdb->prefix.'bp_question', $dropped, true), 'Multisite: wpmu_drop_tables ergänzt die eigenen Tabellen in sicherer Reihenfolge');
