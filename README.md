@@ -75,6 +75,10 @@ Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte. 
 Kurses in der Mediathek mit „Kurs · Downloads (PDF)“ markieren. Dispute-Webhooks (PayPal, allgemein für Klarna u. a.)
 unter Bootsprüfung → Einstellungen › Zahlungskonflikte einrichten.
 
+Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Hooks, Filter und App-Routen, über die ein Gutschein- bzw.
+Ticket-Plugin mit dem Lern-Plugin zusammenarbeitet, stehen in `docs/schnittstellen-erweiterungen.md`
+(Kursgutschein einlösen, besitzt Kurs, Mitgliederrabatt, Garantie-Anteil, Tickets, „Praxis in deiner Nähe“).
+
 ### Tests des Plugins
 
 Gegen eine WordPress-Installation mit MySQL/MariaDB, Plugin unter `wp-content/plugins/bootspruefung-learning`:
@@ -99,6 +103,12 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/woocommer
 
 ```bash
 WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/membership-test.php
+```
+
+Schnittstellen für Gutschein- und Ticket-Plugins (mit WooCommerce, vorher `woocommerce-setup.php`):
+
+```bash
+WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/extensions-test.php
 ```
 
 ```bash
