@@ -425,6 +425,24 @@ remove_filter('bootspruefung_named_lock_timeout', $noWait);
 $check(\Bootspruefung\Learning\Infrastructure\NamedLock::acquire(GroupService::lockName((int) $group->id), 0) && (int) $parallelDb->get_var($parallelDb->prepare('SELECT GET_LOCK(%s, 0)', $lockName)) === 0, 'Sperre wieder frei; gehalten blockiert sie andere Verbindungen');
 \Bootspruefung\Learning\Infrastructure\NamedLock::release(GroupService::lockName((int) $group->id));
 $parallelDb->close();
+// T115: GET_LOCK nicht verfügbar (NULL) → ohne Sperre weiter (nie dauerhaft blockiert); HyperDB/LudicrousDB → vorher
+// send_reads_to_masters(). Nachgebildet mit einer Datenbankverbindung, die GET_LOCK mit NULL beantwortet.
+$realDb = $GLOBALS['wpdb'];
+$noLockDb = new class (DB_USER, DB_PASSWORD, DB_NAME, DB_HOST) extends wpdb {
+    public int $toMaster = 0;
+    public function send_reads_to_masters(): void { $this->toMaster++; }
+    public function get_var($query = null, $x = 0, $y = 0) { return is_string($query) && str_contains($query, 'GET_LOCK(') ? null : parent::get_var($query, $x, $y); }
+};
+$noLockDb->set_prefix($realDb->base_prefix);
+$GLOBALS['wpdb'] = $noLockDb;
+$noLockName = 'test-null:'.wp_generate_password(8, false);
+$nullAcquired = \Bootspruefung\Learning\Infrastructure\NamedLock::acquire($noLockName, 0);
+$nullWith = \Bootspruefung\Learning\Infrastructure\NamedLock::with($noLockName.'-2', static fn () => 'ohne Sperre', static fn () => 'belegt', 0);
+\Bootspruefung\Learning\Infrastructure\NamedLock::release($noLockName);
+$GLOBALS['wpdb'] = $realDb;
+$check($nullAcquired && $nullWith === 'ohne Sperre', 'NamedLock: GET_LOCK nicht verfügbar (NULL) → weiter ohne Sperre (protokolliert), nicht dauerhaft belegt');
+$check($noLockDb->toMaster >= 2, 'NamedLock: HyperDB/LudicrousDB – Lesezugriffe vor GET_LOCK an den Hauptserver (send_reads_to_masters)');
+$noLockDb->close();
 // T87: Vorschau des Einladungslinks nennt nur Vor- und Nachname des Käufers (nie den Anmeldenamen), sonst niemanden.
 $buyerBefore = get_userdata($buyer);
 wp_update_user(['ID' => $buyer, 'display_name' => $buyerBefore->user_login, 'first_name' => '', 'last_name' => '']);

@@ -6,6 +6,7 @@ namespace Bootspruefung\Learning\Exams\Services;
 
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Content\Repositories\Overrides;
+use Bootspruefung\Learning\Infrastructure\NamedLock;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Support\AccessDenied;
@@ -36,6 +37,8 @@ use RuntimeException;
 final class ExamService
 {
     private const GRACE_SECONDS = 5;
+    /** Sekunden, die ein Prüfungsstart auf die Startsperre desselben Nutzers wartet (Filter bootspruefung_named_lock_timeout). */
+    private const START_LOCK_WAIT = 10;
     /** So lange nach Fristende nimmt der Server noch Antworten an, die vor Fristende gegeben wurden (offline gepuffert). */
     public const LATE_TOLERANCE_SECONDS = 120;
 
@@ -159,9 +162,10 @@ final class ExamService
         }
 
         // Doppelklick/paralleler Start: Prüfen und Anlegen unter einer Sperre je Nutzer (sonst zwei laufende Sitzungen).
-        $lock = 'bp_exam_start_'.$userId;
-        // GET_LOCK liefert 1 (erhalten), 0 (Zeitüberschreitung) oder NULL (Fehler) – nur mit Sperre weiter.
-        if ((string) $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lock)) !== '1') {
+        // NamedLock (T115): Name je Datenbank und Präfix; belegt → freundliche Meldung; GET_LOCK nicht verfügbar (NULL)
+        // → ohne Sperre weiter (die Prüfung auf eine laufende Sitzung unten bleibt), statt den Start dauerhaft zu sperren.
+        $lock = self::startLockName($userId);
+        if (! NamedLock::acquire($lock, self::START_LOCK_WAIT)) {
             throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::EXAM_START_BUSY, __('Die Prüfung wird gerade gestartet. Bitte versuche es in einem Moment erneut.', 'bootspruefung-learning'));
         }
         try {
@@ -287,8 +291,14 @@ final class ExamService
 
         return $sessionId;
         } finally {
-            $this->db->query($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            NamedLock::release($lock);
         }
+    }
+
+    /** Name der Startsperre je Nutzer (NamedLock::dbName() macht daraus den Namen in der Datenbank). */
+    public static function startLockName(int $userId): string
+    {
+        return 'exam_start:'.$userId;
     }
 
     /**

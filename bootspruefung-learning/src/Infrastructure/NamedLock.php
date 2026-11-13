@@ -12,7 +12,16 @@ namespace Bootspruefung\Learning\Infrastructure;
  *
  * Ergebnis von acquire(): true = gehalten, false = belegt (Zeit abgelaufen). Kann die Datenbank keine benannten
  * Sperren (Fehler, NULL), gilt die Sperre als gehalten und es wird protokolliert – die Aufrufer prüfen danach
- * ohnehin noch einmal (z. B. Platzzählung), es wird also nur die zusätzliche Sicherung übersprungen.
+ * ohnehin noch einmal (z. B. Platzzählung, laufende Prüfung, Bestellung je Gutscheincode), es wird also nur die
+ * zusätzliche Sicherung übersprungen. Ein NULL blockiert damit nie dauerhaft (früher bei Prüfungsstart und
+ * Gutscheineinlösung der Fall, T115). Belegt (false) heißt dagegen immer: nichts tun, Aufrufer meldet „gerade belegt“.
+ *
+ * HyperDB/LudicrousDB (Lese-Replikate): GET_LOCK und RELEASE_LOCK sind SELECT-Anweisungen und gingen sonst an ein
+ * Replikat (andere Verbindung, andere Sperre). Vor dem Sperren werden deshalb alle weiteren Lesezugriffe dieser
+ * Anfrage an den Hauptserver geschickt (send_reads_to_masters(), falls vorhanden).
+ *
+ * Wer NamedLock nutzt (T83, T115): Gruppenbeitritt und Einladungen (GroupService), Prüfungsstart je Nutzer
+ * (ExamService), Kursgutschein-Bestellung je Code (Extensions\Vouchers).
  */
 final class NamedLock
 {
@@ -29,6 +38,7 @@ final class NamedLock
         }
         /** Filter: Wartezeit in Sekunden auf eine belegte Sperre (Standard 5). */
         $timeout = max(0, (int) apply_filters('bootspruefung_named_lock_timeout', $timeout ?? 5, $name));
+        self::toPrimary();
         $result = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', self::dbName($name), $timeout));
         if ($result === null) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Betriebshinweis
@@ -74,6 +84,15 @@ final class NamedLock
             return $fn();
         } finally {
             self::release($name);
+        }
+    }
+
+    /** HyperDB/LudicrousDB: Sperre und Freigabe auf derselben Verbindung zum Hauptserver (nicht auf einem Replikat). */
+    public static function toPrimary(): void
+    {
+        global $wpdb;
+        if (is_object($wpdb) && method_exists($wpdb, 'send_reads_to_masters')) {
+            $wpdb->send_reads_to_masters();
         }
     }
 

@@ -454,11 +454,17 @@ $req('POST', '/exam-sessions/'.$d['session_id'].'/submit');
 // Startsperre belegt (zweite Verbindung): freundliche Meldung statt Doppelstart.
 [$lockHost, $lockPort] = array_pad(explode(':', DB_HOST, 2), 2, null);
 $lockDb = new mysqli($lockHost, DB_USER, DB_PASSWORD, DB_NAME, $lockPort ? (int) $lockPort : 3306);
-$lockDb->query("SELECT GET_LOCK('bp_exam_start_{$rv}', 30)");
+// T115: Startsperre über NamedLock (Name je Datenbank und Präfix); Wartezeit für den Test auf 1 Sekunde.
+$examLock = $lockDb->real_escape_string(\Bootspruefung\Learning\Infrastructure\NamedLock::dbName(\Bootspruefung\Learning\Exams\Services\ExamService::startLockName($rv)));
+$heldExamLock = (string) $lockDb->query("SELECT GET_LOCK('{$examLock}', 30)")->fetch_row()[0] === '1';
+$shortWait = static fn () => 1;
+add_filter('bootspruefung_named_lock_timeout', $shortWait);
+$sessionsBefore = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}exam_session WHERE user_id = %d", $rv));
 [$s, $d] = $req('POST', '/courses/SBF-SEE/exam-sessions');
-$lockDb->query("SELECT RELEASE_LOCK('bp_exam_start_{$rv}')");
+remove_filter('bootspruefung_named_lock_timeout', $shortWait);
+$lockDb->query("SELECT RELEASE_LOCK('{$examLock}')");
 $lockDb->close();
-$check($s === 422 && str_contains((string) ($d['message'] ?? ''), 'erneut'), 'Startsperre belegt: 422 „Bitte erneut versuchen“');
+$check($heldExamLock && $s === 422 && str_contains((string) ($d['message'] ?? ''), 'erneut') && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}exam_session WHERE user_id = %d", $rv)) === $sessionsBefore, 'Startsperre belegt (zweite Verbindung): 422 „Bitte erneut versuchen“, keine Sitzung angelegt');
 // Lern-Token: TTL 2 h, Zugriff und Auslieferbarkeit bei Antwort/Aufdecken.
 $check(\Bootspruefung\Learning\Learning\Services\QuestionPresenter::TTL === 2 * HOUR_IN_SECONDS, 'Frage-Token gilt 2 Stunden');
 [, $d] = $req('GET', '/courses/SBF-SEE/next-question');
