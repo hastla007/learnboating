@@ -6,6 +6,7 @@ namespace Bootspruefung\Learning\Commerce;
 
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Frontend\Router;
+use Bootspruefung\Learning\Infrastructure\NamedLock;
 use Bootspruefung\Learning\Settings\Settings;
 
 /**
@@ -196,14 +197,26 @@ final class GroupService
                 $skipped[] = $email;
                 continue;
             }
-            $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->members} m WHERE group_id = %d AND email = %s AND ".self::occupying('m'), $groupId, $email, self::inviteCutoff()));
-            if ($exists || $this->freeSeats($group) <= 0 || $invited >= $budget) {
+            if ($invited >= $budget) {
                 $skipped[] = $email;
                 continue;
             }
+            // Platz unter derselben Sperre wie der Beitritt reservieren (T83): keine Überbuchung durch Gleichzeitigkeit.
             $token = 'i'.bin2hex(random_bytes(16));
             $now = EntitlementService::now();
-            $this->db->insert($this->members, ['group_id' => $groupId, 'email' => $email, 'status' => 'invited', 'invite_token' => $token, 'invited_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+            $reserved = NamedLock::with(self::lockName($groupId), function () use ($groupId, $email, $token, $now): bool {
+                $group = $this->find($groupId);
+                $exists = $this->db->get_var($this->db->prepare("SELECT id FROM {$this->members} m WHERE group_id = %d AND email = %s AND ".self::occupying('m'), $groupId, $email, self::inviteCutoff()));
+                if ($group === null || $exists || $this->freeSeats($group) <= 0) {
+                    return false;
+                }
+
+                return (bool) $this->db->insert($this->members, ['group_id' => $groupId, 'email' => $email, 'status' => 'invited', 'invite_token' => $token, 'invited_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+            }, static fn (): bool => false);
+            if (! $reserved) {
+                $skipped[] = $email;
+                continue;
+            }
             $invited++;
             $group = $this->find($groupId);
             \Bootspruefung\Learning\Support\Mail::send($email, sprintf(__('Einladung zum Lernzugang: %s', 'bootspruefung-learning'), $group->name), $this->inviteMail($group, $inviter, $token, $now));
@@ -243,17 +256,26 @@ final class GroupService
         if ($group === null) {
             return null;
         }
-        $owner = get_userdata((int) $group->owner_user_id);
-
         return [
             'name' => $group->name,
-            'owner' => $owner ? $owner->display_name : '',
+            'owner' => self::ownerName((int) $group->owner_user_id),
             'scopes' => array_map(static fn ($s) => ['course' => Labels::course($s['course']), 'feature' => Labels::feature($s['feature'])], self::scopes($group)),
             'free_seats' => $this->freeSeats($group) + ($member !== null ? 1 : 0),
             'status' => $group->status,
             'valid_until' => $group->valid_until,
             'personal' => $member !== null,
         ];
+    }
+
+    /**
+     * Name der kaufenden Person für Einladungsvorschauen (Web und App, T87): nur Vor- und Nachname aus dem Konto,
+     * sonst nichts. Nie der Anzeigename – der ist oft der Anmeldename oder ein Teil der E-Mail-Adresse.
+     */
+    public static function ownerName(int $userId): string
+    {
+        $owner = $userId > 0 ? get_userdata($userId) : false;
+
+        return $owner ? self::cleanName(trim($owner->first_name.' '.$owner->last_name)) : '';
     }
 
     /** Beitritt mit Gruppen- oder persönlichem Token. */
@@ -266,6 +288,41 @@ final class GroupService
         if ($group === null) {
             throw new \InvalidArgumentException(__('Dieser Einladungslink ist ungültig oder abgelaufen.', 'bootspruefung-learning'));
         }
+        // Beitritte derselben Gruppe nacheinander (T83): sonst könnten parallele Anfragen dieselben freien Plätze
+        // zählen bzw. dieselbe Person doppelt eintragen. Gezählt wird erst unter der Sperre.
+        $groupId = (int) $group->id;
+
+        return NamedLock::with(self::lockName($groupId), function () use ($groupId, $token, $userId): object {
+            [$group, $invite] = $this->resolveToken($token);
+            if ($group === null || (int) $group->id !== $groupId) {
+                // Einladung inzwischen angenommen – von derselben Person (Doppelklick, Wiederholung): Mitgliedschaft liefern.
+                $existing = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->members} WHERE group_id = %d AND user_id = %d AND status = 'active'", $groupId, $userId));
+                if ($existing) {
+                    return $existing;
+                }
+                throw new \InvalidArgumentException(__('Dieser Einladungslink ist ungültig oder abgelaufen.', 'bootspruefung-learning'));
+            }
+
+            return $this->joinLocked($group, $invite, $userId);
+        }, static function (): never {
+            throw new \InvalidArgumentException(self::busyMessage());
+        });
+    }
+
+    /** Name der Sperre für Beitritte und Einladungen einer Gruppe. */
+    public static function lockName(int $groupId): string
+    {
+        return 'group-seats:'.$groupId;
+    }
+
+    public static function busyMessage(): string
+    {
+        return __('Gerade nehmen mehrere Personen gleichzeitig einen Platz in dieser Gruppe. Bitte versuche es in einem Moment noch einmal.', 'bootspruefung-learning');
+    }
+
+    /** Beitritt unter der Gruppensperre (join). */
+    private function joinLocked(object $group, ?object $invite, int $userId): object
+    {
         if ($group->status !== self::ACTIVE || ($group->valid_until !== null && $group->valid_until < EntitlementService::now())) {
             throw new \InvalidArgumentException(__('Diese Gruppe ist derzeit nicht aktiv.', 'bootspruefung-learning'));
         }

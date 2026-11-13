@@ -1291,6 +1291,14 @@ $check((new AccessService())->limit($erin, $courseCode, AccessService::QUESTION_
 $pv = $api('GET', '/groups/join/'.$personal, [], $tokE);
 $check($pv['status'] === 200 && $pv['body']['data']['name'] === 'App-Gruppe Alice' && $pv['body']['data']['personal'] === true && $pv['body']['data']['joinable'] === true && $pv['body']['data']['already_member'] === false && $pv['body']['data']['scopes'][0]['course_id'] === $courseId, 'Vorschau des persönlichen Einladungslinks (wie Web groups/join/{token})');
 $check($api('GET', '/groups/join/'.$personal, [], $tokE, ['X-Tenant-Slug' => null])['status'] === 422, 'Vorschau braucht X-Tenant-Slug (wie /coupons/redeem)');
+// T87: kein Anzeigename (oft = Anmeldename), nur Vor-/Nachname des Käufers.
+wp_update_user(['ID' => $alice, 'display_name' => 'mobile_kundin_a']);
+$ownerData = (array) ($api('GET', '/groups/join/'.$personal, [], $tokE)['body']['data'] ?? []);
+$ownerNull = array_key_exists('owner_name', $ownerData) ? $ownerData['owner_name'] : 'fehlt';
+wp_update_user(['ID' => $alice, 'first_name' => 'Alice', 'last_name' => 'Beispiel']);
+$ownerFull = $api('GET', '/groups/join/'.$personal, [], $tokE)['body']['data']['owner_name'] ?? 'fehlt';
+wp_update_user(['ID' => $alice, 'display_name' => 'Kunde mobile_kundin_a', 'first_name' => '', 'last_name' => '']);
+$check($ownerNull === null && $ownerFull === 'Alice Beispiel', 'App-Vorschau: owner_name nur aus Vor-/Nachname, nie der Anmeldename');
 $r = $api('GET', '/groups/join/g'.str_repeat('0', 32), [], $tokE);
 $check($r['status'] === 422 && $code($r) === 'COUPON_INVALID' && $api('GET', '/groups/join/kaputt', [], $tokE)['status'] === 422, 'unbekannter bzw. kaputter Link → 422 COUPON_INVALID');
 $r = $api('POST', '/coupons/redeem', ['code' => \Bootspruefung\Learning\Commerce\GroupService::joinUrl($personal)], $tokE);
