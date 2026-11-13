@@ -14,3 +14,6 @@ define('LBAC_VERSION', '0.0.0');
 define('LBAC_FILE', '');
 define('LBVC_VERSION', '0.0.0');
 define('LBVC_FILE', '');
+// Aus wp-config.php (nicht in den WordPress-Stubs).
+define('DB_NAME', 'wordpress');
+define('COOKIEPATH', '/');

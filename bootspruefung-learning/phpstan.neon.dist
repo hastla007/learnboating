@@ -27,6 +27,10 @@ parameters:
         - ../learnboating-voucher-connector/src
     bootstrapFiles:
         - tests/phpstan/bootstrap.php
+    # Kommen aus wp-config.php bzw. wp_cookie_constants(); in tests/phpstan/bootstrap.php nur als Platzhalter.
+    dynamicConstantNames:
+        - DB_NAME
+        - COOKIEPATH
     scanFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
         - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
