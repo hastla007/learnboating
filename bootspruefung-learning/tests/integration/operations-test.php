@@ -286,5 +286,30 @@ foreach (\Bootspruefung\Learning\Commerce\ShopCatalog::products() as $product) {
 $check($wrong === [], 'Add-on: Provisionsausschluss für alle Katalogprodukte des echten Plugins'.($wrong ? ' – '.implode(', ', $wrong) : ''));
 
 $wpdb->delete($p.'entitlement', ['user_id' => $learner]);
+echo "Wartung nach Plugin-Update (T47)\n";
+$MT = \Bootspruefung\Learning\Infrastructure\Maintenance::class;
+$schemaVersion = get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION);
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, '0.0.1');
+$MT::reset();
+wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
+$write = rest_do_request(new WP_REST_Request('POST', '/bootspruefung/v1/courses/SBF-SEE/answers'));
+$check($write->get_status() === 503 && ($write->get_data()['code'] ?? '') === 'bp_maintenance' && ($write->get_headers()['Retry-After'] ?? '') === '30', 'Migration fällig: schreibende Web-Anfrage 503 mit Retry-After (nichts halb speichern)');
+$check(wp_next_scheduled(Plugin::MIGRATE_HOOK) !== false, 'Migration sofort als Cron-Lauf angestoßen');
+$appWrite = rest_do_request(new WP_REST_Request('POST', '/boatingschool/v1/auth/login'));
+$check($appWrite->get_status() === 503 && ($appWrite->get_data()['code'] ?? '') === 'MAINTENANCE', 'App-API: 503 MAINTENANCE');
+$read = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/gibt-es-nicht'));
+$check($read->get_status() !== 503, 'lesende Anfragen laufen weiter');
+$other = rest_do_request(new WP_REST_Request('POST', '/wp/v2/gibt-es-nicht'));
+$check($other->get_status() !== 503, 'andere Schnittstellen (z. B. WordPress, WooCommerce) unberührt');
+ob_start();
+\Bootspruefung\Learning\Admin\SystemStatus::renderMaintenance();
+$maint = (string) ob_get_clean();
+$check(str_contains($maint, 'Wartung') && str_contains($maint, 'fällig') && str_contains($maint, 'Bestellabgleich') && str_contains($maint, 'Client-IP'), 'Systemstatus: Abschnitt „Wartung“ mit Migration, Bestellabgleich und Client-IP');
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, $schemaVersion);
+$MT::reset();
+wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
+$after = rest_do_request(new WP_REST_Request('POST', '/bootspruefung/v1/courses/SBF-SEE/answers'));
+$check($after->get_status() !== 503, 'nach der Migration wieder normal');
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

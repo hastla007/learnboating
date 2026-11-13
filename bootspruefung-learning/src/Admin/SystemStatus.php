@@ -131,6 +131,52 @@ final class SystemStatus
         return ['status' => $exposed ? 'exposed' : 'ok', 'code' => $code] + $out;
     }
 
+    /**
+     * Abschnitt „Wartung“ (T47): Datenbank-Migration, stündlicher Wartungslauf, Bestellabgleich (letzter Lauf,
+     * Rückstand, Wiederholungen), Fehlerprotokoll und Client-IP hinter einem Proxy.
+     */
+    public static function renderMaintenance(): void
+    {
+        global $wpdb;
+        $migrator = new \Bootspruefung\Learning\Infrastructure\Database\Migrator($wpdb);
+        $time = static fn (int $ts): string => $ts > 0 ? wp_date('d.m.Y H:i', $ts) : '–';
+        $failed = get_option(\Bootspruefung\Learning\Plugin::OPTION_MIGRATION_FAILED);
+        $hourly = (int) wp_next_scheduled(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY);
+        $last = get_option(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::OPTION_LAST_RUN);
+        $last = is_array($last) ? $last : [];
+        $retry = \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::retryList();
+        $cursor = get_option(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::OPTION_CURSOR);
+        $rows = [
+            __('Datenbank-Migration', 'bootspruefung-learning') => $migrator->needsMigration()
+                ? __('fällig – schreibende Anfragen der Lern-API warten (503), bis sie gelaufen ist', 'bootspruefung-learning')
+                : __('aktuell', 'bootspruefung-learning'),
+            __('Letzter Migrationsfehler', 'bootspruefung-learning') => is_array($failed) ? $time((int) ($failed['at'] ?? 0)).' – '.(string) ($failed['message'] ?? '') : '–',
+            __('Nächster Wartungslauf (stündlich)', 'bootspruefung-learning') => $hourly > 0 ? $time($hourly).(defined('DISABLE_WP_CRON') && DISABLE_WP_CRON ? ' · '.__('WP-Cron bei Besuchen aus (System-Cron nötig)', 'bootspruefung-learning') : '') : __('nicht geplant', 'bootspruefung-learning'),
+            __('Bestellabgleich: letzter Lauf', 'bootspruefung-learning') => $last === [] ? '–' : sprintf(
+                /* translators: 1: Zeitpunkt, 2: geprüft, 3: geändert, 4: Fehler */
+                __('%1$s · %2$d geprüft, %3$d geändert, %4$d Fehler', 'bootspruefung-learning'),
+                $time((int) ($last['at'] ?? 0)), (int) ($last['checked'] ?? 0), (int) ($last['changed'] ?? 0), (int) ($last['failed'] ?? 0)
+            ),
+            __('Bestellabgleich: Rückstand', 'bootspruefung-learning') => ! empty($last['more']) ? __('ja – der nächste Lauf macht weiter', 'bootspruefung-learning') : __('nein', 'bootspruefung-learning'),
+            __('Bestellabgleich: Stand bis', 'bootspruefung-learning') => is_array($cursor) ? $time((int) ($cursor['time'] ?? 0)) : '–',
+            __('Bestellungen zur Wiederholung', 'bootspruefung-learning') => $retry === [] ? '0' : count($retry).' ('.implode(', ', array_map(static fn ($id) => '#'.$id, array_slice(array_keys($retry), 0, 10))).')',
+            __('Client-IP dieser Anfrage', 'bootspruefung-learning') => \Bootspruefung\Learning\Mobile\RateLimiter::clientIp().(\Bootspruefung\Learning\Mobile\RateLimiter::trustedProxies() !== [] ? ' · '.__('über eingetragenen Proxy', 'bootspruefung-learning') : ''),
+        ];
+        echo '<h2>'.esc_html__('Wartung', 'bootspruefung-learning').'</h2><table class="widefat striped" style="max-width:720px"><tbody>';
+        foreach ($rows as $label => $value) {
+            printf('<tr><th scope="row">%s</th><td>%s</td></tr>', esc_html($label), esc_html((string) $value));
+        }
+        echo '</tbody></table>';
+        $errors = array_slice(\Bootspruefung\Learning\Infrastructure\Cron::errors(), 0, 5);
+        if ($errors !== []) {
+            echo '<h3>'.esc_html__('Letzte Fehler der Wartungsläufe', 'bootspruefung-learning').'</h3><ul>';
+            foreach ($errors as $e) {
+                printf('<li><code>%s</code> %s%s – %s</li>', esc_html($e['at'].' UTC'), esc_html($e['task']), $e['item'] !== null ? ' ('.esc_html((string) $e['item']).')' : '', esc_html($e['message']));
+            }
+            echo '</ul>';
+        }
+    }
+
     /** nginx-Regeln für den Upload-Pfad dieser Installation (Pakete/geschützte Dateien sperren, keine Skripte in media/). */
     public static function nginxRule(): string
     {

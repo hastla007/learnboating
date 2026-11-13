@@ -78,6 +78,7 @@ final class Problem
         'HTTPS_REQUIRED' => 'HTTPS erforderlich',
         'APP_UPDATE_REQUIRED' => 'Update erforderlich',
         'METHOD_NOT_ALLOWED' => 'Methode nicht erlaubt',
+        'MAINTENANCE' => 'Wartung',
         'INTERNAL_ERROR' => 'Serverfehler',
     ];
 

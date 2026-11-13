@@ -542,6 +542,54 @@ wp_clear_scheduled_hook($AR::HOOK);
 delete_option($AR::OPTION_DEACTIVATED);
 delete_option($AR::OPTION_CURSOR);
 
+// T47: mehr als eine Seite bereits abgeglichener Bestellungen in derselben Sekunde – der Lauf darf nicht hängen bleiben.
+$setModified = static function (array $ids, int $ts) use ($wpdb): void {
+    $gmt = gmdate('Y-m-d H:i:s', $ts);
+    $in = implode(',', array_map('intval', $ids));
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}wc_orders'")) {
+        $wpdb->query($wpdb->prepare("UPDATE {$wpdb->prefix}wc_orders SET date_updated_gmt = %s WHERE id IN ({$in})", $gmt));
+    }
+    $wpdb->query($wpdb->prepare("UPDATE {$wpdb->posts} SET post_modified_gmt = %s, post_modified = %s WHERE ID IN ({$in})", $gmt, $gmt));
+    wp_cache_flush();
+};
+$sameSecond = [];
+for ($i = 0; $i < 53; $i++) {
+    $bulk = wc_create_order();
+    $sameSecond[] = (int) $bulk->get_id();
+}
+$stuckFresh = $paidOrder($alice, 'bacs');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE order_id = %d", $stuckFresh));
+$T = time() - HOUR_IN_SECONDS;
+$setModified($sameSecond, $T);
+$setModified([$stuckFresh], $T + 1);
+update_option($AR::OPTION_CURSOR, ['time' => $T, 'id' => max($sameSecond)], false);
+$stats = $AR::run(1, time() + 10 * MINUTE_IN_SECONDS);
+$check(is_array($stats) && $stats['checked'] === 1 && $statuses($stuckFresh) === ['active'], '53 bereits abgeglichene Bestellungen in derselben Sekunde: Lauf blättert weiter und zieht die nächste nach (T47)');
+// T47: fehlgeschlagene Bestellung wird in späteren Läufen erneut versucht.
+$failing = $paidOrder($bob, 'bacs');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE order_id = %d", $failing));
+$setModified([$failing], time() - 20 * MINUTE_IN_SECONDS);
+update_option($AR::OPTION_CURSOR, ['time' => time() - 30 * MINUTE_IN_SECONDS, 'id' => 0], false);
+$boom = static function ($target, $order) use ($failing) {
+    if (is_object($order) && (int) ($order->id ?? 0) === $failing) {
+        throw new RuntimeException('Testfehler');
+    }
+
+    return $target;
+};
+add_filter('bootspruefung_order_access_target', $boom, 10, 2);
+$stats = $AR::run(100, time());
+$check(is_array($stats) && $stats['failed'] >= 1 && isset($AR::retryList()[$failing]), 'Fehler beim Abgleich: Bestellung kommt auf die Wiederholungsliste');
+remove_filter('bootspruefung_order_access_target', $boom, 10);
+$stats = $AR::run(100, time());
+$check(! isset($AR::retryList()[$failing]) && $statuses($failing) === ['active'] && ($stats['retried'] ?? 0) >= 1, 'nächster Lauf wiederholt sie erfolgreich und nimmt sie von der Liste');
+$check(is_array(get_option($AR::OPTION_LAST_RUN)) && isset(get_option($AR::OPTION_LAST_RUN)['at']), 'letzter Lauf gemerkt (Wartungsanzeige)');
+foreach ($sameSecond as $bulkId) {
+    wc_get_order($bulkId)?->delete(true);
+}
+delete_option($AR::OPTION_CURSOR);
+delete_option($AR::OPTION_RETRY);
+
 echo "Prüfung der Produktzuordnungen\n";
 $noPrice = new WC_Product_Simple();
 $noPrice->set_name('Ohne Preis');

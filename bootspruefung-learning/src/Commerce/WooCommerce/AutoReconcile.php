@@ -27,6 +27,15 @@ final class AutoReconcile
 
     public const BATCH = 100;
 
+    /** Fehlgeschlagene Bestellungen [ID => Versuche], die die nächsten Läufe erneut abgleichen (T47). */
+    public const OPTION_RETRY = 'bp_learning_reconcile_retry';
+
+    /** So oft wird eine fehlgeschlagene Bestellung erneut versucht; danach bleibt sie nur im Fehlerprotokoll. */
+    public const MAX_ATTEMPTS = 5;
+
+    /** Letzter Lauf {at, checked, changed, failed, retried, more} für die Wartungsanzeige. */
+    public const OPTION_LAST_RUN = 'bp_learning_reconcile_last';
+
     /** Erster Lauf ohne Stand: Bestellungen der letzten 48 Stunden. */
     public const INITIAL_WINDOW = 2 * DAY_IN_SECONDS;
 
@@ -62,21 +71,50 @@ final class AutoReconcile
     {
         [$since, $lastId] = self::cursor($now);
         $until = $now - self::SETTLE;
-        $stats = ['checked' => 0, 'changed' => 0, 'failed' => 0, 'more' => false];
+        $stats = ['checked' => 0, 'changed' => 0, 'failed' => 0, 'more' => false, 'retried' => 0];
+        $sync = Integration::sync();
+        // Zuerst früher fehlgeschlagene Bestellungen erneut versuchen (T47: Fehler wurden bisher nie wiederholt).
+        $retry = self::retryList();
+        foreach ($retry as $id => $attempts) {
+            $stats['retried']++;
+            try {
+                $sync->sync((int) $id, 'auto_reconcile_retry');
+                unset($retry[$id]);
+            } catch (\Throwable $e) {
+                $retry[$id] = $attempts + 1;
+                if ($retry[$id] >= self::MAX_ATTEMPTS) {
+                    unset($retry[$id]);
+                }
+                Cron::recordError('order_reconcile', $e, 'order '.$id.' (Versuch '.($attempts + 1).')');
+            }
+        }
         if ($since > $until) {
+            self::saveRetry($retry);
+            self::rememberRun($now, $stats);
+
             return $stats;
         }
-        // Eine Bestellung mehr lesen, um zu wissen, ob noch etwas übrig ist. Nur IDs (keine Objekte).
-        $ids = wc_get_orders([
-            'type' => 'shop_order',
-            'status' => array_keys(wc_get_order_statuses()),
-            'date_modified' => $since.'...'.$until,
-            'orderby' => ['modified' => 'ASC', 'ID' => 'ASC'],
-            'limit' => $limit + 50,
-            'return' => 'ids',
-        ]);
+        // Seitenweise lesen, bis unbearbeitete Bestellungen kommen: Liegen mehr als eine Seite bereits abgeglichener
+        // Bestellungen in derselben Sekunde, blieb der Lauf sonst für immer an derselben Stelle stehen (T47).
+        $pageSize = $limit + 50;
+        $ids = [];
+        for ($page = 1; $page <= 200; $page++) {
+            $chunk = wc_get_orders([
+                'type' => 'shop_order',
+                'status' => array_keys(wc_get_order_statuses()),
+                'date_modified' => $since.'...'.$until,
+                'orderby' => ['modified' => 'ASC', 'ID' => 'ASC'],
+                'limit' => $pageSize,
+                'paged' => $page,
+                'return' => 'ids',
+            ]);
+            $ids = array_merge($ids, array_map('intval', (array) $chunk));
+            $fresh = array_filter((array) $chunk, static fn ($id) => (int) $id > $lastId);
+            if (count($chunk) < $pageSize || count($fresh) > $limit || self::hasNewer((array) $chunk, $since)) {
+                break;
+            }
+        }
         $cursor = [$since, $lastId];
-        $sync = Integration::sync();
         foreach ($ids as $id) {
             $order = wc_get_order((int) $id);
             if (! $order instanceof \WC_Order) {
@@ -98,14 +136,17 @@ final class AutoReconcile
                 $stats['changed'] += $plan !== null && $plan->changes !== [] ? 1 : 0;
             } catch (\Throwable $e) {
                 $stats['failed']++;
+                $retry[(int) $id] = $retry[(int) $id] ?? 1;
                 Cron::recordError('order_reconcile', $e, 'order '.$id);
             }
             // Aufsteigend nach Änderungsdatum und ID: die zuletzt abgeglichene Bestellung ist der neue Stand.
             $cursor = [max($since, $ts), (int) $id];
         }
-        if (! $stats['more'] && count($ids) >= $limit + 50) {
+        if (! $stats['more'] && $stats['checked'] >= $limit && count($ids) > $stats['checked']) {
             $stats['more'] = true;
         }
+        self::saveRetry($retry);
+        self::rememberRun($now, $stats);
         // Ohne weitere Bestellungen bis $until weiterrücken (ältere ändern sich nur mit neuem Änderungsdatum).
         update_option(self::OPTION_CURSOR, $stats['more'] ? ['time' => $cursor[0], 'id' => $cursor[1]] : ['time' => $until, 'id' => 0], false);
         if (! $stats['more']) {
@@ -117,6 +158,35 @@ final class AutoReconcile
         }
 
         return $stats;
+    }
+
+    /** Liegt in dieser Seite eine Bestellung mit späterem Änderungsdatum als $since? @param list<int|string> $ids */
+    private static function hasNewer(array $ids, int $since): bool
+    {
+        $last = $ids === [] ? null : wc_get_order((int) end($ids));
+        $modified = $last instanceof \WC_Order ? $last->get_date_modified() : null;
+
+        return $modified !== null && $modified->getTimestamp() > $since;
+    }
+
+    /** @return array<int,int> Bestell-ID => bisherige Versuche */
+    public static function retryList(): array
+    {
+        $list = get_option(self::OPTION_RETRY, []);
+
+        return is_array($list) ? array_map('intval', $list) : [];
+    }
+
+    /** @param array<int,int> $retry */
+    private static function saveRetry(array $retry): void
+    {
+        $retry === [] ? delete_option(self::OPTION_RETRY) : update_option(self::OPTION_RETRY, array_slice($retry, 0, 200, true), false);
+    }
+
+    /** @param array<string,int|bool> $stats */
+    private static function rememberRun(int $now, array $stats): void
+    {
+        update_option(self::OPTION_LAST_RUN, ['at' => $now] + $stats, false);
     }
 
     /** @return array{0:int,1:int} Änderungsdatum (Unix-Zeit) und Bestell-ID, ab denen abgeglichen wird */

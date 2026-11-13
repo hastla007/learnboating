@@ -126,6 +126,8 @@ final class Plugin
         (new Menu($this))->register();
         (new RestRegistrar())->register();
         \Bootspruefung\Learning\Infrastructure\RequestMemo::register();
+        // Während einer fälligen Migration schreibende Lern-API-Anfragen mit 503 abweisen (T47).
+        \Bootspruefung\Learning\Infrastructure\Maintenance::register();
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
         \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY, [self::class, 'hourly']);

@@ -493,6 +493,7 @@ Fehlerobjekt (`application/problem+json`):
 | `VOUCHER_NOT_FOR_COURSES` | 422 | Shop-Gutschein ohne Kursziel |
 | `VOUCHER_NOT_ALLOWED` | 403 | Kursgutschein für ein anderes Konto (E-Mail-Bindung) |
 | `ACCESS_NOT_POSSIBLE` | 409 | Kein Zugang möglich: Kursprodukt entfernt/ohne Lernzugang, Gruppenlizenz/Upgrade, Kurs nicht angeboten, Kurs schon dauerhaft freigeschaltet (`details.reason`) |
+| `MAINTENANCE` | 503 | Seit 1.12.0: Die Plattform aktualisiert gerade ihre Datenbank (nach einem Plugin-Update). Nur schreibende Anfragen; mit `retry_after` (Sekunden) erneut senden, Eingaben nicht verwerfen |
 | `TEMPORARY_ERROR` | 503 | Vorübergehender Fehler; Gutschein bleibt erhalten, mit `retry_after` erneut senden |
 | `COURSE_VOUCHERS_UNAVAILABLE` | 503 | Kein Gutschein-Connector aktiv |
 | `GROUP_NOT_ACTIVE` | 409 | Gruppe ausgesetzt/widerrufen: Einladen und neuer Beitrittslink nicht möglich (seit 1.7.0) |
