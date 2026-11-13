@@ -135,9 +135,11 @@ final class Package
 
     /**
      * Ist dieser Eintrag (relativer Pfad im Paket, Ordner mit „/“ am Ende) erlaubt? Gilt für ZIP-Einträge und
-     * für Dateien eines Paketordners. @return string|null Fehlermeldung oder null
+     * für Dateien eines Paketordners. $checkMedia: auch Endung/Typ der Medien prüfen (ZIP: ja, vor dem Entpacken;
+     * Paketordner: nein – dort meldet die Paketprüfung nicht erlaubte Medien mit Eintrag „abgelehnt“ im Protokoll).
+     * @return string|null Fehlermeldung oder null
      */
-    public static function entryError(string $name): ?string
+    public static function entryError(string $name, bool $checkMedia = true): ?string
     {
         if ($name === '' || str_starts_with($name, '/') || str_contains($name, '\\') || preg_match('#(^|/)\.\.(/|$)#', $name) || str_contains($name, "\0") || preg_match('#^[A-Za-z]:#', $name)) {
             return "Unzulässiger Pfad im Paket: {$name}";
@@ -159,6 +161,9 @@ final class Package
 
             return null;
         }
+        if (! $checkMedia) {
+            return null;
+        }
         // Medien: nur erlaubte Endungen, keine versteckten Dateien, keine Doppelendungen wie .php.png.
         $error = MediaStorage::mediaTypeError($name, null);
 
@@ -166,8 +171,9 @@ final class Package
     }
 
     /**
-     * Prüft einen entpackten Paketordner (Import aus einem Ordner auf dem Server bzw. per WP-CLI) mit denselben
-     * Regeln wie ein ZIP: erlaubte Dateien und Endungen, keine symbolischen Links, Anzahl und Gesamtgröße.
+     * Prüft einen entpackten Paketordner (Import aus einem Ordner auf dem Server bzw. per WP-CLI): nur erwartete
+     * Dateien, keine symbolischen Links, Anzahl und Gesamtgröße. Nicht erlaubte Medientypen lehnt danach die
+     * Paketprüfung ab (Batch „fehlerhaft“, Eintrag „abgelehnt“ im Protokoll); der Ordner liegt nicht öffentlich.
      */
     public static function inspectDirectory(string $dir): void
     {
@@ -183,7 +189,7 @@ final class Package
             if ($file->isLink()) {
                 throw new RuntimeException("Symbolischer Link im Paket nicht erlaubt: {$relative}");
             }
-            if (($error = self::entryError($relative)) !== null) {
+            if (($error = self::entryError($relative, false)) !== null) {
                 throw new RuntimeException($error);
             }
             if (++$count > self::MAX_ENTRIES) {

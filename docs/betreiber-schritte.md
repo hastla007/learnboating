@@ -65,7 +65,8 @@ Vor dem Entpacken prüft das Plugin das Inhaltsverzeichnis des ZIP: keine Pfade 
 `manifest.json`, `data/*.json` und Medien mit erlaubter Endung (keine Doppelendungen, keine versteckten Dateien),
 keine symbolischen Links, höchstens 20.000 Dateien und 800 MB entpackt, kein auffälliges Kompressionsverhältnis
 (ZIP-Bombe). Ein abgelehntes Paket wird nicht entpackt; die hochgeladene bzw. geladene Datei und eine etwaige
-Teilentpackung werden gelöscht. Dieselben Regeln gelten für Paketordner (Ablageordner, WP-CLI).
+Teilentpackung werden gelöscht. Paketordner (Ablageordner, WP-CLI) werden vorab auf fremde Dateien, Links, Anzahl und Größe
+geprüft; nicht erlaubte Medien meldet dort die Paketprüfung (Import „fehlerhaft“, Eintrag „abgelehnt“ im Protokoll).
 
 ## T99 Admin-Hinweise und Livegang-Checkliste
 
