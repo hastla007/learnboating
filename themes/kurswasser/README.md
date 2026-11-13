@@ -26,8 +26,8 @@ werden dabei abgeschaltet, damit der Assistent weiterläuft.
 2. eine mitgelieferte ZIP im Theme: `plugins/bootspruefung-learning.zip` – erzeugt mit
    `themes/kurswasser/tools/build-plugin-zip.sh [<commit>]` (Stand eines Commits, ohne Tests, ca. 2,7 MB). Die ZIP
    liegt bewusst nicht im Git (`.gitignore`): Sie wäre bei jeder Plugin-Änderung veraltet und würde das Repo
-   aufblähen. CI baut sie als Artefakt `bootspruefung-learning-plugin`; für ein Release-Paket des Themes vor dem
-   Zippen das Skript ausführen;
+   aufblähen. CI baut sie als Artefakt `bootspruefung-learning-plugin`. Das Release-Paket des Themes
+   (`tools/release/build-zips.sh`, `docs/installation-und-updates.md`) enthält sie bereits, gebaut aus demselben Commit;
 3. sonst: Erklärung und Knopf „Plugin hochladen“ (`plugin-install.php?tab=upload`).
 
 WP-CLI: `wp kurswasser setup plugins` (Stand) bzw. `wp kurswasser setup plugins --install=woocommerce,bootspruefung-learning --user=<admin>`

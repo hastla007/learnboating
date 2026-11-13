@@ -3,6 +3,11 @@
 Gilt für das Lern-Plugin `bootspruefung-learning`. Theme und Add-ons haben eigene Versionen und prüfen die
 Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`).
 
+Theme und Add-ons (T92): Ändert sich ihr Code, bekommt die nächste Auslieferung auch dort eine neue Version nach
+demselben Schema (Theme `style.css` + `KURSWASSER_VERSION`, Add-ons Kopf + `LBAC_VERSION`/`LBVC_VERSION`) und einen
+Eintrag oben im jeweiligen `CHANGELOG.md`. Tests prüfen, dass Kopf, Konstante und Änderungsprotokoll übereinstimmen.
+Installation, ZIP-Dateien und Reihenfolge: `docs/installation-und-updates.md`.
+
 ## Versionsnummer
 
 - **Jede Auslieferung auf Staging oder Live bekommt eine neue Plugin-Version.** Gleiche Version mit anderem Code
@@ -20,7 +25,10 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
 
 1. Version an den drei Stellen erhöhen, Eintrag oben in `bootspruefung-learning/CHANGELOG.md` (Datum, Schema- und
    App-API-Version, Änderungen für Betreiber und Kunden).
-2. CI grün (alle Jobs).
+2. CI grün (alle Jobs; der Job „Voucher Captain“ ist nur informativ).
+   Tag `v<Plugin-Version>` setzen (z. B. `git tag v0.15.0 && git push origin v0.15.0`). Der Workflow „Release“
+   baut daraus alle vier ZIP-Dateien mit `SHA256SUMS` und legt sie als GitHub-Release ab
+   (`tools/release/build-zips.sh`, `docs/installation-und-updates.md`).
 3. **Backup** von Datenbank und `wp-content/uploads/bootspruefung/` (bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), siehe `docs/backup-restore.md` (T66).
 4. Erst auf Staging einspielen, Systemstatus prüfen: Schema „aktuell“, Abschnitt „Wartung“ ohne Fehler.
 5. Dann live einspielen. Nach einem Update ohne erneute Aktivierung läuft die Datenbank-Migration im Admin, per
@@ -42,6 +50,9 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
 
 Migrationen laufen nur vorwärts. Ein älteres Plugin auf einer neueren Datenbank migriert nichts mehr zurück und zeigt
 im Admin einen Hinweis („Die Datenbank hat Schema …“).
+
+Ältere ZIP-Dateien liegen dauerhaft unter den GitHub-Releases (ab dem ersten Tag); für Stände davor mit
+`tools/release/build-zips.sh --rev <commit>` neu bauen.
 
 - **Gleiche Schema-Version** (nur PATCH oder MINOR ohne Datenbank-Änderung): Die ältere ZIP-Datei einspielen genügt.
   Das Schema steht im Systemstatus und im Änderungsprotokoll.

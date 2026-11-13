@@ -1,0 +1,70 @@
+name: Release
+
+# Auslieferung (docs/installation-und-updates.md, docs/release-regel.md):
+# Ein Tag „v<Plugin-Version>“ (z. B. v0.14.0) baut Lern-Plugin, Theme und beide Add-ons als ZIP mit SHA256SUMS
+# und legt sie als GitHub-Release ab (dauerhaft archiviert). Theme und Add-ons tragen ihre eigene Version im
+# Dateinamen. Von Hand gestartet (workflow_dispatch) entstehen nur ZIPs als Artefakt, kein Release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  zips:
+    name: ZIPs bauen und veröffentlichen
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # Release anlegen
+      actions: read     # CI-Ergebnis des Commits lesen
+    steps:
+      - uses: actions/checkout@v4
+      - name: CI für diesen Commit grün?
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Release-Regel, Schritt 2: erst ausliefern, wenn alle CI-Jobs des Commits grün sind.
+          ok=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq 'length')
+          if [ "${ok:-0}" -lt 1 ]; then
+            echo "::error title=CI nicht grün::Für $GITHUB_SHA gibt es noch keinen erfolgreichen CI-Lauf. CI abwarten und diesen Lauf erneut starten (Re-run)."
+            exit 1
+          fi
+      - name: ZIPs bauen (tools/release/build-zips.sh)
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          tools/release/build-zips.sh --out build/release ${TAG:+--tag "$TAG"}
+          (cd build/release && sha256sum -c SHA256SUMS)
+          cat build/release/versions.env
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-zips
+          path: |
+            build/release/*.zip
+            build/release/SHA256SUMS
+            build/release/release-notes.md
+          retention-days: 90
+      - name: GitHub-Release anlegen
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          source build/release/versions.env
+          flags=()
+          [[ "$TAG" == *-* ]] && flags+=(--prerelease)
+          gh release create "$TAG" build/release/*.zip build/release/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag "${flags[@]}" \
+            --title "$TAG – Lern-Plugin $PLUGIN_VERSION, Theme $THEME_VERSION, Add-ons $AFFILIATE_CONNECTOR_VERSION/$VOUCHER_CONNECTOR_VERSION" \
+            --notes-file build/release/release-notes.md
