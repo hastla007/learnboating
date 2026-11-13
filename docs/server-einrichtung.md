@@ -35,6 +35,15 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   Cron-Ereignisse aus (`Plugin::CRON_HOOKS`) und nimmt `/bootsscheine/` sowie die „Mein Konto“-Endpunkte
   „mein-lernen“ und „meine-daten“ aus den Permalinks. Beim Aktivieren trägt es sie sofort wieder ein und schreibt
   die Permalinks bei der nächsten Anfrage noch einmal. Daten bleiben bei beidem erhalten.
+- **Deinstallieren** löscht Daten nur, wenn unter Bootsprüfung › Einstellungen „Daten beim Deinstallieren löschen“
+  gesetzt ist (Standard: behalten; Cron-Ereignisse werden immer ausgetragen). Dann gehen: alle Tabellen, eigene
+  Optionen (auch das Testmail-Ergebnis mit E-Mail-Adresse) und Transients mit genau den eigenen Namen, Nutzer-Meta
+  (App-Einstellungen, Ablauf-Erinnerung und Widerspruch, Praxis-Tickets), Tipps, FAQ und Kunden-FAQ in jedem
+  Status samt Kategorien, Seekarten, importierte Medien und Pakete. Es bleiben: Bestellungen und Produkte in
+  WooCommerce, die Seite „Häufige Fragen“, geschützte Kurs-PDFs im gesperrten Ordner. Multisite: je Website nach
+  deren Einstellung; Nutzer-Meta nur, wenn keine Website ihre Daten behält. Wird eine Website gelöscht, gehen ihre
+  Lernplattform-Tabellen mit (solange das Plugin auf der Hauptwebsite aktiv ist). Die Add-ons haben eigene
+  `uninstall.php` (siehe deren README).
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
 - **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
   für eine Anfrage und werden bei jeder Änderung sofort verworfen. Die Kennzahlen der Kurse (Fragen, Aufgaben, Videos

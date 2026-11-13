@@ -43,3 +43,10 @@ WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/setup.php
 ```bash
 WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/connector-integration-test.php
 ```
+
+## Deinstallation
+
+`uninstall.php` löscht offene Wiederholungen (Option `lbvc_pending`), den Zwischenspeicher `lbvc_broken_targets`
+und das Cron-Ereignis `lbvc_retry`, bei Multisite je Website. Es bleiben die Zuordnung Gutschein-Produkt → Kurs
+(Produkt-Meta `_lbvc_target`, für eine erneute Installation), Gutscheine und Verlauf (Voucher Captain) und
+freigeschaltete Zugänge (Lernplattform).

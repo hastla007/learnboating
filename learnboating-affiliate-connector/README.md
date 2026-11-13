@@ -40,3 +40,8 @@ php learnboating-affiliate-connector/tests/connector-test.php
 ```
 
 Läuft ohne WordPress (Plattform und Vertrag werden nachgebildet). Live geprüft auf WordPress 7.1.4, WooCommerce 11.3.0, Lernplattform 0.13.0 und WP Affiliate Captain 0.6.0: Bestellung Kurs + Video-Upgrade + Gruppenpaket + Ergänzungskurs → Provision nur auf Kurs und Ergänzungskurs; Garantie 45 Tage → Haltefrist 47 Tage; Mobile-API hängt nur gültige Codes an; App-Link → Kauf ohne Cookie mit Kampagne `app`.
+
+## Deinstallation
+
+`uninstall.php` löscht die Einstellungen des Connectors (Option `lbac_settings`), bei Multisite je Website.
+Provisionen und Partnerdaten gehören WP Affiliate Captain und bleiben.

@@ -147,6 +147,23 @@ final class Plugin
         }
     }
 
+    /**
+     * wpmu_drop_tables: eigene Tabellen der gelöschten Website ergänzen, abhängige Tabellen zuerst (Fremdschlüssel).
+     *
+     * @param array<int,string> $tables
+     * @return array<int,string>
+     */
+    public static function dropTablesOnSiteDelete(array $tables, int $siteId = 0): array
+    {
+        global $wpdb;
+        $prefix = $wpdb->get_blog_prefix($siteId > 0 ? $siteId : null);
+        foreach (array_reverse(\Bootspruefung\Learning\Infrastructure\Database\Schema::TABLES) as $table) {
+            $tables[] = $prefix.'bp_'.$table;
+        }
+
+        return array_values(array_unique($tables));
+    }
+
     /** „Mein Konto“-Endpunkte des Plugins (WooCommerce). @return list<string> */
     public static function accountEndpoints(): array
     {
@@ -185,6 +202,8 @@ final class Plugin
         add_action('plugins_loaded', [$this, 'maybeMigrate'], 5);
         add_action(self::MIGRATE_HOOK, static fn () => \Bootspruefung\Learning\Infrastructure\Cron::run('migrate', [self::class, 'cronMigration']));
         add_action('admin_init', [Settings::class, 'register']);
+        // Multisite: beim Löschen einer Website auch die eigenen Tabellen löschen (T82).
+        add_filter('wpmu_drop_tables', [self::class, 'dropTablesOnSiteDelete'], 10, 2);
 
         Compatibility::register($this->file);
         add_action('plugins_loaded', [\Bootspruefung\Learning\Commerce\WooCommerce\Integration::class, 'register'], 20);
