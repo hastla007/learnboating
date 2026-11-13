@@ -261,11 +261,11 @@ jobs:
       - name: Kursgutscheine mit Voucher Captain – Connector-Abnahme (Integration)
         run: |
           # Voucher Captain (öffentlich, hastla007/wp-couponmaster): Arbeitszweig, sonst main; Release-ZIP bauen wie im Shop.
+          # git clone, not the codeload archive: the archive leaves out bin/ and tests/ (export-ignore).
           for ref in claude/youthful-bardeen-7ejd7a main; do
-            if curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/vcap-src.zip" "https://codeload.github.com/hastla007/wp-couponmaster/zip/refs/heads/$ref"; then echo "Voucher Captain: $ref"; break; fi
+            if git clone -q --depth 1 --branch "$ref" https://github.com/hastla007/wp-couponmaster.git "$RUNNER_TEMP/vcap-src"; then echo "Voucher Captain: $ref"; break; fi
           done
-          unzip -q "$RUNNER_TEMP/vcap-src.zip" -d "$RUNNER_TEMP/vcap-src"
-          src="$(ls -d "$RUNNER_TEMP"/vcap-src/*/ | head -1)"
+          src="$RUNNER_TEMP/vcap-src"
           (cd "$src" && bin/build.sh)
           unzip -q "$src/build/voucher-captain.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
           ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
