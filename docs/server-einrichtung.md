@@ -39,7 +39,8 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   gesetzt ist (Standard: behalten; Cron-Ereignisse werden immer ausgetragen). Dann gehen: alle Tabellen, eigene
   Optionen (auch das Testmail-Ergebnis mit E-Mail-Adresse) und Transients mit genau den eigenen Namen, Nutzer-Meta
   (App-Einstellungen, Ablauf-Erinnerung und Widerspruch, Praxis-Tickets), Tipps, FAQ und Kunden-FAQ in jedem
-  Status samt Kategorien, Seekarten, importierte Medien und Pakete. Es bleiben: Bestellungen und Produkte in
+  Status samt Kategorien, Seekarten, importierte Medien und Pakete, den Ablageordner
+  `uploads/bootspruefung-import/` und die Merkwerte des Katalog-Abgleichs an Produkten (Preis, Status). Es bleiben: Bestellungen und Produkte in
   WooCommerce, die Seite „Häufige Fragen“, geschützte Kurs-PDFs im gesperrten Ordner. Multisite: je Website nach
   deren Einstellung; Nutzer-Meta nur, wenn keine Website ihre Daten behält. Wird eine Website gelöscht, gehen ihre
   Lernplattform-Tabellen mit (solange das Plugin auf der Hauptwebsite aktiv ist). Die Add-ons haben eigene
