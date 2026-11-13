@@ -523,5 +523,10 @@ foreach ($testUsers as $u) {
 delete_transient('kurswasser_shop_report_'.$uid);
 delete_transient('kurswasser_setup_flash_'.$uid);
 
+$private = kurswasser_seo_shop_private_ids();
+$excluded = apply_filters('wpseo_exclude_from_sitemap_by_post_ids', [999999]);
+$coreArgs = apply_filters('wp_sitemaps_posts_query_args', ['post_type' => 'page'], 'page');
+$check(count($private) === 3 && in_array((int) wc_get_page_id('cart'), $private, true) && in_array(999999, $excluded, true) && array_diff($private, $excluded) === [] && array_diff($private, (array) ($coreArgs['post__not_in'] ?? [])) === [], 'Sitemaps (Yoast und Core) ohne Warenkorb, Kasse und Mein Konto');
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

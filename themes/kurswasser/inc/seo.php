@@ -399,10 +399,31 @@ add_filter('get_canonical_url', static function ($url, $post) {
     return kurswasser_seo_canonical($post) ?? $url;
 }, 10, 2);
 
+/**
+ * Seiten von WooCommerce, die nicht in eine Sitemap gehören (Warenkorb, Kasse, Mein Konto): WooCommerce setzt
+ * dort noindex, Yoast und die Core-Sitemap listen sie trotzdem.
+ * @return list<int>
+ */
+function kurswasser_seo_shop_private_ids(): array
+{
+    if (! function_exists('wc_get_page_id')) {
+        return [];
+    }
+    $ids = array_map(static fn (string $page): int => (int) wc_get_page_id($page), ['cart', 'checkout', 'myaccount']);
+
+    return array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
+}
+
+add_filter('wpseo_exclude_from_sitemap_by_post_ids', static fn ($ids) => array_values(array_unique(array_merge(array_map('intval', (array) $ids), kurswasser_seo_shop_private_ids()))));
+
 // Core-Sitemap: keine noindex-Seiten (und Beiträge).
 add_filter('wp_sitemaps_posts_query_args', static function (array $args): array {
     if (kurswasser_seo_plugin_active()) {
         return $args;
+    }
+    $private = kurswasser_seo_shop_private_ids();
+    if ($private !== []) {
+        $args['post__not_in'] = array_values(array_unique(array_merge(array_map('intval', (array) ($args['post__not_in'] ?? [])), $private)));
     }
     $args['meta_query'] = array_merge((array) ($args['meta_query'] ?? []), [[
         'relation' => 'OR',
@@ -438,6 +459,15 @@ add_filter('rank_math/frontend/title', $kurswasser_seo_fallback('rank_math_title
 add_filter('rank_math/frontend/description', $kurswasser_seo_fallback('rank_math_description', 'kurswasser_seo_description'), 20);
 add_filter('rank_math/frontend/canonical', $kurswasser_seo_fallback('rank_math_canonical_url', static fn (WP_Post $p) => kurswasser_seo_canonical($p)), 20);
 unset($kurswasser_seo_fallback);
+// Yoast-Artikel ohne Autorenseite (Autoren-Archive aus, Seite „Website repräsentiert“ nicht eingerichtet): Yoast
+// gibt dann „author“ mit leerem Namen aus – ungültig für Rich Results. Wie die eigene Ausgabe: die Marke als Autor.
+add_filter('wpseo_schema_article', static function ($data) {
+    if (is_array($data) && trim((string) ($data['author']['name'] ?? '')) === '') {
+        $data['author'] = ['@type' => 'Organization', 'name' => (string) get_bloginfo('name'), 'url' => home_url('/')];
+    }
+
+    return $data;
+}, 20);
 add_filter('wpseo_robots_array', static function ($robots) {
     $post = kurswasser_seo_current();
     if (is_array($robots) && $post && kurswasser_seo_noindex($post) && get_post_meta($post->ID, '_yoast_wpseo_meta-robots-noindex', true) === '') {

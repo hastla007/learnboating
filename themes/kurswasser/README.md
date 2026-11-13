@@ -62,6 +62,16 @@ WP-CLI: `wp kurswasser setup plugins` (Stand) bzw. `wp kurswasser setup plugins 
 | `_yoast_wpseo_focuskw` | nur aus dem optionalen Manifest-Feld `focus_keyword` (Front-Matter); ohne Angabe kein Fokus-Keyword – es wird keins erfunden |
 
 Die `_kw_`-Felder setzt der Abgleich weiterhin, damit ein Wechsel zurück zu Option A (oder ohne Yoast) funktioniert.
+
+**Mit echtem Yoast geprüft** (Yoast SEO 28.8, 13.11.2026, alle 35 Seiten mit Option B):
+- Titel, Beschreibung, Robots, Canonical, OG- und Twitter-Tags kommen je Seite aus den Yoast-Feldern, ohne Doppelungen.
+- noindex-Seiten fehlen in der Sitemap, die FAQ-Seite hat genau ein FAQPage-Markup (aus `[bootspruefung_faq]`).
+- Behoben dabei: Warenkorb, Kasse und Mein Konto standen trotz noindex in der Yoast- und der Core-Sitemap (jetzt
+  `kurswasser_seo_shop_private_ids()`); Yoasts Autoren-Sitemap nannte den Anmeldenamen (das Lern-Plugin schaltet sie
+  und die Autoren-Archive jetzt mit seiner Härtung ab); Artikel bekamen ein `author` mit leerem Namen (jetzt die Marke).
+- Achtung: Unter Einstellungen › Lesen muss „Suchmaschinen davon abhalten …“ im Livebetrieb aus sein, sonst gibt
+  Yoast überall `noindex, nofollow` aus. Unter Yoast › Einstellungen › „Website-Darstellung“ Organisation, Name und
+  Logo eintragen.
 Die Theme-Ausgabe bleibt bei aktivem Yoast unverändert: nur Rückfall.
 
 **Neuaufbau in Yoast:** Yoast liest Titel, Beschreibung, Robots und Canonical im Frontend und in der Sitemap aus

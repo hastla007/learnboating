@@ -357,5 +357,10 @@ array_map('unlink', glob($tmp.'/pages/*') ?: []);
 @unlink($tmp.'/pages.php');
 @rmdir($tmp);
 
+$article = apply_filters('wpseo_schema_article', ['@type' => 'Article', 'author' => ['name' => '', '@id' => '']]);
+$check(($article['author']['@type'] ?? '') === 'Organization' && $article['author']['name'] === get_bloginfo('name'), 'Yoast-Artikel ohne Autorennamen: Marke als Autor (kein leeres author)');
+$kept = apply_filters('wpseo_schema_article', ['@type' => 'Article', 'author' => ['name' => 'Redaktion', '@id' => 'x']]);
+$check($kept['author']['name'] === 'Redaktion', 'Yoast-Artikel mit Autor bleibt unverändert');
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

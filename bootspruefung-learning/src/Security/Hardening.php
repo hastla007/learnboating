@@ -49,6 +49,17 @@ final class Hardening
             return $data;
         }, 20);
         add_filter('wp_sitemaps_add_provider', static fn ($provider, $name) => $name === 'users' && self::enabled('user_sitemap') ? false : $provider, 10, 2);
+        // Yoast SEO hat eine eigene Autoren-Sitemap (author-sitemap.xml mit /author/<login>/) und Autoren-Archive:
+        // beides aus, solange die Härtung aktiv ist (Autoren-Archive leiten ohnehin auf die Startseite um).
+        add_filter('wpseo_sitemap_exclude_author', static fn ($users) => self::enabled('user_sitemap') ? [] : $users, 99);
+        add_filter('option_wpseo_titles', static function ($titles) {
+            if (is_array($titles) && self::enabled('user_sitemap') && self::enabled('author_archives')) {
+                $titles['disable-author'] = true;
+                $titles['noindex-author-wpseo'] = true;
+            }
+
+            return $titles;
+        }, 99);
 
         // XML-RPC: Passwort-Rateangriffe über system.multicall, Pingbacks. Per Filter wieder einschaltbar.
         add_filter('xmlrpc_enabled', static fn ($on) => self::enabled('xmlrpc_off') ? false : $on, 99);

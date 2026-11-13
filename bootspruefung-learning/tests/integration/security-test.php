@@ -365,6 +365,8 @@ $check(apply_filters('xmlrpc_enabled', true) === true && apply_filters('xmlrpc_m
 remove_filter('bootspruefung_hardening', $xmlOn, 10);
 $postsProvider = new WP_Sitemaps_Posts();
 $check(apply_filters('wp_sitemaps_add_provider', new WP_Sitemaps_Users(), 'users') === false && apply_filters('wp_sitemaps_add_provider', $postsProvider, 'posts') === $postsProvider, 'Sitemap ohne Benutzer (wp-sitemap-users-*.xml), Beiträge/Seiten bleiben');
+$yoastTitles = apply_filters('option_wpseo_titles', ['disable-author' => false, 'noindex-author-wpseo' => false]);
+$check(apply_filters('wpseo_sitemap_exclude_author', [(object) ['ID' => 1]]) === [] && $yoastTitles['disable-author'] === true && $yoastTitles['noindex-author-wpseo'] === true, 'Yoast: keine Autoren-Sitemap (author-sitemap.xml), Autoren-Archive aus');
 if (wp_sitemaps_get_server()->sitemaps_enabled()) {
     $check(wp_sitemaps_get_server()->registry->get_provider('users') === null, 'Sitemap-Register: kein Anbieter „users“');
 }
