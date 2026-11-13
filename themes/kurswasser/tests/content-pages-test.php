@@ -317,6 +317,16 @@ if (get_template() === 'kurswasser') {
     $check(kurswasser_photo_css() === '/*zwischengespeichert*/', 'nächster Seitenaufruf liest den Zwischenspeicher');
     set_transient('kurswasser_photo_css', ['stamp' => 'alte-version', 'css' => '/*alt*/'], HOUR_IN_SECONDS);
     $check(str_contains(kurswasser_photo_css(), '.kw-photo-gruppen{'), 'anderer Stempel (Theme-Update): neu berechnet');
+    // T124: Symbol-Masken ebenso zwischengespeichert (kein glob über assets/icons je Seitenaufruf).
+    delete_transient('kurswasser_icon_css');
+    $iconCss = kurswasser_icon_css();
+    $iconStored = get_transient('kurswasser_icon_css');
+    $check(str_contains($iconCss, '.kw-icon-anchor{-webkit-mask-image:url(') && is_array($iconStored) && $iconStored['css'] === kurswasser_icon_css_compute() && $iconCss === $iconStored['css'], 'Symbol-CSS berechnet und im Zwischenspeicher');
+    set_transient('kurswasser_icon_css', ['stamp' => $iconStored['stamp'], 'css' => '/*symbole*/'], HOUR_IN_SECONDS);
+    $check(kurswasser_icon_css() === '/*symbole*/', 'Symbol-CSS: nächster Seitenaufruf liest den Zwischenspeicher');
+    set_transient('kurswasser_icon_css', ['stamp' => 'alte-version', 'css' => '/*alt*/'], HOUR_IN_SECONDS);
+    $check(str_contains(kurswasser_icon_css(), '.kw-icon-anchor{'), 'Symbol-CSS: anderer Stempel (Theme-Update, neue Symbole) neu berechnet');
+    delete_transient('kurswasser_icon_css');
 }
 // T105: Lernbereichs-Adressen über den Router des Plugins (eigener Pfad), mit Rückfall ohne Plugin.
 $baseFilter = static fn (): string => 'lernen';

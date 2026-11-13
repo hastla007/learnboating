@@ -253,7 +253,9 @@ auf Inhaltsseiten, die noch Entwurf sind, als Text ausgegeben; Karten, Kacheln u
   eingebunden – keine Anfragen an Google oder andere Server.
 - Hero-Foto als WebP/JPEG (87 KB statt 1,8 MB PNG), mobil eine kleinere Fassung.
   **Bitte sicherstellen, dass die Nutzungsrechte am Foto vorliegen.**
-- Symbole als SVG-Masken (`assets/icons/`), einfärbbar über CSS (`.kw-icon .kw-icon-anchor`).
+- Symbole als SVG-Masken (`assets/icons/`), einfärbbar über CSS (`.kw-icon .kw-icon-anchor`). Das Masken-CSS wird
+  zwischengespeichert (Transient `kurswasser_icon_css`, T124) und nur bei anderer Theme-Version, anderer Theme-Adresse
+  oder geänderter Änderungszeit des Ordners `assets/icons/` (neues oder entferntes Symbol) neu berechnet.
 - Kontraste: Text auf Weiß ≥ 4,5:1, dunkle Schrift auf Wasserblau und Signalgelb,
   sichtbarer Fokus, „Bewegung reduzieren“ wird respektiert.
 - Palette mit Slug `primary`: Das Lern-Plugin übernimmt die Akzentfarbe automatisch.

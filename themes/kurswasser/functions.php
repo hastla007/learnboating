@@ -52,8 +52,28 @@ add_action('wp_enqueue_scripts', static function (): void {
     ).kurswasser_icon_css());
 });
 
-/** CSS-Masken für die Symbole (.kw-icon-anchor usw.), damit sie per currentColor einfärbbar sind. */
+/**
+ * CSS-Masken für die Symbole (.kw-icon-anchor usw.), damit sie per currentColor einfärbbar sind.
+ *
+ * Zwischengespeichert (T124) wie kurswasser_photo_css(): sonst glob() über den Symbolordner bei jedem Seitenaufruf.
+ * Schlüssel aus Theme-Version, Theme-Adresse und Änderungszeit des Ordners (neue oder entfernte Symbole).
+ */
 function kurswasser_icon_css(): string
+{
+    $dir = get_template_directory().'/assets/icons';
+    $stamp = md5(KURSWASSER_VERSION.'|'.get_template_directory_uri().'|'.(is_dir($dir) ? (string) filemtime($dir) : '-'));
+    $stored = get_transient('kurswasser_icon_css');
+    if (is_array($stored) && ($stored['stamp'] ?? '') === $stamp && is_string($stored['css'] ?? null)) {
+        return $stored['css'];
+    }
+    $css = kurswasser_icon_css_compute();
+    set_transient('kurswasser_icon_css', ['stamp' => $stamp, 'css' => $css], WEEK_IN_SECONDS);
+
+    return $css;
+}
+
+/** CSS der Symbole berechnen (liest den Symbolordner). */
+function kurswasser_icon_css_compute(): string
 {
     $css = '';
     foreach (glob(get_template_directory().'/assets/icons/*.svg') ?: [] as $path) {
