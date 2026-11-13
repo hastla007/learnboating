@@ -22,6 +22,15 @@ Auslieferung eine eigene Theme-Version. Benötigt das Lern-Plugin ab 0.13.0 (Ver
 - Hinweise zu Zahlungsarten, Verkaufsländern und Lieferung vor der Kasse (Shortcode `[kurswasser_purchase_info]`).
 - Block-Kasse für Gäste, Hinweise im Warenkorb, mobiler Warenkorb ohne Überlappung.
 - Ergänzung FKN → SKN vorerst nicht im Verkauf (Entscheidung Betreiber).
+- Livegang-Ampel vor „Shop für Kunden sichtbar machen“: Rechtstexte, Produkte, Regelwerke, Schnupper-Paket, „Zugang
+  ohne Shop“, Inhaltspaket; bei Rot nur mit ausdrücklicher Bestätigung (T97).
+
+**Admin und Technik**
+- Hinweise mit Absender „Bootsprüfung:“, gebündelt und vertagbar; Rechtstext-Hinweis mit Knopf „Betreiberangaben
+  ausfüllen“ (T99).
+- Fingerabdruck der Inhaltsvorlagen und Kursfoto-CSS zwischengespeichert statt bei jedem Seitenaufruf berechnet;
+  Adresse des Lernbereichs kommt vom Plugin statt fest `/bootsscheine/` (T105).
+- Übersetzbar: Sprachordner `languages/` mit Vorlage `kurswasser.pot` (T89).
 
 **Rechtstexte und Datenschutz**
 - Vorlagen für Impressum, Kontakt, Datenschutz, AGB, Widerrufsbelehrung und Widerrufsfunktion („Vertrag hier

@@ -6,7 +6,7 @@ Release-Regel in `docs/release-regel.md`. Datenbank-Schema und App-API haben eig
 
 ## 0.14.0 – 13.11.2026
 
-Datenbank-Schema 1.14.0, App-API 1.12.0. Seit 0.13.0 rund 90 Änderungen; die wichtigsten:
+Datenbank-Schema 1.15.0, App-API 1.12.0. Seit 0.13.0 rund 120 Änderungen; die wichtigsten:
 
 **Lernbereich und App**
 - Prüfungssimulation abbrechen (Web und App); Prüfungsantworten werden offline gepuffert und nachgesendet.
@@ -45,6 +45,28 @@ Datenbank-Schema 1.14.0, App-API 1.12.0. Seit 0.13.0 rund 90 Änderungen; die wi
   Systemstatus. Kein stilles Zurückmigrieren mehr bei einem Downgrade.
 - Eingebundene Dateien tragen den Dateistand in der Version (Browser laden Änderungen sofort).
 - Versionsvertrag mit Theme und Add-ons; Export für das Laravel-Original (Zugänge vollständig, Format 2).
+
+**Audit 13.11. (T77–T105)**
+- Inhaltssperre zusätzlich ganz am Ende von Inhalt, Feed und Auszug; Elementor und Beaver Builder bekommen für
+  gesperrte Seiten keine Inhalte (T77). Persönliche Seiten als nicht zwischenspeicherbar gekennzeichnet (T78).
+- Login-Grenze atomar, Gruppenbeitritt gesperrt, Gutscheine je Sperre (T83); Einladungsvorschau nur mit Vor- und
+  Nachname (T87); PayPal-Vorfilter, gleiche Antwortzeit bei unbekannten Konten, Tipps nicht über die REST-API für
+  Gäste, IPv6 je /64 in allen Grenzen (T88).
+- Migration nicht in Kunden-Ajax, Wartezeit nach Fehlschlag auch im Cron (T79); Wartungsläufe planen sich selbst neu,
+  Ablauf-Erinnerung mit Sperre und Fehlerschutz (T80); Permalinks und Cron beim Aktivieren/Deaktivieren (T81);
+  vollständige, genaue Deinstallation inkl. Multisite (T82); FAQ-/Tipps-Import nicht bei Besuchern (T84); Indizes
+  auf `created_at` (Schema 1.15.0, T86).
+- Shop schneller: Zuordnungen und Warenkorb einmal je Anfrage, Kurskennzahlen zwischengespeichert, OSS-Summen per
+  SQL, Jahreswechsel-Fehler behoben (T85); Rücksprung im Unterordner, saubere Downloads, Ordnerumzug nur bei Bedarf
+  (T105).
+- Import ohne Hochladen (Ablageordner, Link), Grenze angezeigt, Prüfung vor dem Entpacken, deutscher Fortschritt (T96);
+  Livegang-Ampel (T97); Katalog-Abgleich überschreibt keine von Hand geänderten Preise und keine zurückgestellten
+  Entwürfe (T98); Hinweise gebündelt, Livegang-Checkliste in der Übersicht (T99).
+- Einheitliche Begriffe mit Glossar (T100); Laufzeit vorbelegt, „ohne Ablauf“ nur ausdrücklich (T101); Protokollseite
+  mit Verlauf je Zugang und Gruppe (T102); Rückfrage vor Rechte-/Regelwerk-Freigaben (T103); Einstellungen mit Bereich
+  „Sicherheit“, Menü geordnet, Barrierefreiheit im Admin (T104).
+- Übersetzbar: feste Text-Domain in allen Aufrufen, `languages/bootspruefung-learning.pot`, Simulator-Ansagen und
+  Block übersetzbar (T89). Release-ZIPs, CI mit ZIP-, Update-, WordPress-7.0- und Analyse-Prüfung (T90–T95).
 
 ## 0.13.0 – 10.11.2026
 

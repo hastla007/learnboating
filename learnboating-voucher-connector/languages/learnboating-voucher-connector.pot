@@ -1,15 +1,15 @@
-# Copyright (C) 2026 
+# Copyright (C) 2026 LearnBoating
 # This file is distributed under the proprietary.
 msgid ""
 msgstr ""
-"Project-Id-Version: LearnBoating Kursgutschein-Connector 1.0.0\n"
+"Project-Id-Version: LearnBoating Kursgutschein-Connector 1.0.1\n"
 "Report-Msgid-Bugs-To: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T21:16:10+00:00\n"
+"POT-Creation-Date: 2026-11-13T21:18:08+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: learnboating-voucher-connector\n"
@@ -22,6 +22,11 @@ msgstr ""
 #. Description of the plugin
 #: learnboating-voucher-connector.php
 msgid "Verbindet die Bootsprüfung-Lernplattform mit Voucher Captain: Kursgutscheine im Shop verkaufen und in „Mein Lernen“ (App und Einlöseseite) einlösen. Reserviert den Gutschein, schaltet den Kurs über die Produktzuordnung „Lernzugang“ frei und verbucht erst danach."
+msgstr ""
+
+#. Author of the plugin
+#: learnboating-voucher-connector.php
+msgid "LearnBoating"
 msgstr ""
 
 #: src/Connector.php:69

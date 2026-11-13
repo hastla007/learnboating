@@ -55,7 +55,7 @@ Das Plugin braucht keine Composer-Abhängigkeiten auf dem Server. Updates kommen
 == Upgrade Notice ==
 
 = 0.14.0 =
-Datenbank-Schema 1.14.0 (vorher 1.13.0). Vorher Datenbank und Uploads sichern. Update per ZIP-Upload „Ersetzen“, nicht
+Datenbank-Schema 1.15.0 (vorher 1.13.0). Vorher Datenbank und Uploads sichern. Update per ZIP-Upload „Ersetzen“, nicht
 vorher deaktivieren oder löschen. Danach einmal den Admin öffnen: Die Migration läuft dann; bis dahin beantwortet die
 Lern-API schreibende Anfragen mit „Wartung“. Theme und Add-ons brauchen mindestens 0.13.0. Zurück auf 0.13.0 nur mit
 dem Datenbank-Backup von vor dem Update (Release-Regel, „Downgrade“).
@@ -68,7 +68,7 @@ App-API 1.9.0. Kursempfehlungen und Ablauf-Erinnerung.
 Vollständig in CHANGELOG.md (im Plugin-Ordner).
 
 = 0.14.0 – 13.11.2026 =
-Datenbank-Schema 1.14.0, App-API 1.12.0.
+Datenbank-Schema 1.15.0, App-API 1.12.0.
 
 * Lernbereich und App: Prüfungssimulation abbrechen, Prüfungsantworten offline puffern; Smarttrainer mit verteilter Wiederholung; Zugangsstatus „Zahlung offen“, „abgelaufen – verlängern“, „gesperrt“; Videos auf fremden Servern erst nach Klick oder Einwilligung; Kursgutscheine einlösen; Praxis-Tickets und „Praxis in deiner Nähe“.
 * Shop und Garantie: Hinweise zu Zahlungsarten, Verkaufsländern und Lieferung vor der Kasse; Hinweis gegen Doppelkäufe; Kasse für Gäste mit Produkt und Summe; Geld-zurück-Garantie ohne Prüfungssimulationen; Ablauf-Erinnerung nur an Käufer mit Abmeldelink.
