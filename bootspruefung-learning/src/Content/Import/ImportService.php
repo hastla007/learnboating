@@ -103,7 +103,11 @@ final class ImportService
         return $batchId;
     }
 
-    /** Legt einen Batch aus einem entpackten Paketordner an (WP-CLI). */
+    /**
+     * Legt einen Batch aus einem entpackten Paketordner an (WP-CLI, Ablageordner, Rollback). Der Ordner wird
+     * kopiert (ohne Systemdateien wie .DS_Store), nicht verschoben; aus dem Ablageordner löscht ihn die Importseite
+     * nach der Übernahme (T108).
+     */
     public function createFromDirectory(string $dir): int
     {
         self::raiseLimits();
@@ -690,8 +694,7 @@ final class ImportService
     private static function copyDir(string $from, string $to): void
     {
         wp_mkdir_p($to);
-        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
-        foreach ($it as $file) {
+        foreach (Package::files($from) as $file) { // ohne .DS_Store, Thumbs.db, __MACOSX/ (T108)
             $target = $to.'/'.substr($file->getPathname(), strlen($from) + 1);
             $file->isDir() ? wp_mkdir_p($target) : copy($file->getPathname(), $target);
         }

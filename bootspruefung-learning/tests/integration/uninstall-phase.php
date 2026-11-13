@@ -69,6 +69,10 @@ if ($deleting) {
         update_post_meta($catalogPost, $metaKey, $metaValue);
     }
     update_option('t82_catalog_post', $catalogPost, false);
+    // Ablageordner im Paketordner (T108) und – falls noch vorhanden – der frühere uploads/bootspruefung-import/.
+    $newDropDir = \Bootspruefung\Learning\Content\Import\ImportSources::dropDir();
+    file_put_contents($newDropDir.'/paket.zip', 'x');
+    update_option('t82_new_drop_dir', $newDropDir, false);
     $dropDir = rtrim((string) wp_upload_dir(null, false)['basedir'], '/').'/bootspruefung-import';
     wp_mkdir_p($dropDir);
     file_put_contents($dropDir.'/paket.zip', 'x');
@@ -128,7 +132,10 @@ $check(! $optionExists('lbac_settings') && ! $optionExists('lbvc_pending') && ! 
 $catalogPost = (int) get_option('t82_catalog_post');
 $catalogMetaLeft = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key IN ('_bp_catalog_price', '_bp_catalog_status', '_bp_manual_status')");
 $check($catalogMetaLeft === 0 && get_post($catalogPost) !== null, 'Katalog-Merkwerte an Produkten gelöscht, Produkte bleiben (T98)');
-$check(! is_dir(rtrim((string) wp_upload_dir(null, false)['basedir'], '/').'/bootspruefung-import'), 'Ablageordner für den Import gelöscht (T96)');
+$check(! is_dir(rtrim((string) wp_upload_dir(null, false)['basedir'], '/').'/bootspruefung-import'), 'früherer Ablageordner für den Import gelöscht (T96)');
+$newDropDir = (string) get_option('t82_new_drop_dir');
+$check($newDropDir !== '' && ! is_dir($newDropDir), 'Ablageordner im Paketordner gelöscht (T108)');
+delete_option('t82_new_drop_dir');
 wp_delete_post($catalogPost, true);
 delete_option('t82_catalog_post');
 // Multisite: beim Löschen einer Website gehen auch die eigenen Tabellen (abhängige zuerst).

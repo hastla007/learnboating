@@ -51,13 +51,20 @@ Datei mit Lösungsweg (früher kam „Bitte eine ZIP-Datei auswählen“ bzw. �
 
 Wege ohne Hochladen im Browser:
 
-1. **Ablageordner:** ZIP-Datei (oder entpackten Paketordner) per SFTP oder Dateimanager des Hosters nach
-   `wp-content/uploads/bootspruefung-import/` legen, Seite neu laden, unter „Ohne Hochladen importieren“ auswählen
-   und „Übernehmen und prüfen“. Der Ordner ist für Besucher gesperrt (`.htaccess`; bei nginx gilt die Sperrregel
-   unten nicht automatisch – Ordner nicht öffentlich verlinken). Nur Dateien direkt in diesem Ordner sind wählbar
-   (keine Unterordner, keine Links). Eine ZIP-Datei wird nach dem Übernehmen bzw. wenn sie abgelehnt wird gelöscht.
-2. **Link:** https-Link auf die ZIP-Datei eintragen (nur https, keine internen Adressen, höchstens 200 MB). Die Datei
-   wird in den geschützten Paketordner geladen und nach der Prüfung gelöscht.
+1. **Ablageordner:** ZIP-Datei (oder entpackten Paketordner) per SFTP oder Dateimanager des Hosters in den Ordner
+   legen, den die Seite Bootsprüfung › Inhaltspakete unter „Ohne Hochladen importieren“ nennt
+   (`wp-content/uploads/bootspruefung/packages-<geheim>/import/`, mit `BOOTSPRUEFUNG_PRIVATE_DIR` außerhalb des
+   Webroots), Seite neu laden, auswählen und „Übernehmen und prüfen“. Der Ordner liegt im geschützten Paketordner
+   (Zufallsgeheimnis im Namen, `.htaccess`, nginx-Regel und Selbsttest wie bei den Paketen, T108). Nur Dateien direkt
+   in diesem Ordner sind wählbar (keine Unterordner, keine Links); Namen wie „Paket (1).zip“ oder „inhalt.final.zip“
+   gehen. Nach dem Übernehmen werden die ZIP-Datei bzw. der Paketordner gelöscht (die Meldung sagt es), eine
+   abgelehnte ZIP-Datei ebenso. Der frühere Ordner `wp-content/uploads/bootspruefung-import/` war unter nginx
+   öffentlich abrufbar: Das Plugin verschiebt seinen Inhalt nach dem Update einmalig in den neuen Ordner und löscht
+   ihn; was sich nicht verschieben lässt, nennt die Seite – dann bitte per SFTP verschieben oder löschen.
+2. **Link:** https-Link auf die ZIP-Datei eintragen (nur https, keine internen Adressen, höchstens 200 MB; höchstens
+   drei Weiterleitungen, auch die nur auf https). Optional die SHA-256-Prüfsumme des Pakets angeben: Dann wird die
+   Datei nur übernommen, wenn sie übereinstimmt. Die Datei wird in den geschützten Paketordner geladen und nach der
+   Prüfung gelöscht.
 3. **WP-CLI:** `wp bootspruefung import /pfad/zum/paket.zip` (ohne Zeitlimit des Browsers).
 4. Oder beim Hoster `upload_max_filesize` und `post_max_size` erhöhen (z. B. 64M).
 
@@ -67,6 +74,8 @@ keine symbolischen Links, höchstens 20.000 Dateien und 800 MB entpackt, kein au
 (ZIP-Bombe). Ein abgelehntes Paket wird nicht entpackt; die hochgeladene bzw. geladene Datei und eine etwaige
 Teilentpackung werden gelöscht. Paketordner (Ablageordner, WP-CLI) werden vorab auf fremde Dateien, Links, Anzahl und Größe
 geprüft; nicht erlaubte Medien meldet dort die Paketprüfung (Import „fehlerhaft“, Eintrag „abgelehnt“ im Protokoll).
+Systemdateien von macOS und Windows (`.DS_Store`, `Thumbs.db`, Ordner `__MACOSX/`) werden in ZIP und Paketordner
+stillschweigend übersprungen (nicht entpackt bzw. nicht kopiert).
 
 ## T99 Admin-Hinweise und Livegang-Checkliste
 

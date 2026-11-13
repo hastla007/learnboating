@@ -42,8 +42,8 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   gesetzt ist (Standard: behalten; Cron-Ereignisse werden immer ausgetragen). Dann gehen: alle Tabellen, eigene
   Optionen (auch das Testmail-Ergebnis mit E-Mail-Adresse) und Transients mit genau den eigenen Namen, Nutzer-Meta
   (App-Einstellungen, Ablauf-Erinnerung und Widerspruch, Praxis-Tickets), Tipps, FAQ und Kunden-FAQ in jedem
-  Status samt Kategorien, Seekarten, importierte Medien und Pakete, den Ablageordner
-  `uploads/bootspruefung-import/` und die Merkwerte des Katalog-Abgleichs an Produkten (Preis, Status). Es bleiben: Bestellungen und Produkte in
+  Status samt Kategorien, Seekarten, importierte Medien und Pakete samt Ablageordner (`packages-<geheim>/import/`;
+  auch der frühere `uploads/bootspruefung-import/`, falls noch vorhanden) und die Merkwerte des Katalog-Abgleichs an Produkten (Preis, Status). Es bleiben: Bestellungen und Produkte in
   WooCommerce, die Seite „Häufige Fragen“, geschützte Kurs-PDFs im gesperrten Ordner. Multisite: je Website nach
   deren Einstellung; Nutzer-Meta nur, wenn keine Website ihre Daten behält. Wird eine Website gelöscht, gehen ihre
   Lernplattform-Tabellen mit (solange das Plugin auf der Hauptwebsite aktiv ist). Die Add-ons haben eigene
@@ -77,8 +77,15 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   relativ zur Website-Adresse (T105). Geschützte PDFs gehen ohne vorangestellte Ausgabe anderer Plugins raus und
   behalten Umlaute im Dateinamen.
 - **Ordner außerhalb des Webroots (empfohlen, für beide Server):** in `wp-config.php`
-  `define('BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots');`. Dann liegen Content-Pakete und
-  geschützte PDFs gar nicht im Webordner, und die Sperrregeln unten sind nur noch eine zweite Sicherung.
+  `define('BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots');`. Dann liegen Content-Pakete,
+  der Ablageordner für den Import und geschützte PDFs gar nicht im Webordner, und die Sperrregeln unten sind nur
+  noch eine zweite Sicherung.
+- **Ablageordner für den Import per SFTP (T108):** liegt im privaten Paketordner,
+  `packages-<geheim>/import/` (den genauen Pfad zeigt Bootsprüfung › Inhaltspakete unter „Ohne Hochladen
+  importieren“). Er ist im Selbsttest „Dateischutz“ enthalten und von der nginx-Regel erfasst. Der frühere feste
+  Ordner `uploads/bootspruefung-import/` wird nach dem Update einmalig geleert (Inhalt in den neuen Ordner
+  verschoben) und gelöscht; solange dort noch etwas liegt, prüft ihn der Selbsttest mit, und die Importseite warnt.
+  Nach einer erfolgreichen Übernahme löscht das Plugin die abgelegte ZIP-Datei bzw. den Paketordner.
 - **Prüfen:** Bootsprüfung → Systemstatus, Abschnitt „Dateischutz“ (Selbsttest) und
   Bootsprüfung → Mobile App → „Server prüfen“ (kommt der Authorization-Header an?).
 
@@ -104,13 +111,17 @@ Drei Punkte sind von Hand nötig:
    location ~* ^/wp-content/uploads/bootspruefung/(packages|protected) {
        deny all;
    }
+   location ~* ^/wp-content/uploads/bootspruefung-import/ {
+       deny all;
+   }
    location ~* ^/wp-content/uploads/bootspruefung/media/.*\.(php[0-9]?|phtml|phar|html?|svgz?)$ {
        deny all;
    }
    ```
 
    Die Regeln vor den allgemeinen Regeln für statische Dateien eintragen. Danach den Selbsttest auf der
-   Statusseite erneut starten.
+   Statusseite erneut starten. Die erste Regel deckt auch den Ablageordner `packages-<geheim>/import/` ab; die
+   zweite sperrt den früheren Ablageordner, falls er noch nicht geleert werden konnte (T108).
 2. **Authorization-Header** an PHP-FPM weiterreichen: `fastcgi_param HTTP_AUTHORIZATION $http_authorization;`
 3. **App-Links:** Sperrt eine Regel Punkt-Verzeichnisse (z. B. `location ~ /\.`), davor eine Ausnahme setzen:
    `location ^~ /.well-known/ { try_files $uri /index.php?$args; }`

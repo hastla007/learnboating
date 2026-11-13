@@ -229,18 +229,36 @@ $exposeServer = static function ($pre, $args, $url) use (&$requests, &$requested
         : ['headers' => [], 'body' => '', 'response' => ['code' => 404, 'message' => 'Not Found'], 'cookies' => [], 'filename' => null];
 };
 add_filter('pre_http_request', $exposeServer, 10, 3);
+$legacyDrop = \Bootspruefung\Learning\Content\Import\ImportSources::legacyDropDir();
+if (is_dir($legacyDrop)) {
+    \Bootspruefung\Learning\Content\Import\ImportService::removeDir($legacyDrop);
+}
 $result = SystemStatus::storageSelfTest();
-$check($result['overall'] === 'exposed' && $result['dirs']['packages']['status'] === 'exposed' && $result['dirs']['protected']['status'] === 'exposed' && $requests === 2, 'Testdatei direkt abrufbar → „direkt abrufbar“ (je Ordner eine Anfrage)');
-$check(count($requested) === 2 && str_contains($requested[0], '/bootspruefung/packages-') && str_contains($requested[1], '/bootspruefung/protected-'), 'angefragt wird eine Testdatei im Paket- bzw. Schutzordner');
-$check(glob($packages.'/bp-selftest-*') === [] && glob($protected.'/bp-selftest-*') === [], 'Testdateien danach wieder gelöscht');
+$check($result['overall'] === 'exposed' && $result['dirs']['packages']['status'] === 'exposed' && $result['dirs']['protected']['status'] === 'exposed' && $result['dirs']['import']['status'] === 'exposed' && $requests === 3, 'Testdatei direkt abrufbar → „direkt abrufbar“ (je Ordner eine Anfrage)');
+$check(count($requested) === 3 && str_contains($requested[0], '/bootspruefung/packages-') && str_contains($requested[1], '/bootspruefung/protected-') && preg_match('#/bootspruefung/packages-[^/]+/import/bp-selftest-#', $requested[2]) === 1, 'angefragt wird eine Testdatei im Paket-, Schutz- und Ablageordner (T108)');
+$check(glob($packages.'/bp-selftest-*') === [] && glob($protected.'/bp-selftest-*') === [] && glob($packages.'/import/bp-selftest-*') === [], 'Testdateien danach wieder gelöscht');
 SystemStatus::storageSelfTest();
-$check($requests === 2, 'Ergebnis zwischengespeichert (Transient): keine neue Anfrage beim nächsten Seitenaufruf');
+$check($requests === 3, 'Ergebnis zwischengespeichert (Transient): keine neue Anfrage beim nächsten Seitenaufruf');
+// Früherer Ablageordner, der sich nicht leeren ließ (gleichnamige Datei im neuen Ordner): wird mitgeprüft.
+$dropNow = \Bootspruefung\Learning\Content\Import\ImportSources::dropDir();
+file_put_contents($dropNow.'/t108-doppelt.zip', 'neu');
+wp_mkdir_p($legacyDrop);
+file_put_contents($legacyDrop.'/t108-doppelt.zip', 'alt');
+\Bootspruefung\Learning\Content\Import\ImportSources::migrateLegacy(true);
+$requests = 0;
+$result = SystemStatus::storageSelfTest(true);
+$check(isset($result['dirs']['import_legacy']) && $result['dirs']['import_legacy']['status'] === 'exposed' && $requests === 4, 'früherer Ablageordner noch nicht leer: Selbsttest prüft ihn mit');
+\Bootspruefung\Learning\Content\Import\ImportService::removeDir($legacyDrop);
+unlink($dropNow.'/t108-doppelt.zip');
+delete_option(\Bootspruefung\Learning\Content\Import\ImportSources::MOVED_OPTION);
 $rule = SystemStatus::nginxRule();
 $check(str_contains($rule, 'location ~* ^/wp-content/uploads/bootspruefung/(packages|protected)') && str_contains($rule, 'deny all;'), 'nginx-Regel für diese Installation: '.strtok($rule, "\n"));
+$check(str_contains($rule, 'location ~* ^/wp-content/uploads/bootspruefung-import/ {'), 'nginx-Regel sperrt auch den früheren Ablageordner (der neue liegt unter packages-…)');
 ob_start();
 SystemStatus::renderStorageSelfTest();
 $html = (string) ob_get_clean();
 $check(str_contains($html, 'notice-error') && str_contains($html, 'deny all;') && str_contains($html, 'BOOTSPRUEFUNG_PRIVATE_DIR'), 'Statusseite: rote Warnung mit nginx-Regel und Alternative');
+$check(str_contains($html, 'Ablageordner für den Import') && str_contains($html, 'bootspruefung-import/'), 'Statusseite: Ablageordner in der Tabelle, nginx-Regel mit früherem Ablageordner');
 remove_filter('pre_http_request', $exposeServer, 10);
 $deny = static fn () => ['headers' => [], 'body' => '<h1>403 Forbidden</h1>', 'response' => ['code' => 403, 'message' => 'Forbidden'], 'cookies' => [], 'filename' => null];
 add_filter('pre_http_request', $deny);

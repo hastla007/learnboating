@@ -751,7 +751,7 @@ $limit = ImportSources::uploadLimit();
 $check($limit > 0 && $limit <= Package::MAX_ZIP_BYTES && $limit <= (int) wp_max_upload_size(), 'Upload-Grenze = kleinster Wert (PHP, WordPress, 200 MB)');
 $check(ImportSources::postTooLarge(20 * 1024 * 1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(20 * 1024 * 1024, 0), 'zu große Anfrage (CONTENT_LENGTH > post_max_size) erkannt');
 $msg = (string) ImportSources::uploadErrorMessage(UPLOAD_ERR_INI_SIZE, 11 * 1024 * 1024);
-$check(str_contains($msg, 'zu groß') && str_contains($msg, ImportSources::DROP_FOLDER) && str_contains($msg, 'wp bootspruefung import') && str_contains($msg, 'post_max_size'), 'Meldung „zu groß“ nennt Ablageordner, WP-CLI und Servergrenze');
+$check(str_contains($msg, 'zu groß') && str_contains($msg, ImportSources::dropDirLabel()) && str_contains($msg, 'wp bootspruefung import') && str_contains($msg, 'post_max_size'), 'Meldung „zu groß“ nennt Ablageordner, WP-CLI und Servergrenze');
 $check(ImportSources::uploadErrorMessage(UPLOAD_ERR_FORM_SIZE) === ImportSources::tooLargeMessage() && ImportSources::uploadErrorMessage(UPLOAD_ERR_OK) === null && str_contains((string) ImportSources::uploadErrorMessage(UPLOAD_ERR_PARTIAL), 'teilweise'), 'Upload-Fehlercodes verständlich');
 
 $drop = ImportSources::dropDir();
@@ -768,7 +768,167 @@ foreach (['../wp-config.php', '../../wp-config.php', 'sub/../t96-paket.zip', 'no
 unlink($drop.'/t96-paket.zip');
 unlink($drop.'/notizen.txt');
 unlink($drop.'/t96-link.zip');
+
+echo "Ablageordner im privaten Paketordner, Umzug, Löschen nach Übernahme, Systemdateien (T108)\n";
+$check($drop === MediaStorage::packagesDir().'/'.ImportSources::DROP_FOLDER && preg_match('#/packages-[A-Za-z0-9_-]+/import$#', $drop) === 1, 'Ablageordner liegt im Paketordner mit Geheimnis: '.ImportSources::dropDirLabel());
+$check(! str_contains(ImportSources::dropDirLabel(), 'uploads/'.ImportSources::LEGACY_DROP_FOLDER), 'Anzeige für SFTP nennt den neuen Pfad');
+// Früherer Ordner mit Inhalt: einmaliger Umzug in den neuen Ordner, Schutzdateien und Systemdateien weg, Ordner gelöscht.
+$legacy = ImportSources::legacyDropDir();
+wp_mkdir_p($legacy.'/alt-ordner/data');
+file_put_contents($legacy.'/alt-ordner/manifest.json', '{}');
+file_put_contents($legacy.'/alt.zip', 'x');
+file_put_contents($legacy.'/index.php', "<?php\n// Silence is golden.\n");
+file_put_contents($legacy.'/.htaccess', "Require all denied\n");
+file_put_contents($legacy.'/.DS_Store', 'x');
+file_put_contents($drop.'/doppelt.zip', 'neu');
+file_put_contents($legacy.'/doppelt.zip', 'alt');
+delete_option(ImportSources::MOVED_OPTION);
+$moved = ImportSources::migrateLegacy(true);
+$check($moved !== null && $moved['moved'] === ['alt-ordner', 'alt.zip'] && $moved['left'] === ['doppelt.zip'], 'Umzug: Pakete verschoben, gleichnamige Datei bleibt liegen');
+$check(is_file($drop.'/alt.zip') && is_file($drop.'/alt-ordner/manifest.json') && (string) file_get_contents($drop.'/doppelt.zip') === 'neu', 'Umzug: Dateien im neuen Ordner, vorhandene nicht überschrieben');
+$notice = ImportSources::migrationNotice();
+$check($notice !== null && $notice['type'] === 'warning' && str_contains($notice['text'], 'doppelt.zip') && is_file($legacy.'/.htaccess') && ! is_file($legacy.'/.DS_Store'), 'Rest im früheren Ordner: Warnung nennt die Datei, Ordner bleibt für Apache gesperrt');
+unlink($legacy.'/doppelt.zip');
+$moved = ImportSources::migrateLegacy(true);
+$check($moved !== null && $moved['moved'] === [] && $moved['left'] === [] && ! is_dir($legacy), 'früherer Ordner ohne Pakete: gelöscht');
+update_option(ImportSources::MOVED_OPTION, ['at' => time(), 'moved' => ['alt-ordner', 'alt.zip'], 'left' => []], false);
+$notice = ImportSources::migrationNotice();
+$check($notice !== null && $notice['type'] === 'info' && str_contains($notice['text'], '2 Einträge') && str_contains($notice['text'], ImportSources::dropDirLabel()), 'nach dem Umzug: Hinweis mit neuem Pfad');
+$check(ImportSources::migrateLegacy(true) === null, 'kein früherer Ordner: nichts zu tun');
+update_option(ImportSources::MOVED_OPTION, ['at' => time() - 31 * DAY_IN_SECONDS, 'moved' => ['x'], 'left' => []], false);
+$check(ImportSources::migrationNotice() === null, 'Hinweis zum Umzug verschwindet nach 30 Tagen');
+delete_option(ImportSources::MOVED_OPTION);
+foreach (['alt.zip', 'doppelt.zip', 'alt-ordner'] as $name) {
+    MediaStorage::removePath($drop.'/'.$name);
+}
+
+// Systemdateien: in ZIP und Paketordner stillschweigend übersprungen.
+$check(Package::isJunk('.DS_Store') && Package::isJunk('media/elwis/.DS_Store') && Package::isJunk('media/Thumbs.db') && Package::isJunk('__MACOSX/') && Package::isJunk('__MACOSX/media/._bild.png') && ! Package::isJunk('media/bild.png') && ! Package::isJunk('manifest.json'), 'Systemdateien erkannt (.DS_Store, Thumbs.db, __MACOSX/)');
+$junkZip = $makeZip('junk.zip', $manifest + ['data/courses.json' => '[]', 'media/elwis/bild.png' => 'png', '.DS_Store' => 'x', 'media/.DS_Store' => 'x', 'media/elwis/Thumbs.db' => 'x', '__MACOSX/._manifest.json' => 'x', '__MACOSX/media/._bild.png' => 'x']);
+$check(! $throws(static fn () => Package::inspect($junkZip)->close()), 'ZIP mit .DS_Store, Thumbs.db, __MACOSX/: Vorprüfung besteht');
+$junkTarget = $work.'/junk-extract';
+Package::extract($junkZip, $junkTarget);
+$check(is_file($junkTarget.'/media/elwis/bild.png') && ! file_exists($junkTarget.'/.DS_Store') && ! file_exists($junkTarget.'/media/.DS_Store') && ! file_exists($junkTarget.'/media/elwis/Thumbs.db') && ! file_exists($junkTarget.'/__MACOSX'), 'Systemdateien werden nicht entpackt');
+file_put_contents($dirPkg.'/.DS_Store', 'x');
+file_put_contents($dirPkg.'/media/Thumbs.db', 'x');
+wp_mkdir_p($dirPkg.'/__MACOSX/media');
+file_put_contents($dirPkg.'/__MACOSX/media/._x.png', 'x');
+$check(! $throws(static fn () => Package::inspectDirectory($dirPkg)), 'Paketordner mit .DS_Store, Thumbs.db, __MACOSX/: Vorprüfung besteht');
+$listed = [];
+foreach (Package::files($dirPkg) as $f) {
+    $listed[] = substr($f->getPathname(), strlen($dirPkg) + 1);
+}
+sort($listed);
+$check($listed === ['manifest.json', 'media'], 'Paketordner: Systemdateien werden nicht mit kopiert ('.implode(', ', $listed).')');
+MediaStorage::removePath($dirPkg.'/.DS_Store');
+MediaStorage::removePath($dirPkg.'/media/Thumbs.db');
+MediaStorage::removePath($dirPkg.'/__MACOSX');
+
+// Übernehmen aus dem Ablageordner: Dateiname unverändert (sanitize_file_name änderte ihn), danach gelöscht.
+$runImportHandler = static function (string $handler, string $nonceAction, array $post): array {
+    $_POST = $post + ['_wpnonce' => wp_create_nonce($nonceAction)];
+    $_REQUEST = $_POST;
+    $catch = static function ($location): void {
+        throw new RuntimeException('REDIRECT:'.$location);
+    };
+    add_filter('wp_redirect', $catch, 0);
+    $location = null;
+    try {
+        (new \Bootspruefung\Learning\Admin\ImportPage())->{$handler}();
+    } catch (RuntimeException $e) {
+        $location = str_starts_with($e->getMessage(), 'REDIRECT:') ? substr($e->getMessage(), 9) : throw $e;
+    } finally {
+        remove_filter('wp_redirect', $catch, 0);
+        $_POST = [];
+        $_REQUEST = [];
+    }
+    $flash = get_transient('bp_learning_flash_'.get_current_user_id());
+    delete_transient('bp_learning_flash_'.get_current_user_id());
+
+    return [$location, is_array($flash) ? (string) $flash['message'] : '', is_array($flash) ? (string) $flash['type'] : ''];
+};
+wp_set_current_user(1);
+foreach (['Paket (1).zip', 'inhalt.final.zip'] as $zipName) {
+    copy($rejects['PHP-Datei in media/'][0], $drop.'/'.$zipName);
+    $check(ImportSources::resolveDrop($zipName) === realpath($drop.'/'.$zipName), 'Dateiname „'.$zipName.'“ auflösbar');
+    [, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => $zipName]);
+    $check($type === 'error' && str_contains($message, 'Paket abgelehnt') && ! str_contains($message, 'nicht im Ablageordner gefunden') && ! file_exists($drop.'/'.$zipName), 'Übernehmen „'.$zipName.'“: Datei gefunden und geprüft (hier abgelehnt), danach gelöscht');
+}
+if ($packageDir !== '' && is_dir($packageDir)) {
+    // Gültiges Paket als Ordner mit Punkt im Namen und Systemdateien: übernommen, Ordner danach gelöscht.
+    $pkgCopy = $drop.'/inhalt.final';
+    wp_mkdir_p($pkgCopy);
+    foreach (Package::files($packageDir) as $f) {
+        $rel = substr($f->getPathname(), strlen($packageDir) + 1);
+        $f->isDir() ? wp_mkdir_p($pkgCopy.'/'.$rel) : copy($f->getPathname(), $pkgCopy.'/'.$rel);
+    }
+    file_put_contents($pkgCopy.'/.DS_Store', 'x');
+    file_put_contents($pkgCopy.'/media/Thumbs.db', 'x');
+    wp_mkdir_p($pkgCopy.'/__MACOSX');
+    file_put_contents($pkgCopy.'/__MACOSX/._manifest.json', 'x');
+    [$location, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => 'inhalt.final']);
+    parse_str((string) wp_parse_url((string) $location, PHP_URL_QUERY), $query);
+    $dirBatch = (int) ($query['batch'] ?? 0);
+    $check($dirBatch > 0 && $type === 'success' && str_contains($message, 'übernommen und geprüft') && str_contains($message, 'Paketordner wurde aus dem Ablageordner gelöscht') && ! file_exists($pkgCopy), 'Paketordner „inhalt.final“ übernommen, danach aus dem Ablageordner gelöscht (Meldung sagt es)');
+    $batchDir = $dirBatch > 0 ? $service->packageDir($dirBatch) : '';
+    $check($batchDir !== '' && is_file($batchDir.'/manifest.json') && ! file_exists($batchDir.'/.DS_Store') && ! file_exists($batchDir.'/media/Thumbs.db') && ! file_exists($batchDir.'/__MACOSX'), 'beim Import keine Systemdateien mitkopiert');
+    $check(in_array($service->batch($dirBatch)->status, ['validated', 'uploaded'], true), 'Paket mit Systemdateien besteht die Prüfung (Status '.$service->batch($dirBatch)->status.')');
+    $service->discard($dirBatch);
+} else {
+    echo "  (PACKAGE_DIR fehlt: Übernahme eines gültigen Pakets übersprungen)\n";
+}
+// Abgelehnter Paketordner bleibt zum Nachbessern liegen.
+wp_mkdir_p($drop.'/kaputt.ordner');
+file_put_contents($drop.'/kaputt.ordner/manifest.json', '{}');
+file_put_contents($drop.'/kaputt.ordner/index.php', '<?php');
+[, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => 'kaputt.ordner']);
+$check($type === 'error' && str_contains($message, 'Paket abgelehnt') && is_dir($drop.'/kaputt.ordner'), 'abgelehnter Paketordner bleibt zum Nachbessern liegen');
+MediaStorage::removePath($drop.'/kaputt.ordner');
+$check(! ImportSources::removeDropped('/etc/hosts') && is_file('/etc/hosts'), 'Löschen nur direkt im Ablageordner');
+
 $check($throws(static fn () => ImportSources::download('http://example.com/paket.zip'), 'https') && $throws(static fn () => ImportSources::download('https://127.0.0.1/paket.zip')) && $throws(static fn () => ImportSources::download('file:///etc/passwd'), 'https'), 'Link: nur https, keine internen Adressen');
+
+echo "Link-Import: Weiterleitungen nur auf https, höchstens drei; SHA-256-Prüfsumme (T125)\n";
+$zipBody = (string) file_get_contents($ok);
+$httpLog = [];
+// Öffentliche IP-Adressen statt Namen: wp_http_validate_url prüft Namen per DNS (in der Sandbox nicht erreichbar).
+$fakeHttp = static function ($pre, $args, $url) use (&$httpLog, $zipBody) {
+    $httpLog[] = [$url, (int) $args['redirection']];
+    $path = (string) wp_parse_url($url, PHP_URL_PATH);
+    $redirect = static fn (string $to): array => ['headers' => ['location' => $to], 'body' => '', 'response' => ['code' => 302, 'message' => 'Found'], 'cookies' => [], 'filename' => $args['filename'] ?? null];
+    if (preg_match('#^/hop(\d+)$#', $path, $m)) {
+        return (int) $m[1] > 0 ? $redirect('/hop'.((int) $m[1] - 1)) : $redirect('https://93.184.216.35/paket.zip');
+    }
+    if ($path === '/to-http') {
+        return $redirect('http://93.184.216.35/paket.zip');
+    }
+    if ($path === '/to-internal') {
+        return $redirect('https://127.0.0.1/paket.zip');
+    }
+    if (! empty($args['filename'])) {
+        file_put_contents($args['filename'], $zipBody);
+    }
+
+    return ['headers' => ['content-type' => 'application/zip'], 'body' => '', 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => $args['filename'] ?? null];
+};
+add_filter('pre_http_request', $fakeHttp, 10, 3);
+$file = ImportSources::download('https://93.184.216.34/hop2');
+$check(is_file($file) && (string) file_get_contents($file) === $zipBody && count($httpLog) === 4 && array_unique(array_column($httpLog, 1)) === [0] && $httpLog[3][0] === 'https://93.184.216.35/paket.zip', 'Weiterleitungen selbst verfolgt (redirection 0), relative Ziele aufgelöst');
+unlink($file);
+$httpLog = [];
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/hop3'), 'mehr als 3 Weiterleitungen') && count($httpLog) === 4, 'mehr als drei Weiterleitungen: abgebrochen');
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/to-http'), 'ohne https'), 'Weiterleitung auf http: abgebrochen');
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/to-internal'), 'interne Adresse'), 'Weiterleitung auf eine interne Adresse: abgebrochen');
+$sum = hash('sha256', $zipBody);
+$file = ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, ' '.strtoupper($sum).' ');
+$check(is_file($file), 'passende SHA-256-Prüfsumme (Groß-/Kleinschreibung, Leerzeichen egal): übernommen');
+unlink($file);
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, str_repeat('0', 64)), 'Prüfsumme'), 'falsche SHA-256-Prüfsumme: verworfen');
+$httpLog = [];
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, 'abc'), '64 Zeichen') && $httpLog === [], 'ungültige Prüfsumme: Meldung, kein Download');
+[, $message, $type] = $runImportHandler('handleUrl', 'bp_import_url', ['url' => 'https://93.184.216.34/paket.zip', 'sha256' => str_repeat('f', 64)]);
+$check($type === 'error' && str_contains($message, 'Prüfsumme'), 'Formular: Prüfsumme wird an den Download übergeben');
+remove_filter('pre_http_request', $fakeHttp, 10);
 $check((glob(MediaStorage::packagesDir().'/download-*') ?: []) === [], 'Link: keine temporären Dateien liegen geblieben');
 
 ob_start();
@@ -776,7 +936,8 @@ require_once ABSPATH.'wp-admin/includes/template.php';
 (new \Bootspruefung\Learning\Admin\ImportPage())->render();
 $html = (string) ob_get_clean();
 $check(str_contains($html, 'Höchstgröße zum Hochladen auf diesem Server: '.size_format($limit)) && str_contains($html, 'data-max-bytes="'.$limit.'"') && str_contains($html, 'action=bp_import_upload'), 'Seite zeigt die Upload-Grenze, Formular trägt die Aktion in der Adresse');
-$check(str_contains($html, 'Ohne Hochladen importieren') && str_contains($html, ImportSources::DROP_FOLDER) && str_contains($html, 'bp_import_url') && str_contains($html, 'wp bootspruefung import'), 'Seite bietet Ablageordner, Link und WP-CLI an');
+$check(str_contains($html, 'Ohne Hochladen importieren') && str_contains($html, esc_html(ImportSources::dropDirLabel())) && str_contains($html, 'bp_import_url') && str_contains($html, 'wp bootspruefung import'), 'Seite bietet Ablageordner, Link und WP-CLI an');
+$check(str_contains($html, 'name="sha256"') && str_contains($html, 'SHA-256-Prüfsumme'), 'Link-Formular: freiwilliges Feld für die SHA-256-Prüfsumme');
 $js = (string) file_get_contents(dirname(__DIR__, 2).'/assets/admin/import.js');
 $check(str_contains($js, 'data-max-bytes') && str_contains($js, 'AbortController') && str_contains($js, 'text.http') && ! preg_match('/[\'"](Error|Import running|failed)[\'"]/', $js), 'import.js: Größenprüfung, Zeitüberschreitung, HTTP-Fehler; Texte aus PHP (deutsch)');
 ImportService::removeDir($work);

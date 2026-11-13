@@ -10,6 +10,7 @@ use RuntimeException;
  * Ablage unter wp-content/uploads/bootspruefung/:
  *   media/<key>               ausgelieferte Medien (öffentlich; nur erlaubte Dateitypen)
  *   packages-<geheim>/<batch> hochgeladene Content-Pakete (samt Lösungen)
+ *   packages-<geheim>/import/ Ablageordner für den Import ohne Hochladen (SFTP, T108; ImportSources)
  *   protected-<geheim>/<id>   geschützte Dateien (PDFs mit Lernzugang)
  *
  * Pakete und geschützte Dateien dürfen nie per Direkt-URL abrufbar sein. Schutz in drei Stufen:
@@ -282,6 +283,12 @@ final class MediaStorage
                 error_log('[bootspruefung-learning] Medienordner: '.$e->getMessage());
             }
         }
+        // Früheren öffentlichen Ablageordner uploads/bootspruefung-import/ in den privaten verschieben (T108).
+        try {
+            \Bootspruefung\Learning\Content\Import\ImportSources::migrateLegacy($force);
+        } catch (\Throwable $e) {
+            error_log('[bootspruefung-learning] Ablageordner Import: '.$e->getMessage());
+        }
     }
 
     /**
@@ -465,6 +472,40 @@ final class MediaStorage
         return true;
     }
 
+    /**
+     * Datei oder Ordner verschieben (umbenennen, sonst kopieren und Quelle löschen, z. B. über Dateisystemgrenzen).
+     * Das Ziel darf noch nicht existieren. true bei Erfolg.
+     */
+    public static function movePath(string $source, string $target): bool
+    {
+        if (file_exists($target) || is_link($source)) {
+            return false;
+        }
+        if (is_dir($source)) {
+            return self::moveDir($source, $target);
+        }
+        if (@rename($source, $target)) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
+            return true;
+        }
+        if (! @copy($source, $target)) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
+            @unlink($target); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+            return false;
+        }
+        @unlink($source); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+
+        return true;
+    }
+
+    /** Datei, Link oder Ordner samt Inhalt löschen (ohne Links zu folgen; Fehler werden still übergangen). */
+    public static function removePath(string $path): void
+    {
+        if (is_dir($path) && ! is_link($path)) {
+            self::removeTree($path);
+        } elseif (is_file($path) || is_link($path)) {
+            @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+        }
+    }
+
     private static function copyTree(string $from, string $to): bool
     {
         if (! is_dir($to) && ! wp_mkdir_p($to)) {
@@ -485,7 +526,7 @@ final class MediaStorage
     {
         $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($it as $file) {
-            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+            $file->isDir() && ! $file->isLink() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); // phpcs:ignore WordPress.PHP.NoSilencedErrors
         }
         @rmdir($dir); // phpcs:ignore WordPress.PHP.NoSilencedErrors
     }

@@ -144,9 +144,10 @@ final class Uninstaller
         if (is_string($packagesDir) && preg_match('#/packages-[A-Za-z0-9_-]+$#', $packagesDir)) {
             $remove[] = $packagesDir;
         }
-        // Ablageordner für den Import ohne Hochladen (T96) mit den dort abgelegten Paketen.
+        // Ablageordner für den Import ohne Hochladen (T96): liegt seit T108 als import/ im Paketordner (oben
+        // erfasst); der frühere Ordner uploads/bootspruefung-import/ samt dort abgelegten Paketen, falls es ihn noch gibt.
         $uploads = wp_upload_dir(null, false);
-        $remove[] = rtrim((string) $uploads['basedir'], '/').'/'.ImportSources::DROP_FOLDER;
+        $remove[] = rtrim((string) $uploads['basedir'], '/').'/'.ImportSources::LEGACY_DROP_FOLDER;
         foreach ($remove as $sub) {
             if (is_dir($sub)) {
                 ImportService::removeDir($sub);

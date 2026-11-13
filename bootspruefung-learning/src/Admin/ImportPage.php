@@ -97,7 +97,9 @@ final class ImportPage
     public function handleServer(): void
     {
         $this->guard('bp_import_server');
-        $name = sanitize_file_name(wp_unslash((string) ($_POST['file'] ?? '')));
+        // Name unverändert: sanitize_file_name machte aus „Paket (1).zip“ bzw. „inhalt.final.zip“ einen anderen
+        // Namen, die Datei war dann „nicht gefunden“ (T108). resolveDrop prüft den Namen selbst streng.
+        $name = trim(wp_unslash((string) ($_POST['file'] ?? ''))); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- resolveDrop
         try {
             $path = ImportSources::resolveDrop($name);
         } catch (RuntimeException $e) {
@@ -109,25 +111,30 @@ final class ImportPage
             $batchId = $isZip ? $service->createFromZip($path) : $service->createFromDirectory($path);
         } catch (RuntimeException $e) {
             if ($isZip) {
-                @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- abgelehntes Paket entfernen
+                ImportSources::removeDropped($path); // abgelehntes Paket entfernen; ein Ordner bleibt zum Nachbessern
             }
             $this->redirect(null, self::rejected($e->getMessage()).($isZip ? ' '.__('Die Datei wurde aus dem Ablageordner gelöscht.', 'bootspruefung-learning') : ''), 'error');
         }
-        if ($isZip) {
-            @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- übernommen: liegt jetzt beim Import
-        }
-        $this->redirect($batchId, sprintf(__('Paket „%s“ aus dem Ablageordner übernommen und geprüft.', 'bootspruefung-learning'), $name));
+        // Übernommen: das Paket liegt jetzt beim Import – ZIP-Datei bzw. Paketordner aus dem Ablageordner löschen.
+        $removed = ImportSources::removeDropped($path);
+        $note = match (true) {
+            ! $removed => __('Es konnte nicht aus dem Ablageordner gelöscht werden – bitte per SFTP löschen.', 'bootspruefung-learning'),
+            $isZip => __('Die ZIP-Datei wurde aus dem Ablageordner gelöscht.', 'bootspruefung-learning'),
+            default => __('Der Paketordner wurde aus dem Ablageordner gelöscht.', 'bootspruefung-learning'),
+        };
+        $this->redirect($batchId, sprintf(__('Paket „%s“ aus dem Ablageordner übernommen und geprüft.', 'bootspruefung-learning'), $name).' '.$note, $removed ? 'success' : 'warning');
     }
 
-    /** Paket über einen https-Link laden (wp_safe_remote_get, Größenlimit, temporäre Datei). */
+    /** Paket über einen https-Link laden (wp_safe_remote_get, nur https-Weiterleitungen, Größenlimit, optional SHA-256). */
     public function handleUrl(): void
     {
         $this->guard('bp_import_url');
         $url = esc_url_raw(trim(wp_unslash((string) ($_POST['url'] ?? ''))), ['https']);
+        $sha256 = sanitize_text_field(wp_unslash((string) ($_POST['sha256'] ?? '')));
         $tmp = null;
         $error = null;
         try {
-            $tmp = ImportSources::download($url);
+            $tmp = ImportSources::download($url, ImportSources::MAX_DOWNLOAD_BYTES, $sha256);
             $batchId = Plugin::instance()->importService()->createFromZip($tmp);
         } catch (RuntimeException $e) {
             $error = $e->getMessage();
@@ -259,9 +266,12 @@ final class ImportPage
         echo '<h2 id="bp-import-alternatives">'.esc_html__('Ohne Hochladen importieren', 'bootspruefung-learning').'</h2>';
         echo '<h3>'.esc_html__('Aus dem Ablageordner auf dem Server', 'bootspruefung-learning').'</h3>';
         echo '<p>'.sprintf(
-            esc_html__('Die ZIP-Datei (oder den entpackten Paketordner) per SFTP oder Dateimanager des Hosters in den Ordner %s legen und hier auswählen. Der Ordner ist für Besucher gesperrt. Eine ZIP-Datei wird nach dem Übernehmen bzw. wenn sie abgelehnt wird aus dem Ordner gelöscht.', 'bootspruefung-learning'),
+            esc_html__('Die ZIP-Datei (oder den entpackten Paketordner) per SFTP oder Dateimanager des Hosters in den Ordner %s legen und hier auswählen. Der Ordner liegt im geschützten Paketordner und ist für Besucher gesperrt. Nach dem Übernehmen wird die ZIP-Datei bzw. der Paketordner aus dem Ordner gelöscht, eine abgelehnte ZIP-Datei ebenso.', 'bootspruefung-learning'),
             '<code>'.esc_html(ImportSources::dropDirLabel()).'</code>'
         ).'</p>';
+        if (($moved = ImportSources::migrationNotice()) !== null) {
+            echo '<div class="notice notice-'.esc_attr($moved['type']).' inline"><p>'.esc_html($moved['text']).'</p></div>';
+        }
         $items = ImportSources::dropItems();
         if ($items === []) {
             echo '<p class="description">'.esc_html__('Im Ablageordner liegt noch kein Paket. Nach dem Ablegen diese Seite neu laden.', 'bootspruefung-learning').'</p>';
@@ -290,7 +300,10 @@ final class ImportPage
         echo '<input type="hidden" name="action" value="bp_import_url"><p><label for="bp-import-url" class="screen-reader-text">'.esc_html__('Link zur ZIP-Datei', 'bootspruefung-learning').'</label>'
             .'<input type="url" id="bp-import-url" name="url" class="regular-text" placeholder="https://…/paket.zip" pattern="https://.+" required> ';
         submit_button(__('Herunterladen und prüfen', 'bootspruefung-learning'), 'secondary', 'submit', false);
-        echo '</p><p class="description">'.esc_html(sprintf(__('Nur https-Links, höchstens %s. Die Datei wird in einen geschützten Ordner geladen und nach der Prüfung gelöscht.', 'bootspruefung-learning'), size_format(ImportSources::MAX_DOWNLOAD_BYTES))).'</p></form>';
+        echo '</p><p><label for="bp-import-sha256">'.esc_html__('SHA-256-Prüfsumme (freiwillig)', 'bootspruefung-learning').'</label><br>'
+            .'<input type="text" id="bp-import-sha256" name="sha256" class="regular-text code" maxlength="80" pattern="\s*[0-9a-fA-F]{64}\s*" autocomplete="off" spellcheck="false" aria-describedby="bp-import-sha256-hint"></p>'
+            .'<p class="description" id="bp-import-sha256-hint">'.esc_html__('Steht beim Paket eine Prüfsumme (64 Zeichen), hier eintragen: Die geladene Datei wird nur übernommen, wenn sie übereinstimmt.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html(sprintf(__('Nur https-Links (auch Weiterleitungen, höchstens drei), höchstens %s. Die Datei wird in einen geschützten Ordner geladen und nach der Prüfung gelöscht.', 'bootspruefung-learning'), size_format(ImportSources::MAX_DOWNLOAD_BYTES))).'</p></form>';
         echo '<h3>'.esc_html__('Per WP-CLI', 'bootspruefung-learning').'</h3><p><code>wp bootspruefung import /pfad/zum/paket.zip</code> '
             .esc_html__('(prüft, zeigt die Vorschau und importiert nach Rückfrage; ohne Zeitlimit des Browsers).', 'bootspruefung-learning').'</p>';
     }

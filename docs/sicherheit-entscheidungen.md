@@ -155,3 +155,19 @@ Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Buil
   Bearbeitungsrecht; der Block-Editor funktioniert wie bisher. Lernende lesen Tipps im Lernbereich.
 - **IPv6:** Alle Limits je IP zählen IPv6-Adressen je /64-Netz (`RateLimiter::clientKey()`): Anmeldung, Passwort
   vergessen/zurücksetzen, Registrierung, App-Token, Kontolöschung, PayPal-Webhook, Gutschein-Einlösung (alle Wege).
+
+## 7. Inhaltspakete ohne Hochladen: Ablageordner und Link (T108, T125)
+
+- **Ablageordner:** liegt im privaten Paketordner (`uploads/bootspruefung/packages-<geheim>/import/`, mit
+  `BOOTSPRUEFUNG_PRIVATE_DIR` außerhalb des Webroots) und hat damit denselben Schutz wie die Pakete:
+  Zufallsgeheimnis im Ordnernamen, `.htaccess`, nginx-Regel, Selbsttest im Systemstatus. Der frühere feste Ordner
+  `uploads/bootspruefung-import/` war unter nginx abrufbar; sein Inhalt wird nach dem Update einmalig verschoben
+  (Importseite, stündlicher Cron, „Erneut prüfen“), Reste nennt die Importseite, der Selbsttest prüft sie mit, und
+  die nginx-Regel sperrt den alten Pfad zusätzlich. Nach erfolgreicher Übernahme löscht das Plugin die abgelegte
+  ZIP-Datei bzw. den Paketordner (die Meldung sagt es); ein abgelehnter Paketordner bleibt zum Nachbessern liegen.
+- **Dateinamen:** Der gewählte Name geht unverändert an die strenge Prüfung (`ImportSources::resolveDrop`: kein
+  Pfadanteil, kein Link, muss direkt im Ablageordner liegen). „Paket (1).zip“ oder „inhalt.final.zip“ funktionieren.
+- **Systemdateien:** `.DS_Store`, `Thumbs.db` und `__MACOSX/` werden in ZIP und Paketordner stillschweigend
+  übersprungen (nicht entpackt, nicht kopiert); alles andere Unerwartete lehnt die Vorprüfung weiter ab.
+- **Link-Import:** nur https; Weiterleitungen verfolgt das Plugin selbst (höchstens drei, jede wieder nur auf https
+  und keine interne Adresse). Optional eine SHA-256-Prüfsumme: Stimmt sie nicht, wird die Datei verworfen.

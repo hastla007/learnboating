@@ -49,7 +49,18 @@ final class Package
                 \Bootspruefung\Learning\Content\Import\ImportService::removeDir($targetDir);
             }
         };
-        if (! wp_mkdir_p($targetDir) || ! $zip->extractTo($targetDir)) {
+        // Systemdateien (.DS_Store, Thumbs.db, __MACOSX/) nicht mit entpacken.
+        $entries = [];
+        $junk = false;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (self::isJunk($name)) {
+                $junk = true;
+            } else {
+                $entries[] = $name;
+            }
+        }
+        if (! wp_mkdir_p($targetDir) || ! ($junk ? $zip->extractTo($targetDir, $entries) : $zip->extractTo($targetDir))) {
             $zip->close();
             $cleanup();
             throw new RuntimeException('Paket konnte nicht entpackt werden.');
@@ -102,6 +113,9 @@ final class Package
                 $fail('Inhaltsverzeichnis des ZIP-Archivs ist beschädigt.');
             }
             $name = (string) $stat['name'];
+            if (self::isJunk($name)) {
+                continue; // Systemdatei des Packprogramms: wird nicht entpackt
+            }
             if (($error = self::entryError($name)) !== null) {
                 $fail($error);
             }
@@ -171,6 +185,37 @@ final class Package
     }
 
     /**
+     * Systemdatei eines Betriebssystems bzw. Packprogramms (T108), die stillschweigend übersprungen wird:
+     * .DS_Store und Thumbs.db in jeder Ebene, der Ordner __MACOSX/ (macOS-Zusatzdaten) samt Inhalt.
+     * $relative: Pfad im Paket (ZIP-Eintrag oder relativ zum Paketordner, Ordner auch mit „/“ am Ende).
+     */
+    public static function isJunk(string $relative): bool
+    {
+        $parts = explode('/', trim(str_replace('\\', '/', $relative), '/'));
+        if ($parts[0] === '__MACOSX') {
+            return true;
+        }
+        $base = (string) end($parts);
+
+        return $base === '.DS_Store' || strcasecmp($base, 'Thumbs.db') === 0;
+    }
+
+    /**
+     * Alle Dateien und Ordner eines Paketordners (rekursiv, Ordner vor ihrem Inhalt) ohne Systemdateien (isJunk).
+     * @return \RecursiveIteratorIterator<\RecursiveCallbackFilterIterator>
+     */
+    public static function files(string $dir): \RecursiveIteratorIterator
+    {
+        $dir = rtrim($dir, '/');
+        $filter = new \RecursiveCallbackFilterIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            static fn (\SplFileInfo $file): bool => ! self::isJunk(substr($file->getPathname(), strlen($dir) + 1))
+        );
+
+        return new \RecursiveIteratorIterator($filter, \RecursiveIteratorIterator::SELF_FIRST);
+    }
+
+    /**
      * Prüft einen entpackten Paketordner (Import aus einem Ordner auf dem Server bzw. per WP-CLI): nur erwartete
      * Dateien, keine symbolischen Links, Anzahl und Gesamtgröße. Nicht erlaubte Medientypen lehnt danach die
      * Paketprüfung ab (Batch „fehlerhaft“, Eintrag „abgelehnt“ im Protokoll); der Ordner liegt nicht öffentlich.
@@ -183,8 +228,7 @@ final class Package
         }
         $count = 0;
         $total = 0;
-        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
-        foreach ($it as $file) {
+        foreach (self::files($dir) as $file) {
             $relative = substr($file->getPathname(), strlen($dir) + 1).($file->isDir() ? '/' : '');
             if ($file->isLink()) {
                 throw new RuntimeException("Symbolischer Link im Paket nicht erlaubt: {$relative}");

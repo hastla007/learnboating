@@ -217,7 +217,13 @@ final class SystemStatus
         $dirs = [
             'packages' => self::probeDir(\Bootspruefung\Learning\Content\Media\MediaStorage::packagesDir()),
             'protected' => self::probeDir(\Bootspruefung\Learning\Content\Media\MediaStorage::protectedDir()),
+            // Ablageordner für den Import per SFTP (T108) – und der frühere, falls er noch nicht leer ist.
+            'import' => self::probeDir(\Bootspruefung\Learning\Content\Import\ImportSources::dropDir()),
         ];
+        $legacy = \Bootspruefung\Learning\Content\Import\ImportSources::legacyDropDir();
+        if (is_dir($legacy) && ! is_link($legacy)) {
+            $dirs['import_legacy'] = self::probeDir($legacy);
+        }
         $statuses = array_column($dirs, 'status');
         $overall = in_array('exposed', $statuses, true) ? 'exposed' : (in_array('unknown', $statuses, true) ? 'unknown' : 'ok');
         $result = ['checked_at' => time(), 'overall' => $overall, 'dirs' => $dirs];
@@ -310,13 +316,17 @@ final class SystemStatus
         }
     }
 
-    /** nginx-Regeln für den Upload-Pfad dieser Installation (Pakete/geschützte Dateien sperren, keine Skripte in media/). */
+    /**
+     * nginx-Regeln für den Upload-Pfad dieser Installation: Pakete (samt Ablageordner packages-…/import/) und
+     * geschützte Dateien sperren, den früheren Ablageordner bootspruefung-import/ ebenso (T108), keine Skripte in media/.
+     */
     public static function nginxRule(): string
     {
         $path = rtrim((string) wp_parse_url(\Bootspruefung\Learning\Content\Media\MediaStorage::baseUrl(), PHP_URL_PATH), '/');
         $path = str_replace('.', '\\.', $path);
 
         return "location ~* ^{$path}/(packages|protected) {\n    deny all;\n}\n"
+            ."location ~* ^{$path}-import/ {\n    deny all;\n}\n"
             ."location ~* ^{$path}/media/.*\\.(php[0-9]?|phtml|phar|html?|svgz?)$ {\n    deny all;\n}";
     }
 
@@ -349,6 +359,8 @@ final class SystemStatus
         $labels = [
             'packages' => __('Inhaltspakete', 'bootspruefung-learning'),
             'protected' => __('Geschützte Dateien', 'bootspruefung-learning'),
+            'import' => __('Ablageordner für den Import', 'bootspruefung-learning'),
+            'import_legacy' => __('Früherer Ablageordner (noch nicht leer)', 'bootspruefung-learning'),
         ];
         $states = [
             'private' => __('außerhalb des Webroots', 'bootspruefung-learning'),
