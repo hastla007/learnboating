@@ -23,14 +23,42 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
  * Zusätzlich bekommen Elementor (elementor/frontend/builder_content_data) und Beaver Builder
  * (fl_builder_do_render_content) für gesperrte Beiträge gar keine Layout-Daten – ohne Abhängigkeit, die
  * Filter greifen nur, wenn das jeweilige Plugin sie aufruft.
+ *
+ * Abfragen (T113): canView() läuft je Beitrag mehrfach (post_class, the_content früh/spät, Auszug früh/spät). Das
+ * Ergebnis gilt je Beitrag und Nutzer für die Anfrage (statisch gemerkt); verworfen wird es bei einem Nutzerwechsel
+ * (set_current_user), geänderten Zugängen (bootspruefung_entitlements_changed, Kursgutschein) und geänderter Vorgabe
+ * am Beitrag. „Beliebige Funktion“ prüft alle Funktionen mit einer Abfrage je Kurs (AccessService::scopes()).
  */
 final class ContentGate
 {
     public const META = '_bp_required_access';
     public const ANY = 'any';
 
+    /** @var array<string,bool> Ergebnisse von canView() („v|Beitrag|Nutzer“) und Zugangsprüfungen („a|Nutzer|Kurs|Funktion“) */
+    private static array $memo = [];
+
+    /** Gemerkte Ergebnisse verwerfen (Nutzerwechsel, geänderte Zugänge oder Vorgaben; Tests). */
+    public static function flush(): void
+    {
+        self::$memo = [];
+        self::$offersHtml = [];
+    }
+
     public function register(): void
     {
+        add_action('set_current_user', [self::class, 'flush']);
+        add_action('bootspruefung_entitlements_changed', [self::class, 'flush']);
+        add_action('bootspruefung_voucher_granted', [self::class, 'flush']);
+        add_action('bootspruefung_voucher_revoked', [self::class, 'flush']);
+        add_action('save_post_product', [self::class, 'flush']); // Produktliste im Hinweis
+        $metaChanged = static function ($metaId, $objectId, $key): void {
+            if ($key === self::META) {
+                self::flush();
+            }
+        };
+        add_action('added_post_meta', $metaChanged, 10, 3);
+        add_action('updated_post_meta', $metaChanged, 10, 3);
+        add_action('deleted_post_meta', $metaChanged, 10, 3);
         add_action('add_meta_boxes', [$this, 'metaBox']);
         add_action('save_post', [$this, 'save'], 10, 2);
         add_filter('the_content', [$this, 'filterContent'], 1);
@@ -58,8 +86,9 @@ final class ContentGate
     {
         $access = new AccessService();
         if ($feature === self::ANY) {
-            foreach (AccessService::FEATURES as $f) {
-                if ($access->full($userId, $course, $f)) {
+            // Alle Funktionen des Kurses mit einer Abfrage (statt bis zu drei je Funktion, T113).
+            foreach ($access->scopes($userId, $course) as $scope) {
+                if ($scope['full']) {
                     return true;
                 }
             }
@@ -78,11 +107,17 @@ final class ContentGate
             return true;
         }
         $userId ??= get_current_user_id();
-        if ($userId > 0 && user_can($userId, 'edit_post', $postId)) {
-            return true;
+        $key = 'v|'.$postId.'|'.$userId;
+        if (isset(self::$memo[$key])) {
+            return self::$memo[$key];
         }
+        if ($userId > 0 && user_can($userId, 'edit_post', $postId)) {
+            return self::$memo[$key] = true;
+        }
+        // Gleiche Vorgabe auf mehreren Beiträgen (Archiv, Liste): Zugang nur einmal prüfen.
+        $access = 'a|'.$userId.'|'.$req['course'].'|'.$req['feature'];
 
-        return self::allows($userId, $req['course'], $req['feature']);
+        return self::$memo[$key] = self::$memo[$access] ??= self::allows($userId, $req['course'], $req['feature']);
     }
 
     /** Gesperrt für den aktuellen Nutzer? (Beitrag mit Lernzugang-Vorgabe ohne passenden Zugang) */
@@ -225,6 +260,17 @@ final class ContentGate
         if (! is_user_logged_in()) {
             $html .= '<p><a class="button" href="'.esc_url(wp_login_url(get_permalink() ?: Router::url())).'">'.esc_html__('Anmelden', 'bootspruefung-learning').'</a></p>';
         }
+        // Produktliste je Kurs und Funktion nur einmal je Anfrage ermitteln (Hinweis erscheint je Beitrag mehrfach, T113).
+        $html .= self::$offersHtml[$course.'|'.$feature] ??= self::offersHtml($course, $feature);
+
+        return $html.'</div>';
+    }
+
+    /** @var array<string,string> Produktliste des Hinweises je „Kurs|Funktion“ */
+    private static array $offersHtml = [];
+
+    private static function offersHtml(string $course, string $feature): string
+    {
         $offers = Integration::offers($course, $feature === self::ANY ? array_fill_keys([AccessService::QUESTION_BANK], false) : [$feature => false]);
         $list = [];
         foreach ($offers as $items) {
@@ -232,11 +278,8 @@ final class ContentGate
                 $list[$o['url']] = '<li><a href="'.esc_url($o['url']).'">'.esc_html($o['name']).'</a>'.($o['price'] !== '' ? ' <span>'.esc_html($o['price']).'</span>' : '').'</li>';
             }
         }
-        if ($list !== []) {
-            $html .= '<p>'.esc_html__('Freischalten mit:', 'bootspruefung-learning').'</p><ul>'.implode('', $list).'</ul>';
-        }
 
-        return $html.'</div>';
+        return $list !== [] ? '<p>'.esc_html__('Freischalten mit:', 'bootspruefung-learning').'</p><ul>'.implode('', $list).'</ul>' : '';
     }
 
     // ------------------------------------------------------------------ Metabox

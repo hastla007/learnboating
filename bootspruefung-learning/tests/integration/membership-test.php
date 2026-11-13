@@ -282,6 +282,39 @@ $check(! str_contains($block, $secret) && str_contains($block, 'bp-gate-notice')
 wp_set_current_user($free);
 $GLOBALS['post'] = null;
 $check(str_contains(do_blocks('<!-- wp:bootspruefung/zugang {"course":"SBF-SEE","feature":"video_course"} --><p>'.$secret.'</p><!-- /wp:bootspruefung/zugang -->'), $secret), 'Block mit Zugang sichtbar');
+// T113: Liste mit 10 gesperrten Beiträgen (angemeldet ohne Kauf) – Abfragen begrenzt, Ergebnis unverändert.
+$gateIds = [];
+for ($i = 0; $i < 10; $i++) {
+    $gateIds[] = $gid = wp_insert_post(['post_title' => 'Gesperrt T113 '.$i, 'post_content' => $secret, 'post_status' => 'publish', 'post_type' => 'post']);
+    update_post_meta($gid, ContentGate::META, ['course' => 'SBF-SEE', 'feature' => $i % 2 ? ContentGate::ANY : 'exam_simulation']);
+}
+$gateList = static function (int $userId) use ($gateIds, $wpdb): array {
+    wp_set_current_user($userId);
+    $posts = get_posts(['post__in' => $gateIds, 'post_type' => 'post', 'numberposts' => -1, 'orderby' => 'post__in']);
+    $before = $wpdb->num_queries;
+    $out = '';
+    foreach ($posts as $post) {
+        $GLOBALS['post'] = $post;
+        setup_postdata($post);
+        $out .= implode(' ', get_post_class('', $post)).apply_filters('the_content', $post->post_content).get_the_excerpt($post);
+    }
+
+    return [$out, $wpdb->num_queries - $before];
+};
+[$gateOut, $gateQueries] = $gateList($stranger);
+$check(! str_contains($gateOut, $secret) && substr_count($gateOut, 'bp-access-locked') === 10 && substr_count($gateOut, 'bp-gate-notice') === 10, '10 gesperrte Beiträge: Klasse, Hinweis statt Inhalt, Auszug ohne Text (T113)');
+$check($gateQueries <= 100, "10 gesperrte Beiträge (post_class, the_content früh/spät, Auszug): {$gateQueries} Abfragen (vorher über 1000, Grenze 100; T113)");
+[$gateOut] = $gateList($free);
+$check(substr_count($gateOut, $secret) >= 10 && ! str_contains($gateOut, 'bp-access-locked'), 'Nutzerwechsel (set_current_user): gemerkte Ergebnisse verworfen, mit Zugang sichtbar');
+wp_set_current_user($stranger);
+$check(ContentGate::locked($gateIds[0]), 'gemerkt: gesperrt');
+delete_post_meta($gateIds[0], ContentGate::META);
+$check(! ContentGate::locked($gateIds[0]), 'Vorgabe entfernt: sofort frei (gemerktes Ergebnis verworfen)');
+$check(ContentGate::allows($free, 'SBF-SEE', ContentGate::ANY) && ! ContentGate::allows($stranger, 'SBF-SEE', ContentGate::ANY), '„beliebige Funktion“ (eine Abfrage für alle Funktionen): gleiche Entscheidung');
+foreach ($gateIds as $gid) {
+    wp_delete_post($gid, true);
+}
+$GLOBALS['post'] = null;
 wp_set_current_user(1);
 wp_delete_post($postId, true);
 
