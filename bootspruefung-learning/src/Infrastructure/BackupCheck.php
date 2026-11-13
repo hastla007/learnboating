@@ -161,7 +161,7 @@ final class BackupCheck
             if ($current !== null && $current !== $expected && is_dir($current)) {
                 // relocate() würde diesen Ordner beim nächsten Admin-Aufruf bzw. Cron-Lauf hierher verschieben.
                 $out[] = self::row($label, 'fail', sprintf(
-                    __('Option %1$s zeigt auf %2$s (anderer Ort, z. B. das Original-System). Beim nächsten Admin-Aufruf oder Cron-Lauf verschiebt das Plugin diesen Ordner nach %3$s. Auf einer Kopie neben dem Original vorher den Eintrag „%4$s“ auf den neuen Pfad setzen (docs/backup-restore.md).', 'bootspruefung-learning'),
+                    __('Option %1$s zeigt auf %2$s (anderer Ort, z. B. das Original-System). Beim nächsten Admin-Aufruf oder Cron-Lauf verschiebt das Plugin diesen Ordner nach %3$s. Auf einer Kopie neben dem Original vorher den Eintrag „%4$s“ auf den neuen Pfad setzen.', 'bootspruefung-learning'),
                     MediaStorage::LAYOUT_OPTION, $current, $expected, $kind
                 ));
                 continue;
@@ -220,12 +220,12 @@ final class BackupCheck
         }
         if ($missing !== []) {
             return [self::row($label, 'fail', sprintf(
-                __('%1$d von %2$d Dateien fehlen am eingetragenen Pfad (Anhänge %3$s). Die Pfade stehen absolut in %4$s: Schutzordner zurückspielen bzw. nach einem Umzug die Pfade ersetzen (wp search-replace, docs/backup-restore.md).', 'bootspruefung-learning'),
+                __('%1$d von %2$d Dateien fehlen am eingetragenen Pfad (Anhänge %3$s). Die Pfade stehen absolut in %4$s: Schutzordner zurückspielen bzw. nach einem Umzug die Pfade ersetzen (wp search-replace).', 'bootspruefung-learning'),
                 count($missing), count($rows), implode(', ', array_slice($missing, 0, 10)), ProtectedFiles::PATH_META
             ))];
         }
         if ($elsewhere !== []) {
-            return [self::row($label, 'warn', sprintf(_n('%1$d Datei liegt außerhalb des Schutzordners (Anhänge %2$s) – z. B. noch im Ordner des Original-Systems. Pfade ersetzen (docs/backup-restore.md).', '%1$d Dateien liegen außerhalb des Schutzordners (Anhänge %2$s) – z. B. noch im Ordner des Original-Systems. Pfade ersetzen (docs/backup-restore.md).', count($elsewhere), 'bootspruefung-learning'), count($elsewhere), implode(', ', array_slice($elsewhere, 0, 10))))];
+            return [self::row($label, 'warn', sprintf(_n('%1$d Datei liegt außerhalb des Schutzordners (Anhänge %2$s) – z. B. noch im Ordner des Original-Systems. Pfade ersetzen.', '%1$d Dateien liegen außerhalb des Schutzordners (Anhänge %2$s) – z. B. noch im Ordner des Original-Systems. Pfade ersetzen.', count($elsewhere), 'bootspruefung-learning'), count($elsewhere), implode(', ', array_slice($elsewhere, 0, 10))))];
         }
 
         return [self::row($label, 'ok', sprintf(_n('%d Datei vorhanden', '%d Dateien vorhanden', count($rows), 'bootspruefung-learning'), count($rows)))];
