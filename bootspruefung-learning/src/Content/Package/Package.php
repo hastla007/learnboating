@@ -204,7 +204,7 @@ final class Package
 
     /**
      * Alle Dateien und Ordner eines Paketordners (rekursiv, Ordner vor ihrem Inhalt) ohne Systemdateien (isJunk).
-     * @return \RecursiveIteratorIterator<\RecursiveCallbackFilterIterator>
+     * @return \RecursiveIteratorIterator<\RecursiveCallbackFilterIterator<mixed, mixed, \RecursiveDirectoryIterator>>
      */
     public static function files(string $dir): \RecursiveIteratorIterator
     {

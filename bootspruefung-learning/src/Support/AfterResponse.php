@@ -81,7 +81,7 @@ final class AfterResponse
      */
     public static function pad(?float $start = null): float
     {
-        $start ??= (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $start ??= isset($_SERVER['REQUEST_TIME_FLOAT']) ? (float) sanitize_text_field(wp_unslash((string) $_SERVER['REQUEST_TIME_FLOAT'])) : microtime(true);
         $wait = $start + self::minSeconds() - microtime(true);
         if ($wait <= 0) {
             return 0.0;

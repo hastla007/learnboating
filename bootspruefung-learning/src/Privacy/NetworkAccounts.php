@@ -26,7 +26,7 @@ class NetworkAccounts
     /** Websites, deren Mitglied das Konto ist (auch archivierte/gesperrte). @return list<int> */
     public function sitesOf(int $userId): array
     {
-        return array_values(array_map('intval', array_keys((array) get_blogs_of_user($userId, true))));
+        return array_map('intval', array_keys((array) get_blogs_of_user($userId, true)));
     }
 
     /** Konto netzweit löschen (wpmu_delete_user; löst deleted_user aus). */

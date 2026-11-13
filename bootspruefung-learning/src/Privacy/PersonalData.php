@@ -413,7 +413,7 @@ final class PersonalData
             $messages[] = __('Dein Widerspruch gegen die Erinnerungs-E-Mails bleibt gespeichert, damit wir ihn weiter beachten.', 'bootspruefung-learning');
         }
         $p = $wpdb->prefix.'bp_';
-        $staff = (int) $wpdb->get_var($wpdb->prepare("SELECT (SELECT COUNT(*) FROM {$p}import_batch WHERE created_by = %d OR approved_by = %d) + (SELECT COUNT(*) FROM {$p}override WHERE user_id = %d) + (SELECT COUNT(*) FROM {$p}exam_rule WHERE verified_by = %d)", $user->ID, $user->ID, $user->ID, $user->ID));
+        $staff = (int) $wpdb->get_var($wpdb->prepare('SELECT (SELECT COUNT(*) FROM `'.esc_sql($p.'import_batch').'` WHERE created_by = %d OR approved_by = %d) + (SELECT COUNT(*) FROM `'.esc_sql($p.'override').'` WHERE user_id = %d) + (SELECT COUNT(*) FROM `'.esc_sql($p.'exam_rule').'` WHERE verified_by = %d)', $user->ID, $user->ID, $user->ID, $user->ID));
         if ($staff > 0) {
             $messages[] = __('Vermerke, wer Inhalte importiert, freigegeben, korrigiert oder Prüfungsregeln geprüft hat, bleiben zum Nachweis der Inhaltspflege erhalten.', 'bootspruefung-learning');
         }

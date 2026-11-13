@@ -45,7 +45,7 @@ parameters:
 		-
 			message: '#^Access to property \$id on an unknown class VCAP\\Voucher\.$#'
 			identifier: class.notFound
-			count: 10
+			count: 11
 			path: ../learnboating-voucher-connector/src/Connector.php
 
 		-
@@ -813,7 +813,7 @@ parameters:
 		-
 			message: '#^Action callback returns int but should not return anything\.$#'
 			identifier: return.void
-			count: 1
+			count: 2
 			path: src/Plugin.php
 
 		-

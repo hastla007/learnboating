@@ -66,7 +66,7 @@ final class GoLiveChecklist
             return null;
         }
         $open = (array) kurswasser_content_open_items();
-        $titles = array_map(static fn ($o) => (string) ($o['title'] ?? ''), $open);
+        $titles = array_map(static fn ($o) => (string) $o['title'], $open);
 
         return [
             'key' => 'content_pages',

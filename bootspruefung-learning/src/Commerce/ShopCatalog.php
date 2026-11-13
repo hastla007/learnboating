@@ -860,15 +860,15 @@ final class ShopCatalog
      *
      * Übersetzbar (T128): alle Sätze über __() mit Platzhaltern; Beträge über priceText() im Format des Shops.
      *
-     * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
+     * @param array{sku:string,name:string,days:int,courses:list<string>,group:string,seats?:int,features?:list<string>,tier?:string} $def
      * @return array{short:string,long:string}
      */
     public static function texts(array $def): array
     {
-        if (($def['group'] ?? '') === 'simulator') {
+        if ($def['group'] === 'simulator') {
             return self::simTexts($def);
         }
-        if (($def['group'] ?? '') === 'videoupgrade') {
+        if ($def['group'] === 'videoupgrade') {
             return self::videoUpgradeTexts($def);
         }
         global $wpdb;

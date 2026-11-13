@@ -151,7 +151,7 @@ final class AccessPages
             return '';
         }
         $util = 'Automattic\\WooCommerce\\Utilities\\OrderUtil';
-        if (class_exists($util) && method_exists($util, 'get_order_admin_edit_url')) {
+        if (class_exists($util)) { // WooCommerce ab 11.2 (Mindestversion) hat get_order_admin_edit_url()
             return (string) $util::get_order_admin_edit_url($orderId);
         }
 

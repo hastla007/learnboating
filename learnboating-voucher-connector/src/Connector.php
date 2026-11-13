@@ -667,7 +667,7 @@ final class Connector
             return false;
         }
         try {
-            if (method_exists($vouchers, 'hitIpLimit')) {
+            if (defined('BP_LEARNING_VERSION') && version_compare((string) BP_LEARNING_VERSION, '0.14.0', '>=')) { // Vouchers::hitIpLimit() gibt es ab 0.14.0
                 $vouchers::hitIpLimit();
             } else {
                 // Ältere Lernplattform: gleicher Zählername und gleiche Grenze, nur ohne die gemeinsame Hilfe.

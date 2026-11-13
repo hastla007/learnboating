@@ -31,6 +31,8 @@ parameters:
     dynamicConstantNames:
         - DB_NAME
         - COOKIEPATH
+        # Add-ons prüfen die installierte Version der Lernplattform (ältere Versionen sind erlaubt).
+        - BP_LEARNING_VERSION
     scanFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
         - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
