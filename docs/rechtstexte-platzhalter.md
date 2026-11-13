@@ -1,11 +1,11 @@
 # Rechtstexte: Platzhalter ausfüllen (To-do T11)
 
-Die fünf Rechtstext-Vorlagen (`themes/kurswasser/legal/`) enthalten 76 Platzhalter `[[Betreiber: …]]`:
+Die fünf Rechtstext-Vorlagen (`themes/kurswasser/legal/`) enthalten 81 Platzhalter `[[Betreiber: …]]`:
 
 | Text | Platzhalter |
 |---|---|
 | Impressum | 27 |
-| Datenschutzerklärung | 25 |
+| Datenschutzerklärung | 30 |
 | AGB | 15 |
 | Widerrufsbelehrung | 7 |
 | Kontakt | 6 |
@@ -38,7 +38,7 @@ Rechtsseiten sofort aktualisiert. Veröffentlichte, unbearbeitete Seiten überni
 
 Die Seite zeigt unten, was danach je Text noch offen ist.
 
-## 2. Entscheidungen und Prüfungen (20 Platzhalter, direkt auf der Seite)
+## 2. Entscheidungen und Prüfungen (25 Platzhalter, direkt auf der Seite)
 
 Diese Platzhalter verlangen eine Entscheidung (Variante wählen, Abschnitt löschen) oder eine rechtliche bzw.
 lizenzrechtliche Prüfung. Das Theme ersetzt sie nie.
@@ -63,6 +63,11 @@ lizenzrechtliche Prüfung. Das Theme ersetzt sie nie.
 - prüfen
 - Video-Hosting, falls nicht eigener Server
 - Zertifizierungen bzw. Garantien der genutzten Anbieter und ggf. Drittlandbezug von Hoster/E-Mail-/Video-Dienst prüfen.
+- Partnerprogramm: Diesen Abschnitt löschen, wenn kein Partnerprogramm betrieben wird.
+- Partnerprogramm: welche Angaben der Partner sieht (Einstellungen des Partnerprogramm-Plugins prüfen)
+- Partnerprogramm: Rechtsgrundlage rechtlich prüfen (Cookies zur Zuordnung nur mit Einwilligung)
+- Partnerprogramm: Speicherfrist
+- Partnerprogramm: Cookie-Name, Zweck und Laufzeit in Abschnitt 10 eintragen und Abschnitt 12 anpassen – oder streichen
 ### AGB
 - Falls Kleinunternehmer – den vorigen Satz ersetzen durch: „Alle Preise sind Endpreise. Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.“
 - ja/nein – zutreffende Variante wählen, die andere löschen.
