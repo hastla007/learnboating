@@ -7,7 +7,7 @@
 #
 #   --rev  Commit, Zweig oder Tag (Standard: HEAD)
 #   --out  Zielordner (Standard: build/release; wird geleert)
-#   --tag  prüft, dass der Tag zur Plugin-Version passt (Tag „v0.14.0“ ⇔ Plugin 0.14.0) und dass Theme und Add-ons
+#   --tag  prüft, dass der Tag zur Plugin-Version passt (Tag „v0.14.0“ ⇔ Plugin 0.14.0) und dass Plugin, Theme und Add-ons
 #          eine neue Version haben, wenn sich ihr Ordner seit dem vorigen Tag geändert hat (ohne vorigen Tag: übersprungen)
 #
 # Ergebnis im Zielordner:
@@ -23,6 +23,7 @@
 # Das Lern-Plugin-ZIP bekommt eine Kopie von CREDITS.md (Fremdbestandteile und ihre Lizenzen).
 # Das Plugin braucht keine Composer-Abhängigkeiten (eigener Autoloader, siehe bootspruefung-learning.php).
 # Gleicher Commit ergibt gleiche ZIP-Dateien (Dateizeit = Commit-Zeit, feste Reihenfolge).
+# Kein „grep -q“ hinter einer Pipe: Mit pipefail bräche ein früh beendetes grep den Sender (SIGPIPE) ab.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -35,7 +36,7 @@ while [ $# -gt 0 ]; do
     --rev) REV="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
-    -h|--help) sed -n '3,25p' "$0"; exit 0 ;;
+    -h|--help) sed -n '3,26p' "$0"; exit 0 ;;
     *) echo "Unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
@@ -80,7 +81,7 @@ VOU_V="$(header_version learnboating-voucher-connector/learnboating-voucher-conn
 [ -n "$PLUGIN_V" ] && [ -n "$THEME_V" ] && [ -n "$AFF_V" ] && [ -n "$VOU_V" ] || fail "Version im Dateikopf nicht gefunden."
 
 # Versionen müssen überall gleich sein (Kopf = Konstante; Plugin auch readme.txt und Änderungsprotokoll).
-const_in() { git show "$SHA:$1" | grep -qE "$2" || fail "$1: $3"; }
+const_in() { git show "$SHA:$1" | grep -E "$2" > /dev/null || fail "$1: $3"; }
 const_in bootspruefung-learning/src/Plugin.php "VERSION = '${PLUGIN_V//./\\.}';" "Plugin::VERSION ≠ Kopf ($PLUGIN_V)"
 const_in bootspruefung-learning/readme.txt "^Stable tag: ${PLUGIN_V//./\\.}\$" "Stable tag ≠ Plugin-Version ($PLUGIN_V)"
 const_in bootspruefung-learning/CHANGELOG.md "^## ${PLUGIN_V//./\\.} " "oberster Eintrag fehlt für $PLUGIN_V"
@@ -96,7 +97,7 @@ fi
 if [ -n "$TAG" ]; then
   PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$SHA^" 2>/dev/null || true)"
   if [ -z "$PREV_TAG" ]; then
-    echo "Hinweis: kein voriger Release-Tag – Versionsprüfung von Theme und Add-ons übersprungen." >&2
+    echo "Hinweis: kein voriger Release-Tag – Prüfung „geändert, aber Version gleich“ übersprungen." >&2
   else
     prev_version() { git show "$PREV_TAG:$1" 2>/dev/null | sed -n 's/^[[:space:]*]*Version:[[:space:]]*\([0-9][0-9A-Za-z.+-]*\).*$/\1/p' | head -1; }
     check_bumped() { # <ordner> <kopfdatei> <aktuelle version> <name>
@@ -137,7 +138,7 @@ check_zip() { # <zip> <ordner> <hauptdatei>
   local list
   list="$(unzip -Z1 "$1")"
   [ "$(printf '%s\n' "$list" | cut -d/ -f1 | sort -u)" = "$2" ] || fail "$(basename "$1"): Ordner im ZIP ist nicht nur „$2/“."
-  printf '%s\n' "$list" | grep -qx "$2/$3" || fail "$(basename "$1"): $2/$3 fehlt."
+  printf '%s\n' "$list" | grep -x "$2/$3" > /dev/null || fail "$(basename "$1"): $2/$3 fehlt."
   if printf '%s\n' "$list" | grep -E "(^|/)(tests|tools|node_modules|vendor)/|(^|/)\.git|(^|/)(composer\.(json|lock)|phpstan[^/]*|phpcs[^/]*|package(-lock)?\.json)$"; then
     fail "$(basename "$1"): Entwicklerdateien im ZIP (siehe oben)."
   fi
@@ -147,9 +148,9 @@ check_zip() { # <zip> <ordner> <hauptdatei>
   fi
 }
 check_zip "$PLUGIN_ZIP" bootspruefung-learning bootspruefung-learning.php
-unzip -Z1 "$PLUGIN_ZIP" | grep -qx 'bootspruefung-learning/CREDITS.md' || fail "Plugin-ZIP ohne CREDITS.md."
+unzip -Z1 "$PLUGIN_ZIP" | grep -x 'bootspruefung-learning/CREDITS.md' > /dev/null || fail "Plugin-ZIP ohne CREDITS.md."
 check_zip "$THEME_ZIP" kurswasser style.css
-unzip -Z1 "$THEME_ZIP" | grep -q '^kurswasser/content/pages\.php$' || fail "Theme-ZIP ohne content/pages.php (Inhaltsseiten)."
+unzip -Z1 "$THEME_ZIP" | grep '^kurswasser/content/pages\.php$' > /dev/null || fail "Theme-ZIP ohne content/pages.php (Inhaltsseiten)."
 check_zip "$AFF_ZIP" learnboating-affiliate-connector learnboating-affiliate-connector.php
 check_zip "$VOU_ZIP" learnboating-voucher-connector learnboating-voucher-connector.php
 
