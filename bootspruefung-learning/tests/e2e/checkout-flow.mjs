@@ -126,6 +126,10 @@ try {
   assert.equal(await classicConsent.getAttribute('aria-required'), 'true', 'Kästchen als Pflichtfeld ausgezeichnet');
   assert.match(await page.locator('#bp_digital_consent_field a').innerText(), /öffnet in neuem Fenster/);
   await classicConsent.check();
+  // AGB-Häkchen von WooCommerce gibt es nur, wenn eine AGB-Seite eingestellt ist (z. B. mit Theme Kurswasser).
+  if (await page.locator('#terms').count()) {
+    await page.locator('#terms').check();
+  }
   assert.match((await page.locator('#place_order').innerText()).trim(), /^Zahlungspflichtig bestellen$/);
   await shot(page, '55-klassisch');
   // … und unmittelbar vor dem Absenden prüfen, dass der Haken noch gesetzt ist.

@@ -24,6 +24,9 @@ wp_set_current_user(1);
 $learner = get_user_by('login', 'lerner1');
 $owner = get_user_by('login', 'schule1');
 $ownerId = $owner ? (int) $owner->ID : (int) wp_insert_user(['user_login' => 'schule1', 'user_email' => 'schule1@example.invalid', 'user_pass' => 'Schul-Passwort-123', 'display_name' => 'Bootsschule Test', 'role' => 'subscriber']);
+// Einladungsvorschau zeigt nur Vor- und Nachname des Käufers, nie den Anzeige- bzw. Anmeldenamen (T87).
+update_user_meta($ownerId, 'first_name', 'Bootsschule');
+update_user_meta($ownerId, 'last_name', 'Test');
 wp_set_password('Schul-Passwort-123', $ownerId);
 
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code = 'SBF-SEE' AND access_type = 'free_limited'");
