@@ -8,7 +8,7 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
 
 | Software | Mindestens | Getestet in CI |
 |---|---|---|
-| PHP | 8.1 | – |
+| PHP | 8.1 | 8.1 und 8.5 (Einzeltests), 8.5 (mit WordPress und WooCommerce) |
 | WordPress | 7.0 | 7.1.4 |
 | WooCommerce | 11.2 | 11.2.2 und 11.3 (Beta) |
 
