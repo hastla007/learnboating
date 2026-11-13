@@ -116,7 +116,7 @@ final class Plugin
     {
         add_action('init', [$this, 'loadTextDomain']);
         add_action('plugins_loaded', [$this, 'maybeMigrate'], 5);
-        add_action(self::MIGRATE_HOOK, static fn () => \Bootspruefung\Learning\Infrastructure\Cron::run('migrate', [self::class, 'runMigration']));
+        add_action(self::MIGRATE_HOOK, static fn () => \Bootspruefung\Learning\Infrastructure\Cron::run('migrate', [self::class, 'cronMigration']));
         add_action('admin_init', [Settings::class, 'register']);
 
         Compatibility::register($this->file);
@@ -209,14 +209,17 @@ final class Plugin
      * Update-Migration nach Plugin-Update ohne erneute Aktivierung.
      *
      * Nicht in Besucheranfragen: Fremdschlüssel und Indizes auf großen Tabellen dauern, der Besucher bekäme
-     * einen Timeout. Im Frontend wird daher nur ein sofortiger Cron-Lauf geplant; ausgeführt wird im Admin,
-     * per Cron oder in der CLI. Nach einem Fehlschlag wartet die nächste Ausführung MIGRATION_BACKOFF ab
-     * (sonst wiederholt jede Anfrage den ganzen dbDelta-Lauf), die CLI versucht es immer.
+     * einen Timeout. Das gilt auch für admin-ajax.php und admin-post.php (is_admin() ist dort wahr, es sind aber
+     * Kundenanfragen, z. B. WooCommerce-Warenkorb per Ajax). Dort wird daher nur ein sofortiger Cron-Lauf
+     * geplant; ausgeführt wird im Admin, per Cron oder in der CLI. Nach einem Fehlschlag wartet die nächste
+     * Ausführung MIGRATION_BACKOFF ab (sonst wiederholt jede Anfrage den ganzen dbDelta-Lauf), auch der
+     * Cron-Lauf; die CLI versucht es immer.
      */
     public function maybeMigrate(): void
     {
         $migrator = $this->migrator();
-        if ($migrator->schemaIsNewer() && is_admin()) {
+        $ajax = self::isCustomerAdminRequest();
+        if ($migrator->schemaIsNewer() && is_admin() && ! $ajax) {
             $installed = (string) $migrator->installedVersion();
             add_action('admin_notices', static function () use ($installed): void {
                 printf('<div class="notice notice-error"><p>%s</p></div>', esc_html(sprintf(
@@ -233,7 +236,7 @@ final class Plugin
         }
         $failed = get_option(self::OPTION_MIGRATION_FAILED);
         $cli = PHP_SAPI === 'cli' || (defined('WP_CLI') && WP_CLI);
-        if (is_admin() && is_array($failed)) {
+        if (is_admin() && ! $ajax && is_array($failed)) {
             add_action('admin_notices', static function () use ($failed): void {
                 printf('<div class="notice notice-error"><p>%s</p></div>', esc_html(sprintf(
                     /* translators: %s: Fehlermeldung */
@@ -242,9 +245,9 @@ final class Plugin
                 )));
             });
         }
-        $action = self::migrationAction($cli, is_admin(), wp_doing_cron(), $failed, time());
-        if ($action === 'schedule' && ! wp_next_scheduled(self::MIGRATE_HOOK)) {
-            wp_schedule_single_event(time(), self::MIGRATE_HOOK);
+        $action = self::migrationAction($cli, is_admin(), wp_doing_cron(), $failed, time(), $ajax);
+        if ($action === 'schedule' || $action === 'wait') {
+            self::scheduleMigration($failed);
         }
         if ($action === 'run') {
             self::runMigration($migrator);
@@ -252,21 +255,84 @@ final class Plugin
     }
 
     /**
-     * Wo läuft eine fällige Migration? run = jetzt (CLI, Admin, Cron), schedule = Besucheranfrage plant
-     * einen sofortigen Cron-Lauf, wait = Backoff nach einem Fehlschlag (CLI versucht es immer).
+     * Kundenanfrage über den Admin-Bereich: admin-ajax.php (z. B. WooCommerce-Warenkorb, Heartbeat) oder
+     * admin-post.php (Formulare aus dem Frontend). is_admin() ist dort wahr, es wartet aber ein Kunde.
+     */
+    public static function isCustomerAdminRequest(): bool
+    {
+        if (wp_doing_ajax()) {
+            return true;
+        }
+        $script = (string) ($GLOBALS['pagenow'] ?? '');
+        if ($script === '' && isset($_SERVER['SCRIPT_NAME'])) {
+            $script = basename((string) $_SERVER['SCRIPT_NAME']);
+        }
+
+        return $script === 'admin-post.php';
+    }
+
+    /**
+     * Wo läuft eine fällige Migration? run = jetzt (CLI, Admin, Cron), schedule = Besucheranfrage (auch
+     * admin-ajax.php/admin-post.php) plant einen sofortigen Cron-Lauf, wait = Backoff nach einem Fehlschlag
+     * (gilt auch für Cron; die CLI versucht es immer).
      *
      * @param mixed $failed Option OPTION_MIGRATION_FAILED
+     * @param bool  $ajax   Kundenanfrage über admin-ajax.php oder admin-post.php (isCustomerAdminRequest)
      */
-    public static function migrationAction(bool $cli, bool $admin, bool $cron, mixed $failed, int $now): string
+    public static function migrationAction(bool $cli, bool $admin, bool $cron, mixed $failed, int $now, bool $ajax = false): string
     {
         if ($cli) {
             return 'run';
         }
-        if (is_array($failed) && $now - (int) ($failed['at'] ?? 0) < self::MIGRATION_BACKOFF) {
+        if (self::retryAt($failed, $now) > $now) {
             return 'wait';
         }
+        if ($cron) {
+            return 'run';
+        }
 
-        return $admin || $cron ? 'run' : 'schedule';
+        return $admin && ! $ajax ? 'run' : 'schedule';
+    }
+
+    /** Frühester nächster Versuch nach einem Fehlschlag (Unix-Zeit), sonst $now. @param mixed $failed */
+    public static function retryAt(mixed $failed, int $now): int
+    {
+        if (! is_array($failed)) {
+            return $now;
+        }
+
+        return max($now, (int) ($failed['at'] ?? 0) + self::MIGRATION_BACKOFF);
+    }
+
+    /**
+     * Cron-Lauf für die Migration planen: sofort bzw. nach einem Fehlschlag erst nach Ablauf des Backoffs.
+     *
+     * @param mixed $failed Option OPTION_MIGRATION_FAILED
+     * @return bool true, wenn der Lauf sofort fällig ist (dann lohnt spawn_cron())
+     */
+    public static function scheduleMigration(mixed $failed = null): bool
+    {
+        $now = time();
+        $at = self::retryAt($failed ?? get_option(self::OPTION_MIGRATION_FAILED), $now);
+        $next = wp_next_scheduled(self::MIGRATE_HOOK);
+        if ($next === false) {
+            wp_schedule_single_event($at, self::MIGRATE_HOOK);
+        }
+
+        return $at <= $now;
+    }
+
+    /** Cron-Ereignis MIGRATE_HOOK: beachtet den Backoff nach einem Fehlschlag und plant dann neu. */
+    public static function cronMigration(): bool
+    {
+        $failed = get_option(self::OPTION_MIGRATION_FAILED);
+        if (self::migrationAction(false, false, true, $failed, time()) === 'wait') {
+            self::scheduleMigration($failed);
+
+            return false;
+        }
+
+        return self::runMigration();
     }
 
     /** Führt die Migration aus und merkt sich einen Fehlschlag (Backoff, Hinweis im Admin). */
@@ -288,7 +354,10 @@ final class Plugin
 
             return false; // anderer Lauf hält die Sperre
         } catch (\RuntimeException $e) {
-            update_option(self::OPTION_MIGRATION_FAILED, ['at' => time(), 'message' => mb_substr($e->getMessage(), 0, 500)], false);
+            $failed = ['at' => time(), 'message' => mb_substr($e->getMessage(), 0, 500)];
+            update_option(self::OPTION_MIGRATION_FAILED, $failed, false);
+            // Neuer Versuch nach dem Backoff, auch ohne weitere Anfragen.
+            self::scheduleMigration($failed);
             add_action('admin_notices', static function () use ($e): void {
                 printf('<div class="notice notice-error"><p>%s</p></div>', esc_html($e->getMessage()));
             });

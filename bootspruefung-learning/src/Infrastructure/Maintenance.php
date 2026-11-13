@@ -16,7 +16,8 @@ use WP_REST_Response;
  * Bis die fällige Datenbank-Migration gelaufen ist, passen neue Spalten und Tabellen nicht zum Code. Schreibende
  * Anfragen an die Lern-API (Web bootspruefung/v1 und App boatingschool/v1) bekommen deshalb 503 mit Retry-After,
  * statt Antworten oder Lernstand halb zu speichern; die Prüfung puffert und sendet erneut, App und Web zeigen
- * die Meldung. Gleichzeitig stößt die Anfrage den Migrationslauf sofort an. Lesende Anfragen laufen weiter.
+ * die Meldung. Gleichzeitig stößt die Anfrage den Migrationslauf sofort an (nach einem Fehlschlag erst nach dem
+ * Backoff). Lesende Anfragen laufen weiter.
  */
 final class Maintenance
 {
@@ -66,10 +67,8 @@ final class Maintenance
         if (! self::pending()) {
             return $result;
         }
-        if (! wp_next_scheduled(Plugin::MIGRATE_HOOK)) {
-            wp_schedule_single_event(time(), Plugin::MIGRATE_HOOK);
-        }
-        if (function_exists('spawn_cron')) {
+        // Nach einem Fehlschlag erst nach dem Backoff erneut (Plugin::MIGRATION_BACKOFF); dann kein spawn_cron().
+        if (Plugin::scheduleMigration() && function_exists('spawn_cron')) {
             spawn_cron();
         }
         $message = __('Die Lernplattform wird gerade aktualisiert. Bitte versuche es in einer halben Minute erneut – deine Eingabe ist nicht verloren.', 'bootspruefung-learning');

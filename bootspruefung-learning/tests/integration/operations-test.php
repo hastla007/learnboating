@@ -130,6 +130,34 @@ $check(Plugin::migrationAction(true, false, false, ['at' => time()], time()) ===
 $check(Plugin::migrationAction(false, true, false, ['at' => time() - 60], time()) === 'wait', 'nach Fehlschlag: Backoff');
 $check(Plugin::migrationAction(false, true, false, ['at' => time() - Plugin::MIGRATION_BACKOFF - 1], time()) === 'run', 'nach dem Backoff: neuer Versuch');
 $check(has_action(Plugin::MIGRATE_HOOK) !== false, 'Cron-Ereignis für die Migration registriert');
+// T79: admin-ajax.php/admin-post.php sind Kundenanfragen (is_admin() ist dort wahr) – nur planen.
+$check(Plugin::migrationAction(false, true, false, false, time(), true) === 'schedule', 'admin-ajax.php/admin-post.php: nur Cron-Lauf planen');
+$check(Plugin::migrationAction(false, false, true, ['at' => time() - 60], time()) === 'wait', 'Cron beachtet den Backoff nach einem Fehlschlag');
+$check(Plugin::migrationAction(false, false, true, ['at' => time() - Plugin::MIGRATION_BACKOFF - 1], time()) === 'run', 'Cron nach dem Backoff: neuer Versuch');
+$check(! Plugin::isCustomerAdminRequest(), 'CLI-Testlauf ist keine Kundenanfrage');
+$ajaxFilter = static fn () => true;
+add_filter('wp_doing_ajax', $ajaxFilter);
+$check(Plugin::isCustomerAdminRequest(), 'admin-ajax.php erkannt');
+remove_filter('wp_doing_ajax', $ajaxFilter);
+$pagenowBefore = $GLOBALS['pagenow'] ?? null;
+$GLOBALS['pagenow'] = 'admin-post.php';
+$check(Plugin::isCustomerAdminRequest(), 'admin-post.php erkannt');
+$GLOBALS['pagenow'] = $pagenowBefore;
+// Cron-Handler im Backoff: migriert nicht, plant den nächsten Versuch nach dem Backoff.
+$schemaT79 = get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION);
+$failedT79 = ['at' => time() - 60, 'message' => 'Test'];
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, '0.0.1');
+update_option(Plugin::OPTION_MIGRATION_FAILED, $failedT79, false);
+wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
+$ranT79 = Plugin::cronMigration();
+$nextT79 = wp_next_scheduled(Plugin::MIGRATE_HOOK);
+$check(! $ranT79 && get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION) === '0.0.1', 'Cron-Handler im Backoff: keine Migration');
+$check($nextT79 !== false && abs($nextT79 - ($failedT79['at'] + Plugin::MIGRATION_BACKOFF)) <= 2, 'Cron-Handler im Backoff: nächster Versuch nach Ablauf geplant');
+$check(! Plugin::scheduleMigration($failedT79), 'Wartungssperre im Backoff: kein sofortiger Cron-Anstoß');
+update_option(Plugin::OPTION_MIGRATION_FAILED, ['at' => time() - Plugin::MIGRATION_BACKOFF - 1, 'message' => 'Test'], false);
+wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
+$check(Plugin::cronMigration() && get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION) === $schemaT79 && get_option(Plugin::OPTION_MIGRATION_FAILED) === false, 'Cron-Handler nach dem Backoff: Migration läuft und Fehler gelöscht');
+wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
 
 echo "Aufbewahrung Paketkopien und Import-Protokoll (ARC-06)\n";
 $service = Plugin::instance()->importService();

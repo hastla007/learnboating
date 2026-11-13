@@ -26,6 +26,10 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
 5. Dann live einspielen. Nach einem Update ohne erneute Aktivierung läuft die Datenbank-Migration im Admin, per
    Cron oder in der CLI (`wp bootspruefung migrate`). Bis dahin beantwortet die Lern-API schreibende Anfragen mit 503
    „Wartung“ (Eingaben gehen nicht verloren). Empfehlung: direkt nach dem Einspielen einmal den Admin öffnen.
+   Anfragen von Kunden über `admin-ajax.php` oder `admin-post.php` (z. B. Warenkorb per Ajax) starten die Migration
+   nicht selbst, sie planen nur einen sofortigen Cron-Lauf. Schlägt die Migration fehl, wartet jeder weitere Versuch
+   außerhalb der CLI 15 Minuten (auch der Cron-Lauf); danach plant das Plugin den nächsten Versuch von selbst.
+   `wp bootspruefung migrate` versucht es immer sofort.
 6. Browser laden neue Dateien sofort: Die Version der eingebundenen Dateien enthält den Dateistand.
 7. Mit einem neuen Theme-Stand gleicht das Theme die Inhaltsseiten automatisch ab (nur unveränderte Seiten, siehe
    `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“). Danach im Dashboard den Hinweis
