@@ -129,5 +129,51 @@ foreach ((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->committees(
     $allStates = array_merge($allStates, $cm['states']);
 }
 $check(count(array_unique($allStates)) === 16, 'alle 16 Bundesländer haben mindestens einen Prüfungsausschuss');
+echo "Eigene Prüfungsausschüsse (T26)\n";
+$pages = new \Bootspruefung\Learning\Admin\ExamGuidePages();
+$redirectTo = null;
+$stopRedirect = static function ($location) use (&$redirectTo) {
+    $redirectTo = $location;
+    throw new RuntimeException('redirect');
+};
+add_filter('wp_redirect', $stopRedirect, 1);
+$post = static function (string $action, array $fields) use ($pages): void {
+    $_POST = $_REQUEST = array_merge($fields, ['_wpnonce' => wp_create_nonce($action)]);
+    try {
+        $action === 'bp_exam_committee' ? $pages->save() : $pages->delete();
+    } catch (RuntimeException) {
+    }
+    $_POST = $_REQUEST = [];
+};
+require_once ABSPATH."wp-admin/includes/template.php";
+$_GET = ['new' => '1'];
+ob_start();
+$pages->render();
+$form = (string) ob_get_clean();
+$_GET = [];
+$check(str_contains($form, 'Neuer Prüfungsausschuss') && preg_match('/name="source_url" value=""\s*required/', $form) === 1 && str_contains($form, 'Prüfungsausschuss hinzufügen'), 'Admin: Knopf „hinzufügen“ und leeres Formular mit Pflichtfeld Quelle');
+$countBefore = count((new ExamGuideService())->committees());
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt']);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'ohne Quelle wird kein eigener Eintrag angelegt');
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt', 'source_url' => 'javascript:alert(1)']);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'Quelle muss eine http(s)-Adresse sein');
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt', 'source_url' => 'https://example.org/ausschuesse', 'course_codes' => ['SBF-SEE', 'GIBT-ES-NICHT']]);
+$own = $wpdb->get_row("SELECT * FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'");
+$check($own !== null && $own->source_system === 'local' && $own->status === 'published' && $own->source_url === 'https://example.org/ausschuesse' && $own->course_codes === 'SBF-SEE' && (int) $own->locally_modified === 1, 'eigener Eintrag mit Quelle angelegt (Quelle „local“, sichtbar, nur gültige Kurse)');
+$check(count((new ExamGuideService())->committees()) === $countBefore + 1 && in_array('Testausschuss T26', array_column((new ExamGuideService())->committees('SBF-SEE'), 'commission'), true), 'erscheint in der Liste für Lernende');
+if (isset($importer, $package)) {
+    foreach ($package->entities('exam_committees') as $rec) {
+        $importer->import('exam_committees', $rec);
+    }
+}
+$check($wpdb->get_var("SELECT status FROM {$p}exam_committee WHERE id = ".(int) ($own->id ?? 0)) === 'published', 'eigener Eintrag übersteht den Content-Import');
+$imported = (int) $wpdb->get_var("SELECT id FROM {$p}exam_committee WHERE source_system <> 'local' ORDER BY id LIMIT 1");
+$post('bp_exam_committee_delete', ['id' => $imported]);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE id = {$imported}") === 1, 'Einträge aus dem Content-Paket lassen sich nicht löschen');
+$post('bp_exam_committee_delete', ['id' => (int) ($own->id ?? 0)]);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'eigener Eintrag gelöscht');
+remove_filter('wp_redirect', $stopRedirect, 1);
+$wpdb->query("DELETE FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'");
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

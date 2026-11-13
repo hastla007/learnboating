@@ -59,8 +59,9 @@ Zusätzlich gleicht der stündliche Wartungslauf automatisch die seit dem letzte
 der Lauf nicht ab; sie stehen in der Option `bp_learning_cron_errors` und im PHP-Fehlerprotokoll.
 
 Prüfung anmelden: Lernende melden sich selbst beim Prüfungsausschuss an; der Lernbereich zeigt je Kurs die
-Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen; für Lernende
-unter Einstellungen › Prüfungsanmeldung freischalten (Standard: aus).
+Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen (fehlende mit „Prüfungsausschuss hinzufügen“, nur mit
+Quelle; eigene Einträge bleiben bei Content-Importen erhalten); für Lernende unter Einstellungen › Prüfungsanmeldung
+freischalten (Standard: aus).
 
 Membership-Funktionen (ohne Zusatz-Plugin): kostenlose Teilumfänge und zeitgesteuerte Freigaben unter
 Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „Lernzugang erforderlich“,
