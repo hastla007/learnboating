@@ -48,4 +48,12 @@ Beispiel bei der EU-Kommission unter „VAT rates in the EU“.
 10. **Geld-zurück-Garantie und Erstattungen:** Wie werden Erstattungen und Teilerstattungen steuerlich und in der
     Buchhaltung behandelt?
 11. **Aufbewahrung bei Kontolöschung:** Welche Bestellangaben müssen nach einer Kontolöschung aufbewahrt werden, und wie
-    lange (z. B. Firma, Land, USt-IdNr.; siehe T45)?
+    lange? Heute (T45):
+    - **WooCommerce-Einstellung aus** (Konten & Datenschutz › „Persönliche Daten aus Bestellungen entfernen“,
+      Standard): Bestellungen bleiben unverändert.
+    - **Einstellung an:** Name, Anschrift, E-Mail und Telefon werden entfernt. Nummer, Datum, Positionen, Beträge,
+      Steuern, Zahlungsart, Transaktionsnummer, **Firma, Land und Bundesland** bleiben. Eine USt-IdNr. in den
+      Bestelldaten bleibt ebenfalls.
+    - Weitere Felder (z. B. Postleitzahl als zweiter OSS-Nachweis) lassen sich über den Filter
+      `bootspruefung_retained_order_fields` behalten.
+    - **Bitte entscheiden:** Einstellung an oder aus, und welche Felder bleiben.
