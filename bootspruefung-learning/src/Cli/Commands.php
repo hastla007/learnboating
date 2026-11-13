@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Cli;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Admin\SystemStatus;
 use Bootspruefung\Learning\Plugin;
 use WP_CLI;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Frontend;
 
+defined('ABSPATH') || exit;
+
 /**
  * Rückkehr zur Ausgangsseite (Gruppeneinladung, Kasse, gesperrte Seite) nach Registrierung
  * oder Anmeldung. Links tragen ?bp_return=<URL>; das Ziel wird kurz im Cookie gemerkt, weil

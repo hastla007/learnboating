@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Security;
 
+defined('ABSPATH') || exit;
+
 /** Eigene Capabilities (Konzept Kap. 8); Administrator erhält sie bei Aktivierung. */
 final class Capabilities
 {

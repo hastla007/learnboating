@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Liest veröffentlichte FAQs sortiert nach Rubrik, Unterkategorie und menu_order.
  *

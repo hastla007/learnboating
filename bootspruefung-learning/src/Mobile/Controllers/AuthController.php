@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\AppLinks;
 use Bootspruefung\Learning\Mobile\MobileSettings;

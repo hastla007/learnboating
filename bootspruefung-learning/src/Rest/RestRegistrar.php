@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Rest;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Rest\Controllers\ImportController;
 use Bootspruefung\Learning\Rest\Controllers\LearnerController;
 use Bootspruefung\Learning\Rest\Controllers\StatusController;

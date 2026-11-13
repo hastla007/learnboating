@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /** Geplante Zugangsänderungen einer Bestellung (Vorschau für Abgleich, sonst angewendet). */
 final class Plan
 {

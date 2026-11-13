@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LearnBoating\AffiliateConnector;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Commerce\MoneyBack;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
 use Bootspruefung\Learning\Commerce\ShopCatalog;

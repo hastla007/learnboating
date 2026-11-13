@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Universal Links (iOS) und App Links (Android) für den Passwort-Reset-Link und (seit 1.4.0) den
  * Bestätigungslink der Kontolöschung:

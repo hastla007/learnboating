@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Trainers;
 
+defined('ABSPATH') || exit;
+
 /**
  * Prüfpunkte für Funksprüche wie FunkPraxis::evaluate()/checkText() der Quelle:
  * Text und Muster werden gleich gefaltet (Großschreibung, Ä→AE, Ö→OE, Ü→UE, ß→SS),

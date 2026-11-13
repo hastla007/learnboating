@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Trainers;
 
+defined('ABSPATH') || exit;
+
 /**
  * Textvergleich und Buchstabieren für das Funktraining, fachlich wie
  * App\Support\FunkTraining::wordMatch()/spellGerman() und FunkPraxis::normalize()

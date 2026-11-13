@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Import\ImportService;
 use Bootspruefung\Learning\Content\Import\ImportSources;
 use Bootspruefung\Learning\Plugin;

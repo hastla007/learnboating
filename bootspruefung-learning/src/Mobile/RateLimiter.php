@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Zähler mit festem Zeitfenster (beginnt mit dem ersten Treffer) in der Tabelle bp_mobile_rate_limit
  * (seit 1.4.0; vorher Transients mit Lesen-Prüfen-Schreiben, nicht atomar): Jeder Treffer ist ein

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Package;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Media\MediaStorage;
 use RuntimeException;
 use ZipArchive;
@@ -141,7 +143,7 @@ final class Package
             $fail('Paket lässt sich ungewöhnlich stark entpacken (mögliche ZIP-Bombe).');
         }
         if (! $hasManifest) {
-            $fail('manifest.json fehlt im Paket. Erwartet wird das ZIP aus tools/content-build mit manifest.json, data/ und media/ auf oberster Ebene.');
+            $fail('manifest.json fehlt im Paket. Erwartet wird ein Inhaltspaket (ZIP) mit manifest.json, data/ und media/ auf oberster Ebene.');
         }
 
         return $zip;

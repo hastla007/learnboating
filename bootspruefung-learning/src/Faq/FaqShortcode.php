@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Shortcode [bootspruefung_faq rubric="" theme_only="0" subcategory="" ids="" limit="" title="" search="1" schema="1"].
  *

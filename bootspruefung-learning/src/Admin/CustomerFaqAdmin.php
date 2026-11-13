@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Faq\CustomerFaq;
 use Bootspruefung\Learning\Faq\CustomerFaqImporter;
 use Bootspruefung\Learning\Faq\FaqTerms;

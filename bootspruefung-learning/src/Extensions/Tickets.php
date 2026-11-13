@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Extensions;
 
+defined('ABSPATH') || exit;
+
 /**
  * Gegenstelle für ein Ticket-Plugin (Praxis-Termine, docs/schnittstellen-erweiterungen.md).
  *

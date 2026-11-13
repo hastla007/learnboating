@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Synchronisierte App-Einstellungen je Konto (GET/PUT /me/settings): ein von der App definiertes
  * JSON-Objekt in der Nutzer-Meta bp_app_settings, mit Versionszähler für optimistisches Sperren.

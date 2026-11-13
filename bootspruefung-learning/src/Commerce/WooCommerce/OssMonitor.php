@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * OSS-Schwelle überwachen (To-do T53): Summe der Netto-Umsätze an Kunden in anderen EU-Ländern je Kalenderjahr, aus
  * bezahlten WooCommerce-Bestellungen (abzüglich Erstattungen), verglichen mit der EU-Lieferschwelle von 10.000 €

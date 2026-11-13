@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Prüft Produktzuordnungen und Shop-Zustände für die Admin-Übersicht (Kap. 9):
  * unbekannte Kurse, gelöschte/unveröffentlichte/nicht kaufbare Produkte,

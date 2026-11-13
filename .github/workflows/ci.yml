@@ -559,6 +559,9 @@ jobs:
       - name: Übersetzbarkeit – feste Text-Domain und .pot-Vorlagen (T89)
         working-directory: .
         run: php tools/i18n/check-domains.php
+      - name: Direktaufruf-Schutz in allen src-Dateien (T125)
+        working-directory: .
+        run: php tools/qa/check-abspath.php
       - name: Werkzeuge (require-dev aus composer.lock)
         run: composer install --no-interaction --no-progress
       - name: PHPStan (Stufe und Baseline in phpstan.neon.dist)

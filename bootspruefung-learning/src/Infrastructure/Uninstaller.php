@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Admin\Notices;
 use Bootspruefung\Learning\Commerce\ExpiryReminder;
 use Bootspruefung\Learning\Commerce\ShopCatalog;

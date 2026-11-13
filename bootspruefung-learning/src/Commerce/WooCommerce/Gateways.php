@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Übersicht der aktiven Zahlungsarten und wie der Adapter sie behandelt
  * (Kap. 7.5, 13 Nr. 9). Der Adapter ist gateway-neutral; die Profile

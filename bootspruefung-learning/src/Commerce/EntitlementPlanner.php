@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Leitet aus einer Bestellung den Soll-Zustand der Zugänge ab (Kap. 7.5) –
  * ohne Datenbank- oder Shopzugriff, damit Synchronisation und Abgleich

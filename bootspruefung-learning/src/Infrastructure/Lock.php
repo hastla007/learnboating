@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /**
  * Atomare Sperre über eine Zeile in wp_options (Migration, Import, FAQ-Importe, Abgleich).
  *

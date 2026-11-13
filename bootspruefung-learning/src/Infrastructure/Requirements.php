@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /**
  * Mindestanforderungen (Konzept Kap. 8). Ehrlich nach getestetem Stand: Die CI prüft WordPress 7.1.4 mit
  * WooCommerce 11.2.2 (und 11.3 Beta); WooCommerce 11.2 setzt selbst WordPress 7.0 voraus. Ältere

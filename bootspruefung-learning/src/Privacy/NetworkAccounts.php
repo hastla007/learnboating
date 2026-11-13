@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Privacy;
 
+defined('ABSPATH') || exit;
+
 /**
  * Konten im Multisite-Netzwerk (T112): Mitgliedschaften, Löschen aus dem Netzwerk bzw. nur aus dieser Website und
  * Websites mit Lernplattform-Tabellen. Gekapselt, damit Tests die Multisite-Zweige ohne Multisite-Installation

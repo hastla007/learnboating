@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Gate;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Learning\Services\AccessService;
 
 /**

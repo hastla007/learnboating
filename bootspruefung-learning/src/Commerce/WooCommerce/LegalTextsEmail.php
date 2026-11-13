@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * § 312f Abs. 2 BGB: Vertragsbestätigung auf einem dauerhaften Datenträger mit den Vertragsbestimmungen.
  * Hängt den vollständigen Text der veröffentlichten Seiten „AGB“ (WooCommerce-Option

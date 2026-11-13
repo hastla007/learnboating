@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Audit;
 
+defined('ABSPATH') || exit;
+
 /** Audit-Log für Import-, Freigabe- und Zugangsaktionen (Kap. 10). Keine Zahlungsdaten. */
 final class AuditLog
 {

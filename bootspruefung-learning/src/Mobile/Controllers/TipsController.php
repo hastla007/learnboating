@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Tips\Tips;
 use WP_REST_Request;
 use WP_REST_Response;

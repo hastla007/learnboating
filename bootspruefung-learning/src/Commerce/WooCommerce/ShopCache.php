@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Zwischenspeicher für Shop-Anfragen (T85): Produktzuordnungen („Lernzugang“), Mitgliedskurse je Nutzer und das
  * Ergebnis „Warenkorb enthält ein Lernprodukt“. Shopseiten, Warenkorb und Kasse fragen das sonst je Produkt bzw.

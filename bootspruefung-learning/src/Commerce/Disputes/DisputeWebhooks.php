@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\Disputes;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Infrastructure\Lock;

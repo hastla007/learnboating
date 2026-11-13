@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Bankdaten bei offener Überweisung jederzeit abrufbar (T50): WooCommerce zeigt sie nur auf der Dankeseite und in der
  * Bestellmail. Solange eine Überweisungs-Bestellung auf Zahlung wartet, stehen Anleitung und Bankverbindung auch in

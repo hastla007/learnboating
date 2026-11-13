@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Frontend;
 
+defined('ABSPATH') || exit;
+
 /** Übersetzbare Texte der Lern-App ({name} sind Platzhalter, die die App ersetzt). */
 final class Strings
 {

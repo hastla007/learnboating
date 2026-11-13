@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Tips;
 
+defined('ABSPATH') || exit;
+
 /** /wp/v2/bp_tip: wie der Core-Controller, Lesen aber nur mit Bearbeitungsrecht (TipsRest). */
 final class TipsPostsController extends \WP_REST_Posts_Controller
 {

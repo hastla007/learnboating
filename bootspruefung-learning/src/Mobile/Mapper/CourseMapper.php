@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Mapper;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Commerce\AccessStatus;
 use Bootspruefung\Learning\Commerce\CourseRelations;
 use Bootspruefung\Learning\Commerce\EntitlementPlanner;

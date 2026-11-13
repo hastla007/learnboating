@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Repositories;
 
+defined('ABSPATH') || exit;
+
 /**
  * Zwischenspeicher für Inhaltsabfragen (Kurse, Module, Fragenlisten) in der Object-Cache-Gruppe
  * „bootspruefung“. Inhalte ändern sich nur durch Import und Rechte-Overrides; beide rufen invalidate().

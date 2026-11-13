@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Commerce\GroupService;
 use Bootspruefung\Learning\Extensions\Vouchers;
 use Bootspruefung\Learning\Mobile\ApiException;

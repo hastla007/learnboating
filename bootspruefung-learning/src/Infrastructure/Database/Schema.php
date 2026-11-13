@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure\Database;
 
+defined('ABSPATH') || exit;
+
 /**
  * Tabellendefinitionen (Konzept Kap. 5 und 7.3). Format passend für dbDelta():
  * ein Feld pro Zeile, „PRIMARY KEY  (id)“ mit zwei Leerzeichen, benannte KEYs.

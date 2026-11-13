@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Mapper;
 
+defined('ABSPATH') || exit;
+
 /** Medienobjekte im Format des Vertrags (Media): echte URLs oder sichtbare Platzhalter ohne URL. */
 final class MediaMapper
 {

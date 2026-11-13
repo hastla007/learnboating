@@ -48,6 +48,10 @@ Auslieferung eine eigene Theme-Version. Benötigt das Lern-Plugin ab 0.13.0 (Ver
 - Theme-Kopf: Autor „LearnBoating“ (Projektname, vom Betreiber festzulegen).
 - Auslieferung als ZIP ohne `tests/`, `tools/`, `content/src/` und ohne Lern-Plugin (`tools/release/build-zips.sh`).
 
+**Audit 13.11., Runde 2 (T106, T124, T126)**
+- Theme-ZIP enthält kein Plugin-ZIP und keine Inhaltsquellen mehr; Hinweis auf alte ZIP-Reste im Theme-Ordner (T106).
+- Icon-CSS wird zwischengespeichert (T124). Rechtstext- und Betreiberprüfung in der Livegang-Checkliste (T126).
+
 ## 2.0.0 – 06.11.2026
 
 Neues Block-Theme „Kurswasser 2.0“ für Startseite, Shop, Kasse und Lernbereich.

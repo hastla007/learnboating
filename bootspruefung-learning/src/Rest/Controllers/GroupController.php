@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Rest\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Commerce\GroupService;
 use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Rest\RestRegistrar;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Idempotency-Key je Nutzer und Vorgang: gleicher Schlüssel + gleicher Inhalt liefert die
  * gespeicherte Antwort erneut, gleicher Schlüssel + anderer Inhalt → IDEMPOTENCY_KEY_REUSED.

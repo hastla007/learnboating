@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Security;
 
+defined('ABSPATH') || exit;
+
 use WP_User;
 
 /**

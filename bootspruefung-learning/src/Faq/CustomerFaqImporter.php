@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Legt die Startinhalte der Kunden-FAQ an (DefaultCustomerFaqs): je Schein eine Kategorie (Schlüssel =
  * Kurscode) mit den Start-Unterkategorien und das Startpaket an FAQs – alle als Entwurf. Eine gemeinsame

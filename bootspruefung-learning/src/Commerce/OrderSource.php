@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /** Liefert Bestellungen als Snapshot (WooCommerce oder Testquelle). */
 interface OrderSource
 {

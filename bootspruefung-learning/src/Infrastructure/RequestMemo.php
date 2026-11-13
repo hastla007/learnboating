@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /**
  * Zwischenspeicher für die Dauer einer lesenden REST-Anfrage (GET/HEAD in bootspruefung/v1 und
  * boatingschool/v1). Kursübersichten fragen Zugangsregeln, Zugänge und Produktzuordnungen sonst je

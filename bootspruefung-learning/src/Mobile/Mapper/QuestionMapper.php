@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Mapper;
 
+defined('ABSPATH') || exit;
+
 /**
  * Fragen aus QuestionPresenter/LearningService/ExamService ins App-Format (Question).
  * IDs sind Strings (Vertrag); Antworten tragen Buchstaben (A, B, …) wie im Web.

@@ -76,6 +76,22 @@ Datenbank-Schema 1.15.0, App-API 1.12.0. Seit 0.13.0 rund 120 Änderungen; die w
 - Übersetzbar: feste Text-Domain in allen Aufrufen, `languages/bootspruefung-learning.pot`, Simulator-Ansagen und
   Block übersetzbar (T89). Release-ZIPs, CI mit ZIP-, Update-, WordPress-7.0- und Analyse-Prüfung (T90–T95).
 
+**Audit 13.11., Runde 2 (T107–T128)**
+- Sicherheit: Inhaltspakete per Ablageordner nur noch aus einem geheimen Unterordner, Altbestand wird übernommen
+  (T108); gemeinsame Einlösegrenze je IP für Gutscheine (T109); Anmelde-Schutz antwortet sofort und rechnet danach
+  (T110); Antwort-Grenze je Nutzer (T114); Sperren gegen Doppelverarbeitung bei Prüfungsabgabe, Gutscheinen und
+  Garantie-Anfrage (T115); Weiterleitungs-URLs nur https mit Prüfsumme, PayPal-Grenzen je IP, signierte
+  Admin-Hinweise (T125); jede Datei unter `src/` beendet sich bei direktem Aufruf (T125, CI-Prüfung).
+- Datenschutz: Export und Löschung erfassen alle Untertabellen; Multisite-Konten nur auf der eigenen Website (T111,
+  T112).
+- Leistung: Sperrprüfung geschützter Inhalte mit Zwischenspeicher (T113); Ablauf-Erinnerung in Blöcken mit
+  Zeitbudget (T124); Admin-Listen laden Nutzer gesammelt (T124).
+- Admin: Garantie-Felder im Produkt und Zuordnungsprüfung (T107); Protokoll mit verständlichen Bezeichnungen (T119);
+  Hinweis bei fehlgeschlagener Migration (T120); Zugangsseiten behalten Eingaben, Import mit Klartext (T121);
+  Livegang-Checkliste prüft selbst, Tabellen scrollen auf schmalen Bildschirmen (T126).
+- Inhalte und Texte: FAQ-Blöcke werden bei jedem Aufruf frisch gerendert (T116); Seiten-Cache-Schutz nur noch über
+  `DONOTCACHEPAGE` und Header (T123); Shop-Texte und Preise übersetzbar und nach Sprache formatiert (T128).
+
 ## 0.13.0 – 10.11.2026
 
 Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung (App-API 1.9.0).

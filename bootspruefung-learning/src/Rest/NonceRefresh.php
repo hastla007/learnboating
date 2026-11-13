@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Rest;
 
+defined('ABSPATH') || exit;
+
 /**
  * Frischer wp_rest-Nonce für die Lern-App (admin-ajax, Aktion „bp_rest_nonce“).
  *

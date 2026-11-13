@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Trainers;
 
+defined('ABSPATH') || exit;
+
 /**
  * Automatische Prüfung eigener Antworten im Navigationstrainer – als Hilfe, nicht als Bewertung:
  * Die Selbsteinschätzung der Lernenden bleibt maßgeblich und wird wie bisher gespeichert.

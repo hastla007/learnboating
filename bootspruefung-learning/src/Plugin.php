@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Admin\Menu;
 use Bootspruefung\Learning\Cli\Commands;
 use Bootspruefung\Learning\Commerce\WooCommerce\Compatibility;

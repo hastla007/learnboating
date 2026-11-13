@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /** PSR-4-Fallback, falls kein Composer-vendor/ mitgeliefert wird. */
 final class Autoloader
 {

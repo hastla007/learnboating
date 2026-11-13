@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /** /wp/v2/bp_customer_faq: wie der Core-Controller, Lesen aber nur für Redakteure (CustomerFaqRestGuard). */
 final class CustomerFaqPostsController extends \WP_REST_Posts_Controller
 {

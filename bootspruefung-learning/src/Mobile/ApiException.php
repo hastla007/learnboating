@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Fachlicher Fehler der App-API mit stabilem Code (Problem.code) und HTTP-Status.
  * $extra landet unverändert im Fehlerobjekt (z. B. errors, details, retry_after).

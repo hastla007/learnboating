@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Standard-FAQs (Quelle: „Alle_FAQs_Learnboating.txt“, FAQ-Entwurf vom 10.11.2026), wörtlich übernommen.
  *

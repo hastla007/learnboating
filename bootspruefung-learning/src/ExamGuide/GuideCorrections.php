@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\ExamGuide;
 
+defined('ABSPATH') || exit;
+
 /**
  * Redaktionelle Korrekturen an den Anleitungen der Quelle, angewendet beim Ausliefern
  * (das Content-Paket bleibt unverändert und quellgetreu). Stand der Recherche: 06.11.2026.

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Settings;
 
+defined('ABSPATH') || exit;
+
 /** Plugin-Einstellungen in einer Option (bp_learning_settings). */
 final class Settings
 {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Media;
 
+defined('ABSPATH') || exit;
+
 use RuntimeException;
 
 /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Import;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Content\Media\MediaStorage;
 use Bootspruefung\Learning\Content\Package\Package;
@@ -335,7 +337,7 @@ final class ImportService
     {
         $batch = $this->batch($batchId);
         if ($batch->status !== 'previewed') {
-            throw new RuntimeException(__('Freigabe erst nach der Vorschau (Dry-Run) möglich.', 'bootspruefung-learning'));
+            throw new RuntimeException(__('Freigabe erst nach der Vorschau möglich.', 'bootspruefung-learning'));
         }
         $this->assertNotSuperseded($batch);
         $this->updateBatch($batchId, [

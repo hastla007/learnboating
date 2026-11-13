@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Faq\CustomerFaq;
 use Bootspruefung\Learning\Faq\CustomerFaqRepository;
 use Bootspruefung\Learning\Learning\Services\AccessService;

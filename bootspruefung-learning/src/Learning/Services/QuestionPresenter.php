@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Learning\Services;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Import\EntityImporter;
 use Bootspruefung\Learning\Content\Media\MediaStorage;
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Plugin;
 use Bootspruefung\Learning\Security\Capabilities;
 use Bootspruefung\Learning\Settings\Settings;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Support;
 
+defined('ABSPATH') || exit;
+
 /**
  * Plugin-Mails mit demselben Absender wie die Shop-Mails (WooCommerce-Einstellungen),
  * statt „WordPress <wordpress@…>“.

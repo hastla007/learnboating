@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Gutscheinfeld in Warenkorb und Kasse nur, wenn es etwas einzulösen gibt (To-do T58).
  *

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Support;
 
+defined('ABSPATH') || exit;
+
 /**
  * Arbeit erst nach dem Senden der Antwort erledigen (T88, T110): Passwort-Mails in App und Web. Sonst verriete die
  * Antwortzeit, ob es ein Konto gibt (Schlüssel erzeugen und Mail senden dauern messbar).

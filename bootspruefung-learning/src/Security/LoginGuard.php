@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Security;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Support\AfterResponse;
 use WP_Error;

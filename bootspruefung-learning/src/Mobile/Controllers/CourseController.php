@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\ExamGuide\ExamGuideService;
 use Bootspruefung\Learning\Frontend\Router;

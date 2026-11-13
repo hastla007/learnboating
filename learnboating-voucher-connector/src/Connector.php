@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LearnBoating\VoucherConnector;
 
+defined('ABSPATH') || exit;
+
 use VCAP\API\V1\RedemptionService;
 use VCAP\Voucher;
 

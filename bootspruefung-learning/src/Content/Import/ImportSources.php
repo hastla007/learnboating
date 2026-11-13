@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Import;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Media\MediaStorage;
 use Bootspruefung\Learning\Content\Package\Package;
 use RuntimeException;

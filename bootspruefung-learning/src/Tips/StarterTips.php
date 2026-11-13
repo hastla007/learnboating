@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Tips;
 
+defined('ABSPATH') || exit;
+
 /**
  * Starttexte für „Tipps & Tricks“ (neu geschrieben, 06.11.2026).
  *

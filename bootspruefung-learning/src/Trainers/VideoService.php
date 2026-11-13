@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Trainers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Content\Repositories\ContentRepository;
 use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\Learning\Services\AccessService;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Legt die Standard-FAQs (DefaultFaqs) mit Rubriken und Unterkategorien an.
  *

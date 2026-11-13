@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile;
 
+defined('ABSPATH') || exit;
+
 /**
  * Gerätesitzungen der App (übernommen aus dem Konzept-Plugin, in die Plugin-Tabelle
  * bp_mobile_session verlegt):

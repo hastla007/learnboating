@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Shop-neutrale Sicht auf eine Bestellung (Kap. 7.4/7.5). Der WooCommerce-Adapter
  * füllt sie über WC_Order-APIs; die Freischaltungslogik kennt nur diese Werte.

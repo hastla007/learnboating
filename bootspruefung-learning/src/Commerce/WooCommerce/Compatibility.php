@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Deklariert die Kompatibilität mit HPOS und Cart/Checkout Blocks (Kap. 7.7).
  * Das Plugin liest Bestellungen ausschließlich über WC_Order/CRUD-APIs.

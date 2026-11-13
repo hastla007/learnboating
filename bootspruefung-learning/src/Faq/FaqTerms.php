@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Gemeinsame Bausteine der FAQ-Bereiche (öffentliche FAQ, Kunden-FAQ): Begriffe einer hierarchischen
  * FAQ-Taxonomie mit Schlüssel und Reihenfolge laden und den Zwischenspeicher bei Änderungen leeren.

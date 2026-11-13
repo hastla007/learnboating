@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Frühere Standardstände der FAQs (Prüfsumme => Status beim Import), je FAQ-Nummer. Damit erkennt
  * FaqImporter::updateDefaults() unveränderte FAQs auch auf Installationen, die vor der Prüfsumme

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Gate;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Frontend\NoCache;

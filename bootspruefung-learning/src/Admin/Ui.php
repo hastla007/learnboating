@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 /** Kleine Helfer für die Adminseiten (Tabellen, Hinweise, Status-Badges). */
 final class Ui
 {

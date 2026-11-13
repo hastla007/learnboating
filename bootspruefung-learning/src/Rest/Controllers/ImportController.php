@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Rest\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Plugin;
 use Bootspruefung\Learning\Rest\RestRegistrar;
 use Bootspruefung\Learning\Security\Capabilities;

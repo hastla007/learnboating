@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /**
  * Kurze Sperre für kritische Abschnitte einzelner Anfragen (T83), z. B. Gruppenbeitritt: MySQL/MariaDB
  * GET_LOCK() auf der Verbindung von WordPress. Die Sperre gilt für den Namen (je Datenbank und Präfix), wartet

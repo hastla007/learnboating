@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Deutsche Ersatztexte für die WooCommerce-Widerrufsfunktion („Order withdrawal“, seit WooCommerce 11.1).
  *

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Faq;
 
+defined('ABSPATH') || exit;
+
 /**
  * Startinhalte der Kunden-FAQ (Datenstand 2, 11.11.2026): je Schein eine Kategorie mit denselben
  * Start-Unterkategorien (SBF See zusätzlich „Navigationsaufgaben“, SRC und UBI „Funktraining“) und ein

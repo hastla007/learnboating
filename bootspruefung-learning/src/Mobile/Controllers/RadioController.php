@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Frontend\Router;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Mobile\ApiException;

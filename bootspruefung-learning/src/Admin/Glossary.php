@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 /**
  * Feste Begriffe der Adminseiten (T100). Dieselbe Liste steht in docs/glossar.md; Admin-Texte verwenden nur
  * diese Wörter (keine englischen Fachwörter, keine Kapitelverweise).

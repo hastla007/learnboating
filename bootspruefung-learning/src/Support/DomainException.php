@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Support;
 
+defined('ABSPATH') || exit;
+
 /**
  * Fachlicher Fehler mit stabilem Code (zusätzlich zur Meldung). Erbt von RuntimeException, damit
  * bestehende Aufrufer (Web-REST, Admin, Frontend) unverändert die Meldung anzeigen; die App-API

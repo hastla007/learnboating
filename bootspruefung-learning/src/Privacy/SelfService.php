@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Privacy;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\RateLimiter;
 

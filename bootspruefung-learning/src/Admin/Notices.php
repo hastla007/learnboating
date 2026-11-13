@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 /**
  * Gemeinsame Admin-Hinweise von Plugin und Theme (To-do T99): einheitlicher Absender „Bootsprüfung:“, gebündelt
  * zu einem Sammel-Hinweis, wenn mehrere gleichzeitig anstehen, und je Hinweis-Schlüssel wegklickbar (Nutzer-Meta).

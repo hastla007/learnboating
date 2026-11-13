@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure\Database;
 
+defined('ABSPATH') || exit;
+
 use RuntimeException;
 use wpdb;
 

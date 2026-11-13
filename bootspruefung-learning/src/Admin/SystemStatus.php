@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Admin;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Infrastructure\Database\Migrator;
 use Bootspruefung\Learning\Infrastructure\Requirements;
 use Bootspruefung\Learning\Plugin;

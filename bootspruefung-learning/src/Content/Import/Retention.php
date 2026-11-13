@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Content\Import;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Infrastructure\Lock;
 use Bootspruefung\Learning\Plugin;

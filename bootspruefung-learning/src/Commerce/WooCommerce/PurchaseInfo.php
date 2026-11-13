@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Pflichtangaben „spätestens bei Beginn des Bestellvorgangs“ (§ 312j Abs. 1 BGB): akzeptierte Zahlungsarten und
  * Lieferbeschränkungen. Kurzer Hinweis auf Produktseiten (unter dem Kaufen-Knopf) und im Warenkorb (Block und

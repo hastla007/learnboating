@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Learning\Services;
 
+defined('ABSPATH') || exit;
+
 use Bootspruefung\Learning\Infrastructure\RequestMemo;
 use Bootspruefung\Learning\Settings\Settings;
 

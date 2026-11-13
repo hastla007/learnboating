@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Vorbelegte Laufzeiten für neue Zugänge (T101): Produkte und manuelle Freischaltungen bekommen eine
  * Laufzeit; „ohne Ablauf“ gibt es nur ausdrücklich. Kennt der Shop-Katalog den Kurs bzw. die SKU, gilt

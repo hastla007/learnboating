@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce;
 
+defined('ABSPATH') || exit;
+
 /** Eine Bestellposition; Erstattungen als positive Werte. */
 final class OrderItemSnapshot
 {

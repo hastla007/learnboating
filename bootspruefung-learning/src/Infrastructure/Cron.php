@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Infrastructure;
 
+defined('ABSPATH') || exit;
+
 /**
  * Wartungsläufe robust ausführen: Jede Teilaufgabe des stündlichen Crons läuft für sich. Ein Fehler
  * (z. B. ein defekter Datensatz) wird protokolliert und bricht weder die übrigen Aufgaben noch

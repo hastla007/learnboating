@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Commerce\WooCommerce;
 
+defined('ABSPATH') || exit;
+
 /**
  * Bestell-Schaltfläche nach § 312j Abs. 3 BGB: „Zahlungspflichtig bestellen“ für alle kostenpflichtigen
  * Bestellungen – klassische Kasse, „Bestellung bezahlen“ und Kassen-Block. Ist nichts zu bezahlen

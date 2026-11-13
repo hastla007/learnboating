@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T22:47:36+00:00\n"
+"POT-Creation-Date: 2026-11-13T23:08:58+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: kurswasser\n"
@@ -384,12 +384,13 @@ msgstr ""
 
 #: inc/content-pages.php:1064
 #: inc/legal.php:436
-#: inc/operator.php:250
+#: inc/operator.php:267
 #: inc/setup-shop.php:797
-#: inc/setup.php:361
-#: inc/setup.php:372
-#: inc/setup.php:382
-#: inc/setup.php:398
+#: inc/setup.php:207
+#: inc/setup.php:446
+#: inc/setup.php:457
+#: inc/setup.php:467
+#: inc/setup.php:483
 msgid "Keine Berechtigung."
 msgstr ""
 
@@ -943,6 +944,59 @@ msgstr ""
 msgid "Bitte die Betreiberangaben ausfüllen (sie ersetzen beim Übernehmen der Vorlagen die [[Betreiber: …]]-Platzhalter), restliche Platzhalter ersetzen, prüfen lassen, den Vorlagen-Hinweis löschen und die Seiten veröffentlichen:"
 msgstr ""
 
+#: inc/legal.php:467
+msgid "Vorlagen nicht übernommen: Ein anderer Abgleich der Rechtsseiten läuft gerade. Bitte in einer Minute erneut versuchen."
+msgstr ""
+
+#: inc/legal.php:470
+msgid "Vorlage übernommen"
+msgstr ""
+
+#: inc/legal.php:471
+msgid "Vorlage aktualisiert"
+msgstr ""
+
+#: inc/legal.php:472
+msgid "schon aktuell"
+msgstr ""
+
+#: inc/legal.php:473
+msgid "von Hand bearbeitet – unverändert gelassen"
+msgstr ""
+
+#: inc/legal.php:474
+msgid "veröffentlicht – nicht automatisch ersetzt"
+msgstr ""
+
+#: inc/legal.php:475
+msgid "Seite fehlt (Kurswasser einrichten)"
+msgstr ""
+
+#: inc/legal.php:476
+msgid "keine Vorlage vorhanden"
+msgstr ""
+
+#: inc/legal.php:477
+msgid "Fehler beim Speichern – bitte erneut versuchen"
+msgstr ""
+
+#: inc/legal.php:489
+msgid "Vorlagen teilweise übernommen."
+msgstr ""
+
+#. translators: %d: Anzahl Seiten
+#: inc/legal.php:491
+#, php-format
+msgid "Vorlage in %d Seite übernommen."
+msgid_plural "Vorlagen in %d Seiten übernommen."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: Anzahl Seiten
+#: inc/legal.php:491
+msgid "Keine Seite geändert."
+msgstr ""
+
 #: inc/offers.php:20
 msgid "SBF"
 msgstr ""
@@ -1267,24 +1321,44 @@ msgstr ""
 msgid "E-Mail: %s"
 msgstr ""
 
-#: inc/operator.php:245
-#: inc/operator.php:268
+#: inc/operator.php:262
+#: inc/operator.php:305
 msgid "Betreiberangaben"
 msgstr ""
 
-#: inc/operator.php:271
+#: inc/operator.php:307
+msgid "Nicht gespeichert."
+msgstr ""
+
+#. translators: %s: Feldnamen
+#: inc/operator.php:309
+#, php-format
+msgid "Bitte eine gültige E-Mail-Adresse eintragen: %s."
+msgid_plural "Bitte gültige E-Mail-Adressen eintragen: %s."
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/operator.php:311
+msgid "Deine Eingaben stehen noch im Formular."
+msgstr ""
+
+#: inc/operator.php:315
 msgid "Gespeichert. Unbearbeitete Entwürfe der Rechtsseiten sind aktualisiert; veröffentlichte Seiten übernimmst du über den Hinweis „Vorlagen übernehmen“."
 msgstr ""
 
-#: inc/operator.php:273
+#: inc/operator.php:317
 msgid "Diese Angaben ersetzen die passenden [[Betreiber: …]]-Platzhalter in Impressum, Datenschutzerklärung, AGB, Widerrufsbelehrung und Kontakt. Leere Felder bleiben als Platzhalter stehen. Platzhalter, die eine Entscheidung oder rechtliche Prüfung verlangen, ersetzt du direkt auf der jeweiligen Seite. Keine Rechtsberatung – die Texte vor der Veröffentlichung rechtlich prüfen lassen."
 msgstr ""
 
-#: inc/operator.php:288
+#: inc/operator.php:329
+msgid "Keine gültige E-Mail-Adresse."
+msgstr ""
+
+#: inc/operator.php:335
 msgid "Speichern und Rechtsseiten abgleichen"
 msgstr ""
 
-#: inc/operator.php:292
+#: inc/operator.php:339
 msgid "Noch offen in den Vorlagen"
 msgstr ""
 
@@ -1987,7 +2061,7 @@ msgid "Es wird noch nichts geändert."
 msgstr ""
 
 #: inc/setup-shop.php:918
-#: inc/setup.php:550
+#: inc/setup.php:636
 msgid "Zurück zur Einrichtung"
 msgstr ""
 
@@ -2171,312 +2245,340 @@ msgstr ""
 msgid "Produkt-Entwürfe ansehen"
 msgstr ""
 
-#: inc/setup.php:82
-#: inc/setup.php:400
+#: inc/setup.php:86
+#: inc/setup.php:485
 msgid "Kurswasser einrichten"
 msgstr ""
 
-#: inc/setup.php:99
+#: inc/setup.php:103
 msgid "Shop, Warenkorb und Kasse. Das Lern-Plugin schaltet Kurse nach dem Kauf frei."
 msgstr ""
 
-#: inc/setup.php:103
+#: inc/setup.php:107
 msgid "Optional. Mit Yoast kannst du in Schritt 2 wählen, dass die SEO-Daten der Inhaltsseiten in Yoast stehen."
 msgstr ""
 
-#: inc/setup.php:107
+#: inc/setup.php:111
 msgid "Unser Lern-Plugin: Fragen, Prüfungssimulation, Trainer, FAQ und Freischaltung. Nicht auf wordpress.org."
 msgstr ""
 
-#: inc/setup.php:160
-msgid "Auf dieser Website dürfen keine Plugins installiert werden (DISALLOW_FILE_MODS). Bitte die Plugins über dein Hosting bzw. dein Deployment einspielen."
+#: inc/setup.php:156
+msgid "Im Theme-Ordner liegt keine ZIP-Datei."
+msgstr ""
+
+#: inc/setup.php:162
+#, php-format
+msgid "%s gelöscht."
 msgstr ""
 
 #: inc/setup.php:163
+#, php-format
+msgid "%s konnte nicht gelöscht werden (Dateirechte). Bitte per FTP bzw. über das Hosting löschen."
+msgstr ""
+
+#: inc/setup.php:183
+msgid "Datei löschen"
+msgstr ""
+
+#: inc/setup.php:187
+msgid "Plugin-ZIP im Theme-Ordner:"
+msgstr ""
+
+#. translators: %s: Dateien
+#: inc/setup.php:190
+#, php-format
+msgid "%s ist über die Adresse des Themes für jeden abrufbar und enthält den kompletten Plugin-Code. Das Theme braucht die Datei nicht mehr – bitte löschen."
+msgstr ""
+
+#: inc/setup.php:245
+msgid "Auf dieser Website dürfen keine Plugins installiert werden (DISALLOW_FILE_MODS). Bitte die Plugins über dein Hosting bzw. dein Deployment einspielen."
+msgstr ""
+
+#: inc/setup.php:248
 msgid "Dein Benutzerkonto darf keine Plugins installieren."
 msgstr ""
 
-#: inc/setup.php:171
+#: inc/setup.php:256
 msgid "WordPress kann nicht direkt in den Plugin-Ordner schreiben, und es sind keine FTP-Zugangsdaten hinterlegt. Installiere die Plugins über Plugins › Installieren (dort fragt WordPress nach den Zugangsdaten)."
 msgstr ""
 
-#: inc/setup.php:203
+#: inc/setup.php:288
 #, php-format
 msgid "wordpress.org ist nicht erreichbar oder kennt das Plugin nicht (%s)."
 msgstr ""
 
-#: inc/setup.php:207
+#: inc/setup.php:292
 msgid "wordpress.org lieferte keinen Download-Link."
 msgstr ""
 
-#: inc/setup.php:233
+#: inc/setup.php:318
 msgid "Keine Schreibrechte bzw. Zugangsdaten für den Plugin-Ordner."
 msgstr ""
 
-#: inc/setup.php:237
+#: inc/setup.php:322
 msgid "In der ZIP-Datei wurde kein Plugin gefunden."
 msgstr ""
 
-#: inc/setup.php:261
+#: inc/setup.php:346
 #, php-format
 msgid "%1$s nicht installiert: %2$s"
 msgstr ""
 
-#: inc/setup.php:266
+#: inc/setup.php:351
 #, php-format
 msgid "%s nicht installiert: Es ist keine Installationsquelle hinterlegt. Lade die ZIP-Datei über „Plugin hochladen“ hoch."
 msgstr ""
 
-#: inc/setup.php:271
+#: inc/setup.php:356
 #, php-format
 msgid "%1$s konnte nicht installiert werden: %2$s"
 msgstr ""
 
-#: inc/setup.php:275
+#: inc/setup.php:360
 #, php-format
 msgid "%1$s wurde im Ordner „%2$s“ installiert (erwartet: „%3$s“)."
 msgstr ""
 
-#: inc/setup.php:277
+#: inc/setup.php:362
 #, php-format
 msgid "%s installiert."
 msgstr ""
 
-#: inc/setup.php:280
+#: inc/setup.php:365
 #, php-format
 msgid "%s nicht aktiviert: Dein Benutzerkonto darf keine Plugins aktivieren."
 msgstr ""
 
-#: inc/setup.php:285
+#: inc/setup.php:370
 #, php-format
 msgid "%1$s konnte nicht aktiviert werden: %2$s"
 msgstr ""
 
-#: inc/setup.php:289
+#: inc/setup.php:374
 #, php-format
 msgid "%s aktiviert."
 msgstr ""
 
-#: inc/setup.php:292
+#: inc/setup.php:377
 msgid "Keine Plugins ausgewählt bzw. alle ausgewählten sind schon aktiv."
 msgstr ""
 
-#: inc/setup.php:321
+#: inc/setup.php:406
 msgid "Es wurden keine Inhaltsseiten angelegt. Du kannst das hier oder über den Hinweis im Dashboard jederzeit nachholen."
 msgstr ""
 
-#: inc/setup.php:324
+#: inc/setup.php:409
 msgid "Bitte eine Möglichkeit auswählen."
 msgstr ""
 
-#: inc/setup.php:327
+#: inc/setup.php:412
 msgid "Yoast SEO ist nicht aktiv – die SEO-Daten können nicht in Yoast geschrieben werden."
 msgstr ""
 
-#: inc/setup.php:332
-#: inc/setup.php:348
+#: inc/setup.php:417
+#: inc/setup.php:433
 msgid "Gerade läuft schon ein Abgleich der Inhaltsseiten. Bitte in einer Minute erneut versuchen."
 msgstr ""
 
-#: inc/setup.php:336
+#: inc/setup.php:421
 msgid "Inhaltsseiten abgeglichen. SEO-Daten stehen in Yoast (und weiter in den Theme-Feldern für einen späteren Wechsel)."
 msgstr ""
 
-#: inc/setup.php:337
+#: inc/setup.php:422
 msgid "Inhaltsseiten abgeglichen. Die SEO-Daten gibt das Theme aus."
 msgstr ""
 
-#: inc/setup.php:344
+#: inc/setup.php:429
 msgid "Nichts geändert: Bitte bestätige, dass deine Änderungen überschrieben werden dürfen."
 msgstr ""
 
-#: inc/setup.php:351
+#: inc/setup.php:436
 msgid "Alle Inhaltsseiten wurden aus dem Theme übernommen."
 msgstr ""
 
-#: inc/setup.php:428
+#: inc/setup.php:513
 msgid "Drei Schritte: die passenden Plugins installieren, die Info- und Marketingseiten des Themes anlegen und den Shop einrichten. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen."
 msgstr ""
 
-#: inc/setup.php:429
+#: inc/setup.php:514
 msgid "Zwei Schritte: die passenden Plugins installieren und die Info- und Marketingseiten des Themes anlegen. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen. Schritt 3 „Shop einrichten“ erscheint, sobald WooCommerce aktiv ist."
 msgstr ""
 
-#: inc/setup.php:441
+#: inc/setup.php:526
 msgid "aktiv"
 msgstr ""
 
-#: inc/setup.php:442
+#: inc/setup.php:527
 msgid "installiert, nicht aktiv"
 msgstr ""
 
-#: inc/setup.php:443
+#: inc/setup.php:528
 msgid "nicht installiert"
 msgstr ""
 
-#: inc/setup.php:452
+#: inc/setup.php:537
 msgid "1. Plugins"
 msgstr ""
 
-#: inc/setup.php:458
+#: inc/setup.php:544
 msgid "Plugin"
 msgstr ""
 
-#: inc/setup.php:458
+#: inc/setup.php:544
 msgid "Status"
 msgstr ""
 
-#: inc/setup.php:465
+#: inc/setup.php:551
 msgid "Häkchen = aktivieren"
 msgstr ""
 
-#: inc/setup.php:469
+#: inc/setup.php:555
 msgid "Häkchen = von wordpress.org installieren und aktivieren"
 msgstr ""
 
-#: inc/setup.php:470
+#: inc/setup.php:556
 #, php-format
 msgid "Häkchen = installieren und aktivieren aus %s"
 msgstr ""
 
-#: inc/setup.php:473
+#: inc/setup.php:559
 msgid "In der Plugin-Suche öffnen"
 msgstr ""
 
-#: inc/setup.php:474
+#: inc/setup.php:560
 msgid "Auf wordpress.org ansehen"
 msgstr ""
 
-#: inc/setup.php:476
-msgid "Dieses Plugin liegt nicht auf wordpress.org. Lade die ZIP-Datei (bootspruefung-learning.zip) über „Plugin hochladen“ hoch – oder hinterlege die Quelle in wp-config.php: define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', 'https://…/bootspruefung-learning.zip' ); (URL oder Pfad)."
+#: inc/setup.php:562
+msgid "Dieses Plugin liegt nicht auf wordpress.org und ist nicht im Theme-Paket enthalten. Lade die Datei bootspruefung-learning-<version>.zip aus dem Release über „Plugin-ZIP hochladen“ hoch – oder hinterlege die Quelle in wp-config.php: define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', '/pfad/außerhalb/des/webroots/bootspruefung-learning.zip' ); (Pfad oder URL). Danach diese Seite neu laden: Das installierte Plugin wird erkannt und kann hier aktiviert werden."
 msgstr ""
 
-#: inc/setup.php:478
-msgid "Plugin hochladen"
+#: inc/setup.php:564
+msgid "Plugin-ZIP hochladen"
 msgstr ""
 
-#: inc/setup.php:487
+#: inc/setup.php:573
 msgid "Ausgewählte installieren und aktivieren"
 msgstr ""
 
-#: inc/setup.php:488
+#: inc/setup.php:574
 msgid "Reihenfolge: WooCommerce, Yoast SEO, Lern-Plugin. Das kann eine Minute dauern."
 msgstr ""
 
-#: inc/setup.php:490
+#: inc/setup.php:576
 msgid "Alle Plugins sind aktiv."
 msgstr ""
 
-#: inc/setup.php:497
+#: inc/setup.php:583
 msgid "2. Inhaltsseiten"
 msgstr ""
 
-#: inc/setup.php:500
+#: inc/setup.php:586
 msgid "Im Theme liegen keine Inhaltsseiten (content/pages.php fehlt)."
 msgstr ""
 
-#: inc/setup.php:508
+#: inc/setup.php:594
 #, php-format
 msgid "Das Theme bringt %d Info- und Marketingseiten mit (Ratgeber, Angebote, Über uns, FAQ …). Seiten mit offenen Angaben des Betreibers entstehen als Entwurf."
 msgstr ""
 
-#: inc/setup.php:518
+#: inc/setup.php:604
 msgid "Du hattest „SEO-Daten in Yoast“ gewählt, Yoast SEO ist aber nicht aktiv. Bis dahin gibt das Theme die SEO-Daten aus."
 msgstr ""
 
-#: inc/setup.php:523
+#: inc/setup.php:609
 msgid "Inhaltsseiten anlegen, SEO-Daten in Yoast (empfohlen)"
 msgstr ""
 
-#: inc/setup.php:524
+#: inc/setup.php:610
 msgid "Die Seiten werden angelegt. Titel, Beschreibung, noindex und Canonical stehen direkt in den Yoast-Feldern jeder Seite – im Yoast-Kasten, in der Snippet-Vorschau und in der Yoast-Sitemap. Bei Artikeln wird der Yoast-Artikeltyp „Article“ gesetzt. Ein Fokus-Keyword nur, wenn die Vorlage eines vorgibt. Yoast-Felder, die du schon ausgefüllt hast, werden nicht überschrieben."
 msgstr ""
 
-#: inc/setup.php:525
+#: inc/setup.php:611
 msgid "Inhaltsseiten anlegen, SEO-Daten im Theme"
 msgstr ""
 
-#: inc/setup.php:526
+#: inc/setup.php:612
 msgid "Wie ohne Yoast: Die SEO-Daten stehen in der Box „SEO (Kurswasser)“. Yoast nutzt sie nur, wo sein eigenes Feld leer ist; im Yoast-Kasten erscheinen sie nicht."
 msgstr ""
 
-#: inc/setup.php:528
+#: inc/setup.php:614
 msgid "Inhaltsseiten anlegen (SEO-Daten gibt das Theme aus)"
 msgstr ""
 
-#: inc/setup.php:529
+#: inc/setup.php:615
 msgid "Titel, Beschreibung, noindex, Canonical und strukturierte Daten gibt das Theme selbst aus (Box „SEO (Kurswasser)“ an jeder Seite)."
 msgstr ""
 
-#: inc/setup.php:531
+#: inc/setup.php:617
 msgid "Vorerst nicht anlegen"
 msgstr ""
 
-#: inc/setup.php:532
+#: inc/setup.php:618
 msgid "Es passiert nichts. Der Hinweis im Dashboard und diese Seite bleiben – du kannst später wählen."
 msgstr ""
 
-#: inc/setup.php:538
+#: inc/setup.php:624
 msgid "Später gilt: Ein neuer Vorlagenstand aus dem Theme ersetzt nur, was du in WordPress nicht verändert hast – Seiteninhalt und SEO-Felder. Von dir geänderte Seiten und Felder bleiben."
 msgstr ""
 
-#: inc/setup.php:539
+#: inc/setup.php:625
 msgid "Auswahl übernehmen"
 msgstr ""
 
-#: inc/setup.php:541
-#: inc/setup.php:551
+#: inc/setup.php:627
+#: inc/setup.php:637
 msgid "Alles aus dem Theme übernehmen (überschreibt deine Änderungen)"
 msgstr ""
 
-#: inc/setup.php:542
+#: inc/setup.php:628
 msgid "Setzt alle Inhaltsseiten und ihre SEO-Felder (auch die Yoast-Felder, wenn du Yoast gewählt hast) auf den Stand der Vorlagen zurück – auch Seiten und Felder, die du geändert hast. Vorher siehst du, welche Seiten betroffen sind."
 msgstr ""
 
-#: inc/setup.php:543
+#: inc/setup.php:629
 msgid "Betroffene Seiten anzeigen …"
 msgstr ""
 
-#: inc/setup.php:552
+#: inc/setup.php:638
 msgid "Achtung:"
 msgstr ""
 
-#: inc/setup.php:553
+#: inc/setup.php:639
 msgid "Alle Inhaltsseiten aus dem Theme werden auf den Vorlagenstand gesetzt. Was du an den unten aufgeführten Seiten geändert hast – Text, Titel, SEO-Felder und Yoast-Felder –, geht verloren. Ältere Fassungen des Seitentexts findest du danach in den Revisionen der Seite; SEO- und Yoast-Felder haben keine Revisionen."
 msgstr ""
 
-#: inc/setup.php:556
+#: inc/setup.php:642
 msgid "SEO-Daten: Theme-Felder und Yoast."
 msgstr ""
 
-#: inc/setup.php:556
+#: inc/setup.php:642
 msgid "SEO-Daten: Theme-Felder (Yoast-Felder bleiben unberührt)."
 msgstr ""
 
-#: inc/setup.php:558
+#: inc/setup.php:644
 msgid "Keine von dir geänderten Seiten oder Felder gefunden – es würden nur unveränderte Seiten auf den neuesten Vorlagenstand gebracht."
 msgstr ""
 
-#: inc/setup.php:560
+#: inc/setup.php:646
 #, php-format
 msgid "Betroffen: %d Seite"
 msgid_plural "Betroffen: %d Seiten"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/setup.php:568
+#: inc/setup.php:654
 msgid "Nicht betroffen: Rechtstexte (Impressum, Kontakt usw.), Seiten im Papierkorb und veröffentlichte Seiten, deren neue Vorlage noch Platzhalter enthält."
 msgstr ""
 
-#: inc/setup.php:571
+#: inc/setup.php:657
 msgid "Ich habe verstanden: Meine Änderungen an diesen Seiten werden überschrieben."
 msgstr ""
 
-#: inc/setup.php:572
+#: inc/setup.php:658
 msgid "Alles aus dem Theme übernehmen"
 msgstr ""
 
-#: inc/setup.php:572
+#: inc/setup.php:658
 msgid "Abbrechen"
 msgstr ""
 
