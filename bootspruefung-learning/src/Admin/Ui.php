@@ -129,7 +129,7 @@ final class Ui
             'draft' => __('Entwurf', 'bootspruefung-learning'),
             'source_archived' => __('archiviert', 'bootspruefung-learning'),
             'deprecated' => __('veraltet', 'bootspruefung-learning'),
-            'live' => __('live geschaltet', 'bootspruefung-learning'),
+            'live' => __('Prüfungsmodus', 'bootspruefung-learning'),
             // Rechte
             'unknown' => __('ungeklärt', 'bootspruefung-learning'),
             'review' => __('in Prüfung', 'bootspruefung-learning'),

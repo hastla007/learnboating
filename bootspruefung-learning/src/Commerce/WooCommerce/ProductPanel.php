@@ -51,7 +51,7 @@ final class ProductPanel
         if ($productId > 0 && metadata_exists('post', $productId, \Bootspruefung\Learning\Commerce\ShopCatalog::FIELDS_META)) {
             echo '<p class="description"><strong>'.esc_html__('Produkt aus dem Shop-Katalog:', 'bootspruefung-learning').'</strong> '.esc_html__('Von Hand geänderte Felder (Name, Texte, Kategorien, Sichtbarkeit, Einzelverkauf, Lernzugang, Geld-zurück-Garantie) überschreibt der Katalog-Abgleich nicht mehr. Der reguläre Preis kommt immer von der Seite „Preise“.', 'bootspruefung-learning').'</p>';
         }
-        echo '<p class="description">'.esc_html__('Lernprodukte sollten virtuell sein. Sie werden automatisch einzeln verkauft, und der Checkout verlangt ein Kundenkonto.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Lernprodukte sollten virtuell sein. Sie werden automatisch einzeln verkauft, und die Kasse verlangt ein Kundenkonto.', 'bootspruefung-learning').'</p>';
         echo '</div></div>';
     }
 
@@ -76,7 +76,7 @@ final class ProductPanel
         $first = $rows[0] ?? null;
         echo '<input type="hidden" name="'.esc_attr($name.'[present]').'" value="1">';
         if ($courses === []) {
-            echo '<p><em>'.esc_html__('Noch keine Kurse veröffentlicht – bitte zuerst ein Content-Paket importieren.', 'bootspruefung-learning').'</em></p>';
+            echo '<p><em>'.esc_html__('Noch keine Kurse veröffentlicht – bitte zuerst ein Inhaltspaket importieren.', 'bootspruefung-learning').'</em></p>';
 
             return;
         }

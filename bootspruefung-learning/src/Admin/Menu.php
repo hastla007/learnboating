@@ -45,7 +45,7 @@ final class Menu
         add_menu_page(__('Bootsprüfung', 'bootspruefung-learning'), __('Bootsprüfung', 'bootspruefung-learning'), $read, self::SLUG, [$content, 'renderOverview'], 'dashicons-sos', 56);
         $pages = [
             [self::SLUG, __('Übersicht', 'bootspruefung-learning'), $read, [$content, 'renderOverview']],
-            [ImportPage::SLUG, __('Content-Pakete', 'bootspruefung-learning'), Capabilities::IMPORT_CONTENT, [$import, 'render']],
+            [ImportPage::SLUG, __('Inhaltspakete', 'bootspruefung-learning'), Capabilities::IMPORT_CONTENT, [$import, 'render']],
             [self::SLUG.'-courses', __('Kurse & Module', 'bootspruefung-learning'), $read, [$content, 'renderCourses']],
             [self::SLUG.'-questions', __('Fragen', 'bootspruefung-learning'), $read, [$content, 'renderQuestions']],
             [self::SLUG.'-media', __('Medien', 'bootspruefung-learning'), $read, [$content, 'renderMedia']],
@@ -114,7 +114,7 @@ final class Menu
         echo '<table class="widefat striped" style="max-width:720px"><tbody>';
         $rows = [
             __('Plugin-Version', 'bootspruefung-learning') => $status['plugin_version'],
-            __('DB-Schema', 'bootspruefung-learning') => sprintf('%s (%s: %s)', $status['schema_version'] ?? '–', __('erwartet', 'bootspruefung-learning'), $status['expected_schema_version']),
+            __('Datenbank-Schema', 'bootspruefung-learning') => sprintf('%s (%s: %s)', $status['schema_version'] ?? '–', __('erwartet', 'bootspruefung-learning'), $status['expected_schema_version']),
             __('Fremdschlüssel', 'bootspruefung-learning') => (string) $status['foreign_keys'],
             __('WooCommerce aktiv', 'bootspruefung-learning') => $woo['active'] ? $yes.' ('.$woo['version'].')' : $no,
             __('WooCommerce-Version unterstützt', 'bootspruefung-learning') => $woo['active'] ? ($woo['supported'] ? $yes : $no) : '–',
@@ -140,7 +140,7 @@ final class Menu
         MailStatus::render(); // T54
         SystemStatus::renderStorageSelfTest();
         echo '<h2>'.esc_html__('Tabellen', 'bootspruefung-learning').'</h2>';
-        echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>'.esc_html__('Tabelle', 'bootspruefung-learning').'</th><th>Engine</th><th>'.esc_html__('Zeilen (ca.)', 'bootspruefung-learning').'</th></tr></thead><tbody>';
+        echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>'.esc_html__('Tabelle', 'bootspruefung-learning').'</th><th>'.esc_html__('Speicherart', 'bootspruefung-learning').'</th><th>'.esc_html__('Zeilen (ca.)', 'bootspruefung-learning').'</th></tr></thead><tbody>';
         foreach ($status['tables'] as $table => $info) {
             printf(
                 '<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>',
@@ -161,21 +161,21 @@ final class Menu
         echo '<h2>'.esc_html__('Datensicherung', 'bootspruefung-learning').'</h2>';
         echo '<p>'.esc_html__('Das Plugin hat keine eigene Sicherung. Bitte ein WordPress-Backup-Plugin oder die Sicherung des Hosters nutzen und darauf achten, dass Folgendes enthalten ist:', 'bootspruefung-learning').'</p><ul style="list-style:disc;margin-left:2em">';
         printf('<li>%s <code>%s</code></li>', esc_html__('alle Datenbanktabellen mit Präfix', 'bootspruefung-learning'), esc_html($wpdb->prefix.'bp_'));
-        printf('<li>%s <code>%s</code>%s</li>', esc_html__('der Ordner', 'bootspruefung-learning'), esc_html($dir), esc_html__(' – Content-Pakete, Medien und geschützte Dateien (protected-…); manche Backup-Plugins schließen Unterordner oder große Dateien standardmäßig aus', 'bootspruefung-learning'));
-        printf('<li>%s <code>bp_learning_*</code> %s</li>', esc_html__('die Optionen', 'bootspruefung-learning'), esc_html__('in der Tabelle wp_options (Einstellungen, aktives Paket, Rabatte, Dispute-Protokoll)', 'bootspruefung-learning'));
+        printf('<li>%s <code>%s</code>%s</li>', esc_html__('der Ordner', 'bootspruefung-learning'), esc_html($dir), esc_html__(' – Inhaltspakete, Medien und geschützte Dateien (protected-…); manche Sicherungs-Plugins schließen Unterordner oder große Dateien standardmäßig aus', 'bootspruefung-learning'));
+        printf('<li>%s <code>bp_learning_*</code> %s</li>', esc_html__('die Optionen', 'bootspruefung-learning'), esc_html__('in der Tabelle wp_options (Einstellungen, aktives Inhaltspaket, Rabatte, Protokoll der Zahlungskonflikte)', 'bootspruefung-learning'));
         printf('<li>%s</li>', esc_html__('WooCommerce-Bestellungen und Kundenkonten (Zugänge verweisen auf Bestellpositionen und Nutzer-IDs)', 'bootspruefung-learning'));
         if (($private = \Bootspruefung\Learning\Content\Media\MediaStorage::configuredPrivateDir()) !== null) {
             printf('<li>%s <code>%s</code> %s</li>', esc_html__('der private Ordner', 'bootspruefung-learning'), esc_html($private), esc_html__('(BOOTSPRUEFUNG_PRIVATE_DIR, liegt außerhalb des Upload-Ordners)', 'bootspruefung-learning'));
         }
         printf('<li>%s</li>', esc_html__('wp-config.php (Datenbank-Zugang, Sicherheitsschlüssel für Abmeldelinks und Anmeldungen, BOOTSPRUEFUNG_*-Konstanten)', 'bootspruefung-learning'));
-        echo '</ul><p>'.esc_html__('Ablauf, Häufigkeit, Aufbewahrung und Restore-Schritte: docs/backup-restore.md. Nach einem Restore: wp bootspruefung backup-check (nur prüfen) – dieselbe Prüfung steht hier:', 'bootspruefung-learning').'</p>';
+        echo '</ul><p>'.esc_html__('Nach einer Wiederherstellung prüft der Befehl wp bootspruefung backup-check (ändert nichts) dasselbe wie diese Liste:', 'bootspruefung-learning').'</p>';
         $labels = ['ok' => __('ok', 'bootspruefung-learning'), 'warn' => __('Warnung', 'bootspruefung-learning'), 'fail' => __('Fehler', 'bootspruefung-learning')];
         $colors = ['ok' => '#008a20', 'warn' => '#996800', 'fail' => '#b32d2e'];
         $rows = [];
         foreach (\Bootspruefung\Learning\Infrastructure\BackupCheck::run() as $r) {
             $rows[] = [esc_html($r['check']), '<strong style="color:'.esc_attr($colors[$r['status']] ?? '#000').'">'.esc_html($labels[$r['status']] ?? $r['status']).'</strong>', esc_html($r['detail'])];
         }
-        Ui::table([__('Prüfung nach Restore', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], $rows);
+        Ui::table([__('Prüfung nach Wiederherstellung', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], $rows);
     }
 
     public function renderSettings(): void
@@ -221,7 +221,7 @@ final class Menu
             esc_attr(Settings::OPTION),
             esc_attr(Settings::brandIsSet() ? (string) Settings::get('brand_name') : ''),
             esc_attr(Settings::brand()),
-            esc_html__('Erscheint als Titel des Lernbereichs, im Seitentitel, in den Produkttexten und in der App. Leer = Name der Website (Einstellungen › Allgemein › Titel der Website). Logo und Favicon: Design › Website-Editor bzw. Customizer › Website-Icon. Achtung: Der Name der App-Kennung (Tenant-Slug) folgt dem Markennamen, solange unter „App“ keine eigene Kennung eingetragen ist – vor dem App-Start festlegen und danach nicht mehr ändern.', 'bootspruefung-learning')
+            esc_html__('Erscheint als Titel des Lernbereichs, im Seitentitel, in den Produkttexten und in der App. Leer = Name der Website (Einstellungen › Allgemein › Titel der Website). Logo und Favicon: Design › Website-Editor bzw. Customizer › Website-Icon. Achtung: Die App-Kennung folgt dem Markennamen, solange unter „Mobile App“ keine eigene Kennung eingetragen ist – vor dem App-Start festlegen und danach nicht mehr ändern.', 'bootspruefung-learning')
         );
         printf(
             '<tr><th scope="row"><label for="bp-price-note">%s</label></th><td><input type="text" class="regular-text" id="bp-price-note" name="%s[price_note]" value="%s" maxlength="80"><p class="description">%s</p></td></tr>',

@@ -13,8 +13,9 @@ use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Security\Capabilities;
 
 /**
- * Adminbereiche „Zugänge“ (Suche, manuelle Freigabe/Verlängerung/Aussetzung/
+ * Adminbereiche „Zugänge“ (Suche, manuelle Freischaltung/Verlängerung/Aussetzung/
  * Widerruf mit Begründung, Kap. 7.6) und „Kostenlose Bereiche“ (bp_access_rule, Kap. 7.2).
+ * Sichtbare Texte nach der Begriffsliste in Glossary (T100).
  */
 final class AccessPages
 {
@@ -94,7 +95,7 @@ final class AccessPages
                 $this->sourceCell($row),
             ];
         }
-        Ui::table(['ID', __('Nutzer', 'bootspruefung-learning'), __('Kurs', 'bootspruefung-learning'), __('Umfang', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Gültig bis', 'bootspruefung-learning'), __('Quelle', 'bootspruefung-learning')], $rows, __('Keine Zugänge gefunden.', 'bootspruefung-learning'));
+        Ui::table([__('Nr.', 'bootspruefung-learning'), __('Nutzer', 'bootspruefung-learning'), __('Kurs', 'bootspruefung-learning'), __('Funktion', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Gültig bis', 'bootspruefung-learning'), __('Quelle', 'bootspruefung-learning')], $rows, __('Keine Zugänge gefunden.', 'bootspruefung-learning'));
         Ui::pager($page, $page * 50 < $result['total'], static fn (int $p) => Ui::url(self::SLUG, array_filter($filter) + ['paged' => $p]));
 
         $this->renderGrantForm();
@@ -104,7 +105,7 @@ final class AccessPages
     private function shopNotice(): void
     {
         if (\Bootspruefung\Learning\Settings\Settings::get('default_access') === 'logged_in') {
-            echo '<div class="notice notice-warning inline"><p>'.esc_html__('Einstellung „Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“: Zugänge werden protokolliert, sperren aber noch nichts. Sobald der Shop live ist, unter Einstellungen auf „Nur kostenlose Regeln und Freischaltungen“ umstellen.', 'bootspruefung-learning').'</p></div>';
+            echo '<div class="notice notice-warning inline"><p>'.esc_html__('Einstellung „Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“: Zugänge werden protokolliert, sperren aber noch nichts. Sobald der Shop Kurse verkauft, unter Einstellungen auf „Nur kostenlose Regeln und Freischaltungen“ umstellen.', 'bootspruefung-learning').'</p></div>';
         }
     }
 
@@ -146,7 +147,7 @@ final class AccessPages
         Ui::keyValue([
             __('Nutzer', 'bootspruefung-learning') => esc_html($user ? $user->display_name.' <'.$user->user_email.'>' : '#'.$row->user_id),
             __('Kurs', 'bootspruefung-learning') => esc_html(Labels::course($row->course_code)),
-            __('Umfang', 'bootspruefung-learning') => esc_html(Labels::feature($row->feature_code)),
+            __('Funktion', 'bootspruefung-learning') => esc_html(Labels::feature($row->feature_code)),
             __('Status', 'bootspruefung-learning') => self::badge($row->status),
             __('Gültig ab', 'bootspruefung-learning') => esc_html(Ui::date($row->valid_from)),
             __('Gültig bis', 'bootspruefung-learning') => esc_html(Labels::date($row->valid_until)),
@@ -184,7 +185,7 @@ final class AccessPages
     private function renderGrantForm(): void
     {
         $courses = Labels::courses();
-        echo '<h2>'.esc_html__('Zugang manuell freigeben', 'bootspruefung-learning').'</h2>';
+        echo '<h2>'.esc_html__('Zugang manuell freischalten', 'bootspruefung-learning').'</h2>';
         if ($courses === []) {
             echo '<p>'.esc_html__('Noch keine Kurse veröffentlicht.', 'bootspruefung-learning').'</p>';
 
@@ -200,7 +201,7 @@ final class AccessPages
         foreach ($courses as $code => $name) {
             printf('<option value="%s" data-bp-until="%s">%s</option>', esc_attr($code), esc_attr(self::defaultUntil($days[$code])), esc_html($name));
         }
-        echo '</select></td></tr><tr><th>'.esc_html__('Umfang', 'bootspruefung-learning').'</th><td>';
+        echo '</select></td></tr><tr><th id="bp-grant-features">'.esc_html__('Funktionen', 'bootspruefung-learning').'</th><td role="group" aria-labelledby="bp-grant-features">';
         foreach (ProductAccessRepository::features() as $feature) {
             printf('<label style="display:inline-block;margin-right:12px"><input type="checkbox" name="features[]" value="%s"> %s</label>', esc_attr($feature), esc_html(Labels::feature($feature)));
         }
@@ -210,7 +211,7 @@ final class AccessPages
         echo '<p class="description">'.esc_html__('Vorbelegt mit der Laufzeit des Kurses im Shop (Vollkurse 12 Monate, SKN/FKN und Ergänzungen 6 Monate). Ohne Ablauf nur bewusst wählen.', 'bootspruefung-learning').'</p></td></tr>';
         echo '<tr><th><label for="bp-grant-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-reason" type="text" name="reason" required class="regular-text"></td></tr>';
         echo '</tbody></table>';
-        submit_button(__('Zugang freigeben', 'bootspruefung-learning'));
+        submit_button(__('Zugang freischalten', 'bootspruefung-learning'));
         echo '</form>';
         // Kurswechsel: Enddatum auf die Laufzeit des Kurses setzen, solange es nicht von Hand geändert wurde (ohne JS bleibt die Vorbelegung des ersten Kurses).
         echo "<script>(function(){var c=document.getElementById('bp-grant-course'),u=document.getElementById('bp-grant-until');if(!c||!u){return;}var auto=u.value;u.addEventListener('input',function(){auto=null;});c.addEventListener('change',function(){var o=c.options[c.selectedIndex];if(auto!==null&&o){u.value=o.getAttribute('data-bp-until')||u.value;auto=u.value;}});})();</script>"; // phpcs:ignore
@@ -241,7 +242,7 @@ final class AccessPages
                 throw new \InvalidArgumentException(__('Bitte ein Enddatum wählen oder „ohne Ablauf“ ankreuzen.', 'bootspruefung-learning'));
             }
             $ids = $this->service()->grantManual((int) $user->ID, $course, $features, empty($_POST['unlimited']) ? $until : null, sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
-            Ui::flash(sprintf(_n('%d Zugang freigegeben.', '%d Zugänge freigegeben.', count($ids), 'bootspruefung-learning'), count($ids)));
+            Ui::flash(sprintf(_n('%d Zugang freigeschaltet.', '%d Zugänge freigeschaltet.', count($ids), 'bootspruefung-learning'), count($ids)));
         } catch (\InvalidArgumentException $e) {
             Ui::flash($e->getMessage(), 'error');
         }
@@ -262,7 +263,7 @@ final class AccessPages
                 'extend' => $service->extend($id, ! empty($_POST['unlimited']) ? null : (self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? ''))) ?? throw new \InvalidArgumentException(__('Bitte ein Enddatum wählen oder „ohne Ablauf“ ankreuzen.', 'bootspruefung-learning'))), $reason),
                 'active', 'suspended', 'revoked' => $service->setStatusManual($id, $op, $reason),
                 'release' => $this->release($id, $reason, $row),
-                default => throw new \InvalidArgumentException('Unbekannte Aktion.'),
+                default => throw new \InvalidArgumentException(__('Unbekannte Aktion.', 'bootspruefung-learning')),
             };
             Ui::flash(__('Zugang geändert.', 'bootspruefung-learning'));
         } catch (\InvalidArgumentException $e) {
@@ -288,9 +289,9 @@ final class AccessPages
             wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'));
         }
         global $wpdb;
-        echo '<div class="wrap"><h1>'.esc_html__('Bootsprüfung – Kostenlose Bereiche und Freigaben', 'bootspruefung-learning').'</h1>';
+        echo '<div class="wrap"><h1>'.esc_html__('Bootsprüfung – Kostenlose Bereiche und zeitversetzte Freischaltung', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p>'.esc_html__('Kostenlose Bereiche gelten für alle angemeldeten Nutzer ohne Kauf (Kap. 7.2) – ganz oder als Teilumfang. Zeitgesteuerte Freigaben geben ein Modul bzw. Videokapitel erst n Tage nach Beginn des Zugangs frei.', 'bootspruefung-learning').'</p>';
+        echo '<p>'.esc_html__('Kostenlose Bereiche gelten für alle angemeldeten Nutzer ohne Kauf – ganz oder als Teilumfang. Eine zeitversetzte Freischaltung öffnet ein Modul bzw. Videokapitel erst eine bestimmte Zahl von Tagen nach Beginn des Zugangs.', 'bootspruefung-learning').'</p>';
         $this->shopNotice();
         $this->catalogBox();
         $rules = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}bp_access_rule WHERE access_type IN ('free','free_limited','drip') ORDER BY access_type, course_code, feature_code, module_code");
@@ -331,7 +332,7 @@ final class AccessPages
         submit_button(__('Hinzufügen', 'bootspruefung-learning'), 'primary', '', false);
         echo '</p></form>';
 
-        echo '<h2>'.esc_html__('Zeitgesteuerte Freigabe hinzufügen', 'bootspruefung-learning').'</h2>';
+        echo '<h2>'.esc_html__('Zeitversetzte Freischaltung hinzufügen', 'bootspruefung-learning').'</h2>';
         if ($modules === []) {
             echo '<p>'.esc_html__('Keine Module vorhanden.', 'bootspruefung-learning').'</p></div>';
 
@@ -344,7 +345,7 @@ final class AccessPages
             [$course] = explode('|', $value);
             printf('<option value="%s">%s</option>', esc_attr($value), esc_html(Labels::course($course).' › '.$label));
         }
-        echo '</select> <label>'.esc_html__('freigeben nach', 'bootspruefung-learning').' <input type="number" min="1" name="days" required style="width:70px"> '.esc_html__('Tagen', 'bootspruefung-learning').'</label> ';
+        echo '</select> <label>'.esc_html__('freischalten nach', 'bootspruefung-learning').' <input type="number" min="1" name="days" required style="width:70px"> '.esc_html__('Tagen', 'bootspruefung-learning').'</label> ';
         echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> ';
         submit_button(__('Hinzufügen', 'bootspruefung-learning'), 'secondary', '', false);
         echo '</p><p class="description">'.esc_html__('Beginn = frühester aktiver Zugang zu Kurs und Funktion; ohne Kauf (kostenlos) das Registrierungsdatum.', 'bootspruefung-learning').'</p></form></div>';
@@ -443,7 +444,7 @@ final class AccessPages
                 $wpdb->delete($table, ['course_code' => $course, 'feature_code' => $feature, 'module_code' => $module, 'access_type' => 'drip']);
                 $wpdb->insert($table, ['course_code' => $course, 'feature_code' => $feature, 'module_code' => $module, 'access_type' => 'drip', 'limit_type' => 'days_after_start', 'limit_value' => $days, 'created_at' => $now, 'updated_at' => $now]);
                 AuditLog::record('drip_rule_added', 'access_rule', (string) $wpdb->insert_id, $reason, ['course' => $course, 'feature' => $feature, 'module' => $module, 'days' => $days]);
-                Ui::flash(__('Zeitgesteuerte Freigabe hinzugefügt.', 'bootspruefung-learning'));
+                Ui::flash(__('Zeitversetzte Freischaltung hinzugefügt.', 'bootspruefung-learning'));
             }
         } else {
             $course = sanitize_text_field(wp_unslash($_POST['course'] ?? ''));
@@ -500,7 +501,7 @@ final class AccessPages
             foreach ($service->membersOf((int) $group->id) as $m) {
                 $remove = $m->status === 'removed' ? '' : '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline">'.wp_nonce_field('bp_group_admin', '_wpnonce', true, false)
                     .'<input type="hidden" name="action" value="bp_group_admin"><input type="hidden" name="op" value="remove"><input type="hidden" name="group" value="'.(int) $group->id.'"><input type="hidden" name="member" value="'.(int) $m->id.'">'
-                    .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> <button class="button-link-delete">'.esc_html__('Platz freigeben', 'bootspruefung-learning').'</button></form>';
+                    .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> <button class="button-link-delete">'.esc_html__('Entfernen (Platz wird frei)', 'bootspruefung-learning').'</button></form>';
                 $rows[] = [esc_html(($m->display_name ?: '–').($m->email ? ' <'.$m->email.'>' : '')), esc_html(['active' => __('aktiv', 'bootspruefung-learning'), 'invited' => __('eingeladen', 'bootspruefung-learning'), 'expired' => __('Einladung abgelaufen', 'bootspruefung-learning'), 'removed' => __('entfernt', 'bootspruefung-learning')][$m->status] ?? $m->status), esc_html(Ui::date($m->joined_at ?: $m->invited_at)), $remove];
             }
             // T102: Verlauf der Gruppe aus dem Protokoll.
@@ -566,7 +567,7 @@ final class AccessPages
         $md = \Bootspruefung\Learning\Commerce\WooCommerce\MemberDiscounts::class;
         echo '<div class="wrap"><h1>'.esc_html__('Bootsprüfung – Mitgliederrabatte', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p>'.esc_html__('Nutzer mit aktivem Lernzugang (Kauf, manuelle Freigabe oder Gruppenplatz) erhalten im Shop einen Rabatt. Gilt mehr als eine Regel, zählt die höchste. Kostenlose Bereiche zählen nicht.', 'bootspruefung-learning').'</p>';
+        echo '<p>'.esc_html__('Nutzer mit aktivem Lernzugang (Kauf, manuelle Freischaltung, Kursgutschein oder Gruppenplatz) erhalten im Shop einen Rabatt. Gilt mehr als eine Regel, zählt die höchste. Kostenlose Bereiche zählen nicht.', 'bootspruefung-learning').'</p>';
         $rows = [];
         foreach ($md::rules() as $rule) {
             $delete = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline">'.wp_nonce_field('bp_member_discount', '_wpnonce', true, false)

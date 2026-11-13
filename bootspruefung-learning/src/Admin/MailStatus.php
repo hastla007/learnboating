@@ -150,7 +150,7 @@ final class MailStatus
     public static function render(): void
     {
         echo '<h2 id="bp-mail">'.esc_html__('E-Mail-Versand', 'bootspruefung-learning').'</h2>';
-        echo '<p class="description">'.esc_html__('Bestellbestätigungen, Passwort-Links, Datenschutz-Bestätigungen und Gruppeneinladungen müssen zuverlässig ankommen. Checkliste: docs/mailversand.md.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Bestellbestätigungen, Passwort-Links, Datenschutz-Bestätigungen und Gruppeneinladungen müssen zuverlässig ankommen.', 'bootspruefung-learning').'</p>';
         echo '<table class="widefat striped" style="max-width:720px"><tbody>';
         foreach (self::rows() as $label => $value) {
             printf('<tr><th scope="row">%s</th><td>%s</td></tr>', esc_html($label), esc_html($value));

@@ -58,8 +58,8 @@ final class ExamGuidePages
             $courses = array_map(static fn ($c) => Labels::course($c['course_code']), $g['courses']);
             $rows[] = [esc_html($g['title']), esc_html('ca. '.$g['fee']), esc_html($g['min_age']), esc_html(implode(', ', array_column($g['variants'], 'label'))), esc_html(implode(', ', $courses)), (string) count($g['faq'])];
         }
-        echo '<p>'.esc_html__('Anleitungen aus dem Content-Paket (Seite „Prüfung buchen“ der Quelle). Gebühren und Fristen sind Richtwerte; maßgeblich ist der Prüfungsausschuss.', 'bootspruefung-learning').'</p>';
-        Ui::table([__('Prüfung', 'bootspruefung-learning'), __('Gebühr', 'bootspruefung-learning'), __('Mindestalter', 'bootspruefung-learning'), __('Prüfungsformen', 'bootspruefung-learning'), __('Kurse', 'bootspruefung-learning'), 'FAQ'], $rows, __('Keine Anleitungen – bitte Content-Paket importieren.', 'bootspruefung-learning'));
+        echo '<p>'.esc_html__('Anleitungen aus dem Inhaltspaket (Seite „Prüfung buchen“ der Quelle). Gebühren und Fristen sind Richtwerte; maßgeblich ist der Prüfungsausschuss.', 'bootspruefung-learning').'</p>';
+        Ui::table([__('Prüfung', 'bootspruefung-learning'), __('Gebühr', 'bootspruefung-learning'), __('Mindestalter', 'bootspruefung-learning'), __('Prüfungsformen', 'bootspruefung-learning'), __('Kurse', 'bootspruefung-learning'), 'FAQ'], $rows, __('Keine Anleitungen – bitte Inhaltspaket importieren.', 'bootspruefung-learning'));
     }
 
     private function committees(int $id, bool $new = false): void
@@ -76,9 +76,9 @@ final class ExamGuidePages
             $rows[] = ['<a href="'.esc_url(Ui::url(self::SLUG, ['id' => $c['id']])).'">'.esc_html($c['label']).'</a>'.(isset($local[$c['id']]) ? ' <span class="description">('.esc_html__('eigener Eintrag', 'bootspruefung-learning').')</span>' : ''), esc_html((string) $c['address']),
                 esc_html(trim(($c['phone'] ?? '').' '.($c['email'] ?? ''))), esc_html(implode(', ', $c['course_codes']) ?: '–')];
         }
-        echo '<p>'.esc_html__('Bundesweite Prüfungsausschüsse (DMYV-Liste aus dem Content-Paket). „Kurse“ legt fest, für welche Scheine ein Ausschuss in der Liste zuerst erscheint.', 'bootspruefung-learning').'</p>';
-        Ui::table([__('Ausschuss', 'bootspruefung-learning'), __('Adresse', 'bootspruefung-learning'), __('Kontakt', 'bootspruefung-learning'), __('Kurse', 'bootspruefung-learning')], $rows, __('Keine Prüfungsausschüsse – bitte Content-Paket importieren.', 'bootspruefung-learning'));
-        echo '<p><a class="button" href="'.esc_url(Ui::url(self::SLUG, ['new' => 1])).'">'.esc_html__('Prüfungsausschuss hinzufügen', 'bootspruefung-learning').'</a> <span class="description">'.esc_html__('Nur mit Quelle (z. B. Seite des Verbands oder des Ausschusses). Eigene Einträge bleiben bei Content-Importen erhalten.', 'bootspruefung-learning').'</span></p>';
+        echo '<p>'.esc_html__('Bundesweite Prüfungsausschüsse (DMYV-Liste aus dem Inhaltspaket). „Kurse“ legt fest, für welche Scheine ein Ausschuss in der Liste zuerst erscheint.', 'bootspruefung-learning').'</p>';
+        Ui::table([__('Ausschuss', 'bootspruefung-learning'), __('Adresse', 'bootspruefung-learning'), __('Kontakt', 'bootspruefung-learning'), __('Kurse', 'bootspruefung-learning')], $rows, __('Keine Prüfungsausschüsse – bitte Inhaltspaket importieren.', 'bootspruefung-learning'));
+        echo '<p><a class="button" href="'.esc_url(Ui::url(self::SLUG, ['new' => 1])).'">'.esc_html__('Prüfungsausschuss hinzufügen', 'bootspruefung-learning').'</a> <span class="description">'.esc_html__('Nur mit Quelle (z. B. Seite des Verbands oder des Ausschusses). Eigene Einträge bleiben bei neuen Importen erhalten.', 'bootspruefung-learning').'</span></p>';
         if (! $edit) {
             return;
         }
@@ -100,7 +100,7 @@ final class ExamGuidePages
         }
         echo '</td></tr></tbody></table>';
         submit_button(__('Prüfungsausschuss speichern', 'bootspruefung-learning'));
-        echo '<p class="description">'.esc_html__('Gespeicherte Änderungen bleiben bei späteren Content-Importen erhalten.', 'bootspruefung-learning').'</p></form>';
+        echo '<p class="description">'.esc_html__('Gespeicherte Änderungen bleiben bei späteren Importen erhalten.', 'bootspruefung-learning').'</p></form>';
         if ($isLocal && (int) $edit->id > 0) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\''.esc_js(__('Diesen Prüfungsausschuss löschen?', 'bootspruefung-learning')).'\')">';
             wp_nonce_field('bp_exam_committee_delete');

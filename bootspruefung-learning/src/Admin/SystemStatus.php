@@ -328,7 +328,7 @@ final class SystemStatus
             \Bootspruefung\Learning\Content\Media\MediaStorage::relocateAll(true);
         }
         $result = self::storageSelfTest($refresh);
-        echo '<h2>'.esc_html__('Dateischutz (Content-Pakete, geschützte Dateien)', 'bootspruefung-learning').'</h2>';
+        echo '<h2>'.esc_html__('Dateischutz (Inhaltspakete, geschützte Dateien)', 'bootspruefung-learning').'</h2>';
         $layout = \Bootspruefung\Learning\Content\Media\MediaStorage::layout();
         foreach ((array) ($layout['errors'] ?? []) as $error) {
             echo '<div class="notice notice-error inline"><p>'.esc_html((string) $error).'</p></div>';
@@ -344,10 +344,10 @@ final class SystemStatus
         } elseif ($result['overall'] === 'unknown') {
             echo '<div class="notice notice-warning inline"><p>'.esc_html__('Der Selbsttest konnte die Testdatei nicht anfragen (Anfragen an die eigene Website blockiert?). Bitte manuell prüfen: Eine Datei aus dem Paketordner darf per Browser nicht abrufbar sein. Für nginx:', 'bootspruefung-learning').'</p><pre style="white-space:pre-wrap;background:#f6f7f7;padding:8px">'.esc_html(self::nginxRule()).'</pre></div>';
         } else {
-            echo '<div class="notice notice-success inline"><p>'.esc_html__('Geschützt: Content-Pakete und geschützte Dateien sind nicht per Direkt-URL abrufbar.', 'bootspruefung-learning').'</p></div>';
+            echo '<div class="notice notice-success inline"><p>'.esc_html__('Geschützt: Inhaltspakete und geschützte Dateien sind nicht über eine direkte Adresse abrufbar.', 'bootspruefung-learning').'</p></div>';
         }
         $labels = [
-            'packages' => __('Content-Pakete', 'bootspruefung-learning'),
+            'packages' => __('Inhaltspakete', 'bootspruefung-learning'),
             'protected' => __('Geschützte Dateien', 'bootspruefung-learning'),
         ];
         $states = [

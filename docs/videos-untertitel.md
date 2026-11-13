@@ -27,7 +27,7 @@ eigene Pflegedatei:
 3. Paket neu bauen (`php tools/content-build/bin/build-package.php`). Der Bericht meldet weiter, wie viele Lektionen
    noch einen Platzhalter haben, und warnt bei Schlüsseln, die es nicht gibt. Der Golden-Master-Abgleich wendet die
    Datei auch auf die Laravel-Seite an.
-4. Paket im Admin importieren (Bootsprüfung › Content-Pakete).
+4. Paket im Admin importieren (Bootsprüfung › Inhaltspakete).
 
 ## 3. Untertitel einschalten
 

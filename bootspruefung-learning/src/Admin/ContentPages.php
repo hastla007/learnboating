@@ -68,7 +68,7 @@ final class ContentPages
         $active = get_option('bp_learning_active_package');
         $last = $this->db->get_row("SELECT id, package_id, status, published_at FROM {$this->t('import_batch')} ORDER BY id DESC LIMIT 1");
         Ui::keyValue([
-            __('Aktives Content-Paket', 'bootspruefung-learning') => '<code>'.esc_html($active ?: '–').'</code>',
+            __('Aktives Inhaltspaket', 'bootspruefung-learning') => '<code>'.esc_html($active ?: '–').'</code>',
             __('Letzter Import', 'bootspruefung-learning') => $last ? '<a href="'.esc_url(Ui::url(ImportPage::SLUG, ['batch' => $last->id])).'">#'.(int) $last->id.'</a> '.Ui::status($last->status) : '–',
             __('Lernbereich', 'bootspruefung-learning') => '<a href="'.esc_url(home_url('/bootsscheine/')).'">'.esc_html(home_url('/bootsscheine/')).'</a>',
         ]);
@@ -118,7 +118,7 @@ final class ContentPages
             [$missingFiles, __('Medien ohne Datei', 'bootspruefung-learning'), Ui::url('bootspruefung-media', ['missing' => 1])],
         ];
         $nav = \Bootspruefung\Learning\Trainers\NavigationCheck::coverage();
-        $items[] = [$nav['total'] > 0 && $nav['with'] === 0 ? 1 : 0, sprintf(__('Paket ohne Lösungswerte der Navigationsaufgaben (automatische Prüfung aus; %1$d von %2$d Teilaufgaben mit Werten) – aktuelles Paket importieren', 'bootspruefung-learning'), $nav['with'], $nav['total']), Ui::url(ImportPage::SLUG)];
+        $items[] = [$nav['total'] > 0 && $nav['with'] === 0 ? 1 : 0, sprintf(__('Paket ohne Lösungswerte der Navigationsaufgaben (automatische Prüfung aus; %1$d von %2$d Teilaufgaben mit Werten) – aktuelles Inhaltspaket importieren', 'bootspruefung-learning'), $nav['with'], $nav['total']), Ui::url(ImportPage::SLUG)];
         $shop = \Bootspruefung\Learning\Commerce\MappingCheck::summary();
         $items[] = [$shop['mapping_errors'], __('Fehler in WooCommerce-Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];
         $items[] = [$shop['mapping_warnings'], __('Hinweise zu Produktzuordnungen', 'bootspruefung-learning'), '#bp-mapping-issues'];
@@ -152,6 +152,8 @@ final class ContentPages
             }
             Ui::table([__('Produkt', 'bootspruefung-learning'), __('Art', 'bootspruefung-learning'), __('Problem', 'bootspruefung-learning')], $rows);
         }
+        echo '<h2>'.esc_html__('Hilfe', 'bootspruefung-learning').'</h2>';
+        Glossary::render(); // T100: feste Begriffe, aufklappbar
         echo '</div>';
     }
 
@@ -180,14 +182,14 @@ final class ContentPages
                 '<strong>'.esc_html($course->name).'</strong><br><code>'.esc_html($course->code).'</code> · '.esc_html(Ui::label($course->course_type)),
                 Ui::status($course->status),
                 implode('<br>', $modules),
-                $rule['rule'] ? ($rule['live'] ? Ui::status('published').' '.esc_html__('live geschaltet', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')) : '–',
+                $rule['rule'] ? ($rule['live'] ? Ui::status('published').' '.esc_html__('Prüfungsmodus', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('Übungsmodus', 'bootspruefung-learning')) : '–',
                 $papers,
                 $nav,
                 $praxis,
                 '<a href="'.esc_url(home_url('/bootsscheine/'.ContentRepository::slug($course->code).'/')).'">'.esc_html__('ansehen', 'bootspruefung-learning').'</a>',
             ];
         }
-        echo '<p class="description">'.esc_html__('Module: auslieferbare/zugeordnete Fragen. Reihenfolge und Zuordnung stammen aus dem Content-Paket.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Module: auslieferbare/zugeordnete Fragen. Reihenfolge und Zuordnung stammen aus dem Inhaltspaket.', 'bootspruefung-learning').'</p>';
         Ui::table([__('Kurs', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Module', 'bootspruefung-learning'), __('Prüfung', 'bootspruefung-learning'), __('Bögen', 'bootspruefung-learning'), __('Navigation', 'bootspruefung-learning'), __('Praxis', 'bootspruefung-learning'), ''], $rows);
         echo '</div>';
     }
@@ -271,7 +273,7 @@ final class ContentPages
                 Ui::status($q->rights).($q->rights_override !== null ? ' <small>'.esc_html__('(lokal)', 'bootspruefung-learning').'</small>' : ''),
             ];
         }
-        Ui::table(['ID', __('Nr.', 'bootspruefung-learning'), __('Modul', 'bootspruefung-learning'), __('Typ', 'bootspruefung-learning'), __('Frage', 'bootspruefung-learning'), 'Rev.', __('Status', 'bootspruefung-learning'), __('Rechte', 'bootspruefung-learning')], $out, __('Keine Fragen gefunden.', 'bootspruefung-learning'));
+        Ui::table([__('Kennung', 'bootspruefung-learning'), __('Nr.', 'bootspruefung-learning'), __('Modul', 'bootspruefung-learning'), __('Typ', 'bootspruefung-learning'), __('Frage', 'bootspruefung-learning'), __('Fassung', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Rechte', 'bootspruefung-learning')], $out, __('Keine Fragen gefunden.', 'bootspruefung-learning'));
         Ui::pager($page, count($rows) > 50, fn (int $p) => Ui::url('bootspruefung-questions', array_merge($f, ['paged' => $p])));
     }
 
@@ -296,11 +298,11 @@ final class ContentPages
             __('Thema', 'bootspruefung-learning') => esc_html(implode(' › ', array_filter([$rev->topic, $rev->subtopic, $rev->competency]))),
             __('Smarttrainer-Kategorie', 'bootspruefung-learning') => esc_html((string) $rev->smart_category),
             __('Quelle', 'bootspruefung-learning') => esc_html(trim($rev->source_catalog.' · '.$rev->source_version.' '.($rev->source_question_id ? '· '.$rev->source_question_id : ''))),
-            __('Rechte', 'bootspruefung-learning') => Ui::status($rev->rights_status).($override !== null ? ' → '.Ui::status($override).' '.esc_html__('(lokaler Override)', 'bootspruefung-learning') : ''),
+            __('Rechte', 'bootspruefung-learning') => Ui::status($rev->rights_status).($override !== null ? ' → '.Ui::status($override).' '.esc_html__('(lokale Abweichung)', 'bootspruefung-learning') : ''),
             __('Module', 'bootspruefung-learning') => esc_html(implode(', ', $modules)),
             __('In Bögen', 'bootspruefung-learning') => esc_html($papers === [] ? '–' : implode(', ', $papers)),
         ]);
-        echo '<h3>'.esc_html__('Aktuelle Revision', 'bootspruefung-learning').' #'.(int) $rev->revision_no.'</h3>';
+        echo '<h3>'.esc_html__('Aktuelle Fassung', 'bootspruefung-learning').' #'.(int) $rev->revision_no.'</h3>';
         echo '<div class="card" style="max-width:900px"><p><strong>'.nl2br(esc_html($rev->question_text)).'</strong></p>';
         foreach ($repo->media((int) $rev->id) as $m) {
             printf('<p><img src="%s" alt="%s" style="max-width:280px;height:auto"></p>', esc_url($m['url']), esc_attr($m['alt']));
@@ -317,10 +319,10 @@ final class ContentPages
         echo '</div>';
 
         $revs = $this->db->get_results($this->db->prepare("SELECT revision_no, editorial_status, package_id, created_at, LEFT(question_text, 120) AS text FROM {$this->t('question_revision')} WHERE question_id = %d ORDER BY revision_no DESC", $id));
-        echo '<h3>'.esc_html__('Revisionen', 'bootspruefung-learning').'</h3>';
-        Ui::table(['Rev.', __('Status', 'bootspruefung-learning'), __('Paket', 'bootspruefung-learning'), __('Angelegt', 'bootspruefung-learning'), __('Text', 'bootspruefung-learning')], array_map(static fn ($r) => [(int) $r->revision_no, Ui::status($r->editorial_status), '<code>'.esc_html((string) $r->package_id).'</code>', esc_html(Ui::date($r->created_at)), esc_html($r->text)], $revs));
+        echo '<h3>'.esc_html__('Fassungen', 'bootspruefung-learning').'</h3>';
+        Ui::table([__('Fassung', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Inhaltspaket', 'bootspruefung-learning'), __('Angelegt', 'bootspruefung-learning'), __('Text', 'bootspruefung-learning')], array_map(static fn ($r) => [(int) $r->revision_no, Ui::status($r->editorial_status), '<code>'.esc_html((string) $r->package_id).'</code>', esc_html(Ui::date($r->created_at)), esc_html($r->text)], $revs));
 
-        echo '<h3>'.esc_html__('Rechte-Status lokal überschreiben', 'bootspruefung-learning').'</h3>';
+        echo '<h3>'.esc_html__('Rechte-Status lokal festlegen', 'bootspruefung-learning').'</h3>';
         $this->overrideForm('question', [$id], 'rights_status', $override, Ui::url('bootspruefung-questions', ['question' => $id]));
     }
 
@@ -361,7 +363,7 @@ final class ContentPages
             ];
         }
         echo '<p>'.sprintf(esc_html__('%d Medien', 'bootspruefung-learning'), $total).'</p>';
-        Ui::table(['', 'ID', __('Typ', 'bootspruefung-learning'), __('Quelle', 'bootspruefung-learning'), __('Rechte', 'bootspruefung-learning'), __('Verwendung Fragen/Praxis', 'bootspruefung-learning'), __('Datei', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning')], $out);
+        Ui::table([__('Vorschau', 'bootspruefung-learning'), __('Kennung', 'bootspruefung-learning'), __('Typ', 'bootspruefung-learning'), __('Quelle', 'bootspruefung-learning'), __('Rechte', 'bootspruefung-learning'), __('Verwendung Fragen/Praxis', 'bootspruefung-learning'), __('Datei', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning')], $out);
         Ui::pager($page, $page * 50 < $total, fn (int $p) => Ui::url('bootspruefung-media', ['missing' => $missingOnly ? 1 : '', 'paged' => $p]));
         echo '</div>';
     }
@@ -376,11 +378,11 @@ final class ContentPages
         $repo = new ContentRepository();
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Prüfungsregeln', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p class="description">'.esc_html__('Live-Prüfungsmodus nur mit veröffentlichtem, gültigem und fachlich verifiziertem Regelwerk (Kap. 4.5). Sonst ist die Simulation als Übungsmodus gekennzeichnet.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Die Prüfungssimulation läuft nur mit veröffentlichtem, gültigem und fachlich geprüftem Regelwerk im Prüfungsmodus. Sonst ist sie als Übungsmodus gekennzeichnet.', 'bootspruefung-learning').'</p>';
         Ui::confirmBox();
         $pendingRules = \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, true);
         if ($pendingRules !== []) {
-            echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'.esc_html(sprintf(__('%1$d Regelwerke sind noch nicht live: %2$s. Freigabe markiert sie als verifiziert und – bei Entwürfen der Quelle – als veröffentlicht (lokaler Override, umkehrbar).', 'bootspruefung-learning'), count($pendingRules), implode(', ', array_column($pendingRules, 'course')))).'</p>';
+            echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'.esc_html(sprintf(__('%1$d Regelwerke laufen noch im Übungsmodus: %2$s. Die Freigabe markiert sie als verifiziert und – bei Entwürfen der Quelle – als veröffentlicht (lokale Abweichung, umkehrbar).', 'bootspruefung-learning'), count($pendingRules), implode(', ', array_column($pendingRules, 'course')))).'</p>';
             // T103: Begründung nicht vorbelegen (Pflichtfeld), Rückfrage mit Anzahl – mit JS als Dialog, ohne JS als Zwischenschritt.
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rules_release', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_rules_release"><input type="hidden" name="bp_confirmed" value="">';
             echo '<label for="bp-rules-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label> <input type="text" class="regular-text" id="bp-rules-reason" name="reason" required placeholder="'.esc_attr__('z. B. Freigabe durch den Betreiber am …', 'bootspruefung-learning').'"> ';
@@ -393,7 +395,7 @@ final class ContentPages
             $o = $overrides[(int) $rule->id] ?? [];
             $effective = $repo->examRule((int) $rule->course_id);
             $isLive = $effective['live'] && (int) $effective['rule']->id === (int) $rule->id;
-            echo '<div class="card" style="max-width:900px"><h2>'.esc_html($rule->name).' <code>'.esc_html($rule->version).'</code> '.Ui::status($rule->status).' '.($isLive ? Ui::status('published').' '.esc_html__('live geschaltet', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('nur Übung', 'bootspruefung-learning')).'</h2>';
+            echo '<div class="card" style="max-width:900px"><h2>'.esc_html($rule->name).' <code>'.esc_html($rule->version).'</code> '.Ui::status($rule->status).' '.($isLive ? Ui::status('published').' '.esc_html__('Prüfungsmodus', 'bootspruefung-learning') : Ui::status('draft').' '.esc_html__('Übungsmodus', 'bootspruefung-learning')).'</h2>';
             $bp = array_map(static fn ($b) => $b->code.': '.$b->question_count, $repo->blueprints((int) $rule->id));
             $parts = array_map(static fn ($p) => $p['label'].' '.$p['min_correct'].'/'.$p['of'], $passing['parts'] ?? []);
             Ui::keyValue([
@@ -402,7 +404,7 @@ final class ContentPages
                 __('Bestehensgrenze', 'bootspruefung-learning') => esc_html(round(((float) ($passing['min_correct_ratio'] ?? 0.75)) * 100, 1).' %'.($parts ? ' · '.implode(' · ', $parts) : '')),
                 __('Hinweis', 'bootspruefung-learning') => esc_html((string) ($passing['note'] ?? '–')),
                 __('Verifiziert (Quelle)', 'bootspruefung-learning') => $rule->verified ? '✓' : '✗',
-                __('Lokaler Override', 'bootspruefung-learning') => esc_html(self::overrideText($o)),
+                __('Lokale Abweichung', 'bootspruefung-learning') => esc_html(self::overrideText($o)),
             ]);
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin-top:8px">';
             wp_nonce_field('bp_override');
@@ -410,7 +412,7 @@ final class ContentPages
             // T103: aktuellen Stand vorauswählen (lokale Abweichung, sonst „Quelle gilt“).
             $current = isset($o['verified']) ? (string) $o['verified'] : '';
             echo '<select name="value" aria-label="'.esc_attr__('Prüfung des Regelwerks', 'bootspruefung-learning').'">';
-            foreach (['1' => __('als verifiziert markieren', 'bootspruefung-learning'), '0' => __('als nicht verifiziert markieren', 'bootspruefung-learning'), '' => __('Override entfernen (Quelle gilt)', 'bootspruefung-learning')] as $value => $label) {
+            foreach (['1' => __('als verifiziert markieren', 'bootspruefung-learning'), '0' => __('als nicht verifiziert markieren', 'bootspruefung-learning'), '' => __('Lokale Abweichung entfernen (importierter Wert gilt)', 'bootspruefung-learning')] as $value => $label) {
                 printf('<option value="%s" %s>%s</option>', esc_attr((string) $value), selected($current, (string) $value, false), esc_html($label));
             }
             echo '</select> ';
@@ -445,12 +447,12 @@ final class ContentPages
         $this->can();
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Rechte und Freigabe', 'bootspruefung-learning').'</h1>';
         Ui::notice();
-        echo '<p class="description">'.esc_html__('Rechte-Status „ungeklärt“ (unknown) und „gesperrt“ (restricted) sperren die Auslieferung (Kap. 4.10). Eine Freigabe wird als lokaler Override mit Begründung gespeichert, überlebt Reimporte und steht im Audit-Log.', 'bootspruefung-learning').'</p>';
+        echo '<p class="description">'.esc_html__('Inhalte mit Rechte-Status „ungeklärt“ oder „gesperrt“ werden nicht ausgeliefert. Eine Freigabe wird als lokale Abweichung mit Begründung gespeichert, bleibt bei neuen Importen erhalten und steht im Protokoll.', 'bootspruefung-learning').'</p>';
         Ui::confirmBox();
         $this->renderCharts();
         $pending = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON, true));
         echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'
-            .esc_html(sprintf(__('%d Inhalte haben den Rechte-Status „ungeklärt“ (unknown) und noch keine lokale Entscheidung (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Nur diese werden freigegeben; bewusst gesetzte Werte (z. B. „gesperrt“ oder „in Prüfung“), archivierte Inhalte und Seekarten bleiben unverändert.', 'bootspruefung-learning'), $pending)).'</p>';
+            .esc_html(sprintf(__('%d Inhalte haben den Rechte-Status „ungeklärt“ und noch keine lokale Entscheidung (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Nur diese werden freigegeben; bewusst gesetzte Werte (z. B. „gesperrt“ oder „in Prüfung“), archivierte Inhalte und Seekarten bleiben unverändert.', 'bootspruefung-learning'), $pending)).'</p>';
         if ($pending > 0) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rights_release', '_wpnonce', true, false)
                 .'<input type="hidden" name="action" value="bp_rights_release"><input type="hidden" name="bp_confirmed" value="">';
@@ -484,7 +486,7 @@ final class ContentPages
                 foreach (Overrides::RIGHTS as $r) {
                     printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($r, (string) $row->effective, false), esc_html(Ui::label($r)));
                 }
-                echo '<option value="">'.esc_html__('Override entfernen', 'bootspruefung-learning').'</option></select> ';
+                echo '<option value="">'.esc_html__('Lokale Abweichung entfernen (importierter Wert gilt)', 'bootspruefung-learning').'</option></select> ';
                 echo '<input type="text" name="reason" required aria-label="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'" placeholder="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'"> ';
                 echo '<button type="submit" class="button button-small" data-bp-confirm="'.esc_attr(self::overrideConfirmMessage((int) $row->n)).'">'.esc_html__('Anwenden', 'bootspruefung-learning').'</button>';
                 echo '</form>';
@@ -554,7 +556,7 @@ final class ContentPages
             $back = Ui::rememberConfirm('bp_rules_release', 'bp_rules_release', ['reason' => $reason], self::rulesConfirmMessage(count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules($reason, true))), $back);
         } else {
             $n = count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules($reason));
-            Ui::flash(sprintf(__('%d Regelwerke freigegeben – Prüfungssimulation jetzt im Live-Modus.', 'bootspruefung-learning'), $n));
+            Ui::flash(sprintf(__('%d Regelwerke freigegeben – die Prüfungssimulation läuft jetzt im Prüfungsmodus.', 'bootspruefung-learning'), $n));
         }
         wp_safe_redirect($back);
         exit;
@@ -722,7 +724,7 @@ final class ContentPages
             printf('<option value="%s" %s>%s</option>', esc_attr($r), selected((string) $current, $r, false), esc_html(Ui::label($r)));
         }
         // Ohne lokale Abweichung ist „Quelle gilt“ der aktuelle Stand.
-        echo '<option value="" '.selected($current === null, true, false).'>'.esc_html__('Override entfernen (Quelle gilt)', 'bootspruefung-learning').'</option></select> ';
+        echo '<option value="" '.selected($current === null, true, false).'>'.esc_html__('Lokale Abweichung entfernen (importierter Wert gilt)', 'bootspruefung-learning').'</option></select> ';
         echo '<input type="text" name="reason" required class="regular-text" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
         echo '<button type="submit" class="button" data-bp-confirm="'.esc_attr(self::overrideConfirmMessage(count($ids))).'">'.esc_html__('Speichern', 'bootspruefung-learning').'</button>';
         echo '</form>';

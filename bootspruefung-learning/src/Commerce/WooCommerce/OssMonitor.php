@@ -268,7 +268,7 @@ final class OssMonitor
             },
             __('Steuersätze', 'bootspruefung-learning') => $s['oss'] ? __('OSS: Sätze für mehrere EU-Länder angelegt', 'bootspruefung-learning') : __('ein Satz für alle (kein OSS)', 'bootspruefung-learning'),
             __('Verkauf in die Schweiz', 'bootspruefung-learning') => self::sellsToSwitzerland()
-                ? __('ja – Pflicht zur Schweizer MWST-Registrierung mit der Steuerberatung klären (docs/steuer-fragen.md)', 'bootspruefung-learning')
+                ? __('ja – Pflicht zur Schweizer MWST-Registrierung mit der Steuerberatung klären', 'bootspruefung-learning')
                 : __('nein', 'bootspruefung-learning'),
         ];
         if (! $s['current']['currency_ok']) {

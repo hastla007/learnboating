@@ -473,6 +473,43 @@ foreach ($wpdb->get_results("SELECT id FROM {$p}exam_rule") as $rule) {
 }
 $check($rulesOk, 'Regelwerk: aktueller Stand vorausgewählt');
 
+echo "Einheitliche Begriffe im Admin (T100)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$terms = \Bootspruefung\Learning\Admin\Glossary::terms();
+$check(count(array_intersect(['Zugang', 'Funktion', 'Umfang', 'Freischalten', 'Freigeben', 'Aussetzen', 'Widerrufen', 'Zeitversetzte Freischaltung', 'Lokale Abweichung', 'Inhaltspaket', 'Protokoll'], array_keys($terms))) === 11, 'Glossar: feste Begriffsliste');
+$check(is_file(dirname(__DIR__, 3).'/docs/glossar.md') && str_contains((string) file_get_contents(dirname(__DIR__, 3).'/docs/glossar.md'), '**Zeitversetzte Freischaltung**'), 'Glossar auch in docs/glossar.md');
+$t100Pages = [
+    'Übersicht' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview(),
+    'Kurse' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderCourses(),
+    'Fragen' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions(),
+    'Prüfungsregeln' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRules(),
+    'Rechte' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRights(),
+    'Zugänge' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->render(),
+    'Kostenlose Bereiche' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderFree(),
+    'Gruppenlizenzen' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups(),
+    'Protokoll' => static fn () => (new \Bootspruefung\Learning\Admin\AuditPage())->render(),
+];
+$firstQuestion = (int) $wpdb->get_var("SELECT id FROM {$p}question ORDER BY id LIMIT 1");
+if ($firstQuestion > 0) {
+    $t100Pages['Frage'] = static function () use ($firstQuestion): void {
+        $_GET['question'] = $firstQuestion;
+        (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions();
+        unset($_GET['question']);
+    };
+}
+$overviewHtml = '';
+foreach ($t100Pages as $name => $renderPage) {
+    ob_start();
+    $renderPage();
+    $html = (string) ob_get_clean();
+    $overviewHtml = $name === 'Übersicht' ? $html : $overviewHtml;
+    // Nur sichtbarer Text (ohne Attribute und Skripte).
+    $visible = html_entity_decode(wp_strip_all_tags($html), ENT_QUOTES, 'UTF-8');
+    $found = preg_match_all('/\b(Entitlements?|Scopes?|Features?|Drip|Packages?|Releases?|Overrides?|Content-Pakete?|Audit-Log|live geschaltet|Live-Modus)\b|Kap\.\s*\d|Kapitel\s+\d|docs\//u', $visible, $hits);
+    $check($found === 0, "{$name}: keine englischen Fachwörter, Kapitel- oder docs-Verweise".($found ? ' ('.implode(', ', array_unique($hits[0])).')' : ''));
+}
+$check(str_contains($overviewHtml, 'class="bp-glossary"') && str_contains($overviewHtml, 'Zeitversetzte Freischaltung'), 'Übersicht: Glossar aufklappbar');
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');
