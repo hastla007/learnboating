@@ -372,6 +372,19 @@ $check(count($groupsService->forOrder(910001)) === 1 && $sync->sync(910001) !== 
 $token = (string) $group->join_token;
 $info = $groupsService->describeToken($token);
 $check($info['free_seats'] === 3 && count($info['scopes']) === 2, 'Beitrittslink beschreibt Gruppe');
+// T51/UX4-09: kaputte Links bekommen die deutsche Meldung (nicht „No route was found“), Gäste sehen Gruppe und Kurse.
+$prevUser = get_current_user_id();
+wp_set_current_user(1);
+$bad = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/groups/join/kaputt-123'));
+wp_set_current_user(0);
+$guestRest = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/groups/join/'.$token));
+$guestPage = \Bootspruefung\Learning\Frontend\Router::guestInvite('gruppe/'.$token);
+$guestBad = \Bootspruefung\Learning\Frontend\Router::guestInvite('gruppe/kaputt');
+wp_set_current_user($prevUser);
+$check($bad->get_status() === 422 && str_contains((string) ($bad->get_data()['message'] ?? ''), 'ungültig oder abgelaufen'), 'kaputter Einladungslink: deutsche Meldung');
+$check($guestRest->get_status() === 401, 'Gast: Einladungs-API weiterhin nur angemeldet');
+$check(is_string($guestPage) && str_contains($guestPage, esc_html((string) $group->name)) && str_contains($guestPage, 'Melde dich an'), 'Gast-Einladungsseite nennt Gruppe und Anmeldung');
+$check(is_string($guestBad) && str_contains($guestBad, 'ungültig oder abgelaufen') && \Bootspruefung\Learning\Frontend\Router::guestInvite('sbf-see') === null, 'Gast: ungültiger Link mit Hinweis, andere Seiten unverändert');
 $groupsService->join($token, $students[0]);
 $groupsService->join($token, $students[1]);
 $groupsService->join($token, $students[1]);

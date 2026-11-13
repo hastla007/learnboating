@@ -564,6 +564,10 @@ a.bp-vc-lesson:hover { background: var(--bp-tint); }
 .bp-review-item.is-flagged { box-shadow: inset 4px 0 0 var(--bp-warn); }
 .bp-app .bp-exam-footer { position: static; display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem; margin-top: 1.1rem; padding: 1rem 0 0; border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent); background: none; }
 .bp-exam-footer .bp-button { justify-content: center; }
+/* Offline- bzw. Fehlerhinweis der Prüfung mobil sichtbar (UX4-03, T51): unten am Bildschirm angeheftet. */
+@media (max-width: 900px) {
+	.bp-app .bp-save-status.is-alert { position: fixed; left: 0.75rem; right: 0.75rem; bottom: 0.75rem; z-index: 50; margin: 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: color-mix(in srgb, var(--bp-warn) 12%, var(--wp--preset--color--base, #fff)); color: var(--bp-warn); border: 1px solid var(--bp-warn); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); font-weight: 600; }
+}
 .bp-save-status { margin: 0; min-height: 1.3em; font-size: 0.82rem; text-align: center; opacity: 0.7; }
 .bp-exam-pager { justify-content: space-between; }
 .bp-exam-pager .bp-button:disabled { visibility: hidden; }
@@ -1476,3 +1480,5 @@ body.admin-bar .bp-app * { scroll-margin-top: calc(32px + 1rem); }
 .bp-course-card.is-recommended:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bp-ok) 55%, transparent), 0 16px 36px rgba(7,27,46,0.1); }
 .bp-expiry { align-items: center; }
 .bp-expiry a { font-weight: 700; white-space: nowrap; }
+/* Lange Linktexte („Bestellung und Zahlungsdaten ansehen“) mobil umbrechen statt über den Rand ragen (UX4-06, T51). */
+@media (max-width: 600px) { .bp-expiry a { white-space: normal; overflow-wrap: anywhere; } .bp-expiry { flex-wrap: wrap; } }

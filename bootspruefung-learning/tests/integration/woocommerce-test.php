@@ -230,7 +230,17 @@ if (function_exists('wc_load_cart')) {
     WC()->cart->add_to_cart($lern);
     $check(apply_filters('woocommerce_checkout_registration_required', false) === true, 'mit Lernprodukt: Kundenkonto erforderlich');
     $check(get_option('woocommerce_enable_guest_checkout') === 'no' && get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes', 'Checkout-Block: Gastbestellung aus, Kontoanlage an');
+    // T51/UX4-11: Gäste sehen vor der Anmeldung Produkt und Summe.
+    WC()->cart->calculate_totals();
+    $summary = \Bootspruefung\Learning\Commerce\WooCommerce\Integration::guestCartSummary();
+    $prevUser = get_current_user_id();
+    wp_set_current_user(0);
+    $guestBlock = (new \Bootspruefung\Learning\Commerce\WooCommerce\Integration())->blockCheckoutForGuests('<div>Kasse</div>');
+    wp_set_current_user($prevUser);
+    $check(str_contains($summary, 'bp-checkout-summary') && str_contains($summary, esc_html(get_the_title($lern))) && str_contains($summary, 'Summe')
+        && str_contains($guestBlock, 'bp-checkout-summary') && ! str_contains($guestBlock, 'Kasse'), 'Kasse für Gäste: Produkt und Summe über dem Anmeldekasten');
     WC()->cart->empty_cart();
+    $check(\Bootspruefung\Learning\Commerce\WooCommerce\Integration::guestCartSummary() === '', 'leerer Warenkorb: keine Übersicht');
 }
 // Zahlungsarten, Verkaufsländer, Lieferung vor Beginn des Bestellvorgangs (§ 312j Abs. 1 BGB): Produktseite und Warenkorb.
 echo "Hinweis Zahlungsarten und Lieferung\n";

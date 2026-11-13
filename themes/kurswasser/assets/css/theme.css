@@ -320,6 +320,10 @@ html, body { overflow-x: clip; }
 .bp-checkout-account ~ .bp-digital-consent-note, .bp-checkout-account ~ .bp-price-note-total { max-width: 40rem; margin-left: auto; margin-right: auto; }
 .bp-checkout-account .woocommerce-info { background: var(--kw-mist); border: 1px solid var(--kw-line); border-left: 4px solid var(--kw-blue); border-radius: var(--kw-radius-sm); padding: 1rem 1.25rem 1rem 3.5em; }
 .bp-checkout-account .button { display: inline-block; padding: .7rem 1.2rem; border-radius: 999px; background: var(--kw-blue); color: var(--kw-navy); font-weight: 800; text-decoration: none; }
+.bp-checkout-summary { width: 100%; border-collapse: collapse; margin: 1rem 0; } /* T51: Produkt und Summe für Gäste */
+.bp-checkout-summary caption { text-align: left; font-weight: 800; margin-bottom: .4rem; }
+.bp-checkout-summary th, .bp-checkout-summary td { padding: .5rem 0; border-bottom: 1px solid var(--kw-line); text-align: left; vertical-align: top; }
+.bp-checkout-summary .bp-checkout-amount { text-align: right; white-space: nowrap; padding-left: 1rem; }
 .bp-checkout-account form.login { border: 1px solid var(--kw-line); border-radius: var(--kw-radius); padding: 1.5rem; margin: 1.25rem 0; }
 /* Klassischer Warenkorb mobil (woocommerce-smallscreen.css): Die Beschriftung jeder Zelle ist ein Float – eine leere Zelle (Menge bei Kursen, die nur einzeln kaufbar sind) würde die nächste Zeile überlappen. */
 @media (max-width: 768px) { body .woocommerce table.shop_table_responsive tr td { display: flow-root; } }

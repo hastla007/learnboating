@@ -28,7 +28,9 @@ final class GroupController
         $auth = static fn (): bool|WP_Error => is_user_logged_in() ? true : new WP_Error('bp_login_required', __('Bitte anmelden.', 'bootspruefung-learning'), ['status' => 401]);
         $token = ['type' => 'string', 'pattern' => '^[gi][0-9a-f]{32}$', 'required' => true];
         $id = ['type' => 'integer', 'minimum' => 1, 'required' => true];
-        register_rest_route($ns, '/groups/join/(?P<token>[gi][0-9a-f]{32})', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'describe']), 'permission_callback' => $auth, 'args' => ['token' => $token]]);
+        // Jeder Link-Teil trifft die Route (T51/UX4-09): auch abgeschnittene oder verfälschte Links bekommen die
+        // deutsche Meldung „ungültig oder abgelaufen“ statt „No route was found“. Geprüft wird in describeToken().
+        register_rest_route($ns, '/groups/join/(?P<token>[^/]{1,64})', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'describe']), 'permission_callback' => $auth, 'args' => ['token' => ['type' => 'string', 'required' => true]]]);
         register_rest_route($ns, '/groups/join', ['methods' => WP_REST_Server::CREATABLE, 'callback' => $this->wrap([$this, 'join']), 'permission_callback' => $auth, 'args' => ['token' => $token]]);
         register_rest_route($ns, '/me/groups', ['methods' => WP_REST_Server::READABLE, 'callback' => $this->wrap([$this, 'mine']), 'permission_callback' => $auth]);
         register_rest_route($ns, '/me/groups/(?P<id>\d+)', ['methods' => 'PUT', 'callback' => $this->wrap([$this, 'rename']), 'permission_callback' => $auth, 'args' => ['id' => $id, 'name' => ['type' => 'string', 'required' => true, 'maxLength' => 190]]]);

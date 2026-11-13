@@ -36,6 +36,43 @@ final class Router
         return home_url('/'.self::base().'/'.($path === '' ? '' : trim($path, '/').'/'));
     }
 
+    /**
+     * Hinweis für Gäste auf einer Einladungsseite „gruppe/<token>“ (T51/UX4-09), sonst null.
+     * Zeigt Gruppe und Kurse (wie nach der Anmeldung) bzw. eine deutsche Meldung bei ungültigem Link.
+     */
+    public static function guestInvite(string $path): ?string
+    {
+        $parts = array_values(array_filter(explode('/', trim($path, '/')), 'strlen'));
+        if (($parts[0] ?? '') !== 'gruppe' || ! isset($parts[1])) {
+            return null;
+        }
+        global $wpdb;
+        $info = (new \Bootspruefung\Learning\Commerce\GroupService($wpdb))->describeToken((string) $parts[1]);
+        if ($info === null) {
+            return '<p class="bp-inline-error">'.esc_html__('Dieser Einladungslink ist ungültig oder abgelaufen.', 'bootspruefung-learning').'</p>'
+                .'<p>'.esc_html__('Bitte frage bei der Person nach, die dich eingeladen hat. Mit einem Konto kannst du trotzdem lernen.', 'bootspruefung-learning').'</p>';
+        }
+        $html = '<p><strong>'.esc_html(sprintf(
+            /* translators: %s: Name der Gruppe */
+            __('Du bist in die Gruppe „%s“ eingeladen.', 'bootspruefung-learning'),
+            (string) $info['name']
+        )).'</strong></p>';
+        if ($info['scopes'] !== []) {
+            $html .= '<ul class="bp-scopes">';
+            foreach ($info['scopes'] as $scope) {
+                $html .= '<li>'.esc_html($scope['course'].' · '.$scope['feature']).'</li>';
+            }
+            $html .= '</ul>';
+        }
+        if ($info['status'] !== 'active' || (int) $info['free_seats'] < 1) {
+            $html .= '<p class="bp-inline-error">'.esc_html($info['status'] !== 'active'
+                ? __('Diese Gruppe ist derzeit nicht aktiv.', 'bootspruefung-learning')
+                : __('Alle Plätze dieser Gruppe sind belegt.', 'bootspruefung-learning')).'</p>';
+        }
+
+        return $html.'<p>'.esc_html__('Melde dich an oder lege ein Konto an. Danach kommst du direkt hierher zurück und kannst der Gruppe beitreten.', 'bootspruefung-learning').'</p>';
+    }
+
     public static function addRules(): void
     {
         $base = preg_quote(self::base(), '#');

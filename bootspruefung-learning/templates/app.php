@@ -18,7 +18,13 @@ $bp_content = static function (): void {
     if (! is_user_logged_in()) {
         $here = home_url(add_query_arg([], (string) wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));
         echo '<div class="bp-card bp-login"><h1>'.esc_html(\Bootspruefung\Learning\Settings\Settings::brand()).'</h1>';
-        echo '<p>'.esc_html__('Melde dich an, um zu lernen, deinen Fortschritt zu speichern und Prüfungen zu simulieren.', 'bootspruefung-learning').'</p>';
+        $bp_invite = \Bootspruefung\Learning\Frontend\Router::guestInvite((string) get_query_var('bp_path'));
+        if ($bp_invite !== null) {
+            // Gruppeneinladung (T51/UX4-09): Gäste sehen, wozu sie eingeladen sind; nach Anmeldung geht es hierher zurück.
+            echo $bp_invite; // phpcs:ignore WordPress.Security.EscapeOutput -- in guestInvite() maskiert
+        } else {
+            echo '<p>'.esc_html__('Melde dich an, um zu lernen, deinen Fortschritt zu speichern und Prüfungen zu simulieren.', 'bootspruefung-learning').'</p>';
+        }
         echo '<p><a class="bp-button bp-button-primary" href="'.esc_url(\Bootspruefung\Learning\Frontend\ReturnAfterLogin::loginUrl($here)).'">'.esc_html__('Anmelden', 'bootspruefung-learning').'</a>';
         if (get_option('users_can_register') || get_option('woocommerce_enable_myaccount_registration') === 'yes') {
             // Nach der Registrierung zurück hierher (z. B. Gruppeneinladung).

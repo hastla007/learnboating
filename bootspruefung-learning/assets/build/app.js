@@ -225,10 +225,20 @@
 		}
 	}
 
+	// Einmalige Rückmeldung für die nächste Ansicht (z. B. „Prüfung abgebrochen“ nach dem Wechsel zur Übersicht).
+	var flashText = null;
+	function flash(text) {
+		flashText = text;
+	}
+
 	function mount(nodes, title) {
 		clearTimers();
 		root.textContent = '';
 		nodes.forEach(function (n) { if (n) { root.appendChild(n); } });
+		if (flashText) {
+			root.insertBefore(el('p', { class: 'bp-note bp-flash', role: 'status', text: flashText }), root.firstChild);
+			flashText = null;
+		}
 		var heading = root.querySelector('h1');
 		if (heading) {
 			heading.setAttribute('tabindex', '-1');
@@ -860,17 +870,19 @@
 		});
 	}
 
-	function videoCard(part, index, c) {
+	// opts.next: Karte ist „Dein nächster Schritt“; opts.noOffer: kein Kaufaufruf (z. B. steht oben schon „Verlängern“).
+	function videoCard(part, index, c, opts) {
+		opts = opts || {};
 		var v = part.videos;
 		// Videokurs nicht (voll) freigeschaltet, z. B. Theorie-Stufe: erstes Angebot (Upgrade) direkt auf der Karte.
 		var locked = c && ((c.limits && c.limits.video_course) || c.features.video_course === false);
-		var offer = locked && c.shop && c.shop.video_course ? c.shop.video_course[0] : null;
+		var offer = !opts.noOffer && locked && c.shop && c.shop.video_course ? c.shop.video_course[0] : null;
 		var percent = Math.floor(v.completed * 100 / Math.max(v.lessons, 1));
 		var bar = el('div', { class: 'bp-hub-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent), 'aria-label': t('trainer_video_meta', { done: v.completed, total: v.lessons }) }, [el('span', { style: 'width:' + percent + '%' })]);
 		var img = courseImage(part.slug, 'hero');
 		return el('article', { class: 'bp-hub-card bp-hub-card-video' + (img ? ' has-image' : '') }, [
 			img ? el('img', { class: 'bp-hub-card-img', src: img, alt: '', loading: 'lazy' }) : el('span', { class: 'bp-hub-card-art bp-hub-art-' + (index % 2 ? 'anchor' : 'compass'), 'aria-hidden': 'true' }),
-			el('p', { class: 'bp-hub-eyebrow', text: index === 0 ? t('hub_next') : t('hub_part') }),
+			el('p', { class: 'bp-hub-eyebrow', text: opts.next ? t('hub_next') : (opts.single ? t('trainer_video') : t('hub_part')) }),
 			el('h2', { text: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }),
 			el('p', { class: 'bp-hub-card-text', text: t('hub_video_for', { name: part.course.name.replace(/\s+(Vollkurs|Kombikurs)$/, '') }) }),
 			el('p', { class: 'bp-hub-card-meta' }, [t('hub_video_progress', { percent: percent }), el('span', { text: ' · ' + t('trainer_video_meta', { done: v.completed, total: v.lessons }) })]),
@@ -1030,8 +1042,19 @@
 					el('a', { href: base + slug + '/merkliste/', 'data-bp-link': '1', 'aria-label': t('mode_favorites') + ' (' + c.favorites + ')' }, [el('span', { class: 'bp-ico bp-ico-bookmark', 'aria-hidden': 'true' }), el('span', { 'aria-hidden': 'true', text: t('mode_favorites') }), el('strong', { 'aria-hidden': 'true', text: String(c.favorites) })])
 				])
 			]) : null;
-			// Oben immer die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
-			var cards = parts.length ? parts.map(function (part, i) { return videoCard(part, i, c); }) : [next, exam];
+			// Oben die Videokurse (Kombi: je Teilkurs); ohne Videos: nächster Schritt + Prüfung.
+			// „Dein nächster Schritt“ ist nur dann ein Video, wenn es freigeschaltet und noch nicht fertig ist; sonst der
+			// Smarttrainer (T51/UX4-10). Steht oben schon ein Zugangs-Hinweis (z. B. „abgelaufen – verlängern“), tragen
+			// die Videokarten keinen zweiten Kaufaufruf.
+			var videoOpen = function (part) {
+				var lockedVideo = (c.limits && c.limits.video_course) || c.features.video_course === false;
+				return !lockedVideo && part.videos.completed < part.videos.lessons;
+			};
+			var videoNext = !accessBox && parts.some(videoOpen);
+			var nextVideo = videoNext ? parts.filter(videoOpen)[0] : null;
+			var cards = parts.length
+				? (videoNext ? [] : [next]).concat(parts.map(function (part, i) { return videoCard(part, i, c, { next: part === nextVideo, single: parts.length === 1, noOffer: !!accessBox }); }))
+				: [next, exam];
 			nodes.push(el('div', { class: 'bp-hub-top' + (progress ? '' : ' is-single') }, [el('div', { class: 'bp-hub-cards' + (cards.length === 1 ? ' is-one' : '') }, cards), progress]));
 
 			// Lernbereiche
@@ -4023,15 +4046,16 @@
 				var cur = read(position);
 				if (cur && cur.id === id) { write(position, null); }
 			},
-			lose: function (position, id) {
+			// reason: 'late' = nach Fristende angekommen, 'finished' = Prüfung schon abgegeben (z. B. im anderen Tab).
+			lose: function (position, id, reason) {
 				var cur = read(position);
-				if (cur && (!id || cur.id === id)) { cur.lost = true; write(position, cur); }
+				if (cur && (!id || cur.id === id)) { cur.lost = true; cur.lostReason = reason || 'late'; write(position, cur); }
 			},
 			pending: function () {
 				return positions().filter(function (p) { var e = read(p); return e && !e.lost; });
 			},
-			lostCount: function () {
-				return positions().filter(function (p) { var e = read(p); return e && e.lost; }).length;
+			lostCount: function (reason) {
+				return positions().filter(function (p) { var e = read(p); return e && e.lost && (!reason || (e.lostReason || 'late') === reason); }).length;
 			},
 			clear: function () {
 				positions().forEach(function (p) { write(p, null); });
@@ -4066,6 +4090,9 @@
 		}
 		function report(error) {
 			var n = outbox.pending().length;
+			// Ohne Netz bzw. bei Fehlern den Hinweis mobil unten am Bildschirm anheften (sonst liegt er weit unter der
+			// Frage, UX4-03); sobald alles gespeichert ist, wieder an seinem Platz.
+			status.classList.toggle('is-alert', (offline && n > 0) || !!error);
 			if (offline && n > 0) {
 				status.textContent = submitWaiting ? t('exam_submit_waiting', { n: n }) : t('exam_offline', { n: n });
 			} else if (error) {
@@ -4133,14 +4160,14 @@
 				}
 				if (e.reason === 'exam_finished' || (e.status === 422 && e.reason !== 'exam_expired' && /abgeschlossen|beendet/i.test(e.message))) {
 					// Prüfung schon ausgewertet: nichts mehr nachsendbar; Ergebnis zeigen (mit Hinweis auf Verlorenes).
-					outbox.pending().forEach(function (p) { outbox.lose(p, null); });
+					outbox.pending().forEach(function (p) { outbox.lose(p, null, 'finished'); });
 					finished = true;
 					settle();
 					opts.onFinished();
 					return;
 				}
 				if (e.reason === 'exam_expired' || (e.status === 422 && /abgelaufen/i.test(e.message))) {
-					outbox.lose(position, entry.id); // nach Fristende gegeben bzw. zu spät angekommen
+					outbox.lose(position, entry.id, 'late'); // nach Fristende gegeben bzw. zu spät angekommen
 				} else {
 					outbox.done(position, entry.id); // ungültig: nicht endlos wiederholen
 				}
@@ -4444,6 +4471,7 @@
 			api('POST', 'exam-sessions/' + s.id + '/abort').then(function (r) {
 				sender.discard();
 				if (r.status === 'aborted') {
+					flash(t('exam_aborted')); // Rückmeldung auf der Übersicht (UX4-05)
 					navigate(slug + '/pruefung/');
 					return;
 				}
@@ -4451,6 +4479,8 @@
 			}).catch(function (e) {
 				submitting = false;
 				setBusy(abortButton, false);
+				// Auch ohne Netz sichtbar (mobil unten angeheftet, QA4-10).
+				status.classList.add('is-alert');
 				status.textContent = e.message;
 			});
 		});
@@ -4548,7 +4578,10 @@
 		var r = s.result;
 		// Zwischenspeicher dieser Prüfung leeren; was nicht mehr ankam, als Hinweis zeigen (QA-02).
 		var outbox = examOutbox(s.id);
-		var lost = outbox.lostCount() + outbox.pending().length;
+		// Zu spät angekommen (Fristende) bzw. nicht mehr gesendet, weil die Prüfung schon abgegeben war (z. B. in einem
+		// anderen Tab, QA4-09) – zwei verschiedene Hinweise.
+		var lost = outbox.lostCount('late');
+		var lostFinished = outbox.lostCount('finished') + outbox.pending().length;
 		outbox.clear();
 		var list = el('ol', { class: 'bp-review' });
 		var onlyWrong = el('input', { type: 'checkbox', id: 'bp-only-wrong' });
@@ -4620,7 +4653,8 @@
 						el('p', { class: 'bp-verdict-title' }, [el('span', { class: 'bp-verdict-icon', 'aria-hidden': 'true' }), r.passed ? t('verdict_passed') : t('verdict_failed')]),
 						el('p', { class: 'bp-verdict-score', text: t('score_line', { score: r.score, max: r.max, percent: percent }) }),
 						r.expired ? el('p', { class: 'bp-verdict-note', text: t('expired_note') }) : null,
-						lost ? el('p', { class: 'bp-verdict-note', text: t('exam_late_lost', { n: lost }) }) : null,
+						lost ? el('p', { class: 'bp-verdict-note', text: lost === 1 ? t('exam_late_lost_one') : t('exam_late_lost', { n: lost }) }) : null,
+						lostFinished ? el('p', { class: 'bp-verdict-note', text: t('exam_finished_lost', { n: lostFinished }) }) : null,
 						s.reduced || r.reduced ? el('p', { class: 'bp-verdict-note', text: t('exam_reduced') }) : (!s.live ? el('p', { class: 'bp-verdict-note', text: t('practice_result_note') }) : null),
 						r.open_text.total > 0 ? el('p', { class: 'bp-verdict-note', text: t('open_text_note', { n: r.open_text.correct, total: r.open_text.total }) }) : null
 					]),

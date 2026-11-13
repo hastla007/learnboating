@@ -434,6 +434,7 @@ final class Strings
             'exam_submit_offline' => __('Keine Verbindung: Die Prüfung wird abgegeben, sobald die Verbindung wieder da ist – lass diese Seite geöffnet.', $d),
             'exam_late_lost' => __('{n} Antworten kamen erst nach dem Ende der Prüfungszeit beim Server an und wurden nicht gewertet.', $d),
             'exam_late_lost_one' => __('1 Antwort kam erst nach dem Ende der Prüfungszeit beim Server an und wurde nicht gewertet.', $d),
+            'exam_finished_lost' => __('{n} Antwort(en) aus diesem Fenster wurden nicht mehr gewertet, weil die Prüfung schon abgegeben war – zum Beispiel in einem anderen Tab.', $d),
             'exam_other_tab' => __('Diese Prüfung ist auch in einem anderen Tab oder Fenster geöffnet. Bearbeite sie nur an einer Stelle, sonst überschreiben sich deine Antworten.', $d),
             'submit_exam' => __('Prüfung abgeben', $d),
             'confirm_submit' => __('Prüfung jetzt abgeben?', $d),

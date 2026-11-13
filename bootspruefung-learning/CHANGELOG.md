@@ -16,9 +16,14 @@ Datenbank-Schema 1.14.0, App-API 1.12.0. Seit 0.13.0 rund 90 Änderungen; die wi
 - Kursgutscheine einlösen (Voucher-Captain-Connector, App-Routen `/vouchers/check` und `/vouchers/redeem`).
 - Praxis-Tickets und „Praxis in deiner Nähe“ (Gegenstellen für ein Ticket-Plugin).
 - App: Store-Links, `device_token` („bekanntes Gerät“), `Media.external_host`, Fehlercode `MAINTENANCE`.
+- Kleinere Bedienfehler: Prüfungs-Puffer und Abbruch-Fehler mobil gut sichtbar, Bestätigung nach „Prüfung abbrechen“,
+  getrennte Meldung für Antworten nach Abgabe in einem anderen Tab, lange Links im Ablauf-Hinweis umbrechen,
+  „Dein nächster Schritt“ nur dann ein Video, wenn es offen ist, kein zweiter Kaufaufruf unter „Verlängern“,
+  Gruppeneinladung für Gäste mit Gruppe und Kursen, deutsche Meldung bei kaputtem Einladungslink.
 
 **Shop und Garantie**
 - Hinweis zu Zahlungsarten, Verkaufsländern und Lieferung vor der Kasse; Hinweis gegen Doppelkäufe.
+- Kasse für Gäste zeigt vor der Anmeldung Produkt und Summe.
 - Geld-zurück-Garantie: Grenze ungerundet verglichen, Stand bleibt nach Datenlöschung; Prüfungssimulationen zählen
   nicht zur Nutzung (wie AGB Nr. 9).
 - Ablauf-Erinnerung nur an Käufer, mit Hinweis bei Kasse und Registrierung und Abmeldelink.

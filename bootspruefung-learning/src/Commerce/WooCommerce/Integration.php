@@ -173,6 +173,7 @@ final class Integration
         $checkout = function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/');
         $html = '<div class="bp-checkout-account woocommerce">';
         $html .= '<div class="woocommerce-info" role="status">'.esc_html__('Für Lernzugänge ist ein Kundenkonto erforderlich: Dein Zugang wird deinem Konto zugeordnet. Bitte melde dich an oder lege ein Konto an – danach geht es hier weiter.', 'bootspruefung-learning').'</div>';
+        $html .= self::guestCartSummary();
         if (function_exists('woocommerce_login_form')) {
             ob_start();
             woocommerce_login_form(['message' => '', 'redirect' => $checkout, 'hidden' => false]);
@@ -185,6 +186,39 @@ final class Integration
         }
 
         return $html.'</div>';
+    }
+
+    /**
+     * Kurze Bestellübersicht für Gäste vor der Anmeldung (T51/UX4-11): Produkte, Menge und Gesamtsumme, damit klar
+     * bleibt, was nach dem Anmelden bezahlt wird. Preise kommen aus dem Warenkorb (keine eigene Berechnung).
+     */
+    public static function guestCartSummary(): string
+    {
+        if (! function_exists('WC') || WC()->cart === null || WC()->cart->is_empty()) {
+            return '';
+        }
+        $cart = WC()->cart;
+        $rows = '';
+        foreach ($cart->get_cart() as $line) {
+            $product = $line['data'] ?? null;
+            if (! $product instanceof \WC_Product) {
+                continue;
+            }
+            $qty = (int) ($line['quantity'] ?? 1);
+            $rows .= '<tr><td>'.esc_html($product->get_name()).($qty > 1 ? ' <span class="product-quantity">× '.$qty.'</span>' : '').'</td>'
+                .'<td class="bp-checkout-amount">'.wp_kses_post($cart->get_product_subtotal($product, $qty)).'</td></tr>';
+        }
+        if ($rows === '') {
+            return '';
+        }
+        $total = wp_kses_post($cart->get_total());
+
+        return '<table class="bp-checkout-summary shop_table" aria-label="'.esc_attr__('Deine Bestellung', 'bootspruefung-learning').'">'
+            .'<caption>'.esc_html__('Deine Bestellung', 'bootspruefung-learning').'</caption>'
+            .'<thead><tr><th scope="col">'.esc_html__('Produkt', 'bootspruefung-learning').'</th><th scope="col" class="bp-checkout-amount">'.esc_html__('Preis', 'bootspruefung-learning').'</th></tr></thead>'
+            .'<tbody>'.$rows.'</tbody>'
+            .'<tfoot><tr><th scope="row">'.esc_html__('Summe', 'bootspruefung-learning').'</th><td class="bp-checkout-amount"><strong>'.$total.'</strong></td></tr></tfoot>'
+            .'</table>';
     }
 
     /** Wie cartHasLearning(), aber ohne Rekursion, falls der Warenkorb beim Laden selbst Optionen liest. */
