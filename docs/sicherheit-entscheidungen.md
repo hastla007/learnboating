@@ -76,10 +76,12 @@ Zugang aus bzw. stellt ihn wieder her.
 | PayPal nicht erreichbar, kein Token | 503 | nichts verarbeitet; PayPal stellt die Nachricht später erneut zu |
 
 **Vorfilter (T88):** Vor JSON-Auswertung und Signaturprüfung verwirft der Webhook offensichtlich ungültige Anfragen,
-ohne PayPal zu fragen: mehr als 60 Anfragen je IP und Minute (429, IPv6 je /64-Netz, Filter
-`bootspruefung_paypal_webhook_per_ip`), andere Methode als POST (405), Content-Type nicht `application/json` (415),
-leer (400) oder größer als 256 KB (413), fehlende `PAYPAL-…`-Kopfzeilen oder Zertifikat nicht unter
-`https://….paypal.com` (401). Abweisungen landen höchstens einmal je 10 Minuten im Audit-Log.
+ohne PayPal zu fragen: mehr als 10 Anfragen je IP und Minute (429, IPv6 je /64-Netz, Filter
+`bootspruefung_paypal_webhook_per_ip`; T125: deutlich unter dem gemeinsamen Budget von 60 Prüfungen bei PayPal je
+Minute, damit eine einzelne Adresse es nicht allein aufbraucht), andere Methode als POST (405), Content-Type nicht
+`application/json` (415), leer (400) oder größer als 256 KB (413), fehlende `PAYPAL-…`-Kopfzeilen oder Zertifikat
+nicht unter `https://….paypal.com` (401). Abweisungen landen höchstens einmal je 10 Minuten im Audit-Log; abgelehnte
+oder gescheiterte Prüfungen aktualisieren „Letzte Prüfung“ höchstens einmal je Minute (ein Erfolg immer).
 
 **Was du einrichten musst:**
 

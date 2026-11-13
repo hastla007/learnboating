@@ -61,8 +61,16 @@ final class DisputeWebhooks
 
     /** PayPal-Webhook: größte angenommene Nachricht in Bytes (Konflikt-Ereignisse sind wenige KB groß). */
     public const PAYPAL_MAX_BODY = 262144;
-    /** PayPal-Webhook: Anfragen je IP und Minute vor der Signaturprüfung (Filter bootspruefung_paypal_webhook_per_ip). */
-    public const PAYPAL_PER_IP = 60;
+    /**
+     * PayPal-Webhook: Anfragen je IP und Minute vor der Signaturprüfung (Filter bootspruefung_paypal_webhook_per_ip).
+     * Deutlich kleiner als das gemeinsame Budget für Prüfungen bei PayPal (T125): Eine einzelne Adresse kann das
+     * Budget so nicht allein aufbrauchen. PayPal stellt aus mehreren Adressen und mit wenigen Nachrichten je Minute zu.
+     */
+    public const PAYPAL_PER_IP = 10;
+    /** Prüfungen bei PayPal je Minute insgesamt (alle Adressen); darüber 503, PayPal stellt später erneut zu. */
+    public const PAYPAL_VERIFY_PER_MINUTE = 60;
+    /** Abgelehnte bzw. gescheiterte Prüfungen aktualisieren „Letzte Prüfung“ höchstens so oft (Sekunden). */
+    private const REJECTED_REMEMBER_INTERVAL = MINUTE_IN_SECONDS;
     /** Kopfzeilen, die PayPal jeder Webhook-Nachricht mitgibt (für die Signaturprüfung nötig). */
     public const PAYPAL_HEADERS = ['paypal_transmission_id', 'paypal_transmission_time', 'paypal_transmission_sig', 'paypal_cert_url', 'paypal_auth_algo'];
 
@@ -406,7 +414,7 @@ final class DisputeWebhooks
             }
         }
         $calls = (int) get_transient('bp_paypal_verify_calls');
-        if ($calls >= 60) {
+        if ($calls >= self::PAYPAL_VERIFY_PER_MINUTE) {
             return 'error';
         }
         set_transient('bp_paypal_verify_calls', $calls + 1, MINUTE_IN_SECONDS);
@@ -478,9 +486,19 @@ final class DisputeWebhooks
         return 'bp_paypal_token_'.md5($settings['paypal_mode'].'|'.$settings['paypal_client_id']);
     }
 
-    /** Ergebnis der Prüfung für die Anzeige merken (ohne Inhalte der Nachricht). */
+    /**
+     * Ergebnis der Prüfung für die Anzeige merken (ohne Inhalte der Nachricht). Erfolge immer; abgelehnte bzw.
+     * gescheiterte Prüfungen höchstens einmal je Minute (T125) – eine Flut gefälschter Nachrichten schreibt die Option
+     * sonst bei jeder Anfrage neu. Nach einem Erfolg wird die nächste Ablehnung sofort sichtbar.
+     */
     private static function rememberVerify(string $result, string $mode): string
     {
+        if ($result !== 'success') {
+            $last = get_option(self::OPTION_LAST_VERIFY, null);
+            if (is_array($last) && ($last['result'] ?? '') !== 'success' && time() - (int) ($last['time'] ?? 0) < self::REJECTED_REMEMBER_INTERVAL) {
+                return $result;
+            }
+        }
         update_option(self::OPTION_LAST_VERIFY, ['result' => $result, 'time' => time(), 'mode' => $mode], false);
 
         return $result;

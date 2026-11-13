@@ -663,6 +663,10 @@ $postHook = static function (string $route, array $body, ?array $headers = null)
 
     return rest_do_request($request);
 };
+// Viele Webhook-Aufrufe aus einer Test-IP: Limit je IP (Standard 10/Minute, T125) hier anheben, der Vorfilter-Teil
+// unten prüft das Limit selbst.
+$ppManyPerIp = static fn () => 1000;
+add_filter('bootspruefung_paypal_webhook_per_ip', $ppManyPerIp);
 $dispute = static fn (string $id, string $type, string $outcome = '') => ['id' => $id, 'event_type' => $type, 'resource' => ['dispute_id' => 'PP-D-1', 'disputed_transactions' => [['seller_transaction_id' => $capture]], 'dispute_outcome' => ['outcome_code' => $outcome]]];
 add_filter('bootspruefung_paypal_verify', '__return_false');
 $check($postHook('paypal', $dispute('WH-0', 'CUSTOMER.DISPUTE.CREATED'))->get_status() === 401 && $statuses($ppOrder) === ['active'], 'PayPal: ungeprüfte Nachricht abgewiesen');
@@ -896,6 +900,7 @@ $check(str_contains((string) ob_get_clean(), 'Signatur nicht geprüft'), 'Einste
 $check(\Bootspruefung\Learning\Admin\SystemStatus::collect()['disputes']['paypal_signature_verified'] === false, 'Systemstatus (REST/CLI): paypal_signature_verified = false');
 
 // Vorfilter vor der Signaturprüfung (T88): offensichtlich ungültige Anfragen ohne Anfrage bei PayPal verwerfen.
+remove_filter('bootspruefung_paypal_webhook_per_ip', $ppManyPerIp);
 update_option($dw::OPTION, array_merge($dw::settings(), ['paypal_webhook_id' => 'WH-ID-1', 'paypal_mode' => 'sandbox']));
 $ppHttp['requests'] = [];
 $rawHook = static function (string $body, array $headers, string $method = 'POST') {
@@ -934,6 +939,42 @@ foreach (['2001:db8:aa:bb::1', '2001:db8:aa:bb::2', '2001:db8:aa:bb:1::3', '2001
 $_SERVER['REMOTE_ADDR'] = '2001:db8:aa:cc::1';
 $check($limited === [0, 0, 0, 429] && $rawHook($okBody, $json) === null, 'Limit je IP (IPv6 je /64-Netz): danach 429, anderes Netz frei');
 remove_filter('bootspruefung_paypal_webhook_per_ip', $perIp);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+
+echo "PayPal-Webhook: Budget je IP kleiner als gesamt, „Letzte Prüfung“ nicht flutbar (T125)\n";
+$check($dw::PAYPAL_PER_IP === 10 && $dw::PAYPAL_VERIFY_PER_MINUTE === 60 && $dw::PAYPAL_PER_IP * 5 <= $dw::PAYPAL_VERIFY_PER_MINUTE, 'je IP 10 Anfragen je Minute, Prüfungen bei PayPal insgesamt 60 je Minute');
+$_SERVER['REMOTE_ADDR'] = '198.51.100.141';
+$codes = [];
+for ($i = 0; $i < $dw::PAYPAL_PER_IP + 1; $i++) {
+    $codes[] = $codeOf($rawHook($okBody, $json));
+}
+$check(array_count_values($codes) === [0 => $dw::PAYPAL_PER_IP, 429 => 1], 'Standard: nach 10 Anfragen einer IP in der Minute 429');
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+// Abgelehnte Prüfungen schreiben „Letzte Prüfung“ höchstens einmal je Minute.
+$ppHttp['verify'] = 'FAILURE';
+delete_transient('bp_paypal_verify_calls');
+update_option($dw::OPTION_LAST_VERIFY, ['result' => 'failure', 'time' => time() - 120, 'mode' => 'sandbox'], false);
+$writes = 0;
+$countWrites = static function ($value) use (&$writes) {
+    $writes++;
+
+    return $value;
+};
+add_filter('pre_update_option_'.$dw::OPTION_LAST_VERIFY, $countWrites);
+$_SERVER['REMOTE_ADDR'] = '198.51.100.142';
+$rejected = [];
+for ($i = 0; $i < 5; $i++) {
+    $rejected[] = $postHook('paypal', $ppEvent3('WH-FL-'.$i, 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-10'), $ppHeaders('TX-FL-'.$i))->get_status();
+}
+$check($rejected === [401, 401, 401, 401, 401] && $writes === 1 && ($dw::paypalStatus()['last']['result'] ?? '') === 'failure', 'fünf abgelehnte Prüfungen in einer Minute: „Letzte Prüfung“ nur einmal geschrieben');
+$ppHttp['verify'] = 'SUCCESS';
+$postHook('paypal', $ppEvent3('WH-FL-OK', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-10'), $ppHeaders('TX-FL-OK'));
+$ppHttp['verify'] = 'FAILURE';
+$postHook('paypal', $ppEvent3('WH-FL-5', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-11'), $ppHeaders('TX-FL-5'));
+$check($writes === 3 && ($dw::paypalStatus()['last']['result'] ?? '') === 'failure', 'Erfolg wird immer gemerkt, die nächste Ablehnung danach sofort sichtbar');
+remove_filter('pre_update_option_'.$dw::OPTION_LAST_VERIFY, $countWrites);
+$ppHttp['verify'] = 'SUCCESS';
+delete_transient('bp_paypal_verify_calls');
 $wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 unset($_SERVER['REMOTE_ADDR']);
 remove_filter('pre_http_request', $ppMock, 10);
