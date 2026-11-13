@@ -4,6 +4,20 @@ Entscheidung des Betreibers bzw. Hosters: Läuft die Live-Website unter Apache o
 nginx sind ein paar Regeln von Hand nötig, weil nginx keine `.htaccess`-Dateien liest. Die Schritte je Server
 stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschnitt „Server-Voraussetzungen“.
 
+## Versionen (To-do T34)
+
+| Software | Mindestens | Getestet in CI |
+|---|---|---|
+| PHP | 8.1 | – |
+| WordPress | 7.0 | 7.1.4 |
+| WooCommerce | 11.2 | 11.2.2 und 11.3 (Beta) |
+
+- **Zu altes WordPress:** WordPress selbst verhindert das Aktivieren des Lern-Plugins und des Themes
+  (Kopfzeile „Requires at least: 7.0“).
+- **Zu altes WooCommerce:** Das Plugin lässt sich aktivieren, zeigt aber im ganzen Admin einen Hinweis. Kasse,
+  Freischaltung und die Zustimmung zur sofortigen Ausführung sind mit älteren Versionen nicht getestet.
+- **Bitte bestätigen:** Läuft das Live-System mit mindestens WordPress 7.0 und WooCommerce 11.2?
+
 ## Für beide gleich
 
 - **HTTPS** mit gültigem Zertifikat. Hinter einem TLS-Proxy muss `X-Forwarded-Proto: https` ankommen.

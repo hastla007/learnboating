@@ -1174,6 +1174,12 @@ if ($probe) {
 }
 update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'logged_in']));
 update_option('woocommerce_coming_soon', 'yes');
+$RQ = \Bootspruefung\Learning\Infrastructure\Requirements::class;
+ob_start();
+$RQ::adminNotice();
+$rqNotice = (string) ob_get_clean();
+$check($RQ::wooCommerceStatus()['supported'] === true && $rqNotice === '' && ! $RQ::wooCommerceSupported('11.1.9') && $RQ::wooCommerceSupported('11.2.0') && $RQ::wooCommerceSupported('11.3'), 'Mindestversion WooCommerce 11.2: getestete Version ohne Hinweis, ältere wird erkannt (T34)');
+$check(has_action('admin_notices', [$RQ, 'adminNotice']) !== false, 'Hinweis bei zu altem WooCommerce im Admin registriert');
 $check(! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop noch „Demnächst verfügbar“: keine Warnung');
 update_option('woocommerce_coming_soon', 'no');
 $check($probe > 0 && \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop sichtbar, Lernprodukt veröffentlicht, Zugang für alle Angemeldeten: Warnung');

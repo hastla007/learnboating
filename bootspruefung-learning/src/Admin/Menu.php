@@ -33,6 +33,7 @@ final class Menu
         (new FaqAdmin())->register();
         (new CustomerFaqAdmin())->register();
         (new GoLiveNotice())->register();
+        add_action('admin_notices', [\Bootspruefung\Learning\Infrastructure\Requirements::class, 'adminNotice']);
     }
 
     public function addPages(): void
