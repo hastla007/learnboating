@@ -29,6 +29,8 @@ jobs:
       actions: read     # CI-Ergebnis des Commits lesen
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # voriger Tag für die Versionsprüfung in build-zips.sh --tag
       - name: CI für diesen Commit grün?
         if: github.ref_type == 'tag'
         env:

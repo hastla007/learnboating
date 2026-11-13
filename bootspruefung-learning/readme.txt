@@ -4,7 +4,7 @@ Tested up to: 7.1
 Requires PHP: 8.1
 Stable tag: 0.14.0
 WC requires at least: 11.2
-WC tested up to: 11.3
+WC tested up to: 11.2
 
 Lernplattform für Bootsführerscheine mit Fragenkatalog, Prüfungssimulation, Spezialtrainern und WooCommerce-Freischaltung.
 
@@ -41,16 +41,24 @@ Noch offen: Content-Freigabe und Go-live (Schritt 10).
 == Installation ==
 
 Voraussetzungen: PHP 8.1 bis 8.5, WordPress ab 7.0, WooCommerce ab 11.2 (für den Shop), MariaDB ab 10.11 mit InnoDB.
+WooCommerce ist mit 11.2 getestet („WC tested up to: 11.2“); 11.3 läuft in der CI nur als Beta zur Information.
+
+WooCommerce ist keine Pflicht: Der Plugin-Kopf trägt bewusst kein „Requires Plugins: woocommerce“. Ohne WooCommerce
+laufen Lernbereich, Prüfungssimulation, App-Schnittstelle, kostenlose Bereiche und manuelle Freigaben (Zugang ohne
+Shop); Shop-Funktionen (Produktfeld „Lernzugang“, Freischaltung nach Kauf, „Mein Lernen“, Mitgliederrabatte) schalten
+sich erst mit aktivem WooCommerce zu. Mit „Requires Plugins“ ließe WordPress das Plugin ohne WooCommerce nicht aktivieren.
 
 1. Zuerst WooCommerce installieren und aktivieren.
 2. Plugins › Installieren › Plugin hochladen › `bootspruefung-learning-<version>.zip` › Jetzt installieren › Aktivieren.
    Der Ordner muss `bootspruefung-learning` heißen. Mit dem Theme Kurswasser geht das auch über Design › Kurswasser
-   einrichten (das Theme-Paket enthält das Plugin).
+   einrichten › „Plugin-ZIP hochladen“ (das Theme-Paket enthält das Plugin nicht).
 3. Content-Paket importieren: Bootsprüfung › Import (oder `wp bootspruefung import <paket>`).
 4. Bootsprüfung › Systemstatus prüfen (Schema „aktuell“, keine Warnungen).
 
 Das Plugin braucht keine Composer-Abhängigkeiten auf dem Server. Updates kommen nicht über wordpress.org
-(`Update URI: false`). Ausführlich: docs/installation-und-updates.md im Repository.
+(`Update URI: false`) und werden nie automatisch installiert. Wer über neue Versionen informiert werden will, schaltet
+unter Bootsprüfung › Einstellungen › Betrieb „Auf neue Versionen prüfen“ ein (Standard aus; dann höchstens einmal am
+Tag eine Abfrage der GitHub-Releases, ohne Daten der Website). Ausführlich: docs/installation-und-updates.md im Repository.
 
 == Upgrade Notice ==
 
@@ -81,4 +89,5 @@ Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung (App-API 1.9.0)
 == Lizenz ==
 
 Die Lizenz des Plugins ist noch nicht festgelegt; sie wird vom Betreiber bestimmt (Fakten und offene Fragen:
-docs/lizenz.md im Repository). Fremdbestandteile mit ihren Lizenzen: CREDITS.md im Repository.
+docs/lizenz.md im Repository). Fremdbestandteile mit ihren Lizenzen: CREDITS.md (im Plugin-Ordner; Kopie der
+Datei aus dem Repository).

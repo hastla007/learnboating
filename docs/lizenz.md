@@ -82,6 +82,6 @@ für Fotos ist Betreiber-Schritt T74 (`docs/betreiber-schritte.md`).
 | `themes/kurswasser/style.css` | `License:`/`License URI:` nur ändern, wenn das Theme nicht GPL bleiben soll; `Author:` |
 | `learnboating-affiliate-connector/learnboating-affiliate-connector.php`, `learnboating-voucher-connector/learnboating-voucher-connector.php` | `License:`, ggf. `Author:` |
 | neu: `LICENSE` (Hauptordner) und je Paket (`bootspruefung-learning/LICENSE`, `themes/kurswasser/LICENSE`, Add-ons) | Lizenztext; damit er in den ZIPs landet, liegt er im jeweiligen Paketordner |
-| `CREDITS.md` | prüfen, ob Hinweise in die Pakete gehören (z. B. als `CREDITS.md` je Paket) |
+| `CREDITS.md` | liegt seit 0.14.0 als Kopie im Plugin-ZIP (`tools/release/build-zips.sh`); prüfen, ob Theme und Add-ons ebenfalls eine Kopie brauchen |
 | `tools/release/build-zips.sh` | nur falls Dateien ausgeschlossen bzw. zusätzlich aufgenommen werden sollen |
 | diese Seite | Entscheidung mit Datum eintragen |

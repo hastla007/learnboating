@@ -36,13 +36,7 @@ jobs:
           name: content-package
           path: build/*.zip
           retention-days: 14
-      - name: Lern-Plugin als ZIP (für „Kurswasser einrichten“ bzw. „Plugin hochladen“)
-        run: themes/kurswasser/tools/build-plugin-zip.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bootspruefung-learning-plugin
-          path: themes/kurswasser/plugins/bootspruefung-learning.zip
-          retention-days: 14
+      # Lern-Plugin als ZIP: Job „Auslieferungs-ZIP“ (tools/release/build-zips.sh, Artefakt release-zips-<commit>).
 
   affiliate-connector:
     name: Partnerprogramm-Connector
@@ -479,12 +473,13 @@ jobs:
           WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/learning-compat-test.php | tee zip-theme.log; check_log zip-theme.log
 
   upgrade:
-    name: Update von der Vorversion 0.13.0 auf die Auslieferungs-ZIP (Migration)
+    name: Update von der Vorversion (letzter Release-Tag) auf die Auslieferungs-ZIP (Migration)
     runs-on: ubuntu-24.04
     env:
-      # Vorversion: Commit „Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung (0.13.0, App-API 1.9.0)“,
-      # Schema 1.13.0. Sobald es Release-Tags gibt, hier den letzten Tag eintragen (docs/installation-und-updates.md).
-      PREV_REF: 004e7286c4e512eee72c9045c9d84a6032ab24c8
+      # Vorversion ohne Release-Tag: Commit „Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung
+      # (0.13.0, App-API 1.9.0)“, Schema 1.13.0. Sobald es Tags v* gibt, gilt automatisch der letzte Tag vor diesem
+      # Commit (Schritt „Vorversion bestimmen“, docs/installation-und-updates.md).
+      PREV_REF_FALLBACK: 004e7286c4e512eee72c9045c9d84a6032ab24c8
     services:
       mariadb:
         image: mariadb:12.3.3
@@ -498,14 +493,22 @@ jobs:
           --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Tags und Verlauf für „git describe“
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
           extensions: mysqli, intl, zip
           coverage: none
+      - name: Vorversion bestimmen (letzter Release-Tag vor diesem Commit, sonst fester Commit)
+        run: |
+          # HEAD^: Auf dem Tag-Commit selbst zählt der Tag davor.
+          PREV_REF="$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD^ 2>/dev/null || true)"
+          echo "PREV_REF=${PREV_REF:-$PREV_REF_FALLBACK}" >> "$GITHUB_ENV"
+          echo "Vorversion: ${PREV_REF:-$PREV_REF_FALLBACK (kein Release-Tag)}"
       - name: Vorversion auspacken
         run: |
-          git fetch --quiet --depth 1 origin "$PREV_REF"
+          git cat-file -e "$PREV_REF^{commit}" 2>/dev/null || git fetch --quiet --depth 1 origin "$PREV_REF"
           mkdir -p "$RUNNER_TEMP/prev"
           git archive --format=tar "$PREV_REF" bootspruefung-learning tools/content-build content-source schema | tar -x -C "$RUNNER_TEMP/prev"
           sed -n 's/^ \* Version:[[:space:]]*/Vorversion /p' "$RUNNER_TEMP/prev/bootspruefung-learning/bootspruefung-learning.php"

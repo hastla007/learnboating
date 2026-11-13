@@ -44,7 +44,7 @@ ein Add-on erst, wenn die dort genannten Plugins aktiv sind.
 |---|---|---|
 | PHP | 8.1 bis 8.5 | 8.1 (Untergrenze) und 8.5 (Zielsystem) |
 | WordPress | ab 7.0 (getestet bis 7.1) | 7.0.0 (Untergrenze) und 7.1.4 (Zielsystem) |
-| WooCommerce | ab 11.2 (getestet bis 11.3) | 11.2.2; 11.3 Beta nur zur Information |
+| WooCommerce | ab 11.2 (getestet bis 11.2, `WC tested up to: 11.2`); optional – ohne WooCommerce läuft das Plugin ohne Shop | 11.2.2; 11.3 Beta nur zur Information |
 | MariaDB | ab 10.11 | 10.11 und 12.3.3 (Zielsystem) |
 | MySQL | nicht festgelegt | nicht getestet – vor dem Einsatz auf Staging prüfen |
 | Theme Kurswasser | braucht das Lern-Plugin ab 0.13.0 | Versionsvertrag (`themes/kurswasser/tests/learning-compat-test.php`) |
@@ -100,7 +100,9 @@ Paketen). Sie werden von Hand als ZIP hochgeladen:
 Mit WP-CLI geht dasselbe: `wp plugin install bootspruefung-learning-<version>.zip --force` bzw.
 `wp theme install kurswasser-<version>.zip --force`, danach `wp bootspruefung migrate`.
 
-Die CI prüft genau diesen Weg: Job „Update von der Vorversion“ installiert die Vorversion 0.13.0, legt Lerndaten an,
+Die CI prüft genau diesen Weg: Job „Update von der Vorversion“ installiert die Vorversion (den letzten Release-Tag
+`v*` vor dem geprüften Commit, `git describe --tags --abbrev=0`; solange es keinen Tag gibt, 0.13.0 als fester Commit
+`004e728`), legt Lerndaten an,
 spielt die neue ZIP darüber ein (ohne erneute Aktivierung) und prüft Migration und Daten
 (`tools/release/upgrade-check.php`). Job „Auslieferungs-ZIP“ installiert Plugin, Theme und Add-ons aus den ZIPs und
 lässt die Basistests laufen.
@@ -116,11 +118,21 @@ Siehe `docs/release-regel.md`, Abschnitt „Downgrade“: Bei gleicher Schema-Ve
 tools/release/build-zips.sh                     # Stand HEAD → build/release/
 tools/release/build-zips.sh --rev <commit>      # älterer Stand (z. B. für ein Downgrade vor dem ersten Release)
 tools/release/build-zips.sh --out /tmp/zips     # anderer Zielordner
+tools/release/build-zips.sh --tag v0.15.0       # wie der Release-Workflow: Tag ⇔ Plugin-Version, Versionen erhöht?
 ```
 
 Das Skript nimmt nur gespeicherte Stände (Commit), prüft, dass Versionen im Kopf, in den Konstanten, in `readme.txt`
 und in den Änderungsprotokollen übereinstimmen, und dass in den ZIPs nur ein Ordner mit dem richtigen Namen und keine
-Entwicklerdateien liegen. Gleicher Commit ergibt gleiche Prüfsummen.
+Entwicklerdateien liegen. Verboten sind außerdem (T106) die Markdown-Quellen der Inhaltsseiten (`content/src/`,
+`_moderation/`) und eingebettete ZIP-Dateien – das Theme-Paket enthält das Lern-Plugin nicht. Das Plugin-ZIP enthält
+eine Kopie von `CREDITS.md`. Gleicher Commit ergibt gleiche Prüfsummen.
+
+Mit `--tag` prüft das Skript zusätzlich gegen den vorigen Release-Tag: Hat sich der Ordner des Plugins, des Themes oder
+eines Add-ons seit diesem Tag geändert (`git diff --quiet <voriger-tag> -- <ordner>`), die Version im Dateikopf aber
+nicht, bricht es ab. Ohne vorigen Tag wird diese Prüfung übersprungen.
+
+Es gibt nur diesen einen Bauweg. Das frühere `themes/kurswasser/tools/build-plugin-zip.sh` ist entfernt; ein
+einzelnes Plugin-ZIP kommt aus `tools/release/build-zips.sh` (bzw. dem CI-Artefakt `release-zips-<commit>`).
 
 **Release anlegen:** Versionen nach `docs/release-regel.md` erhöhen, Änderungsprotokolle ergänzen, CI grün,
 dann Tag setzen: `git tag v<Plugin-Version>` und `git push origin v<Plugin-Version>`. Der Workflow
@@ -137,7 +149,7 @@ nach der Release-Regel bekommt dann auch das Lern-Plugin eine neue PATCH-Version
 |---|---|
 | WordPress-Plugin (Matrix) | alle Integrations- und Browser-Tests; PHP 8.5/WP 7.1.4 (Ziel), WooCommerce 11.3 Beta (informativ), Untergrenze PHP 8.1/WP 7.0.0/MariaDB 10.11 |
 | Auslieferungs-ZIP | baut die ZIPs mit `tools/release/build-zips.sh` (Artefakt `release-zips-<commit>`), installiert sie statt der Repo-Ordner und lässt Rauchtest, Import/Lernen, Zugänge, Betrieb und den Versionsabgleich des Themes laufen |
-| Update von der Vorversion | Vorversion 0.13.0 (fester Commit `PREV_REF`; ab dem ersten Release der letzte Tag) mit Daten, dann die neue ZIP darüber, Migration und Datenbestand prüfen, Tests weiter grün |
+| Update von der Vorversion | Vorversion = letzter Release-Tag vor dem Commit (`git describe --tags --abbrev=0`), ohne Tag 0.13.0 (fester Commit `004e728`), mit Daten, dann die neue ZIP darüber, Migration und Datenbestand prüfen, Tests weiter grün |
 | Statische Analyse | PHPStan Stufe 5 mit WordPress- und WooCommerce-Stubs (`bootspruefung-learning/phpstan.neon.dist`), WordPress Coding Standards: Sicherheitsregeln als Fehler (`phpcs.xml.dist`), alle übrigen Regeln nur als Übersicht |
 | Voucher Captain | Connector-Abnahme mit Voucher Captain aus dem externen Repo (fester Commit, informativ, darf scheitern) |
 

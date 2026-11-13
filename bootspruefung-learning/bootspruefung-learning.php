@@ -9,7 +9,7 @@
  * Text Domain:       bootspruefung-learning
  * Domain Path:       /languages
  * WC requires at least: 11.2
- * WC tested up to:     11.3
+ * WC tested up to:     11.2
  * Update URI:        false
  *
  * @package Bootspruefung\Learning
