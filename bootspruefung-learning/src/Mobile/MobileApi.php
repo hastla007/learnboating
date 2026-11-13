@@ -448,7 +448,8 @@ final class MobileApi
         return new WP_REST_Response(['data' => [
             'status' => MobileSettings::enabled() ? 'ok' : 'disabled',
             'api_version' => self::API_VERSION,
-            'plugin_version' => Plugin::VERSION,
+            // Version nur für Verwaltung (sonst verrät /health ohne Anmeldung den genauen Softwarestand, T49).
+            'plugin_version' => current_user_can('manage_options') ? Plugin::VERSION : null,
             'tenant_slug' => MobileSettings::tenantSlug(),
             'tenant_name' => MobileSettings::tenantName(),
             'authorization_header_received' => TokenAuth::authorizationHeader() !== '',

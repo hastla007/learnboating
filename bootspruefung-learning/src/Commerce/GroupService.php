@@ -418,6 +418,9 @@ final class GroupService
     public static function cleanName(string $name, int $max = 60): string
     {
         $name = trim((string) preg_replace('~(https?://|www\.)\S*|\S+@\S+|\S+\.(de|com|net|org|info|io|ru|xyz)\b~iu', '', wp_strip_all_tags($name)));
+        // Weitere Domains jeder Endung (z. B. „gewinn.top“, „login-seite.shop“), T49. Großgeschriebene Endungen wie
+        // in „St.Peter“ oder „e.V.“ bleiben.
+        $name = trim((string) preg_replace('~[\p{L}\p{N}-]+(\.[\p{L}\p{N}-]+)*\.[a-z]{2,24}\b~u', '', $name));
         $name = trim((string) preg_replace('/\s+/u', ' ', $name));
 
         return trim(mb_substr($name, 0, $max));

@@ -21,6 +21,11 @@ use Bootspruefung\Learning\Content\Media\MediaStorage;
  *   user_sitemap     keine Benutzer-Sitemap (wp-sitemap-users-*.xml verrät Anmeldenamen)
  *   author_archives  ?author=N bzw. /author/<login>/ und Autorenangaben in oEmbed für Gäste weg
  *   rest_users       /wp/v2/users nur für Redakteure (Block-Editor braucht die Liste)
+ *   app_passwords    Anwendungspasswörter nur für Konten mit Redaktionsrechten (nicht für Kunden)
+ *   email_change     E-Mail-Adresse unter „Mein Konto“ nur mit aktuellem Passwort ändern
+ *   feed_author      RSS nennt statt des Autorennamens die Website (kein Anmeldename im Feed)
+ *   register_limit   Registrierungen je IP begrenzen (bremst das Abfragen vorhandener Adressen)
+ *   headers          Sicherheits-Header im Frontend (nosniff, Referrer-Policy, Framing, Permissions-Policy)
  */
 final class Hardening
 {
@@ -75,9 +80,90 @@ final class Hardening
         LoginGuard::register();
         add_action('lostpassword_post', [LoginGuard::class, 'lostPassword'], 99, 2);
 
+        // T49: Anwendungspasswörter nur für Redaktion/Verwaltung – ein Kunden-Anwendungspasswort wäre ein Dauerzugang
+        // an der Login-Begrenzung vorbei.
+        add_filter('wp_is_application_passwords_available_for_user', static fn ($available, $user) => self::enabled('app_passwords') && $user instanceof \WP_User && ! user_can($user, 'edit_posts') ? false : $available, 10, 2);
+        // T49: E-Mail-Änderung unter „Mein Konto“ nur mit aktuellem Passwort (sonst reicht eine übernommene Sitzung,
+        // z. B. aus der App-Webansicht, um das Konto per „Passwort vergessen“ zu übernehmen).
+        add_action('woocommerce_save_account_details_errors', [self::class, 'requirePasswordForEmailChange'], 10, 2);
+        // T49: Feeds nennen keinen Autorennamen (oft gleich dem Anmeldenamen).
+        add_filter('the_author', static fn ($name) => is_feed() && self::enabled('feed_author') ? (string) get_bloginfo('name') : $name, 99);
+        // T49: Registrierungen je IP begrenzen (WooCommerce „Mein Konto“, Kasse, wp-login).
+        add_filter('woocommerce_registration_errors', [self::class, 'limitRegistration'], 5, 3);
+        add_filter('registration_errors', [self::class, 'limitRegistration'], 5, 3);
+        // T49: Sicherheits-Header im Frontend.
+        add_action('send_headers', [self::class, 'securityHeaders']);
+
         // Ablageordner (Pakete, geschützte Dateien) nach Updates an den geschützten Ort bringen.
         add_action('admin_init', [MediaStorage::class, 'relocateAll']);
         add_action('bp_learning_hourly', \Bootspruefung\Learning\Infrastructure\Cron::guard('media_relocate', [MediaStorage::class, 'relocateAll']));
+    }
+
+    /**
+     * „Mein Konto › Kontodetails“: neue E-Mail-Adresse nur mit richtigem aktuellem Passwort.
+     * @param mixed $errors @param mixed $user
+     */
+    public static function requirePasswordForEmailChange($errors, $user): void
+    {
+        if (! $errors instanceof \WP_Error || ! is_object($user) || empty($user->ID) || ! self::enabled('email_change')) {
+            return;
+        }
+        $current = get_userdata((int) $user->ID);
+        $new = isset($user->user_email) ? strtolower(trim((string) $user->user_email)) : '';
+        if (! $current instanceof \WP_User || $new === '' || $new === strtolower((string) $current->user_email)) {
+            return;
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce vor diesem Hook
+        $password = isset($_POST['password_current']) ? (string) wp_unslash($_POST['password_current']) : '';
+        if ($password === '' || ! wp_check_password($password, (string) $current->user_pass, (int) $current->ID)) {
+            $errors->add('bp_email_change_password', __('Bitte gib dein aktuelles Passwort ein, um deine E-Mail-Adresse zu ändern.', 'bootspruefung-learning'));
+        }
+    }
+
+    /**
+     * Registrierung: höchstens 10 Versuche je IP und Stunde (vorhandene Adressen lassen sich sonst massenhaft
+     * abfragen). @param mixed $errors @return mixed
+     */
+    public static function limitRegistration($errors, $a = null, $b = null)
+    {
+        if (! $errors instanceof \WP_Error || ! self::enabled('register_limit')) {
+            return $errors;
+        }
+        $hits = \Bootspruefung\Learning\Mobile\RateLimiter::increment('register-ip|'.\Bootspruefung\Learning\Mobile\RateLimiter::ipKey(\Bootspruefung\Learning\Mobile\RateLimiter::clientIp()), HOUR_IN_SECONDS);
+        if ($hits > 10) {
+            $errors->add('bp_register_limit', __('Zu viele Registrierungen von deinem Anschluss. Bitte versuche es in einer Stunde erneut.', 'bootspruefung-learning'));
+        }
+
+        return $errors;
+    }
+
+    /** Sicherheits-Header im Frontend, nur wenn noch nicht gesetzt (Server oder anderes Plugin haben Vorrang). */
+    public static function securityHeaders(): void
+    {
+        if (is_admin() || headers_sent() || ! self::enabled('headers')) {
+            return;
+        }
+        $sent = array_map(static fn ($h) => strtolower(trim(explode(':', (string) $h, 2)[0])), headers_list());
+        foreach (self::securityHeaderList() as $name => $value) {
+            if (! in_array(strtolower($name), $sent, true)) {
+                header($name.': '.$value);
+            }
+        }
+    }
+
+    /**
+     * Sicherheits-Header: kein MIME-Sniffing, Referrer nur als Herkunft bei fremden Seiten, Einbetten nur auf der
+     * eigenen Website, Mikrofon nur für die eigene Seite (Funktraining), keine Kamera und kein Standort.
+     * @return array<string,string>
+     */
+    public static function securityHeaderList(): array
+    {
+        return (array) apply_filters('bootspruefung_security_headers', [
+            'X-Content-Type-Options' => 'nosniff',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+            'X-Frame-Options' => 'SAMEORIGIN',
+            'Permissions-Policy' => 'camera=(), geolocation=(), microphone=(self)',
+        ]);
     }
 
     /** Ist die Härtung $feature aktiv? (Filter bootspruefung_hardening) */

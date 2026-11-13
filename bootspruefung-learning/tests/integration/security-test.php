@@ -435,6 +435,40 @@ for ($i = 0; $i < LoginGuard::FAILS_PER_LOGIN_IP + 1; $i++) {
 }
 $check(is_wp_error($last) && $last->get_error_code() === 'bp_login_failed', 'keine doppelte Sperre neben dem Sicherheits-Plugin');
 
+echo "Härtung Rest aus dem Audit (T49)\n";
+$H = \Bootspruefung\Learning\Security\Hardening::class;
+$customerT49 = get_userdata((int) $userId);
+$check(apply_filters('wp_is_application_passwords_available_for_user', true, $customerT49) === false && apply_filters('wp_is_application_passwords_available_for_user', true, get_userdata(1)) === true, 'Anwendungspasswörter: nicht für Kunden, weiter für Verwaltung (WordPress verlangt zusätzlich HTTPS)');
+$errT49 = new WP_Error();
+$fake = (object) ['ID' => (int) $userId, 'user_email' => 'neu-'.wp_generate_password(4, false, false).'@example.test'];
+$_POST['password_current'] = '';
+$H::requirePasswordForEmailChange($errT49, $fake);
+$check($errT49->get_error_code() === 'bp_email_change_password', 'E-Mail ändern ohne aktuelles Passwort abgelehnt');
+$errT49 = new WP_Error();
+$_POST['password_current'] = $pass;
+$H::requirePasswordForEmailChange($errT49, $fake);
+$errSame = new WP_Error();
+$_POST['password_current'] = '';
+$H::requirePasswordForEmailChange($errSame, (object) ['ID' => (int) $userId, 'user_email' => $customerT49->user_email]);
+$check(! $errT49->has_errors() && ! $errSame->has_errors(), 'mit richtigem Passwort erlaubt; ohne Adressänderung kein Passwort nötig');
+unset($_POST['password_current']);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$_SERVER['REMOTE_ADDR'] = '203.0.113.95';
+for ($i = 0; $i < 10; $i++) {
+    $regErr = $H::limitRegistration(new WP_Error());
+}
+$check(! $regErr->has_errors() && $H::limitRegistration(new WP_Error())->get_error_code() === 'bp_register_limit', 'Registrierung: nach 10 Versuchen je IP und Stunde gesperrt');
+$headersT49 = $H::securityHeaderList();
+$check(($headersT49['X-Content-Type-Options'] ?? '') === 'nosniff' && ($headersT49['X-Frame-Options'] ?? '') === 'SAMEORIGIN' && str_contains($headersT49['Permissions-Policy'] ?? '', 'microphone=(self)') && has_action('send_headers', [$H, 'securityHeaders']) !== false, 'Sicherheits-Header im Frontend (Mikrofon nur für die eigene Seite – Funktraining)');
+$check(has_filter('the_author') !== false, 'Feeds nennen keinen Autorennamen');
+$cleaned = \Bootspruefung\Learning\Commerce\GroupService::cleanName('Segelclub St.Peter e.V. – jetzt gewinn.top und login-seite.shop besuchen');
+$check(! str_contains($cleaned, 'gewinn.top') && ! str_contains($cleaned, 'login-seite.shop') && str_contains($cleaned, 'St.Peter') && str_contains($cleaned, 'e.V.'), 'Gruppenname: Domains jeder Endung entfernt, „St.Peter“ und „e.V.“ bleiben ('.$cleaned.')');
+$check(\Bootspruefung\Learning\Cli\Commands::insideWebroot(ABSPATH.'export.json') && \Bootspruefung\Learning\Cli\Commands::insideWebroot(wp_upload_dir()['basedir'].'/x.json') && ! \Bootspruefung\Learning\Cli\Commands::insideWebroot(sys_get_temp_dir().'/bp-export.json'), 'CLI-Exporte: Webordner und Uploads abgelehnt, /tmp erlaubt');
+wp_set_current_user(0);
+$healthT49 = rest_do_request(new WP_REST_Request('GET', '/boatingschool/v1/health'))->get_data()['data'] ?? [];
+wp_set_current_user(1);
+$check(array_key_exists('api_version', $healthT49) && ($healthT49['plugin_version'] ?? null) === null, '/health ohne Anmeldung nennt keine Plugin-Version');
+
 echo "Aufräumen\n";
 require_once ABSPATH.'wp-admin/includes/user.php';
 wp_delete_user((int) $userId);

@@ -639,6 +639,9 @@ final class Commands
         if ($tenantSlug === '' || $mediaRootArg === '' || $output === '') {
             WP_CLI::error('Aufruf: wp bootspruefung export course-files <tenant-slug> --media-root=<verzeichnis> --output=<datei.json>');
         }
+        if (self::insideWebroot(rtrim($mediaRootArg, '/').'/x') || self::insideWebroot($output)) {
+            WP_CLI::error('Export und Staging-Verzeichnis nicht im Webordner ablegen (per Adresse abrufbar). Bitte Ordner außerhalb wählen, z. B. /tmp.');
+        }
         if (! wp_mkdir_p($mediaRootArg)) {
             WP_CLI::error('Das Staging-Verzeichnis konnte nicht angelegt werden.');
         }
@@ -850,8 +853,29 @@ final class Commands
         }
     }
 
+    /**
+     * Exporte enthalten Kundendaten bzw. lizenzierte Inhalte: nie in den Webordner (WordPress-Verzeichnis oder
+     * Upload-Ordner) schreiben, wo sie per Adresse abrufbar wären (T49).
+     */
+    public static function insideWebroot(string $path): bool
+    {
+        $dir = realpath(dirname($path)) ?: dirname($path);
+        $roots = array_filter([realpath(ABSPATH) ?: ABSPATH, realpath((string) (wp_upload_dir(null, false)['basedir'] ?? '')) ?: null]);
+        foreach ($roots as $root) {
+            $root = rtrim((string) $root, '/');
+            if ($root !== '' && ($dir === $root || str_starts_with($dir.'/', $root.'/'))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function writeMobileExport(string $path, array $payload): void
     {
+        if (self::insideWebroot($path)) {
+            WP_CLI::error("Export nicht im Webordner ablegen (per Adresse abrufbar): {$path}. Bitte einen Ordner außerhalb wählen, z. B. /tmp.");
+        }
         $json = wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (! is_string($json) || file_put_contents($path, $json.PHP_EOL, LOCK_EX) === false || ! chmod($path, 0600)) {
             WP_CLI::error("Export konnte nicht sicher geschrieben werden: {$path}");
