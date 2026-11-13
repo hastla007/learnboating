@@ -6,6 +6,7 @@ namespace Bootspruefung\Learning\Gate;
 
 use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
+use Bootspruefung\Learning\Frontend\NoCache;
 use Bootspruefung\Learning\Frontend\Router;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 
@@ -94,7 +95,11 @@ final class ContentGate
     public function filterContent($content)
     {
         $post = get_post();
-        if (! $post instanceof \WP_Post || ! self::locked((int) $post->ID)) {
+        if (! $post instanceof \WP_Post || self::requirement((int) $post->ID) === null) {
+            return $content;
+        }
+        NoCache::mark('protected-content'); // Ausgabe hängt vom Zugang ab (T78)
+        if (! self::locked((int) $post->ID)) {
             return $content;
         }
         $req = self::requirement((int) $post->ID);
@@ -162,6 +167,7 @@ final class ContentGate
         if ($course === '') {
             return do_shortcode((string) $content);
         }
+        NoCache::mark('protected-section');
         if (self::allows(get_current_user_id(), $course, $feature) || (get_the_ID() && current_user_can('edit_post', get_the_ID()))) {
             return do_shortcode((string) $content);
         }
@@ -194,6 +200,9 @@ final class ContentGate
             'render_callback' => static function (array $attrs, string $content): string {
                 $course = (string) ($attrs['course'] ?? '');
                 $feature = (string) ($attrs['feature'] ?? self::ANY);
+                if ($course !== '') {
+                    NoCache::mark('protected-section');
+                }
                 if ($course === '' || self::allows(get_current_user_id(), $course, $feature) || (get_the_ID() && current_user_can('edit_post', get_the_ID()))) {
                     return $content;
                 }

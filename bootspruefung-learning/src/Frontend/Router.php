@@ -123,6 +123,8 @@ final class Router
         add_shortcode('bootspruefung', [$this, 'shortcode']);
         // Nonce-Erneuerung für die App (abgelaufene Sitzung/Nonce ohne Neuladen der Seite).
         (new \Bootspruefung\Learning\Rest\NonceRefresh())->register();
+        // Lernbereich, Einladung, Abmeldeseite, Widerruf und geschützte Inhalte nicht zwischenspeichern (T78).
+        NoCache::register();
     }
 
     public function init(): void
@@ -141,7 +143,7 @@ final class Router
             return $template;
         }
         status_header(200);
-        nocache_headers();
+        NoCache::mark('learning-area'); // je Person verschieden (Lernstand, Einladung, Abmeldelink)
 
         return dirname($this->plugin->file()).'/templates/app.php';
     }

@@ -185,7 +185,7 @@ final class WithdrawalFunction
         if (! self::enabled() && self::legacyPage() !== null) {
             return;
         }
-        nocache_headers();
+        \Bootspruefung\Learning\Frontend\NoCache::mark('withdrawal');
         wp_safe_redirect(self::enabled() ? self::endpointUrl() : DigitalConsent::withdrawalUrl(), 302, 'Bootspruefung');
         exit;
     }

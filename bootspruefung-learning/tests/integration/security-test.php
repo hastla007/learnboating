@@ -469,6 +469,66 @@ $healthT49 = rest_do_request(new WP_REST_Request('GET', '/boatingschool/v1/healt
 wp_set_current_user(1);
 $check(array_key_exists('api_version', $healthT49) && ($healthT49['plugin_version'] ?? null) === null, '/health ohne Anmeldung nennt keine Plugin-Version');
 
+echo "Seiten-Cache: persönliche Seiten nicht zwischenspeichern (T78)\n";
+$NC = \Bootspruefung\Learning\Frontend\NoCache::class;
+$ncSignals = ['headers' => 0, 'litespeed' => 0];
+$ncHeaders = static function (array $h) use (&$ncSignals): array {
+    $ncSignals['headers']++;
+
+    return $h;
+};
+$ncLs = static function () use (&$ncSignals): void {
+    $ncSignals['litespeed']++;
+};
+add_filter('nocache_headers', $ncHeaders);
+add_action('litespeed_control_set_nocache', $ncLs);
+$ncRun = static function (array $query, ?callable $before = null) use ($NC): array {
+    $GLOBALS['wp_query'] = new WP_Query($query);
+    $GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
+    if ($before !== null) {
+        $before();
+    }
+    $NC::reset();
+    $NC::detect();
+
+    return $NC::reasons();
+};
+$ncPlain = wp_insert_post(['post_title' => 'Normale Seite T78', 'post_content' => 'Für alle gleich.', 'post_status' => 'publish', 'post_type' => 'page']);
+$ncGated = wp_insert_post(['post_title' => 'Geschützte Seite T78', 'post_content' => 'Nur mit Zugang.', 'post_status' => 'publish', 'post_type' => 'page']);
+update_post_meta($ncGated, \Bootspruefung\Learning\Gate\ContentGate::META, ['course' => 'SBF-SEE', 'feature' => 'any']);
+$ncSection = wp_insert_post(['post_title' => 'Abschnitt T78', 'post_content' => '<!-- wp:bootspruefung/zugang {"course":"SBF-SEE"} --><p>x</p><!-- /wp:bootspruefung/zugang -->', 'post_status' => 'publish', 'post_type' => 'page']);
+$ncShort = wp_insert_post(['post_title' => 'Widerruf T78', 'post_content' => '[bootspruefung_vertrag_widerrufen]', 'post_status' => 'publish', 'post_type' => 'page']);
+$check($ncRun(['page_id' => $ncPlain]) === [] && $ncSignals['headers'] === 0 && $ncSignals['litespeed'] === 0, 'normale Seite: darf zwischengespeichert werden');
+foreach (['' => 'Lernbereich', 'gruppe/g'.str_repeat('0', 32) => 'Gruppeneinladung', 'erinnerungen' => 'Abmeldeseite'] as $path => $label) {
+    $reasons = $ncRun([], static function () use ($path): void {
+        set_query_var('bp_app', '1');
+        set_query_var('bp_path', $path);
+    });
+    $check($reasons === ['learning-area'], $label.' (/bootsscheine/'.$path.'): nicht zwischenspeichern');
+}
+$check(defined('DONOTCACHEPAGE') && DONOTCACHEPAGE && defined('DONOTCACHEOBJECT') && defined('DONOTCACHEDB'), 'Konstanten DONOTCACHEPAGE, DONOTCACHEOBJECT, DONOTCACHEDB gesetzt');
+// Auf der Kommandozeile gelten die Kopfzeilen nach der ersten Ausgabe als gesendet: dann nur LiteSpeed-Aktion prüfbar.
+$check($ncSignals['litespeed'] === 3 && ($ncSignals['headers'] === 3 || headers_sent()), 'je Anfrage nocache_headers() und LiteSpeed (litespeed_control_set_nocache)');
+$check($ncRun(['page_id' => $ncGated]) === ['protected-content'], 'Seite mit „Lernzugang erforderlich“: nicht zwischenspeichern');
+$check($ncRun(['page_id' => $ncSection]) === ['protected-content'], 'Seite mit Block „Nur mit Lernzugang“: nicht zwischenspeichern');
+$check($ncRun(['page_id' => $ncShort]) === ['protected-content'], 'Seite mit Widerrufsknopf: nicht zwischenspeichern');
+$GLOBALS['wp_query'] = new WP_Query();
+$NC::reset();
+do_shortcode('[bootspruefung_zugang kurs="SBF-SEE"]geheim[/bootspruefung_zugang]');
+$check($NC::reasons() === ['protected-section'], 'Shortcode „Nur mit Lernzugang“ in Widget o. Ä.: Antwort nicht zwischenspeichern');
+$NC::reset();
+set_query_var('bp_app', '1');
+$tpl = (new \Bootspruefung\Learning\Frontend\Router(Plugin::instance()))->template('index.php');
+$check(str_ends_with($tpl, 'templates/app.php') && $NC::reasons() === ['learning-area'], 'Vorlage des Lernbereichs kennzeichnet die Antwort');
+set_query_var('bp_app', '');
+remove_filter('nocache_headers', $ncHeaders);
+remove_action('litespeed_control_set_nocache', $ncLs);
+foreach ([$ncPlain, $ncGated, $ncSection, $ncShort] as $ncId) {
+    wp_delete_post($ncId, true);
+}
+$GLOBALS['wp_query'] = new WP_Query();
+$NC::reset();
+
 echo "Aufräumen\n";
 require_once ABSPATH.'wp-admin/includes/user.php';
 wp_delete_user((int) $userId);

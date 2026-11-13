@@ -45,6 +45,14 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   Lernplattform-Tabellen mit (solange das Plugin auf der Hauptwebsite aktiv ist). Die Add-ons haben eigene
   `uninstall.php` (siehe deren README).
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
+  Das Plugin kennzeichnet diese Seiten selbst (T78): Lernbereich `/bootsscheine/…` mit Gruppeneinladung
+  (`gruppe/…`) und Abmeldeseite (`erinnerungen`), `/vertrag-widerrufen/` und das Widerrufsformular sowie Seiten
+  mit „Lernzugang erforderlich“ oder dem Block bzw. Shortcode „Nur mit Lernzugang“. Gesetzt werden
+  `DONOTCACHEPAGE`, `DONOTCACHEOBJECT`, `DONOTCACHEDB` (WP Super Cache, W3 Total Cache, WP Rocket u. a.),
+  `Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private` und für LiteSpeed
+  `X-LiteSpeed-Cache-Control: no-cache` bzw. die Aktion `litespeed_control_set_nocache`. Ein CDN oder ein
+  Server-Cache (nginx `fastcgi_cache`, Varnish), der `Cache-Control` nicht beachtet, braucht die Pfade trotzdem
+  als Ausnahme. Für eigene Regeln gibt es die Aktion `bootspruefung_nocache`.
 - **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
   für eine Anfrage und werden bei jeder Änderung sofort verworfen. Die Kennzahlen der Kurse (Fragen, Aufgaben, Videos
   für Produkttexte und Kurskarten) liegen bis zu einem Tag im Transient `bp_learning_course_stats`; Import,
