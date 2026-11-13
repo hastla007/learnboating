@@ -11,8 +11,8 @@ use Bootspruefung\Learning\Mobile\MobileSettings;
 use Bootspruefung\Learning\Mobile\TokenAuth;
 
 /**
- * Adminseite „Bootsprüfung → Mobile App“: App ein/aus, Tenant-Slug, Marke, vertrauenswürdige
- * Proxys, Sitzungsübergabe an die Webansicht, Universal Links/App Links (Passwort-Reset),
+ * Adminseite „Bootsprüfung → Mobile App“: App ein/aus, Tenant-Slug, Marke (vertrauenswürdige
+ * Proxys seit T104 unter Einstellungen › Sicherheit), Sitzungsübergabe an die Webansicht, Universal Links/App Links (Passwort-Reset),
  * Server-Prüfung (Authorization-Header) und Sitzungen eines Kunden widerrufen.
  * Nur mit manage_options und Nonce.
  */
@@ -51,6 +51,10 @@ final class MobileAdminPage
     {
         $this->guard('bp_mobile_save');
         $input = isset($_POST['bp_mobile']) && is_array($_POST['bp_mobile']) ? wp_unslash($_POST['bp_mobile']) : [];
+        // Vertrauenswürdige Proxys stehen unter Einstellungen › Sicherheit (T104) – hier unverändert lassen.
+        if (! array_key_exists('trusted_proxies', $input)) {
+            $input['trusted_proxies'] = (string) MobileSettings::all()['trusted_proxies'];
+        }
         MobileSettings::save($input);
         AuditLog::record('mobile_settings_saved', 'settings', MobileSettings::OPTION);
         $this->back(['bp_notice' => 'saved']);
@@ -117,10 +121,7 @@ final class MobileAdminPage
         printf('<tr><th scope="row"><label for="bp-mobile-tenant">%s</label></th><td><input type="text" id="bp-mobile-tenant" class="regular-text" name="bp_mobile[tenant_slug]" value="%s" placeholder="%s" pattern="[a-z0-9][a-z0-9-]{1,62}"><p class="description">%s</p></td></tr>', esc_html__('App-Kennung', 'bootspruefung-learning'), esc_attr((string) $s['tenant_slug']), esc_attr(MobileSettings::tenantSlug()), esc_html__('Kennung dieser Bootsschule für die App (Header X-Tenant-Slug). Leer = aus dem Markennamen. Nach dem Start der App nicht mehr ändern.', 'bootspruefung-learning'));
         printf('<tr><th scope="row"><label for="bp-mobile-color">%s</label></th><td><input type="text" id="bp-mobile-color" name="bp_mobile[primary_color]" value="%s" placeholder="#005FD7" pattern="#[0-9A-Fa-f]{6}"><p class="description">%s</p></td></tr>', esc_html__('Markenfarbe', 'bootspruefung-learning'), esc_attr((string) $s['primary_color']), esc_html__('Hex-Farbe für die App (leer = App-Standard). Logo: Website-Icon bzw. Theme-Logo.', 'bootspruefung-learning'));
         printf('<tr><th scope="row"><label for="bp-mobile-support">%s</label></th><td><input type="email" id="bp-mobile-support" class="regular-text" name="bp_mobile[support_email]" value="%s" placeholder="%s"></td></tr>', esc_html__('Support-E-Mail', 'bootspruefung-learning'), esc_attr((string) $s['support_email']), esc_attr((string) MobileSettings::supportEmail()));
-        if (($proxyWarning = \Bootspruefung\Learning\Mobile\RateLimiter::proxyWarning()) !== null) {
-            printf('<tr><td colspan="2"><div class="notice notice-warning inline"><p>%s</p></div></td></tr>', esc_html($proxyWarning));
-        }
-        printf('<tr><th scope="row"><label for="bp-mobile-proxies">%s</label></th><td><textarea id="bp-mobile-proxies" class="large-text code" rows="3" name="bp_mobile[trusted_proxies]">%s</textarea><p class="description">%s</p></td></tr>', esc_html__('Vertrauenswürdige Proxys', 'bootspruefung-learning'), esc_textarea((string) $s['trusted_proxies']), esc_html__('IP-Adressen oder Netze (CIDR) der Reverse-Proxys/Load-Balancer/CDNs direkt vor WordPress, deren X-Forwarded-For für Anmelde-Limits gilt. Leer (Standard) = keinem Proxy vertrauen, es zählt nur die direkte Gegenstelle (REMOTE_ADDR) – auch Loopback und private Netze gelten nicht automatisch. Hinter einem Proxy (z. B. Docker mit Caddy/nginx davor) dessen Adresse bzw. Netz eintragen, sonst teilen sich alle Kunden die Limits der Proxy-IP.', 'bootspruefung-learning'));
+        printf('<tr><th scope="row">%s</th><td><p>%s <a href="%s">%s</a></p></td></tr>', esc_html__('Vertrauenswürdige Proxys', 'bootspruefung-learning'), esc_html__('Jetzt im Bereich „Sicherheit“ der Einstellungen (gilt für Website und App).', 'bootspruefung-learning'), esc_url(admin_url('admin.php?page=bootspruefung-settings#bp-set-security')), esc_html__('Einstellungen › Sicherheit', 'bootspruefung-learning'));
         printf('<tr><th scope="row">%s</th><td><input type="hidden" name="bp_mobile[web_session_enabled]" value="0"><label><input type="checkbox" name="bp_mobile[web_session_enabled]" value="1" %s> %s</label><p class="description">%s</p></td></tr>', esc_html__('Anmeldung in der Webansicht', 'bootspruefung-learning'), checked(! empty($s['web_session_enabled']), true, false), esc_html__('Erlaubt (Standard)', 'bootspruefung-learning'), esc_html__('Die App darf Kundinnen und Kunden mit einem 60 Sekunden gültigen Einmal-Link im Web-Lernbereich anmelden (z. B. Funkgerät-Simulator in der Tablet-App). Nur Seiten unter dem Lernbereich; nie für Konten mit Verwaltungsrechten.', 'bootspruefung-learning'));
         echo '</tbody></table>';
 

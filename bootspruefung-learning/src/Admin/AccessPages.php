@@ -68,7 +68,7 @@ final class AccessPages
         }
 
         echo '<form method="get" style="margin:12px 0"><input type="hidden" name="page" value="'.esc_attr(self::SLUG).'">';
-        printf('<input type="search" name="s" value="%s" placeholder="%s"> ', esc_attr($filter['search']), esc_attr__('E-Mail, Name, Benutzer-ID, SKU', 'bootspruefung-learning'));
+        printf('<input type="search" name="s" value="%1$s" placeholder="%2$s" aria-label="%2$s"> ', esc_attr($filter['search']), esc_attr__('E-Mail, Name, Benutzer-ID, SKU', 'bootspruefung-learning'));
         $this->selectField('course', ['' => __('alle Kurse', 'bootspruefung-learning')] + Labels::courses(), $filter['course']);
         $statuses = ['' => __('alle Status', 'bootspruefung-learning')];
         foreach (EntitlementPlanner::STATUSES as $s) {
@@ -328,7 +328,7 @@ final class AccessPages
         echo ' <label>'.esc_html__('Teilumfang', 'bootspruefung-learning').' <input type="number" min="1" name="limit" style="width:70px"></label> ';
         echo '<span class="description">'.esc_html__('leer = ganz; sonst: Fragen je Modul, Prüfungsbögen bzw. erste Lektionen/Aufgaben/Übungen', 'bootspruefung-learning').'</span><br>';
         echo '<label>'.esc_html__('bis', 'bootspruefung-learning').' <input type="date" name="valid_until"></label> ';
-        echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> ';
+        echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
         submit_button(__('Hinzufügen', 'bootspruefung-learning'), 'primary', '', false);
         echo '</p></form>';
 
@@ -340,13 +340,13 @@ final class AccessPages
         }
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('bp_free_rule');
-        echo '<input type="hidden" name="action" value="bp_free_rule"><input type="hidden" name="op" value="drip"><p><select name="target">';
+        echo '<input type="hidden" name="action" value="bp_free_rule"><input type="hidden" name="op" value="drip"><p><select name="target" aria-label="'.esc_attr__('Modul bzw. Videokapitel', 'bootspruefung-learning').'">';
         foreach ($modules as $value => $label) {
             [$course] = explode('|', $value);
             printf('<option value="%s">%s</option>', esc_attr($value), esc_html(Labels::course($course).' › '.$label));
         }
         echo '</select> <label>'.esc_html__('freischalten nach', 'bootspruefung-learning').' <input type="number" min="1" name="days" required style="width:70px"> '.esc_html__('Tagen', 'bootspruefung-learning').'</label> ';
-        echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> ';
+        echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
         submit_button(__('Hinzufügen', 'bootspruefung-learning'), 'secondary', '', false);
         echo '</p><p class="description">'.esc_html__('Beginn = frühester aktiver Zugang zu Kurs und Funktion; ohne Kauf (kostenlos) das Registrierungsdatum.', 'bootspruefung-learning').'</p></form></div>';
     }
@@ -387,11 +387,12 @@ final class AccessPages
             .esc_html__('Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe. Produktkatalog: alle Produkte mit Preisen (änderbar unter „Preise“), Laufzeit (12 bzw. 6 Monate, Pässe 30/90 Tage) und Geld-zurück-Garantie (14 Tage, unter 20 % gelernt). Mit Produktbildern, Kategorien und Texten aus den Kursinhalten (von Hand geänderte Texte/Bilder bleiben erhalten). Wiederholbar.', 'bootspruefung-learning').'</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_shop_catalog', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_catalog">';
         echo '<button class="button" name="op" value="free">'.esc_html__('Schnupper-Paket anlegen', 'bootspruefung-learning').'</button> ';
+        echo '</form>';
         if ($woo) {
-            echo '<button class="button" name="op" value="products">'.esc_html__('Produktkatalog anlegen/abgleichen', 'bootspruefung-learning').'</button> ';
-            echo '<label><input type="checkbox" name="publish" value="1"> '.esc_html__('Produkte veröffentlichen (sonst Entwurf)', 'bootspruefung-learning').'</label>';
+            // T104: Produktkatalog nur noch unter „Preise“ abgleichen (nicht doppelt).
+            echo '<p>'.esc_html__('Produktkatalog anlegen oder abgleichen:', 'bootspruefung-learning').' <a href="'.esc_url(Ui::url(PricePage::SLUG)).'">'.esc_html__('Preise', 'bootspruefung-learning').'</a> › „'.esc_html__('Speichern und Katalog abgleichen', 'bootspruefung-learning').'“</p>';
         }
-        echo '</form></div>';
+        echo '</div>';
     }
 
     public function handleCatalog(): void
@@ -399,14 +400,10 @@ final class AccessPages
         $this->guard('bp_shop_catalog');
         $op = sanitize_key(wp_unslash($_POST['op'] ?? ''));
         try {
-            if ($op === 'products' && ($conflicts = \Bootspruefung\Learning\Commerce\ShopCatalog::saleConflicts()) !== []) {
-                // WooCommerce würde diese Angebotspreise beim Abgleich entfernen.
-                Ui::flash(sprintf(__('Katalog nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter „Preise“ abgleichen (dort lässt sich das Entfernen bestätigen) oder den Angebotspreis anpassen.', 'bootspruefung-learning'), implode(', ', array_keys($conflicts))), 'warning');
-            } elseif ($op === 'products') {
-                $publish = ! empty($_POST['publish']);
-                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts(false, $publish);
-                $new = count(array_filter($rows, static fn ($r) => $r['action'] === 'neu'));
-                Ui::flash(sprintf(__('Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu – %3$s.', 'bootspruefung-learning'), count($rows), $new, $publish ? __('veröffentlicht', 'bootspruefung-learning') : __('neue als Entwurf', 'bootspruefung-learning')).PricePage::skippedMessage($rows));
+            if ($op === 'products') {
+                // T104: Der Katalog-Abgleich steht nur noch unter „Preise“ (dort mit Vorschau und Sale-Bestätigung).
+                wp_safe_redirect(Ui::url(PricePage::SLUG));
+                exit;
             } else {
                 $r = \Bootspruefung\Learning\Commerce\ShopCatalog::applyFreeTier();
                 Ui::flash(sprintf(__('Schnupper-Paket: %d Regel(n) angelegt.', 'bootspruefung-learning'), $r['added']));
@@ -501,7 +498,7 @@ final class AccessPages
             foreach ($service->membersOf((int) $group->id) as $m) {
                 $remove = $m->status === 'removed' ? '' : '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline">'.wp_nonce_field('bp_group_admin', '_wpnonce', true, false)
                     .'<input type="hidden" name="action" value="bp_group_admin"><input type="hidden" name="op" value="remove"><input type="hidden" name="group" value="'.(int) $group->id.'"><input type="hidden" name="member" value="'.(int) $m->id.'">'
-                    .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> <button class="button-link-delete">'.esc_html__('Entfernen (Platz wird frei)', 'bootspruefung-learning').'</button></form>';
+                    .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'" aria-label="'.esc_attr(sprintf(__('Begründung für %s', 'bootspruefung-learning'), $m->display_name ?: __('diese Person', 'bootspruefung-learning'))).'"> <button class="button-link-delete">'.esc_html__('Entfernen (Platz wird frei)', 'bootspruefung-learning').'</button></form>';
                 $rows[] = [esc_html(($m->display_name ?: '–').($m->email ? ' <'.$m->email.'>' : '')), esc_html(['active' => __('aktiv', 'bootspruefung-learning'), 'invited' => __('eingeladen', 'bootspruefung-learning'), 'expired' => __('Einladung abgelaufen', 'bootspruefung-learning'), 'removed' => __('entfernt', 'bootspruefung-learning')][$m->status] ?? $m->status), esc_html(Ui::date($m->joined_at ?: $m->invited_at)), $remove];
             }
             // T102: Verlauf der Gruppe aus dem Protokoll.
@@ -511,7 +508,7 @@ final class AccessPages
             echo '<h2>'.esc_html__('Gruppe ändern', 'bootspruefung-learning').'</h2><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
             wp_nonce_field('bp_group_admin');
             echo '<input type="hidden" name="action" value="bp_group_admin"><input type="hidden" name="op" value="status"><input type="hidden" name="group" value="'.(int) $group->id.'">';
-            echo '<p><input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"></p><p>';
+            echo '<p><input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"></p><p>';
             foreach (['active' => __('Aktivieren', 'bootspruefung-learning'), 'suspended' => __('Aussetzen', 'bootspruefung-learning'), 'revoked' => __('Beenden (alle Plätze widerrufen)', 'bootspruefung-learning')] as $status => $label) {
                 if ($group->status !== $status && $group->status !== 'revoked') {
                     printf('<button class="button" name="status" value="%s"%s>%s</button> ', esc_attr($status), $status === 'revoked' ? ' data-bp-confirm="'.esc_attr__('Gruppe wirklich beenden? Alle Plätze werden widerrufen.', 'bootspruefung-learning').'"' : '', esc_html($label));
@@ -521,7 +518,7 @@ final class AccessPages
 
             return;
         }
-        echo '<form method="get"><input type="hidden" name="page" value="'.esc_attr(self::GROUP_SLUG).'"><input type="search" name="s" value="'.esc_attr($search).'" placeholder="'.esc_attr__('Name, E-Mail, Bestellnummer', 'bootspruefung-learning').'"> ';
+        echo '<form method="get"><input type="hidden" name="page" value="'.esc_attr(self::GROUP_SLUG).'"><input type="search" name="s" value="'.esc_attr($search).'" placeholder="'.esc_attr__('Name, E-Mail, Bestellnummer', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Gruppen suchen: Name, E-Mail, Bestellnummer', 'bootspruefung-learning').'"> ';
         submit_button(__('Suchen', 'bootspruefung-learning'), 'secondary', '', false);
         echo '</form>';
         $rows = [];
@@ -580,13 +577,13 @@ final class AccessPages
         wp_nonce_field('bp_member_discount');
         echo '<input type="hidden" name="action" value="bp_member_discount"><input type="hidden" name="op" value="add"><p>';
         $this->selectField('course', ['' => __('beliebiger Kurs', 'bootspruefung-learning')] + Labels::courses(), '');
-        echo '<label><input type="number" name="percent" min="0.5" max="100" step="0.5" required style="width:80px"> %</label> ';
+        echo '<label><input type="number" name="percent" min="0.5" max="100" step="0.5" required style="width:80px" aria-label="'.esc_attr__('Rabatt in Prozent', 'bootspruefung-learning').'"> %</label> ';
         $applies = [];
         foreach ($md::APPLIES as $a) {
             $applies[$a] = $md::appliesLabel($a);
         }
         $this->selectField('applies', $applies, 'other');
-        echo '<input type="text" name="label" placeholder="'.esc_attr__('Bezeichnung, z. B. Schülerrabatt', 'bootspruefung-learning').'"> ';
+        echo '<input type="text" name="label" placeholder="'.esc_attr__('Bezeichnung, z. B. Schülerrabatt', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Bezeichnung', 'bootspruefung-learning').'"> ';
         submit_button(__('Hinzufügen', 'bootspruefung-learning'), 'primary', '', false);
         echo '</p></form></div>';
     }
@@ -647,9 +644,12 @@ final class AccessPages
     }
 
     /** @param array<string,string> $options */
-    private function selectField(string $name, array $options, string $current): void
+    private function selectField(string $name, array $options, string $current, string $label = ''): void
     {
-        echo '<select name="'.esc_attr($name).'">';
+        // T104: jedes Auswahlfeld mit zugänglichem Namen.
+        $labels = ['course' => __('Kurs', 'bootspruefung-learning'), 'status' => __('Status', 'bootspruefung-learning'), 'source' => __('Quelle', 'bootspruefung-learning'),
+            'feature' => __('Funktion', 'bootspruefung-learning'), 'applies' => __('gilt für', 'bootspruefung-learning')];
+        echo '<select name="'.esc_attr($name).'" aria-label="'.esc_attr($label !== '' ? $label : ($labels[$name] ?? $name)).'">';
         foreach ($options as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr((string) $value), selected($current, (string) $value, false), esc_html($label));
         }
@@ -658,8 +658,8 @@ final class AccessPages
 
     private static function badge(string $status): string
     {
-        $colors = ['invited' => '#2271b1', 'active' => '#00a32a', 'pending' => '#2271b1', 'suspended' => '#dba617', 'revoked' => '#d63638', 'expired' => '#787c82'];
+        $tones = ['invited' => 'blue', 'active' => 'green', 'pending' => 'blue', 'suspended' => 'amber', 'revoked' => 'red', 'expired' => 'gray'];
 
-        return sprintf('<span class="bp-badge" style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:%s">%s</span>', esc_attr($colors[$status] ?? '#50575e'), esc_html(Labels::status($status)));
+        return Ui::badge(Labels::status($status), $tones[$status] ?? 'dark');
     }
 }

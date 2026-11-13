@@ -510,6 +510,105 @@ foreach ($t100Pages as $name => $renderPage) {
 }
 $check(str_contains($overviewHtml, 'class="bp-glossary"') && str_contains($overviewHtml, 'Zeitversetzte Freischaltung'), 'Übersicht: Glossar aufklappbar');
 
+echo "Einstellungen, Menü und Barrierefreiheit (T104)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+// Kontrast der Badge-Farben mit weißer Schrift (WCAG AA ≥ 4,5:1).
+$lum = static function (string $hex): float {
+    $c = array_map(static fn ($x) => hexdec($x) / 255, str_split(ltrim($hex, '#'), 2));
+    $c = array_map(static fn ($x) => $x <= 0.03928 ? $x / 12.92 : (($x + 0.055) / 1.055) ** 2.4, $c);
+
+    return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+};
+$minContrast = min(array_map(static fn ($hex) => 1.05 / ($lum($hex) + 0.05), \Bootspruefung\Learning\Admin\Ui::BADGE_COLORS));
+$check($minContrast >= 4.5, sprintf('Badges: Kontrast mindestens 4,5:1 (kleinster Wert %.2f)', $minContrast));
+$badgeOk = true;
+foreach (['published', 'draft', 'unknown', 'review', 'licensed', 'failed', 'gibt-es-nicht'] as $st) {
+    preg_match('#background:(\#[0-9a-f]{6})#i', \Bootspruefung\Learning\Admin\Ui::status($st), $bg);
+    $badgeOk = $badgeOk && isset($bg[1]) && 1.05 / ($lum($bg[1]) + 0.05) >= 4.5;
+}
+$check($badgeOk && str_contains(\Bootspruefung\Learning\Admin\Ui::status('unknown'), 'ungeklärt'), 'Status-Badges nutzen die Kontrastfarben und zeigen Text');
+$check(\Bootspruefung\Learning\Admin\Ui::yesNo(true) === 'ja' && \Bootspruefung\Learning\Admin\Ui::yesNo(false) === 'nein', 'ja/nein statt ✓/✗');
+
+// Menü-Reihenfolge
+$menu = \Bootspruefung\Learning\Admin\Menu::class;
+$entries = array_map(static fn ($slug) => ['x', 'cap', $slug], ['bootspruefung', 'bootspruefung-status', 'bootspruefung-settings', 'bootspruefung-access', 'bootspruefung-mobile', 'unbekannt-1', 'bootspruefung-audit', 'bootspruefung-import', 'bootspruefung-prices', 'bootspruefung-groups']);
+$sorted = array_map(static fn ($e) => $e[2], $menu::sortEntries($entries));
+$pos = array_flip($sorted);
+$check($sorted[0] === 'bootspruefung' && $pos['bootspruefung-import'] < $pos['bootspruefung-access'] && $pos['bootspruefung-access'] < $pos['bootspruefung-groups'] && $pos['bootspruefung-groups'] < $pos['bootspruefung-prices']
+    && $pos['bootspruefung-prices'] < $pos['bootspruefung-audit'] && $pos['bootspruefung-audit'] < $pos['bootspruefung-settings'] && $pos['bootspruefung-settings'] < $pos['bootspruefung-mobile'] && end($sorted) === 'bootspruefung-status',
+    'Menü: Übersicht, Inhalte, Zugänge, Gruppen, Preise, Protokoll, Einstellungen, Mobile App, Systemstatus');
+$check($pos['unbekannt-1'] < $pos['bootspruefung-audit'] && $pos['unbekannt-1'] > $pos['bootspruefung-prices'], 'unbekannte Seiten werden vor „Protokoll“ eingeordnet');
+
+// Einstellungen: Bereich „Sicherheit“ mit den vertrauenswürdigen Proxys (Option unverändert)
+$mobileBak = get_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, null);
+update_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, array_merge(\Bootspruefung\Learning\Mobile\MobileSettings::all(), ['tenant_slug' => 't104-schule', 'trusted_proxies' => '']));
+$count = $menu::saveTrustedProxies("10.0.0.0/8\nkein-proxy\n192.0.2.7");
+$ms = \Bootspruefung\Learning\Mobile\MobileSettings::all();
+$check($count === 2 && $ms['trusted_proxies'] === "10.0.0.0/8\n192.0.2.7" && $ms['tenant_slug'] === 't104-schule', 'Sicherheit: Proxys gespeichert (gleicher Schlüssel), übrige App-Einstellungen unverändert');
+ob_start();
+(new \Bootspruefung\Learning\Admin\Menu(\Bootspruefung\Learning\Plugin::instance()))->renderSettings();
+$html = (string) ob_get_clean();
+$secPos = strpos($html, 'id="bp-set-security"');
+$check($secPos !== false && strpos($html, 'name="trusted_proxies"', (int) $secPos) !== false && str_contains($html, '10.0.0.0/8'), 'Einstellungen: Bereich „Sicherheit“ mit „Vertrauenswürdige Proxys“');
+foreach (['bp-set-access', 'bp-set-display', 'bp-set-privacy', 'bp-set-disputes'] as $sec) {
+    $check(str_contains($html, 'id="'.$sec.'"'), "Einstellungen: Bereich {$sec}");
+}
+$check(str_contains($html, 'name="bp_learning_settings[default_access]"') && str_contains($html, 'name="bp_learning_settings[expiry_reminder_days]"') && str_contains($html, 'name="bp_learning_settings[delete_data_on_uninstall]"'), 'Option-Schlüssel unverändert');
+// Jedes Formularfeld hat eine Beschriftung (label for, umschließendes label oder aria-label).
+$unlabeled = static function (string $html): array {
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="utf-8"?><div>'.$html.'</div>');
+    libxml_clear_errors();
+    $xp = new DOMXPath($doc);
+    $ids = [];
+    foreach ($xp->query('//label[@for]') as $l) {
+        $ids[$l->getAttribute('for')] = true;
+    }
+    $missing = [];
+    foreach ($xp->query('//input[not(@type="hidden") and not(@type="submit") and not(@type="button")] | //select | //textarea') as $el) {
+        if ($el->getAttribute('aria-label') !== '' || $el->getAttribute('aria-labelledby') !== '' || isset($ids[$el->getAttribute('id')]) || $xp->query('ancestor::label', $el)->length > 0
+            || ($xp->query('ancestor::*[@role="group"][@aria-labelledby]', $el)->length > 0 && $xp->query('ancestor::label', $el)->length > 0)) {
+            continue;
+        }
+        $missing[] = $el->nodeName.'['.$el->getAttribute('name').']';
+    }
+
+    return $missing;
+};
+$settingsUnlabeled = array_values(array_filter($unlabeled($html), static fn ($n) => ! str_contains($n, 'paypal') && ! str_contains($n, 'generic') && ! str_contains($n, 'dispute')));
+$check($settingsUnlabeled === [], 'Einstellungen (Plugin-Felder): alle Felder beschriftet'.($settingsUnlabeled ? ' – fehlt: '.implode(', ', $settingsUnlabeled) : ''));
+$t104Pages = [
+    'Zugänge' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->render(),
+    'Kostenlose Bereiche' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderFree(),
+    'Gruppenlizenzen' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups(),
+    'Fragen' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions(),
+    'Prüfungsregeln' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRules(),
+    'Rechte' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRights(),
+    'Protokoll' => static fn () => (new \Bootspruefung\Learning\Admin\AuditPage())->render(),
+];
+if (function_exists('wc_format_localized_decimal')) {
+    $t104Pages['Mitgliederrabatte'] = static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderDiscounts();
+}
+$freeHtml = '';
+foreach ($t104Pages as $name => $renderPage) {
+    ob_start();
+    $renderPage();
+    $page = (string) ob_get_clean();
+    $freeHtml = $name === 'Kostenlose Bereiche' ? $page : $freeHtml;
+    $missing = $unlabeled($page);
+    $check($missing === [], "{$name}: alle Formularfelder beschriftet".($missing ? ' – fehlt: '.implode(', ', array_slice($missing, 0, 5)) : ''));
+    $check(! preg_match('/[✓✗]/u', wp_strip_all_tags(preg_replace('#<span aria-hidden="true">.*?</span>#su', '', $page))), "{$name}: kein ✓/✗ ohne Text");
+}
+$check(! str_contains($freeHtml, 'value="products"') && (! function_exists('wc_get_product_id_by_sku') || str_contains($freeHtml, 'page=bootspruefung-prices')), 'Katalog-Abgleich nur unter „Preise“ (Kostenlose Bereiche verlinkt dorthin)');
+ob_start();
+(new \Bootspruefung\Learning\Mobile\Admin\MobileAdminPage())->render();
+$mobileHtml = (string) ob_get_clean();
+$check(! str_contains($mobileHtml, 'bp_mobile[trusted_proxies]') && str_contains($mobileHtml, 'bp-set-security'), 'Mobile App: verweist auf Einstellungen › Sicherheit');
+$mobileBak === null ? delete_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION) : update_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, $mobileBak);
+$wpdb->delete($p.'audit_log', ['action' => 'security_settings_saved', 'object_id' => \Bootspruefung\Learning\Mobile\MobileSettings::OPTION]);
+$check(is_file(dirname(__DIR__, 2).'/assets/admin/admin.css'), 'Admin-CSS vorhanden');
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');

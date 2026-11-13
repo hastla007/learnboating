@@ -22,7 +22,7 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
 
 - **HTTPS** mit gültigem Zertifikat. Hinter einem TLS-Proxy muss `X-Forwarded-Proto: https` ankommen.
 - **Proxy-Adresse eintragen**, falls ein Reverse-Proxy, Load-Balancer oder CDN vor WordPress steht:
-  Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“. Sonst teilen sich alle Kunden die Anmelde-Limits der
+  Bootsprüfung → Einstellungen → Sicherheit → „Vertrauenswürdige Proxys“. Sonst teilen sich alle Kunden die Anmelde-Limits der
   Proxy-IP.
 - **Echter System-Cron** statt WP-Cron bei Besuchen (`define('DISABLE_WP_CRON', true);` und auf dem Server
   `wp cron event run --due-now` alle 5 Minuten). Das Lern-Plugin braucht den Cron für Aufräumen, Erinnerungen,

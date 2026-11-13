@@ -113,7 +113,8 @@ entfernt).
    - *App-Schnittstelle aktiv* (Standard: an). Aus = alle App-Anfragen erhalten 503 `MOBILE_API_DISABLED`; der Web-Lernbereich ist nicht betroffen.
    - *Tenant-Slug*: Kennung des Shops für die App. Leer = aus dem Markennamen (Einstellungen → Markenname; leer = Name der Website, erst ohne beides der Platzhalter „XXXX“ → `xxxx`). **Vor dem App-Start festlegen und danach nicht mehr ändern.**
    - *Markenfarbe*, *Support-E-Mail* (Standard: Absender von WooCommerce bzw. Admin-E-Mail). Logo = Website-Icon bzw. Theme-Logo.
-   - *Vertrauenswürdige Proxys* (seit 1.4.0 **Standard: keiner**): IPs/CIDRs der Reverse-Proxys,
+   - *Vertrauenswürdige Proxys* (seit 1.4.0 **Standard: keiner**; seit Plugin-T104 unter **Bootsprüfung → Einstellungen →
+     Sicherheit**, Option unverändert `bp_learning_mobile[trusted_proxies]`): IPs/CIDRs der Reverse-Proxys,
      Load-Balancer oder CDNs direkt vor WordPress. Nur von diesen wird `X-Forwarded-For` übernommen;
      ohne Eintrag zählt allein `REMOTE_ADDR` (auch Loopback/private Netze gelten nicht mehr automatisch).
      Steht ein Proxy davor und ist nichts eingetragen, teilen sich alle Kunden die Login-Limits der

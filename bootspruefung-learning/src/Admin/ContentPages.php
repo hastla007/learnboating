@@ -148,7 +148,7 @@ final class ContentPages
                     $product = '<a href="'.esc_url(\Bootspruefung\Learning\Commerce\MappingCheck::editUrl($i['product_id'])).'">'.esc_html($name).'</a>'.$variation;
                     $problem = esc_html($i['problem']);
                 }
-                $rows[] = [$product, $i['severity'] === 'error' ? '<strong style="color:#d63638">'.esc_html__('Fehler', 'bootspruefung-learning').'</strong>' : esc_html__('Hinweis', 'bootspruefung-learning'), $problem];
+                $rows[] = [$product, $i['severity'] === 'error' ? '<strong style="color:#b32d2e">'.esc_html__('Fehler', 'bootspruefung-learning').'</strong>' : esc_html__('Hinweis', 'bootspruefung-learning'), $problem];
             }
             Ui::table([__('Produkt', 'bootspruefung-learning'), __('Art', 'bootspruefung-learning'), __('Problem', 'bootspruefung-learning')], $rows);
         }
@@ -248,7 +248,7 @@ final class ContentPages
         $rows = $this->db->get_results($args === [] ? $sql : $this->db->prepare($sql, $args));
 
         echo '<form method="get" class="bp-filter"><input type="hidden" name="page" value="bootspruefung-questions">';
-        echo '<select name="module"><option value="">'.esc_html__('Alle Module', 'bootspruefung-learning').'</option>';
+        echo '<select name="module" aria-label="'.esc_attr__('Modul', 'bootspruefung-learning').'"><option value="">'.esc_html__('Alle Module', 'bootspruefung-learning').'</option>';
         foreach ($this->db->get_results("SELECT id, code FROM {$this->t('module')} ORDER BY sort_order") as $m) {
             printf('<option value="%d" %s>%s</option>', (int) $m->id, selected($f['module'], (int) $m->id, false), esc_html($m->code));
         }
@@ -256,7 +256,7 @@ final class ContentPages
         $this->select('type', $f['type'], ['' => __('Alle Typen', 'bootspruefung-learning'), 'single_choice' => Ui::label('single_choice'), 'multi_choice' => Ui::label('multi_choice'), 'open_text' => Ui::label('open_text'), 'chart_task' => Ui::label('chart_task')]);
         $this->select('status', $f['status'], ['' => __('Alle Status', 'bootspruefung-learning'), 'published' => Ui::label('published'), 'draft' => Ui::label('draft'), 'source_archived' => Ui::label('source_archived')]);
         $this->select('rights', $f['rights'], ['' => __('Alle Rechte', 'bootspruefung-learning')] + array_combine(Overrides::RIGHTS, array_map([Ui::class, 'label'], Overrides::RIGHTS)));
-        printf('<input type="search" name="s" value="%s" placeholder="%s"> ', esc_attr($f['s']), esc_attr__('ID, Nr. oder Text', 'bootspruefung-learning'));
+        printf('<input type="search" name="s" value="%1$s" placeholder="%2$s" aria-label="%2$s"> ', esc_attr($f['s']), esc_attr__('Kennung, Nr. oder Text', 'bootspruefung-learning'));
         submit_button(__('Filtern', 'bootspruefung-learning'), 'secondary', '', false);
         echo '</form><br>';
 
@@ -267,7 +267,7 @@ final class ContentPages
                 esc_html((string) $q->official_number),
                 esc_html((string) $q->source_module),
                 esc_html(Ui::label($q->question_type)),
-                esc_html(wp_trim_words(wp_strip_all_tags($q->question_text), 18)).($q->image_required ? ' 🖼' : ''),
+                esc_html(wp_trim_words(wp_strip_all_tags($q->question_text), 18)).($q->image_required ? ' <span aria-hidden="true">🖼</span><span class="screen-reader-text">'.esc_html__('(mit Pflichtbild)', 'bootspruefung-learning').'</span>' : ''),
                 (int) $q->revision_no,
                 Ui::status($q->status),
                 Ui::status($q->rights).($q->rights_override !== null ? ' <small>'.esc_html__('(lokal)', 'bootspruefung-learning').'</small>' : ''),
@@ -309,7 +309,7 @@ final class ContentPages
         }
         echo '<ol type="A">';
         foreach ($repo->answers((int) $rev->id) as $a) {
-            printf('<li%s>%s%s</li>', $a->is_correct ? ' style="font-weight:600;color:#00701a"' : '', esc_html($a->answer_text), $a->is_correct ? ' ✓' : '');
+            printf('<li%s>%s%s</li>', $a->is_correct ? ' style="font-weight:600;color:#00701a"' : '', esc_html($a->answer_text), $a->is_correct ? ' <span aria-hidden="true">✓</span><span class="screen-reader-text">'.esc_html__('(richtige Antwort)', 'bootspruefung-learning').'</span>' : '');
         }
         echo '</ol>';
         if ($rev->feedback_correct || $rev->feedback_incorrect) {
@@ -358,7 +358,7 @@ final class ContentPages
                 esc_html(wp_trim_words((string) $m->source_text, 12)),
                 Ui::status($m->rights),
                 (int) $m->q_refs.' / '.(int) $m->p_refs,
-                $exists ? '✓' : '<strong style="color:#d63638">'.esc_html__('fehlt', 'bootspruefung-learning').'</strong>',
+                $exists ? esc_html__('vorhanden', 'bootspruefung-learning') : '<strong style="color:#b32d2e">'.esc_html__('fehlt', 'bootspruefung-learning').'</strong>',
                 Ui::status($m->status),
             ];
         }
@@ -403,7 +403,7 @@ final class ContentPages
                 __('Fragen je Modul', 'bootspruefung-learning') => esc_html(implode(', ', $bp)),
                 __('Bestehensgrenze', 'bootspruefung-learning') => esc_html(round(((float) ($passing['min_correct_ratio'] ?? 0.75)) * 100, 1).' %'.($parts ? ' · '.implode(' · ', $parts) : '')),
                 __('Hinweis', 'bootspruefung-learning') => esc_html((string) ($passing['note'] ?? '–')),
-                __('Verifiziert (Quelle)', 'bootspruefung-learning') => $rule->verified ? '✓' : '✗',
+                __('Verifiziert (Quelle)', 'bootspruefung-learning') => Ui::yesNo((bool) $rule->verified),
                 __('Lokale Abweichung', 'bootspruefung-learning') => esc_html(self::overrideText($o)),
             ]);
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin-top:8px">';
@@ -513,11 +513,11 @@ final class ContentPages
             echo esc_html__('Kurse:', 'bootspruefung-learning').' '.esc_html(implode(', ', $def['courses'])).'</p>';
             $form = static fn (string $op, string $inner, string $extra = '') => '<form method="post" enctype="multipart/form-data" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:.4em 0">'
                 .wp_nonce_field('bp_chart', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_chart"><input type="hidden" name="chart" value="'.esc_attr($code).'"><input type="hidden" name="op" value="'.esc_attr($op).'">'.$inner.$extra.'</form>';
-            echo $form('upload', '<input type="file" name="chart_file" accept=".pdf,.png,.jpg,.jpeg,.webp" required> ', '<button class="button">'.esc_html($file ? __('Datei ersetzen', 'bootspruefung-learning') : __('Hochladen', 'bootspruefung-learning')).'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo $form('upload', '<input type="file" name="chart_file" accept=".pdf,.png,.jpg,.jpeg,.webp" required aria-label="'.esc_attr(sprintf(__('Datei für %s', 'bootspruefung-learning'), $def['title'])).'"> ', '<button class="button">'.esc_html($file ? __('Datei ersetzen', 'bootspruefung-learning') : __('Hochladen', 'bootspruefung-learning')).'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             if ($state && $state['licensed']) {
                 echo $form('unlicense', '', '<button class="button">'.esc_html__('Lizenz zurückziehen (sperren)', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             } else {
-                echo $form('license', '<input type="text" class="regular-text" name="note" required placeholder="'.esc_attr__('Lizenznachweis (Vertrag, Datum)', 'bootspruefung-learning').'"> ', '<button class="button button-primary">'.esc_html__('BSH-Lizenz bestätigen', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                echo $form('license', '<input type="text" class="regular-text" name="note" required placeholder="'.esc_attr__('Lizenznachweis (Vertrag, Datum)', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Lizenznachweis (Vertrag, Datum)', 'bootspruefung-learning').'"> ', '<button class="button button-primary">'.esc_html__('BSH-Lizenz bestätigen', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             }
             if ($file) {
                 echo $form('remove', '', '<button class="button-link-delete">'.esc_html__('Datei löschen', 'bootspruefung-learning').'</button>'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -733,7 +733,8 @@ final class ContentPages
     /** @param array<string,string> $options */
     private function select(string $name, string $current, array $options): void
     {
-        printf('<select name="%s">', esc_attr($name));
+        $labels = ['type' => __('Typ', 'bootspruefung-learning'), 'status' => __('Status', 'bootspruefung-learning'), 'rights' => __('Rechte-Status', 'bootspruefung-learning')];
+        printf('<select name="%s" aria-label="%s">', esc_attr($name), esc_attr($labels[$name] ?? $name));
         foreach ($options as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr((string) $value), selected($current, (string) $value, false), esc_html($label));
         }

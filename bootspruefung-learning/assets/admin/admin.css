@@ -1,0 +1,61 @@
+/* Bootsprüfung – Adminseiten (T100–T104). Farben der Badges stehen inline (Ui::badge, Kontrast ≥ 4,5:1). */
+
+.bp-badge {
+	line-height: 1.6;
+	white-space: nowrap;
+}
+
+/* Glossar (Übersicht) und Verlauf (Zugang, Gruppe): aufklappbar */
+.bp-glossary,
+.bp-history {
+	max-width: 900px;
+	margin: 12px 0;
+	padding: 8px 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.bp-glossary summary,
+.bp-history summary {
+	cursor: pointer;
+	padding: 4px 0;
+}
+
+.bp-glossary summary:focus-visible,
+.bp-history summary:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+.bp-glossary dl {
+	margin: 8px 0 0;
+}
+
+.bp-glossary dt {
+	font-weight: 600;
+	margin-top: 8px;
+}
+
+.bp-glossary dd {
+	margin: 2px 0 0 0;
+	color: #1d2327;
+}
+
+.bp-history .bp-table {
+	margin-top: 8px;
+}
+
+/* Rückfrage ohne JavaScript */
+.bp-confirm form p {
+	margin: 8px 0;
+}
+
+/* Filterzeilen: Beschriftung und Feld zusammenhalten */
+.bp-filter label {
+	margin-right: 2px;
+}
+
+.bp-filter select,
+.bp-filter input {
+	margin-bottom: 4px;
+}

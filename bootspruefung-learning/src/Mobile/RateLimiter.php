@@ -13,7 +13,7 @@ namespace Bootspruefung\Learning\Mobile;
  * Fenster löscht der stündliche Cron.
  *
  * Client-IP: standardmäßig nur REMOTE_ADDR. X-Forwarded-For gilt erst, wenn die direkte Gegenstelle
- * als vertrauenswürdiger Proxy eingetragen ist (Bootsprüfung → Mobile App bzw. Filter
+ * als vertrauenswürdiger Proxy eingetragen ist (Bootsprüfung → Einstellungen → Sicherheit bzw. Filter
  * bootspruefung_mobile_trusted_proxies); ausgewertet wird von rechts – der erste nicht
  * vertrauenswürdige Eintrag ist der Client (gefälschte linke Einträge zählen nicht).
  */
@@ -198,7 +198,7 @@ final class RateLimiter
 
         return sprintf(
             /* translators: %s: IP-Adresse der direkten Gegenstelle */
-            __('Die Anfrage kommt über %s (Proxy bzw. internes Netz), dieser ist aber nicht als vertrauenswürdiger Proxy eingetragen. Dann zählen alle Besucher mit dieser Adresse, und die Anmelde-Limits treffen alle gemeinsam. Proxy unter Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“ eintragen.', 'bootspruefung-learning'),
+            __('Die Anfrage kommt über %s (Proxy bzw. internes Netz), dieser ist aber nicht als vertrauenswürdiger Proxy eingetragen. Dann zählen alle Besucher mit dieser Adresse, und die Anmelde-Limits treffen alle gemeinsam. Proxy unter Bootsprüfung → Einstellungen → Sicherheit → „Vertrauenswürdige Proxys“ eintragen.', 'bootspruefung-learning'),
             $remote
         );
     }

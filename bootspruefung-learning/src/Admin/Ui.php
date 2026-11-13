@@ -109,14 +109,33 @@ final class Ui
     public static function status(?string $status): string
     {
         $status = (string) $status;
-        $colors = [
-            'published' => '#00a32a', 'validated' => '#2271b1', 'previewed' => '#2271b1', 'approved' => '#2271b1', 'importing' => '#dba617',
-            'failed' => '#d63638', 'discarded' => '#787c82', 'draft' => '#787c82', 'review' => '#dba617', 'deprecated' => '#787c82',
-            'source_archived' => '#787c82', 'unknown' => '#d63638', 'restricted' => '#d63638', 'licensed' => '#00a32a', 'public' => '#00a32a',
+        $tones = [
+            'published' => 'green', 'validated' => 'blue', 'previewed' => 'blue', 'approved' => 'blue', 'importing' => 'amber',
+            'failed' => 'red', 'discarded' => 'gray', 'draft' => 'gray', 'review' => 'amber', 'deprecated' => 'gray',
+            'source_archived' => 'gray', 'unknown' => 'red', 'restricted' => 'red', 'licensed' => 'green', 'public' => 'green',
         ];
-        $color = $colors[$status] ?? '#50575e';
 
-        return sprintf('<span class="bp-badge" title="%s" style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:%s">%s</span>', esc_attr($status), esc_attr($color), esc_html(self::label($status)));
+        return self::badge(self::label($status), $tones[$status] ?? 'dark', $status);
+    }
+
+    /**
+     * Farben der Status-Badges mit weißer Schrift, alle mit Kontrast ≥ 4,5:1 (WCAG AA, T104):
+     * grün 6,3 · blau 5,2 · gelbbraun 4,8 · rot 6,3 · grau 5,5 · dunkelgrau 7,3.
+     */
+    public const BADGE_COLORS = ['green' => '#007017', 'blue' => '#2271b1', 'amber' => '#996800', 'red' => '#b32d2e', 'gray' => '#646970', 'dark' => '#50575e'];
+
+    /** Badge mit Text (nie nur Farbe); $title = Rohwert als Tooltip. */
+    public static function badge(string $text, string $tone, string $title = ''): string
+    {
+        $color = self::BADGE_COLORS[$tone] ?? self::BADGE_COLORS['dark'];
+
+        return sprintf('<span class="bp-badge"%s style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:%s">%s</span>', $title !== '' ? ' title="'.esc_attr($title).'"' : '', esc_attr($color), esc_html($text));
+    }
+
+    /** Ja/Nein als Text statt ✓/✗ (Bildschirmleser, T104). */
+    public static function yesNo(bool $value): string
+    {
+        return $value ? esc_html__('ja', 'bootspruefung-learning') : esc_html__('nein', 'bootspruefung-learning');
     }
 
     /** Deutsche Bezeichnung für interne Status- und Typwerte (Admin-Anzeige; der Rohwert bleibt im title). */

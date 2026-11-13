@@ -9,8 +9,9 @@ use Bootspruefung\Learning\Security\Capabilities;
 use Bootspruefung\Learning\Settings\Settings;
 
 /**
- * Adminmenü (Kap. 9): Übersicht, Content-Pakete, Content-Browser, Zugänge,
- * kostenlose Bereiche, Systemstatus und Einstellungen.
+ * Adminmenü (Kap. 9). Reihenfolge (T104): Übersicht, Inhalte (Inhaltspakete, Kurse, Fragen, Medien, Regelwerke,
+ * Rechte, Prüfungsanmeldung, FAQ, Tipps), Zugänge, Kostenlose Bereiche, Gruppenlizenzen, Mitgliederrabatte, Preise,
+ * Protokoll, Einstellungen (mit Bereich „Sicherheit“), Mobile App, Systemstatus.
  */
 final class Menu
 {
@@ -23,6 +24,8 @@ final class Menu
     public function register(): void
     {
         add_action('admin_menu', [$this, 'addPages']);
+        add_action('admin_menu', [self::class, 'sortSubmenu'], 999);
+        add_action('admin_post_bp_security_save', [$this, 'handleSecurity']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue']);
         add_action('admin_footer', [$this, 'confirmScript']);
         (new ImportPage())->register();
@@ -74,6 +77,41 @@ final class Menu
         }
     }
 
+    /** Reihenfolge der Untermenüs; Seiten anderer Teile (z. B. Mobile App, Tipps) werden eingeordnet. */
+    public const ORDER = [
+        self::SLUG, ImportPage::SLUG, self::SLUG.'-courses', self::SLUG.'-questions', self::SLUG.'-media', self::SLUG.'-rules', self::SLUG.'-rights',
+        ExamGuidePages::SLUG, FaqAdmin::LIST_URL, FaqAdmin::TERMS_URL, CustomerFaqAdmin::LIST_URL, CustomerFaqAdmin::TERMS_URL, 'edit.php?post_type='.\Bootspruefung\Learning\Tips\Tips::POST_TYPE,
+        AccessPages::SLUG, AccessPages::FREE_SLUG, AccessPages::GROUP_SLUG, AccessPages::DISCOUNT_SLUG, PricePage::SLUG,
+        AuditPage::SLUG, self::SLUG.'-settings', 'bootspruefung-mobile', self::SLUG.'-status',
+    ];
+
+    /** Untermenü nach ORDER sortieren (T104); Unbekanntes bleibt in seiner Reihenfolge vor „Protokoll“. */
+    public static function sortSubmenu(): void
+    {
+        global $submenu;
+        if (empty($submenu[self::SLUG]) || ! is_array($submenu[self::SLUG])) {
+            return;
+        }
+        $submenu[self::SLUG] = self::sortEntries($submenu[self::SLUG]);
+    }
+
+    /**
+     * @param array<int,array<int,string>> $entries WordPress-Untermenü (Index 2 = Slug)
+     * @return list<array<int,string>>
+     */
+    public static function sortEntries(array $entries): array
+    {
+        $rank = array_flip(self::ORDER);
+        $unknown = $rank[AuditPage::SLUG] - 0.5;
+        $keyed = [];
+        foreach (array_values($entries) as $i => $entry) {
+            $keyed[] = [$rank[(string) ($entry[2] ?? '')] ?? $unknown, $i, $entry];
+        }
+        usort($keyed, static fn ($a, $b) => [$a[0], $a[1]] <=> [$b[0], $b[1]]);
+
+        return array_map(static fn ($k) => $k[2], $keyed);
+    }
+
     /** Rückfrage vor endgültigen Aktionen (Löschen, Widerrufen, Verwerfen) auf den Bootsprüfung-Seiten. */
     public function confirmScript(): void
     {
@@ -87,6 +125,10 @@ final class Menu
 
     public function enqueue(string $hook): void
     {
+        $page = sanitize_key((string) ($_GET['page'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification
+        if (str_starts_with($page, 'bootspruefung')) {
+            wp_enqueue_style('bp-admin', plugins_url('assets/admin/admin.css', $this->plugin->file()), [], Plugin::assetVersion($this->plugin->file(), 'assets/admin/admin.css'));
+        }
         if (! str_contains($hook, ImportPage::SLUG)) {
             return;
         }
@@ -190,33 +232,30 @@ final class Menu
             echo '<div class="notice notice-success is-dismissible"><p>'.esc_html__('Einstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
         }
         settings_errors('bp_learning');
+        // T104: Bereiche statt einer langen Liste; die Option-Schlüssel bleiben gleich.
+        echo '<p>'.esc_html__('Bereiche:', 'bootspruefung-learning').' <a href="#bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</a> · <a href="#bp-set-display">'.esc_html__('Darstellung und Lernen', 'bootspruefung-learning').'</a> · <a href="#bp-set-privacy">'.esc_html__('Datenschutz und Daten', 'bootspruefung-learning').'</a> · <a href="#bp-set-security">'.esc_html__('Sicherheit', 'bootspruefung-learning').'</a> · <a href="#bp-set-disputes">'.esc_html__('Zahlungskonflikte', 'bootspruefung-learning').'</a></p>';
         echo '<form method="post" action="options.php">';
         settings_fields('bp_learning');
-        echo '<table class="form-table"><tbody>';
-        printf(
-            '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[delete_data_on_uninstall]" value="1" %s> %s</label></td></tr>',
-            esc_html__('Deinstallation', 'bootspruefung-learning'),
-            esc_attr(Settings::OPTION),
-            checked($settings['delete_data_on_uninstall'], true, false),
-            esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände, Zugänge, Einstellungen, Tipps und importierten Medien entfernen (Seekarten werden gelöscht, geschützte Kurs-PDFs bleiben gesperrt unter uploads/bootspruefung/)', 'bootspruefung-learning')
-        );
-        printf('<tr><th scope="row">%s</th><td><select name="%s[default_access]">', esc_html__('Zugang ohne Shop', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
+        echo '<h2 id="bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
+        printf('<tr><th scope="row"><label for="bp-default-access">%s</label></th><td><select id="bp-default-access" name="%s[default_access]">', esc_html__('Zugang ohne Shop', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'), 'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['default_access'], $value, false), esc_html($label));
         }
         echo '</select><p class="description">'.esc_html__('„Alle angemeldeten Nutzer“ ist für die Zeit vor dem Shopstart gedacht. Sobald Lernprodukte in WooCommerce verkauft werden, auf „Nur kostenlose Regeln und Freischaltungen“ umstellen – erst dann sperren Käufe, Erstattungen und Aussetzungen tatsächlich.', 'bootspruefung-learning').'</p></td></tr>';
-        printf('<tr><th scope="row">%s</th><td><select name="%s[video_captions]">', esc_html__('Untertitel der Lernvideos', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
+        $this->renderReminderRows($settings);
+        echo '</tbody></table><h2 id="bp-set-display">'.esc_html__('Darstellung und Lernen', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
+        printf('<tr><th scope="row"><label for="bp-video-captions">%s</label></th><td><select id="bp-video-captions" name="%s[video_captions]">', esc_html__('Untertitel der Lernvideos', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['off' => __('Keine', 'bootspruefung-learning'), 'vtt' => __('WebVTT-Datei neben dem Video (gleicher Name, Endung .vtt)', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['video_captions'] ?? 'off', $value, false), esc_html($label));
         }
         echo '</select><p class="description">'.esc_html__('Zum Beispiel lektion-01.mp4 und lektion-01.vtt im selben Ordner. Erst einschalten, wenn zu jedem Video eine Untertitel-Datei vorliegt. Bei einem fremden Video-Server muss dieser CORS für die Website erlauben.', 'bootspruefung-learning').'</p></td></tr>';
-        printf('<tr><th scope="row">%s</th><td><select name="%s[radio_voice_output]">', esc_html__('Sprachausgabe Funktrainer', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
+        printf('<tr><th scope="row"><label for="bp-radio-voice">%s</label></th><td><select id="bp-radio-voice" name="%s[radio_voice_output]">', esc_html__('Sprachausgabe Funktrainer', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
         foreach (['browser' => __('Browserstimme', 'bootspruefung-learning'), 'recording' => __('Lizenzierte Aufnahmen', 'bootspruefung-learning'), 'off' => __('Aus', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['radio_voice_output'], $value, false), esc_html($label));
         }
         echo '</select></td></tr>';
         printf(
-            '<tr><th scope="row">%s</th><td><input type="text" class="regular-text" name="%s[brand_name]" value="%s" placeholder="%s" maxlength="60"><p class="description">%s</p></td></tr>',
+            '<tr><th scope="row"><label for="bp-brand-name">%s</label></th><td><input type="text" class="regular-text" id="bp-brand-name" name="%s[brand_name]" value="%s" placeholder="%s" maxlength="60"><p class="description">%s</p></td></tr>',
             esc_html__('Markenname', 'bootspruefung-learning'),
             esc_attr(Settings::OPTION),
             esc_attr(Settings::brandIsSet() ? (string) Settings::get('brand_name') : ''),
@@ -238,6 +277,41 @@ final class Menu
             esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
             esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und eine Liste von Prüfungsausschüssen (nicht vollständig, Hinweis für die Lernenden). Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
         );
+        echo '</tbody></table><h2 id="bp-set-privacy">'.esc_html__('Datenschutz und Daten', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
+        printf(
+            '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[privacy_requests_auto]" value="0"><label><input type="checkbox" name="%2$s[privacy_requests_auto]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',
+            esc_html__('Datenschutz-Anträge', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            checked(! empty($settings['privacy_requests_auto']), true, false),
+            esc_html__('Bestätigte Anträge automatisch ausführen', 'bootspruefung-learning'),
+            esc_html__('Sobald jemand die Löschung bestätigt (Knopf „Konto jetzt löschen“ nach dem Link in der Mail): Datenexport erzeugen und den Download-Link mailen bzw. Lerndaten und Kundenkonto löschen. Konten mit Verwaltungsrechten werden nie automatisch gelöscht. Aus: Bestätigte Anträge erledigst du unter Werkzeuge → Personenbezogene Daten exportieren/löschen; das Konto bleibt dann bestehen.', 'bootspruefung-learning')
+            .' '.esc_html(\Bootspruefung\Learning\Privacy\AccountDeletion::anonymizesOrders()
+                /* translators: %s: aufbewahrte Felder */
+                ? sprintf(__('Bestellungen werden anonymisiert (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist an); Nummer, Datum, Produkte, Beträge und für die Steuer %s bleiben.', 'bootspruefung-learning'), 'Firma, Land, Bundesland, Transaktionsnummer')
+                : __('Bestellungen bleiben unverändert aufbewahrt (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist aus).', 'bootspruefung-learning'))
+        );
+        printf(
+            '<tr><th scope="row">%s</th><td><label><input type="checkbox" name="%s[delete_data_on_uninstall]" value="1" %s> %s</label></td></tr>',
+            esc_html__('Deinstallation', 'bootspruefung-learning'),
+            esc_attr(Settings::OPTION),
+            checked($settings['delete_data_on_uninstall'], true, false),
+            esc_html__('Beim Löschen des Plugins alle Tabellen, Lernstände, Zugänge, Einstellungen, Tipps und importierten Medien entfernen (Seekarten werden gelöscht, geschützte Kurs-PDFs bleiben gesperrt unter uploads/bootspruefung/)', 'bootspruefung-learning')
+        );
+        echo '</tbody></table>';
+        submit_button();
+        echo '</form>';
+        $this->renderSecurity();
+        echo '<div id="bp-set-disputes"></div>';
+        if (isset($_GET['saved']) && $_GET['saved'] === 'disputes') { // phpcs:ignore WordPress.Security.NonceVerification
+            echo '<div class="notice notice-success inline"><p>'.esc_html__('Konflikt-Einstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
+        }
+        \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::renderSettings();
+        echo '</div>';
+    }
+
+    /** @param array<string,mixed> $settings */
+    private function renderReminderRows(array $settings): void
+    {
         printf(
             '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[expiry_reminder_enabled]" value="0"><label><input type="checkbox" name="%2$s[expiry_reminder_enabled]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',
             esc_html__('Ablauf-Erinnerung per E-Mail', 'bootspruefung-learning'),
@@ -253,26 +327,58 @@ final class Menu
             (int) $settings['expiry_reminder_days'],
             esc_html__('Tage vor dem Ablauf', 'bootspruefung-learning')
         );
+    }
+
+    /**
+     * Bereich „Sicherheit“ (T104): vertrauenswürdige Proxys für die Anmelde-Grenzen (Option bp_learning_mobile,
+     * Schlüssel trusted_proxies – unverändert, früher unter „Mobile App“).
+     */
+    private function renderSecurity(): void
+    {
+        $proxies = (string) \Bootspruefung\Learning\Mobile\MobileSettings::all()['trusted_proxies'];
+        echo '<h2 id="bp-set-security">'.esc_html__('Sicherheit', 'bootspruefung-learning').'</h2>';
+        if (isset($_GET['saved']) && $_GET['saved'] === 'security') { // phpcs:ignore WordPress.Security.NonceVerification
+            echo '<div class="notice notice-success inline"><p>'.esc_html__('Sicherheitseinstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
+        }
+        echo '<p>'.esc_html__('Website und App begrenzen Anmeldeversuche, Passwort-Links und Einlöseversuche je Konto und je IP-Adresse. Damit das je Besucher zählt, muss das Plugin die echte IP-Adresse kennen.', 'bootspruefung-learning').'</p>';
+        if (($proxyWarning = \Bootspruefung\Learning\Mobile\RateLimiter::proxyWarning()) !== null) {
+            echo '<div class="notice notice-warning inline"><p>'.esc_html($proxyWarning).'</p></div>';
+        }
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
+        wp_nonce_field('bp_security_save');
+        echo '<input type="hidden" name="action" value="bp_security_save"><table class="form-table"><tbody>';
         printf(
-            '<tr><th scope="row">%1$s</th><td><input type="hidden" name="%2$s[privacy_requests_auto]" value="0"><label><input type="checkbox" name="%2$s[privacy_requests_auto]" value="1" %3$s> %4$s</label><p class="description">%5$s</p></td></tr>',
-            esc_html__('Datenschutz-Anträge', 'bootspruefung-learning'),
-            esc_attr(Settings::OPTION),
-            checked(! empty($settings['privacy_requests_auto']), true, false),
-            esc_html__('Bestätigte Anträge automatisch ausführen', 'bootspruefung-learning'),
-            esc_html__('Sobald jemand die Löschung bestätigt (Knopf „Konto jetzt löschen“ nach dem Link in der Mail): Datenexport erzeugen und den Download-Link mailen bzw. Lerndaten und Kundenkonto löschen. Konten mit Verwaltungsrechten werden nie automatisch gelöscht. Aus: Bestätigte Anträge erledigst du unter Werkzeuge → Personenbezogene Daten exportieren/löschen; das Konto bleibt dann bestehen.', 'bootspruefung-learning')
-            .' '.esc_html(\Bootspruefung\Learning\Privacy\AccountDeletion::anonymizesOrders()
-                /* translators: %s: aufbewahrte Felder */
-                ? sprintf(__('Bestellungen werden anonymisiert (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist an); Nummer, Datum, Produkte, Beträge und für die Steuer %s bleiben.', 'bootspruefung-learning'), 'Firma, Land, Bundesland, Transaktionsnummer')
-                : __('Bestellungen bleiben unverändert aufbewahrt (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist aus).', 'bootspruefung-learning'))
+            '<tr><th scope="row"><label for="bp-trusted-proxies">%s</label></th><td><textarea id="bp-trusted-proxies" class="large-text code" rows="3" name="trusted_proxies">%s</textarea><p class="description">%s</p></td></tr>',
+            esc_html__('Vertrauenswürdige Proxys', 'bootspruefung-learning'),
+            esc_textarea($proxies),
+            esc_html__('IP-Adressen oder Netze (CIDR) der Reverse-Proxys/Load-Balancer/CDNs direkt vor WordPress, deren X-Forwarded-For für die Anmelde-Grenzen gilt. Leer (Standard) = keinem Proxy vertrauen, es zählt nur die direkte Gegenstelle (REMOTE_ADDR) – auch Loopback und private Netze gelten nicht automatisch. Hinter einem Proxy (z. B. Docker mit Caddy/nginx davor) dessen Adresse bzw. Netz eintragen, sonst teilen sich alle Kunden die Grenzen der Proxy-IP.', 'bootspruefung-learning')
         );
         echo '</tbody></table>';
-        submit_button();
+        submit_button(__('Sicherheitseinstellungen speichern', 'bootspruefung-learning'), 'primary', 'submit', true);
         echo '</form>';
-        if (isset($_GET['saved']) && $_GET['saved'] === 'disputes') { // phpcs:ignore WordPress.Security.NonceVerification
-            echo '<div class="notice notice-success inline"><p>'.esc_html__('Konflikt-Einstellungen gespeichert.', 'bootspruefung-learning').'</p></div>';
+    }
+
+    /** Speichert nur die vertrauenswürdigen Proxys; übrige App-Einstellungen bleiben unverändert. */
+    public function handleSecurity(): void
+    {
+        if (! current_user_can('manage_options')) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), '', ['response' => 403]);
         }
-        \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::renderSettings();
-        echo '</div>';
+        check_admin_referer('bp_security_save');
+        self::saveTrustedProxies((string) wp_unslash($_POST['trusted_proxies'] ?? ''));
+        wp_safe_redirect(add_query_arg(['page' => self::SLUG.'-settings', 'saved' => 'security'], admin_url('admin.php')).'#bp-set-security');
+        exit;
+    }
+
+    /** @return int Anzahl gespeicherter Einträge */
+    public static function saveTrustedProxies(string $value): int
+    {
+        $ms = \Bootspruefung\Learning\Mobile\MobileSettings::class;
+        $ms::save(array_merge($ms::all(), ['trusted_proxies' => $value]));
+        $count = count($ms::trustedProxies());
+        \Bootspruefung\Learning\Audit\AuditLog::record('security_settings_saved', 'settings', $ms::OPTION, null, ['count' => $count]);
+
+        return $count;
     }
 
     /** @param array<string,mixed> $woo */

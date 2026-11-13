@@ -72,7 +72,7 @@ Danach:
 
    Caddy holt das Zertifikat automatisch und setzt `X-Robots-Tag: noindex`.
 
-   **App-Schnittstelle hinter Caddy:** WordPress sieht als Client-Adresse den Caddy-Container. Damit die Anmelde-Limits der App je echter Client-IP zählen, unter Admin → Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“ das Docker-Netz des Projekts eintragen (seit App-API 1.4.0 wird standardmäßig keinem Proxy vertraut). Subnetz ermitteln:
+   **App-Schnittstelle hinter Caddy:** WordPress sieht als Client-Adresse den Caddy-Container. Damit die Anmelde-Limits der App je echter Client-IP zählen, unter Admin → Bootsprüfung → Einstellungen → Sicherheit → „Vertrauenswürdige Proxys“ das Docker-Netz des Projekts eintragen (seit App-API 1.4.0 wird standardmäßig keinem Proxy vertraut). Subnetz ermitteln:
 
    ```bash
    docker network inspect "$(basename "$PWD")_default" --format '{{(index .IPAM.Config 0).Subnet}}'

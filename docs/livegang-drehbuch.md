@@ -26,8 +26,8 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 - **Echter System-Cron:** `define('DISABLE_WP_CRON', true);` in `wp-config.php` und auf dem Server alle 5 Minuten
   `wp cron event run --due-now --path=/pfad/zu/wordpress`. Kontrolle: Systemstatus › Wartung › „Letzter stündlicher
   Lauf“ ist höchstens eine Stunde alt.
-- **Proxy:** Steht ein Reverse-Proxy, Load-Balancer oder CDN davor, dessen Adressen unter Bootsprüfung › Mobile App ›
-  „Vertrauenswürdige Proxys“ eintragen (`docs/server-einrichtung.md`). Kontrolle: Systemstatus › „Client-IP dieser
+- **Proxy:** Steht ein Reverse-Proxy, Load-Balancer oder CDN davor, dessen Adressen unter Bootsprüfung › Einstellungen ›
+  Sicherheit › „Vertrauenswürdige Proxys“ eintragen (`docs/server-einrichtung.md`). Kontrolle: Systemstatus › „Client-IP dieser
   Anfrage“ zeigt deine eigene IP.
 - **HTTPS und HSTS:** Zertifikat gültig, Weiterleitung http → https. Erst wenn alles über HTTPS läuft, im Server
   `Strict-Transport-Security: max-age=31536000` setzen (Apache: `Header always set …`, nginx: `add_header … always;`).
