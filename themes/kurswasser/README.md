@@ -228,6 +228,9 @@ Angebote, das mittlere hervorgehoben. Alles kommt aus echten Daten:
 - „Jetzt starten“ legt den Kurs in den Warenkorb und öffnet direkt die Kasse.
 - Keine künstliche Verknappung, keine erfundenen Verkaufszahlen.
 
+Hinweis zu Zahlungsarten, Verkaufsländern und Lieferung (wie unter dem Kaufknopf) frei platzieren, z. B. in der
+Fußzeile oder auf einer Kursseite: Shortcode `[kurswasser_purchase_info]` (ohne Lern-Plugin bzw. WooCommerce leer).
+
 ## Links ohne feste IDs
 
 In Vorlagen und Mustern stehen Ziele als `#kw:<ziel>` und werden beim Ausgeben ersetzt:

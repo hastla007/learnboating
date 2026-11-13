@@ -175,6 +175,8 @@ $banner = (string) ob_get_clean();
 remove_filter('kurswasser_consent_external_hosts', $extHosts, 99);
 $check((str_contains($banner, 'id="kw-consent-cat-extern"') && str_contains($banner, 'cdn.example-video.com') && ! str_contains($banner, '<b>x</b>')), 'Banner: Kategorie „Externe Medien“ mit Hostnamen, sobald Videos fremd gehostet sind');
 $check(str_contains($consentJs, "cfg.grant = function") && str_contains($consentJs, "kw-consent-change") && str_contains($consentJs, "list.push('extern')"), 'Cookie-Banner (JS): Kategorie „extern“ speichern, Schnittstelle has/grant, Ereignis bei Änderung');
+$purchaseInfo = do_shortcode('[kurswasser_purchase_info]');
+$check(str_contains($purchaseInfo, 'class="bp-purchase-info"') && str_contains($purchaseInfo, 'Lieferung: digital'), 'Shortcode [kurswasser_purchase_info]: Hinweis Zahlungsarten/Lieferung frei platzierbar (T38)');
 // Hinweis Zahlungsarten/Lieferung (Lern-Plugin, § 312j BGB) im Stil des Preis-Hinweises.
 $check(str_contains((string) file_get_contents(dirname(__DIR__).'/assets/css/theme.css'), '.bp-purchase-info {'), 'Hinweis Zahlungsarten/Lieferung gestaltet');
 
