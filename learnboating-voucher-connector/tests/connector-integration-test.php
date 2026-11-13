@@ -320,6 +320,7 @@ $found = $entitlements->search(['search' => Connector::key($v2)]);
 $check($found['total'] === 2 && (int) $found['rows'][0]->user_id === $bob, 'Adminsuche nach Einlöse-ID findet Nutzer und Zugänge');
 
 // Aufräumen.
+require_once ABSPATH.'wp-admin/includes/user.php';
 foreach ([$alice, $bob, $carol] as $id) {
     $wpdb->delete($p.'entitlement', ['user_id' => $id]);
     wp_delete_user($id);
