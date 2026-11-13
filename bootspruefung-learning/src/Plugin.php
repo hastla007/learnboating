@@ -17,7 +17,7 @@ use Bootspruefung\Learning\Settings\Settings;
 /** Einstiegspunkt: registriert alle Hooks. */
 final class Plugin
 {
-    public const VERSION = '0.13.0';
+    public const VERSION = '0.14.0';
     public const TEXT_DOMAIN = 'bootspruefung-learning';
 
     /**
@@ -176,6 +176,18 @@ final class Plugin
         $cron::run('import_retention', [\Bootspruefung\Learning\Content\Import\Retention::class, 'run']);
     }
 
+    /**
+     * Version für eingebundene Dateien: Plugin-Version plus Dateistand. So laden Browser nach jeder Änderung die neue
+     * Datei, auch wenn die Plugin-Version (versehentlich) gleich geblieben ist (T48).
+     */
+    public static function assetVersion(string $file, string $relative): string
+    {
+        $path = dirname($file).'/'.ltrim($relative, '/');
+        $mtime = is_file($path) ? (int) filemtime($path) : 0;
+
+        return self::VERSION.($mtime > 0 ? '.'.$mtime : '');
+    }
+
     public function loadTextDomain(): void
     {
         load_plugin_textdomain(self::TEXT_DOMAIN, false, dirname(plugin_basename($this->file)).'/languages');
@@ -200,6 +212,18 @@ final class Plugin
     public function maybeMigrate(): void
     {
         $migrator = $this->migrator();
+        if ($migrator->schemaIsNewer() && is_admin()) {
+            $installed = (string) $migrator->installedVersion();
+            add_action('admin_notices', static function () use ($installed): void {
+                printf('<div class="notice notice-error"><p>%s</p></div>', esc_html(sprintf(
+                    /* translators: 1: installiertes Schema, 2: Plugin-Version, 3: erwartetes Schema */
+                    __('Bootsprüfung Lernplattform: Die Datenbank hat Schema %1$s, diese Plugin-Version %2$s erwartet %3$s. Das Plugin wurde ohne Rücksicherung der Datenbank auf eine ältere Version zurückgesetzt. Bitte die neuere Version wieder einspielen oder das Datenbank-Backup von vor dem Update zurückspielen (siehe Release-Regel, „Downgrade“).', 'bootspruefung-learning'),
+                    $installed,
+                    self::VERSION,
+                    Migrator::SCHEMA_VERSION
+                )));
+            });
+        }
         if (! $migrator->needsMigration()) {
             return;
         }

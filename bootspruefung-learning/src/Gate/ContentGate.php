@@ -128,7 +128,7 @@ final class ContentGate
             return;
         }
         $file = \Bootspruefung\Learning\Plugin::instance()->file();
-        wp_register_script('bp-restricted-block', plugins_url('assets/admin/restricted-block.js', $file), ['wp-blocks', 'wp-block-editor', 'wp-components', 'wp-element', 'wp-i18n'], \Bootspruefung\Learning\Plugin::VERSION, true);
+        wp_register_script('bp-restricted-block', plugins_url('assets/admin/restricted-block.js', $file), ['wp-blocks', 'wp-block-editor', 'wp-components', 'wp-element', 'wp-i18n'], \Bootspruefung\Learning\Plugin::assetVersion($file, 'assets/admin/restricted-block.js'), true);
         add_action('enqueue_block_editor_assets', static function (): void {
             $features = [self::ANY => __('beliebige Funktion des Kurses', 'bootspruefung-learning')];
             foreach (AccessService::FEATURES as $f) {

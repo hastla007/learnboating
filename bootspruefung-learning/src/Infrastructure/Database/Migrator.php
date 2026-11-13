@@ -35,9 +35,23 @@ final class Migrator
         return is_string($version) && $version !== '' ? $version : null;
     }
 
+    /** Fällig nur, wenn noch kein oder ein älteres Schema installiert ist (nie „zurück“ auf ein älteres Schema). */
     public function needsMigration(): bool
     {
-        return $this->installedVersion() !== self::SCHEMA_VERSION;
+        $installed = $this->installedVersion();
+
+        return $installed === null || version_compare($installed, self::SCHEMA_VERSION, '<');
+    }
+
+    /**
+     * Stammt die Datenbank aus einer neueren Plugin-Version (Downgrade ohne Datenbank-Rücksicherung)? Dann wird
+     * nichts migriert; der Admin bekommt einen Hinweis (docs/release-regel.md, „Downgrade“).
+     */
+    public function schemaIsNewer(): bool
+    {
+        $installed = $this->installedVersion();
+
+        return $installed !== null && version_compare($installed, self::SCHEMA_VERSION, '>');
     }
 
     /** Führt fällige Migrationen aus. @return bool false, wenn ein anderer Lauf die Sperre hält. */

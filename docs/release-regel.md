@@ -1,0 +1,42 @@
+# Release-Regel und Downgrade (To-do T48)
+
+Gilt für das Lern-Plugin `bootspruefung-learning`. Theme und Add-ons haben eigene Versionen und prüfen die
+Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`).
+
+## Versionsnummer
+
+- **Jede Auslieferung auf Staging oder Live bekommt eine neue Plugin-Version.** Gleiche Version mit anderem Code
+  ist nicht erlaubt.
+- Schema: `0.MINOR.PATCH` bis zum ersten öffentlichen Start, danach `MAJOR.MINOR.PATCH`.
+  - **PATCH** (0.14.1): Fehlerbehebungen ohne neue Funktion und ohne Datenbank-Änderung.
+  - **MINOR** (0.15.0): neue Funktionen, Datenbank-Änderungen (neue Schema-Version), neue App-API-Version.
+  - **MAJOR**: Änderungen, die Theme, Add-ons oder App anpassen müssen (Versionsvertrag `contract` erhöhen).
+- Die Version steht an drei Stellen, die gleich sein müssen (Test `operations-test`, Abschnitt „Release“):
+  Kopf von `bootspruefung-learning.php` (`Version:`), `readme.txt` (`Stable tag:`) und `Plugin::VERSION`.
+- Datenbank-Schema (`Migrator::SCHEMA_VERSION`) und App-API (`MobileApi::API_VERSION`) werden nur bei Änderungen an
+  Datenbank bzw. App-Schnittstelle erhöht.
+
+## Ablauf einer Auslieferung
+
+1. Version an den drei Stellen erhöhen, Eintrag oben in `bootspruefung-learning/CHANGELOG.md` (Datum, Schema- und
+   App-API-Version, Änderungen für Betreiber und Kunden).
+2. CI grün (alle Jobs).
+3. **Backup** von Datenbank und `wp-content/uploads/bootspruefung/` (bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), siehe T66.
+4. Erst auf Staging einspielen, Systemstatus prüfen: Schema „aktuell“, Abschnitt „Wartung“ ohne Fehler.
+5. Dann live einspielen. Nach einem Update ohne erneute Aktivierung läuft die Datenbank-Migration im Admin, per
+   Cron oder in der CLI (`wp bootspruefung migrate`). Bis dahin beantwortet die Lern-API schreibende Anfragen mit 503
+   „Wartung“ (Eingaben gehen nicht verloren). Empfehlung: direkt nach dem Einspielen einmal den Admin öffnen.
+6. Browser laden neue Dateien sofort: Die Version der eingebundenen Dateien enthält den Dateistand.
+
+## Downgrade
+
+Migrationen laufen nur vorwärts. Ein älteres Plugin auf einer neueren Datenbank migriert nichts mehr zurück und zeigt
+im Admin einen Hinweis („Die Datenbank hat Schema …“).
+
+- **Gleiche Schema-Version** (nur PATCH oder MINOR ohne Datenbank-Änderung): Die ältere ZIP-Datei einspielen genügt.
+  Das Schema steht im Systemstatus und im Änderungsprotokoll.
+- **Neuere Schema-Version:** Datenbank-Backup von vor dem Update zurückspielen und die ältere ZIP-Datei einspielen.
+  Achtung: Lernstand, Bestellungen und Zugänge seit dem Update gehen dabei verloren. Nur im Notfall; besser die
+  neuere Version mit einer Fehlerbehebung (PATCH) korrigieren.
+- Ohne Backup ist ein Downgrade mit neuerer Schema-Version nicht vorgesehen. Die ältere Version läuft dann meist,
+  weil neue Spalten und Tabellen nur zusätzlich sind, aber das ist nicht getestet.

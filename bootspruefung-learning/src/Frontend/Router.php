@@ -90,12 +90,12 @@ final class Router
             return;
         }
         $file = $this->plugin->file();
-        wp_enqueue_style('bp-learning-app', plugins_url('assets/build/app.css', $file), [], Plugin::VERSION);
+        wp_enqueue_style('bp-learning-app', plugins_url('assets/build/app.css', $file), [], Plugin::assetVersion($file, 'assets/build/app.css'));
         // Bestätigungsseite „Erinnerungen abbestellen“ wird serverseitig gerendert (auch ohne Anmeldung).
         if (! is_user_logged_in() || \Bootspruefung\Learning\Commerce\ReminderOptOut::isRequest()) {
             return;
         }
-        wp_enqueue_script('bp-learning-app', plugins_url('assets/build/app.js', $file), [], Plugin::VERSION, true);
+        wp_enqueue_script('bp-learning-app', plugins_url('assets/build/app.js', $file), [], Plugin::assetVersion($file, 'assets/build/app.js'), true);
         wp_localize_script('bp-learning-app', 'bpLearning', [
             'root' => esc_url_raw(rest_url('bootspruefung/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
@@ -107,7 +107,8 @@ final class Router
             'voice' => \Bootspruefung\Learning\Settings\Settings::get('radio_voice_output'),
             'deviceSim' => plugins_url('assets/device-sim/', $file),
             'maps' => plugins_url('assets/maps/', $file),
-            'version' => Plugin::VERSION,
+            // Für nachgeladene Simulator-Dateien (?ver=…): mit Dateistand, damit Browser Änderungen laden (T48).
+            'version' => Plugin::assetVersion($file, 'assets/device-sim/device-sim.css'),
             'groups' => is_user_logged_in() ? count((new \Bootspruefung\Learning\Commerce\GroupService($GLOBALS['wpdb']))->forOwner(get_current_user_id())) : 0,
             'accountUrl' => \Bootspruefung\Learning\Commerce\WooCommerce\Integration::accountUrl(),
             // Kursfotos für Kacheln/Kopfbereich: ['sbf-see' => ['card' => url, 'hero' => url]], z. B. vom Theme.

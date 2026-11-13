@@ -84,6 +84,9 @@ Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Hooks, Filter und App-Routen, 
 Ticket-Plugin mit dem Lern-Plugin zusammenarbeitet, stehen in `docs/schnittstellen-erweiterungen.md`
 (Kursgutschein einlösen, besitzt Kurs, Mitgliederrabatt, Garantie-Anteil, Tickets, „Praxis in deiner Nähe“).
 
+Versionen und Auslieferung: Release-Regel mit Downgrade-Weg in `docs/release-regel.md`, Änderungen je Version in
+`bootspruefung-learning/CHANGELOG.md`.
+
 ### Tests des Plugins
 
 Gegen eine WordPress-Installation mit MySQL/MariaDB, Plugin unter `wp-content/plugins/bootspruefung-learning`:

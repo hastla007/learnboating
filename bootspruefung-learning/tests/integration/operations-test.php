@@ -286,6 +286,21 @@ foreach (\Bootspruefung\Learning\Commerce\ShopCatalog::products() as $product) {
 $check($wrong === [], 'Add-on: Provisionsausschluss für alle Katalogprodukte des echten Plugins'.($wrong ? ' – '.implode(', ', $wrong) : ''));
 
 $wpdb->delete($p.'entitlement', ['user_id' => $learner]);
+echo "Release: Version, Dateistand, Downgrade (T48)\n";
+$pluginDir = dirname(__DIR__, 2);
+preg_match('/^\s*\*\s*Version:\s*(\S+)/m', (string) file_get_contents($pluginDir.'/bootspruefung-learning.php'), $vHeader);
+preg_match('/^Stable tag:\s*(\S+)/m', (string) file_get_contents($pluginDir.'/readme.txt'), $vReadme);
+preg_match('/^## (\d+\.\d+\.\d+)/m', (string) file_get_contents($pluginDir.'/CHANGELOG.md'), $vLog);
+$check(($vHeader[1] ?? '') === Plugin::VERSION && ($vReadme[1] ?? '') === Plugin::VERSION && ($vLog[1] ?? '') === Plugin::VERSION, 'Version gleich in Plugin-Kopf, readme.txt, Plugin::VERSION und oberstem CHANGELOG-Eintrag ('.Plugin::VERSION.')');
+$assetV = Plugin::assetVersion($pluginDir.'/bootspruefung-learning.php', 'assets/build/app.js');
+$check(str_starts_with($assetV, Plugin::VERSION.'.') && str_ends_with($assetV, (string) filemtime($pluginDir.'/assets/build/app.js')), 'app.js mit Dateistand in der Version (Browser laden Änderungen sofort)');
+$schemaNow = get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION);
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, '99.0.0');
+$migratorT48 = new \Bootspruefung\Learning\Infrastructure\Database\Migrator($wpdb);
+$check($migratorT48->schemaIsNewer() && ! $migratorT48->needsMigration(), 'Downgrade (neueres Schema): keine Rückmigration, Hinweis statt Wartungssperre');
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, $schemaNow);
+$check(! $migratorT48->schemaIsNewer() && ! $migratorT48->needsMigration(), 'aktuelles Schema: nichts zu tun');
+
 echo "Wartung nach Plugin-Update (T47)\n";
 $MT = \Bootspruefung\Learning\Infrastructure\Maintenance::class;
 $schemaVersion = get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION);

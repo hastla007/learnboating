@@ -89,7 +89,7 @@ final class Menu
         if (! str_contains($hook, ImportPage::SLUG)) {
             return;
         }
-        wp_enqueue_script('bp-admin-import', plugins_url('assets/admin/import.js', $this->plugin->file()), [], Plugin::VERSION, true);
+        wp_enqueue_script('bp-admin-import', plugins_url('assets/admin/import.js', $this->plugin->file()), [], Plugin::assetVersion($this->plugin->file(), 'assets/admin/import.js'), true);
         wp_localize_script('bp-admin-import', 'bpImport', [
             'root' => esc_url_raw(rest_url('bootspruefung/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
