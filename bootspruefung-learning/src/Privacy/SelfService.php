@@ -179,6 +179,10 @@ final class SelfService
                 __('Dein Lernstand: beantwortete Fragen, Prüfungssimulationen, Favoriten und Sammlungen, Fortschritt in Videokurs, Navigation, Praxis und Funk sowie App-Einstellungen und -Sitzungen.', 'bootspruefung-learning'),
                 __('Deine E-Mail-Adresse in Gruppen; Namen von Gruppen, die du gekauft hast, werden neutralisiert.', 'bootspruefung-learning'),
             ];
+        if ($auto && AccountDeletion::scopeFor($user) === 'site') {
+            // Multisite, Konto auch auf anderen Websites (T112): nur Daten dieser Website, Konto bleibt im Netzwerk.
+            $deleted[0] = __('Dein Konto wird von dieser Website entfernt. Für die anderen Websites dieses Netzwerks bleibt es mit Anmeldung bestehen.', 'bootspruefung-learning');
+        }
         foreach ($deleted as $line) {
             echo '<li>'.esc_html($line).'</li>';
         }

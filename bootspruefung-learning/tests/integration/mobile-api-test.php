@@ -1532,6 +1532,10 @@ $check($dl['status'] === 200 && in_array('bootspruefung-learning-attempt', $grou
 $check(in_array('user', $groups, true) || (bool) array_filter($groups, static fn ($g) => str_contains($g, 'user')), 'Export enthält das WordPress-Konto');
 $exportedSettings = json_decode((string) ($dl['body']['groups']['bootspruefung-learning-app_settings']['items'][0]['data']['settings'] ?? ''), true);
 $check(($exportedSettings['theme'] ?? '') === 'dark' && ($dl['body']['groups']['bootspruefung-learning-app_settings']['items'][0]['data']['version'] ?? '') === '6', 'Export (/profile/export) enthält die App-Einstellungen');
+$aliceAnswers = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}attempt_answer aa JOIN {$p}attempt a ON a.id = aa.attempt_id WHERE a.user_id = %d", $alice));
+$aliceExamQuestions = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}exam_session_question q JOIN {$p}exam_session s ON s.id = q.session_id WHERE s.user_id = %d", $alice));
+$check($aliceAnswers > 0 && count($dl['body']['groups']['bootspruefung-learning-attempt_answer']['items'] ?? []) === $aliceAnswers
+    && count($dl['body']['groups']['bootspruefung-learning-exam_session_question']['items'] ?? []) === $aliceExamQuestions, "Export (/profile/export) enthält gewählte Antworten ({$aliceAnswers}) und Fragen der Prüfungssimulationen ({$aliceExamQuestions}) – gleiche Exporter wie WordPress (T111)");
 $check(! str_contains((string) wp_json_encode($dl['body']), (string) $row->access_hash), 'Export ohne Token-Hashes');
 if (Integration::active()) {
     $check((bool) array_filter($groups, static fn ($g) => str_contains($g, 'woocommerce')), 'Export enthält WooCommerce-Daten');

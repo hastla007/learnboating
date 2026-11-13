@@ -309,9 +309,8 @@ final class PrivacyController extends BaseController
             'status' => $completed ? 'completed' : ($status === 'request-confirmed' ? 'confirmed' : 'pending_confirmation'),
             'already_requested' => $existing,
             'message' => $completed
-                ? (get_post_meta($requestId, \Bootspruefung\Learning\Privacy\AccountDeletion::DELETED_META, true)
-                    ? __('Dein Konto ist gelöscht.', 'bootspruefung-learning').' '.\Bootspruefung\Learning\Privacy\AccountDeletion::orderRetentionText()
-                    : __('Deine Daten sind gelöscht.', 'bootspruefung-learning'))
+                // Konto gelöscht, Konto bleibt im Netzwerk (Multisite, T112) oder nur Daten gelöscht.
+                ? \Bootspruefung\Learning\Privacy\AccountDeletion::completedText($requestId)
                 : ($status === 'request-confirmed'
                     ? __('Du hast die Löschung bereits bestätigt. Wir bearbeiten deinen Antrag und melden uns per E-Mail.', 'bootspruefung-learning')
                     : __('Wir haben dir eine E-Mail geschickt. Bitte bestätige darin die Löschung deines Kontos.', 'bootspruefung-learning')),

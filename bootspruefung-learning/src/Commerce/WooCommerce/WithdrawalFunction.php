@@ -254,7 +254,8 @@ final class WithdrawalFunction
     }
 
     /**
-     * WooCommerce-Datenexport einer Bestellung: frühere Widerrufe und Zustimmung zum vorzeitigen Beginn.
+     * WooCommerce-Datenexport einer Bestellung: frühere Widerrufe, Zustimmung zum vorzeitigen Beginn und
+     * Geld-zurück-Garantie (Anfrage, festgeschriebener Lernstand).
      *
      * @param array<int,array{name:string,value:string}> $data
      * @return array<int,array{name:string,value:string}>
@@ -281,6 +282,38 @@ final class WithdrawalFunction
             $data[] = [
                 'name' => __('Zustimmung zum vorzeitigen Beginn (digitale Inhalte)', 'bootspruefung-learning'),
                 'value' => sprintf(__('Zeitpunkt: %1$s; Quelle: %2$s; Wortlaut: %3$s', 'bootspruefung-learning'), self::formatTime($consent['time']), DigitalConsent::sourceLabel($consent['source']), $consent['text']),
+            ];
+        }
+        // Geld-zurück-Garantie (T111): eigene Anfrage und vor einer Datenlöschung festgeschriebener Lernstand.
+        $request = $order->get_meta(\Bootspruefung\Learning\Commerce\MoneyBack::REQUEST_META);
+        if (is_array($request) && ! empty($request['at'])) {
+            $at = strtotime((string) $request['at'].' UTC');
+            $deadline = ! empty($request['deadline']) ? strtotime((string) $request['deadline'].' UTC') : false;
+            $data[] = [
+                'name' => __('Geld-zurück-Anfrage', 'bootspruefung-learning'),
+                'value' => sprintf(
+                    /* translators: 1: Zeitpunkt, 2: Lernstand in Prozent, 3: Frist */
+                    __('Eingang: %1$s; Lernstand bei der Anfrage: %2$s %%; Frist bis: %3$s', 'bootspruefung-learning'),
+                    $at ? self::formatTime($at) : (string) $request['at'],
+                    wc_format_localized_decimal((string) ($request['progress'] ?? '')),
+                    $deadline ? self::formatTime($deadline) : (string) ($request['deadline'] ?? '')
+                ),
+            ];
+        }
+        $usage = \Bootspruefung\Learning\Commerce\MoneyBack::frozenUsage($order->get_meta(\Bootspruefung\Learning\Commerce\MoneyBack::USAGE_META));
+        if ($usage !== null) {
+            $rawUsage = (array) $order->get_meta(\Bootspruefung\Learning\Commerce\MoneyBack::USAGE_META);
+            $at = ! empty($rawUsage['at']) ? strtotime((string) $rawUsage['at'].' UTC') : false;
+            $data[] = [
+                'name' => __('Festgeschriebener Lernstand (Geld-zurück-Garantie)', 'bootspruefung-learning'),
+                'value' => sprintf(
+                    /* translators: 1: Lernstand in Prozent, 2: erledigt, 3: gesamt, 4: Zeitpunkt */
+                    __('%1$s %% (%2$d von %3$d), festgeschrieben vor dem Löschen der Lerndaten am %4$s', 'bootspruefung-learning'),
+                    wc_format_localized_decimal((string) $usage['percent']),
+                    $usage['done'],
+                    $usage['total'],
+                    $at ? self::formatTime($at) : '–'
+                ),
             ];
         }
 

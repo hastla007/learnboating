@@ -29,6 +29,11 @@ use Bootspruefung\Learning\Settings\Settings;
  *
  * Abschaltbar in den Plugin-Einstellungen („Datenschutz-Anträge automatisch ausführen“); dann bleibt es beim
  * WordPress-Standard (Betreiber führt bestätigte Anträge in den Werkzeugen aus, ohne Kontolöschung).
+ *
+ * Multisite (T112): Ist das Konto nur Mitglied dieser Website, wird es netzweit gelöscht (wpmu_delete_user); die
+ * Lerndaten aller Websites mit Plugin-Tabellen gehen mit (PersonalData, deleted_user). Ist es auch Mitglied anderer
+ * Websites, bleibt es im Netzwerk bestehen: Gelöscht werden nur die Daten dieser Website, das Konto wird von hier
+ * entfernt (wp_delete_user). Mail, Bestätigungsseite, App und Protokoll (account_removed_from_site) sagen das so.
  */
 final class AccountDeletion
 {
@@ -36,6 +41,8 @@ final class AccountDeletion
     public const EXPORT_HOOK = 'bp_privacy_export_generate';
     /** Antrags-Meta: Zeitpunkt der Kontolöschung. */
     public const DELETED_META = '_bp_account_deleted';
+    /** Antrags-Meta (Multisite): Zeitpunkt, zu dem die Daten dieser Website gelöscht wurden und das Konto im Netzwerk blieb. */
+    public const SITE_REMOVED_META = '_bp_account_removed_from_site';
     private const MAX_PAGES = 500;
 
     public static function register(): void
@@ -49,6 +56,8 @@ final class AccountDeletion
         // (Link-Scanner von Mailprogrammen rufen Links ab; To-do T42). Vor wp-login.php (action=confirmaction).
         add_action('login_form_confirmaction', [self::class, 'confirmPage'], 1);
         add_filter('user_request_action_email_content', [self::class, 'emailContent'], 20, 2);
+        // Multisite: Bestätigung der Löschung nennt, dass das Konto im Netzwerk bleibt (T112).
+        add_filter('user_erasure_fulfillment_email_content', [self::class, 'fulfillmentContent'], 20, 2);
         // Geld-zurück-Anfrage einer anonymisierten Bestellung: Kontokennung entfernen, Zeitpunkt/Stand bleiben.
         add_action('woocommerce_privacy_remove_order_personal_data', [self::class, 'eraseOrderMeta'], 10, 1);
         // Steuerrelevante Bestellfelder beim Anonymisieren behalten – auch für den Bestell-Eraser von WooCommerce und
@@ -78,6 +87,35 @@ final class AccountDeletion
          * @param \WP_User $user
          */
         return (bool) apply_filters('bootspruefung_account_deletion_protected', $protected, $user);
+    }
+
+    private static ?NetworkAccounts $network = null;
+
+    /** Zugriff auf Konten im Netzwerk (Multisite). */
+    public static function network(): NetworkAccounts
+    {
+        return self::$network ??= new NetworkAccounts();
+    }
+
+    /** Nur für Tests: Multisite-Zugriffe durch ein Test-Double ersetzen (null = wieder Standard). */
+    public static function useNetwork(?NetworkAccounts $network): void
+    {
+        self::$network = $network;
+    }
+
+    /**
+     * Was eine Kontolöschung hier bewirkt: account (Einzelwebsite: Konto gelöscht), network (Multisite, nur Mitglied
+     * dieser Website: Konto netzweit gelöscht) oder site (Multisite, auch Mitglied anderer Websites: Daten dieser
+     * Website gelöscht, Konto bleibt im Netzwerk).
+     */
+    public static function scopeFor(\WP_User $user): string
+    {
+        $net = self::network();
+        if (! $net->isMultisite()) {
+            return 'account';
+        }
+
+        return array_diff($net->sitesOf((int) $user->ID), [$net->currentSite()]) === [] ? 'network' : 'site';
     }
 
     /** Konto eines Antrags (Kennung im Antrag, sonst über die E-Mail-Adresse). */
@@ -165,16 +203,28 @@ final class AccountDeletion
         if (self::isProtected($user)) {
             return false;
         }
+        $scope = self::scopeFor($user);
         self::anonymizeOrders($user);
-        require_once ABSPATH.'wp-admin/includes/user.php';
         $pseudonym = hash('sha256', (string) $user->ID.wp_salt());
-        $ok = wp_delete_user((int) $user->ID);
-        AuditLog::record($ok ? 'account_deleted' : 'account_deletion_failed', 'user_request', (string) $requestId, $ok ? 'privacy_request' : 'wp_delete_user', ['user' => $pseudonym]);
+        $net = self::network();
+        if ($scope === 'site') {
+            // Multisite, Konto auch auf anderen Websites: nur von hier entfernen (deleted_user löscht die Daten dieser Website).
+            $ok = $net->deleteFromSite((int) $user->ID);
+            AuditLog::record($ok ? 'account_removed_from_site' : 'account_deletion_failed', 'user_request', (string) $requestId, $ok ? 'privacy_request' : 'wp_delete_user', ['user' => $pseudonym, 'site' => $net->currentSite()]);
+            if ($ok && $requestId > 0) {
+                update_post_meta($requestId, self::SITE_REMOVED_META, time());
+            }
+
+            return $ok;
+        }
+        $ok = $scope === 'network' ? $net->deleteFromNetwork((int) $user->ID) : $net->deleteFromSite((int) $user->ID);
+        $failure = $scope === 'network' ? 'wpmu_delete_user' : 'wp_delete_user';
+        AuditLog::record($ok ? 'account_deleted' : 'account_deletion_failed', 'user_request', (string) $requestId, $ok ? 'privacy_request' : $failure, ['user' => $pseudonym] + ($scope === 'network' ? ['network' => true] : []));
         if ($ok && $requestId > 0) {
             update_post_meta($requestId, self::DELETED_META, time());
         }
 
-        return (bool) $ok;
+        return $ok;
     }
 
     /**
@@ -386,6 +436,10 @@ final class AccountDeletion
             return '<p class="success">'.esc_html__('Dein Konto ist gelöscht.', 'bootspruefung-learning').'</p><p>'
                 .esc_html__('Dein Kundenkonto und deine Lerndaten sind gelöscht; eine Bestätigung ist per E-Mail unterwegs.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p>';
         }
+        if ($request->action_name === 'remove_personal_data' && get_post_meta((int) $requestId, self::SITE_REMOVED_META, true)) {
+            return '<p class="success">'.esc_html__('Deine Daten auf dieser Website sind gelöscht.', 'bootspruefung-learning').'</p><p>'
+                .esc_html(self::siteRemovedText()).' '.esc_html__('Eine Bestätigung ist per E-Mail unterwegs.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p>';
+        }
         if ($request->action_name === 'remove_personal_data' && $request->status === 'request-completed') {
             return '<p class="success">'.esc_html__('Deine Daten sind gelöscht.', 'bootspruefung-learning').'</p><p>'
                 .esc_html__('Eine Bestätigung ist per E-Mail unterwegs.', 'bootspruefung-learning').'</p>';
@@ -443,12 +497,87 @@ final class AccountDeletion
     public static function confirmForm(int $requestId, string $key): string
     {
         $action = add_query_arg(['action' => 'confirmaction', 'request_id' => $requestId, 'confirm_key' => rawurlencode($key)], wp_login_url());
+        if (self::requestScope($requestId) === 'site') {
+            $intro = '<div class="message"><p><strong>'.esc_html__('Möchtest du deine Daten auf dieser Website wirklich löschen?', 'bootspruefung-learning').'</strong></p><p>'
+                .esc_html__('Mit dem Klick auf „Von dieser Website löschen“ werden deine Lerndaten auf dieser Website (Lernstand, Prüfungen, Einstellungen) sofort gelöscht und dein Konto von dieser Website entfernt. Gekaufte Zugänge dieser Website enden damit. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').' '
+                .esc_html(self::siteKeptText()).' '.esc_html(self::orderRetentionText()).'</p></div>';
+            $button = __('Von dieser Website löschen', 'bootspruefung-learning');
+        } else {
+            $intro = '<div class="message"><p><strong>'.esc_html__('Möchtest du dein Konto wirklich löschen?', 'bootspruefung-learning').'</strong></p><p>'
+                .esc_html__('Mit dem Klick auf „Konto jetzt löschen“ werden dein Kundenkonto und deine Lerndaten (Lernstand, Prüfungen, Einstellungen) sofort gelöscht. Gekaufte Zugänge enden damit. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p></div>';
+            $button = __('Konto jetzt löschen', 'bootspruefung-learning');
+        }
 
-        return '<div class="message"><p><strong>'.esc_html__('Möchtest du dein Konto wirklich löschen?', 'bootspruefung-learning').'</strong></p><p>'
-            .esc_html__('Mit dem Klick auf „Konto jetzt löschen“ werden dein Kundenkonto und deine Lerndaten (Lernstand, Prüfungen, Einstellungen) sofort gelöscht. Gekaufte Zugänge enden damit. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p></div>'
+        return $intro
             .'<form method="post" action="'.esc_url($action).'"><input type="hidden" name="bp_confirm_deletion" value="1">'
-            .'<p class="submit"><button type="submit" class="button button-primary button-large">'.esc_html__('Konto jetzt löschen', 'bootspruefung-learning').'</button></p></form>'
+            .'<p class="submit"><button type="submit" class="button button-primary button-large">'.esc_html($button).'</button></p></form>'
             .'<p><a href="'.esc_url(home_url('/')).'">'.esc_html__('Abbrechen und Konto behalten', 'bootspruefung-learning').'</a></p>';
+    }
+
+    /** Wirkung einer Löschung für das Konto eines Antrags (account|network|site; ohne Konto: account). */
+    public static function requestScope(int $requestId): string
+    {
+        $request = wp_get_user_request($requestId);
+        $user = $request instanceof \WP_User_Request ? self::userFor($request) : null;
+
+        return $user !== null ? self::scopeFor($user) : 'account';
+    }
+
+    /** Multisite: Konto bleibt für die anderen Websites bestehen. */
+    public static function siteKeptText(): string
+    {
+        return __('Dein Konto bleibt für die anderen Websites dieses Netzwerks bestehen; dort kannst du dich weiter anmelden.', 'bootspruefung-learning');
+    }
+
+    /** Multisite: Ergebnis, wenn das Konto im Netzwerk bleibt. */
+    public static function siteRemovedText(): string
+    {
+        return __('Dein Konto bleibt im Netzwerk bestehen, weil du auch andere Websites nutzt; von dieser Website ist es entfernt.', 'bootspruefung-learning');
+    }
+
+    /**
+     * Ergebnistext eines erledigten Löschantrags (Web und App): Konto gelöscht, Konto bleibt im Netzwerk (Multisite)
+     * oder nur Daten gelöscht (ohne automatische Kontolöschung).
+     */
+    public static function completedText(int $requestId): string
+    {
+        if (get_post_meta($requestId, self::DELETED_META, true)) {
+            return __('Dein Konto ist gelöscht.', 'bootspruefung-learning').' '.self::orderRetentionText();
+        }
+        if (get_post_meta($requestId, self::SITE_REMOVED_META, true)) {
+            return __('Deine Daten auf dieser Website sind gelöscht.', 'bootspruefung-learning').' '.self::siteRemovedText();
+        }
+
+        return __('Deine Daten sind gelöscht.', 'bootspruefung-learning');
+    }
+
+    /**
+     * Bestätigungsmail nach der Löschung (WordPress): Multisite-Hinweis, wenn das Konto im Netzwerk bleibt. Die Mail
+     * geht vor der Kontolöschung hinaus; maßgeblich ist daher die Mitgliedschaft zu diesem Zeitpunkt.
+     * @param mixed $content @param mixed $emailData
+     */
+    public static function fulfillmentContent($content, $emailData): string
+    {
+        $content = (string) $content;
+        $request = is_array($emailData) ? ($emailData['request'] ?? null) : null;
+        if (! self::enabled() || ! $request instanceof \WP_User_Request || $request->action_name !== 'remove_personal_data') {
+            return $content;
+        }
+        $user = self::userFor($request);
+        if ($user === null || self::isProtected($user) || self::scopeFor($user) !== 'site') {
+            return $content;
+        }
+        $note = __('Gelöscht wurden deine Daten auf dieser Website; dein Konto ist von hier entfernt.', 'bootspruefung-learning').' '.self::siteKeptText();
+
+        // Nach dem zweiten Absatz („Deine Anfrage … ist erledigt.“), sonst am Ende.
+        $parts = explode("\n\n", $content);
+        if (count($parts) > 2) {
+            array_splice($parts, 2, 0, [$note]);
+
+            return implode("\n\n", $parts);
+        }
+
+        return $content."\n\n".$note;
     }
 
     /**
@@ -462,7 +591,11 @@ final class AccountDeletion
         if (! self::enabled() || ! $request instanceof \WP_User_Request || $request->action_name !== 'remove_personal_data' || ! str_contains($content, '###CONFIRM_URL###')) {
             return $content;
         }
-        $note = __('Der Link öffnet eine Seite mit dem Knopf „Konto jetzt löschen“. Erst dieser Klick löscht dein Kundenkonto und deine Lerndaten – sofort und endgültig.', 'bootspruefung-learning').' '.self::orderRetentionText().' '.__('Hast du die Löschung nicht beantragt, ignoriere diese E-Mail.', 'bootspruefung-learning');
+        $user = self::userFor($request);
+        $note = ($user !== null && self::scopeFor($user) === 'site'
+            ? __('Der Link öffnet eine Seite mit dem Knopf „Von dieser Website löschen“. Erst dieser Klick löscht deine Lerndaten auf dieser Website und entfernt dein Konto von hier – sofort und endgültig.', 'bootspruefung-learning').' '.self::siteKeptText()
+            : __('Der Link öffnet eine Seite mit dem Knopf „Konto jetzt löschen“. Erst dieser Klick löscht dein Kundenkonto und deine Lerndaten – sofort und endgültig.', 'bootspruefung-learning'))
+            .' '.self::orderRetentionText().' '.__('Hast du die Löschung nicht beantragt, ignoriere diese E-Mail.', 'bootspruefung-learning');
 
         return (string) preg_replace('/###CONFIRM_URL###/', "###CONFIRM_URL###\n\n".$note, $content, 1);
     }

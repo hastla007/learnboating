@@ -5,7 +5,8 @@ declare(strict_types=1);
 /*
  * Integrationstest Konto und Garantie mit echtem WooCommerce: Geld-zurück-Anfrage nur einmal (QA-09),
  * Nutzungsstand bleibt nach Datenlöschung (QA-06), Selbstbedienung „Meine Daten“ (QA-08),
- * Kontolöschung nach bestätigtem Antrag mit anonymisierten Bestellungen (LAW-04), Gruppenplatz (QA-05).
+ * Kontolöschung nach bestätigtem Antrag mit anonymisierten Bestellungen (LAW-04), Gruppenplatz (QA-05),
+ * vollständiger Datenexport mit Kindtabellen und Geld-zurück-Angaben (T111), Multisite-Zweige der Kontolöschung (T112).
  *
  *   WP_DIR=/pfad/zu/wordpress php tests/integration/account-test.php
  *
@@ -144,6 +145,11 @@ $check(abs((float) wc_get_order($order2->get_id())->get_meta(MoneyBack::USAGE_ME
 ob_start();
 (new MoneyBackWoo())->adminOrder(wc_get_order($order2->get_id()));
 $check(str_contains((string) ob_get_clean(), 'Lerndaten am'), 'Bestellansicht (Verwaltung) nennt den festgeschriebenen Stand');
+// T111: Bestell-Export enthält die Geld-zurück-Anfrage und den festgeschriebenen Lernstand.
+$mbExport = (string) wp_json_encode(apply_filters('woocommerce_privacy_export_order_personal_data', [], wc_get_order($order->get_id())), JSON_UNESCAPED_UNICODE);
+$check(str_contains($mbExport, 'Geld-zurück-Anfrage') && str_contains($mbExport, 'Lernstand bei der Anfrage') && str_contains($mbExport, 'Frist bis'), 'Bestell-Export: Geld-zurück-Anfrage mit Zeitpunkt, Lernstand und Frist (T111)');
+$mbExport2 = (string) wp_json_encode(apply_filters('woocommerce_privacy_export_order_personal_data', [], wc_get_order($order2->get_id())), JSON_UNESCAPED_UNICODE);
+$check(str_contains($mbExport2, 'Festgeschriebener Lernstand') && str_contains($mbExport2, 'festgeschrieben vor dem Löschen der Lerndaten am'), 'Bestell-Export: festgeschriebener Lernstand nach der Datenlöschung (T111)');
 
 echo "Selbstbedienung „Meine Daten“ (QA-08)\n";
 $selfUser = $customer('acct_selbst');
@@ -276,6 +282,186 @@ clean_user_cache($keepUser);
 $check(get_userdata($keepUser) === false, 'Löschung über die Werkzeuge: Konto wird ebenfalls gelöscht');
 wp_delete_post($keepReq, true);
 wp_delete_post($delReq, true);
+
+echo "Datenexport vollständig: Kindtabellen, Erinnerungen, alle Tabellen geprüft (T111)\n";
+$exportAll = static function (string $email): array {
+    $groups = [];
+    $pages = 0;
+    for ($page = 1; $page <= 200; $page++) {
+        $r = PersonalData::export($email, $page);
+        $pages++;
+        foreach ($r['data'] as $item) {
+            $groups[$item['group_id']]['label'] = $item['group_label'];
+            $groups[$item['group_id']]['items'][$item['item_id']] = array_column($item['data'], 'value', 'name');
+        }
+        if ($r['done']) {
+            break;
+        }
+    }
+
+    return ['groups' => $groups, 'pages' => $pages];
+};
+$exUser = $customer('acct_export');
+$exOther = $customer('acct_export_andere');
+$exNow = gmdate('Y-m-d H:i:s');
+$exRev = $wpdb->get_row("SELECT id, question_id FROM {$p}question_revision ORDER BY id LIMIT 1");
+$exCourse = (int) $wpdb->get_var("SELECT id FROM {$p}course WHERE code = 'SKN'");
+$exAttempt = static function (int $uid) use ($wpdb, $p, $exRev, $exNow): int {
+    $wpdb->insert($p.'attempt', ['user_id' => $uid, 'question_id' => (int) $exRev->question_id, 'revision_id' => (int) $exRev->id, 'context' => 'smart', 'is_correct' => 0, 'idempotency_key' => wp_generate_uuid4(), 'created_at' => $exNow]);
+
+    return (int) $wpdb->insert_id;
+};
+$exA = $exAttempt($exUser);
+$wpdb->insert($p.'attempt_answer', ['attempt_id' => $exA, 'answer_key' => 'b', 'free_text' => 'Freitext T111 Backbord', 'position' => 0]);
+// Mehr als eine Exportseite (2000 Zeilen je Seite) in der Kindtabelle.
+$values = implode(',', array_map(static fn (int $i): string => '('.$exA.", 'k{$i}', NULL, {$i})", range(1, 2001)));
+$wpdb->query("INSERT INTO {$p}attempt_answer (attempt_id, answer_key, free_text, position) VALUES {$values}");
+$exB = $exAttempt($exOther);
+$wpdb->insert($p.'attempt_answer', ['attempt_id' => $exB, 'answer_key' => 'c', 'free_text' => 'Fremder Freitext T111', 'position' => 0]);
+$wpdb->insert($p.'exam_session', ['user_id' => $exUser, 'course_id' => $exCourse, 'mode' => 'exam', 'rule_snapshot' => '{}', 'status' => 'submitted', 'start_token' => wp_generate_uuid4(), 'started_at' => $exNow, 'submitted_at' => $exNow]);
+$exSession = (int) $wpdb->insert_id;
+$wpdb->insert($p.'exam_session_question', ['session_id' => $exSession, 'position' => 1, 'question_id' => (int) $exRev->question_id, 'revision_id' => (int) $exRev->id, 'given_answer' => '["c"]', 'flagged' => 1, 'answered_at' => $exNow]);
+$wpdb->insert($p.'favorite_collection', ['user_id' => $exUser, 'course_id' => $exCourse, 'name' => 'Meine Knoten T111', 'created_at' => $exNow]);
+$exCollection = (int) $wpdb->insert_id;
+$wpdb->insert($p.'favorite_collection_item', ['collection_id' => $exCollection, 'question_id' => (int) $exRev->question_id, 'created_at' => $exNow]);
+$wpdb->insert($p.'mobile_idempotency', ['user_id' => $exUser, 'scope' => 'group-join-code:1', 'idem_key' => wp_generate_uuid4(), 'request_hash' => str_repeat('a', 64), 'status_code' => 200, 'response' => '{"join_code":"GEHEIM-T111"}', 'resource' => 'x', 'created_at' => $exNow, 'expires_at' => $exNow]);
+update_user_meta($exUser, \Bootspruefung\Learning\Commerce\ExpiryReminder::META, ['SKN|2027-01-31 23:59:59' => '2027-01-24 08:00:00']);
+\Bootspruefung\Learning\Commerce\ReminderOptOut::set($exUser, true, 'account');
+$ex = $exportAll('acct_export@example.test');
+$g = $ex['groups'];
+$answers = $g['bootspruefung-learning-attempt_answer']['items'] ?? [];
+$check(count($answers) === 2002 && in_array('Freitext T111 Backbord', array_column($answers, 'free_text'), true) && in_array('b', array_column($answers, 'answer_key'), true), 'Export: gewählte Antworten und Freitexte (attempt_answer), alle 2002 Zeilen über mehrere Seiten ('.count($answers).')');
+$check(! str_contains((string) wp_json_encode($g, JSON_UNESCAPED_UNICODE), 'Fremder Freitext T111'), 'Export: keine Antworten anderer Personen');
+$esq = array_values($g['bootspruefung-learning-exam_session_question']['items'] ?? []);
+$check(count($esq) === 1 && $esq[0]['given_answer'] === '["c"]' && $esq[0]['flagged'] === '1' && $esq[0]['answered_at'] === $exNow, 'Export: Fragen der Prüfungssimulation mit eigener Antwort, Markierung und Zeitpunkt');
+$fci = array_values($g['bootspruefung-learning-favorite_collection_item']['items'] ?? []);
+$check(count($fci) === 1 && (int) $fci[0]['collection_id'] === $exCollection && (int) $fci[0]['question_id'] === (int) $exRev->question_id, 'Export: Fragen der Sammlungen (favorite_collection_item)');
+$check(str_contains((string) ($g['bootspruefung-learning-exam_session_question']['label'] ?? ''), 'Prüfungssimulationen – Fragen') && str_contains((string) ($g['bootspruefung-learning-attempt_answer']['label'] ?? ''), 'gewählte Antworten') && str_contains((string) ($g['bootspruefung-learning-favorite_collection_item']['label'] ?? ''), 'Sammlungen –'), 'Export: lesbare Bezeichnungen der neuen Gruppen');
+$idem = array_values($g['bootspruefung-learning-mobile_idempotency']['items'] ?? []);
+$check(count($idem) === 1 && ! isset($idem[0]['response']) && ! isset($idem[0]['request_hash']) && ! str_contains((string) wp_json_encode($g), 'GEHEIM-T111'), 'Export: technische App-Daten ohne gespeicherte Antworten (keine Beitrittscodes) und ohne Hashes');
+$rem = array_values($g['bootspruefung-learning-expiry_reminders']['items'] ?? []);
+$check(count($rem) === 2 && in_array('SKN', array_column($rem, 'Kurs'), true) && (string) array_column($rem, 'Weg')[0] === 'account', 'Export: gesendete Ablauf-Erinnerungen und Widerspruch (Nutzer-Meta)');
+$tables = \Bootspruefung\Learning\Infrastructure\Database\Schema::TABLES;
+$exportTables = PersonalData::exportTables();
+$unclassified = array_values(array_diff($tables, $exportTables, PersonalData::NO_PERSONAL_DATA_TABLES));
+$check($unclassified === [] && array_diff(\Bootspruefung\Learning\Infrastructure\Database\Schema::USER_DATA_TABLES, $exportTables) === [] && array_diff(array_keys(PersonalData::CHILD_TABLES), $exportTables) === [], 'jede eigene Tabelle ist im Export oder ausdrücklich ohne Personenbezug eingestuft'.($unclassified !== [] ? ': '.implode(', ', $unclassified) : ''));
+$check(array_intersect($exportTables, PersonalData::NO_PERSONAL_DATA_TABLES) === [] && array_diff(array_merge($exportTables, PersonalData::NO_PERSONAL_DATA_TABLES), $tables) === [], 'Einstufung ohne Widerspruch und ohne unbekannte Tabellen');
+// Löschung: Kindzeilen ausdrücklich, Protokoll mit UTC-Zeit.
+$erasedEx = PersonalData::eraseUser($exUser, 'acct_export@example.test');
+$left = (int) $wpdb->get_var($wpdb->prepare("SELECT (SELECT COUNT(*) FROM {$p}attempt_answer WHERE attempt_id = %d) + (SELECT COUNT(*) FROM {$p}exam_session_question WHERE session_id = %d) + (SELECT COUNT(*) FROM {$p}favorite_collection_item WHERE collection_id = %d) + (SELECT COUNT(*) FROM {$p}mobile_idempotency WHERE user_id = %d)", $exA, $exSession, $exCollection, $exUser));
+$check($erasedEx['items_removed'] && $left === 0 && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}attempt_answer WHERE attempt_id = %d", $exB)) === 1, 'Löschung: Antworten, Prüfungsfragen und Sammlungsinhalte weg, fremde Antworten bleiben');
+$check(in_array('Dein Widerspruch gegen die Erinnerungs-E-Mails bleibt gespeichert, damit wir ihn weiter beachten.', $erasedEx['messages'], true) && \Bootspruefung\Learning\Commerce\ReminderOptOut::optedOut($exUser), 'Löschung: Widerspruch gegen Erinnerungen bleibt (mit Hinweis)');
+$auditAt = (string) $wpdb->get_var($wpdb->prepare("SELECT created_at FROM {$p}audit_log WHERE action = 'personal_data_erased' AND object_id = %s ORDER BY id DESC LIMIT 1", hash('sha256', $exUser.wp_salt())));
+$check($auditAt !== '' && abs(strtotime($auditAt.' UTC') - time()) < 120, "Protokoll „personal_data_erased“ mit UTC-Zeitpunkt ({$auditAt})");
+$wpdb->delete($p.'attempt', ['id' => $exB]);
+foreach ([$exUser, $exOther] as $uid) {
+    wp_delete_user($uid);
+}
+
+echo "Multisite: Konto nur von dieser Website bzw. netzweit löschen (T112, mit Test-Double)\n";
+// Ohne Multisite-Installation: NetworkAccounts als Double. Ungetestet bleiben die echten Aufrufe von
+// wpmu_delete_user, get_blogs_of_user, get_sites und switch_to_blog (siehe docs/datenschutz-organisation.md, 1.8).
+$fakeNet = new class () extends \Bootspruefung\Learning\Privacy\NetworkAccounts {
+    /** @var list<int> */
+    public array $memberOf = [1];
+    /** @var list<string> */
+    public array $calls = [];
+    public function isMultisite(): bool
+    {
+        return true;
+    }
+    public function currentSite(): int
+    {
+        return 1;
+    }
+    public function sitesOf(int $userId): array
+    {
+        return $this->memberOf;
+    }
+    public function deleteFromNetwork(int $userId): bool
+    {
+        $this->calls[] = 'network';
+        require_once ABSPATH.'wp-admin/includes/user.php';
+
+        return (bool) wp_delete_user($userId); // Einzelwebsite: entfernt die Zeile in wp_users wie wpmu_delete_user
+    }
+    public function deleteFromSite(int $userId): bool
+    {
+        // Wie wp_delete_user auf Multisite: nur die Rolle dieser Website entfernen, dann deleted_user.
+        global $wpdb;
+        $this->calls[] = 'site';
+        $user = get_userdata($userId);
+        delete_user_meta($userId, $wpdb->get_blog_prefix().'capabilities');
+        delete_user_meta($userId, $wpdb->get_blog_prefix().'user_level');
+        do_action('deleted_user', $userId, null, $user);
+        clean_user_cache($userId);
+
+        return true;
+    }
+    public function sitesWithTables(): array
+    {
+        return [1, 2];
+    }
+    public function inSite(int $siteId, callable $fn): mixed
+    {
+        $this->calls[] = 'in-site:'.$siteId;
+
+        return $fn();
+    }
+};
+// a) Auch Mitglied einer anderen Website: Konto bleibt im Netzwerk, Daten dieser Website weg.
+$msUser = $customer('acct_multisite');
+$learn($msUser, 3);
+$fakeNet->memberOf = [1, 3];
+AccountDeletion::useNetwork($fakeNet);
+$check(AccountDeletion::scopeFor(get_userdata($msUser)) === 'site', 'Mitglied mehrerer Websites: Wirkung „nur diese Website“');
+wp_set_current_user($msUser);
+ob_start();
+SelfService::render();
+$msPage = (string) ob_get_clean();
+wp_set_current_user(1);
+$check(str_contains($msPage, 'Für die anderen Websites dieses Netzwerks bleibt es mit Anmeldung bestehen'), '„Meine Daten“ sagt: Konto bleibt für die anderen Websites');
+$mails = [];
+$msReq = (int) SelfService::request($msUser, 'delete')['request_id'];
+$check(str_contains($mails[0]['message'] ?? '', 'Von dieser Website löschen') && str_contains($mails[0]['message'] ?? '', 'anderen Websites dieses Netzwerks'), 'Bestätigungsmail: Knopf „Von dieser Website löschen“, Konto bleibt im Netzwerk');
+preg_match('/confirm_key=([A-Za-z0-9]+)/', $mails[0]['message'] ?? '', $msKey);
+$msForm = AccountDeletion::confirmForm($msReq, (string) ($msKey[1] ?? ''));
+$check(str_contains($msForm, 'Von dieser Website löschen') && str_contains($msForm, 'anderen Websites dieses Netzwerks') && ! str_contains($msForm, 'Konto jetzt löschen'), 'Bestätigungsseite: Daten dieser Website löschen, Konto bleibt');
+$mails = [];
+do_action('user_request_action_confirmed', $msReq);
+clean_user_cache($msUser);
+$check(get_userdata($msUser) !== false && $fakeNet->calls === ['site', 'in-site:1'] && get_post_status($msReq) === 'request-completed', 'nach der Bestätigung: Konto besteht weiter (nur von dieser Website entfernt), Antrag erledigt');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}progress WHERE user_id = %d", $msUser)) === 0 && (int) get_post_meta($msReq, AccountDeletion::SITE_REMOVED_META, true) > 0 && ! get_post_meta($msReq, AccountDeletion::DELETED_META, true), 'Daten dieser Website gelöscht; Antrag vermerkt „von der Website entfernt“, nicht „Konto gelöscht“');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'account_removed_from_site' AND object_id = %s", (string) $msReq)) === 1 && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'account_deleted' AND object_id = %s", (string) $msReq)) === 0, 'Protokoll: account_removed_from_site statt account_deleted');
+$msDone = array_values(array_filter($mails, static fn ($m) => $m['to'] === 'acct_multisite@example.test'));
+$check($msDone !== [] && str_contains($msDone[0]['message'], 'Gelöscht wurden deine Daten auf dieser Website'), 'Erledigt-Mail: Daten dieser Website gelöscht, Konto bleibt');
+$msMsg = (string) apply_filters('user_request_action_confirmed_message', '', $msReq);
+$check(str_contains($msMsg, 'Deine Daten auf dieser Website sind gelöscht') && str_contains($msMsg, 'bleibt im Netzwerk bestehen') && ! str_contains($msMsg, 'Konto ist gelöscht'), 'Bestätigungsseite ehrlich: Konto bleibt im Netzwerk');
+$check(str_contains(AccountDeletion::completedText($msReq), 'bleibt im Netzwerk bestehen'), 'App-Meldung (completedText): Konto bleibt im Netzwerk');
+// b) Nur Mitglied dieser Website: netzweit löschen, Lerndaten aller Websites mit Plugin-Tabellen.
+$fakeNet->calls = [];
+$fakeNet->memberOf = [1];
+$netUser = $customer('acct_netzwerk');
+$learn($netUser, 3);
+$check(AccountDeletion::scopeFor(get_userdata($netUser)) === 'network', 'nur Mitglied dieser Website: Wirkung „netzweit“');
+$netReq = (int) SelfService::request($netUser, 'delete')['request_id'];
+do_action('user_request_action_confirmed', $netReq);
+clean_user_cache($netUser);
+$check(get_userdata($netUser) === false && $fakeNet->calls === ['network', 'in-site:1', 'in-site:2'], 'netzweit gelöscht (wpmu_delete_user), danach Lerndaten auf allen Websites mit Plugin-Tabellen: '.implode(', ', $fakeNet->calls));
+$check((int) get_post_meta($netReq, AccountDeletion::DELETED_META, true) > 0 && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'account_deleted' AND object_id = %s AND context LIKE %s", (string) $netReq, '%"network":true%')) === 1, 'Antrag „Konto gelöscht“, Protokoll mit Netzwerk-Vermerk');
+// c) Admin entfernt ein Konto nur von dieser Website (Konto bleibt): nur diese Website wird bereinigt.
+$fakeNet->calls = [];
+$siteOnly = $customer('acct_nur_entfernt');
+$fakeNet->deleteFromSite($siteOnly);
+$check($fakeNet->calls === ['site', 'in-site:1'], 'deleted_user mit weiter bestehendem Konto: nur diese Website');
+AccountDeletion::useNetwork(null);
+$check(AccountDeletion::scopeFor(get_userdata($msUser)) === 'account' && get_class(AccountDeletion::network()) === \Bootspruefung\Learning\Privacy\NetworkAccounts::class, 'ohne Multisite: Wirkung „Konto löschen“ wie bisher');
+foreach ([$msUser, $siteOnly] as $uid) {
+    wp_delete_user($uid);
+}
+foreach ([$msReq, $netReq] as $rid) {
+    wp_delete_post($rid, true);
+}
 
 // Aufräumen
 foreach ([$mbUser, $selfUser, $staff, $owner] as $uid) {
