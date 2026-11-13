@@ -468,6 +468,7 @@ final class AuditPage
             'privacy_export_sent' => __('Datenexport verschickt', 'bootspruefung-learning'),
             'privacy_export_failed' => __('Datenexport fehlgeschlagen', 'bootspruefung-learning'),
             'account_deleted' => __('Kundenkonto gelöscht', 'bootspruefung-learning'),
+            'account_removed_from_site' => __('Kundenkonto von dieser Website entfernt (Multisite)', 'bootspruefung-learning'),
             'account_deletion_failed' => __('Kontolöschung fehlgeschlagen', 'bootspruefung-learning'),
             'account_deletion_skipped' => __('Kontolöschung übersprungen', 'bootspruefung-learning'),
             'personal_data_erased' => __('Lerndaten einer Person gelöscht (Datenschutz)', 'bootspruefung-learning'),

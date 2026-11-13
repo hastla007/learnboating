@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T23:08:57+00:00\n"
+"POT-Creation-Date: 2026-11-13T23:14:09+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: bootspruefung-learning\n"
@@ -94,21 +94,21 @@ msgstr ""
 #: src/Admin/AccessPages.php:82
 #: src/Admin/AccessPages.php:99
 #: src/Admin/AccessPages.php:141
-#: src/Admin/AuditPage.php:672
+#: src/Admin/AuditPage.php:673
 #: src/Commerce/WooCommerce/Integration.php:602
 msgid "manuell"
 msgstr ""
 
 #: src/Admin/AccessPages.php:82
 #: src/Admin/AccessPages.php:601
-#: src/Admin/AuditPage.php:546
-#: src/Admin/AuditPage.php:672
+#: src/Admin/AuditPage.php:547
+#: src/Admin/AuditPage.php:673
 #: src/Admin/ContentPages.php:498
 msgid "Gruppe"
 msgstr ""
 
 #: src/Admin/AccessPages.php:82
-#: src/Admin/AuditPage.php:673
+#: src/Admin/AuditPage.php:674
 #: src/Extensions/Vouchers.php:189
 msgid "Kursgutschein"
 msgstr ""
@@ -135,7 +135,7 @@ msgstr ""
 #: src/Admin/AccessPages.php:104
 #: src/Admin/AccessPages.php:185
 #: src/Admin/AuditPage.php:87
-#: src/Admin/AuditPage.php:542
+#: src/Admin/AuditPage.php:543
 msgid "Nutzer"
 msgstr ""
 
@@ -144,7 +144,7 @@ msgstr ""
 #: src/Admin/AccessPages.php:243
 #: src/Admin/AccessPages.php:372
 #: src/Admin/AccessPages.php:722
-#: src/Admin/AuditPage.php:542
+#: src/Admin/AuditPage.php:543
 #: src/Admin/ContentPages.php:196
 #: src/Admin/PricePage.php:76
 #: src/Commerce/WooCommerce/Integration.php:439
@@ -159,7 +159,7 @@ msgstr ""
 #: src/Admin/AccessPages.php:187
 #: src/Admin/AccessPages.php:372
 #: src/Admin/AccessPages.php:723
-#: src/Admin/AuditPage.php:542
+#: src/Admin/AuditPage.php:543
 #: src/Admin/Glossary.php:21
 #: src/Gate/ContentGate.php:306
 #: assets/admin/restricted-block.js:40
@@ -197,7 +197,7 @@ msgstr ""
 #: src/Admin/AccessPages.php:104
 #: src/Admin/AccessPages.php:191
 #: src/Admin/AccessPages.php:722
-#: src/Admin/AuditPage.php:549
+#: src/Admin/AuditPage.php:550
 #: src/Admin/ContentPages.php:303
 #: src/Admin/ContentPages.php:369
 #: src/Admin/ExamGuidePages.php:97
@@ -250,7 +250,7 @@ msgid "Letzter Grund"
 msgstr ""
 
 #: src/Admin/AccessPages.php:195
-#: src/Admin/AuditPage.php:549
+#: src/Admin/AuditPage.php:550
 msgid "Gutschein"
 msgstr ""
 
@@ -263,8 +263,8 @@ msgid "Eingelöst am"
 msgstr ""
 
 #: src/Admin/AccessPages.php:198
-#: src/Admin/AuditPage.php:549
-#: src/Admin/AuditPage.php:556
+#: src/Admin/AuditPage.php:550
+#: src/Admin/AuditPage.php:557
 msgid "Herkunft"
 msgstr ""
 
@@ -402,7 +402,7 @@ msgid "entfernen"
 msgstr ""
 
 #: src/Admin/AccessPages.php:366
-#: src/Admin/AuditPage.php:627
+#: src/Admin/AuditPage.php:628
 msgid "ganz kostenlos"
 msgstr ""
 
@@ -417,8 +417,8 @@ msgstr ""
 
 #: src/Admin/AccessPages.php:372
 #: src/Admin/AccessPages.php:553
-#: src/Admin/AuditPage.php:542
-#: src/Admin/AuditPage.php:555
+#: src/Admin/AuditPage.php:543
+#: src/Admin/AuditPage.php:556
 #: src/Admin/Glossary.php:22
 #: src/Commerce/WooCommerce/Integration.php:439
 msgid "Umfang"
@@ -439,8 +439,8 @@ msgid "Kostenlosen Bereich hinzufügen"
 msgstr ""
 
 #: src/Admin/AccessPages.php:389
-#: src/Admin/AuditPage.php:545
-#: src/Admin/AuditPage.php:627
+#: src/Admin/AuditPage.php:546
+#: src/Admin/AuditPage.php:628
 #: src/Admin/Glossary.php:23
 msgid "Teilumfang"
 msgstr ""
@@ -597,7 +597,7 @@ msgstr ""
 
 #: src/Admin/AccessPages.php:552
 #: src/Admin/AccessPages.php:601
-#: src/Admin/AuditPage.php:546
+#: src/Admin/AuditPage.php:547
 msgid "Plätze"
 msgstr ""
 
@@ -608,8 +608,8 @@ msgstr ""
 
 #: src/Admin/AccessPages.php:555
 #: src/Admin/AccessPages.php:601
-#: src/Admin/AuditPage.php:543
-#: src/Admin/AuditPage.php:672
+#: src/Admin/AuditPage.php:544
+#: src/Admin/AuditPage.php:673
 #: src/Commerce/WooCommerce/MoneyBackWoo.php:213
 #: src/Commerce/WooCommerce/MoneyBackWoo.php:237
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:362
@@ -643,7 +643,7 @@ msgid "aktiv"
 msgstr ""
 
 #: src/Admin/AccessPages.php:563
-#: src/Admin/AuditPage.php:551
+#: src/Admin/AuditPage.php:552
 #: src/Frontend/Strings.php:58
 msgid "eingeladen"
 msgstr ""
@@ -654,7 +654,7 @@ msgid "Einladung abgelaufen"
 msgstr ""
 
 #: src/Admin/AccessPages.php:563
-#: src/Admin/AuditPage.php:547
+#: src/Admin/AuditPage.php:548
 msgid "entfernt"
 msgstr ""
 
@@ -1339,135 +1339,139 @@ msgid "Kundenkonto gelöscht"
 msgstr ""
 
 #: src/Admin/AuditPage.php:471
-msgid "Kontolöschung fehlgeschlagen"
+msgid "Kundenkonto von dieser Website entfernt (Multisite)"
 msgstr ""
 
 #: src/Admin/AuditPage.php:472
-msgid "Kontolöschung übersprungen"
+msgid "Kontolöschung fehlgeschlagen"
 msgstr ""
 
 #: src/Admin/AuditPage.php:473
+msgid "Kontolöschung übersprungen"
+msgstr ""
+
+#: src/Admin/AuditPage.php:474
 msgid "Lerndaten einer Person gelöscht (Datenschutz)"
 msgstr ""
 
-#: src/Admin/AuditPage.php:475
+#: src/Admin/AuditPage.php:476
 msgid "Einstellung „Zugang ohne Shop“ geändert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:476
+#: src/Admin/AuditPage.php:477
 msgid "Einstellungen der App gespeichert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:477
+#: src/Admin/AuditPage.php:478
 msgid "App-Sitzungen eines Kunden beendet"
 msgstr ""
 
-#: src/Admin/AuditPage.php:478
+#: src/Admin/AuditPage.php:479
 msgid "Sicherheitseinstellungen gespeichert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:479
+#: src/Admin/AuditPage.php:480
 msgid "Livegang-Checkliste: Punkt abgehakt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:480
+#: src/Admin/AuditPage.php:481
 msgid "Livegang-Checkliste: Haken zurückgenommen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:481
+#: src/Admin/AuditPage.php:482
 msgid "Shop trotz offener Punkte sichtbar gemacht"
 msgstr ""
 
 #. translators: %s: interner Name des Ereignisses
-#: src/Admin/AuditPage.php:488
+#: src/Admin/AuditPage.php:489
 #, php-format
 msgid "Sonstiges Ereignis (%s)"
 msgstr ""
 
-#: src/Admin/AuditPage.php:494
+#: src/Admin/AuditPage.php:495
 msgid "Position aus der Bestellung entfernt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:495
-#: src/Admin/AuditPage.php:635
+#: src/Admin/AuditPage.php:496
+#: src/Admin/AuditPage.php:636
 #: src/Privacy/AccountDeletion.php:614
 msgid "Konto gelöscht"
 msgstr ""
 
-#: src/Admin/AuditPage.php:496
+#: src/Admin/AuditPage.php:497
 msgid "Datenschutz-Antrag"
 msgstr ""
 
-#: src/Admin/AuditPage.php:497
+#: src/Admin/AuditPage.php:498
 msgid "Konto mit Verwaltungsrechten (wird nie automatisch gelöscht)"
 msgstr ""
 
-#: src/Admin/AuditPage.php:498
+#: src/Admin/AuditPage.php:499
 msgid "Löschen der Daten fehlgeschlagen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:499
+#: src/Admin/AuditPage.php:500
 msgid "Konto konnte nicht gelöscht werden"
 msgstr ""
 
-#: src/Admin/AuditPage.php:500
+#: src/Admin/AuditPage.php:501
 msgid "Person aus der Gruppe entfernt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:501
+#: src/Admin/AuditPage.php:502
 msgid "Plätze der Gruppe verringert"
 msgstr ""
 
 #. translators: 1: alter Wert, 2: neuer Wert
-#: src/Admin/AuditPage.php:535
+#: src/Admin/AuditPage.php:536
 #, php-format
 msgid "von %1$s auf %2$s"
 msgstr ""
 
-#: src/Admin/AuditPage.php:543
+#: src/Admin/AuditPage.php:544
 msgid "vorher Nutzer"
 msgstr ""
 
-#: src/Admin/AuditPage.php:543
+#: src/Admin/AuditPage.php:544
 msgid "Bestellposition"
 msgstr ""
 
-#: src/Admin/AuditPage.php:544
+#: src/Admin/AuditPage.php:545
 msgid "Auslöser"
 msgstr ""
 
-#: src/Admin/AuditPage.php:544
+#: src/Admin/AuditPage.php:545
 msgid "neuer Wert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:544
+#: src/Admin/AuditPage.php:545
 #: src/Admin/ContentPages.php:498
 msgid "Anzahl"
 msgstr ""
 
-#: src/Admin/AuditPage.php:544
+#: src/Admin/AuditPage.php:545
 msgid "Tage"
 msgstr ""
 
-#: src/Admin/AuditPage.php:545
+#: src/Admin/AuditPage.php:546
 #: src/Admin/ContentPages.php:254
 #: src/Admin/ContentPages.php:279
 msgid "Modul"
 msgstr ""
 
-#: src/Admin/AuditPage.php:545
+#: src/Admin/AuditPage.php:546
 #: src/Admin/ContentPages.php:156
 #: src/Admin/ImportPage.php:397
 msgid "Art"
 msgstr ""
 
-#: src/Admin/AuditPage.php:545
+#: src/Admin/AuditPage.php:546
 #: src/Admin/ContentPages.php:326
 #: src/Admin/Glossary.php:34
 msgid "Inhaltspaket"
 msgstr ""
 
-#: src/Admin/AuditPage.php:546
+#: src/Admin/AuditPage.php:547
 #: src/Admin/ContentPages.php:154
 #: src/Admin/ImportPage.php:346
 #: src/Admin/ImportPage.php:542
@@ -1475,24 +1479,24 @@ msgstr ""
 msgid "Fehler"
 msgstr ""
 
-#: src/Admin/AuditPage.php:546
+#: src/Admin/AuditPage.php:547
 msgid "Teilnahme"
 msgstr ""
 
-#: src/Admin/AuditPage.php:547
+#: src/Admin/AuditPage.php:548
 msgid "Rabatt in %"
 msgstr ""
 
-#: src/Admin/AuditPage.php:547
+#: src/Admin/AuditPage.php:548
 msgid "hinzugefügt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:547
+#: src/Admin/AuditPage.php:548
 #: src/Admin/ImportPage.php:540
 msgid "unverändert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:548
+#: src/Admin/AuditPage.php:549
 #: src/Admin/ContentPages.php:156
 #: src/Admin/PricePage.php:106
 #: src/Commerce/WooCommerce/ContractSummary.php:149
@@ -1500,100 +1504,100 @@ msgstr ""
 msgid "Produkt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:548
+#: src/Admin/AuditPage.php:549
 #: src/Admin/ContentPages.php:139
 msgid "Variation"
 msgstr ""
 
-#: src/Admin/AuditPage.php:548
+#: src/Admin/AuditPage.php:549
 #: src/Admin/ContentPages.php:693
 msgid "gültig bis"
 msgstr ""
 
-#: src/Admin/AuditPage.php:550
+#: src/Admin/AuditPage.php:551
 msgid "eingelöst am"
 msgstr ""
 
-#: src/Admin/AuditPage.php:550
+#: src/Admin/AuditPage.php:551
 msgid "von Hand"
 msgstr ""
 
-#: src/Admin/AuditPage.php:550
+#: src/Admin/AuditPage.php:551
 msgid "Ursache"
 msgstr ""
 
-#: src/Admin/AuditPage.php:551
+#: src/Admin/AuditPage.php:552
 #: src/Admin/ImportPage.php:541
 msgid "übersprungen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:551
+#: src/Admin/AuditPage.php:552
 #: src/Commerce/Labels.php:39
 msgid "abgelaufen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:552
+#: src/Admin/AuditPage.php:553
 msgid "unkenntlich gemacht"
 msgstr ""
 
-#: src/Admin/AuditPage.php:552
+#: src/Admin/AuditPage.php:553
 msgid "Ziel-Import"
 msgstr ""
 
-#: src/Admin/AuditPage.php:552
+#: src/Admin/AuditPage.php:553
 msgid "Wiederherstellung von Import"
 msgstr ""
 
-#: src/Admin/AuditPage.php:553
+#: src/Admin/AuditPage.php:554
 msgid "Änderungen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:553
+#: src/Admin/AuditPage.php:554
 msgid "abgebrochen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:553
+#: src/Admin/AuditPage.php:554
 #: src/Admin/ImportPage.php:397
 #: src/Admin/ImportPage.php:532
 msgid "Meldung"
 msgstr ""
 
-#: src/Admin/AuditPage.php:553
+#: src/Admin/AuditPage.php:554
 msgid "Zeitpunkt"
 msgstr ""
 
-#: src/Admin/AuditPage.php:554
+#: src/Admin/AuditPage.php:555
 msgid "Stand des Falls"
 msgstr ""
 
-#: src/Admin/AuditPage.php:554
+#: src/Admin/AuditPage.php:555
 msgid "PayPal eingerichtet"
 msgstr ""
 
-#: src/Admin/AuditPage.php:554
+#: src/Admin/AuditPage.php:555
 #: src/Commerce/Disputes/DisputeWebhooks.php:825
 msgid "Umgebung"
 msgstr ""
 
-#: src/Admin/AuditPage.php:555
+#: src/Admin/AuditPage.php:556
 msgid "Zeilen"
 msgstr ""
 
-#: src/Admin/AuditPage.php:555
+#: src/Admin/AuditPage.php:556
 msgid "gelöscht"
 msgstr ""
 
-#: src/Admin/AuditPage.php:555
+#: src/Admin/AuditPage.php:556
 #: src/Commerce/Labels.php:39
 #: src/Frontend/Strings.php:44
 msgid "beendet"
 msgstr ""
 
-#: src/Admin/AuditPage.php:556
+#: src/Admin/AuditPage.php:557
 msgid "Einlöse-Nr."
 msgstr ""
 
-#: src/Admin/AuditPage.php:556
+#: src/Admin/AuditPage.php:557
 #: src/Admin/ImportPage.php:378
 #: src/Admin/ImportPage.php:383
 #: src/Admin/SystemStatus.php:379
@@ -1601,20 +1605,20 @@ msgstr ""
 msgid "Ergebnis"
 msgstr ""
 
-#: src/Admin/AuditPage.php:557
+#: src/Admin/AuditPage.php:558
 msgid "offene Punkte"
 msgstr ""
 
-#: src/Admin/AuditPage.php:557
+#: src/Admin/AuditPage.php:558
 msgid "Gutschein-Bestellung"
 msgstr ""
 
-#: src/Admin/AuditPage.php:577
+#: src/Admin/AuditPage.php:578
 msgid "ohne Ablauf"
 msgstr ""
 
-#: src/Admin/AuditPage.php:580
-#: src/Admin/AuditPage.php:625
+#: src/Admin/AuditPage.php:581
+#: src/Admin/AuditPage.php:626
 #: src/Admin/ContentPages.php:690
 #: src/Admin/FaqAdmin.php:83
 #: src/Admin/Menu.php:154
@@ -1623,8 +1627,8 @@ msgstr ""
 msgid "ja"
 msgstr ""
 
-#: src/Admin/AuditPage.php:580
-#: src/Admin/AuditPage.php:625
+#: src/Admin/AuditPage.php:581
+#: src/Admin/AuditPage.php:626
 #: src/Admin/ContentPages.php:690
 #: src/Admin/FaqAdmin.php:84
 #: src/Admin/Menu.php:155
@@ -1635,77 +1639,77 @@ msgstr ""
 msgid "nein"
 msgstr ""
 
-#: src/Admin/AuditPage.php:611
-#: src/Admin/AuditPage.php:621
-#: src/Admin/AuditPage.php:645
+#: src/Admin/AuditPage.php:612
+#: src/Admin/AuditPage.php:622
+#: src/Admin/AuditPage.php:646
 #, php-format
 msgid "Nr. %d"
 msgstr ""
 
-#: src/Admin/AuditPage.php:627
+#: src/Admin/AuditPage.php:628
 msgid "zeitversetzte Freischaltung"
 msgstr ""
 
-#: src/Admin/AuditPage.php:630
+#: src/Admin/AuditPage.php:631
 msgid "Bestellung geändert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:630
+#: src/Admin/AuditPage.php:631
 msgid "manuelle Entscheidung aufgehoben"
 msgstr ""
 
-#: src/Admin/AuditPage.php:631
+#: src/Admin/AuditPage.php:632
 msgid "Bestellaktion im Admin"
 msgstr ""
 
-#: src/Admin/AuditPage.php:631
+#: src/Admin/AuditPage.php:632
 msgid "Befehlszeile"
 msgstr ""
 
-#: src/Admin/AuditPage.php:631
+#: src/Admin/AuditPage.php:632
 msgid "Abgleich"
 msgstr ""
 
-#: src/Admin/AuditPage.php:632
+#: src/Admin/AuditPage.php:633
 msgid "automatisch"
 msgstr ""
 
-#: src/Admin/AuditPage.php:632
+#: src/Admin/AuditPage.php:633
 #: src/Admin/ExamGuidePages.php:94
 #: src/Frontend/Strings.php:88
 msgid "Website"
 msgstr ""
 
-#: src/Admin/AuditPage.php:632
+#: src/Admin/AuditPage.php:633
 msgid "App"
 msgstr ""
 
-#: src/Admin/AuditPage.php:632
+#: src/Admin/AuditPage.php:633
 msgid "E-Mail-Link"
 msgstr ""
 
-#: src/Admin/AuditPage.php:635
+#: src/Admin/AuditPage.php:636
 msgid "Plätze verringert"
 msgstr ""
 
-#: src/Admin/AuditPage.php:638
+#: src/Admin/AuditPage.php:639
 msgid "geprüft (verifiziert)"
 msgstr ""
 
-#: src/Admin/AuditPage.php:638
+#: src/Admin/AuditPage.php:639
 msgid "nicht geprüft"
 msgstr ""
 
-#: src/Admin/AuditPage.php:648
+#: src/Admin/AuditPage.php:649
 msgid "Testumgebung (Sandbox)"
 msgstr ""
 
-#: src/Admin/AuditPage.php:648
+#: src/Admin/AuditPage.php:649
 msgid "Echtbetrieb"
 msgstr ""
 
 #. translators: %s: Kennung der Gutschein-Herkunft
-#: src/Admin/AuditPage.php:680
+#: src/Admin/AuditPage.php:681
 #, php-format
 msgid "Kursgutschein (%s)"
 msgstr ""
