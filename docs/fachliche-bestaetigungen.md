@@ -92,3 +92,25 @@ Er schließt den FKN ein und ist eine Voraussetzung für den Besitz einer Signal
 > Ausschuss das so handhabt, frag vor der Anmeldung nach.
 
 **Bitte bestätigen:** am Wortlaut der Sportbootführerscheinverordnung (SpFV).
+
+## g) Offene Prüfungsregeln (To-do T37)
+
+**1. Ergänzung FKN → SKN: gibt es eine verkürzte Prüfung?**
+- Heute: Der Kurs „Ergänzung FKN → SKN“ nutzt die volle SKN-Simulation (18 Fragen, 60 Minuten, bestanden ab 26 von
+  36 Punkten). Sie läuft als Übungsmodus, ohne „offizielle“ Wertung.
+- Bitte bestätigen: Legen FKN-Inhaber die volle SKN-Prüfung ab, oder gibt es eine verkürzte Prüfung (Fragenzahl,
+  Zeit, Bestehensgrenze, mit Quelle)? Danach stellen wir den Übungsmodus auf die amtliche Wertung um.
+
+**2. Navigationsaufgabe SBF See: Teilpunkte und Zeitvorgabe?**
+- Heute (`src/Trainers/TrainerService.php`): 9 Teilaufgaben je Aufgabe, 1 Punkt je richtig gelöster Teilaufgabe,
+  bestanden ab 7 von 9 Punkten. Bei der Selbsteinschätzung zählt „teilweise“ nicht, und es gibt keinen Timer. Beides
+  ist in unseren Quellen nicht belegt.
+- Bitte bestätigen: Gibt es halbe Punkte für teilweise richtige Lösungen? Wie viel Zeit hat man für die
+  Navigationsaufgabe? Mit Quelle.
+
+**3. UBI-Ergänzung für SRC-Inhaber: am selben Termin wie die SRC-Prüfung?**
+- Heute: Der Kombikurs SRC & UBI übt für die UBI die verkürzte Ergänzungsprüfung (10 Fragen aus dem
+  Ergänzungskatalog, bestanden ab 8 von 10, 30 Minuten). Der Hinweis in der Prüfungsanleitung lautet: „Ob du sie am
+  selben Termin wie die SRC-Prüfung ablegen kannst, sagt dir dein Prüfungsausschuss.“
+- Bitte bestätigen: Ist die Ergänzungsprüfung am selben Termin möglich, oder muss das SRC vorher erteilt sein? Dann
+  passen wir den Hinweis an.
