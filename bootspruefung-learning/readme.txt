@@ -10,7 +10,7 @@ Lernplattform für Bootsführerscheine mit Fragenkatalog, Prüfungssimulation, S
 
 == Description ==
 
-Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
+Stand 0.14.0 (Konzept Kap. 11, Schritte 3–9c; Änderungen seit 0.11.0 siehe „Changelog“):
 
 * Content-Import: ZIP-Upload oder `wp bootspruefung import <paket>`, Prüfung (Prüfsummen, Schemata, Querverweise), Dry-Run, Freigabe, Import in Teilschritten, Revisionen, Archivierung, Protokoll; Rollback auf einen früheren Stand (`wp bootspruefung rollback`)
 * Content-Browser: Übersicht, Kurse & Module, Fragen, Medien, Prüfungsregeln, Rechtefreigabe mit Begründung und Audit-Log
@@ -37,3 +37,48 @@ Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 * Schnittstellen für Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Kursgutschein einlösen (interne 0-€-Bestellung, App und „Mein Lernen“), Filter „besitzt Kurs“, Mitgliederrabatt vs. Shop-Gutschein, Garantie ohne Gutscheinanteil, Tickets im Kurs-Hub und in der App (`GET /me/tickets`), „Praxis in deiner Nähe“ – Übersicht in docs/schnittstellen-erweiterungen.md
 
 Noch offen: Content-Freigabe und Go-live (Schritt 10).
+
+== Installation ==
+
+Voraussetzungen: PHP 8.1 bis 8.5, WordPress ab 7.0, WooCommerce ab 11.2 (für den Shop), MariaDB ab 10.11 mit InnoDB.
+
+1. Zuerst WooCommerce installieren und aktivieren.
+2. Plugins › Installieren › Plugin hochladen › `bootspruefung-learning-<version>.zip` › Jetzt installieren › Aktivieren.
+   Der Ordner muss `bootspruefung-learning` heißen. Mit dem Theme Kurswasser geht das auch über Design › Kurswasser
+   einrichten (das Theme-Paket enthält das Plugin).
+3. Content-Paket importieren: Bootsprüfung › Import (oder `wp bootspruefung import <paket>`).
+4. Bootsprüfung › Systemstatus prüfen (Schema „aktuell“, keine Warnungen).
+
+Das Plugin braucht keine Composer-Abhängigkeiten auf dem Server. Updates kommen nicht über wordpress.org
+(`Update URI: false`). Ausführlich: docs/installation-und-updates.md im Repository.
+
+== Upgrade Notice ==
+
+= 0.14.0 =
+Datenbank-Schema 1.14.0 (vorher 1.13.0). Vorher Datenbank und Uploads sichern. Update per ZIP-Upload „Ersetzen“, nicht
+vorher deaktivieren oder löschen. Danach einmal den Admin öffnen: Die Migration läuft dann; bis dahin beantwortet die
+Lern-API schreibende Anfragen mit „Wartung“. Theme und Add-ons brauchen mindestens 0.13.0. Zurück auf 0.13.0 nur mit
+dem Datenbank-Backup von vor dem Update (Release-Regel, „Downgrade“).
+
+= 0.13.0 =
+App-API 1.9.0. Kursempfehlungen und Ablauf-Erinnerung.
+
+== Changelog ==
+
+Vollständig in CHANGELOG.md (im Plugin-Ordner).
+
+= 0.14.0 – 13.11.2026 =
+Datenbank-Schema 1.14.0, App-API 1.12.0.
+
+* Lernbereich und App: Prüfungssimulation abbrechen, Prüfungsantworten offline puffern; Smarttrainer mit verteilter Wiederholung; Zugangsstatus „Zahlung offen“, „abgelaufen – verlängern“, „gesperrt“; Videos auf fremden Servern erst nach Klick oder Einwilligung; Kursgutscheine einlösen; Praxis-Tickets und „Praxis in deiner Nähe“.
+* Shop und Garantie: Hinweise zu Zahlungsarten, Verkaufsländern und Lieferung vor der Kasse; Hinweis gegen Doppelkäufe; Kasse für Gäste mit Produkt und Summe; Geld-zurück-Garantie ohne Prüfungssimulationen; Ablauf-Erinnerung nur an Käufer mit Abmeldelink.
+* Datenschutz und Sicherheit: echte Kontolöschung nach bestätigtem Antrag; Login-Begrenzung mit „bekanntem Gerät“; XML-RPC aus, keine Benutzer-Aufzählung; Content-Pakete und geschützte Dateien nicht per Direkt-URL abrufbar.
+* Betrieb: stündlicher Wartungslauf, Bestellabgleich mit Wiederholung, Aufbewahrungsfristen; nach einem Update warten schreibende Lern-Anfragen auf die Migration; kein stilles Zurückmigrieren bei einem Downgrade; Versionsvertrag mit Theme und Add-ons.
+
+= 0.13.0 – 10.11.2026 =
+Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung (App-API 1.9.0).
+
+== Lizenz ==
+
+Die Lizenz des Plugins ist noch nicht festgelegt; sie wird vom Betreiber bestimmt (Fakten und offene Fragen:
+docs/lizenz.md im Repository). Fremdbestandteile mit ihren Lizenzen: CREDITS.md im Repository.
