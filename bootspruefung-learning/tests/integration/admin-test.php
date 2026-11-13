@@ -745,7 +745,7 @@ $few = $countQueries();
 $addRows(2, 12);
 $many = $countQueries();
 $check($few > 0 && $many > 0 && $many - $few <= 2, "Liste „Zugänge“: Abfragen unabhängig von der Zeilenzahl ({$few} bei 4 Zeilen, {$many} bei 24 Zeilen)");
-$check(str_contains($AP::orderEditUrl(880001), '880001') && $AP::orderEditUrl(0) === '', 'Bestell-Link ohne Laden der Bestellung');
+$check((function_exists('wc_get_order') ? str_contains($AP::orderEditUrl(880001), '880001') : $AP::orderEditUrl(880001) === '') && $AP::orderEditUrl(0) === '', 'Bestell-Link ohne Laden der Bestellung (ohne WooCommerce kein Link)');
 $auditRows = [];
 foreach ($granters as $g) {
     $auditRows[] = (object) ['id' => 0, 'created_at' => gmdate('Y-m-d H:i:s'), 'actor_user_id' => $g, 'action' => 'entitlement_extended', 'object_type' => 'entitlement', 'object_id' => '1', 'reason' => null, 'context' => null];
