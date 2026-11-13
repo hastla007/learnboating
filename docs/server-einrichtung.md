@@ -51,10 +51,14 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
   Das Plugin kennzeichnet diese Seiten selbst (T78): Lernbereich `/bootsscheine/…` mit Gruppeneinladung
   (`gruppe/…`) und Abmeldeseite (`erinnerungen`), `/vertrag-widerrufen/` und das Widerrufsformular sowie Seiten
-  mit „Lernzugang erforderlich“ oder dem Block bzw. Shortcode „Nur mit Lernzugang“. Gesetzt werden
-  `DONOTCACHEPAGE`, `DONOTCACHEOBJECT`, `DONOTCACHEDB` (WP Super Cache, W3 Total Cache, WP Rocket u. a.),
+  mit „Lernzugang erforderlich“ oder dem Block bzw. Shortcode „Nur mit Lernzugang“ (auch in FAQ-Antworten). Gesetzt
+  werden `DONOTCACHEPAGE` (WP Super Cache, W3 Total Cache, WP Rocket u. a.),
   `Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private` und für LiteSpeed
-  `X-LiteSpeed-Cache-Control: no-cache` bzw. die Aktion `litespeed_control_set_nocache`. Ein CDN oder ein
+  `X-LiteSpeed-Cache-Control: no-cache` bzw. die Aktion `litespeed_control_set_nocache`. Bewusst **nicht**
+  `DONOTCACHEOBJECT` und `DONOTCACHEDB` (T123): damit schaltet W3 Total Cache Objekt- und Datenbank-Cache für die
+  ganze Anfrage ab, gerade auf den Seiten mit den meisten Abfragen. Die Kennzeichnung gilt nur für Seitenaufrufe im
+  Frontend; in der Verwaltung, bei Cron und WP-CLI setzt das Plugin nichts, bei REST- und Ajax-Anfragen nur die
+  Kopfzeilen (ohne Konstante). Ein CDN oder ein
   Server-Cache (nginx `fastcgi_cache`, Varnish), der `Cache-Control` nicht beachtet, braucht die Pfade trotzdem
   als Ausnahme. Für eigene Regeln gibt es die Aktion `bootspruefung_nocache`.
 - **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
@@ -62,6 +66,10 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   für Produkttexte und Kurskarten) liegen bis zu einem Tag im Transient `bp_learning_course_stats`; Import,
   Paketwechsel, Rechte-Änderungen und Produktänderungen leeren ihn. Mit persistentem Object-Cache (Redis/Memcached)
   liegt der Transient dort, sonst in der Optionstabelle. Nichts davon muss von Hand geleert werden.
+  FAQ und Kunden-FAQ liegen in den Objekt-Cache-Gruppen `bp_faq` bzw. `bp_cfaq` (bis zu einem Tag, bei jeder
+  Änderung neu); Antworten mit dynamischen Blöcken (z. B. „Nur mit Lernzugang“) nur als Rohinhalt – sie werden bei
+  jeder Ausgabe für die jeweilige Person gerendert (T116). Die Inhaltssperre merkt sich ihre Prüfungen nur für die
+  laufende Anfrage (T113).
 - **Speicherordner (T105):** Den Umzug der privaten Ordner (Content-Pakete, geschützte Dateien), z. B. nach dem
   Setzen von `BOOTSPRUEFUNG_PRIVATE_DIR`, erledigt der stündliche Cron oder der nächste Admin-Aufruf; normale
   Besucheranfragen prüfen die Ordner nicht. Sofort: Systemstatus › Dateischutz › „Erneut prüfen“.

@@ -12,11 +12,17 @@ use Bootspruefung\Learning\Gate\ContentGate;
  * und Seiten mit geschütztem Inhalt (Metabox „Lernzugang erforderlich“, Block bzw. Shortcode „Nur mit
  * Lernzugang“). Sonst könnte ein Seiten-Cache die Seite eines Käufers an Gäste ausliefern oder umgekehrt.
  *
- * Gesetzt wird alles, was gängige Caches verstehen:
- * - Konstanten DONOTCACHEPAGE, DONOTCACHEOBJECT, DONOTCACHEDB (WP Super Cache, W3 Total Cache, WP Rocket u. a.),
+ * Gesetzt wird, was gängige Seiten-Caches verstehen:
+ * - Konstante DONOTCACHEPAGE (WP Super Cache, W3 Total Cache, WP Rocket u. a.) – bewusst nicht DONOTCACHEOBJECT und
+ *   DONOTCACHEDB: damit schaltet W3 Total Cache für die ganze Anfrage Objekt- und Datenbank-Cache ab, obwohl nur
+ *   die fertige Seite nicht gespeichert werden darf (T123);
  * - nocache_headers() (Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private),
  * - LiteSpeed Cache: Aktion litespeed_control_set_nocache und Kopfzeile X-LiteSpeed-Cache-Control: no-cache
  *   (wirkt auch ohne das LiteSpeed-Plugin direkt im LiteSpeed-Server).
+ *
+ * Nur bei Seitenaufrufen im Frontend (T123): In der Verwaltung, bei Cron und WP-CLI geschieht nichts (dort gibt es
+ * keinen Seiten-Cache, die Konstante würde nur Caches anderer Plugins stören). Bei REST- und Ajax-Anfragen nur die
+ * Kopfzeilen, ohne Konstante – z. B. wenn die REST-API einen Beitrag mit geschütztem Inhalt ausliefert.
  */
 final class NoCache
 {
@@ -65,15 +71,37 @@ final class NoCache
             || (function_exists('has_block') && has_block('bootspruefung/zugang', $content));
     }
 
+    /**
+     * Art der Anfrage: page (Seitenaufruf im Frontend), api (REST oder Ajax: nur Kopfzeilen) oder none
+     * (Verwaltung, Cron, WP-CLI: nichts kennzeichnen). Filter bootspruefung_nocache_context (z. B. für Tests).
+     */
+    public static function context(): string
+    {
+        if ((defined('WP_CLI') && WP_CLI) || wp_doing_cron()) {
+            $context = 'none';
+        } elseif ((function_exists('wp_is_serving_rest_request') ? wp_is_serving_rest_request() : (defined('REST_REQUEST') && REST_REQUEST)) || wp_doing_ajax()) {
+            $context = 'api';
+        } elseif (is_admin()) {
+            $context = 'none';
+        } else {
+            $context = 'page';
+        }
+        $context = (string) apply_filters('bootspruefung_nocache_context', $context);
+
+        return in_array($context, ['page', 'api', 'none'], true) ? $context : 'page';
+    }
+
     /** Diese Antwort nicht zwischenspeichern. Mehrfacher Aufruf ist unschädlich. */
     public static function mark(string $reason): void
     {
+        $context = self::context();
+        if ($context === 'none') {
+            return;
+        }
         $first = self::$reasons === [];
         self::$reasons[$reason] = true;
-        foreach (['DONOTCACHEPAGE', 'DONOTCACHEOBJECT', 'DONOTCACHEDB'] as $constant) {
-            if (! defined($constant)) {
-                define($constant, true);
-            }
+        if ($context === 'page' && ! defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
         }
         if (! $first) {
             return;

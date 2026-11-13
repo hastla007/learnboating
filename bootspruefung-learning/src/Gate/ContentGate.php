@@ -133,7 +133,7 @@ final class ContentGate
         if (! $post instanceof \WP_Post || self::requirement((int) $post->ID) === null) {
             return $content;
         }
-        NoCache::mark('protected-content'); // Ausgabe hängt vom Zugang ab (T78)
+        NoCache::mark('protected-content'); // Ausgabe hängt vom Zugang ab (T78); wirkt nur bei Seitenaufrufen, REST nur Kopfzeilen (T123)
         if (! self::locked((int) $post->ID)) {
             return $content;
         }

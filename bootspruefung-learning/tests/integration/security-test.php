@@ -557,6 +557,37 @@ $ncLs = static function () use (&$ncSignals): void {
 };
 add_filter('nocache_headers', $ncHeaders);
 add_action('litespeed_control_set_nocache', $ncLs);
+// T123: nur Seitenaufrufe im Frontend bekommen die Konstante; Verwaltung, Cron und WP-CLI nichts; REST/Ajax nur Kopfzeilen.
+$check($NC::context() === 'page', 'Kommandozeilen-Test ohne WP-CLI: gilt als Seitenaufruf');
+add_filter('wp_doing_cron', '__return_true');
+$ncCron = $NC::context();
+remove_filter('wp_doing_cron', '__return_true');
+add_filter('wp_doing_ajax', '__return_true');
+$ncAjax = $NC::context();
+remove_filter('wp_doing_ajax', '__return_true');
+require_once ABSPATH.'wp-admin/includes/class-wp-screen.php';
+require_once ABSPATH.'wp-admin/includes/screen.php';
+$GLOBALS['current_screen'] = WP_Screen::get('dashboard');
+$ncAdmin = $NC::context();
+unset($GLOBALS['current_screen']);
+$check($ncCron === 'none' && $ncAjax === 'api' && $ncAdmin === 'none', "Erkennung: Cron → keine Kennzeichnung ({$ncCron}), Ajax → nur Kopfzeilen ({$ncAjax}), Verwaltung → keine ({$ncAdmin})");
+$ncPageBefore = defined('DONOTCACHEPAGE');
+$ncContext = null;
+$ncForce = static function ($c) use (&$ncContext) {
+    return $ncContext ?? $c;
+};
+add_filter('bootspruefung_nocache_context', $ncForce);
+$NC::reset();
+$ncContext = 'none';
+$NC::mark('protected-content');
+$check($NC::reasons() === [] && $ncSignals === ['headers' => 0, 'litespeed' => 0] && defined('DONOTCACHEPAGE') === $ncPageBefore, 'Verwaltung, Cron, WP-CLI: keine Kennzeichnung, keine Konstante, keine Kopfzeilen');
+$ncContext = 'api';
+$NC::mark('protected-content');
+$check($NC::reasons() === ['protected-content'] && $ncSignals['litespeed'] === 1 && defined('DONOTCACHEPAGE') === $ncPageBefore, 'REST/Ajax: nur Kopfzeilen (LiteSpeed, Cache-Control), keine Konstante'.($ncPageBefore ? ' (Konstante war schon vorher gesetzt – nur Kopfzeilen geprüft)' : ''));
+$ncContext = null;
+remove_filter('bootspruefung_nocache_context', $ncForce);
+$NC::reset();
+$ncSignals = ['headers' => 0, 'litespeed' => 0];
 $ncRun = static function (array $query, ?callable $before = null) use ($NC): array {
     $GLOBALS['wp_query'] = new WP_Query($query);
     $GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
@@ -581,7 +612,8 @@ foreach (['' => 'Lernbereich', 'gruppe/g'.str_repeat('0', 32) => 'Gruppeneinladu
     });
     $check($reasons === ['learning-area'], $label.' (/bootsscheine/'.$path.'): nicht zwischenspeichern');
 }
-$check(defined('DONOTCACHEPAGE') && DONOTCACHEPAGE && defined('DONOTCACHEOBJECT') && defined('DONOTCACHEDB'), 'Konstanten DONOTCACHEPAGE, DONOTCACHEOBJECT, DONOTCACHEDB gesetzt');
+$check(defined('DONOTCACHEPAGE') && DONOTCACHEPAGE, 'Konstante DONOTCACHEPAGE gesetzt');
+$check(! defined('DONOTCACHEOBJECT') && ! defined('DONOTCACHEDB'), 'DONOTCACHEOBJECT und DONOTCACHEDB nicht gesetzt: Objekt- und Datenbank-Cache (W3 Total Cache) bleiben an (T123)');
 // Auf der Kommandozeile gelten die Kopfzeilen nach der ersten Ausgabe als gesendet: dann nur LiteSpeed-Aktion prüfbar.
 $check($ncSignals['litespeed'] === 3 && ($ncSignals['headers'] === 3 || headers_sent()), 'je Anfrage nocache_headers() und LiteSpeed (litespeed_control_set_nocache)');
 $check($ncRun(['page_id' => $ncGated]) === ['protected-content'], 'Seite mit „Lernzugang erforderlich“: nicht zwischenspeichern');
