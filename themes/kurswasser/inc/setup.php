@@ -7,10 +7,14 @@
  *
  * Schritt 1 – Plugins: WooCommerce und Yoast SEO von wordpress.org (plugins_api + Plugin_Upgrader), das
  * Lern-Plugin „Bootsprüfung Lernplattform“ aus einer ZIP-Datei (Konstante KURSWASSER_LEARNING_PLUGIN_ZIP bzw.
- * Filter kurswasser_learning_plugin_zip: URL oder lokaler Pfad; sonst plugins/bootspruefung-learning.zip im
- * Theme, falls vorhanden; sonst Knopf „Plugin hochladen“). Installieren und Aktivieren in fester Reihenfolge
+ * Filter kurswasser_learning_plugin_zip: URL oder lokaler Pfad; sonst Knopf „Plugin-ZIP hochladen“). Ein schon
+ * installiertes Lern-Plugin wird erkannt und nur aktiviert. Installieren und Aktivieren in fester Reihenfolge
  * (WooCommerce vor dem Lern-Plugin). Ohne Dateirechte (DISALLOW_FILE_MODS, fehlende FTP-Zugangsdaten) nur
  * Hinweis mit Link zur Plugin-Suche.
+ *
+ * Das Theme-Paket enthält das Lern-Plugin nicht mehr (T106): Eine ZIP im Theme-Ordner wäre über
+ * /wp-content/themes/kurswasser/plugins/… für jeden abrufbar. Liegt dort noch eine ZIP aus einer älteren
+ * Theme-Version, warnt der Assistent (und ein Admin-Hinweis) und bietet „Datei löschen“ an.
  *
  * Schritt 2 – Inhaltsseiten (inc/content-pages.php): anlegen mit SEO-Daten im Theme (Option A) bzw. – nur
  * mit aktivem Yoast – in Yoast (Option B, inc/content-yoast.php), oder „Vorerst nicht anlegen“. Die Wahl steht
@@ -110,15 +114,12 @@ function kurswasser_setup_plugins(): array
 }
 
 /**
- * Installationsquelle des Lern-Plugins: Konstante bzw. Filter (URL oder Pfad), sonst die ZIP im Theme, sonst ''.
+ * Installationsquelle des Lern-Plugins: Konstante bzw. Filter (URL oder Pfad), sonst ''. Eine ZIP im Theme-Ordner
+ * wird bewusst nicht mehr genutzt (öffentlich abrufbar, T106).
  */
 function kurswasser_learning_plugin_source(): string
 {
     $source = defined('KURSWASSER_LEARNING_PLUGIN_ZIP') ? (string) KURSWASSER_LEARNING_PLUGIN_ZIP : '';
-    if ($source === '') {
-        $bundled = get_template_directory().'/plugins/bootspruefung-learning.zip';
-        $source = is_file($bundled) ? $bundled : '';
-    }
     $source = trim((string) apply_filters('kurswasser_learning_plugin_zip', $source));
     if ($source === '' || preg_match('#^https?://#i', $source)) {
         return $source;
@@ -126,6 +127,90 @@ function kurswasser_learning_plugin_source(): string
 
     return is_file($source) && is_readable($source) && str_ends_with(strtolower($source), '.zip') ? $source : '';
 }
+
+/**
+ * ZIP-Dateien im Ordner plugins/ des Themes (Rest älterer Theme-Pakete bis 0.13.x bzw. von Hand kopiert). Sie sind
+ * per Direkt-URL abrufbar und enthalten den kompletten Plugin-Code – deshalb Warnung und „Datei löschen“.
+ *
+ * @return list<string> absolute Pfade
+ */
+function kurswasser_setup_leftover_zips(): array
+{
+    $dir = get_template_directory().'/plugins';
+    if (! is_dir($dir)) {
+        return [];
+    }
+    $files = glob($dir.'/*.[zZ][iI][pP]') ?: [];
+    sort($files);
+
+    return array_values(array_filter($files, 'is_file'));
+}
+
+/**
+ * Übrig gebliebene ZIPs im Theme-Ordner löschen. Gibt Meldungen zurück: list<array{0:type,1:text}>.
+ */
+function kurswasser_setup_delete_leftover_zips(): array
+{
+    $files = kurswasser_setup_leftover_zips();
+    if ($files === []) {
+        return [['info', __('Im Theme-Ordner liegt keine ZIP-Datei.', 'kurswasser')]];
+    }
+    $messages = [];
+    foreach ($files as $file) {
+        $name = 'plugins/'.basename($file);
+        $messages[] = wp_delete_file_from_directory($file, get_template_directory().'/plugins') && ! is_file($file)
+            ? ['success', sprintf(__('%s gelöscht.', 'kurswasser'), $name)]
+            : ['error', sprintf(__('%s konnte nicht gelöscht werden (Dateirechte). Bitte per FTP bzw. über das Hosting löschen.', 'kurswasser'), $name)];
+    }
+    $dir = get_template_directory().'/plugins';
+    if (is_dir($dir) && (scandir($dir) ?: []) === ['.', '..']) {
+        @rmdir($dir); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- leerer Ordner, Fehler unkritisch
+    }
+
+    return $messages;
+}
+
+/** Warnung (Assistent und Admin-Hinweis), solange eine ZIP im Theme-Ordner liegt. */
+function kurswasser_setup_leftover_notice(bool $now = false): void
+{
+    $files = kurswasser_setup_leftover_zips();
+    if ($files === [] || ! current_user_can('manage_options')) {
+        return;
+    }
+    $names = implode(', ', array_map(static fn (string $f): string => 'plugins/'.basename($f), $files));
+    $buttons = [];
+    if (wp_is_file_mod_allowed('kurswasser_setup')) {
+        $buttons[] = [__('Datei löschen', 'kurswasser'), wp_nonce_url(admin_url('admin-post.php?action=kurswasser_setup_delete_zips'), 'kurswasser_setup_delete_zips'), true];
+    }
+    kurswasser_admin_notice([
+        'key' => 'kw_theme_plugin_zip', 'type' => 'error', 'dismiss' => 'none', 'now' => $now,
+        'title' => __('Plugin-ZIP im Theme-Ordner:', 'kurswasser'),
+        'text' => sprintf(
+            /* translators: %s: Dateien */
+            __('%s ist über die Adresse des Themes für jeden abrufbar und enthält den kompletten Plugin-Code. Das Theme braucht die Datei nicht mehr – bitte löschen.', 'kurswasser'),
+            $names
+        ),
+        'buttons' => $buttons,
+    ]);
+}
+
+add_action('admin_notices', static function (): void {
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && str_contains((string) $screen->id, 'kurswasser-setup')) {
+        return; // auf der Seite des Assistenten steht die Warnung in Schritt 1
+    }
+    kurswasser_setup_leftover_notice();
+});
+
+add_action('admin_post_kurswasser_setup_delete_zips', static function (): void {
+    if (! current_user_can('manage_options') || ! wp_is_file_mod_allowed('kurswasser_setup')) {
+        wp_die(esc_html__('Keine Berechtigung.', 'kurswasser'), '', ['response' => 403]);
+    }
+    check_admin_referer('kurswasser_setup_delete_zips');
+    kurswasser_setup_flash(kurswasser_setup_delete_leftover_zips());
+    wp_safe_redirect(kurswasser_setup_url());
+    exit;
+});
 
 /** Installierte Plugins (Datei => Kopfdaten). */
 function kurswasser_setup_installed_plugins(): array
@@ -453,6 +538,7 @@ function kurswasser_setup_plugins_card(): void
     if ($problem !== '') {
         echo '<div class="notice notice-warning inline"><p>'.esc_html($problem).'</p></div>';
     }
+    kurswasser_setup_leftover_notice(true);
     echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="kurswasser_setup_plugins">';
     wp_nonce_field('kurswasser_setup_plugins');
     echo '<table class="widefat striped"><thead><tr><th style="width:2.2em"></th><th>'.esc_html__('Plugin', 'kurswasser').'</th><th>'.esc_html__('Status', 'kurswasser').'</th></tr></thead><tbody>';
@@ -473,9 +559,9 @@ function kurswasser_setup_plugins_card(): void
                 ? '<a href="'.esc_url(admin_url('plugin-install.php?tab=search&type=term&s='.rawurlencode((string) $row['name']))).'">'.esc_html__('In der Plugin-Suche öffnen', 'kurswasser').'</a>'
                 : '<a href="'.esc_url('https://wordpress.org/plugins/'.$row['dir'].'/').'" target="_blank" rel="noopener">'.esc_html__('Auf wordpress.org ansehen', 'kurswasser').'</a>';
         } elseif ($row['status'] === 'missing') {
-            $extra = esc_html__('Dieses Plugin liegt nicht auf wordpress.org. Lade die ZIP-Datei (bootspruefung-learning.zip) über „Plugin hochladen“ hoch – oder hinterlege die Quelle in wp-config.php: define( \'KURSWASSER_LEARNING_PLUGIN_ZIP\', \'https://…/bootspruefung-learning.zip\' ); (URL oder Pfad).', 'kurswasser');
+            $extra = esc_html__('Dieses Plugin liegt nicht auf wordpress.org und ist nicht im Theme-Paket enthalten. Lade die Datei bootspruefung-learning-<version>.zip aus dem Release über „Plugin-ZIP hochladen“ hoch – oder hinterlege die Quelle in wp-config.php: define( \'KURSWASSER_LEARNING_PLUGIN_ZIP\', \'/pfad/außerhalb/des/webroots/bootspruefung-learning.zip\' ); (Pfad oder URL). Danach diese Seite neu laden: Das installierte Plugin wird erkannt und kann hier aktiviert werden.', 'kurswasser');
             if (wp_is_file_mod_allowed('kurswasser_setup') && current_user_can('upload_plugins')) {
-                $extra .= ' <a class="button" href="'.esc_url(admin_url('plugin-install.php?tab=upload')).'">'.esc_html__('Plugin hochladen', 'kurswasser').'</a>';
+                $extra .= ' <a class="button" href="'.esc_url(admin_url('plugin-install.php?tab=upload')).'">'.esc_html__('Plugin-ZIP hochladen', 'kurswasser').'</a>';
             }
         }
         $any = $any || $box !== '';

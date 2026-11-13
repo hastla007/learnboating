@@ -25,9 +25,9 @@ Stand: 13.11.2026.
   `\Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::url()` in `themes/kurswasser/functions.php`,
   `kurswasser_learning_compatible()` in `themes/kurswasser/inc/learning.php`). Ohne Plugin arbeitet es eingeschränkt
   weiter (Versionsvertrag).
-- Das Theme-Paket der Auslieferung **enthält** das Lern-Plugin als ZIP-Datei (`plugins/bootspruefung-learning.zip`,
-  `tools/release/build-zips.sh`), damit der Einrichtungs-Assistent es installieren kann (`themes/kurswasser/inc/setup.php`).
-- Das Theme steht unter GPL-2.0-or-later, das mitgelieferte Plugin hat keine bzw. eine „proprietäre“ Angabe. Ob und
+- Das Theme-Paket der Auslieferung enthält das Lern-Plugin seit Theme 2.1.0 **nicht mehr** (T106); es wird als eigenes
+  ZIP ausgeliefert und im Einrichtungs-Assistenten hochgeladen (`themes/kurswasser/inc/setup.php`).
+- Das Theme steht unter GPL-2.0-or-later, das Plugin hat keine bzw. eine „proprietäre“ Angabe. Ob und
   wie das zusammenpasst (gemeinsames Paket, Weitergabe an Dritte, nur eigener Betrieb), ist eine Frage für den Anwalt.
 - Plugin und Add-ons laufen in WordPress (GPL-2.0-or-later) und nutzen WooCommerce (GPL-3.0-or-later). Voucher
   Captain steht laut seinem Plugin-Kopf unter GPL-2.0-or-later (Repository `hastla007/wp-couponmaster`, Datei

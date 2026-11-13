@@ -7,16 +7,20 @@
 #
 #   --rev  Commit, Zweig oder Tag (Standard: HEAD)
 #   --out  Zielordner (Standard: build/release; wird geleert)
-#   --tag  prüft, dass der Tag zur Plugin-Version passt (Tag „v0.14.0“ ⇔ Plugin 0.14.0)
+#   --tag  prüft, dass der Tag zur Plugin-Version passt (Tag „v0.14.0“ ⇔ Plugin 0.14.0) und dass Theme und Add-ons
+#          eine neue Version haben, wenn sich ihr Ordner seit dem vorigen Tag geändert hat (ohne vorigen Tag: übersprungen)
 #
 # Ergebnis im Zielordner:
 #   bootspruefung-learning-<version>.zip            Ordner im ZIP: bootspruefung-learning/
-#   kurswasser-<version>.zip                        Ordner im ZIP: kurswasser/ (mit plugins/bootspruefung-learning.zip)
+#   kurswasser-<version>.zip                        Ordner im ZIP: kurswasser/ (ohne Lern-Plugin, ohne content/src)
 #   learnboating-affiliate-connector-<version>.zip  Ordner im ZIP: learnboating-affiliate-connector/
 #   learnboating-voucher-connector-<version>.zip    Ordner im ZIP: learnboating-voucher-connector/
 #   SHA256SUMS, versions.env (für die CI), release-notes.md (Text des GitHub-Releases)
 #
-# Nicht im ZIP: tests/, tools/, node_modules/, vendor/, .git*, Composer-, PHPStan-, PHPCS- und npm-Dateien.
+# Nicht im ZIP: tests/, tools/, node_modules/, vendor/, .git*, Composer-, PHPStan-, PHPCS- und npm-Dateien, die
+# Markdown-Quellen der Inhaltsseiten (content/src, mit internen Redaktionsnotizen in _moderation/) und ZIP-Dateien
+# in einem Ordner plugins/ (T106: wären über die Adresse des Themes öffentlich abrufbar).
+# Das Lern-Plugin-ZIP bekommt eine Kopie von CREDITS.md (Fremdbestandteile und ihre Lizenzen).
 # Das Plugin braucht keine Composer-Abhängigkeiten (eigener Autoloader, siehe bootspruefung-learning.php).
 # Gleicher Commit ergibt gleiche ZIP-Dateien (Dateizeit = Commit-Zeit, feste Reihenfolge).
 set -euo pipefail
@@ -31,7 +35,7 @@ while [ $# -gt 0 ]; do
     --rev) REV="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
-    -h|--help) sed -n '3,21p' "$0"; exit 0 ;;
+    -h|--help) sed -n '3,25p' "$0"; exit 0 ;;
     *) echo "Unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
@@ -57,8 +61,10 @@ stage() { # <quellordner im Repo> <ordnername im ZIP>
   git archive --format=tar --prefix="$dir/" "$SHA:$src" | tar -x -C "$STAGE"
   find "$STAGE/$dir" \( -name tests -o -name tools -o -name node_modules -o -name vendor -o -name '.git*' \
       -o -name composer.json -o -name composer.lock -o -name 'phpstan*' -o -name 'phpcs*' -o -name '.phpcs*' \
-      -o -name package.json -o -name package-lock.json -o -name .editorconfig -o -name '.DS_Store' \) \
+      -o -name package.json -o -name package-lock.json -o -name .editorconfig -o -name '.DS_Store' -o -name _moderation \) \
       -prune -exec rm -rf {} +
+  # Quellen der Inhaltsseiten (zur Laufzeit wird nur content/pages.php und content/pages/ gelesen).
+  rm -rf "$STAGE/$dir/content/src"
 }
 
 # Feste Reihenfolge, Dateizeit = Commit-Zeit (git archive eines Ordners nähme die aktuelle Zeit), keine Zusatzfelder.
@@ -85,18 +91,40 @@ if [ -n "$TAG" ] && [ "$TAG" != "v$PLUGIN_V" ]; then
   fail "Tag $TAG passt nicht zur Plugin-Version $PLUGIN_V (erwartet v$PLUGIN_V, siehe docs/installation-und-updates.md)."
 fi
 
+# Mit --tag: Hat sich ein Paket seit dem vorigen Release-Tag geändert, muss auch seine Version neu sein
+# (sonst bekämen Betreiber eine geänderte Datei unter alter Versionsnummer). Ohne vorigen Tag: übersprungen.
+if [ -n "$TAG" ]; then
+  PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$SHA^" 2>/dev/null || true)"
+  if [ -z "$PREV_TAG" ]; then
+    echo "Hinweis: kein voriger Release-Tag – Versionsprüfung von Theme und Add-ons übersprungen." >&2
+  else
+    prev_version() { git show "$PREV_TAG:$1" 2>/dev/null | sed -n 's/^[[:space:]*]*Version:[[:space:]]*\([0-9][0-9A-Za-z.+-]*\).*$/\1/p' | head -1; }
+    check_bumped() { # <ordner> <kopfdatei> <aktuelle version> <name>
+      if ! git diff --quiet "$PREV_TAG" "$SHA" -- "$1" && [ "$(prev_version "$2")" = "$3" ]; then
+        fail "$4 hat sich seit $PREV_TAG geändert ($1), die Version ist aber gleich geblieben ($3). Version erhöhen (docs/release-regel.md)."
+      fi
+    }
+    check_bumped bootspruefung-learning bootspruefung-learning/bootspruefung-learning.php "$PLUGIN_V" "Lern-Plugin"
+    check_bumped themes/kurswasser themes/kurswasser/style.css "$THEME_V" "Theme Kurswasser"
+    check_bumped learnboating-affiliate-connector learnboating-affiliate-connector/learnboating-affiliate-connector.php "$AFF_V" "Partnerprogramm-Connector"
+    check_bumped learnboating-voucher-connector learnboating-voucher-connector/learnboating-voucher-connector.php "$VOU_V" "Kursgutschein-Connector"
+  fi
+fi
+
 PLUGIN_ZIP="$OUT/bootspruefung-learning-$PLUGIN_V.zip"
 THEME_ZIP="$OUT/kurswasser-$THEME_V.zip"
 AFF_ZIP="$OUT/learnboating-affiliate-connector-$AFF_V.zip"
 VOU_ZIP="$OUT/learnboating-voucher-connector-$VOU_V.zip"
 
 stage bootspruefung-learning bootspruefung-learning
+# Fremdbestandteile und ihre Lizenzen (readme.txt verweist darauf): Kopie aus dem Repo-Stamm.
+git show "$SHA:CREDITS.md" > "$STAGE/bootspruefung-learning/CREDITS.md"
 pack bootspruefung-learning "$PLUGIN_ZIP"
 
+# Das Theme enthält das Lern-Plugin nicht (T106): Der Einrichtungs-Assistent erkennt ein installiertes Plugin,
+# nimmt KURSWASSER_LEARNING_PLUGIN_ZIP oder bietet „Plugin-ZIP hochladen“ an.
 stage themes/kurswasser kurswasser
-# Das Theme liefert das Lern-Plugin für „Kurswasser einrichten“ mit (inc/setup.php, plugins/bootspruefung-learning.zip).
-mkdir -p "$STAGE/kurswasser/plugins"
-cp "$PLUGIN_ZIP" "$STAGE/kurswasser/plugins/bootspruefung-learning.zip"
+rm -rf "$STAGE/kurswasser/plugins"
 pack kurswasser "$THEME_ZIP"
 
 stage learnboating-affiliate-connector learnboating-affiliate-connector
@@ -113,10 +141,15 @@ check_zip() { # <zip> <ordner> <hauptdatei>
   if printf '%s\n' "$list" | grep -E "(^|/)(tests|tools|node_modules|vendor)/|(^|/)\.git|(^|/)(composer\.(json|lock)|phpstan[^/]*|phpcs[^/]*|package(-lock)?\.json)$"; then
     fail "$(basename "$1"): Entwicklerdateien im ZIP (siehe oben)."
   fi
+  # Verboten (T106): interne Quellen/Notizen und eingebettete Pakete, die per URL abrufbar wären.
+  if printf '%s\n' "$list" | grep -iE "(^|/)content/src/|(^|/)_moderation/|\.zip$"; then
+    fail "$(basename "$1"): verbotene Dateien im ZIP (content/src, _moderation oder ZIP-Datei, siehe oben)."
+  fi
 }
 check_zip "$PLUGIN_ZIP" bootspruefung-learning bootspruefung-learning.php
+unzip -Z1 "$PLUGIN_ZIP" | grep -qx 'bootspruefung-learning/CREDITS.md' || fail "Plugin-ZIP ohne CREDITS.md."
 check_zip "$THEME_ZIP" kurswasser style.css
-unzip -Z1 "$THEME_ZIP" | grep -qx 'kurswasser/plugins/bootspruefung-learning.zip' || fail "Theme-ZIP ohne mitgeliefertes Lern-Plugin."
+unzip -Z1 "$THEME_ZIP" | grep -q '^kurswasser/content/pages\.php$' || fail "Theme-ZIP ohne content/pages.php (Inhaltsseiten)."
 check_zip "$AFF_ZIP" learnboating-affiliate-connector learnboating-affiliate-connector.php
 check_zip "$VOU_ZIP" learnboating-voucher-connector learnboating-voucher-connector.php
 
@@ -139,7 +172,7 @@ latest_changes() {
   echo "| Paket | Version | Ordner im ZIP |"
   echo "|---|---|---|"
   echo "| Lern-Plugin „Bootsprüfung Lernplattform“ | $PLUGIN_V | \`bootspruefung-learning/\` |"
-  echo "| Theme „Kurswasser“ (mit Lern-Plugin für den Einrichtungs-Assistenten) | $THEME_V | \`kurswasser/\` |"
+  echo "| Theme „Kurswasser“ (ohne Lern-Plugin; das Plugin-ZIP separat hochladen) | $THEME_V | \`kurswasser/\` |"
   echo "| Add-on Partnerprogramm-Connector | $AFF_V | \`learnboating-affiliate-connector/\` |"
   echo "| Add-on Kursgutschein-Connector | $VOU_V | \`learnboating-voucher-connector/\` |"
   echo

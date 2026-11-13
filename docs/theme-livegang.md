@@ -17,14 +17,16 @@ Aktivieren passiert, was vorher erledigt sein muss und wie man zurückwechselt.
 | Rechtsseiten Impressum, Datenschutz, AGB, Widerruf | Entwurf | Nur wenn es die Seite noch nicht gibt. Entwürfe werden mit den Vorlagen und den Betreiberangaben gefüllt. Veröffentlichte, bearbeitete Seiten bleiben unberührt. |
 | Seite Kontakt | Entwurf | Nur wenn es sie noch nicht gibt. |
 | Kursseiten `/kurse/` (Übersicht, je Kurs, „Pakete & Pässe“, „Weitere Kurse“) | **veröffentlicht** | Nur fehlende Seiten. Sie sind sofort öffentlich sichtbar. |
-| Einrichtungs-Assistent | – | Leitet einmal auf Design › Kurswasser einrichten. Plugins und Inhaltsseiten werden erst dort angelegt, Inhaltsseiten als Entwurf. |
+| Einrichtungs-Assistent | – | Leitet einmal auf Design › Kurswasser einrichten. Plugins und Inhaltsseiten werden erst dort angelegt, Inhaltsseiten als Entwurf. Das Lern-Plugin ist nicht im Theme-Paket: vorher installieren oder im Assistenten „Plugin-ZIP hochladen“. |
 | Cookie-Banner | aktiv | Kommt mit dem Theme; ohne Kurswasser fehlt es (siehe Rückweg). |
 
 Bestehende Seiten, Beiträge, Produkte, Bestellungen und Lernstände ändert das Aktivieren nicht.
 
 ## Empfohlener Ablauf
 
-1. Auf Staging aktivieren, Assistent durchlaufen, Screenshots prüfen.
+1. Auf Staging aktivieren, Assistent durchlaufen, Screenshots prüfen. Liegt im Theme-Ordner noch
+   `plugins/bootspruefung-learning.zip` aus einer älteren Theme-Version, zeigt der Assistent eine Warnung: die Datei
+   mit „Datei löschen“ entfernen (sie wäre öffentlich abrufbar).
 2. Auf Live: Shop-Modus „Demnächst verfügbar“ von WooCommerce an (Assistent Schritt 3, Häkchen „Shop sichtbar“
    nicht setzen), dann Theme aktivieren.
 3. Kursseiten unter `/kurse/` sind sofort öffentlich. Wenn sie erst mit dem Shop sichtbar sein sollen, direkt

@@ -19,16 +19,20 @@ Vorausgewählt sind WooCommerce und das Lern-Plugin, Yoast ist optional. Install
 Plugin-Suche bzw. zu wordpress.org statt einer Installation. Die Willkommens-Weiterleitungen von WooCommerce und Yoast
 werden dabei abgeschaltet, damit der Assistent weiterläuft.
 
-**Quelle des Lern-Plugins** (liegt nicht auf wordpress.org), in dieser Reihenfolge:
+**Quelle des Lern-Plugins** (liegt nicht auf wordpress.org und ist **nicht** im Theme-Paket enthalten):
 
-1. Konstante in `wp-config.php`: `define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', 'https://…/bootspruefung-learning.zip' );`
-   (URL oder lokaler Pfad zu einer ZIP) bzw. Filter `kurswasser_learning_plugin_zip`;
-2. eine mitgelieferte ZIP im Theme: `plugins/bootspruefung-learning.zip` – erzeugt mit
-   `themes/kurswasser/tools/build-plugin-zip.sh [<commit>]` (Stand eines Commits, ohne Tests, ca. 2,7 MB). Die ZIP
-   liegt bewusst nicht im Git (`.gitignore`): Sie wäre bei jeder Plugin-Änderung veraltet und würde das Repo
-   aufblähen. CI baut sie als Artefakt `bootspruefung-learning-plugin`. Das Release-Paket des Themes
-   (`tools/release/build-zips.sh`, `docs/installation-und-updates.md`) enthält sie bereits, gebaut aus demselben Commit;
-3. sonst: Erklärung und Knopf „Plugin hochladen“ (`plugin-install.php?tab=upload`).
+1. schon installiert (Ordner `bootspruefung-learning/` oder Plugin-Name): wird erkannt und nur aktiviert;
+2. Konstante in `wp-config.php`: `define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', '/pfad/außerhalb/des/webroots/bootspruefung-learning.zip' );`
+   (lokaler Pfad oder URL zu einer ZIP) bzw. Filter `kurswasser_learning_plugin_zip`;
+3. sonst: Erklärung und Knopf „Plugin-ZIP hochladen“ (`plugin-install.php?tab=upload`) für
+   `bootspruefung-learning-<version>.zip` aus dem Release (gebaut mit `tools/release/build-zips.sh`).
+
+Warum nicht mehr im Theme (T106): Eine ZIP unter `wp-content/themes/kurswasser/plugins/` wäre per Direkt-URL für jeden
+abrufbar (kompletter Plugin-Code). Liegt dort noch eine ZIP aus einer älteren Theme-Version, zeigen der Assistent
+(Schritt 1) und ein Admin-Hinweis eine Warnung mit Knopf „Datei löschen“ (`admin-post.php?action=kurswasser_setup_delete_zips`,
+nur mit `manage_options`, Nonce und erlaubten Dateiänderungen). Die Markdown-Quellen der Inhaltsseiten (`content/src/`,
+mit internen Redaktionsnotizen in `content/src/_moderation/`) sind ebenfalls nicht im Theme-Paket; zur Laufzeit liest
+das Theme nur `content/pages.php` und `content/pages/`. `tools/release/build-zips.sh` prüft beides (verbotene Muster).
 
 WP-CLI: `wp kurswasser setup plugins` (Stand) bzw. `wp kurswasser setup plugins --install=woocommerce,bootspruefung-learning --user=<admin>`
 (oder `--install=all`).

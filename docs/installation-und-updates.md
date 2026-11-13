@@ -12,7 +12,7 @@ Jede Auslieferung besteht aus vier ZIP-Dateien und einer Datei mit Prüfsummen. 
 | ZIP-Datei | Was | Ordner nach dem Einspielen | Pflicht? |
 |---|---|---|---|
 | `bootspruefung-learning-<version>.zip` | Lern-Plugin „Bootsprüfung Lernplattform“ | `wp-content/plugins/bootspruefung-learning/` | ja |
-| `kurswasser-<version>.zip` | Theme „Kurswasser“, enthält das Lern-Plugin derselben Auslieferung unter `plugins/bootspruefung-learning.zip` für „Kurswasser einrichten“ | `wp-content/themes/kurswasser/` | ja (Website-Design) |
+| `kurswasser-<version>.zip` | Theme „Kurswasser“ (ohne Lern-Plugin, siehe unten) | `wp-content/themes/kurswasser/` | ja (Website-Design) |
 | `learnboating-affiliate-connector-<version>.zip` | Add-on „Partnerprogramm-Connector“ (verbindet mit WP Affiliate Captain) | `wp-content/plugins/learnboating-affiliate-connector/` | nur mit Partnerprogramm |
 | `learnboating-voucher-connector-<version>.zip` | Add-on „Kursgutschein-Connector“ (verbindet mit Voucher Captain) | `wp-content/plugins/learnboating-voucher-connector/` | nur mit Kursgutscheinen |
 | `SHA256SUMS` | Prüfsummen der vier ZIP-Dateien | – | – |
@@ -61,9 +61,15 @@ Reihenfolge:
 2. **Theme** hochladen: Design › Themes › Theme hinzufügen › Theme hochladen › `kurswasser-<version>.zip` ›
    Jetzt installieren › Aktivieren. WordPress öffnet danach „Kurswasser einrichten“.
 3. In „Kurswasser einrichten“, Schritt 1: WooCommerce (und optional Yoast SEO) und das **Lern-Plugin** installieren.
-   Das Lern-Plugin kommt aus der ZIP im Theme. WooCommerce wird immer vor dem Lern-Plugin aktiviert.
+   Das Theme-Paket enthält das Lern-Plugin **nicht** (T106: eine ZIP im Theme-Ordner wäre über die Adresse des
+   Themes für jeden abrufbar). Der Assistent bietet dafür „Plugin-ZIP hochladen“ an (`bootspruefung-learning-<version>.zip`
+   aus demselben Release); danach Seite neu laden – das installierte Plugin wird erkannt und dort aktiviert. Alternativ
+   die Quelle in `wp-config.php` hinterlegen: `define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', '/pfad/außerhalb/des/webroots/bootspruefung-learning-<version>.zip' );`
+   (Pfad oder URL). WooCommerce wird immer vor dem Lern-Plugin aktiviert.
    Ohne Assistent: zuerst WooCommerce, dann Plugins › Installieren › Plugin hochladen ›
    `bootspruefung-learning-<version>.zip`.
+   Liegt aus einer älteren Theme-Version noch `wp-content/themes/kurswasser/plugins/*.zip` auf dem Server, warnen
+   Assistent und Admin-Hinweis und bieten „Datei löschen“ an.
 4. Schritt 2 und 3 des Assistenten (Inhaltsseiten, Shop einrichten), danach das Content-Paket importieren
    (Bootsprüfung › Import).
 5. Nur bei Bedarf die Add-ons: zuerst das „Captain“-Plugin (Voucher Captain bzw. WP Affiliate Captain), dann das

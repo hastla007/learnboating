@@ -11,8 +11,11 @@ Zusammenfassung der Änderungen seit 2.0.0. Sie liefen bis hierher ohne neue Ver
 Auslieferung eine eigene Theme-Version. Benötigt das Lern-Plugin ab 0.13.0 (Versionsvertrag).
 
 **Einrichtung und Inhaltsseiten**
-- Einrichtungs-Assistent „Kurswasser einrichten“: Plugins installieren (WooCommerce, Yoast SEO, Lern-Plugin aus der
-  mitgelieferten ZIP), Inhaltsseiten anlegen, Schritt 3 „Shop einrichten“, Shop sichtbar machen.
+- Einrichtungs-Assistent „Kurswasser einrichten“: Plugins installieren (WooCommerce, Yoast SEO, Lern-Plugin per
+  „Plugin-ZIP hochladen“ oder `KURSWASSER_LEARNING_PLUGIN_ZIP`), Inhaltsseiten anlegen, Schritt 3 „Shop einrichten“,
+  Shop sichtbar machen.
+- Das Theme-Paket enthält das Lern-Plugin und die Markdown-Quellen der Inhaltsseiten (`content/src/`) nicht mehr
+  (wären öffentlich abrufbar). Eine alte `plugins/*.zip` im Theme-Ordner meldet der Assistent mit „Datei löschen“.
 - 35 Inhaltsseiten aus Vorlagen mit SEO-Angaben; Übernahme in Yoast SEO (mit Yoast SEO 28.8 geprüft); feste
   Abgleiche nach Theme-Updates (nur unveränderte Seiten).
 - Startseite, Kurs-Infoseiten, Kursübersicht und „Weitere Kurse“ mit Kursfotos und Angebotskarten.
@@ -43,8 +46,7 @@ Auslieferung eine eigene Theme-Version. Benötigt das Lern-Plugin ab 0.13.0 (Ver
   zeigt einen Admin-Hinweis. `Update URI: false`.
 - `offers.js` trägt die Theme-Version (Browser laden nach einem Update neu).
 - Theme-Kopf: Autor „LearnBoating“ (Projektname, vom Betreiber festzulegen).
-- Auslieferung als ZIP ohne `tests/` und `tools/`, mit dem Lern-Plugin unter `plugins/bootspruefung-learning.zip`
-  (`tools/release/build-zips.sh`).
+- Auslieferung als ZIP ohne `tests/`, `tools/`, `content/src/` und ohne Lern-Plugin (`tools/release/build-zips.sh`).
 
 ## 2.0.0 – 06.11.2026
 

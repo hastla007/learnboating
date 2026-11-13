@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /*
  * Integrationstest Einrichtungs-Assistent und Yoast-Übernahme (Theme Kurswasser): Menü und einmalige Umleitung
- * nach dem Aktivieren, Plugin-Liste mit Status und Quellen, Installation aus einer lokalen ZIP (Dummy-Plugin,
+ * nach dem Aktivieren, Plugin-Liste mit Status und Quellen, Warnung und Löschen einer Plugin-ZIP im Theme-Ordner
+ * (T106), Installation aus einer lokalen ZIP (Dummy-Plugin,
  * ohne Netz), Fehlermeldungen (wordpress.org nicht erreichbar, keine Dateirechte), Auswahl der Inhaltsseiten
  * (Option A/B, „Vorerst nicht“), Yoast-Felder mit Überschreib-Regeln, „Alles aus dem Theme übernehmen“ mit
  * Bestätigung. Räumt danach auf.
@@ -123,7 +124,7 @@ echo "Plugins: Liste, Quellen, Fehler\n";
 $rows = kurswasser_setup_plugin_rows();
 $check(array_keys($rows) === ['woocommerce', 'wordpress-seo', 'bootspruefung-learning'], 'Reihenfolge: WooCommerce, Yoast, Lern-Plugin');
 $check(in_array($rows['bootspruefung-learning']['status'], ['active', 'installed', 'missing'], true) && $rows['woocommerce']['package'] === 'wporg', 'Status je Plugin, wordpress.org als Quelle für WooCommerce ('.implode(', ', array_column($rows, 'status')).')');
-$check(kurswasser_learning_plugin_source() === (defined('KURSWASSER_LEARNING_PLUGIN_ZIP') ? KURSWASSER_LEARNING_PLUGIN_ZIP : (is_file($theme.'/plugins/bootspruefung-learning.zip') ? $theme.'/plugins/bootspruefung-learning.zip' : '')), 'Quelle Lern-Plugin: Konstante, sonst ZIP im Theme, sonst leer');
+$check(kurswasser_learning_plugin_source() === (defined('KURSWASSER_LEARNING_PLUGIN_ZIP') ? KURSWASSER_LEARNING_PLUGIN_ZIP : ''), 'Quelle Lern-Plugin: Konstante, sonst leer (keine ZIP im Theme, T106)');
 $zipDir = sys_get_temp_dir().'/kw-setup-zip-'.getmypid();
 wp_mkdir_p($zipDir);
 $zip = $zipDir.'/kw-setup-dummy.zip';
@@ -144,13 +145,39 @@ add_filter('kurswasser_learning_plugin_zip', $url);
 $check(kurswasser_learning_plugin_source() === 'https://example.org/bootspruefung-learning.zip', 'URL als Quelle');
 remove_filter('kurswasser_learning_plugin_zip', $url);
 
-// Lern-Plugin „nicht installiert“, keine Quelle: Knopf „Plugin hochladen“.
+// T106: Eine ZIP im Theme-Ordner (Rest eines älteren Theme-Pakets) wird nicht als Quelle genutzt, sondern gemeldet
+// und lässt sich löschen. Eigener Theme-Ordner über den Filter template_directory.
+echo "Plugin-ZIP im Theme-Ordner (T106)\n";
+$fakeTheme = sys_get_temp_dir().'/kw-setup-theme-'.getmypid();
+wp_mkdir_p($fakeTheme.'/plugins');
+$themeDir = static fn (): string => $fakeTheme;
+add_filter('template_directory', $themeDir);
+$check(kurswasser_setup_leftover_zips() === [], 'leerer plugins/-Ordner: nichts gemeldet');
+file_put_contents($fakeTheme.'/plugins/bootspruefung-learning.zip', 'PK-Test');
+file_put_contents($fakeTheme.'/plugins/Alt.ZIP', 'PK-Test');
+$check(count(kurswasser_setup_leftover_zips()) === 2, 'ZIPs im Theme-Ordner erkannt (auch Großschreibung)');
+$check(kurswasser_learning_plugin_source() === (defined('KURSWASSER_LEARNING_PLUGIN_ZIP') ? KURSWASSER_LEARNING_PLUGIN_ZIP : ''), 'ZIP im Theme-Ordner ist keine Installationsquelle mehr');
+$warn = $html(static fn () => kurswasser_setup_leftover_notice(true));
+$check(str_contains($warn, 'plugins/bootspruefung-learning.zip') && str_contains($warn, 'abrufbar') && str_contains($warn, 'kurswasser_setup_delete_zips') && str_contains($warn, '_wpnonce'), 'Warnung mit Dateinamen und Knopf „Datei löschen“ (mit Nonce)');
+$card = $html('kurswasser_setup_plugins_card');
+$check(str_contains($card, 'Plugin-ZIP im Theme-Ordner'), 'Warnung auch in Schritt 1 des Assistenten');
+wp_set_current_user(0);
+$check($html(static fn () => kurswasser_setup_leftover_notice(true)) === '', 'ohne Admin-Rechte keine Warnung');
+wp_set_current_user($uid);
+$msg = kurswasser_setup_delete_leftover_zips();
+$check(array_column($msg, 0) === ['success', 'success'] && kurswasser_setup_leftover_zips() === [] && ! is_dir($fakeTheme.'/plugins'), 'Löschen: beide Dateien und der leere Ordner entfernt');
+$check(kurswasser_setup_delete_leftover_zips()[0][0] === 'info', 'erneut löschen: Hinweis „keine ZIP-Datei“');
+$check($html(static fn () => kurswasser_setup_leftover_notice(true)) === '', 'danach keine Warnung');
+remove_filter('template_directory', $themeDir);
+@rmdir($fakeTheme);
+
+// Lern-Plugin „nicht installiert“, keine Quelle: Knopf „Plugin-ZIP hochladen“.
 $hide = static fn (array $p): array => array_filter($p, static fn ($f) => ! str_starts_with((string) $f, 'bootspruefung-learning/') && ! str_starts_with((string) $f, 'wordpress-seo/'), ARRAY_FILTER_USE_KEY);
 add_filter('kurswasser_setup_installed_plugins', $hide);
 $noSource = static fn (): string => '';
 add_filter('kurswasser_learning_plugin_zip', $noSource);
 $card = $html('kurswasser_setup_plugins_card');
-$check(str_contains($card, 'plugin-install.php?tab=upload') && str_contains($card, 'KURSWASSER_LEARNING_PLUGIN_ZIP') && ! str_contains($card, 'value="bootspruefung-learning"'), 'ohne Quelle: Erklärung und „Plugin hochladen“ statt Häkchen');
+$check(str_contains($card, 'plugin-install.php?tab=upload') && str_contains($card, 'Plugin-ZIP hochladen') && str_contains($card, 'nicht im Theme-Paket enthalten') && str_contains($card, 'KURSWASSER_LEARNING_PLUGIN_ZIP') && ! str_contains($card, 'value="bootspruefung-learning"'), 'ohne Quelle: Erklärung und „Plugin-ZIP hochladen“ statt Häkchen');
 $check(str_contains($card, 'value="wordpress-seo"') && ! str_contains($card, 'value="wordpress-seo" id="kw-plugin-wordpress-seo" checked'), 'Yoast: Häkchen „installieren und aktivieren“, nicht vorausgewählt');
 $check(str_contains($card, 'name="_wpnonce"') && str_contains($card, 'kurswasser_setup_plugins'), 'Formular mit Nonce');
 remove_filter('kurswasser_learning_plugin_zip', $noSource);
