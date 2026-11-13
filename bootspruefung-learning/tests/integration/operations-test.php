@@ -609,7 +609,7 @@ if (function_exists('WC')) {
 }
 flush_rewrite_rules(false);
 $check(str_contains($ruleKeys(), '^'.$base.'/?$') && (! class_exists('WooCommerce') || str_contains($ruleKeys(), '/mein-lernen(')), 'Ausgangslage: Lernbereich und Endpunkte in den Permalinks');
-$check(count(Plugin::CRON_HOOKS) === 6 && in_array('bp_learning_migrate', Plugin::CRON_HOOKS, true) && in_array('bp_privacy_export_generate', Plugin::CRON_HOOKS, true), 'vollständige Liste der eigenen Cron-Ereignisse');
+$check(count(Plugin::CRON_HOOKS) === 7 && in_array('bp_learning_migrate', Plugin::CRON_HOOKS, true) && in_array('bp_privacy_export_generate', Plugin::CRON_HOOKS, true) && in_array('bp_learning_expiry_reminder_continue', Plugin::CRON_HOOKS, true), 'vollständige Liste der eigenen Cron-Ereignisse');
 Plugin::deactivate();
 $cronLeft = array_filter(Plugin::CRON_HOOKS, static function (string $hook): bool {
     foreach ((array) _get_cron_array() as $events) {

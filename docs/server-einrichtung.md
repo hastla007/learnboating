@@ -30,7 +30,10 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   Fehlen der stündliche Lauf (`bp_learning_hourly`) oder die tägliche Ablauf-Erinnerung (`bp_learning_daily`),
   z. B. nach einem Umzug oder einem Restore ohne Cron-Einträge, plant das Plugin sie bei der nächsten Anfrage
   von selbst neu. Die Ablauf-Erinnerung läuft nie doppelt parallel; ein Fehler bei einer Mail steht unter
-  Systemstatus › Wartung und hält die übrigen Mails nicht auf.
+  Systemstatus › Wartung und hält die übrigen Mails nicht auf. Sie arbeitet in Stapeln: höchstens 50 Empfänger
+  und 20 Sekunden (bzw. die Hälfte von `max_execution_time`) je Lauf, der Rest folgt eine Minute später über das
+  einmalige Ereignis `bp_learning_expiry_reminder_continue`. Anpassbar über die Filter
+  `bp_learning_expiry_reminder_batch_size` und `bp_learning_expiry_reminder_time_budget`.
 - **Deaktivieren und Reaktivieren** des Plugins ist gefahrlos: Beim Deaktivieren trägt das Plugin alle eigenen
   Cron-Ereignisse aus (`Plugin::CRON_HOOKS`) und nimmt `/bootsscheine/` sowie die „Mein Konto“-Endpunkte
   „mein-lernen“ und „meine-daten“ aus den Permalinks. Beim Aktivieren trägt es sie sofort wieder ein und schreibt

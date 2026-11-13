@@ -125,11 +125,12 @@ final class Plugin
 
     /**
      * Alle eigenen Cron-Ereignisse (WP-Cron, auch einmalige und solche mit Argumenten): stündliche Wartung,
-     * Ablauf-Erinnerung, Bestellabgleich, Migration, App-Datenexport, Datenschutz-Export.
+     * Ablauf-Erinnerung (mit Fortsetzung), Bestellabgleich, Migration, App-Datenexport, Datenschutz-Export.
      */
     public const CRON_HOOKS = [
         \Bootspruefung\Learning\Infrastructure\Cron::HOURLY,
         \Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK,
+        \Bootspruefung\Learning\Commerce\ExpiryReminder::CONTINUE_HOOK,
         \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK,
         self::MIGRATE_HOOK,
         \Bootspruefung\Learning\Mobile\Controllers\PrivacyController::GENERATE_HOOK,
@@ -225,6 +226,7 @@ final class Plugin
         add_action('init', [self::class, 'ensureSchedules'], 30);
         add_action(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK, \Bootspruefung\Learning\Infrastructure\Cron::guard('order_reconcile', [\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::class, 'run']));
         add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
+        add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::CONTINUE_HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'resume'], 10, 2); // Rest eines Stapellaufs (T124)
         (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
         PersonalData::register();
         // Gegenstellen für Gutschein- und Ticket-Plugins (docs/schnittstellen-erweiterungen.md).

@@ -28,12 +28,21 @@ use Bootspruefung\Learning\Support\Mail;
 final class ExpiryReminder
 {
     public const HOOK = 'bp_learning_daily';
+    /** Einmaliges Ereignis: Fortsetzung eines Laufs, der seine Stapelgröße oder sein Zeitbudget erreicht hat (T124). */
+    public const CONTINUE_HOOK = 'bp_learning_expiry_reminder_continue';
     public const META = 'bp_expiry_reminders';
     public const DEFAULT_DAYS = 14;
     public const MAX_DAYS = 90;
+    /** Höchstens so viele Empfänger je Lauf (Filter bp_learning_expiry_reminder_batch_size). */
+    public const DEFAULT_BATCH = 50;
+    /** Zeitbudget je Lauf in Sekunden, höchstens die Hälfte von max_execution_time (Filter bp_learning_expiry_reminder_time_budget). */
+    public const DEFAULT_TIME_BUDGET = 20;
+    /** Abstand bis zur Fortsetzung in Sekunden. */
+    public const CONTINUE_DELAY = 60;
     /** Sperre gegen parallele Läufe (Infrastructure\Lock); eine liegen gebliebene verfällt nach LOCK_TTL. */
     public const LOCK = 'bp_learning_expiry_reminder_lock';
-    private const LOCK_TTL = HOUR_IN_SECONDS;
+    /** Ein Lauf dauert dank Stapel und Zeitbudget nur Sekunden; eine hängengebliebene Sperre blockiert nicht lange. */
+    private const LOCK_TTL = 15 * MINUTE_IN_SECONDS;
 
     public static function enabled(): bool
     {
@@ -175,25 +184,104 @@ final class ExpiryReminder
      * fehlgeschlagenen Versand wieder freigegeben; bricht der Lauf mittendrin ab, geht eher eine Erinnerung
      * verloren, als dass sie doppelt kommt. Ein Fehler bei einem Empfänger wird protokolliert (Systemstatus,
      * Infrastructure\Cron) und bricht den Lauf für die übrigen nicht ab.
+     *
+     * In Stapeln (T124): Ein Lauf bearbeitet höchstens batchSize() Empfänger (nach Nutzer-ID aufsteigend) und
+     * hört nach timeBudget() Sekunden auf. Der Rest folgt eine Minute später als einmaliges Ereignis
+     * CONTINUE_HOOK (resume()) mit demselben Zeitfenster und der zuletzt bearbeiteten Nutzer-ID; die Sperre
+     * wird dazwischen freigegeben.
      */
     public static function run(?string $now = null): int
+    {
+        // do_action() ohne Argument übergibt '' – dann gilt die aktuelle Zeit.
+        return self::process($now !== null && $now !== '' ? $now : null, 0, false);
+    }
+
+    /**
+     * Fortsetzung eines Laufs (einmaliges Ereignis CONTINUE_HOOK): gleiches Fenster ($now des ersten Stapels), damit
+     * Zugänge am Rand des Fensters nicht herausfallen, ab der Nutzer-ID nach $afterUserId. Zugänge, die inzwischen
+     * schon abgelaufen sind, werden nicht mehr erinnert. Ist der erste Stapel älter als ein Tag, übernimmt der
+     * nächste tägliche Lauf.
+     *
+     * @param mixed $now        Startzeit des ersten Stapels (UTC, MySQL-Format)
+     * @param mixed $afterUserId zuletzt bearbeitete Nutzer-ID
+     */
+    public static function resume($now = '', $afterUserId = 0): int
+    {
+        $now = is_string($now) ? $now : '';
+        $start = $now !== '' ? strtotime($now.' UTC') : false;
+        if ($start === false || $start < time() - DAY_IN_SECONDS) {
+            return 0;
+        }
+
+        return self::process($now, max(0, (int) $afterUserId), true);
+    }
+
+    /** Höchstens so viele Empfänger je Lauf (mindestens 1). */
+    public static function batchSize(): int
+    {
+        return max(1, (int) apply_filters('bp_learning_expiry_reminder_batch_size', self::DEFAULT_BATCH));
+    }
+
+    /** Zeitbudget je Lauf in Sekunden: 20 s, höchstens die Hälfte von max_execution_time (0 = unbegrenzt). */
+    public static function timeBudget(): float
+    {
+        $max = (int) ini_get('max_execution_time');
+        $default = $max > 0 ? min(self::DEFAULT_TIME_BUDGET, max(1, intdiv($max, 2))) : self::DEFAULT_TIME_BUDGET;
+
+        return max(0.0, (float) apply_filters('bp_learning_expiry_reminder_time_budget', $default));
+    }
+
+    /** Fortsetzung in einer Minute einplanen (WordPress verhindert gleiche Ereignisse innerhalb von 10 Minuten). */
+    private static function scheduleResume(string $now, int $afterUserId): void
+    {
+        wp_schedule_single_event(time() + self::CONTINUE_DELAY, self::CONTINUE_HOOK, [$now, $afterUserId]);
+    }
+
+    private static function process(?string $now, int $after, bool $resuming): int
     {
         if (! self::enabled()) {
             return 0;
         }
         if (! Lock::acquire(self::LOCK, self::LOCK_TTL)) {
-            return 0; // ein anderer Lauf sendet gerade
+            if ($resuming && $now !== null) {
+                self::scheduleResume($now, $after); // ein anderer Lauf sendet gerade: später weitermachen
+            }
+
+            return 0;
         }
         $sent = 0;
         try {
             $now ??= current_time('mysql', true);
-            foreach (self::expiring(null, null, $now) as $userId => $courses) {
+            // Fortsetzung: schon abgelaufene Zugänge nicht mehr erinnern („läuft am … ab“ läge in der Vergangenheit).
+            $floor = $resuming ? max($now, current_time('mysql', true)) : $now;
+            $limit = self::batchSize();
+            $budget = self::timeBudget();
+            $started = microtime(true);
+            $count = 0;
+            $users = self::expiring(null, null, $now);
+            ksort($users);
+            foreach ($users as $userId => $courses) {
+                $userId = (int) $userId;
+                if ($userId <= $after) {
+                    continue;
+                }
+                // Mindestens ein Empfänger je Lauf, damit eine Fortsetzung immer vorankommt.
+                if ($count > 0 && ($count >= $limit || microtime(true) - $started >= $budget)) {
+                    self::scheduleResume($now, $after);
+                    break;
+                }
+                $after = $userId;
+                $count++;
+                $courses = array_filter($courses, static fn (string $until): bool => $until >= $floor);
+                if ($courses === []) {
+                    continue;
+                }
                 try {
-                    if (self::remind((int) $userId, $courses, $now)) {
+                    if (self::remind($userId, $courses, $now)) {
                         $sent++;
                     }
                 } catch (\Throwable $e) {
-                    Cron::recordError('expiry_reminder', $e, 'Nutzer '.(int) $userId);
+                    Cron::recordError('expiry_reminder', $e, 'Nutzer '.$userId);
                 }
             }
         } catch (\Throwable $e) {

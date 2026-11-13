@@ -34,6 +34,7 @@ use Bootspruefung\Learning\Content\Repositories\Overrides;
 use Bootspruefung\Learning\Exams\Services\ExamService;
 use Bootspruefung\Learning\Gate\ContentGate;
 use Bootspruefung\Learning\Gate\ProtectedFiles;
+use Bootspruefung\Learning\Infrastructure\Lock;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Learning\Services\CollectionService;
 use Bootspruefung\Learning\Learning\Services\LearningService;
@@ -1057,6 +1058,134 @@ update_option(Settings::OPTION, $settingsNow);
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$stAll}, {$ooUser})");
 delete_user_meta($ooUser, $ER::META);
 delete_user_meta($ooUser, $OO::META);
+
+echo "Ablauf-Erinnerung: Stapel, Zeitbudget und Fortsetzung (T124)\n";
+// Eigene Testkäufer (mit Shop: eigene, bezahlte Bestellung über 0 €), damit die Prüfungen unabhängig von den Vorlagedaten sind.
+update_option(Settings::OPTION, array_merge(Settings::all(), ['expiry_reminder_enabled' => true, 'expiry_reminder_days' => 14, 'default_access' => 'entitlement']));
+$bUsers = ['x' => $user('bp_t124_x'), 'y' => $user('bp_t124_y'), 'z' => $user('bp_t124_z'), 'edge' => $user('bp_t124_edge'), 'past' => $user('bp_t124_past')];
+$bOrders = [];
+$bBuy = static function (int $uid, ?string $until) use ($entitlements, $wpdb, $p, &$bOrders): void {
+    delete_user_meta($uid, \Bootspruefung\Learning\Commerce\ExpiryReminder::META);
+    delete_user_meta($uid, \Bootspruefung\Learning\Commerce\ReminderOptOut::META);
+    $wpdb->delete($p.'entitlement', ['user_id' => $uid]);
+    if ($until === null) {
+        return;
+    }
+    $ids = $entitlements->grantManual($uid, 'SRC', ['question_bank'], gmdate('Y-m-d H:i:s', time() + 6 * DAY_IN_SECONDS), 'Test T124');
+    // Ende direkt setzen (grantManual lehnt vergangene Daten ab).
+    $wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET valid_from = %s, valid_until = %s WHERE id = %d", gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS), $until, $ids[0]));
+    $orderId = 975000 + $uid;
+    if (function_exists('wc_create_order')) {
+        $order = wc_create_order(['customer_id' => $uid]);
+        $order->set_total('10.00');
+        $order->set_date_paid(time());
+        $order->save();
+        $orderId = (int) $order->get_id();
+        $bOrders[] = $orderId;
+    }
+    $wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET source = 'woocommerce', order_id = %d WHERE user_id = %d", $orderId, $uid));
+};
+foreach (['x', 'y', 'z'] as $k) {
+    $bBuy($bUsers[$k], gmdate('Y-m-d H:i:s', time() + 6 * DAY_IN_SECONDS));
+}
+$bBuy($bUsers['edge'], null);
+$bBuy($bUsers['past'], null);
+$bMails = [];
+$bCatch = static function ($null, $atts) use (&$bMails) {
+    $bMails[] = is_array($atts['to']) ? (string) reset($atts['to']) : (string) $atts['to'];
+
+    return true;
+};
+add_filter('pre_wp_mail', $bCatch, 4, 2);
+$bCount = static function (int $uid) use (&$bMails): int {
+    $email = (string) get_userdata($uid)->user_email;
+
+    return count(array_filter($bMails, static fn (string $m): bool => $m === $email));
+};
+// Geplante Fortsetzungen (Argumente) lesen und auf Wunsch austragen.
+$bEvents = static function (bool $clear = false) use ($ER): array {
+    $found = [];
+    foreach ((array) _get_cron_array() as $events) {
+        foreach ((array) ($events[$ER::CONTINUE_HOOK] ?? []) as $event) {
+            $found[] = $event['args'];
+        }
+    }
+    if ($clear) {
+        wp_unschedule_hook($ER::CONTINUE_HOOK);
+    }
+
+    return $found;
+};
+$bEvents(true);
+$check(has_action($ER::CONTINUE_HOOK, [$ER, 'resume']) === 10 && in_array($ER::CONTINUE_HOOK, \Bootspruefung\Learning\Plugin::CRON_HOOKS, true), 'Fortsetzung als Cron-Ereignis verbunden (beim Deaktivieren ausgetragen)');
+$check($ER::batchSize() === 50 && $ER::timeBudget() > 0 && $ER::timeBudget() <= 20, 'Standard: 50 Empfänger und höchstens 20 Sekunden je Lauf');
+$iniMax = (string) ini_get('max_execution_time');
+ini_set('max_execution_time', '16');
+$halfBudget = $ER::timeBudget();
+ini_set('max_execution_time', $iniMax);
+$check($halfBudget === 8.0, 'Zeitbudget höchstens die Hälfte von max_execution_time');
+$bAll = array_keys($ER::expiring());
+sort($bAll);
+$bOne = static fn (): int => 1;
+add_filter('bp_learning_expiry_reminder_batch_size', $bOne);
+$bNow = current_time('mysql', true);
+$bSent = $ER::run($bNow);
+$bNext = $bEvents();
+$check($bSent <= 1 && count($bNext) === 1 && $bNext[0] === [$bNow, $bAll[0]], 'Stapelgröße 1: ein Empfänger, Rest als Fortsetzung mit gleichem Fenster und zuletzt bearbeiteter Nutzer-ID geplant');
+$check(Lock::holder($ER::LOCK) === null, 'Sperre am Ende des Stapels freigegeben');
+$bRuns = 0;
+while (($bNext = $bEvents(true)) !== [] && $bRuns < 500) {
+    $bRuns++;
+    $bSent = $ER::resume(...$bNext[0]);
+    if ($bSent > 1) {
+        break;
+    }
+}
+$check($bRuns === count($bAll) - 1 && $bEvents() === [] && $bSent <= 1, 'Fortsetzungen arbeiten den Rest ab (je ein Empfänger) und enden');
+$check($bCount($bUsers['x']) === 1 && $bCount($bUsers['y']) === 1 && $bCount($bUsers['z']) === 1, 'jeder Käufer bekommt genau eine Mail');
+remove_filter('bp_learning_expiry_reminder_batch_size', $bOne);
+$ER::run();
+$check($bCount($bUsers['x']) === 1 && $bCount($bUsers['y']) === 1 && $bCount($bUsers['z']) === 1 && $bEvents() === [], 'nächster Lauf: keine Doppelmails, keine Fortsetzung');
+// Zeitbudget 0: trotzdem mindestens ein Empfänger je Lauf.
+foreach (['x', 'y', 'z'] as $k) {
+    delete_user_meta($bUsers[$k], $ER::META);
+}
+$bZero = static fn (): float => 0.0;
+add_filter('bp_learning_expiry_reminder_time_budget', $bZero);
+$bNow = current_time('mysql', true);
+$ER::run($bNow);
+$bNext = $bEvents(true);
+$check(count($bNext) === 1 && $bNext[0] === [$bNow, $bAll[0]], 'Zeitbudget erreicht: Fortsetzung geplant, mindestens ein Empfänger bearbeitet');
+remove_filter('bp_learning_expiry_reminder_time_budget', $bZero);
+// Gesperrt (anderer Lauf): Fortsetzung später erneut einplanen, nichts senden.
+$bBefore = count($bMails);
+Lock::acquire($ER::LOCK, 3600, 'anderer-lauf-t124');
+$check($ER::resume($bNow, 0) === 0 && count($bMails) === $bBefore && $bEvents(true) === [[$bNow, 0]], 'Sperre gehalten: Fortsetzung wird später erneut versucht');
+Lock::release($ER::LOCK, 'anderer-lauf-t124');
+$check($ER::resume(gmdate('Y-m-d H:i:s', time() - 2 * DAY_IN_SECONDS), 0) === 0 && count($bMails) === $bBefore, 'veraltete Fortsetzung (älter als ein Tag): der tägliche Lauf übernimmt');
+$check($ER::resume('', 0) === 0 && $ER::resume('kein Datum', 0) === 0, 'Fortsetzung ohne gültige Startzeit: nichts');
+$ER::resume($bNow, 0);
+$check($bCount($bUsers['x']) === 2 && $bCount($bUsers['y']) === 2 && $bCount($bUsers['z']) === 2, 'Fortsetzung sendet die offenen Erinnerungen (je Zugang einmal)');
+// Rand des Fensters: Die Fortsetzung prüft gegen das Fenster des ersten Stapels.
+$bStart = gmdate('Y-m-d H:i:s', time() - 2 * HOUR_IN_SECONDS);
+$bBuy($bUsers['edge'], gmdate('Y-m-d H:i:s', (int) strtotime($bStart.' UTC') + 14 * DAY_IN_SECONDS - MINUTE_IN_SECONDS));
+$bBuy($bUsers['past'], gmdate('Y-m-d H:i:s', time() - HOUR_IN_SECONDS));
+$ER::resume($bStart, 0);
+$check($bCount($bUsers['edge']) === 1, 'Zugang am Rand des Fensters des ersten Stapels geht nicht verloren');
+$check($bCount($bUsers['past']) === 0, 'inzwischen abgelaufener Zugang: keine Erinnerung mit vergangenem Datum');
+$check($bCount($bUsers['x']) === 2, 'Fortsetzung nach vollständigem Lauf: keine Doppelmail');
+remove_filter('pre_wp_mail', $bCatch, 4);
+$bEvents(true);
+update_option(Settings::OPTION, $settingsNow);
+foreach ($bUsers as $uid) {
+    $bBuy($uid, null);
+}
+foreach ($bOrders as $orderId) {
+    $o = wc_get_order($orderId);
+    if ($o) {
+        $o->delete(true);
+    }
+}
 
 echo "Videos auf fremden Servern (T23)\n";
 $ownHost = (string) wp_parse_url(home_url('/'), PHP_URL_HOST);

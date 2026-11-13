@@ -107,7 +107,7 @@ Inhalt:
 | Datenkategorien | Zugänge aus `bp_entitlement` (Kurs, Ende), E-Mail-Adresse, Name. Nutzer-Meta `bp_expiry_reminders` (Kurs und Ende → Versandzeit) und `bp_expiry_reminder_optout` (Zeitpunkt, Weg). Protokoll `expiry_reminder_optout`/`optin` |
 | Betroffene | Kundinnen und Kunden mit befristetem Zugang |
 | Empfänger | Mail-Dienst |
-| Einstellungen | Standard: an (`Settings/Settings.php`, `expiry_reminder_enabled`), 14 Tage vorher (`ExpiryReminder::DEFAULT_DAYS`, höchstens 90), täglicher Cron `bp_learning_daily` |
+| Einstellungen | Standard: an (`Settings/Settings.php`, `expiry_reminder_enabled`), 14 Tage vorher (`ExpiryReminder::DEFAULT_DAYS`, höchstens 90), täglicher Cron `bp_learning_daily`; je Lauf höchstens 50 Empfänger bzw. 20 Sekunden, der Rest eine Minute später (`bp_learning_expiry_reminder_continue`) |
 | Löschfrist | Merker mit vergangenem Ablaufdatum werden beim nächsten Versand an dieselbe Person verworfen (`ExpiryReminder::reminded()`); sonst bei Kontolöschung (`ExpiryReminder::forget()`). Widerspruch bleibt, bis die Person wieder zustimmt oder das Konto gelöscht wird. |
 | Belege | `Commerce/ExpiryReminder.php`, `Commerce/ReminderOptOut.php` |
 
