@@ -155,7 +155,7 @@ Inhalt:
 | Rechtsgrundlage (Vorschlag) | Art. 6 Abs. 1 lit. c und lit. f DSGVO (DSE Nr. 9) |
 | Datenkategorien | `bp_audit_log`: auslösendes Konto, Vorgang, Objekt (z. B. Bestellung, Konto), Begründung, Zusatzangaben als JSON, Zeitpunkt (`Schema.php`, `Audit/AuditLog.php`). **Keine IP-Adressen, keine Zahlungsdaten.** Zusatzangaben können Konto-IDs enthalten (z. B. `group_joined`, `Commerce/GroupService.php`) |
 | Betroffene | Kundinnen und Kunden, Gruppenmitglieder, Administratoren |
-| Empfänger | keine (nur Verwaltung) |
+| Empfänger | keine (nur Verwaltung). Einsicht im Admin unter Bootsprüfung › Protokoll nur für Administratoren (`manage_options`); dort ohne E-Mail-Adressen, Personen nur mit Anzeigename bzw. Nutzer-Nummer (`Admin/AuditPage.php`). „Verlauf“ je Zugang und Gruppe für das Zugangs-Team |
 | Löschfrist | 4 Jahre (`PersonalData::AUDIT_RETENTION_YEARS`), Cron `pruneAuditLog()` (je Lauf bis 5000 Zeilen). Bleibt bei Kontolöschung stehen; die Löschung selbst wird nur mit Hash protokolliert. |
 
 ### 1.11 Partnerprogramm (nur falls betrieben)

@@ -176,6 +176,9 @@ final class AccessPages
             echo '<button class="button" name="op" value="release">'.esc_html__('Manuelle Entscheidung aufheben (Shop-Status gilt)', 'bootspruefung-learning').'</button>';
         }
         echo '</p></form>';
+        // T102: Verlauf dieses Zugangs aus dem Protokoll.
+        echo '<h2>'.esc_html__('Verlauf', 'bootspruefung-learning').'</h2>';
+        AuditPage::historyBox(AuditPage::forEntitlement($row), 'entitlement', (int) $row->id);
     }
 
     private function renderGrantForm(): void
@@ -500,6 +503,8 @@ final class AccessPages
                     .'<input type="text" name="reason" required placeholder="'.esc_attr__('Begründung', 'bootspruefung-learning').'"> <button class="button-link-delete">'.esc_html__('Platz freigeben', 'bootspruefung-learning').'</button></form>';
                 $rows[] = [esc_html(($m->display_name ?: '–').($m->email ? ' <'.$m->email.'>' : '')), esc_html(['active' => __('aktiv', 'bootspruefung-learning'), 'invited' => __('eingeladen', 'bootspruefung-learning'), 'expired' => __('Einladung abgelaufen', 'bootspruefung-learning'), 'removed' => __('entfernt', 'bootspruefung-learning')][$m->status] ?? $m->status), esc_html(Ui::date($m->joined_at ?: $m->invited_at)), $remove];
             }
+            // T102: Verlauf der Gruppe aus dem Protokoll.
+            AuditPage::historyBox(AuditPage::forGroup((int) $group->id), 'group', (int) $group->id);
             echo '<h2>'.esc_html__('Teilnehmende', 'bootspruefung-learning').'</h2>';
             Ui::table([__('Person', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('seit', 'bootspruefung-learning'), ''], $rows, __('Noch niemand eingeladen.', 'bootspruefung-learning'));
             echo '<h2>'.esc_html__('Gruppe ändern', 'bootspruefung-learning').'</h2><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';

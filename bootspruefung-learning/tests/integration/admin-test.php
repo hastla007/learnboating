@@ -356,6 +356,80 @@ if (function_exists('wc_get_product')) {
     unset($GLOBALS['post']);
 }
 
+echo "Protokoll im Admin (T102)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+require_once ABSPATH.'wp-admin/includes/user.php';
+$audit = \Bootspruefung\Learning\Admin\AuditPage::class;
+$t102Mail = 't102-'.wp_generate_password(6, false, false).'@example.test';
+$t102User = (int) wp_insert_user(['user_login' => 't102-'.wp_generate_password(6, false, false), 'user_email' => $t102Mail, 'user_pass' => wp_generate_password(), 'role' => 'subscriber']);
+$t102Course = (string) (array_key_first(\Bootspruefung\Learning\Commerce\Labels::courses()) ?? 'SBF-SEE');
+$ents = new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb);
+$t102Ids = $ents->grantManual($t102User, $t102Course, ['question_bank'], gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS), 'Admin-Test T102');
+$t102Id = (int) $t102Ids[0];
+$ents->extend($t102Id, null, 'Admin-Test T102 verlängert');
+$ents->setStatusManual($t102Id, 'suspended', 'Admin-Test T102 ausgesetzt');
+$history = $audit::forEntitlementId($t102Id);
+$actions = array_map(static fn ($r) => $r->action, $history);
+$check(in_array('entitlement_manual_grant', $actions, true) && in_array('entitlement_extended', $actions, true) && in_array('entitlement_manual_suspended', $actions, true), 'Verlauf je Zugang: Freischaltung, Enddatum, Aussetzen');
+$extended = array_values(array_filter($history, static fn ($r) => $r->action === 'entitlement_extended'))[0] ?? null;
+$text = $extended ? $audit::details($extended) : '';
+$check(str_contains($text, 'ohne Ablauf') && ! str_contains($text, '{') && ! str_contains($text, '"'), 'Details als Klartext („von … auf ohne Ablauf“), kein JSON');
+$grant = array_values(array_filter($history, static fn ($r) => $r->action === 'entitlement_manual_grant'))[0] ?? null;
+$check($grant !== null && str_contains($audit::details($grant), \Bootspruefung\Learning\Commerce\Labels::course($t102Course)) && str_contains($audit::details($grant), 'Fragen lernen'), 'Kurs und Funktion mit Namen');
+$check($audit::actionLabel('entitlement_manual_suspended') === 'Zugang manuell ausgesetzt' && str_contains($audit::actionLabel('gibt_es_nicht'), 'gibt_es_nicht'), 'Ereignisse auf Deutsch, Unbekanntes mit internem Namen');
+$check($audit::reasonLabel('{"manual":"Kulanz"}') === 'Kulanz' && $audit::reasonLabel('item_removed') === 'Position aus der Bestellung entfernt', 'Begründungen lesbar');
+$byUser = $audit::query($audit::filterFromRequest(['user' => $t102Mail]));
+$check($byUser['total'] >= 3, 'Filter Nutzer (E-Mail)');
+$byArea = $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'event' => 'area:entitlement']));
+$check($byArea['total'] >= 3 && array_filter($byArea['rows'], static fn ($r) => ! str_starts_with($r->action, 'entitlement')) === [], 'Filter Bereich „Zugänge“');
+$byAction = $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'event' => 'action:entitlement_extended']));
+$check($byAction['total'] === 1, 'Filter einzelnes Ereignis');
+$future = wp_date('Y-m-d', time() + 5 * DAY_IN_SECONDS);
+$check($audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'from' => $future]))['total'] === 0 && $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'from' => wp_date('Y-m-d'), 'to' => $future]))['total'] >= 3, 'Filter Zeitraum');
+$check($audit::query($audit::filterFromRequest(['object' => 'entitlement', 'object_id' => (string) $t102Id]))['total'] === count($history), 'Filter Zugang Nr.');
+$check($audit::query($audit::filterFromRequest(['user' => 'niemand-'.wp_generate_password(5, false).'@example.test']))['total'] === 0 && $audit::filterFromRequest(['user' => 'niemand@example.invalid'])['error'] !== '', 'unbekannter Nutzer: keine Treffer, Hinweis');
+$check($audit::filterFromRequest(['event' => "action:x' OR 1=1"])['event'] === '' && $audit::filterFromRequest(['event' => 'area:gibtsnicht'])['event'] === '', 'ungültiger Ereignis-Filter verworfen');
+$page2 = $audit::query(['user_id' => $t102User, 'user_input' => (string) $t102User], 2, 2);
+$check(count($page2['rows']) >= 1 && $page2['total'] >= 3, 'seitenweise');
+$gid = 900000 + wp_rand(1, 99999);
+\Bootspruefung\Learning\Audit\AuditLog::record('group_created', 'order', '424242', 'Admin-Test T102', ['group' => $gid, 'seats' => 5]);
+\Bootspruefung\Learning\Audit\AuditLog::record('group_suspended', 'group', (string) $gid, 'Admin-Test T102', ['from' => 'active', 'manual' => true]);
+$groupLog = $audit::forGroup($gid);
+$check(count($groupLog) === 2 && str_contains($audit::details($groupLog[0]), 'von aktiv auf') && str_contains($audit::details($groupLog[0]), 'von Hand: ja'), 'Verlauf je Gruppe (inkl. Anlage aus der Bestellung), Klartext');
+$check(\Bootspruefung\Learning\Admin\AuditPage::CAPABILITY === 'manage_options', 'Protokollseite nur für Administratoren');
+ob_start();
+(new \Bootspruefung\Learning\Admin\AuditPage())->render();
+$html = (string) ob_get_clean();
+$check(str_contains($html, 'Protokoll') && str_contains($html, 'Zugang manuell ausgesetzt') && ! str_contains($html, '{&quot;') && ! str_contains($html, $t102Mail), 'Seite: Klartext, keine E-Mail-Adressen');
+$_GET['entitlement'] = $t102Id;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+unset($_GET['entitlement']);
+$check(str_contains($html, 'class="bp-history"') && str_contains($html, 'Zugang manuell freigeschaltet') && str_contains($html, 'page=bootspruefung-audit'), 'Zugang: Verlauf aufklappbar mit Link zum Protokoll');
+$editor = (int) wp_insert_user(['user_login' => 't102-ed-'.wp_generate_password(6, false, false), 'user_email' => 't102-ed-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'editor']);
+(new WP_User($editor))->add_cap(\Bootspruefung\Learning\Security\Capabilities::MANAGE_ENTITLEMENTS);
+wp_set_current_user($editor);
+$dieHandler = static fn () => static function (): void {
+    throw new RuntimeException('wp_die');
+};
+add_filter('wp_die_handler', $dieHandler);
+$denied = $throws(static function (): void {
+    ob_start();
+    try {
+        (new \Bootspruefung\Learning\Admin\AuditPage())->render();
+    } finally {
+        ob_end_clean();
+    }
+}, 'wp_die');
+remove_filter('wp_die_handler', $dieHandler);
+wp_set_current_user(1);
+$check($denied, 'ohne Administratorrechte: Protokollseite gesperrt');
+$wpdb->query("DELETE FROM {$p}audit_log WHERE reason LIKE 'Admin-Test T102%'");
+$wpdb->delete($p.'entitlement', ['user_id' => $t102User]);
+wp_delete_user($t102User);
+wp_delete_user($editor);
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');

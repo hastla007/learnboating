@@ -62,6 +62,7 @@ final class Menu
             [CustomerFaqAdmin::TERMS_URL, __('Kunden-FAQ-Kategorien', 'bootspruefung-learning'), Capabilities::MANAGE_CONTENT, null],
             [AccessPages::FREE_SLUG, __('Kostenlose Bereiche', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [$access, 'renderFree']],
             [PricePage::SLUG, __('Preise', 'bootspruefung-learning'), Capabilities::MANAGE_ENTITLEMENTS, [new PricePage(), 'render']],
+            [AuditPage::SLUG, __('Protokoll', 'bootspruefung-learning'), AuditPage::CAPABILITY, [new AuditPage(), 'render']],
             [self::SLUG.'-status', __('Systemstatus', 'bootspruefung-learning'), $read, [$this, 'renderStatus']],
             [self::SLUG.'-settings', __('Einstellungen', 'bootspruefung-learning'), 'manage_options', [$this, 'renderSettings']],
         ];

@@ -20,3 +20,21 @@ Checkbox.
   angekreuzt und bleibt so, bis jemand eine Laufzeit einträgt.
 - Übersicht › „Produktzuordnungen prüfen“ nennt jedes Produkt mit Laufzeit „ohne Ablauf“ als Hinweis. Ist das gewollt
   (z. B. ein Sonderprodukt), kann der Hinweis stehen bleiben.
+
+## Protokoll (T102)
+
+Bootsprüfung › Protokoll zeigt die Tabelle `bp_audit_log` lesbar an. Nur für Administratoren (Recht „Optionen
+verwalten“), weil dort Vorgänge aller Bereiche stehen (Zugänge, Gruppen, Bestellungen, Inhalte, Importe, Datenschutz,
+Einstellungen).
+
+- **Filter:** Zeitraum (von/bis), Ereignis (ein Bereich wie „Zugänge (alle Ereignisse)“ oder ein einzelnes Ereignis),
+  Nutzer (Nummer, E-Mail oder Login; findet eigene Handlungen, Einträge zum Konto und zu den Zugängen der Person) und
+  Bezug (Zugang, Gruppe oder Bestellung mit Nummer). 50 Einträge je Seite.
+- **Anzeige:** Zeit, wer gehandelt hat (Anzeigename oder „System (automatisch)“), Ereignis auf Deutsch, Bezug als Link,
+  Begründung und Details als Text (z. B. „von aktiv auf ausgesetzt · Kurs: SBF See · Funktion: Fragen lernen“).
+  Unbekannte Ereignisse erscheinen als „Sonstiges Ereignis (interner Name)“.
+- **Datenschutz:** keine E-Mail-Adressen; Personen nur als Anzeigename bzw. Nutzer-Nummer. Prüfwerte gelöschter Konten
+  und Fehlermeldungen von Löschvorgängen werden nicht angezeigt. Einträge werden nach 4 Jahren gelöscht.
+- **Verlauf:** In Zugänge › Zugang und in Gruppenlizenzen › Gruppe steht ein aufklappbarer „Verlauf“ mit den
+  passenden Einträgen (beim Zugang auch die der Bestellung bzw. manuellen Freischaltung) und, für Administratoren,
+  ein Link „Im Protokoll öffnen“.
