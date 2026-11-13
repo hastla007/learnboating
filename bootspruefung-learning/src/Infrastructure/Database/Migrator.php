@@ -75,7 +75,8 @@ final class Migrator
             }
             foreach (Schema::TABLES as $table) {
                 if (! $this->tableExists($schema->table($table))) {
-                    throw new RuntimeException(sprintf('Tabelle %s konnte nicht angelegt werden: %s', $schema->table($table), $this->db->last_error));
+                    // Ohne __(): läuft beim Laden des Plugins, ggf. vor „init“ (Übersetzungen noch nicht geladen).
+                    throw new RuntimeException(sprintf('Tabelle %1$s konnte nicht angelegt werden. Meldung der Datenbank: %2$s', $schema->table($table), $this->db->last_error ?: '–'));
                 }
             }
             $this->addForeignKeys($schema);
@@ -151,7 +152,7 @@ final class Migrator
                 $onDelete
             );
             if ($this->db->query($sql) === false) {
-                throw new RuntimeException(sprintf('Fremdschlüssel %s fehlgeschlagen: %s', $name, $this->db->last_error));
+                throw new RuntimeException(sprintf('Verknüpfung zwischen Tabellen (Fremdschlüssel %1$s) konnte nicht angelegt werden. Meldung der Datenbank: %2$s', $name, $this->db->last_error ?: '–'));
             }
         }
     }

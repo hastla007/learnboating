@@ -159,6 +159,38 @@ wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
 $check(Plugin::cronMigration() && get_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION) === $schemaT79 && get_option(Plugin::OPTION_MIGRATION_FAILED) === false, 'Cron-Handler nach dem Backoff: Migration läuft und Fehler gelöscht');
 wp_clear_scheduled_hook(Plugin::MIGRATE_HOOK);
 
+echo "Hinweis bei Fehler der Datenbank-Aktualisierung (T120)\n";
+$noticeSrc = (string) file_get_contents(dirname(__DIR__, 2).'/src/Plugin.php');
+$check(! str_contains($noticeSrc, "'migration_error'"), 'nur noch ein Hinweis (kein zweiter „migration_error“)');
+$t120Failed = ['at' => time() - 60, 'message' => "Tabelle wp_bp_test konnte nicht angelegt werden. Meldung der Datenbank: CREATE command denied to user 'x'@'localhost' <b>"];
+$t120 = Plugin::migrationNoticeArgs($t120Failed);
+$t120Html = \Bootspruefung\Learning\Admin\Notices::render($t120);
+$check($t120['type'] === 'error' && $t120['dismiss'] === 'none' && str_contains($t120Html, 'Datenbank-Aktualisierung fehlgeschlagen') && str_contains($t120Html, 'Systemstatus öffnen') && str_contains($t120Html, 'page=bootspruefung-status'), 'deutscher Text mit Knopf „Systemstatus öffnen“');
+$check(str_contains($t120Html, 'wp bootspruefung migrate') && str_contains($t120Html, 'Hoster'), 'Handlungsanweisung: WP-CLI-Befehl, ggf. Hoster');
+$check(preg_match('#<details><summary>Technische Angaben</summary>.*CREATE command denied.*</details>#s', $t120Html) === 1 && ! str_contains($t120Html, '<b>') && strpos($t120Html, 'CREATE command') > strpos($t120Html, '<details>'), 'Meldung der Datenbank nur aufklappbar und maskiert');
+update_option(Plugin::OPTION_MIGRATION_FAILED, $t120Failed, false);
+$t120Queue = static function (): array {
+    $q = \Bootspruefung\Learning\Admin\Notices::queued();
+    \Bootspruefung\Learning\Admin\Notices::flush(); // Warteschlange leeren (Ausgabe verwerfen)
+
+    return $q;
+};
+ob_start();
+$t120Queue();
+$t120Editor = (int) wp_insert_user(['user_login' => 't120-'.wp_generate_password(6, false, false), 'user_email' => 't120-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'editor']);
+wp_set_current_user($t120Editor);
+Plugin::migrationNotice();
+$asEditor = $t120Queue();
+wp_set_current_user(1);
+Plugin::migrationNotice();
+Plugin::migrationNotice(); // zweiter Aufruf (z. B. neuer Fehlschlag in derselben Anfrage) ergibt keinen zweiten Hinweis
+$asAdmin = $t120Queue();
+ob_end_clean();
+$check(! isset($asEditor['migration_failed']) && isset($asAdmin['migration_failed']) && count(array_filter(array_keys($asAdmin), static fn ($k) => str_starts_with($k, 'migration'))) === 1, 'nur für Administratoren, genau ein Hinweis');
+delete_option(Plugin::OPTION_MIGRATION_FAILED);
+require_once ABSPATH.'wp-admin/includes/user.php';
+wp_delete_user($t120Editor);
+
 echo "Aufbewahrung Paketkopien und Import-Protokoll (ARC-06)\n";
 $service = Plugin::instance()->importService();
 $realPublished = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}import_batch WHERE status = 'published'");

@@ -347,13 +347,7 @@ final class Plugin
         $failed = get_option(self::OPTION_MIGRATION_FAILED);
         $cli = PHP_SAPI === 'cli' || (defined('WP_CLI') && WP_CLI);
         if (is_admin() && ! $ajax && is_array($failed)) {
-            add_action('admin_notices', static function () use ($failed): void {
-                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'migration_failed', 'type' => 'error', 'dismiss' => 'none', 'text' => sprintf(
-                    /* translators: %s: Fehlermeldung */
-                    __('Die Datenbank-Aktualisierung ist fehlgeschlagen und wird in einigen Minuten erneut versucht. Fehler: %s', 'bootspruefung-learning'),
-                    (string) ($failed['message'] ?? '')
-                )]);
-            });
+            add_action('admin_notices', [self::class, 'migrationNotice']);
         }
         $action = self::migrationAction($cli, is_admin(), wp_doing_cron(), $failed, time(), $ajax);
         if ($action === 'schedule' || $action === 'wait') {
@@ -485,11 +479,51 @@ final class Plugin
             update_option(self::OPTION_MIGRATION_FAILED, $failed, false);
             // Neuer Versuch nach dem Backoff, auch ohne weitere Anfragen.
             self::scheduleMigration($failed);
-            add_action('admin_notices', static function () use ($e): void {
-                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'migration_error', 'type' => 'error', 'dismiss' => 'none', 'text' => $e->getMessage()]);
-            });
+            // Derselbe Hinweis wie beim nächsten Aufruf (nur einmal registriert, liest den aktuellen Fehler).
+            add_action('admin_notices', [self::class, 'migrationNotice']);
 
             return false;
         }
+    }
+
+    /** Hinweis bei fehlgeschlagener Datenbank-Aktualisierung (T120): nur für Administratoren, nur einmal. */
+    public static function migrationNotice(): void
+    {
+        $failed = get_option(self::OPTION_MIGRATION_FAILED);
+        if (! is_array($failed) || ! current_user_can('manage_options')) {
+            return;
+        }
+        \Bootspruefung\Learning\Admin\Notices::add(self::migrationNoticeArgs($failed));
+    }
+
+    /**
+     * Inhalt des Hinweises: was passiert ist, was zu tun ist; die Meldung der Datenbank nur zum Aufklappen.
+     * @param array<string,mixed> $failed Option OPTION_MIGRATION_FAILED
+     * @return array<string,mixed> Argumente für Notices::add()
+     */
+    public static function migrationNoticeArgs(array $failed): array
+    {
+        $message = trim((string) ($failed['message'] ?? ''));
+        $at = (int) ($failed['at'] ?? 0);
+        $html = '<p>'.esc_html__('Bis dahin warten Speichervorgänge der Lern-App (Lernstand, Prüfungen) und neue Funktionen sind eventuell nicht nutzbar. So gehst du vor:', 'bootspruefung-learning').'</p><ol>'
+            .'<li>'.esc_html__('Im Systemstatus unter „Wartung“ prüfen, ob die Aktualisierung inzwischen gelaufen ist.', 'bootspruefung-learning').'</li>'
+            /* translators: %s: WP-CLI-Befehl */
+            .'<li>'.sprintf(esc_html__('Sonst die Aktualisierung von Hand starten: %s (WP-CLI auf dem Server).', 'bootspruefung-learning'), '<code>wp bootspruefung migrate</code>').'</li>'
+            .'<li>'.esc_html__('Schlägt sie wieder fehl, die technischen Angaben unten an den Hoster bzw. die technische Betreuung schicken (häufige Ursachen: fehlende Rechte des Datenbank-Nutzers, voller Speicher, Datenbank ohne InnoDB).', 'bootspruefung-learning').'</li></ol>';
+        if ($message !== '') {
+            $html .= '<details><summary>'.esc_html__('Technische Angaben', 'bootspruefung-learning').'</summary><p>'
+                .($at > 0 ? esc_html(sprintf(__('Zeitpunkt: %s', 'bootspruefung-learning'), wp_date('d.m.Y H:i', $at))).'<br>' : '')
+                .'<code>'.esc_html($message).'</code></p></details>';
+        }
+
+        return [
+            'key' => 'migration_failed',
+            'type' => 'error',
+            'dismiss' => 'none',
+            'title' => __('Datenbank-Aktualisierung fehlgeschlagen.', 'bootspruefung-learning'),
+            'text' => __('Das Plugin versucht es in einigen Minuten automatisch erneut.', 'bootspruefung-learning'),
+            'html' => $html,
+            'buttons' => [[__('Systemstatus öffnen', 'bootspruefung-learning'), admin_url('admin.php?page=bootspruefung-status'), true]],
+        ];
     }
 }

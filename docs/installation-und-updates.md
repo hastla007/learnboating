@@ -100,6 +100,11 @@ erscheinen als Warnung (`docs/release-regel.md`, „Sicherheitsmitteilung“).
    `wp bootspruefung migrate`); bis dahin antwortet die Lern-API auf schreibende Anfragen mit „Wartung“.
    Bootsprüfung › Systemstatus: Schema „aktuell“, Abschnitt „Wartung“ ohne Fehler. Mit neuem Theme: Hinweis
    „Inhaltsseiten“ im Dashboard prüfen (`docs/theme-livegang.md`).
+   Schlägt die Migration fehl, zeigt der Admin Administratoren einen einzigen Hinweis „Datenbank-Aktualisierung
+   fehlgeschlagen“ mit Knopf „Systemstatus öffnen“, den Schritten (Systemstatus prüfen, `wp bootspruefung migrate`,
+   sonst Hoster bzw. technische Betreuung) und der Meldung der Datenbank unter „Technische Angaben“ zum Aufklappen
+   (T120). Häufige Ursachen: fehlende Rechte des Datenbank-Nutzers (CREATE, ALTER, REFERENCES), voller Speicher,
+   keine InnoDB-Unterstützung.
 
 Mit WP-CLI geht dasselbe: `wp plugin install bootspruefung-learning-<version>.zip --force` bzw.
 `wp theme install kurswasser-<version>.zip --force`, danach `wp bootspruefung migrate`.
