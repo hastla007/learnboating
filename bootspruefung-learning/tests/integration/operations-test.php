@@ -320,7 +320,7 @@ $connector = \LearnBoating\AffiliateConnector\Connector::class;
 $check($connector::diagnose() === '', 'Add-on: mit dem echten Plugin kompatibel');
 $old = static fn () => ['version' => '0.11.0', 'contract' => 1];
 add_filter('bootspruefung_learning_contract', $old);
-$check(str_contains($connector::diagnose(), '0.13.0'), 'Add-on: älteres Plugin → kontrolliert inaktiv mit Mindestversion im Hinweis');
+$check($connector::diagnose() === $connector::PROBLEM_LEARNING_VERSION && str_contains($connector::problemText($connector::diagnose()), '0.13.0'), 'Add-on: älteres Plugin → kontrolliert inaktiv (Fehlercode), Mindestversion im Hinweis');
 remove_filter('bootspruefung_learning_contract', $old);
 $wrong = [];
 foreach (\Bootspruefung\Learning\Commerce\ShopCatalog::products() as $product) {
