@@ -9,7 +9,7 @@ use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
 
 /**
- * Produktfeld „Lernzugang“ (Kap. 7.1/7.6): Kurse × Features, Dauer,
+ * Produktfeld „Lernzugang“ (Kap. 7.1/7.6): Kurse × Funktionen, Laufzeit,
  * Verlängerungs- und Erstattungsregel. Variationen erben oder überschreiben.
  */
 final class ProductPanel
@@ -98,12 +98,24 @@ final class ProductPanel
             echo '</tr>';
         }
         echo '</tbody></table>';
+        // T101: neue Zuordnungen mit Laufzeit vorbelegen; „ohne Ablauf“ nur ausdrücklich. Gespeicherte Werte bleiben.
+        $unlimited = $first !== null && empty($first->duration_days);
+        $days = $first !== null && ! empty($first->duration_days) ? (int) $first->duration_days : ($unlimited ? 0 : $this->defaultDays());
+        $fieldId = 'bp-duration-'.sanitize_html_class(str_replace(['[', ']'], '-', $name));
         printf(
-            '<p><label>%s <input type="number" min="0" step="1" name="%s" value="%s" style="width:90px"></label> <span class="description">%s</span></p>',
-            esc_html__('Dauer in Tagen', 'bootspruefung-learning'),
+            '<p><label for="%1$s">%2$s</label> <input type="number" id="%1$s" min="1" step="1" name="%3$s" value="%4$s" style="width:90px"> <label><input type="checkbox" name="%5$s" value="1" %6$s> %7$s</label><br><span class="description">%8$s</span></p>',
+            esc_attr($fieldId),
+            esc_html__('Laufzeit in Tagen', 'bootspruefung-learning'),
             esc_attr($name.'[duration]'),
-            esc_attr($first && $first->duration_days ? (string) $first->duration_days : ''),
-            esc_html__('leer = dauerhaft', 'bootspruefung-learning')
+            esc_attr($days > 0 ? (string) $days : ''),
+            esc_attr($name.'[unlimited]'),
+            checked($unlimited, true, false),
+            esc_html__('ohne Ablauf (dauerhaft)', 'bootspruefung-learning'),
+            esc_html(sprintf(
+                /* translators: %d: vorbelegte Laufzeit in Tagen */
+                __('Gilt ab Zahlungseingang. Vorbelegt: %d Tage (Laufzeit aus dem Shop-Katalog bzw. 12 Monate). Einen Zugang ohne Ablauf bitte nur bewusst wählen – er erscheint in der Übersicht unter „Produktzuordnungen prüfen“.', 'bootspruefung-learning'),
+                $this->defaultDays()
+            ))
         );
         $renewal = ['extend' => __('Zweitkauf verlängert (Beginn am Ende des bestehenden Zugangs)', 'bootspruefung-learning'), 'parallel' => __('Zweitkauf läuft parallel ab Kaufdatum', 'bootspruefung-learning')];
         $refund = [
@@ -175,12 +187,39 @@ final class ProductPanel
                 }
             }
         }
-        $duration = isset($input['duration']) && $input['duration'] !== '' ? absint($input['duration']) : null;
+        $duration = self::duration($input, $this->defaultDays($productId));
         $seats = isset($input['seats']) && $input['seats'] !== '' ? absint($input['seats']) : null;
         $result = $this->repo()->save($productId, $variationId, $scopes, $duration, sanitize_key((string) ($input['renewal'] ?? '')), sanitize_key((string) ($input['refund'] ?? '')), $seats);
         if ($result['added'] + $result['removed'] > 0) {
             AuditLog::record('product_access_saved', 'product', (string) ($variationId ?: $productId), null, ['product_id' => $productId, 'variation_id' => $variationId, 'scopes' => count($scopes)] + $result);
         }
+    }
+
+    /**
+     * Laufzeit aus dem Formular (T101): „ohne Ablauf“ angekreuzt = null (dauerhaft); sonst die eingetragenen Tage,
+     * leer oder 0 = Vorbelegung. Dauerhaft entsteht so nur ausdrücklich.
+     * @param array<string,mixed> $input
+     */
+    public static function duration(array $input, int $default): ?int
+    {
+        if (! empty($input['unlimited'])) {
+            return null;
+        }
+        $days = isset($input['duration']) && $input['duration'] !== '' ? absint($input['duration']) : 0;
+
+        return $days > 0 ? $days : max(1, $default);
+    }
+
+    /** Vorbelegte Laufzeit: Katalog-Laufzeit der SKU des Produkts, sonst 365 Tage. */
+    private function defaultDays(int $productId = 0): int
+    {
+        if ($productId <= 0) {
+            global $post;
+            $productId = (int) ($post->ID ?? 0);
+        }
+        $product = $productId > 0 && function_exists('wc_get_product') ? wc_get_product($productId) : null;
+
+        return \Bootspruefung\Learning\Commerce\DefaultDuration::forSku($product ? (string) $product->get_sku() : '');
     }
 
     private function repo(): ProductAccessRepository

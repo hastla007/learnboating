@@ -40,7 +40,14 @@ final class MappingCheck
             if (count($signatures) > 1) {
                 $add(__('Uneinheitliche Dauer/Verlängerung/Erstattung/Plätze innerhalb der Zuordnung – bitte im Produkt neu speichern.', 'bootspruefung-learning'), 'warning');
             }
+            // T101: Zugänge ohne Ablauf nur bewusst – in der Liste als Hinweis zeigen (nicht bei gelöschten Produkten).
+            $unlimited = static function () use ($group, $add): void {
+                if (array_filter($group, static fn ($r) => empty($r->duration_days)) !== []) {
+                    $add(__('Laufzeit „ohne Ablauf“: Käufe schalten dauerhaft frei. Bitte prüfen, ob das gewollt ist (sonst im Produkt unter „Lernzugang“ eine Laufzeit eintragen).', 'bootspruefung-learning'), 'warning');
+                }
+            };
             if (! $woo) {
+                $unlimited();
                 continue;
             }
             $product = wc_get_product($variationId ?: $productId);
@@ -49,6 +56,7 @@ final class MappingCheck
                 $add(__('Produkt gelöscht – bestehende Zugänge bleiben, die Zuordnung kann entfernt werden.', 'bootspruefung-learning'), 'warning', true);
                 continue;
             }
+            $unlimited();
             if ($parent->get_status() !== 'publish') {
                 $add(sprintf(__('Produkt ist nicht veröffentlicht (Status: %s).', 'bootspruefung-learning'), $parent->get_status()), 'warning');
             }

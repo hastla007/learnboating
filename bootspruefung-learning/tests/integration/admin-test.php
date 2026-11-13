@@ -315,6 +315,47 @@ if (function_exists('wc_get_product_id_by_sku')) {
     wp_delete_term($extraId, 'product_cat');
 }
 
+echo "Laufzeit vorbelegt, ohne Ablauf nur ausdrücklich (T101)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$dd = \Bootspruefung\Learning\Commerce\DefaultDuration::class;
+$check($dd::forCourse('SBF-SEE') === 365 && $dd::forCourse('SKN') === 182 && $dd::forCourse('GIBT-ES-NICHT') === $dd::MANUAL_DAYS && $dd::MANUAL_DAYS === 182, 'Laufzeit je Kurs aus dem Katalog (Vollkurs 365, SKN 182), sonst 182 Tage');
+$check($dd::forSku('BP-PASS-1M') === 30 && $dd::forSku('') === 365 && $dd::forSku('EIGENES-PRODUKT') === $dd::PRODUCT_DAYS, 'Produkt: Katalog-Laufzeit der SKU, sonst 365 Tage');
+$pp = \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::class;
+$check($pp::duration(['duration' => ''], 365) === 365 && $pp::duration([], 182) === 182 && $pp::duration(['duration' => '90'], 365) === 90 && $pp::duration(['duration' => '90', 'unlimited' => '1'], 365) === null, 'Formular: leer = Vorbelegung, dauerhaft nur mit „ohne Ablauf“');
+$check(\Bootspruefung\Learning\Admin\AccessPages::defaultUntil(182) === wp_date('Y-m-d', time() + 182 * DAY_IN_SECONDS), 'Enddatum der manuellen Freischaltung vorbelegt');
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+if (\Bootspruefung\Learning\Commerce\Labels::courses() !== []) {
+    $check(str_contains($html, 'name="unlimited"') && str_contains($html, 'data-bp-until="') && ! str_contains($html, 'leer = dauerhaft') && preg_match('#id="bp-grant-until" type="date" name="valid_until" value="\d{4}-\d{2}-\d{2}"#', $html) === 1, 'Formular „Zugang manuell freischalten“: Datum vorbelegt, Checkbox „ohne Ablauf“');
+}
+if (function_exists('wc_get_product')) {
+    $durProduct = new WC_Product_Simple();
+    $durProduct->set_name('Admin-Test Laufzeit');
+    $durId = (int) $durProduct->save();
+    $repoD = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $renderPanel = static function (int $id): string {
+        $GLOBALS['post'] = get_post($id);
+        ob_start();
+        (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->panel();
+
+        return (string) ob_get_clean();
+    };
+    $panel = $renderPanel($durId);
+    $check(str_contains($panel, 'name="bp_access[duration]" value="365"') && preg_match('#name="bp_access\[unlimited\]" value="1"\s*>#', $panel) === 1, 'neues Produkt: 365 Tage vorbelegt, „ohne Ablauf“ nicht angekreuzt');
+    $repoD->save($durId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund');
+    $panel = $renderPanel($durId);
+    $check(preg_match('#name="bp_access\[unlimited\]" value="1"\s+checked#', $panel) === 1 && str_contains($panel, 'name="bp_access[duration]" value=""'), 'gespeichert „dauerhaft“: bleibt so angezeigt (keine stille Änderung)');
+    $check((int) $repoD->rows($durId, 0)[0]->duration_days === 0, 'gespeicherter Wert unverändert');
+    $durIssues = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $durId && str_contains($i['problem'], 'ohne Ablauf')));
+    $check(count($durIssues) === 1 && $durIssues[0]['severity'] === 'warning', 'Produktzuordnungen: Hinweis bei Zugang ohne Ablauf');
+    $repoD->save($durId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], 365, 'extend', 'revoke_on_full_refund');
+    $check(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $durId && str_contains($i['problem'], 'ohne Ablauf')) === [], 'mit Laufzeit: kein Hinweis');
+    $repoD->save($durId, 0, [], null, 'extend', 'revoke_on_full_refund');
+    wp_delete_post($durId, true);
+    unset($GLOBALS['post']);
+}
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');

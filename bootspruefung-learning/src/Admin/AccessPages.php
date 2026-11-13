@@ -165,7 +165,7 @@ final class AccessPages
         wp_nonce_field('bp_access_change');
         echo '<input type="hidden" name="action" value="bp_access_change"><input type="hidden" name="id" value="'.(int) $row->id.'">';
         echo '<p><label>'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'<br><input type="text" name="reason" required class="regular-text"></label></p>';
-        echo '<p><label>'.esc_html__('Neues Enddatum', 'bootspruefung-learning').' <input type="date" name="valid_until"></label> <label><input type="checkbox" name="unlimited" value="1"> '.esc_html__('dauerhaft', 'bootspruefung-learning').'</label> ';
+        echo '<p><label>'.esc_html__('Neues Enddatum', 'bootspruefung-learning').' <input type="date" name="valid_until"></label> <label><input type="checkbox" name="unlimited" value="1"> '.esc_html__('ohne Ablauf (dauerhaft)', 'bootspruefung-learning').'</label> ';
         echo '<button class="button" name="op" value="extend">'.esc_html__('Enddatum setzen', 'bootspruefung-learning').'</button></p><p>';
         foreach (['active' => __('Aktivieren', 'bootspruefung-learning'), 'suspended' => __('Aussetzen', 'bootspruefung-learning'), 'revoked' => __('Widerrufen', 'bootspruefung-learning')] as $op => $label) {
             if ($row->status !== $op) {
@@ -191,19 +191,32 @@ final class AccessPages
         wp_nonce_field('bp_access_grant');
         echo '<input type="hidden" name="action" value="bp_access_grant"><table class="form-table"><tbody>';
         echo '<tr><th><label for="bp-grant-user">'.esc_html__('Nutzer (E-Mail, Login oder ID)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-user" type="text" name="user" required class="regular-text"></td></tr>';
+        // T101: Laufzeit je Kurs aus dem Shop-Katalog (sonst 182 Tage) vorbelegen; „ohne Ablauf“ nur ausdrücklich.
+        $days = \Bootspruefung\Learning\Commerce\DefaultDuration::forCourses(array_keys($courses));
         echo '<tr><th><label for="bp-grant-course">'.esc_html__('Kurs', 'bootspruefung-learning').'</label></th><td><select id="bp-grant-course" name="course">';
         foreach ($courses as $code => $name) {
-            printf('<option value="%s">%s</option>', esc_attr($code), esc_html($name));
+            printf('<option value="%s" data-bp-until="%s">%s</option>', esc_attr($code), esc_attr(self::defaultUntil($days[$code])), esc_html($name));
         }
         echo '</select></td></tr><tr><th>'.esc_html__('Umfang', 'bootspruefung-learning').'</th><td>';
         foreach (ProductAccessRepository::features() as $feature) {
             printf('<label style="display:inline-block;margin-right:12px"><input type="checkbox" name="features[]" value="%s"> %s</label>', esc_attr($feature), esc_html(Labels::feature($feature)));
         }
-        echo '</td></tr><tr><th><label for="bp-grant-until">'.esc_html__('Gültig bis', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-until" type="date" name="valid_until"> <span class="description">'.esc_html__('leer = dauerhaft', 'bootspruefung-learning').'</span></td></tr>';
+        $firstDays = (int) reset($days);
+        echo '</td></tr><tr><th><label for="bp-grant-until">'.esc_html__('Gültig bis', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-until" type="date" name="valid_until" value="'.esc_attr(self::defaultUntil($firstDays)).'"> ';
+        echo '<label><input type="checkbox" name="unlimited" value="1"> '.esc_html__('ohne Ablauf (dauerhaft)', 'bootspruefung-learning').'</label>';
+        echo '<p class="description">'.esc_html__('Vorbelegt mit der Laufzeit des Kurses im Shop (Vollkurse 12 Monate, SKN/FKN und Ergänzungen 6 Monate). Ohne Ablauf nur bewusst wählen.', 'bootspruefung-learning').'</p></td></tr>';
         echo '<tr><th><label for="bp-grant-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-reason" type="text" name="reason" required class="regular-text"></td></tr>';
         echo '</tbody></table>';
         submit_button(__('Zugang freigeben', 'bootspruefung-learning'));
         echo '</form>';
+        // Kurswechsel: Enddatum auf die Laufzeit des Kurses setzen, solange es nicht von Hand geändert wurde (ohne JS bleibt die Vorbelegung des ersten Kurses).
+        echo "<script>(function(){var c=document.getElementById('bp-grant-course'),u=document.getElementById('bp-grant-until');if(!c||!u){return;}var auto=u.value;u.addEventListener('input',function(){auto=null;});c.addEventListener('change',function(){var o=c.options[c.selectedIndex];if(auto!==null&&o){u.value=o.getAttribute('data-bp-until')||u.value;auto=u.value;}});})();</script>"; // phpcs:ignore
+    }
+
+    /** Vorbelegtes Enddatum (Y-m-d, Ortszeit) für eine Laufzeit in Tagen ab heute. */
+    public static function defaultUntil(int $days): string
+    {
+        return wp_date('Y-m-d', time() + max(1, $days) * DAY_IN_SECONDS);
     }
 
     public function handleGrant(): void
@@ -219,7 +232,12 @@ final class AccessPages
             if ($features === [] || ! isset(Labels::courses()[$course])) {
                 throw new \InvalidArgumentException(__('Bitte Kurs und mindestens eine Funktion wählen.', 'bootspruefung-learning'));
             }
-            $ids = $this->service()->grantManual((int) $user->ID, $course, $features, self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? ''))), sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
+            $until = self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? '')));
+            if (empty($_POST['unlimited']) && $until === null) {
+                // T101: „dauerhaft“ nur ausdrücklich – ein leeres Datum ergibt keinen unbefristeten Zugang mehr.
+                throw new \InvalidArgumentException(__('Bitte ein Enddatum wählen oder „ohne Ablauf“ ankreuzen.', 'bootspruefung-learning'));
+            }
+            $ids = $this->service()->grantManual((int) $user->ID, $course, $features, empty($_POST['unlimited']) ? $until : null, sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
             Ui::flash(sprintf(_n('%d Zugang freigegeben.', '%d Zugänge freigegeben.', count($ids), 'bootspruefung-learning'), count($ids)));
         } catch (\InvalidArgumentException $e) {
             Ui::flash($e->getMessage(), 'error');
@@ -238,7 +256,7 @@ final class AccessPages
         try {
             $row = $service->find($id);
             match ($op) {
-                'extend' => $service->extend($id, ! empty($_POST['unlimited']) ? null : (self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? ''))) ?? throw new \InvalidArgumentException(__('Bitte ein Enddatum wählen oder „dauerhaft“ ankreuzen.', 'bootspruefung-learning'))), $reason),
+                'extend' => $service->extend($id, ! empty($_POST['unlimited']) ? null : (self::endOfDay(sanitize_text_field(wp_unslash($_POST['valid_until'] ?? ''))) ?? throw new \InvalidArgumentException(__('Bitte ein Enddatum wählen oder „ohne Ablauf“ ankreuzen.', 'bootspruefung-learning'))), $reason),
                 'active', 'suspended', 'revoked' => $service->setStatusManual($id, $op, $reason),
                 'release' => $this->release($id, $reason, $row),
                 default => throw new \InvalidArgumentException('Unbekannte Aktion.'),
