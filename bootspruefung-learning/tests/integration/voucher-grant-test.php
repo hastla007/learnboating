@@ -194,10 +194,10 @@ $check(is_array($kept) && $kept['kept'] === 1 && $entitlements->forReference(Vou
 $check($errorOf($service->revoke('learnboating:grant:0000', '')) === 'lb_grant_not_found', 'unbekannter Schlüssel → lb_grant_not_found');
 
 echo "Support: Verlauf und Suche\n";
-$audit = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}audit_log WHERE action = 'entitlement_voucher_grant' AND object_id = %s ORDER BY id DESC LIMIT 1", (string) $alice));
+$audit = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$p}audit_log WHERE action = 'entitlement_voucher_grant' AND object_id = %s AND context LIKE %s ORDER BY id DESC LIMIT 1", (string) $alice, '%'.$wpdb->esc_like('learnboating:grant:9001').'%'));
 $context = $audit ? json_decode((string) $audit->context, true) : [];
 $check(($context['redemption_key'] ?? '') !== '' && isset($context['voucher_id'], $context['product_id'], $context['redeemed_at']), 'Audit-Log: Nutzer, Gutschein-ID, Kursprodukt, Einlöse-ID, Zeitpunkt', $context);
-$check((bool) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'entitlement_voucher_revoke' AND object_id = %s", VoucherGrants::reference('learnboating:grant:9001'))), 'Audit-Log: Widerruf');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'entitlement_voucher_revoke' AND object_id = %s", VoucherGrants::reference('learnboating:grant:9001'))) > 0, 'Audit-Log: Widerruf', $wpdb->get_results("SELECT action, object_type, object_id FROM {$p}audit_log ORDER BY id DESC LIMIT 6"));
 $found = $entitlements->search(['search' => 'learnboating:grant:9002', 'source' => 'voucher']);
 $check($found['total'] === 2, 'Adminsuche nach Einlöse-ID und Quelle „Kursgutschein“');
 $info = $service->get('learnboating:grant:9002');
