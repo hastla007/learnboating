@@ -111,9 +111,9 @@ function kurswasser_url(string $target): string
     return match ($target) {
         'shop' => function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/?post_type=product'),
         'account' => function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : wp_login_url(),
-        'learn' => home_url('/bootsscheine/'),
+        'learn' => kurswasser_learning_url(),
         'vertrag-widerrufen' => kurswasser_learning_compatible() ? \Bootspruefung\Learning\Commerce\WooCommerce\WithdrawalFunction::url() : home_url('/vertrag-widerrufen/'),
-        'tips' => home_url('/bootsscheine/tipps/'),
+        'tips' => kurswasser_learning_url('tipps'),
         'sbf', 'funk', 'seenot', 'ergaenzung', 'pakete', 'gruppen' => $cat($target),
         '' => home_url('/'),
         default => home_url('/'.$target.'/'),

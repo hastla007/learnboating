@@ -20,7 +20,7 @@ Grant-Vertrag `bootspruefung_voucher_grants_v1`). Vertrag, Regeln und Fehlercode
 | Einlösung | App `POST /vouchers/redeem` und Gutschein-Einlöseseite `[vcap_redeem]` (angemeldet): reservieren (`learnboating:grant:{Gutschein-ID}`, 24 h) → Grant → verbuchen. |
 | Wiederholung | Gleicher Gutschein → dieselbe Freischaltung. Vorübergehender Fehler: Reservierung bleibt, Warteschlange `lbvc_pending` (stündlich und vor jeder Einlösung) schaltet frei und verbucht, oder gibt frei, wenn kein Zugang mehr möglich ist bzw. die Reservierung abläuft. |
 | Kanal | `learnboating`: Kursgutscheine nur in „Mein Lernen“, nicht im Warenkorb oder an der Kasse – außer „Shop“ ist am Produkt angehakt. Warenkorb und Kurseinlösung nutzen denselben Gutscheinstatus: eine offene Bestellung oder Reservierung sperrt den anderen Weg. |
-| Ziel | beim Kauf in der Bestellposition festgehalten; beim Speichern des Produkts und beim Einlösen gegen die Lernplattform geprüft; Admin-Hinweis für Gutscheinprodukte, deren Kursprodukt fehlt oder keinen Lernzugang mehr hat. |
+| Ziel | beim Kauf in der Bestellposition festgehalten; beim Speichern des Produkts und beim Einlösen gegen die Lernplattform geprüft; Admin-Hinweis für Gutscheinprodukte, deren Kursprodukt fehlt oder keinen Lernzugang mehr hat (wird nach jeder Produktänderung sofort neu geprüft, sonst spätestens nach 10 Minuten). |
 | Widerruf | Gutschein ungültig gemacht (z. B. Kauf erstattet) → Zugang nach Erstattungsregel widerrufen (Filter `lbvc_revoke_on_void`). |
 | Verlauf | Gutscheinverlauf in Voucher Captain: „Kurs freigeschaltet“ mit Nutzer, Kursprodukt, Einlöse-ID; Zugang in der Lernplattform mit Gutschein-ID, Einlöse-ID, Herkunft, Zeitpunkt und Link zum Gutschein. |
 

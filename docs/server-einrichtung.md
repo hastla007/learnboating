@@ -33,6 +33,12 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
   für Produkttexte und Kurskarten) liegen bis zu einem Tag im Transient `bp_learning_course_stats`; Import,
   Paketwechsel, Rechte-Änderungen und Produktänderungen leeren ihn. Mit persistentem Object-Cache (Redis/Memcached)
   liegt der Transient dort, sonst in der Optionstabelle. Nichts davon muss von Hand geleert werden.
+- **Speicherordner (T105):** Den Umzug der privaten Ordner (Content-Pakete, geschützte Dateien), z. B. nach dem
+  Setzen von `BOOTSPRUEFUNG_PRIVATE_DIR`, erledigt der stündliche Cron oder der nächste Admin-Aufruf; normale
+  Besucheranfragen prüfen die Ordner nicht. Sofort: Systemstatus › Dateischutz › „Erneut prüfen“.
+- **WordPress im Unterordner** (z. B. `https://example.de/schule/`): Rücksprünge nach der Anmeldung bilden den Pfad
+  relativ zur Website-Adresse (T105). Geschützte PDFs gehen ohne vorangestellte Ausgabe anderer Plugins raus und
+  behalten Umlaute im Dateinamen.
 - **Ordner außerhalb des Webroots (empfohlen, für beide Server):** in `wp-config.php`
   `define('BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots');`. Dann liegen Content-Pakete und
   geschützte PDFs gar nicht im Webordner, und die Sperrregeln unten sind nur noch eine zweite Sicherung.

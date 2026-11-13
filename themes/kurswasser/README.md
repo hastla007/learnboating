@@ -181,7 +181,7 @@ wp kurswasser setup shop --country=DE --tax=small --no-language --yes   # weiter
 | `page-cart`, `page-checkout` | Warenkorb und Kasse (Block-Checkout), Kasse mit reduziertem Kopfbereich |
 | `page`, `page-legal`, `landing` | Seiten, Rechtstexte (schmal), Landingpages (volle Breite) |
 | `index`, `home`, `archive`, `search`, `single`, `404` | Blog/Neuigkeiten, Suche, Fehlerseite |
-| Lernbereich `/bootsscheine/` | Kommt aus dem Plugin; nutzt Kopf/Fuß und Farben des Themes |
+| Lernbereich `/bootsscheine/` | Kommt aus dem Plugin; nutzt Kopf/Fuß und Farben des Themes. Links des Themes dorthin bildet `kurswasser_learning_url()` über den Router des Plugins (eigener Pfad per `bootspruefung_base_path`); ohne Plugin `/bootsscheine/`. Die Inhaltsseiten aus `content/` verlinken weiter fest auf `/bootsscheine/`. |
 
 Beim Aktivieren legt das Theme **Entwürfe** für Impressum, Datenschutz, AGB, Widerruf und
 Kontakt an – nur mit Platzhalter, keine Rechtstexte. Die Links im Fußbereich zeigen auf diese
@@ -279,6 +279,11 @@ wp kurswasser content-pages sync --user=<admin>                             # an
   übernimmt den neuen Stand in alle **unveränderten** Seiten; bearbeitete Seiten meldet der Hinweis als Warnung,
   neue Seiten bleiben dem Knopf vorbehalten. Abschalten: Filter `kurswasser_content_auto_sync_enabled`.
   Ablauf: `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“ (To-do T59).
+  Ob ein neuer Stand vorliegt, entscheidet ein zwischengespeicherter Fingerabdruck (T105): neu berechnet nur bei
+  anderer Theme-Version oder geänderter Änderungszeit von `content/pages.php` bzw. `content/pages/` (neue oder
+  entfernte Vorlagen). Wer eine Vorlage ohne Versionswechsel an Ort und Stelle ändert, nutzt den Knopf
+  „Inhaltsseiten anlegen bzw. aktualisieren“; der Hinweis prüft die Seiten ohnehin einzeln. Das CSS der Kursfotos
+  wird ebenso zwischengespeichert (kein Durchsuchen des Bilderordners je Seitenaufruf).
 - Optionales Front-Matter-Feld `focus_keyword:` (ein Begriff, ohne `{{brand}}`) – nur für Yoast (Option B).
 - Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`
   (Seite 33 steckt in `legal/kontakt.html`).

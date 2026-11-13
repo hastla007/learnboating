@@ -95,7 +95,8 @@ final class Hardening
         add_action('send_headers', [self::class, 'securityHeaders']);
 
         // Ablageordner (Pakete, geschützte Dateien) nach Updates an den geschützten Ort bringen.
-        add_action('admin_init', [MediaStorage::class, 'relocateAll']);
+        // Normale Anfragen nie; Admin nur, wenn ein Umzug ansteht (T105); Pflege stündlich per Cron.
+        add_action('admin_init', [MediaStorage::class, 'relocateIfPending']);
         add_action('bp_learning_hourly', \Bootspruefung\Learning\Infrastructure\Cron::guard('media_relocate', [MediaStorage::class, 'relocateAll']));
     }
 

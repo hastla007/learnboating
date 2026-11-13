@@ -34,6 +34,10 @@ final class Connector
     public const RETRY_HOOK = 'lbvc_retry';
     public const RESERVATION_MINUTES = 1440;
     public const TARGET_PREFIX = 'learnboating:product:';
+    /** Zwischenspeicher des Admin-Hinweises auf Kursgutscheine mit ungültigem Ziel. */
+    public const NOTICE_TRANSIENT = 'lbvc_broken_targets';
+    /** Höchstens so lange alt, falls eine Änderung ohne Produkt-Hook passiert (z. B. direkt in der Datenbank). */
+    public const NOTICE_TTL = 10 * MINUTE_IN_SECONDS;
 
     private static ?self $instance = null;
 
@@ -91,6 +95,13 @@ final class Connector
         add_filter('bootspruefung_course_voucher_redeemer_v1', fn () => $this);
         add_filter('bootspruefung_voucher_admin_url', static fn ($url, $meta) => isset($meta['voucher_id']) && ($meta['grant_source'] ?? '') === 'voucher-captain' ? admin_url('admin.php?page=vcap-vouchers&voucher='.(int) $meta['voucher_id']) : $url, 10, 2);
         add_action('admin_notices', [$this, 'targetNotice']);
+        // Hinweis sofort neu prüfen, wenn sich Produkte, Variationen oder deren Lernzugang ändern (ProductPanel speichert
+        // den Lernzugang bei woocommerce_process_product_meta mit Priorität 20).
+        foreach (['woocommerce_process_product_meta' => 30, 'woocommerce_save_product_variation' => 30, 'woocommerce_new_product' => 10, 'woocommerce_update_product' => 10,
+            'woocommerce_delete_product' => 10, 'woocommerce_trash_product' => 10, 'woocommerce_update_product_variation' => 10, 'woocommerce_delete_product_variation' => 10,
+            'vcap_product_settings_save' => 99, 'untrashed_post' => 10] as $hook => $priority) {
+            add_action($hook, [self::class, 'flushNotice'], $priority, 0);
+        }
         add_action(self::RETRY_HOOK, [$this, 'retry']);
         if (! wp_next_scheduled(self::RETRY_HOOK)) {
             wp_schedule_event(time() + 300, 'hourly', self::RETRY_HOOK);
@@ -263,13 +274,19 @@ final class Connector
         return $extra;
     }
 
+    /** Gespeicherten Hinweis-Stand verwerfen: der nächste Admin-Aufruf prüft die Kursgutscheine neu. */
+    public static function flushNotice(): void
+    {
+        delete_transient(self::NOTICE_TRANSIENT);
+    }
+
     /** Hinweis im Admin auf Kursgutscheine, deren Kursprodukt entfernt, deaktiviert oder nicht mehr zugeordnet ist. */
     public function targetNotice(): void
     {
         if (! current_user_can('manage_woocommerce')) {
             return;
         }
-        $broken = get_transient('lbvc_broken_targets');
+        $broken = get_transient(self::NOTICE_TRANSIENT);
         if (! is_array($broken)) {
             $broken = [];
             foreach (get_posts(['post_type' => 'product', 'post_status' => ['publish', 'private', 'draft'], 'meta_key' => self::PRODUCT_META, 'fields' => 'ids', 'numberposts' => 200]) as $id) { // phpcs:ignore WordPress.DB.SlowDBQuery
@@ -279,7 +296,7 @@ final class Connector
                     $broken[(int) $id] = is_wp_error($check) ? $check->get_error_message() : '';
                 }
             }
-            set_transient('lbvc_broken_targets', $broken, HOUR_IN_SECONDS);
+            set_transient(self::NOTICE_TRANSIENT, $broken, self::NOTICE_TTL);
         }
         if ($broken === []) {
             return;

@@ -285,6 +285,41 @@ final class MediaStorage
     }
 
     /**
+     * Steht ein Umzug an (Layout zeigt nicht auf den Soll-Ort und keine Wartezeit nach einem Fehlschlag) oder die
+     * einmalige Medienprüfung? Nur Optionen, kein Dateizugriff – günstig genug für admin_init.
+     */
+    public static function relocationPending(): bool
+    {
+        $layout = self::layout();
+        if (empty($layout['media_checked'])) {
+            return true;
+        }
+        foreach (['packages', 'protected'] as $kind) {
+            if (($layout[$kind] ?? null) === self::targetDir($kind)) {
+                continue;
+            }
+            $failedAt = (int) ($layout['failed'][$kind] ?? 0);
+            if ($failedAt === 0 || time() - $failedAt >= self::RETRY_AFTER) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Admin-Aufruf (T105): relocateAll() nur, wenn wirklich etwas ansteht – sonst prüfte jeder Admin-Aufruf (auch
+     * Heartbeat) beide Ordner, index.php und .htaccess im Dateisystem. Die laufende Pflege übernimmt der stündliche
+     * Cron, „Erneut prüfen“ im Systemstatus erzwingt einen Lauf.
+     */
+    public static function relocateIfPending(): void
+    {
+        if (self::relocationPending()) {
+            self::relocateAll();
+        }
+    }
+
+    /**
      * Einmalig nach dem Update: Dateien im öffentlichen Medienordner, die nicht erlaubt sind (z. B. .php
      * aus einem früheren Paket), in den privaten Paketordner (quarantine/) verschieben – nicht löschen.
      * @return list<string> verschobene Storage-Keys

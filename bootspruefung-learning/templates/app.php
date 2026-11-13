@@ -16,7 +16,7 @@ $bp_content = static function (): void {
     }
     echo '<div id="bp-app" class="bp-app" aria-live="polite">';
     if (! is_user_logged_in()) {
-        $here = home_url(add_query_arg([], (string) wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));
+        $here = \Bootspruefung\Learning\Frontend\ReturnAfterLogin::currentUrl(); // auch im Unterordner richtig (T105)
         echo '<div class="bp-card bp-login"><h1>'.esc_html(\Bootspruefung\Learning\Settings\Settings::brand()).'</h1>';
         $bp_invite = \Bootspruefung\Learning\Frontend\Router::guestInvite((string) get_query_var('bp_path'));
         if ($bp_invite !== null) {

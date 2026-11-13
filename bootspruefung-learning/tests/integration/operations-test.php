@@ -486,5 +486,51 @@ $byCheck = array_column($bc::run(), null, 'check');
 $check($byCheck['Geschützte Dateien']['status'] === 'fail' && str_contains($byCheck['Geschützte Dateien']['detail'], '#'.$fakeId), 'fehlende geschützte Datei gemeldet');
 $wpdb->delete($wpdb->postmeta, ['post_id' => $fakeId, 'meta_key' => \Bootspruefung\Learning\Gate\ProtectedFiles::PATH_META]);
 
+echo "Kleinere Code-Punkte (T105)\n";
+// Rücksprung-URL bei WordPress im Unterordner: Pfad relativ zum home_url-Pfad, Unterordner nicht doppelt.
+add_filter('home_url', $homeSub = static fn ($url, $path) => 'https://example.test/blog'.($path === '' ? '' : '/'.ltrim((string) $path, '/')), 99, 2);
+$raf = \Bootspruefung\Learning\Frontend\ReturnAfterLogin::class;
+$check($raf::currentUrl('/blog/bootsscheine/gruppe/abc/?x=1') === 'https://example.test/blog/bootsscheine/gruppe/abc/?x=1', 'Unterordner: /blog/bootsscheine/… bleibt /blog/bootsscheine/… (nicht /blog/blog/…)');
+$check($raf::currentUrl('/blog') === 'https://example.test/blog/' && $raf::currentUrl('/blogger/x/') === 'https://example.test/blog/blogger/x/', 'Startseite des Unterordners; ähnlich benannter Pfad wird nicht gekürzt');
+remove_filter('home_url', $homeSub, 99);
+$check($raf::currentUrl('/bootsscheine/?a=b') === home_url('/bootsscheine/').'?a=b', 'ohne Unterordner unverändert');
+$check(str_contains((string) file_get_contents(WP_PLUGIN_DIR.'/bootspruefung-learning/templates/app.php'), 'ReturnAfterLogin::currentUrl()'), 'Lernbereich (Gäste): Anmelde-Rücksprung über currentUrl()');
+// Dateiauslieferung: Ausgabepuffer geleert, Dateiname mit ASCII-Ersatz und UTF-8.
+$pf = \Bootspruefung\Learning\Gate\ProtectedFiles::class;
+$level = ob_get_level();
+ob_start();
+ob_start();
+echo 'Störausgabe';
+$pf::clearOutputBuffers();
+$cleared = ob_get_level() === 0;
+for ($i = 0; $i < $level; $i++) {
+    ob_start(); // Ausgangszustand des Testlaufs wiederherstellen
+}
+$check($cleared, 'Ausgabepuffer vor der Datei vollständig geleert');
+$cd = $pf::contentDisposition('inline', 'Prüfungsbogen Küste "1".pdf');
+$check($cd === 'inline; filename="Prufungsbogen_Kuste_1.pdf"; filename*=UTF-8\'\''.rawurlencode('Prüfungsbogen Küste 1.pdf'), 'Content-Disposition mit filename und filename*=UTF-8 (Umlaute, ohne Anführungszeichen)');
+$check(\Bootspruefung\Learning\Mobile\Controllers\FileController::contentDisposition('attachment', 'ä.json') === $pf::contentDisposition('attachment', 'ä.json'), 'App und Web nutzen dieselbe Kopfzeile');
+// Speicherordner-Umzug nur, wenn etwas ansteht (nicht bei jedem Admin-Aufruf).
+$ms = \Bootspruefung\Learning\Content\Media\MediaStorage::class;
+$ms::relocateAll(true);
+$check(! $ms::relocationPending() && has_action('admin_init', [$ms, 'relocateIfPending']) !== false && has_action('admin_init', [$ms, 'relocateAll']) === false, 'Ordner am Soll-Ort: admin_init prüft nur die Optionen');
+$fsChecks = 0;
+$countLayoutReads = static function ($pre, $option) use (&$fsChecks) {
+    $fsChecks++;
+
+    return $pre;
+};
+$layoutT105 = $ms::layout();
+add_filter('pre_option_'.$ms::LAYOUT_OPTION, $countLayoutReads, 10, 2);
+$ms::relocateIfPending();
+remove_filter('pre_option_'.$ms::LAYOUT_OPTION, $countLayoutReads, 10);
+$check($ms::layout() === $layoutT105 && $fsChecks === 1, 'kein Umzug fällig: nichts geschrieben, nur das Layout gelesen');
+$pendingLayout = $layoutT105;
+unset($pendingLayout['media_checked']);
+update_option($ms::LAYOUT_OPTION, $pendingLayout, true);
+$check($ms::relocationPending(), 'ausstehende Medienprüfung wird erkannt');
+$ms::relocateIfPending();
+$check(! empty($ms::layout()['media_checked']) && ! $ms::relocationPending(), 'ausstehender Schritt im Admin nachgeholt');
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

@@ -252,7 +252,11 @@ $check(is_wp_error($unavailable) && $unavailable->get_error_code() === 'lb_targe
 $connector->targetNotice();
 $check(isset(get_transient('lbvc_broken_targets')[$good->get_id()]), 'Admin-Hinweis nennt Kursgutscheine mit ungültigem Ziel');
 $wpdb->update($p.'product_access', ['active' => 1], ['product_id' => $courseProduct->get_id()]);
-delete_transient('lbvc_broken_targets');
+wc_get_product($courseProduct->get_id())->save(); // z. B. Lernzugang im Produkt wieder eingeschaltet (T105)
+$check(get_transient(Connector::NOTICE_TRANSIENT) === false, 'Produkt gespeichert: Hinweis wird sofort neu geprüft statt bis zu einer Stunde veraltet');
+$connector->targetNotice();
+$check(! isset(get_transient(Connector::NOTICE_TRANSIENT)[$good->get_id()]), 'nach der Korrektur kein veralteter Hinweis mehr');
+delete_transient(Connector::NOTICE_TRANSIENT);
 
 echo "Fehlercodes der App-Route\n";
 $v6 = $buy($good, $alice);

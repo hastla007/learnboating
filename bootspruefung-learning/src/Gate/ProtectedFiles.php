@@ -354,10 +354,13 @@ final class ProtectedFiles
 
     private function stream(string $path, string $mime): void
     {
+        // Ausgabepuffer leeren (T105): sonst geraten Leerzeilen oder Hinweise anderer Plugins vor die Datei (kaputtes
+        // PDF), und große Dateien landen im Speicher statt direkt beim Browser.
+        self::clearOutputBuffers();
         nocache_headers();
         header('Content-Type: '.($mime !== '' ? $mime : 'application/octet-stream'));
         header('Content-Length: '.filesize($path));
-        header('Content-Disposition: inline; filename="'.rawurlencode(wp_basename($path)).'"');
+        header('Content-Disposition: '.self::contentDisposition('inline', wp_basename($path)));
         header('X-Content-Type-Options: nosniff');
         header('Cache-Control: private, no-store');
         /** Filter: true, wenn der Webserver X-Sendfile/X-Accel-Redirect übernimmt (nach eigenem Header). */
@@ -365,5 +368,28 @@ final class ProtectedFiles
             readfile($path);
         }
         exit;
+    }
+
+    /** Alle offenen Ausgabepuffer verwerfen (vor einer Dateiauslieferung). Nicht entfernbare Puffer bleiben. */
+    public static function clearOutputBuffers(): void
+    {
+        while (ob_get_level() > 0) {
+            if (! @ob_end_clean()) { // phpcs:ignore WordPress.PHP.NoSilencedErrors -- nicht entfernbarer Puffer
+                break;
+            }
+        }
+    }
+
+    /**
+     * Content-Disposition mit ASCII-Ersatz filename="…" und UTF-8-Dateinamen filename*=UTF-8''… (RFC 6266, RFC 8187):
+     * Umlaute bleiben im gespeicherten Namen erhalten, ältere Programme bekommen einen lesbaren Ersatz.
+     */
+    public static function contentDisposition(string $type, string $filename): string
+    {
+        $filename = str_replace(["\r", "\n", "\0", '"', '\\'], '', $filename);
+        $ascii = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', remove_accents($filename));
+        $ascii = trim($ascii, '_') !== '' ? $ascii : 'download';
+
+        return ($type === 'attachment' ? 'attachment' : 'inline').'; filename="'.$ascii.'"; filename*=UTF-8\'\''.rawurlencode($filename);
     }
 }

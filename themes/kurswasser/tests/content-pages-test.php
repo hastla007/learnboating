@@ -196,6 +196,18 @@ if (is_file(ABSPATH.'wp-admin/includes/admin.php')) {
     do_action('admin_notices');
     $notice = (string) ob_get_clean();
     $check(str_contains($notice, 'nach dem Theme-Update automatisch abgeglichen') && str_contains($notice, 'Von dir bearbeitete Seiten') && get_option('kurswasser_content_auto_result') === false, 'Ergebnis einmal als Hinweis');
+    // T105: Fingerabdruck zwischengespeichert, neu gerechnet nur bei neuem Stempel (Theme-Version, Änderungszeiten).
+    $fpReal = kurswasser_content_fingerprint();
+    set_transient('kurswasser_content_fp', ['stamp' => kurswasser_content_fingerprint_stamp($tmp), 'fp' => 'aus-dem-zwischenspeicher'], HOUR_IN_SECONDS);
+    $check(kurswasser_content_fingerprint() === 'aus-dem-zwischenspeicher' && kurswasser_content_fingerprint(null, true) === $fpReal, 'Fingerabdruck aus dem Zwischenspeicher (kein glob/md5 je Admin-Aufruf); Abgleich rechnet frisch');
+    file_put_contents($tmp.'/pages/98-t105-neu.html', '<!-- wp:paragraph --><p>Neu</p><!-- /wp:paragraph -->');
+    touch($tmp.'/pages', time() + 5);
+    $fpNew = kurswasser_content_fingerprint();
+    $check($fpNew !== $fpReal && $fpNew !== 'aus-dem-zwischenspeicher', 'neue Vorlagendatei: Stempel geändert, Fingerabdruck neu berechnet');
+    unlink($tmp.'/pages/98-t105-neu.html');
+    touch($tmp.'/pages', time() + 10);
+    $check(kurswasser_content_fingerprint() === $fpReal, 'Datei entfernt: wieder der alte Stand');
+    delete_transient('kurswasser_content_fp');
     $savedFp === null ? delete_option('kurswasser_content_fingerprint') : update_option('kurswasser_content_fingerprint', $savedFp, false);
     remove_filter('kurswasser_content_dir', $dirFilter);
     $GLOBALS['current_screen'] = null;
@@ -297,6 +309,22 @@ $check(get_template() !== 'kurswasser' || (str_contains($heroHtml, 'kw-page-hero
 $patternHtml = render_block(['blockName' => 'core/pattern', 'attrs' => ['slug' => 'kurswasser/groups', 'kwHeading' => 'Pakete für deine Schule', 'kwEyebrow' => 'Paketgrößen'], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => []]);
 $check(get_template() !== 'kurswasser' || (str_contains($patternHtml, '>Pakete für deine Schule</h2>') && str_contains($patternHtml, '>Paketgrößen</p>') && ! str_contains($patternHtml, 'Für Paare, Familien, Crews und Vereine.')), 'Muster mit eigener Überschrift und Eyebrow');
 $check(get_template() !== 'kurswasser' || (str_contains(kurswasser_photo_css(), '.kw-photo-gruppen{--kw-course-photo:url(')), 'Kursfotos als Klassen (.kw-photo-<kurs>)');
+if (get_template() === 'kurswasser') {
+    // T105: Kursfoto-CSS zwischengespeichert (kein glob je Seitenaufruf), Schlüssel aus Version, Adresse, Ordnerzeit.
+    $photoStored = get_transient('kurswasser_photo_css');
+    $check(is_array($photoStored) && $photoStored['css'] === kurswasser_photo_css_compute(), 'Kursfoto-CSS im Zwischenspeicher');
+    set_transient('kurswasser_photo_css', ['stamp' => $photoStored['stamp'], 'css' => '/*zwischengespeichert*/'], HOUR_IN_SECONDS);
+    $check(kurswasser_photo_css() === '/*zwischengespeichert*/', 'nächster Seitenaufruf liest den Zwischenspeicher');
+    set_transient('kurswasser_photo_css', ['stamp' => 'alte-version', 'css' => '/*alt*/'], HOUR_IN_SECONDS);
+    $check(str_contains(kurswasser_photo_css(), '.kw-photo-gruppen{'), 'anderer Stempel (Theme-Update): neu berechnet');
+}
+// T105: Lernbereichs-Adressen über den Router des Plugins (eigener Pfad), mit Rückfall ohne Plugin.
+$baseFilter = static fn (): string => 'lernen';
+add_filter('bootspruefung_base_path', $baseFilter);
+$routerLoaded = class_exists('\Bootspruefung\Learning\Frontend\Router');
+$check(! $routerLoaded || (kurswasser_url('learn') === home_url('/lernen/') && kurswasser_url('tips') === home_url('/lernen/tipps/') && kurswasser_learning_url('skn') === home_url('/lernen/skn/')), 'Lernbereich, Tipps und Kurse folgen dem Pfad des Plugins (kein festes /bootsscheine/)');
+remove_filter('bootspruefung_base_path', $baseFilter);
+$check(kurswasser_url('learn') === home_url('/bootsscheine/') && kurswasser_learning_url('tipps') === home_url('/bootsscheine/tipps/'), 'Standardpfad /bootsscheine/');
 $front = (int) get_option('page_on_front');
 $GLOBALS['wp_query'] = new WP_Query(['page_id' => $p5->ID]);
 $GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];

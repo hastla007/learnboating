@@ -407,7 +407,7 @@ add_shortcode('kurswasser_course', static function ($atts): string {
     $stats = kurswasser_course_stats($def);
     $main = kurswasser_offer($def['main'] ?? '');
     $from = $main['price'] ?? kurswasser_course_from_price($def);
-    $trial = home_url('/bootsscheine/'.(kurswasser_learning_compatible() ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '').'/');
+    $trial = kurswasser_learning_url(kurswasser_learning_compatible() ? \Bootspruefung\Learning\Content\Repositories\ContentRepository::slug($def['code']) : '');
 
     // Hero
     $photo = kurswasser_course_image($slug);

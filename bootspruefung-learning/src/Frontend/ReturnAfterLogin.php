@@ -40,6 +40,26 @@ final class ReturnAfterLogin
         return add_query_arg(self::PARAM, rawurlencode($return), wp_login_url($return));
     }
 
+    /**
+     * Absolute Adresse der aktuellen Anfrage als Rücksprungziel (T105). REQUEST_URI enthält bei WordPress im
+     * Unterordner diesen Ordner schon (/blog/bootsscheine/…); home_url(REQUEST_URI) hätte ihn verdoppelt
+     * (/blog/blog/bootsscheine/…). Deshalb wird der Pfad relativ zum Pfad von home_url() gebildet.
+     */
+    public static function currentUrl(?string $requestUri = null): string
+    {
+        $uri = $requestUri ?? (isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '/'); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- unten geprüft
+        $path = (string) wp_parse_url($uri, PHP_URL_PATH);
+        $query = (string) wp_parse_url($uri, PHP_URL_QUERY);
+        $path = '/'.ltrim($path, '/');
+        $base = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+        if ($base !== '' && ($path === $base || str_starts_with($path, $base.'/'))) {
+            $path = substr($path, strlen($base)) ?: '/';
+        }
+        $url = home_url($path);
+
+        return $query !== '' ? $url.'?'.$query : $url;
+    }
+
     public static function target(): ?string
     {
         // phpcs:ignore WordPress.Security.NonceVerification -- nur Weiterleitungsziel, geprüft

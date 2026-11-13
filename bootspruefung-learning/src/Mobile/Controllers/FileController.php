@@ -42,6 +42,7 @@ final class FileController extends BaseController
             throw new ApiException('RANGE_NOT_SATISFIABLE', __('Der angeforderte Bereich liegt außerhalb der Datei.', 'bootspruefung-learning'), 416, ['headers' => ['Content-Range' => 'bytes */'.$size, 'Accept-Ranges' => 'bytes']]);
         }
         $mime = (string) get_post_mime_type($id);
+        ProtectedFiles::clearOutputBuffers(); // nichts vor der Datei ausgeben (T105)
         nocache_headers();
         header('Content-Type: '.($mime !== '' ? $mime : 'application/octet-stream'));
         header('Content-Disposition: '.self::contentDisposition('inline', wp_basename($path)));
@@ -99,11 +100,7 @@ final class FileController extends BaseController
     /** Content-Disposition mit ASCII-Ersatz und UTF-8-Dateinamen (RFC 6266, RFC 8187). */
     public static function contentDisposition(string $type, string $filename): string
     {
-        $filename = str_replace(["\r", "\n", "\0"], '', $filename);
-        $ascii = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', remove_accents($filename));
-        $ascii = trim($ascii, '_') !== '' ? $ascii : 'download';
-
-        return $type.'; filename="'.$ascii.'"; filename*=UTF-8\'\''.rawurlencode($filename);
+        return ProtectedFiles::contentDisposition($type, $filename);
     }
 
     private static function stream(string $path, int $offset, int $length): void

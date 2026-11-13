@@ -743,6 +743,23 @@ add_shortcode('kurswasser_page_head', static function ($atts): string {
 /** Kursfoto als Klasse (.kw-photo-<kurs>): Abschluss-Aufruf und Blöcke ohne Inline-Stil (Block-Validierung). */
 function kurswasser_photo_css(): string
 {
+    // Zwischengespeichert (T105): sonst glob() über den Bilderordner bei jedem Seitenaufruf. Schlüssel aus Theme-Version,
+    // Theme-Adresse und Änderungszeit des Ordners (neue oder entfernte Bilder).
+    $dir = get_template_directory().'/assets/images/courses';
+    $stamp = md5(KURSWASSER_VERSION.'|'.get_template_directory_uri().'|'.(is_dir($dir) ? (string) filemtime($dir) : '-'));
+    $stored = get_transient('kurswasser_photo_css');
+    if (is_array($stored) && ($stored['stamp'] ?? '') === $stamp && is_string($stored['css'] ?? null)) {
+        return $stored['css'];
+    }
+    $css = kurswasser_photo_css_compute();
+    set_transient('kurswasser_photo_css', ['stamp' => $stamp, 'css' => $css], WEEK_IN_SECONDS);
+
+    return $css;
+}
+
+/** CSS der Kursfotos berechnen (liest den Bilderordner). */
+function kurswasser_photo_css_compute(): string
+{
     $css = '';
     foreach (glob(get_template_directory().'/assets/images/courses/*-sm.webp') ?: [] as $file) {
         $slot = basename($file, '-sm.webp');
@@ -844,10 +861,42 @@ add_filter('render_block', static function (string $html, array $block): string 
  */
 const KURSWASSER_CONTENT_AUTO_HOOK = 'kurswasser_content_auto_sync_run';
 
-/** Fingerabdruck der Vorlagen: Manifest und Seitendateien (Name, Größe, Prüfsumme). */
-function kurswasser_content_fingerprint(?string $dir = null): string
+/**
+ * Fingerabdruck der Vorlagen: Manifest und Seitendateien (Name, Prüfsumme).
+ *
+ * Zwischengespeichert (T105): admin_init fragt ihn bei jedem Admin-Aufruf ab. Neu gerechnet (glob + Prüfsummen) wird
+ * nur, wenn sich der Stempel aus Theme-Version, Ordner und Änderungszeit von pages.php bzw. pages/ ändert – also nach
+ * einem Theme-Update oder neuen/entfernten Vorlagen. $fresh = true rechnet immer neu (Abgleich, CLI).
+ */
+function kurswasser_content_fingerprint(?string $dir = null, bool $fresh = false): string
 {
     $dir ??= kurswasser_content_dir();
+    $stamp = kurswasser_content_fingerprint_stamp($dir);
+    if (! $fresh) {
+        $stored = get_transient('kurswasser_content_fp');
+        if (is_array($stored) && ($stored['stamp'] ?? '') === $stamp && is_string($stored['fp'] ?? null)) {
+            return $stored['fp'];
+        }
+    }
+    $fingerprint = kurswasser_content_fingerprint_compute($dir);
+    set_transient('kurswasser_content_fp', ['stamp' => $stamp, 'fp' => $fingerprint], WEEK_IN_SECONDS);
+
+    return $fingerprint;
+}
+
+/** Günstiger Stempel ohne Dateiinhalte: Theme-Version, Ordner, Änderungszeit von pages.php und des Ordners pages/. */
+function kurswasser_content_fingerprint_stamp(string $dir): string
+{
+    clearstatcache(false, $dir.'/pages.php');
+    clearstatcache(false, $dir.'/pages');
+    $mtime = static fn (string $f): string => file_exists($f) ? (string) filemtime($f) : '-';
+
+    return md5(KURSWASSER_VERSION.'|'.$dir.'|'.$mtime($dir.'/pages.php').'|'.$mtime($dir.'/pages'));
+}
+
+/** Fingerabdruck berechnen (liest alle Vorlagen). */
+function kurswasser_content_fingerprint_compute(string $dir): string
+{
     $parts = [is_readable($dir.'/pages.php') ? (string) md5_file($dir.'/pages.php') : ''];
     foreach (glob($dir.'/pages/*.html') ?: [] as $file) {
         $parts[] = basename($file).':'.md5_file($file);
@@ -884,7 +933,7 @@ function kurswasser_content_auto_due(): bool
  */
 function kurswasser_content_auto_sync(): ?array
 {
-    $fingerprint = kurswasser_content_fingerprint();
+    $fingerprint = kurswasser_content_fingerprint(null, true);
     if (! kurswasser_legal_lock(true, 'kurswasser_content_lock')) {
         return null;
     }
@@ -912,7 +961,7 @@ add_action('admin_init', static function (): void {
 
 // Wer den Fingerabdruck per Knopf, Einrichtung oder CLI ohnehin abgleicht, braucht keinen zweiten Lauf.
 add_action('kurswasser_content_synced', static function (): void {
-    update_option('kurswasser_content_fingerprint', kurswasser_content_fingerprint(), false);
+    update_option('kurswasser_content_fingerprint', kurswasser_content_fingerprint(null, true), false);
 });
 
 add_action('admin_notices', static function (): void {

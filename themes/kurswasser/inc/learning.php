@@ -34,6 +34,20 @@ function kurswasser_learning_compatible(): bool
     return $version !== null && version_compare($version, KURSWASSER_LEARNING_MIN_VERSION, '>=');
 }
 
+/**
+ * Adresse im Lernbereich (T105), z. B. kurswasser_learning_url('tipps'). Nutzt den Router des Plugins (eigener Pfad
+ * über den Filter bootspruefung_base_path, WordPress im Unterordner); ohne Plugin der Standardpfad /bootsscheine/.
+ */
+function kurswasser_learning_url(string $path = ''): string
+{
+    $path = trim($path, '/');
+    if (class_exists('\Bootspruefung\Learning\Frontend\Router') && method_exists('\Bootspruefung\Learning\Frontend\Router', 'url')) {
+        return (string) \Bootspruefung\Learning\Frontend\Router::url($path);
+    }
+
+    return home_url('/bootsscheine/'.($path === '' ? '' : $path.'/'));
+}
+
 /** Version des aktiven Lern-Plugins oder null (nicht aktiv). */
 function kurswasser_learning_version(): ?string
 {
