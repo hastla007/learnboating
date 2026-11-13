@@ -17,6 +17,7 @@ use Bootspruefung\Learning\Mobile\Controllers\LearningController;
 use Bootspruefung\Learning\Mobile\Controllers\PrivacyController;
 use Bootspruefung\Learning\Mobile\Controllers\RadioController;
 use Bootspruefung\Learning\Mobile\Controllers\SettingsController;
+use Bootspruefung\Learning\Mobile\Controllers\TicketController;
 use Bootspruefung\Learning\Mobile\Controllers\TipsController;
 use Bootspruefung\Learning\Mobile\Controllers\TrainingController;
 use Bootspruefung\Learning\Plugin;
@@ -293,6 +294,8 @@ final class MobileApi
         ]);
         self::route('/me/settings', 'GET', [SettingsController::class, 'show'], true, false);
         self::route('/me/settings', 'PUT', [SettingsController::class, 'replace'], true, false);
+        // Praxis-Tickets (seit 1.11.0, Ticket-Plugin über bootspruefung_tickets_for_user bzw. gespeicherte Liste)
+        self::route('/me/tickets', 'GET', [TicketController::class, 'list'], true, false);
         self::route('/auth/web-session', 'POST', [AuthController::class, 'webSession'], true, false, ['redirect' => $string(400, true)]);
         self::route('/files/'.sprintf($id, 'fileId'), 'GET', [FileController::class, 'download'], true, false);
         self::route('/profile/export/(?P<exportId>[0-9a-f]{32})/download', 'GET', [PrivacyController::class, 'download'], true, false);

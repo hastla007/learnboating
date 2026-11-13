@@ -56,6 +56,8 @@ final class MoneyBackWoo
             'refunded' => (float) $order->get_total_refunded() > 0,
             'items' => $items,
             'usage' => $order->get_meta(MoneyBack::USAGE_META) ?: null,
+            // Kursgutschein-Einlösung (interne 0-€-Bestellung): Garantie nur, wenn der Filter es erlaubt.
+            'voucher' => \Bootspruefung\Learning\Extensions\Vouchers::isVoucherOrder($order),
         ];
     }
 
@@ -103,7 +105,12 @@ final class MoneyBackWoo
     /**
      * Welche Positionen fallen unter die Garantie? Simulator-Zugänge und Gruppenpakete nicht.
      *
-     * @return array{amount:float,excluded:list<string>}
+     * amount: tatsächlich bezahlter Betrag der Garantie-Positionen (Positionsbetrag nach Rabatten/Shop-Gutscheinen,
+     * brutto). cash: davon als Geld zu erstatten – ohne den Anteil, den ein Gutschein-Plugin als Bestell-Meta
+     * _bp_paid_by_voucher (Betrag) vermerkt hat, anteilig nach Bruttosumme der Bestellung vor diesem Gutschein
+     * (Positionen, Versand, positive Gebühren); Filter bootspruefung_money_back_cash_amount. voucher = amount − cash.
+     *
+     * @return array{amount:float,cash:float,voucher:float,excluded:list<string>}
      */
     public static function breakdown(\WC_Order $order): array
     {
@@ -124,7 +131,38 @@ final class MoneyBackWoo
             }
         }
 
-        return ['amount' => round($amount, 2), 'excluded' => $excluded];
+        $amount = round($amount, 2);
+        $paidByVoucher = max(0.0, (float) $order->get_meta(\Bootspruefung\Learning\Extensions\Vouchers::PAID_META));
+        $cash = $amount;
+        if ($paidByVoucher > 0.004 && $amount > 0) {
+            $gross = 0.0;
+            foreach ($order->get_items(['line_item', 'shipping', 'fee']) as $item) {
+                $line = (float) $item->get_total() + (float) $item->get_total_tax();
+                $gross += $item instanceof \WC_Order_Item_Fee ? max(0.0, $line) : $line;
+            }
+            $share = $gross > 0 ? min(1.0, $paidByVoucher / $gross) : 1.0;
+            $cash = round($amount * (1 - $share), 2);
+        }
+        /**
+         * Als Geld zu erstattender Betrag der Garantie (Rest per Gutschein bezahlt).
+         *
+         * @param float     $cash          Standard: Betrag minus _bp_paid_by_voucher anteilig
+         * @param float     $amount        bezahlter Betrag der Garantie-Positionen
+         * @param float     $paidByVoucher _bp_paid_by_voucher der Bestellung
+         * @param \WC_Order $order
+         */
+        $cash = round(max(0.0, min($amount, (float) apply_filters('bootspruefung_money_back_cash_amount', $cash, $amount, $paidByVoucher, $order))), 2);
+
+        return ['amount' => $amount, 'cash' => $cash, 'voucher' => round($amount - $cash, 2), 'excluded' => $excluded];
+    }
+
+    /** Hinweis zum per Gutschein bezahlten Anteil (leer ohne Gutscheinanteil). @param array{voucher:float} $parts */
+    private static function voucherNote(array $parts): string
+    {
+        return $parts['voucher'] > 0.004
+            /* translators: %s: Betrag */
+            ? ' '.sprintf(__('Den mit einem Gutschein bezahlten Anteil (%s) erstatten wir nicht als Geld.', 'bootspruefung-learning'), self::money($parts['voucher']))
+            : '';
     }
 
     private static function money(float $value): string
@@ -156,9 +194,9 @@ final class MoneyBackWoo
             $action = '';
             if ($s['eligible']) {
                 $parts = self::breakdown($order);
-                $confirm = $parts['excluded'] === []
+                $confirm = ($parts['excluded'] === []
                     ? __('Erstattung anfordern? Nach der Erstattung endet dein Zugang.', 'bootspruefung-learning')
-                    : sprintf(__('Erstattung anfordern? Erstattet werden %1$s; nicht umfasst: %2$s. Nach der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded']));
+                    : sprintf(__('Erstattung anfordern? Erstattet werden %1$s; nicht umfasst: %2$s. Nach der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning'), self::money($parts['cash']), implode(', ', $parts['excluded']))).self::voucherNote($parts);
                 // Nach dem ersten Absenden sperren (Doppelklick); der Server lässt ohnehin nur eine Anfrage zu.
                 $action = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="if(this.dataset.sent||!confirm(\''.esc_js($confirm).'\'))return false;this.dataset.sent=1;var b=this.querySelector(\'button\');if(b){b.disabled=true;}return true;">'
                     .wp_nonce_field('bp_money_back_'.$order->get_id(), '_wpnonce', true, false)
@@ -245,9 +283,9 @@ final class MoneyBackWoo
         }
         $parts = self::breakdown($order);
 
-        return ['result' => 'requested', 'request' => $request, 'message' => $parts['excluded'] === []
+        return ['result' => 'requested', 'request' => $request, 'message' => ($parts['excluded'] === []
             ? __('Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen.', 'bootspruefung-learning')
-            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded']))];
+            : sprintf(__('Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s.', 'bootspruefung-learning'), self::money($parts['cash']), implode(', ', $parts['excluded']))).self::voucherNote($parts)];
     }
 
     /** Gespeicherte Anfrage direkt aus der Datenbank (ohne Objekt-Cache; HPOS oder Beitragsmeta). @return array<string,mixed>|null */
@@ -274,8 +312,12 @@ final class MoneyBackWoo
         $orderId = (int) $order->get_id();
         $parts = self::breakdown($order);
         $scope = $parts['excluded'] === []
-            ? sprintf(__('Zu erstatten: %s (gesamte Bestellung).', 'bootspruefung-learning'), self::money($parts['amount']))
-            : sprintf(__('Zu erstatten: %1$s – nur die Positionen mit Garantie. Ausgenommen (nicht erstatten): %2$s.', 'bootspruefung-learning'), self::money($parts['amount']), implode(', ', $parts['excluded']));
+            ? sprintf(__('Zu erstatten: %s (gesamte Bestellung).', 'bootspruefung-learning'), self::money($parts['cash']))
+            : sprintf(__('Zu erstatten: %1$s – nur die Positionen mit Garantie. Ausgenommen (nicht erstatten): %2$s.', 'bootspruefung-learning'), self::money($parts['cash']), implode(', ', $parts['excluded']));
+        if ($parts['voucher'] > 0.004) {
+            /* translators: %s: Betrag */
+            $scope .= ' '.sprintf(__('Davon per Gutschein bezahlt (nicht als Geld erstatten): %s.', 'bootspruefung-learning'), self::money($parts['voucher']));
+        }
         $request = MoneyBack::recordRequest($orderId, $userId, $status);
         $order->update_meta_data(MoneyBack::REQUEST_META, $request);
         $order->add_order_note(sprintf(
@@ -302,8 +344,8 @@ final class MoneyBackWoo
         \Bootspruefung\Learning\Support\Mail::send((string) $order->get_billing_email(), sprintf(__('Deine Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
             __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDie Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).", 'bootspruefung-learning'),
             $orderId,
-            self::money($parts['amount']),
-            $parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))
+            self::money($parts['cash']),
+            ($parts['excluded'] === [] ? '' : "\n".sprintf(__('Nicht von der Garantie umfasst und nicht erstattet: %s.', 'bootspruefung-learning'), implode(', ', $parts['excluded']))).self::voucherNote($parts)
         ));
         do_action('bootspruefung_money_back_requested', $orderId, $request);
 

@@ -258,6 +258,16 @@ jobs:
           if grep -E "PHP Fatal" account.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" account.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
+      - name: Schnittstellen für Gutschein- und Ticket-Plugins (Integration, mit und ohne WooCommerce)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/extensions-test.php | tee extensions.log
+          if grep -E "PHP Fatal" extensions.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" extensions.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          # Ohne Shop: Gutschein-Einlösung legt kontrolliert nichts an; Tickets, Praxis-Angebote und „besitzt Kurs“ wie mit Shop.
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/extensions-test.php | tee extensions-ohne-shop.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" extensions-ohne-shop.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: Theme Kurswasser – Einrichtung Schritt 3 „Shop einrichten“ (Integration, mit WooCommerce, ohne Netz)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php

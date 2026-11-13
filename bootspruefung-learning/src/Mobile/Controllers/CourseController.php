@@ -59,6 +59,8 @@ final class CourseController extends BaseController
             // Knoten: Videokapitel „Knoten“ als eigene Kachel (wie im Web-Lernbereich).
             'knots' => $this->knots($user, $course, $features[AccessService::VIDEO], $offers),
             'exam_registration' => ['available' => $guide, 'web_url' => $guide ? Router::url(strtolower((string) $course->code).'/pruefung-anmelden') : null],
+            // „Praxis in deiner Nähe“ (seit 1.11.0): Angebote eines Ticket-Plugins, ohne Plugin leer.
+            'practice_offers' => \Bootspruefung\Learning\Extensions\Extensions::practiceOffers((string) $course->code, $user),
         ];
 
         return $this->ok($data);

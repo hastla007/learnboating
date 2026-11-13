@@ -935,6 +935,53 @@
 		]);
 	}
 
+	// Datum eines Ticket-Plugins: ISO-Datum (JJJJ-MM-TT…) deutsch formatiert, sonst unverändert (Anzeigetext).
+	function extDate(value) {
+		var m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(String(value || ''));
+		return m ? m[3] + '.' + m[2] + '.' + m[1] + (m[4] ? ', ' + m[4] + ':' + m[5] + ' Uhr' : '') : String(value || '');
+	}
+
+	// „Praxis-Tickets“ (Ticket-Plugin): Einheiten absolviert, Storno mit Grund; ohne Tickets kein Abschnitt.
+	function ticketsSection(tickets) {
+		if (!Array.isArray(tickets) || !tickets.length) {
+			return null;
+		}
+		return el('section', { class: 'bp-section bp-hub-tickets', 'aria-labelledby': 'bp-hub-tickets-h' }, [
+			el('div', { class: 'bp-section-head' }, [el('h2', { id: 'bp-hub-tickets-h', text: t('hub_tickets_title') }), el('p', { class: 'bp-muted', text: t('hub_tickets_hint') })]),
+			el('div', { class: 'bp-tips' }, tickets.map(function (tk) {
+				var cancelled = tk.status === 'cancelled';
+				var pct = Math.floor(tk.units_done * 100 / Math.max(tk.units_total, 1));
+				var meta = [tk.date ? extDate(tk.date) : '', tk.location || ''].filter(Boolean).join(' · ');
+				var units = t('hub_ticket_units', { done: tk.units_done, total: tk.units_total, n: tk.units_total });
+				return el('article', { class: 'bp-card bp-hub-ticket is-' + tk.status }, [
+					el('h3', { text: tk.title || t('hub_tickets_title') }),
+					meta ? el('p', { class: 'bp-muted', text: meta }) : null,
+					cancelled ? el('p', { class: 'bp-note', text: tk.reason ? t('hub_ticket_cancelled_reason', { reason: tk.reason }) : t('hub_ticket_cancelled') }) : null,
+					el('p', {}, [el('strong', { text: units }), tk.status === 'redeemed' ? el('span', { class: 'bp-pill', text: t('hub_ticket_done') }) : null]),
+					cancelled ? null : el('span', { class: 'bp-area-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': units }, [el('span', { style: 'width:' + pct + '%' })])
+				]);
+			}))
+		]);
+	}
+
+	// „Praxis in deiner Nähe“ (Ticket-Plugin): Liste mit Link zum Angebot; ohne Angebote kein Abschnitt.
+	function practiceSection(offers) {
+		if (!Array.isArray(offers) || !offers.length) {
+			return null;
+		}
+		return el('section', { class: 'bp-section bp-hub-practice', 'aria-labelledby': 'bp-hub-practice-h' }, [
+			el('div', { class: 'bp-section-head' }, [el('h2', { id: 'bp-hub-practice-h', text: t('hub_practice_title') }), el('p', { class: 'bp-muted', text: t('hub_practice_hint') })]),
+			el('div', { class: 'bp-tips' }, offers.map(function (o) {
+				var meta = [o.date ? extDate(o.date) : '', o.location || '', o.price || ''].filter(Boolean).join(' · ');
+				return el('article', { class: 'bp-card bp-hub-offer' }, [
+					el('h3', { text: o.title }),
+					meta ? el('p', { class: 'bp-muted', text: meta }) : null,
+					el('p', {}, [el('a', { href: o.url, class: 'bp-button bp-button-light' }, [t('hub_practice_book'), el('span', { class: 'bp-arrow', 'aria-hidden': 'true', text: '→' })])])
+				]);
+			}))
+		]);
+	}
+
 	function renderCourseHub(slug, c, parts, ownVideos, faqs) {
 		{
 			var shop = c.shop || {};
@@ -1032,6 +1079,9 @@
 					]);
 				}))
 			]));
+			// Praxis-Tickets und Praxis-Angebote eines Ticket-Plugins (nur mit Einträgen).
+			nodes.push(ticketsSection(c.tickets));
+			nodes.push(practiceSection(c.practice_offers));
 			// Kunden-FAQ nach den Lernbereichen (nur mit mindestens einer Frage).
 			nodes.push(customerFaqSection(faqs));
 			mount(nodes, c.name);

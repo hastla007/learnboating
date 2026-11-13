@@ -330,6 +330,30 @@ paths:
         '204': {description: Sitzung widerrufen}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /me/tickets:
+    get:
+      tags: [Account]
+      operationId: listTickets
+      summary: Praxis-Tickets des Kontos
+      description: >-
+        Erweiterung (1.11.0). Tickets für Praxis-Termine aus einem Ticket-Plugin: zuerst dessen aktuelle
+        Liste (WordPress-Filter `bootspruefung_tickets_for_user`), sonst die vom Lern-Plugin gespeicherte
+        Liste (Aktionen `bootspruefung_ticket_issued`, `…_redeemed`, `…_cancelled`). Ohne Ticket-Plugin
+        eine leere Liste. Anzeige z. B. „Praxis: 3 von 5 Einheiten absolviert“ – kein amtlicher
+        Ausbildungsnachweis. Storniert bzw. ausgefallen: `status: cancelled` mit `reason`.
+      responses:
+        '200':
+          description: Tickets (leer ohne Ticket-Plugin)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/PracticeTicket'}
+        '401': {$ref: '#/components/responses/Problem'}
   /me/settings:
     get:
       tags: [Account]
@@ -1978,7 +2002,7 @@ paths:
     post:
       tags: [Coupons]
       operationId: redeemCoupon
-      summary: Beitrittscode einer Gruppenlizenz einlösen
+      summary: Beitrittscode einer Gruppenlizenz oder Kursgutschein einlösen
       description: >-
         Abweichung: Shop-Käufe schalten den Zugang automatisch frei – es gibt keine per E-Mail
         verschickten Zugangscodes. Eingelöst werden nur Beitrittscodes bzw. Einladungslinks von
@@ -1992,6 +2016,14 @@ paths:
         Limit: 10 Versuche je Stunde. Seit 1.4.0 wird der Idempotency-Key vor dem Limit geprüft:
         Eine Wiederholung mit demselben Key liefert die gespeicherte Antwort, ohne einen Versuch zu
         verbrauchen.
+        Seit 1.11.0 Kursgutscheine: Ist ein Gutschein-Plugin aktiv (WordPress-Filter
+        `bootspruefung_voucher_redeem`) und der Code kein Beitrittscode, prüft das Gutschein-Plugin den
+        Code. Gültig → der Kurs wird mit einer internen 0-€-Bestellung freigeschaltet, die Laufzeit
+        beginnt mit der Einlösung; Antwort mit `kind: course_voucher`, Kursen und `entitlement`
+        (`valid_from` = Einlösung). Erneutes Einlösen desselben Codes durch dasselbe Konto liefert 200
+        ohne neue Bestellung. Lehnt das Gutschein-Plugin ab (oder ist der Code schon von einem anderen
+        Konto eingelöst): 422 `COUPON_INVALID` mit dessen Meldung. Kein Kursgutschein: wie oben.
+        Idempotenz und Limit wie beim Beitrittscode (dasselbe Limit für App und „Mein Lernen“).
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
@@ -2006,7 +2038,7 @@ paths:
                 code: {type: string, minLength: 1, maxLength: 300}
       responses:
         '200':
-          description: Eingelöst (oder schon Mitglied)
+          description: Eingelöst (oder schon Mitglied bzw. Gutschein schon von diesem Konto eingelöst)
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CouponRedemptionResponse'}
@@ -2687,6 +2719,12 @@ components:
                   properties:
                     available: {type: boolean}
                     web_url: {type: [string, 'null'], format: uri, description: Web-Seite „Prüfung anmelden“}
+                practice_offers:
+                  type: array
+                  description: >-
+                    Seit 1.11.0. „Praxis in deiner Nähe“: Angebote eines Ticket-Plugins (WordPress-Filter
+                    `bootspruefung_practice_offers`), höchstens 20. Ohne Ticket-Plugin leer – dann nichts anzeigen.
+                  items: {$ref: '#/components/schemas/PracticeOffer'}
     Topic:
       type: object
       properties:
@@ -3659,6 +3697,29 @@ components:
         source: {type: [string, 'null']}
         source_url: {type: [string, 'null']}
         status: {type: string, enum: [known, practice, open]}
+    PracticeTicket:
+      type: object
+      required: [id, course_code, title, units_total, units_done, units_left, status, date, location, reason]
+      properties:
+        id: {type: string, description: Ticket-ID des Ticket-Plugins}
+        course_code: {type: [string, 'null'], description: 'Kurscode, z. B. SKN'}
+        title: {type: string}
+        units_total: {type: integer, minimum: 1}
+        units_done: {type: integer, minimum: 0}
+        units_left: {type: integer, minimum: 0}
+        status: {type: string, enum: [issued, redeemed, cancelled], description: 'issued = offen bzw. teilweise entwertet, redeemed = alle Einheiten entwertet, cancelled = storniert/ausgefallen'}
+        date: {type: [string, 'null'], description: 'Termin wie vom Ticket-Plugin geliefert (ISO-Datum oder Anzeigetext)'}
+        location: {type: [string, 'null']}
+        reason: {type: [string, 'null'], description: Nur bei cancelled – Grund (z. B. Ausfall)}
+    PracticeOffer:
+      type: object
+      required: [title, url, date, location, price]
+      properties:
+        title: {type: string}
+        url: {type: string, format: uri, description: Buchungsseite (Web)}
+        date: {type: [string, 'null']}
+        location: {type: [string, 'null']}
+        price: {type: [string, 'null'], description: Anzeigetext des Ticket-Plugins}
     CouponRedemptionResponse:
       type: object
       required: [data]
@@ -3668,8 +3729,8 @@ components:
           required: [redeemed, kind, courses, entitlement]
           properties:
             redeemed: {type: boolean}
-            kind: {type: string, const: group_license}
-            group_name: {type: [string, 'null']}
+            kind: {type: string, enum: [group_license, course_voucher], description: 'course_voucher seit 1.11.0 (Kursgutschein eines Gutschein-Plugins)'}
+            group_name: {type: [string, 'null'], description: Nur bei group_license}
             course_id: {type: [string, 'null']}
             course_name: {type: [string, 'null']}
             courses:

@@ -232,6 +232,9 @@ final class LearnerController
             'access' => $info,
             // Kunden-FAQ: Anzahl für Kunden des Kurses (voller Fragenkatalog), sonst 0 – Inhalte über /customer-faqs.
             'customer_faqs' => $scopes[AccessService::QUESTION_BANK]['full'] ? \Bootspruefung\Learning\Faq\CustomerFaqRepository::count((string) $course->code) : 0,
+            // Praxis-Tickets und „Praxis in deiner Nähe“ aus einem Ticket-Plugin (ohne Plugin leer, Abschnitt unsichtbar).
+            'tickets' => \Bootspruefung\Learning\Extensions\Tickets::forCourse($user, (string) $course->code),
+            'practice_offers' => \Bootspruefung\Learning\Extensions\Extensions::practiceOffers((string) $course->code, $user),
         ];
     }
 

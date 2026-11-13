@@ -131,6 +131,8 @@ final class Plugin
         add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
         (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
         PersonalData::register();
+        // Gegenstellen für Gutschein- und Ticket-Plugins (docs/schnittstellen-erweiterungen.md).
+        \Bootspruefung\Learning\Extensions\Extensions::register();
         \Bootspruefung\Learning\Security\Hardening::register();
         // Videos auf fremden Servern: Theme Kurswasser zeigt dann die Banner-Kategorie „Externe Medien“ (T23).
         add_filter('kurswasser_consent_external_hosts', static fn ($hosts) => array_merge((array) $hosts, \Bootspruefung\Learning\Trainers\VideoService::externalHosts()));

@@ -79,6 +79,10 @@ Klick oder mit der Einwilligung „Externe Medien“ im Cookie-Banner des Themes
 sobald eine Videolektion fremd gehostet ist. Einen Dienstleister mit Auftragsverarbeitung als eigenen Server behandeln:
 Filter `bootspruefung_video_first_party_hosts` (Liste von Hostnamen).
 
+Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Hooks, Filter und App-Routen, über die ein Gutschein- bzw.
+Ticket-Plugin mit dem Lern-Plugin zusammenarbeitet, stehen in `docs/schnittstellen-erweiterungen.md`
+(Kursgutschein einlösen, besitzt Kurs, Mitgliederrabatt, Garantie-Anteil, Tickets, „Praxis in deiner Nähe“).
+
 ### Tests des Plugins
 
 Gegen eine WordPress-Installation mit MySQL/MariaDB, Plugin unter `wp-content/plugins/bootspruefung-learning`:
@@ -103,6 +107,12 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/woocommer
 
 ```bash
 WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/membership-test.php
+```
+
+Schnittstellen für Gutschein- und Ticket-Plugins (mit WooCommerce, vorher `woocommerce-setup.php`):
+
+```bash
+WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/extensions-test.php
 ```
 
 ```bash
