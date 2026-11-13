@@ -82,10 +82,7 @@ final class Plugin
         Capabilities::grantToAdministrator();
         \Bootspruefung\Learning\Frontend\Router::addRules();
         flush_rewrite_rules(false);
-        if (! wp_next_scheduled('bp_learning_hourly')) {
-            wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'bp_learning_hourly');
-        }
-        \Bootspruefung\Learning\Commerce\ExpiryReminder::schedule();
+        self::ensureSchedules();
         \Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::activated();
         global $wpdb;
         try {
@@ -133,6 +130,8 @@ final class Plugin
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
         \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY, [self::class, 'hourly']);
+        // Selbstheilung: fehlt der stündliche bzw. tägliche Lauf (Umzug, Cron-Option verloren), neu einplanen (T80).
+        add_action('init', [self::class, 'ensureSchedules'], 30);
         add_action(\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::HOOK, \Bootspruefung\Learning\Infrastructure\Cron::guard('order_reconcile', [\Bootspruefung\Learning\Commerce\WooCommerce\AutoReconcile::class, 'run']));
         add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
         (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
@@ -153,6 +152,24 @@ final class Plugin
         if (defined('WP_CLI') && WP_CLI) {
             Commands::register();
         }
+    }
+
+    /**
+     * Wiederkehrende Läufe einplanen, falls sie fehlen: stündliche Wartung und tägliche Ablauf-Erinnerung.
+     *
+     * Bei der Aktivierung und bei jeder Anfrage (init) geprüft; wp_next_scheduled() liest nur die ohnehin
+     * geladene Option „cron“. So kommen die Läufe nach einem Umzug, einem Datenbank-Restore ohne Cron-Option
+     * oder einem verlorenen Cron-Eintrag von selbst zurück.
+     */
+    public static function ensureSchedules(): void
+    {
+        if (wp_installing()) {
+            return;
+        }
+        if (! wp_next_scheduled(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY)) {
+            wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', \Bootspruefung\Learning\Infrastructure\Cron::HOURLY);
+        }
+        \Bootspruefung\Learning\Commerce\ExpiryReminder::schedule();
     }
 
     /**

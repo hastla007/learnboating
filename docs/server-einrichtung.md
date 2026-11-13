@@ -27,6 +27,10 @@ stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschni
 - **Echter System-Cron** statt WP-Cron bei Besuchen (`define('DISABLE_WP_CRON', true);` und auf dem Server
   `wp cron event run --due-now` alle 5 Minuten). Das Lern-Plugin braucht den Cron für Aufräumen, Erinnerungen,
   Bestellabgleich und Datenexporte.
+  Fehlen der stündliche Lauf (`bp_learning_hourly`) oder die tägliche Ablauf-Erinnerung (`bp_learning_daily`),
+  z. B. nach einem Umzug oder einem Restore ohne Cron-Einträge, plant das Plugin sie bei der nächsten Anfrage
+  von selbst neu. Die Ablauf-Erinnerung läuft nie doppelt parallel; ein Fehler bei einer Mail steht unter
+  Systemstatus › Wartung und hält die übrigen Mails nicht auf.
 - **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
 - **Zwischenspeicher des Plugins (T85):** Produktzuordnungen, Mitgliedskurse und „Warenkorb mit Lernprodukt“ gelten nur
   für eine Anfrage und werden bei jeder Änderung sofort verworfen. Die Kennzahlen der Kurse (Fragen, Aufgaben, Videos

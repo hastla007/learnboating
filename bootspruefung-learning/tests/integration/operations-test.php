@@ -465,6 +465,108 @@ foreach ($storeBefore as $key => $value) {
 $fromBefore === null ? delete_option('woocommerce_email_from_address') : update_option('woocommerce_email_from_address', $fromBefore);
 $nameBefore === null ? delete_option('woocommerce_email_from_name') : update_option('woocommerce_email_from_name', $nameBefore);
 
+echo "Wartungslauf selbstheilend, Ablauf-Erinnerung robust (T80)\n";
+$ER = \Bootspruefung\Learning\Commerce\ExpiryReminder::class;
+$check(has_action('init', [Plugin::class, 'ensureSchedules']) !== false, 'Prüfung der Läufe bei jeder Anfrage verbunden');
+wp_clear_scheduled_hook(Cron::HOURLY);
+wp_clear_scheduled_hook($ER::HOOK);
+Plugin::ensureSchedules();
+$check(wp_get_schedule(Cron::HOURLY) === 'hourly' && wp_get_schedule($ER::HOOK) === 'daily', 'fehlende Läufe (z. B. nach Umzug) neu eingeplant');
+$hourlyAt = wp_next_scheduled(Cron::HOURLY);
+Plugin::ensureSchedules();
+$check(wp_next_scheduled(Cron::HOURLY) === $hourlyAt, 'vorhandener Lauf bleibt unverändert (keine Doppelplanung)');
+$settingsT80 = \Bootspruefung\Learning\Settings\Settings::all();
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge($settingsT80, ['expiry_reminder_enabled' => true, 'expiry_reminder_days' => 14, 'default_access' => 'entitlement']));
+$freeCodes = $wpdb->get_col("SELECT DISTINCT course_code FROM {$p}access_rule WHERE feature_code = 'question_bank' AND module_code IS NULL AND access_type = 'free'");
+$remCourse = '';
+foreach ($courses as $c) {
+    if (! in_array((string) $c->code, $freeCodes, true)) {
+        $remCourse = (string) $c->code;
+        break;
+    }
+}
+$entT80 = new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb);
+$remUntil = gmdate('Y-m-d H:i:s', time() + 5 * DAY_IN_SECONDS);
+$remUsers = ['a' => $user('ops_t80_a'), 'b' => $user('ops_t80_b')];
+$ordersT80 = [];
+foreach ($remUsers as $uid) {
+    delete_user_meta($uid, $ER::META);
+    $wpdb->delete($p.'entitlement', ['user_id' => $uid]);
+    $entT80->grantManual($uid, $remCourse, ['question_bank'], $remUntil, 'Test T80');
+    $orderId = 990000 + $uid;
+    if (function_exists('wc_create_order')) {
+        // Mit Shop zählt nur eine eigene, bezahlte Bestellung über 0 € (ExpiryReminder::boughtCourses).
+        $order = wc_create_order(['customer_id' => $uid]);
+        $order->set_total('10.00');
+        $order->set_date_paid(time());
+        $order->save();
+        $orderId = (int) $order->get_id();
+        $ordersT80[] = $orderId;
+    }
+    $wpdb->query($wpdb->prepare("UPDATE {$p}entitlement SET source = 'woocommerce', order_id = %d WHERE user_id = %d", $orderId, $uid));
+}
+$emailOf = static fn (int $uid): string => (string) get_userdata($uid)->user_email;
+$t80Mails = [];
+$t80Mode = ['a' => 'ok'];
+$t80MarkedBeforeSend = null;
+$t80Catch = static function ($null, $atts) use (&$t80Mails, &$t80Mode, &$t80MarkedBeforeSend, $remUsers, $emailOf, $ER, $remCourse, $remUntil) {
+    $to = is_array($atts['to']) ? (string) reset($atts['to']) : (string) $atts['to'];
+    if ($to === $emailOf($remUsers['a']) && $t80Mode['a'] === 'throw') {
+        throw new RuntimeException('Mailserver kaputt');
+    }
+    if ($to === $emailOf($remUsers['a']) && $t80Mode['a'] === 'fail') {
+        return false;
+    }
+    if ($to === $emailOf($remUsers['b'])) {
+        $t80MarkedBeforeSend = array_key_exists($remCourse.'|'.$remUntil, (array) get_user_meta($remUsers['b'], $ER::META, true));
+    }
+    $t80Mails[] = $to;
+
+    return true;
+};
+add_filter('pre_wp_mail', $t80Catch, 1, 2);
+$countTo = static function (int $uid) use (&$t80Mails, $emailOf): int {
+    return count(array_filter($t80Mails, static fn ($m) => $m === $emailOf($uid)));
+};
+// Paralleler Lauf hält die Sperre: kein Versand.
+Lock::acquire($ER::LOCK, 3600, 'anderer-lauf');
+$check($remCourse !== '' && $ER::run() === 0 && $countTo($remUsers['a']) === 0 && $countTo($remUsers['b']) === 0, 'paralleler Lauf (Sperre gehalten): keine Mail, kein Doppelversand');
+Lock::release($ER::LOCK, 'anderer-lauf');
+// Fehler bei einem Empfänger: protokolliert, die übrigen bekommen ihre Mail.
+delete_option(Cron::OPTION_ERRORS);
+$t80Mode['a'] = 'throw';
+$thrownT80 = null;
+try {
+    $ER::run();
+} catch (\Throwable $e) {
+    $thrownT80 = $e;
+}
+$check($thrownT80 === null && $countTo($remUsers['b']) === 1, 'Fehler bei einem Empfänger bricht den Lauf nicht ab');
+$check((bool) array_filter(Cron::errors(), static fn ($e) => $e['task'] === 'expiry_reminder' && $e['item'] === 'Nutzer '.$remUsers['a'] && str_contains($e['message'], 'Mailserver kaputt')), 'Fehler mit Empfänger im Wartungsprotokoll');
+$check($t80MarkedBeforeSend === true, 'Zugang vor dem Versand als erinnert markiert');
+$check(! array_key_exists($remCourse.'|'.$remUntil, (array) get_user_meta($remUsers['a'], $ER::META, true)), 'nicht gesendet: Merker zurückgenommen');
+$check(Lock::holder($ER::LOCK) === null, 'Sperre nach dem Lauf freigegeben');
+$t80Mode['a'] = 'fail';
+$ER::run();
+$check($countTo($remUsers['a']) === 0 && ! array_key_exists($remCourse.'|'.$remUntil, (array) get_user_meta($remUsers['a'], $ER::META, true)), 'Versand fehlgeschlagen: kein Merker, nächster Lauf versucht es erneut');
+$t80Mode['a'] = 'ok';
+$ER::run();
+$ER::run();
+$check($countTo($remUsers['a']) === 1 && $countTo($remUsers['b']) === 1, 'danach genau eine Mail je Empfänger, auch bei wiederholten Läufen');
+remove_filter('pre_wp_mail', $t80Catch, 1);
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $settingsT80);
+delete_option(Cron::OPTION_ERRORS);
+foreach ($remUsers as $uid) {
+    $wpdb->delete($p.'entitlement', ['user_id' => $uid]);
+    delete_user_meta($uid, $ER::META);
+}
+foreach ($ordersT80 as $orderId) {
+    $o = wc_get_order($orderId);
+    if ($o) {
+        $o->delete(true);
+    }
+}
+
 echo "Überwachung und Zeitzone (T55)\n";
 $mon = \Bootspruefung\Learning\Infrastructure\Monitor::class;
 $hourlyBefore = get_option($mon::OPTION_HOURLY, null);

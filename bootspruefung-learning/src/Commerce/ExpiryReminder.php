@@ -6,6 +6,8 @@ namespace Bootspruefung\Learning\Commerce;
 
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Frontend\Router;
+use Bootspruefung\Learning\Infrastructure\Cron;
+use Bootspruefung\Learning\Infrastructure\Lock;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Settings\Settings;
 use Bootspruefung\Learning\Support\Mail;
@@ -29,6 +31,9 @@ final class ExpiryReminder
     public const META = 'bp_expiry_reminders';
     public const DEFAULT_DAYS = 14;
     public const MAX_DAYS = 90;
+    /** Sperre gegen parallele Läufe (Infrastructure\Lock); eine liegen gebliebene verfällt nach LOCK_TTL. */
+    public const LOCK = 'bp_learning_expiry_reminder_lock';
+    private const LOCK_TTL = HOUR_IN_SECONDS;
 
     public static function enabled(): bool
     {
@@ -164,47 +169,92 @@ final class ExpiryReminder
 
     /**
      * Cron: Erinnerungen senden. Gibt die Anzahl gesendeter Mails zurück.
+     *
+     * Robust und ohne Doppelversand (T80): Eine Sperre verhindert parallele Läufe (z. B. WP-Cron und System-Cron
+     * gleichzeitig). Je Empfänger wird der Zugang vor dem Versand als erinnert markiert und nur bei einem
+     * fehlgeschlagenen Versand wieder freigegeben; bricht der Lauf mittendrin ab, geht eher eine Erinnerung
+     * verloren, als dass sie doppelt kommt. Ein Fehler bei einem Empfänger wird protokolliert (Systemstatus,
+     * Infrastructure\Cron) und bricht den Lauf für die übrigen nicht ab.
      */
     public static function run(?string $now = null): int
     {
         if (! self::enabled()) {
             return 0;
         }
-        $now ??= current_time('mysql', true);
+        if (! Lock::acquire(self::LOCK, self::LOCK_TTL)) {
+            return 0; // ein anderer Lauf sendet gerade
+        }
         $sent = 0;
-        foreach (self::expiring(null, null, $now) as $userId => $courses) {
-            $user = get_userdata($userId);
-            if (! $user || ! is_email((string) $user->user_email) || ReminderOptOut::optedOut($userId)) {
-                continue; // ohne Adresse oder nach Widerspruch keine Erinnerung
-            }
-            // Nur an Käufer (§ 7 Abs. 3 UWG): Kurse, die die Person selbst bezahlt gekauft hat (T44).
-            $courses = self::boughtCourses((int) $userId, $courses);
-            if ($courses === []) {
-                continue;
-            }
-            $done = self::reminded($userId, $now);
-            $new = [];
-            foreach ($courses as $code => $until) {
-                if (! isset($done[self::key($code, $until)])) {
-                    $new[$code] = $until;
+        try {
+            $now ??= current_time('mysql', true);
+            foreach (self::expiring(null, null, $now) as $userId => $courses) {
+                try {
+                    if (self::remind((int) $userId, $courses, $now)) {
+                        $sent++;
+                    }
+                } catch (\Throwable $e) {
+                    Cron::recordError('expiry_reminder', $e, 'Nutzer '.(int) $userId);
                 }
             }
-            if ($new === []) {
-                continue;
-            }
-            asort($new);
-            [$subject, $body] = self::mail($user, $new);
-            if (! Mail::send((string) $user->user_email, $subject, $body, ['List-Unsubscribe: <'.ReminderOptOut::url($userId).'>'])) {
-                continue; // beim nächsten Lauf erneut versuchen
-            }
-            foreach ($new as $code => $until) {
-                $done[self::key($code, $until)] = $now;
-            }
-            update_user_meta($userId, self::META, $done);
-            $sent++;
+        } catch (\Throwable $e) {
+            Cron::recordError('expiry_reminder', $e);
+        } finally {
+            Lock::release(self::LOCK);
         }
 
         return $sent;
+    }
+
+    /**
+     * Erinnerung an eine Person (höchstens eine Mail). @param array<string,string> $courses Kurscode => Ende
+     * @return bool true, wenn eine Mail gesendet wurde
+     */
+    private static function remind(int $userId, array $courses, string $now): bool
+    {
+        $user = get_userdata($userId);
+        if (! $user || ! is_email((string) $user->user_email) || ReminderOptOut::optedOut($userId)) {
+            return false; // ohne Adresse oder nach Widerspruch keine Erinnerung
+        }
+        // Nur an Käufer (§ 7 Abs. 3 UWG): Kurse, die die Person selbst bezahlt gekauft hat (T44).
+        $courses = self::boughtCourses($userId, $courses);
+        if ($courses === []) {
+            return false;
+        }
+        // Merker frisch aus der Datenbank (nicht aus dem Objekt-Cache eines anderen Laufs).
+        wp_cache_delete($userId, 'user_meta');
+        $previous = get_user_meta($userId, self::META, true);
+        $done = self::reminded($userId, $now);
+        $new = [];
+        foreach ($courses as $code => $until) {
+            if (! isset($done[self::key($code, $until)])) {
+                $new[$code] = $until;
+            }
+        }
+        if ($new === []) {
+            return false;
+        }
+        asort($new);
+        // Erst markieren, dann senden: ein zweiter Lauf sieht den Merker und sendet nicht noch einmal.
+        foreach ($new as $code => $until) {
+            $done[self::key($code, $until)] = $now;
+        }
+        update_user_meta($userId, self::META, $done);
+        $ok = false;
+        try {
+            [$subject, $body] = self::mail($user, $new);
+            $ok = Mail::send((string) $user->user_email, $subject, $body, ['List-Unsubscribe: <'.ReminderOptOut::url($userId).'>']);
+        } finally {
+            if (! $ok) {
+                // Nicht gesendet: Merker zurücknehmen, beim nächsten Lauf erneut versuchen.
+                if (is_array($previous)) {
+                    update_user_meta($userId, self::META, $previous);
+                } else {
+                    delete_user_meta($userId, self::META);
+                }
+            }
+        }
+
+        return $ok;
     }
 
     /**
