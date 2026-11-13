@@ -23,6 +23,12 @@ use VCAP\Voucher;
  *   denselben Gutscheinstatus von Voucher Captain: eine Reservierung sperrt den jeweils anderen Weg.
  * - Widerruf: Wird der Gutschein ungültig gemacht (z. B. Kauf erstattet), widerruft die Lernplattform den
  *   Zugang nach der Erstattungsregel der Zuordnung („behalten“ bleibt).
+ * - Gleichzeitigkeit (T83): Einlösung und Warteschlange bearbeiten einen Gutschein nur unter einer Sperre je
+ *   Gutschein (MySQL GET_LOCK, endet mit der Verbindung). Die Warteschlange überspringt gesperrte Gutscheine, eine
+ *   zweite Einlösung wartet kurz und bekommt sonst „wird gerade eingelöst“. Die Warteschlange selbst (Option
+ *   lbvc_pending) wird nur unter einer eigenen Sperre gelesen und geschrieben (keine verlorenen Einträge).
+ * - Einlöseseite [vcap_redeem] (T88): höchstens REDEEM_PER_IP Versuche je IP und Stunde und – wie App und
+ *   „Mein Lernen“ – höchstens 10 je Konto und Stunde (Zähler der Lernplattform, IPv6 je /64-Netz).
  */
 final class Connector
 {
@@ -38,6 +44,12 @@ final class Connector
     public const NOTICE_TRANSIENT = 'lbvc_broken_targets';
     /** Höchstens so lange alt, falls eine Änderung ohne Produkt-Hook passiert (z. B. direkt in der Datenbank). */
     public const NOTICE_TTL = 10 * MINUTE_IN_SECONDS;
+    /** Sekunden, die eine Einlösung auf die Sperre ihres Gutscheins wartet (Filter lbvc_lock_timeout). */
+    public const LOCK_WAIT = 10;
+    /** Einlöseversuche auf der Einlöseseite je IP und Stunde (Filter lbvc_redeem_per_ip). */
+    public const REDEEM_PER_IP = 30;
+    /** Einlöseversuche je Konto und Stunde – derselbe Zähler wie App und „Mein Lernen“. */
+    public const REDEEM_PER_USER = 10;
 
     private static ?self $instance = null;
 
@@ -373,6 +385,20 @@ final class Connector
         if ($voucher instanceof \WP_Error) {
             return $voucher;
         }
+        // Ein Gutschein wird nur von einer Anfrage zugleich bearbeitet (T83): Einlösung, Doppelklick, Warteschlange.
+        if (! self::lockVoucher((int) $voucher->id, self::LOCK_WAIT)) {
+            return new \WP_Error('vcap_reserved', __('Dieser Gutschein wird gerade eingelöst.', 'learnboating-voucher-connector'), ['status' => 409, 'retryable' => true]);
+        }
+        try {
+            return $this->redeemLocked($voucher, $target, $userId);
+        } finally {
+            self::unlockVoucher((int) $voucher->id);
+        }
+    }
+
+    /** Einlösung unter der Sperre des Gutscheins. @return array|\WP_Error */
+    private function redeemLocked(Voucher $voucher, array $target, int $userId)
+    {
         [$attempt, $existing] = $this->attempt($voucher);
         $key = self::key($voucher, $attempt);
         if ($existing && $existing['state'] === RedemptionService::STATE_COMMITTED) {
@@ -476,7 +502,7 @@ final class Connector
      */
     public function retry(int $limit = 100): void
     {
-        $pending = (array) get_option(self::PENDING_OPTION, []);
+        $pending = self::queue();
         $n = 0;
         foreach ($pending as $key => $data) {
             if (++$n > $limit) {
@@ -486,32 +512,116 @@ final class Connector
             if ($age < 60 && $limit < 100) {
                 continue; // Frisch: läuft vermutlich gerade (eigener Aufruf).
             }
-            $row = $this->redemptions->get((string) $key);
-            $voucher = vcap()->vouchers->get((int) ($data['voucher_id'] ?? 0));
-            if (is_wp_error($row) || ! $voucher) {
-                $this->done((string) $key);
-                continue;
+            $voucherId = (int) ($data['voucher_id'] ?? 0);
+            if (! self::lockVoucher($voucherId, 0)) {
+                continue; // Wird gerade von einer anderen Anfrage bearbeitet: beim nächsten Lauf.
             }
-            if ($row['state'] === RedemptionService::STATE_COMMITTED) {
-                $this->done((string) $key);
-                continue;
-            }
-            if ($row['state'] === RedemptionService::STATE_RELEASED) {
-                // Reservierung abgelaufen/freigegeben: ein schon angelegter Zugang darf nicht ohne Gutschein bleiben.
-                if ($this->grants->get((string) $key) !== null) {
-                    $this->grants->revoke((string) $key, __('Gutscheinreservierung abgelaufen', 'learnboating-voucher-connector'));
-                    vcap()->vouchers->log($voucher->id, 'learnboating_revoked', null, null, (string) $key);
-                }
-                $this->done((string) $key);
-                continue;
-            }
-            $result = $this->finish($voucher, (string) $key, (int) $data['user_id'], ['product_id' => (int) $data['product_id'], 'variation_id' => (int) $data['variation_id']]);
-            if (is_wp_error($result) && $age > (self::RESERVATION_MINUTES - 60) * MINUTE_IN_SECONDS) {
-                // Kurz vor Ablauf der Reservierung immer noch nicht möglich: freigeben, der Gutschein bleibt gültig.
-                $this->redemptions->release((string) $key);
-                $this->done((string) $key);
+            try {
+                $this->retryOne((string) $key, $data, $age);
+            } finally {
+                self::unlockVoucher($voucherId);
             }
         }
+    }
+
+    /** Ein Eintrag der Warteschlange (unter der Sperre seines Gutscheins). @param array<string,mixed> $data */
+    private function retryOne(string $key, array $data, int $age): void
+    {
+        // Unter der Sperre neu lesen: eine parallele Einlösung kann den Eintrag inzwischen erledigt haben.
+        $data = self::queue()[$key] ?? null;
+        if ($data === null) {
+            return;
+        }
+        $row = $this->redemptions->get((string) $key);
+        $voucher = vcap()->vouchers->get((int) ($data['voucher_id'] ?? 0));
+        if (is_wp_error($row) || ! $voucher) {
+            $this->done((string) $key);
+            return;
+        }
+        if ($row['state'] === RedemptionService::STATE_COMMITTED) {
+            $this->done((string) $key);
+            return;
+        }
+        if ($row['state'] === RedemptionService::STATE_RELEASED) {
+            // Reservierung abgelaufen/freigegeben: ein schon angelegter Zugang darf nicht ohne Gutschein bleiben.
+            if ($this->grants->get((string) $key) !== null) {
+                $this->grants->revoke((string) $key, __('Gutscheinreservierung abgelaufen', 'learnboating-voucher-connector'));
+                vcap()->vouchers->log($voucher->id, 'learnboating_revoked', null, null, (string) $key);
+            }
+            $this->done((string) $key);
+            return;
+        }
+        $result = $this->finish($voucher, (string) $key, (int) $data['user_id'], ['product_id' => (int) $data['product_id'], 'variation_id' => (int) $data['variation_id']]);
+        if (is_wp_error($result) && $age > (self::RESERVATION_MINUTES - 60) * MINUTE_IN_SECONDS) {
+            // Kurz vor Ablauf der Reservierung immer noch nicht möglich: freigeben, der Gutschein bleibt gültig.
+            $this->redemptions->release((string) $key);
+            $this->done((string) $key);
+        }
+    }
+
+
+    /* ---- Sperren und Limits (T83, T88) -------------------------------------------------------------- */
+
+    /** Sperre eines Gutscheins holen; wartet höchstens $wait Sekunden. false = belegt. */
+    public static function lockVoucher(int $voucherId, int $wait): bool
+    {
+        return self::lock('voucher:'.$voucherId, $wait);
+    }
+
+    public static function unlockVoucher(int $voucherId): void
+    {
+        self::unlock('voucher:'.$voucherId);
+    }
+
+    /** Name der Sperre in der Datenbank (höchstens 64 Zeichen, je Datenbank und Tabellenpräfix). */
+    public static function lockName(string $name): string
+    {
+        global $wpdb;
+
+        return 'lbvc:'.substr(hash('sha256', DB_NAME.'|'.$wpdb->prefix.'|'.$name), 0, 40);
+    }
+
+    private static function lock(string $name, int $wait): bool
+    {
+        global $wpdb;
+        $wait = max(0, (int) apply_filters('lbvc_lock_timeout', $wait, $name));
+        $result = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', self::lockName($name), $wait));
+        if ($result === null) {
+            // Datenbank ohne benannte Sperren: weiter wie bisher (Voucher Captain reserviert trotzdem atomar).
+            error_log('[learnboating-voucher-connector] GET_LOCK nicht verfügbar: '.$wpdb->last_error); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+
+            return true;
+        }
+
+        return (int) $result === 1;
+    }
+
+    private static function unlock(string $name): void
+    {
+        global $wpdb;
+        $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', self::lockName($name)));
+    }
+
+    /**
+     * Einlöseseite: Versuch zählen und prüfen (je IP und je Konto), mit den Zählern der Lernplattform.
+     * @return bool true = zu viele Versuche
+     */
+    public static function redeemLimited(int $userId): bool
+    {
+        $limiter = '\Bootspruefung\Learning\Mobile\RateLimiter';
+        if (! class_exists($limiter)) {
+            return false;
+        }
+        try {
+            $limiter::hit('lbvc-redeem-ip|'.$limiter::clientKey(), max(1, (int) apply_filters('lbvc_redeem_per_ip', self::REDEEM_PER_IP)), HOUR_IN_SECONDS);
+            if ($userId > 0) {
+                $limiter::hit('redeem|'.$userId, self::REDEEM_PER_USER, HOUR_IN_SECONDS);
+            }
+        } catch (\Throwable) {
+            return true;
+        }
+
+        return false;
     }
 
     /** Gutschein ungültig gemacht (z. B. Kauf erstattet): Zugang nach Erstattungsregel widerrufen. */
@@ -537,7 +647,16 @@ final class Connector
     /** Einlöseseite [vcap_redeem]: Kursgutscheine für den angemeldeten Kunden freischalten statt in den Warenkorb. */
     public function redeemPage($handled, $code)
     {
-        if ($handled !== null || ! $this->is_course_voucher((string) $code)) {
+        if ($handled !== null) {
+            return $handled;
+        }
+        // Vor dem Nachschlagen zählen: sonst ließen sich Codes über die Antworten durchprobieren.
+        if (self::redeemLimited(get_current_user_id())) {
+            wc_add_notice(__('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'learnboating-voucher-connector'), 'error');
+
+            return 'rejected';
+        }
+        if (! $this->is_course_voucher((string) $code)) {
             return $handled;
         }
         if (! is_user_logged_in()) {
@@ -617,17 +736,44 @@ final class Connector
 
     private function pending(string $key, array $data): void
     {
-        $pending = (array) get_option(self::PENDING_OPTION, []);
-        $pending[$key] = $data + ['since' => (int) ($pending[$key]['since'] ?? time())];
-        update_option(self::PENDING_OPTION, $pending, false);
+        self::editQueue(static function (array $pending) use ($key, $data): array {
+            $pending[$key] = $data + ['since' => (int) ($pending[$key]['since'] ?? time())];
+
+            return $pending;
+        });
     }
 
     private function done(string $key): void
     {
-        $pending = (array) get_option(self::PENDING_OPTION, []);
-        if (isset($pending[$key])) {
+        self::editQueue(static function (array $pending) use ($key): array {
             unset($pending[$key]);
-            update_option(self::PENDING_OPTION, $pending, false);
+
+            return $pending;
+        });
+    }
+
+    /** Warteschlange frisch aus der Datenbank (nicht aus dem Objekt-Cache einer anderen Anfrage). @return array<string,array> */
+    private static function queue(): array
+    {
+        wp_cache_delete(self::PENDING_OPTION, 'options');
+
+        return (array) get_option(self::PENDING_OPTION, []);
+    }
+
+    /** Lesen-Ändern-Schreiben der Warteschlange unter eigener Sperre (parallele Einlösungen verlieren keine Einträge). */
+    private static function editQueue(callable $change): void
+    {
+        $locked = self::lock('queue', 5);
+        try {
+            $before = self::queue();
+            $after = $change($before);
+            if ($after !== $before) {
+                update_option(self::PENDING_OPTION, $after, false);
+            }
+        } finally {
+            if ($locked) {
+                self::unlock('queue');
+            }
         }
     }
 }

@@ -63,6 +63,8 @@ Audit-Log: `entitlement_voucher_grant` (Nutzer, Gutschein-ID, Kursprodukt, Einl�
 | Erstattung **nach** der Einlösung | Voucher Captain lehnt die Erstattung eines eingelösten Gutscheins standardmäßig ab (`vcap_allow_refund_of_spent_vouchers`). Wird sie zugelassen, wird der Gutschein ungültig → `revoke()` nach `refund_rule`: `revoke_on_full_refund`/`revoke_on_any_refund` widerrufen, `keep` behält. Noch nicht begonnene Verlängerungen rücken nach vorn. |
 | Geld-zurück-Garantie | gilt für den Kauf des Gutscheins (Bestellung im Shop); Bearbeitung wie eine Erstattung nach der Einlösung. |
 | Zielzuordnung | zum **Kaufzeitpunkt**: das Kursprodukt wird in der Bestellposition festgehalten (`_vcap_line.learnboating_target`); spätere Änderungen am Gutscheinprodukt ändern verkaufte Gutscheine nicht. Geprüft wird beim Einlösen. |
+| Gleichzeitige Einlösung | Sperre je Gutschein (T83): parallele Einlösungen und die Warteschlange bearbeiten denselben Gutschein nie gleichzeitig; die zweite Einlösung wartet kurz, sonst `vcap_reserved` (App: `VOUCHER_RESERVED`, 409). |
+| Einlöseseite `[vcap_redeem]` | höchstens 30 Versuche je IP und Stunde, 10 je Konto und Stunde (gemeinsam mit App und „Mein Lernen“), T88. |
 | Gutscheinprodukt | darf selbst keinen Lernzugang tragen (sonst Freischaltung schon beim Kauf über `OrderSync`) – der Connector lehnt das Speichern ab. |
 
 Betreiber-Entscheidungen, die diese Regeln festlegen (Laufzeitbeginn, Verlängern statt Ablehnen, Erstattung nach

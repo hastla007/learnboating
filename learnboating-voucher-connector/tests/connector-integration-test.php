@@ -258,6 +258,26 @@ $connector->targetNotice();
 $check(! isset(get_transient(Connector::NOTICE_TRANSIENT)[$good->get_id()]), 'nach der Korrektur kein veralteter Hinweis mehr');
 delete_transient(Connector::NOTICE_TRANSIENT);
 
+echo "Sperre je Gutschein (T83)\n";
+// Eine zweite Datenbankverbindung steht für eine parallele Anfrage, die gerade diesen Gutschein bearbeitet.
+$v6 = $buy($good, $carol);
+$key6 = Connector::key($v6);
+$other = new wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
+$held = (int) $other->get_var($other->prepare('SELECT GET_LOCK(%s, 0)', Connector::lockName('voucher:'.$v6->id))) === 1;
+$noWait = static fn () => 0;
+add_filter('lbvc_lock_timeout', $noWait);
+$busy = $connector->redeem($v6->code, $carol);
+$check($held && is_wp_error($busy) && $busy->get_error_code() === 'vcap_reserved' && is_wp_error(vcap()->redemptions->get($key6)), 'Gutschein gerade in Bearbeitung: zweite Einlösung abgewiesen, nichts reserviert', is_wp_error($busy) ? $busy->get_error_code() : $busy);
+$queueBefore = get_option(Connector::PENDING_OPTION, []);
+update_option(Connector::PENDING_OPTION, [$key6 => ['voucher_id' => $v6->id, 'user_id' => $carol, 'product_id' => $courseProduct->get_id(), 'variation_id' => 0, 'since' => time() - 3600]] + (array) $queueBefore, false);
+$connector->retry();
+$check(isset(get_option(Connector::PENDING_OPTION, [])[$key6]), 'Warteschlange überspringt gesperrten Gutschein (keine doppelte Verarbeitung)');
+$other->query($other->prepare('SELECT RELEASE_LOCK(%s)', Connector::lockName('voucher:'.$v6->id)));
+$connector->retry();
+$check(! isset(get_option(Connector::PENDING_OPTION, [])[$key6]), 'nach Freigabe der Sperre bearbeitet die Warteschlange den Eintrag');
+remove_filter('lbvc_lock_timeout', $noWait);
+$other->close();
+
 echo "Fehlercodes der App-Route\n";
 $v6 = $buy($good, $alice);
 $v6->expires_at = gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS);
