@@ -479,6 +479,18 @@ Fehlerobjekt (`application/problem+json`):
 | `EXAM_ANSWER_LOCKED` | 409 | Offene Prüfungsfrage: erst Musterantwort aufdecken |
 | `COUPON_INVALID` | 422 | Code unbekannt/ungültig (Hinweis: Shop-Käufe brauchen keinen Code) |
 | `COUPON_NOT_SUPPORTED` | 422 | WooCommerce-Gutschein (nur beim Kauf im Shop einlösbar) |
+| `COURSE_VOUCHER` | 422 | Kursgutschein an `/coupons/redeem` geschickt → `details.redeem_path` = `/vouchers/redeem` (seit 1.12.0) |
+| `VOUCHER_INVALID` | 422/410 | Kursgutschein unbekannt (422) bzw. ungültig gemacht (410) |
+| `VOUCHER_RESERVED` | 409 | Kursgutschein wird gerade an anderer Stelle eingelöst (z. B. offene Bestellung) |
+| `VOUCHER_REDEEMED` | 409 | Kursgutschein bereits eingelöst |
+| `VOUCHER_EXPIRED` | 410 | Kursgutschein abgelaufen |
+| `VOUCHER_NOT_YET_VALID` | 409 | Kursgutschein noch nicht gültig (spätere Zustellung) |
+| `VOUCHER_WRONG_COURSE` | 422 | Kursgutschein gilt für einen anderen Kurs (`course_id`) |
+| `VOUCHER_NOT_FOR_COURSES` | 422 | Shop-Gutschein ohne Kursziel |
+| `VOUCHER_NOT_ALLOWED` | 403 | Kursgutschein für ein anderes Konto (E-Mail-Bindung) |
+| `ACCESS_NOT_POSSIBLE` | 409 | Kein Zugang möglich: Kursprodukt entfernt/ohne Lernzugang, Gruppenlizenz/Upgrade, Kurs nicht angeboten, Kurs schon dauerhaft freigeschaltet (`details.reason`) |
+| `TEMPORARY_ERROR` | 503 | Vorübergehender Fehler; Gutschein bleibt erhalten, mit `retry_after` erneut senden |
+| `COURSE_VOUCHERS_UNAVAILABLE` | 503 | Kein Gutschein-Connector aktiv |
 | `GROUP_NOT_ACTIVE` | 409 | Gruppe ausgesetzt/widerrufen: Einladen und neuer Beitrittslink nicht möglich (seit 1.7.0) |
 | `EXPORT_EXPIRED` | 410 | Export abgelaufen → neu anfordern |
 | `EXPORT_NOT_READY` | 409 | Export wird noch erstellt → Status abfragen, `retry_after` beachten (seit 1.4.0) |
@@ -631,7 +643,7 @@ beibehalten, wo es passt. Abweichungen:
 6. **Sprache der WordPress-Mails** (Reset, Löschbestätigung) folgt der Website-Sprache; auf Staging
    englisch, live mit deutschem Sprachpaket deutsch.
 7. **Medien:** Videos sind Platzhalter. Für echte Videos klären: Hosting (Datenschutz, keine
-   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Seit 1.11.0 meldet
+   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Seit 1.12.0 meldet
    `Media.external_host` einen fremden Video-Server; die App fragt dann vor dem Laden (wie das Web). Fragenbilder liegen wie im
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“ (seit 1.3.0 in der App):** serverseitig gespeichert
@@ -678,7 +690,7 @@ beibehalten, wo es passt. Abweichungen:
 
 ## 8. Änderungsprotokoll
 
-### 1.11.0 (additiv)
+### 1.12.0 (additiv)
 
 - **Store-Links:** `GET /health` liefert `store_urls.ios/android` (App Store bzw. Google Play, aus
   „Bootsprüfung → Mobile App“; `null`, solange die App nicht im Store steht). Beim Pflicht-Update (426
@@ -692,6 +704,16 @@ beibehalten, wo es passt. Abweichungen:
 - **Videos auf fremden Servern:** `Media.external_host` (nur Videos) nennt den Hostnamen, wenn das Video nicht auf
   der Shop-Domain liegt. Die App lädt es dann erst nach Einwilligung bzw. Antippen und sagt vorher, dass der
   Anbieter die IP-Adresse erhält (wie das Web: Hinweis im Vorschaubild, „künftig ohne Nachfrage“).
+- **Kursgutscheine in „Mein Lernen“:** `POST /vouchers/check` (Vorschau: Kurse, geplante Laufzeit je Bereich,
+  vorhandener Zugang) und `POST /vouchers/redeem` (Einlösung). Nutzer = Token, nie ein Request-Feld.
+  Freischaltung über die Produktzuordnung „Lernzugang“ des Kursprodukts, Laufzeit ab Einlösung,
+  Verlängerungsregel wie beim Kauf. Wiederholungen sind sicher (`reused: true`). Neue Fehlercodes siehe
+  Tabelle (Abschnitt Fehler). Server: Grant-Vertrag `bootspruefung_voucher_grants_v1`
+  (`docs/kursgutscheine.md`), Connector `learnboating-voucher-connector` für Voucher Captain.
+- `POST /coupons/redeem` antwortet für Kursgutscheine mit 422 `COURSE_VOUCHER` und `details.redeem_path`
+  statt `COUPON_NOT_SUPPORTED`; Gruppencodes unverändert.
+
+### 1.11.0 (additiv)
 
 - **Kursgutscheine (Gutschein-Plugin):** `POST /coupons/redeem` löst – wenn ein Gutschein-Plugin den
   WordPress-Filter `bootspruefung_voucher_redeem` belegt – auch Kursgutscheine ein. Der Kurs wird über

@@ -121,6 +121,8 @@ final class Plugin
 
         Compatibility::register($this->file);
         add_action('plugins_loaded', [\Bootspruefung\Learning\Commerce\WooCommerce\Integration::class, 'register'], 20);
+        // Kursgutscheine: öffentlicher Grant-Vertrag v1 für Gutschein-Plugins (docs/kursgutscheine.md).
+        \Bootspruefung\Learning\Commerce\VoucherGrants::register();
         (new Menu($this))->register();
         (new RestRegistrar())->register();
         \Bootspruefung\Learning\Infrastructure\RequestMemo::register();

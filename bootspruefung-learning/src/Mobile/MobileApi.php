@@ -20,6 +20,7 @@ use Bootspruefung\Learning\Mobile\Controllers\SettingsController;
 use Bootspruefung\Learning\Mobile\Controllers\TicketController;
 use Bootspruefung\Learning\Mobile\Controllers\TipsController;
 use Bootspruefung\Learning\Mobile\Controllers\TrainingController;
+use Bootspruefung\Learning\Mobile\Controllers\VoucherController;
 use Bootspruefung\Learning\Plugin;
 use WP_Error;
 use WP_REST_Request;
@@ -37,7 +38,7 @@ use WP_REST_Server;
 final class MobileApi
 {
     public const NAMESPACE = 'boatingschool/v1';
-    public const API_VERSION = '1.11.0';
+    public const API_VERSION = '1.12.0';
 
     public static function register(): void
     {
@@ -413,6 +414,10 @@ final class MobileApi
 
         // Codes und Datenschutz
         self::route('/coupons/redeem', 'POST', [CouponController::class, 'redeem'], true, true, ['code' => $string(300, true)]);
+        // Kursgutscheine in „Mein Lernen“ (seit 1.12.0): Vorschau und Einlösung über einen Gutschein-Connector.
+        $voucher = ['code' => $string(100, true), 'course_id' => $idValue];
+        self::route('/vouchers/check', 'POST', [VoucherController::class, 'check'], true, true, $voucher);
+        self::route('/vouchers/redeem', 'POST', [VoucherController::class, 'redeem'], true, true, $voucher);
         // Vorschau eines Einladungslinks (seit 1.7.0, wie GET bootspruefung/v1/groups/join/{token}); Beitritt über /coupons/redeem
         self::route('/groups/join/(?P<token>[A-Za-z0-9]{1,64})', 'GET', [GroupController::class, 'joinPreview']);
         self::route('/profile/export', 'POST', [PrivacyController::class, 'requestExport']);

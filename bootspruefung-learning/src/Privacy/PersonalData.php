@@ -268,7 +268,7 @@ final class PersonalData
                 'action' => 'personal_data_erased',
                 'object_type' => 'user',
                 'object_id' => hash('sha256', (string) $user->ID.wp_salt()),
-            ]);
+            ], ['%d', '%s', '%s', '%s']); // object_id als Text (WordPress-Standardformat wäre %d)
             $wpdb->query('COMMIT');
         } catch (\RuntimeException $e) {
             $wpdb->query('ROLLBACK');

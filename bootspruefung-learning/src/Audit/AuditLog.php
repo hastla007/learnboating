@@ -19,6 +19,8 @@ final class AuditLog
             'reason' => $reason,
             'context' => $context === [] ? null : wp_json_encode($context),
             'created_at' => current_time('mysql', true),
-        ]);
+        // Feste Formate: WordPress führt „object_id“ in $wpdb->field_types als Zahl (%d) – ohne Angabe würden
+        // Text-IDs (Einlöse-Schlüssel, Einstellungsnamen, Hashes) als 0 gespeichert.
+        ], ['%d', '%s', '%s', '%s', '%s', '%s', '%s']);
     }
 }

@@ -5,6 +5,13 @@ Das Lern-Plugin `bootspruefung-learning` stellt Gegenstellen für zwei Erweiteru
 - ein **Gutschein-Plugin** (Kursgutscheine verkaufen und einlösen, Shop-Gutscheine),
 - ein **Ticket-Plugin** (Praxis-Termine/Tickets mit Einheiten, Entwertung per Scan, Praxis-Angebote).
 
+**Zwei Wege für Kursgutscheine:** Für **Voucher Captain** gibt es den fertigen Connector
+`learnboating-voucher-connector` mit dem Grant-Vertrag `bootspruefung_voucher_grants_v1` (direkte Freischaltung ohne
+Bestellung, App-Routen `/vouchers/check` und `/vouchers/redeem`) – beschrieben in `docs/kursgutscheine.md`. Die
+Gutschein-Schnittstellen unten (Aktion `bootspruefung_voucher_redeemed`, Filter `bootspruefung_voucher_redeem`,
+interne 0-€-Bestellung) sind der allgemeine Weg für andere Gutschein-Plugins und nur aktiv, wenn ein Plugin sie
+belegt. Ein Shop sollte nur einen der beiden Wege nutzen.
+
 Alle Namen haben den Präfix `bootspruefung_`. Das Lern-Plugin funktioniert ohne diese Plugins unverändert:
 Ohne Gegenstelle bleiben Formular und Abschnitte unsichtbar, Felder sind leer.
 
