@@ -114,5 +114,11 @@ Der Connector stellt über `bootspruefung_course_voucher_redeemer_v1` ein Objekt
 | Verlauf und Supportansicht | Connector-Test (Gutscheinverlauf, Zugangs-Meta, Admin-Link, Suche nach Einlöse-ID) |
 | App-Route: Nutzer aus Token, Fehlercodes, Idempotency-Key | `bootspruefung-learning/tests/integration/mobile-api-test.php` (Abschnitt Kursgutscheine) |
 
-CI-Job „WordPress-Plugin“: Schritte „Kursgutscheine – Grant-Service“ und „Kursgutscheine mit Voucher Captain –
-Connector-Abnahme“ (Voucher Captain wird aus `hastla007/wp-couponmaster` gebaut wie das Release-ZIP).
+CI: Schritt „Kursgutscheine – Grant-Service“ im Job „WordPress-Plugin“ und eigener Job „Kursgutscheine mit Voucher
+Captain – Connector-Abnahme (externes Repo, informativ)“. Dieser Job holt Voucher Captain aus
+`hastla007/wp-couponmaster` (nur lesend, per git, fester Commit `VCAP_SHA` in `.github/workflows/ci.yml`, weil das
+Repo keine Tags hat) und baut es mit `bin/build.sh` wie das Release-ZIP. Er läuft mit `continue-on-error`: Ein Fehler
+im externen Repo macht die CI nicht rot und hält die übrigen Jobs nicht auf. Fehlt `bin/build.sh` im festen Stand
+oder ist der Stand nicht abrufbar, meldet der Job „Voucher Captain übersprungen“ und bleibt grün. Neuer Stand von
+Voucher Captain: SHA mit `git ls-remote https://github.com/hastla007/wp-couponmaster` ermitteln, in `VCAP_SHA`
+eintragen und den Job grün sehen, bevor der Shop diese Version bekommt.

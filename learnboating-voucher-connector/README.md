@@ -36,7 +36,8 @@ Filter: `lbvc_voucher_target` (Ziel für Gutscheine ohne Produkt, z. B. importie
 
 ## Test
 
-Im CI-Job „WordPress-Plugin“ (echtes WordPress, WooCommerce, Voucher Captain aus `hastla007/wp-couponmaster`):
+Im CI-Job „Kursgutscheine mit Voucher Captain – Connector-Abnahme“ (echtes WordPress, WooCommerce, Voucher Captain
+aus `hastla007/wp-couponmaster` zum festen Commit `VCAP_SHA`; informativ, siehe `docs/kursgutscheine.md`):
 
 ```bash
 WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/setup.php

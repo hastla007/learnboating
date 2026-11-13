@@ -111,7 +111,7 @@ jobs:
           BS_PASSWORD="$DB_PW" BS_LARAVEL_DIR="$RUNNER_TEMP/laravel" php tools/content-build/golden-master/compare.php build/boatingschool-*/
 
   plugin:
-    name: WordPress-Plugin (PHP ${{ matrix.php }}, WC ${{ matrix.wc }}, MariaDB ${{ matrix.mariadb }})
+    name: WordPress-Plugin (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, WC ${{ matrix.wc }}, MariaDB ${{ matrix.mariadb }})
     runs-on: ubuntu-24.04
     # Beta-Zweig von WooCommerce informiert nur, blockiert nicht.
     continue-on-error: ${{ matrix.experimental }}
@@ -132,11 +132,12 @@ jobs:
         include:
           # Zielsystem (docs/offene-punkte.md, Punkt 20): PHP 8.5, WordPress 7.1.4, MariaDB 12.3.3,
           # WooCommerce 11.2.2, Block-Theme mit Checkout-Block – inkl. Browser-Tests.
-          - { php: '8.5', wc: '11.2.2', mariadb: '12.3.3', e2e: true, experimental: false, theme: kurswasser }
+          - { php: '8.5', wp: '7.1.4', wc: '11.2.2', mariadb: '12.3.3', e2e: true, experimental: false, theme: kurswasser }
           # Testphase: WooCommerce 11.3 Beta mit demselben Stack (Standard-Block-Theme).
-          - { php: '8.5', wc: '11.3.0-beta.2', mariadb: '12.3.3', e2e: true, experimental: true, theme: twentytwentyfive }
-          # Untergrenze laut Plugin-Header (Requires PHP 8.1).
-          - { php: '8.1', wc: '11.2.2', mariadb: '10.11', e2e: false, experimental: false, theme: twentytwentyfive }
+          - { php: '8.5', wp: '7.1.4', wc: '11.3.0-beta.2', mariadb: '12.3.3', e2e: true, experimental: true, theme: twentytwentyfive }
+          # Untergrenzen laut Plugin-Kopf: Requires PHP 8.1, Requires at least 7.0 (erste Version 7.0.0),
+          # WC requires at least 11.2; älteste unterstützte MariaDB-LTS.
+          - { php: '8.1', wp: '7.0.0', wc: '11.2.2', mariadb: '10.11', e2e: false, experimental: false, theme: twentytwentyfive }
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -150,12 +151,14 @@ jobs:
           python3 -m json.tool themes/kurswasser/theme.json > /dev/null
       - name: WordPress bereitstellen
         run: |
-          git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
+          git clone --quiet --depth 1 --branch "$WP_VERSION" https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
           cd "$RUNNER_TEMP/wp"
           sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php
           sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', true );/" wp-config.php
           ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" wp-content/plugins/bootspruefung-learning
           ln -s "$GITHUB_WORKSPACE/themes/kurswasser" wp-content/themes/kurswasser
+        env:
+          WP_VERSION: ${{ matrix.wp }}
       - name: Plugin-Schemata identisch mit schema/
         run: diff -r schema/v1 bootspruefung-learning/schema/v1
       - name: Gerätesimulation entspricht dem Snapshot (JS + CSS)
@@ -334,26 +337,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/theme-shots"
           BP_SHOTS="$RUNNER_TEMP/theme-shots" BP_USER=lerner1 BP_PASS=Test-Passwort-123 node themes/kurswasser/tests/screenshots.mjs
           if grep -E "PHP (Fatal|Warning|Notice|Deprecated).*themes/kurswasser" "$RUNNER_TEMP/php-server.log"; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
-      - name: Kursgutscheine mit Voucher Captain – Connector-Abnahme (Integration)
-        # Am Ende des Jobs: hängt am externen Repo wp-couponmaster – scheitert der Bau dort, laufen die übrigen Tests trotzdem.
-        run: |
-          # Voucher Captain (öffentlich, hastla007/wp-couponmaster): Arbeitszweig, sonst main; Release-ZIP bauen wie im Shop.
-          for ref in claude/youthful-bardeen-7ejd7a main; do
-            if curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/vcap-src.zip" "https://codeload.github.com/hastla007/wp-couponmaster/zip/refs/heads/$ref"; then echo "Voucher Captain: $ref"; break; fi
-          done
-          unzip -q "$RUNNER_TEMP/vcap-src.zip" -d "$RUNNER_TEMP/vcap-src"
-          src="$(ls -d "$RUNNER_TEMP"/vcap-src/*/ | head -1)"
-          (cd "$src" && bin/build.sh)
-          unzip -q "$src/build/voucher-captain.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
-          ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
-          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/connector-integration-test.php | tee connector.log
-          if grep -E "PHP Fatal" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
-          if grep -E "PHP (Warning|Deprecated|Notice).*(bootspruefung-learning|learnboating-voucher-connector)" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
-          # Folgende Schritte erwarten die Installation ohne Voucher Captain, Connector und Shop.
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php deactivate
-          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Theme-Screenshots hochladen
         if: always() && matrix.e2e && matrix.theme == 'kurswasser'
         uses: actions/upload-artifact@v4
@@ -368,6 +351,211 @@ jobs:
           name: checkout-screenshots-wc-${{ matrix.wc }}
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
+
+  voucher-captain:
+    name: Kursgutscheine mit Voucher Captain – Connector-Abnahme (externes Repo, informativ)
+    runs-on: ubuntu-24.04
+    # Hängt am externen Repo hastla007/wp-couponmaster (nur lesend). Ein Fehler dort macht die CI nicht rot und
+    # hält keinen anderen Job auf; das Ergebnis steht trotzdem im Lauf (gelb bzw. Hinweis „übersprungen“).
+    continue-on-error: true
+    env:
+      VCAP_REPO: https://github.com/hastla007/wp-couponmaster.git
+      # Fester Stand statt Arbeitszweig (das Repo hat keine Tags): claude/youthful-bardeen-7ejd7a vom 13.11.2026,
+      # Voucher Captain 1.1.0. Neuer Stand: `git ls-remote https://github.com/hastla007/wp-couponmaster`, SHA hier
+      # eintragen, CI abwarten (docs/kursgutscheine.md, Abschnitt „Test“).
+      VCAP_SHA: b1996d09528b989190ed388b0f9883128aa09593
+    services:
+      mariadb:
+        image: mariadb:12.3.3
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_test
+          MARIADB_USER: wp
+          MARIADB_PASSWORD: wp
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mysqli, intl, zip
+          coverage: none
+      - name: Voucher Captain holen (fester Stand, nur lesend)
+        id: vcap
+        run: |
+          # git statt codeload-ZIP: Das Archiv lässt bin/ und tests/ weg (export-ignore in .gitattributes).
+          src="$RUNNER_TEMP/vcap-src"
+          if ! { git init -q "$src" && git -C "$src" fetch -q --depth 1 "$VCAP_REPO" "$VCAP_SHA" && git -C "$src" checkout -q FETCH_HEAD; }; then
+            echo "::warning title=Voucher Captain übersprungen::Stand $VCAP_SHA ist nicht abrufbar. Connector-Abnahme übersprungen."
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ ! -f "$src/bin/build.sh" ]; then
+            echo "::notice title=Voucher Captain übersprungen::bin/build.sh fehlt im Stand $VCAP_SHA. Connector-Abnahme übersprungen."
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "Voucher Captain: $VCAP_SHA ($(sed -n 's/^[ *]*Version:[[:space:]]*//p' "$src/voucher-captain.php" | head -1))"
+          echo "skip=0" >> "$GITHUB_OUTPUT"
+      - name: WordPress, Lernplattform und Inhalte bereitstellen
+        if: steps.vcap.outputs.skip == '0'
+        run: |
+          git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
+          (cd "$RUNNER_TEMP/wp" && sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php)
+          ln -s "$GITHUB_WORKSPACE/bootspruefung-learning" "$RUNNER_TEMP/wp/wp-content/plugins/bootspruefung-learning"
+          # Rauchtest installiert WordPress und aktiviert das Plugin; der Inhaltstest importiert ein Content-Paket.
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php > smoke.log || { cat smoke.log; exit 1; }
+          php tools/content-build/bin/build-package.php
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php > flow.log || { cat flow.log; exit 1; }
+          curl -fsSL --retry 4 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/woocommerce.zip" "https://github.com/woocommerce/woocommerce/releases/download/11.2.2/woocommerce.zip" \
+            || curl -fsSL --retry 4 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/woocommerce.zip" "https://downloads.wordpress.org/plugin/woocommerce.11.2.2.zip"
+          unzip -q "$RUNNER_TEMP/woocommerce.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+      - name: Voucher Captain bauen (Release-ZIP wie im Shop) und Connector-Abnahme
+        if: steps.vcap.outputs.skip == '0'
+        run: |
+          (cd "$RUNNER_TEMP/vcap-src" && bin/build.sh)
+          unzip -q "$RUNNER_TEMP/vcap-src/build/voucher-captain.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/connector-integration-test.php | tee connector.log
+          if grep -E "PHP Fatal" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*(bootspruefung-learning|learnboating-voucher-connector)" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+
+  release-zip:
+    name: Auslieferungs-ZIP – Installation aus dem ZIP (PHP 8.5, WP 7.1.4)
+    runs-on: ubuntu-24.04
+    services:
+      mariadb:
+        image: mariadb:12.3.3
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_test
+          MARIADB_USER: wp
+          MARIADB_PASSWORD: wp
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mysqli, intl, zip
+          coverage: none
+      - name: ZIPs bauen (tools/release/build-zips.sh, wie der Release-Workflow)
+        run: |
+          tools/release/build-zips.sh --out build/release
+          (cd build/release && sha256sum -c SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-zips-${{ github.sha }}
+          path: |
+            build/release/*.zip
+            build/release/SHA256SUMS
+            build/release/release-notes.md
+          retention-days: 14
+      - name: WordPress bereitstellen, Plugin, Theme und Add-ons aus den ZIPs (keine Verknüpfung zum Repo)
+        run: |
+          source build/release/versions.env
+          git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
+          (cd "$RUNNER_TEMP/wp" && sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php)
+          sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', true );/" "$RUNNER_TEMP/wp/wp-config.php"
+          unzip -q "build/release/bootspruefung-learning-$PLUGIN_VERSION.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          unzip -q "build/release/learnboating-affiliate-connector-$AFFILIATE_CONNECTOR_VERSION.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          unzip -q "build/release/learnboating-voucher-connector-$VOUCHER_CONNECTOR_VERSION.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          unzip -q "build/release/kurswasser-$THEME_VERSION.zip" -d "$RUNNER_TEMP/wp/wp-content/themes"
+          test ! -L "$RUNNER_TEMP/wp/wp-content/plugins/bootspruefung-learning" && test ! -e "$RUNNER_TEMP/wp/wp-content/plugins/bootspruefung-learning/tests"
+          find "$RUNNER_TEMP/wp/wp-content/plugins" "$RUNNER_TEMP/wp/wp-content/themes/kurswasser" -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: Basistests gegen die installierte ZIP
+        # Die Testskripte liegen nicht im ZIP; sie kommen aus dem Checkout und prüfen das installierte Plugin.
+        run: |
+          check_log() { if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" "$1"; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi; }
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php | tee zip-smoke.log; check_log zip-smoke.log
+          php tools/content-build/bin/build-package.php
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee zip-flow.log; check_log zip-flow.log
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee zip-commerce.log; check_log zip-commerce.log
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/operations-test.php | tee zip-operations.log; check_log zip-operations.log
+          WP_DIR="$RUNNER_TEMP/wp" php themes/kurswasser/tests/learning-compat-test.php | tee zip-theme.log; check_log zip-theme.log
+
+  upgrade:
+    name: Update von der Vorversion 0.13.0 auf die Auslieferungs-ZIP (Migration)
+    runs-on: ubuntu-24.04
+    env:
+      # Vorversion: Commit „Kursempfehlungen, Ausblenden von Doppeltem und Ablauf-Erinnerung (0.13.0, App-API 1.9.0)“,
+      # Schema 1.13.0. Sobald es Release-Tags gibt, hier den letzten Tag eintragen (docs/installation-und-updates.md).
+      PREV_REF: 004e7286c4e512eee72c9045c9d84a6032ab24c8
+    services:
+      mariadb:
+        image: mariadb:12.3.3
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_test
+          MARIADB_USER: wp
+          MARIADB_PASSWORD: wp
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mysqli, intl, zip
+          coverage: none
+      - name: Vorversion auspacken
+        run: |
+          git fetch --quiet --depth 1 origin "$PREV_REF"
+          mkdir -p "$RUNNER_TEMP/prev"
+          git archive --format=tar "$PREV_REF" bootspruefung-learning tools/content-build content-source schema | tar -x -C "$RUNNER_TEMP/prev"
+          sed -n 's/^ \* Version:[[:space:]]*/Vorversion /p' "$RUNNER_TEMP/prev/bootspruefung-learning/bootspruefung-learning.php"
+      - name: WordPress mit der Vorversion, Daten anlegen (Tests der Vorversion)
+        run: |
+          git clone --quiet --depth 1 --branch 7.1.4 https://github.com/johnpbloch/wordpress-core.git "$RUNNER_TEMP/wp"
+          (cd "$RUNNER_TEMP/wp" && sed -e "s/database_name_here/wp_test/; s/username_here/wp/; s/password_here/wp/; s/localhost/127.0.0.1/" wp-config-sample.php > wp-config.php)
+          ln -s "$RUNNER_TEMP/prev/bootspruefung-learning" "$RUNNER_TEMP/wp/wp-content/plugins/bootspruefung-learning"
+          cd "$RUNNER_TEMP/prev"
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/smoke-test.php > smoke.log || { cat smoke.log; exit 1; }
+          php tools/content-build/bin/build-package.php > /dev/null
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php > flow.log || { cat flow.log; exit 1; }
+          cd "$GITHUB_WORKSPACE"
+          WP_DIR="$RUNNER_TEMP/wp" php tools/release/upgrade-check.php before "$RUNNER_TEMP/upgrade-state.json"
+      - name: Neue Version aus der ZIP darüber einspielen („Ersetzen“, ohne erneute Aktivierung) und Migration prüfen
+        run: |
+          tools/release/build-zips.sh --out build/release
+          source build/release/versions.env
+          rm "$RUNNER_TEMP/wp/wp-content/plugins/bootspruefung-learning"
+          unzip -q "build/release/bootspruefung-learning-$PLUGIN_VERSION.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          WP_DIR="$RUNNER_TEMP/wp" php tools/release/upgrade-check.php after "$RUNNER_TEMP/upgrade-state.json" | tee upgrade.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" upgrade.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Weiterbetrieb nach dem Update (Import, Lernen, Zugänge, Betrieb)
+        run: |
+          check_log() { if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" "$1"; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi; }
+          php tools/content-build/bin/build-package.php
+          WP_DIR="$RUNNER_TEMP/wp" PACKAGE_DIR="$(ls -d build/boatingschool-*/)" php bootspruefung-learning/tests/integration/content-flow-test.php | tee up-flow.log; check_log up-flow.log
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/commerce-test.php | tee up-commerce.log; check_log up-commerce.log
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/operations-test.php | tee up-operations.log; check_log up-operations.log
+
+  static-analysis:
+    name: Statische Analyse (PHPStan, WordPress Coding Standards)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: bootspruefung-learning
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Werkzeuge (require-dev aus composer.lock)
+        run: composer install --no-interaction --no-progress
+      - name: PHPStan (Stufe und Baseline in phpstan.neon.dist)
+        run: vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+      - name: WordPress Coding Standards – Sicherheitsregeln (phpcs.xml.dist, Baseline phpcs-baseline.xml)
+        run: vendor/bin/phpcs --report-full --report-summary
+      - name: WordPress Coding Standards – alle Regeln als Übersicht (nur Information)
+        run: composer phpcs-style | tail -n 80
 
   staging:
     name: Docker-Staging (Erststart und Neustart)
