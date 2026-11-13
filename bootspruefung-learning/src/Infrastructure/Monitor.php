@@ -87,12 +87,11 @@ final class Monitor
         if ($screen && ! in_array($screen->id, ['dashboard', 'options-general', 'toplevel_page_bootspruefung'], true)) {
             return;
         }
-        printf(
-            '<div class="notice notice-warning"><p><strong>%s</strong> %s <a href="%s">%s</a></p></div>',
-            esc_html__('Zeitzone:', 'bootspruefung-learning'),
-            esc_html__('Die Website steht nicht auf einer Ortszeit (z. B. „Berlin“). Uhrzeiten in Bestellmails (Zustimmung zum vorzeitigen Beginn), Widerrufs- und Garantiefristen und im Lernbereich wären sonst um eine Stunde oder mehr verschoben.', 'bootspruefung-learning'),
-            esc_url(admin_url('options-general.php')),
-            esc_html__('Unter Einstellungen › Allgemein „Berlin“ wählen', 'bootspruefung-learning')
-        );
+        \Bootspruefung\Learning\Admin\Notices::add([
+            'key' => 'timezone', 'type' => 'warning',
+            'title' => __('Zeitzone:', 'bootspruefung-learning'),
+            'text' => __('Die Website steht nicht auf einer Ortszeit (z. B. „Berlin“). Uhrzeiten in Bestellmails (Zustimmung zum vorzeitigen Beginn), Widerrufs- und Garantiefristen und im Lernbereich wären sonst um eine Stunde oder mehr verschoben.', 'bootspruefung-learning'),
+            'buttons' => [[__('Unter Einstellungen › Allgemein „Berlin“ wählen', 'bootspruefung-learning'), admin_url('options-general.php'), true]],
+        ]);
     }
 }

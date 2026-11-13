@@ -65,6 +65,7 @@ final class ContentPages
         $this->can();
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Bootsprüfung – Übersicht', 'bootspruefung-learning').'</h1>';
         Ui::notice();
+        GoLiveChecklist::render(); // T99: Livegang-Checkliste mit Status
         $active = get_option('bp_learning_active_package');
         $last = $this->db->get_row("SELECT id, package_id, status, published_at FROM {$this->t('import_batch')} ORDER BY id DESC LIMIT 1");
         Ui::keyValue([

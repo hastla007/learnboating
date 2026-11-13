@@ -77,9 +77,17 @@ final class LegalTextsEmail
 
             return $edit ? '<a href="'.esc_url($edit).'">'.esc_html(self::title($p)).'</a>' : esc_html(self::title($p));
         }, $open);
-        echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Rechtstexte enthalten Platzhalter – werden nicht in Bestellmails übernommen.', 'bootspruefung-learning').'</strong> '
-            .esc_html__('Die Bestellbestätigung soll AGB und Widerrufsbelehrung enthalten (§ 312f Abs. 2 BGB). Bitte ersetze die [[Betreiber: …]]-Platzhalter in:', 'bootspruefung-learning').' '
-            .implode(', ', $links).'</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- oben escaped
+        $buttons = [];
+        if (($operator = \Bootspruefung\Learning\Admin\GoLiveCheck::operatorUrl()) !== null && current_user_can('manage_options')) {
+            $buttons[] = [__('Betreiberangaben ausfüllen', 'bootspruefung-learning'), $operator, true];
+        }
+        \Bootspruefung\Learning\Admin\Notices::add([
+            'key' => 'legal_mail_placeholders', 'type' => 'warning', 'version' => md5(implode(',', array_map(static fn (\WP_Post $p) => $p->ID, $open))),
+            'title' => __('Rechtstexte enthalten Platzhalter – werden nicht in Bestellmails übernommen.', 'bootspruefung-learning'),
+            'text' => __('Die Bestellbestätigung soll AGB und Widerrufsbelehrung enthalten (§ 312f Abs. 2 BGB). Bitte ersetze die [[Betreiber: …]]-Platzhalter in:', 'bootspruefung-learning'),
+            'html' => '<p>'.implode(', ', $links).'</p>', // oben escaped
+            'buttons' => $buttons,
+        ]);
     }
 
     /**

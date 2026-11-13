@@ -147,5 +147,20 @@ if ($backup === null) {
     update_option(KURSWASSER_OPERATOR_OPTION, $backup, false);
 }
 
+echo "Admin-Hinweis Rechtstexte (T99)\n";
+wp_set_current_user(1);
+require_once ABSPATH.'wp-admin/includes/admin.php';
+delete_user_meta(1, 'bp_notices_dismissed');
+$open = kurswasser_legal_open_issues();
+ob_start();
+do_action('admin_notices');
+$adminNotice = (string) ob_get_clean();
+if ($open !== []) {
+    $check(str_contains($adminNotice, 'Bootsprüfung:') && str_contains($adminNotice, 'Rechtstexte noch nicht fertig') && str_contains($adminNotice, 'Betreiberangaben ausfüllen') && str_contains($adminNotice, 'page=kurswasser-operator'), 'Rechtstext-Hinweis: Absender „Bootsprüfung:“, Knopf „Betreiberangaben ausfüllen“');
+    $check(! class_exists('\\Bootspruefung\\Learning\\Admin\\Notices') || str_contains($adminNotice, 'Für 7 Tage ausblenden'), 'Rechtstext-Hinweis vertagbar (mit Lern-Plugin)');
+} else {
+    $check(! str_contains($adminNotice, 'Rechtstexte noch nicht fertig'), 'keine offenen Rechtstexte: kein Hinweis');
+}
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

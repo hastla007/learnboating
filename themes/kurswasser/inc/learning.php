@@ -64,6 +64,35 @@ function kurswasser_learning_version(): ?string
     return null;
 }
 
+/**
+ * Admin-Hinweis über die gemeinsame Hilfsklasse des Lern-Plugins (T99: Absender „Bootsprüfung:“, Sammel-Hinweis,
+ * wegklickbar je Schlüssel). Argumente wie \Bootspruefung\Learning\Admin\Notices::add() (key, type, title, text,
+ * html = bereits maskiertes HTML, buttons = [[Text, URL, primär?]], dismiss, snooze_days, version). Mit 'now' => true
+ * sofort ausgeben statt sammeln. Ohne Plugin (oder mit einer älteren Version) einfacher Hinweis ohne Wegklicken.
+ */
+function kurswasser_admin_notice(array $args): void
+{
+    $notices = '\Bootspruefung\Learning\Admin\Notices';
+    if (class_exists($notices)) {
+        if (empty($args['now'])) {
+            $notices::add($args);
+        } else {
+            echo $notices::render($args); // phpcs:ignore WordPress.Security.EscapeOutput -- in render maskiert
+        }
+
+        return;
+    }
+    $type = in_array($args['type'] ?? '', ['error', 'warning', 'info', 'success'], true) ? $args['type'] : 'info';
+    echo '<div class="notice notice-'.esc_attr($type).'"><p><strong>'.esc_html__('Bootsprüfung:', 'kurswasser').'</strong> '
+        .(! empty($args['title']) ? '<strong>'.esc_html((string) $args['title']).'</strong> ' : '')
+        .esc_html((string) ($args['text'] ?? '')).'</p>'.(string) ($args['html'] ?? ''); // phpcs:ignore WordPress.Security.EscapeOutput -- html vom Aufrufer maskiert
+    $buttons = [];
+    foreach ((array) ($args['buttons'] ?? []) as $b) {
+        $buttons[] = '<a class="button'.(! empty($b[2]) ? ' button-primary' : '').'" href="'.esc_url((string) $b[1]).'">'.esc_html((string) $b[0]).'</a>';
+    }
+    echo ($buttons ? '<p>'.implode(' ', $buttons).'</p>' : '').'</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
+}
+
 /** Hinweis im Admin, wenn das Plugin aktiv, aber zu alt bzw. inkompatibel ist. */
 function kurswasser_learning_notice(): void
 {
@@ -71,14 +100,12 @@ function kurswasser_learning_notice(): void
     if ($version === null || kurswasser_learning_compatible() || ! current_user_can('update_plugins')) {
         return;
     }
-    printf(
-        '<div class="notice notice-warning"><p>%s</p></div>',
-        esc_html(sprintf(
-            /* translators: 1: benötigte Version, 2: vorhandene Version */
-            __('Kurswasser braucht das Plugin „Bootsprüfung Lernplattform“ ab Version %1$s (vorhanden: %2$s). Bis zum Update zeigt das Theme Kurse, Preise und Prüfungsanmeldung ohne Plugin-Daten an.', 'kurswasser'),
-            KURSWASSER_LEARNING_MIN_VERSION,
-            $version
-        ))
-    );
+    // Sofort ausgeben: ein zu altes Plugin hat die gemeinsame Hilfsklasse evtl. noch nicht.
+    kurswasser_admin_notice(['key' => 'kw_learning_version', 'type' => 'warning', 'dismiss' => 'none', 'now' => true, 'text' => sprintf(
+        /* translators: 1: benötigte Version, 2: vorhandene Version */
+        __('Kurswasser braucht das Plugin „Bootsprüfung Lernplattform“ ab Version %1$s (vorhanden: %2$s). Bis zum Update zeigt das Theme Kurse, Preise und Prüfungsanmeldung ohne Plugin-Daten an.', 'kurswasser'),
+        KURSWASSER_LEARNING_MIN_VERSION,
+        $version
+    ), 'buttons' => [[__('Plugins aktualisieren', 'kurswasser'), admin_url('plugins.php')]]]);
 }
 add_action('admin_notices', 'kurswasser_learning_notice');

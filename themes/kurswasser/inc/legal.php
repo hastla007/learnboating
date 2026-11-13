@@ -407,20 +407,28 @@ add_action('admin_notices', static function (): void {
     if (! $open) {
         return;
     }
-    echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Rechtstexte noch nicht fertig', 'kurswasser').'</strong> – '
-        .esc_html__('Bitte prüfen lassen, alle Platzhalter ersetzen, den Vorlagen-Hinweis löschen und die Seiten veröffentlichen:', 'kurswasser').'</p><ul style="list-style:disc;margin-left:1.5em">';
+    // T99: gemeinsamer Hinweis „Bootsprüfung:“, vertagbar; neue offene Punkte zeigen ihn wieder (Version).
+    $list = '<ul style="list-style:disc;margin-left:1.5em">';
     foreach ($open as $item) {
         $link = $item['id'] ? get_edit_post_link($item['id']) : '';
         $label = $link ? '<a href="'.esc_url($link).'">'.esc_html($item['title']).'</a>' : esc_html($item['title']);
-        echo '<li>'.$label.': '.esc_html(implode(', ', $item['issues'])).'</li>';
+        $list .= '<li>'.$label.': '.esc_html(implode(', ', $item['issues'])).'</li>';
     }
-    echo '</ul>';
+    $list .= '</ul>';
+    $buttons = [];
+    if (current_user_can('manage_options')) {
+        $buttons[] = [__('Betreiberangaben ausfüllen', 'kurswasser'), admin_url('themes.php?page=kurswasser-operator'), true];
+    }
     if (current_user_can('manage_options') && array_filter(array_keys($open), static fn (string $slug): bool => ($p = kurswasser_legal_page($slug)) && kurswasser_legal_content($slug) !== null && str_contains($p->post_content, 'Platzhalter – hier den geprüften Text einfügen'))) {
-        $url = wp_nonce_url(admin_url('admin-post.php?action=kurswasser_legal_fill'), 'kurswasser_legal_fill');
-        echo '<p><a class="button" href="'.esc_url($url).'">'.esc_html__('Vorlagen in leere Seiten einfügen', 'kurswasser').'</a> '
-            .esc_html__('(bearbeitete Seiten bleiben unverändert)', 'kurswasser').'</p>';
+        $buttons[] = [__('Vorlagen in leere Seiten einfügen (bearbeitete Seiten bleiben unverändert)', 'kurswasser'), wp_nonce_url(admin_url('admin-post.php?action=kurswasser_legal_fill'), 'kurswasser_legal_fill')];
     }
-    echo '</div>';
+    kurswasser_admin_notice([
+        'key' => 'kw_legal_open', 'type' => 'warning', 'version' => md5((string) wp_json_encode($open)),
+        'title' => __('Rechtstexte noch nicht fertig', 'kurswasser'),
+        'text' => __('Bitte die Betreiberangaben ausfüllen (sie ersetzen beim Übernehmen der Vorlagen die [[Betreiber: …]]-Platzhalter), restliche Platzhalter ersetzen, prüfen lassen, den Vorlagen-Hinweis löschen und die Seiten veröffentlichen:', 'kurswasser'),
+        'html' => $list,
+        'buttons' => $buttons,
+    ]);
 });
 
 add_action('admin_post_kurswasser_legal_fill', static function (): void {

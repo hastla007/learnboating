@@ -328,13 +328,13 @@ final class Plugin
         if ($migrator->schemaIsNewer() && is_admin() && ! $ajax) {
             $installed = (string) $migrator->installedVersion();
             add_action('admin_notices', static function () use ($installed): void {
-                printf('<div class="notice notice-error"><p>%s</p></div>', esc_html(sprintf(
+                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'schema_newer', 'type' => 'error', 'dismiss' => 'none', 'text' => sprintf(
                     /* translators: 1: installiertes Schema, 2: Plugin-Version, 3: erwartetes Schema */
-                    __('Bootsprüfung Lernplattform: Die Datenbank hat Schema %1$s, diese Plugin-Version %2$s erwartet %3$s. Das Plugin wurde ohne Rücksicherung der Datenbank auf eine ältere Version zurückgesetzt. Bitte die neuere Version wieder einspielen oder das Datenbank-Backup von vor dem Update zurückspielen (siehe Release-Regel, „Downgrade“).', 'bootspruefung-learning'),
+                    __('Die Datenbank hat Schema %1$s, diese Plugin-Version %2$s erwartet %3$s. Das Plugin wurde ohne Rücksicherung der Datenbank auf eine ältere Version zurückgesetzt. Bitte die neuere Version wieder einspielen oder das Datenbank-Backup von vor dem Update zurückspielen (siehe Release-Regel, „Downgrade“).', 'bootspruefung-learning'),
                     $installed,
                     self::VERSION,
                     Migrator::SCHEMA_VERSION
-                )));
+                )]);
             });
         }
         if (! $migrator->needsMigration()) {
@@ -344,11 +344,11 @@ final class Plugin
         $cli = PHP_SAPI === 'cli' || (defined('WP_CLI') && WP_CLI);
         if (is_admin() && ! $ajax && is_array($failed)) {
             add_action('admin_notices', static function () use ($failed): void {
-                printf('<div class="notice notice-error"><p>%s</p></div>', esc_html(sprintf(
+                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'migration_failed', 'type' => 'error', 'dismiss' => 'none', 'text' => sprintf(
                     /* translators: %s: Fehlermeldung */
-                    __('Bootsprüfung Lernplattform: Die Datenbank-Aktualisierung ist fehlgeschlagen und wird in einigen Minuten erneut versucht. Fehler: %s', 'bootspruefung-learning'),
+                    __('Die Datenbank-Aktualisierung ist fehlgeschlagen und wird in einigen Minuten erneut versucht. Fehler: %s', 'bootspruefung-learning'),
                     (string) ($failed['message'] ?? '')
-                )));
+                )]);
             });
         }
         $action = self::migrationAction($cli, is_admin(), wp_doing_cron(), $failed, time(), $ajax);
@@ -482,7 +482,7 @@ final class Plugin
             // Neuer Versuch nach dem Backoff, auch ohne weitere Anfragen.
             self::scheduleMigration($failed);
             add_action('admin_notices', static function () use ($e): void {
-                printf('<div class="notice notice-error"><p>%s</p></div>', esc_html($e->getMessage()));
+                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'migration_error', 'type' => 'error', 'dismiss' => 'none', 'text' => $e->getMessage()]);
             });
 
             return false;

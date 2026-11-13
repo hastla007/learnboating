@@ -19,6 +19,8 @@ final class GoLiveNotice
 
     public function register(): void
     {
+        Notices::register(); // gemeinsame Admin-Hinweise (T99)
+        GoLiveChecklist::register(); // Livegang-Checkliste auf der Übersicht (T99)
         add_action('admin_notices', [$this, 'render']);
         add_action('admin_post_'.self::ACTION, [$this, 'handle']);
     }
@@ -46,46 +48,62 @@ final class GoLiveNotice
      */
     public static function ampelNotice(): string
     {
+        $args = self::ampelArgs();
+
+        return $args === null ? '' : Notices::render($args);
+    }
+
+    /** @return array<string,mixed>|null Hinweis für Notices oder null */
+    public static function ampelArgs(): ?array
+    {
         if (! class_exists('WooCommerce') || ! current_user_can('manage_woocommerce')) {
-            return '';
+            return null;
         }
         $screen = function_exists('get_current_screen') ? get_current_screen() : null;
         $id = $screen ? (string) $screen->id : '';
         $tab = sanitize_key((string) ($_GET['tab'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification -- nur Anzeige
         if (self::shopVisible()) {
             if ($screen && ! in_array($id, ['dashboard', 'toplevel_page_bootspruefung', 'woocommerce_page_wc-settings'], true)) {
-                return '';
+                return null;
             }
             $checks = GoLiveCheck::run();
             if (GoLiveCheck::allGreen($checks)) {
-                return '';
+                return null;
             }
 
-            return '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Der Shop ist für Kunden sichtbar, aber die Livegang-Ampel hat offene Punkte.', 'bootspruefung-learning').'</strong></p>'
-                .GoLiveCheck::html($checks).'</div>';
+            // Dringend: nur vertagbar; neue rote Punkte zeigen den Hinweis wieder (Version).
+            return ['key' => 'golive_visible', 'type' => 'warning', 'dismiss' => 'snooze', 'snooze_days' => 3, 'version' => md5(implode('|', GoLiveCheck::redLabels($checks))),
+                'title' => __('Der Shop ist für Kunden sichtbar, aber die Livegang-Ampel hat offene Punkte.', 'bootspruefung-learning'), 'html' => GoLiveCheck::html($checks)];
         }
         if ($id !== 'woocommerce_page_wc-settings' || $tab !== 'site-visibility') {
-            return '';
+            return null;
         }
         $checks = GoLiveCheck::run();
         $green = GoLiveCheck::allGreen($checks);
 
-        return '<div class="notice notice-'.($green ? 'success' : 'warning').'"><p><strong>'.esc_html__('Bootsprüfung: Livegang-Ampel vor „Shop für Kunden sichtbar machen“', 'bootspruefung-learning').'</strong> '
-            .esc_html($green ? __('Alle Punkte sind grün.', 'bootspruefung-learning') : __('Es sind noch Punkte offen. Sichtbar machen ist trotzdem möglich – bitte nur bewusst.', 'bootspruefung-learning')).'</p>'
-            .GoLiveCheck::html($checks).'</div>';
+        return ['key' => 'golive_before', 'type' => $green ? 'success' : 'warning', 'dismiss' => 'none',
+            'title' => __('Livegang-Ampel vor „Shop für Kunden sichtbar machen“', 'bootspruefung-learning'),
+            'text' => $green ? __('Alle Punkte sind grün.', 'bootspruefung-learning') : __('Es sind noch Punkte offen. Sichtbar machen ist trotzdem möglich – bitte nur bewusst.', 'bootspruefung-learning'),
+            'html' => GoLiveCheck::html($checks)];
     }
 
     public function render(): void
     {
-        echo self::ampelNotice(); // phpcs:ignore WordPress.Security.EscapeOutput -- in ampelNotice maskiert
+        if (($args = self::ampelArgs()) !== null) {
+            Notices::add($args);
+        }
         if (! current_user_can('manage_options') || ! self::shouldWarn()) {
             return;
         }
-        echo '<div class="notice notice-error"><p><strong>'.esc_html__('Lernplattform: Der Shop ist für Kunden sichtbar, aber alle angemeldeten Nutzer lernen noch kostenlos.', 'bootspruefung-learning').'</strong> '
-            .esc_html__('„Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“. Stell auf „Nur kostenlose Regeln und Freischaltungen“ um, damit nur gekaufte Kurse und die kostenlosen Teilumfänge freigeschaltet sind.', 'bootspruefung-learning').'</p>'
-            .'<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:0 0 .8em"><input type="hidden" name="action" value="'.esc_attr(self::ACTION).'">'
-            .wp_nonce_field(self::ACTION, '_wpnonce', true, false)
-            .'<button type="submit" class="button button-primary">'.esc_html__('Jetzt umstellen', 'bootspruefung-learning').'</button></form></div>';
+        // Fehler: nicht dauerhaft wegklickbar, nur um einen Tag vertagbar.
+        Notices::add([
+            'key' => 'golive_free_access', 'type' => 'error', 'dismiss' => 'snooze', 'snooze_days' => 1,
+            'title' => __('Der Shop ist für Kunden sichtbar, aber alle angemeldeten Nutzer lernen noch kostenlos.', 'bootspruefung-learning'),
+            'text' => __('„Zugang ohne Shop“ steht auf „Alle angemeldeten Nutzer“. Stell auf „Nur kostenlose Regeln und Freischaltungen“ um, damit nur gekaufte Kurse und die kostenlosen Teilumfänge freigeschaltet sind.', 'bootspruefung-learning'),
+            'html' => '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin:0 0 .8em"><input type="hidden" name="action" value="'.esc_attr(self::ACTION).'">'
+                .wp_nonce_field(self::ACTION, '_wpnonce', true, false)
+                .'<button type="submit" class="button button-primary">'.esc_html__('Jetzt umstellen', 'bootspruefung-learning').'</button></form>',
+        ]);
     }
 
     public function handle(): void

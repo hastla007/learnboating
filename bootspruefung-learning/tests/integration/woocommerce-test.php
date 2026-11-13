@@ -147,6 +147,7 @@ $check($st['state'] === 'exceeded' && $st['threshold'] === 1.0, 'Schwelle übers
 wp_set_current_user(1);
 ob_start();
 $oss::adminNotice();
+\Bootspruefung\Learning\Admin\Notices::flush(); // T99: Hinweise werden gesammelt ausgegeben
 $notice = (string) ob_get_clean();
 $check($st['oss'] || str_contains($notice, 'OSS-Schwelle:'), 'Hinweis ohne OSS-Steuersätze');
 ob_start();
@@ -1724,6 +1725,7 @@ $noticeFor = static function (int $user) use ($lt): string {
     wp_set_current_user($user);
     ob_start();
     (new $lt())->adminNotice();
+    \Bootspruefung\Learning\Admin\Notices::flush();
 
     return (string) ob_get_clean();
 };
@@ -1751,6 +1753,7 @@ update_option('woocommerce_coming_soon', 'yes');
 $RQ = \Bootspruefung\Learning\Infrastructure\Requirements::class;
 ob_start();
 $RQ::adminNotice();
+\Bootspruefung\Learning\Admin\Notices::flush();
 $rqNotice = (string) ob_get_clean();
 $check($RQ::wooCommerceStatus()['supported'] === true && $rqNotice === '' && ! $RQ::wooCommerceSupported('11.1.9') && $RQ::wooCommerceSupported('11.2.0') && $RQ::wooCommerceSupported('11.3'), 'Mindestversion WooCommerce 11.2: getestete Version ohne Hinweis, ältere wird erkannt (T34)');
 $check(has_action('admin_notices', [$RQ, 'adminNotice']) !== false, 'Hinweis bei zu altem WooCommerce im Admin registriert');

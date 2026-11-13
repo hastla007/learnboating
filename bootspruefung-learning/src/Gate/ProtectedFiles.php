@@ -50,8 +50,9 @@ final class ProtectedFiles
             return;
         }
         delete_transient(self::NOTICE_TRANSIENT.$userId);
-        foreach (array_unique($messages) as $message) {
-            echo '<div class="notice notice-error"><p>'.esc_html((string) $message).'</p></div>';
+        foreach (array_values(array_unique($messages)) as $i => $message) {
+            // Einmalige Meldung (danach gelöscht): nicht wegklickbar.
+            \Bootspruefung\Learning\Admin\Notices::add(['key' => 'protected_file_'.$i, 'type' => 'error', 'dismiss' => 'none', 'text' => (string) $message]);
         }
     }
 

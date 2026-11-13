@@ -416,23 +416,27 @@ final class WithdrawalFunction
         if (self::enabled()) {
             if (get_option(self::AUTOENABLED_OPTION) === 'notice') {
                 update_option(self::AUTOENABLED_OPTION, 'yes', false);
-                echo '<div class="notice notice-success is-dismissible"><p><strong>'.esc_html__('Bootsprüfung: Widerrufsfunktion (§ 356a BGB) eingeschaltet.', 'bootspruefung-learning').'</strong> '
-                    .esc_html__('Die WooCommerce-Funktion „Order withdrawal“ wurde beim Update einmalig eingeschaltet: „Vertrag hier widerrufen“ in der Fußzeile und unter „Mein Lernen“ führt jetzt zum Online-Formular mit Eingangsbestätigung per E-Mail. Ausschalten kannst du sie unter WooCommerce → Einstellungen → Erweitert → Funktionen; sie bleibt dann aus.', 'bootspruefung-learning').'</p></div>';
+                \Bootspruefung\Learning\Admin\Notices::add(['key' => 'withdrawal_enabled', 'type' => 'success', 'dismiss' => 'none',
+                    'title' => __('Widerrufsfunktion (§ 356a BGB) eingeschaltet.', 'bootspruefung-learning'),
+                    'text' => __('Die WooCommerce-Funktion „Order withdrawal“ wurde beim Update einmalig eingeschaltet: „Vertrag hier widerrufen“ in der Fußzeile und unter „Mein Lernen“ führt jetzt zum Online-Formular mit Eingangsbestätigung per E-Mail. Ausschalten kannst du sie unter WooCommerce → Einstellungen → Erweitert → Funktionen; sie bleibt dann aus.', 'bootspruefung-learning')]);
             }
 
             return;
         }
-        echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsprüfung: Widerrufsfunktion (§ 356a BGB) ist aus.', 'bootspruefung-learning').'</strong> ';
+        // Rechtspflicht: nur vertagbar (1 Tag), nicht dauerhaft wegklickbar.
+        $title = __('Widerrufsfunktion (§ 356a BGB) ist aus.', 'bootspruefung-learning');
         if (! self::available()) {
-            echo esc_html__('Sie braucht WooCommerce 11.1 oder neuer. Bitte WooCommerce aktualisieren.', 'bootspruefung-learning').'</p></div>';
+            \Bootspruefung\Learning\Admin\Notices::add(['key' => 'withdrawal_off', 'type' => 'warning', 'snooze_days' => 1, 'title' => $title,
+                'text' => __('Sie braucht WooCommerce 11.1 oder neuer. Bitte WooCommerce aktualisieren.', 'bootspruefung-learning')]);
 
             return;
         }
-        echo esc_html__('Seit 19.06.2026 müssen Online-Shops Verbrauchern einen Button „Vertrag hier widerrufen“ mit Online-Formular anbieten. WooCommerce bringt die Funktion mit, sie ist aber ausgeschaltet. Der Link „Vertrag hier widerrufen“ in der Fußzeile führt solange nur zur Widerrufsbelehrung (Kontakt und Muster-Formular) – ein Online-Formular gibt es erst, wenn du die Funktion einschaltest.', 'bootspruefung-learning').'</p>'
-            .'<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><p>'
-            .wp_nonce_field('bp_enable_withdrawal', '_wpnonce', true, false)
-            .'<input type="hidden" name="action" value="bp_enable_withdrawal">'
-            .'<button type="submit" class="button button-primary">'.esc_html__('Widerrufsfunktion einschalten', 'bootspruefung-learning').'</button></p></form></div>';
+        \Bootspruefung\Learning\Admin\Notices::add(['key' => 'withdrawal_off', 'type' => 'warning', 'snooze_days' => 1, 'title' => $title,
+            'text' => __('Seit 19.06.2026 müssen Online-Shops Verbrauchern einen Button „Vertrag hier widerrufen“ mit Online-Formular anbieten. WooCommerce bringt die Funktion mit, sie ist aber ausgeschaltet. Der Link „Vertrag hier widerrufen“ in der Fußzeile führt solange nur zur Widerrufsbelehrung (Kontakt und Muster-Formular) – ein Online-Formular gibt es erst, wenn du die Funktion einschaltest.', 'bootspruefung-learning'),
+            'html' => '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><p>'
+                .wp_nonce_field('bp_enable_withdrawal', '_wpnonce', true, false)
+                .'<input type="hidden" name="action" value="bp_enable_withdrawal">'
+                .'<button type="submit" class="button button-primary">'.esc_html__('Widerrufsfunktion einschalten', 'bootspruefung-learning').'</button></p></form>']);
     }
 
     public function handleEnable(): void

@@ -327,9 +327,9 @@ if (function_exists('wc_get_product_id_by_sku')) {
     $catalogSkn = ShopCatalog::find('BP-SKN')['price'];
     ShopCatalog::applyProducts();
     $check(get_post_meta($sknId, ShopCatalog::PRICE_META, true) === number_format((float) $catalogSkn, 2, '.', ''), 'zuletzt geschriebener Katalogpreis gemerkt');
-    $p = wc_get_product($sknId);
-    $p->set_regular_price('99.00');
-    $p->save();
+    $prod = wc_get_product($sknId);
+    $prod->set_regular_price('99.00');
+    $prod->save();
     $dry = array_column(ShopCatalog::applyProducts(true), null, 'sku')['BP-SKN'];
     $check(in_array('price', $dry['skipped'], true) && str_contains($dry['price'], 'nicht überschrieben') && str_contains($dry['price'], '99,00'), 'Vorschau meldet: Preis von Hand geändert, nicht überschrieben');
     $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
@@ -345,11 +345,12 @@ if (function_exists('wc_get_product_id_by_sku')) {
     ShopCatalog::applyProducts();
     $check(wc_get_product($sknId)->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'eigener Preis zurück: Katalogpreis wieder im Shop');
     delete_post_meta($sknId, ShopCatalog::PRICE_META);
-    $p = wc_get_product($sknId);
-    $p->set_regular_price('77.00');
-    $p->save();
+    $prod = wc_get_product($sknId);
+    $prod->set_regular_price('77.00');
+    $prod->save();
     $check(ShopCatalog::priceChangedByHand(wc_get_product($sknId), ShopCatalog::find('BP-SKN')), 'ältere Produkte ohne Vermerk: abweichender Preis gilt als Handänderung');
     ShopCatalog::applyProducts(false, false, ['overwrite_prices' => true]);
+    $check(wc_get_product($sknId)->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'alle bewusst überschrieben: wieder Katalogpreis');
 
     // Entwurf von Hand zurückgestellt (Statuswechsel außerhalb des Katalogs).
     wp_update_post(['ID' => $fknId, 'post_status' => 'publish']);
@@ -775,6 +776,63 @@ $check(str_contains($html, 'Ohne Hochladen importieren') && str_contains($html, 
 $js = (string) file_get_contents(dirname(__DIR__, 2).'/assets/admin/import.js');
 $check(str_contains($js, 'data-max-bytes') && str_contains($js, 'AbortController') && str_contains($js, 'text.http') && ! preg_match('/[\'"](Error|Import running|failed)[\'"]/', $js), 'import.js: Größenprüfung, Zeitüberschreitung, HTTP-Fehler; Texte aus PHP (deutsch)');
 ImportService::removeDir($work);
+
+echo "Admin-Hinweise: einheitlich, gebündelt, wegklickbar; Livegang-Checkliste (T99)\n";
+use Bootspruefung\Learning\Admin\Notices;
+
+wp_set_current_user(1);
+delete_user_meta(1, Notices::META);
+$flushed = static function (): string {
+    ob_start();
+    Notices::flush();
+
+    return (string) ob_get_clean();
+};
+Notices::add(['key' => 't99_info', 'type' => 'info', 'title' => 'Titel A', 'text' => 'Text A', 'buttons' => [['Knopf', admin_url('themes.php?page=kurswasser-operator'), true]]]);
+$one = $flushed();
+$check(str_contains($one, '<strong>Bootsprüfung:</strong>') && str_contains($one, 'Titel A') && str_contains($one, 'button-primary') && str_contains($one, '>Ausblenden<') && str_contains($one, 'data-bp-notice="t99_info"'), 'ein Hinweis: Absender „Bootsprüfung:“, Knopf, dauerhaft ausblendbar');
+Notices::add(['key' => 't99_warn', 'type' => 'warning', 'text' => 'Warnung']);
+Notices::add(['key' => 't99_err', 'type' => 'error', 'dismiss' => 'forever', 'text' => 'Fehler']);
+Notices::add(['key' => 't99_none', 'type' => 'warning', 'dismiss' => 'none', 'text' => 'Fest']);
+$many = $flushed();
+$check(str_contains($many, 'Bootsprüfung: 3 Hinweise') && substr_count($many, 'class="notice ') === 1 && strpos($many, 'Fehler') < strpos($many, 'Warnung'), 'mehrere Hinweise: ein Sammel-Hinweis, Fehler zuerst');
+$check(str_contains($many, 'Für 7 Tage ausblenden') && str_contains($many, 'Für 1 Tag ausblenden') && ! preg_match('/data-bp-notice="t99_none".*?bp-notice-dismiss.*?data-bp-notice/s', $many.'data-bp-notice'), 'Warnung vertagbar, Fehler nur vertagbar (nicht dauerhaft), „none“ ohne Ausblenden');
+$check($flushed() === '', 'nach der Ausgabe ist die Sammlung leer');
+Notices::dismiss('t99_info');
+Notices::add(['key' => 't99_info', 'type' => 'info', 'text' => 'Text A']);
+$check(Notices::isDismissed('t99_info') && ! isset(Notices::queued()['t99_info']), 'dauerhaft ausgeblendet (Nutzer-Meta je Schlüssel)');
+Notices::add(['key' => 't99_info', 'type' => 'info', 'text' => 'neu', 'version' => 'v2']);
+$check(isset(Notices::queued()['t99_info']), 'neue Version des Hinweises erscheint wieder');
+$flushed();
+Notices::dismiss('t99_warn', 7);
+$meta = get_user_meta(1, Notices::META, true);
+$check(Notices::isDismissed('t99_warn') && (int) $meta['t99_warn']['until'] > time() + 6 * DAY_IN_SECONDS, 'vertagt um 7 Tage');
+$meta['t99_warn']['until'] = time() - 1;
+update_user_meta(1, Notices::META, $meta);
+$check(! Notices::isDismissed('t99_warn'), 'nach Ablauf der Vertagung wieder sichtbar');
+$check(! Notices::isDismissed('t99_warn', '', 2), 'Ausblenden gilt je Nutzer');
+delete_user_meta(1, Notices::META);
+$check(has_action('admin_notices', [Notices::class, 'flush']) !== false && has_action('wp_ajax_'.Notices::ACTION) !== false, 'Sammel-Ausgabe und Wegklicken registriert');
+
+$GL = \Bootspruefung\Learning\Admin\GoLiveChecklist::class;
+$tickBak = get_option($GL::OPTION, null);
+delete_option($GL::OPTION);
+$items = array_column($GL::items(), null, 'key');
+$check(isset($items['legal'], $items['exam_rules'], $items['package']) && $items['legal']['auto'] && isset($items['tax'], $items['payments'], $items['backup'], $items['prices']) && ! $items['tax']['auto'] && ! $items['tax']['ok'], 'Checkliste: automatisch geprüfte und abhakbare Punkte (Drehbuch Abschnitt 1)');
+$GL::tick('tax', true);
+$items = array_column($GL::items(), null, 'key');
+ob_start();
+$GL::render();
+$cl = (string) ob_get_clean();
+$check($items['tax']['ok'] && (int) $items['tax']['by'] === 1 && str_contains($cl, 'abgehakt von') && str_contains($cl, 'Livegang-Checkliste') && str_contains($cl, 'name="action" value="'.$GL::ACTION.'"'), 'abgehakt mit Name und Datum, Knopf zum Abhaken');
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'golive_checklist_done'") > 0, 'Abhaken im Protokoll');
+$GL::tick('tax', false);
+$check(! array_column($GL::items(), null, 'key')['tax']['ok'], 'zurückgenommen');
+$tickBak === null ? delete_option($GL::OPTION) : update_option($GL::OPTION, $tickBak, false);
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview();
+$ov = (string) ob_get_clean();
+$check(str_contains($ov, 'id="bp-golive-checklist"') && ! str_contains($ov, 'docs/livegang-drehbuch'), 'Übersicht zeigt die Livegang-Checkliste (statt Verweis auf docs/)');
 
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);

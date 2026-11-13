@@ -67,6 +67,35 @@ keine symbolischen Links, höchstens 20.000 Dateien und 800 MB entpackt, kein au
 (ZIP-Bombe). Ein abgelehntes Paket wird nicht entpackt; die hochgeladene bzw. geladene Datei und eine etwaige
 Teilentpackung werden gelöscht. Dieselben Regeln gelten für Paketordner (Ablageordner, WP-CLI).
 
+## T99 Admin-Hinweise und Livegang-Checkliste
+
+Alle Admin-Hinweise von Plugin und Theme laufen über eine gemeinsame Hilfsklasse (`Bootspruefung\Learning\Admin\Notices`,
+im Theme `kurswasser_admin_notice()`): Absender „Bootsprüfung:“, mehrere gleichzeitige Hinweise als ein Sammel-Hinweis,
+wegklickbar je Hinweis und Person (Nutzer-Meta `bp_notices_dismissed`). Fehler und dringende Hinweise lassen sich nur
+vertagen (1 bzw. 3–7 Tage), nicht dauerhaft ausblenden; ändert sich der Inhalt (z. B. neue offene Punkte), erscheint
+der Hinweis wieder.
+
+| Hinweis | Datei | Art |
+|---|---|---|
+| Shop sichtbar, alle Angemeldeten lernen kostenlos (T15) | `Admin/GoLiveNotice.php` | Fehler, 1 Tag vertagbar, Knopf „Jetzt umstellen“ |
+| Shop sichtbar, Livegang-Ampel rot / Ampel im Reiter „Sichtbarkeit“ (T97) | `Admin/GoLiveNotice.php` | Warnung, 3 Tage vertagbar / fest |
+| WooCommerce älter als getestet | `Infrastructure/Requirements.php` | Warnung, vertagbar |
+| Zeitzone keine Ortszeit | `Infrastructure/Monitor.php` | Warnung, vertagbar |
+| OSS-Schwelle | `Commerce/WooCommerce/OssMonitor.php` | Warnung, vertagbar |
+| Rechtstexte mit Platzhaltern (Bestellmails) | `Commerce/WooCommerce/LegalTextsEmail.php` | Warnung, vertagbar, Knopf „Betreiberangaben ausfüllen“ |
+| Widerrufsfunktion aus / eingeschaltet | `Commerce/WooCommerce/WithdrawalFunction.php` | Warnung, 1 Tag vertagbar / einmalig |
+| Geschützte Datei nicht verschiebbar | `Gate/ProtectedFiles.php` | Fehler, einmalig |
+| Datenbank-Schema/Migration | `Plugin.php` | Fehler, fest |
+| Rechtstexte noch nicht fertig | Theme `inc/legal.php` | Warnung, vertagbar, Knopf „Betreiberangaben ausfüllen“ (Design › Betreiberangaben) |
+| Lern-Plugin zu alt | Theme `inc/learning.php` | Warnung, fest |
+
+Unverändert (eigenes Verhalten): PHP-Version zu alt (`bootspruefung-learning.php`, vor dem Laden der Klassen),
+Hinweis nach Vorlagen-Update der Rechtstexte (Theme, schon wegklickbar je Vorlagenstand), „Inhaltsseiten aus dem Theme“
+(Theme `inc/content-pages.php`, nur auf Seiten-/Theme-Bildschirmen, mit eigenen Knöpfen), FAQ-Listenkopf
+(`FaqAdmin`, `CustomerFaqAdmin`, kein Hinweis, sondern Bedienfeld), Meldungen der Zusatz-Plugins (Connectoren).
+
+Die Voraussetzungen aus dem Livegang-Drehbuch (Abschnitt 1) stehen als **Livegang-Checkliste** auf der Übersicht.
+
 ## T68 Rechte und Prüfungsregelwerke im Live-System freigeben
 
 **Vorhanden:** Bootsprüfung › Rechte (Admin) und WP-CLI:

@@ -56,15 +56,12 @@ final class Requirements
         if (! $woo['active'] || $woo['supported']) {
             return;
         }
-        printf(
-            '<div class="notice notice-warning"><p>%s</p></div>',
-            esc_html(sprintf(
-                /* translators: 1: vorhandene, 2: benötigte WooCommerce-Version */
-                __('Lernplattform: WooCommerce %1$s ist älter als die getestete Mindestversion %2$s. Kasse, Freischaltung und Zustimmung zur sofortigen Ausführung sind damit nicht getestet. Bitte WooCommerce aktualisieren.', 'bootspruefung-learning'),
-                (string) $woo['version'],
-                self::MIN_WC
-            ))
-        );
+        \Bootspruefung\Learning\Admin\Notices::add(['key' => 'wc_version', 'type' => 'warning', 'version' => (string) $woo['version'], 'text' => sprintf(
+            /* translators: 1: vorhandene, 2: benötigte WooCommerce-Version */
+            __('WooCommerce %1$s ist älter als die getestete Mindestversion %2$s. Kasse, Freischaltung und Zustimmung zur sofortigen Ausführung sind damit nicht getestet. Bitte WooCommerce aktualisieren.', 'bootspruefung-learning'),
+            (string) $woo['version'],
+            self::MIN_WC
+        ), 'buttons' => [[__('Plugins aktualisieren', 'bootspruefung-learning'), admin_url('plugins.php')]]]);
     }
 
     /** Erfüllt diese WooCommerce-Version die getestete Mindestversion? */

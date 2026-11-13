@@ -238,7 +238,7 @@ final class OssMonitor
         $text = $s['state'] === 'exceeded'
             ? sprintf(__('Die Umsätze an Privatkunden in anderen EU-Ländern liegen über %1$s (%2$d: %3$s, %4$d: %5$s). Ab dann gilt in der Regel die Mehrwertsteuer des Kundenlands (OSS-Verfahren) – bitte mit der Steuerberatung klären und unter Design › Kurswasser einrichten auf „OSS“ umstellen.', 'bootspruefung-learning'), $amount($s['threshold']), $s['previous']['year'], $amount($s['previous']['total']), $s['current']['year'], $amount($s['current']['total']))
             : sprintf(__('Die Umsätze an Privatkunden in anderen EU-Ländern erreichen %1$d %% der Schwelle von %2$s (%3$d: %4$s). Bitte die OSS-Registrierung mit der Steuerberatung vorbereiten.', 'bootspruefung-learning'), (int) round($s['current']['total'] * 100 / max(1.0, $s['threshold'])), $amount($s['threshold']), $s['current']['year'], $amount($s['current']['total']));
-        printf('<div class="notice notice-warning"><p><strong>%s</strong> %s</p></div>', esc_html__('OSS-Schwelle:', 'bootspruefung-learning'), esc_html($text));
+        \Bootspruefung\Learning\Admin\Notices::add(['key' => 'oss_threshold', 'type' => 'warning', 'version' => $s['state'].$s['current']['year'], 'title' => __('OSS-Schwelle:', 'bootspruefung-learning'), 'text' => $text]);
     }
 
     /** Abschnitt im Systemstatus. */

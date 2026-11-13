@@ -5,6 +5,11 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 
 ## 1. Voraussetzungen (eine Woche vorher)
 
+Diese Liste steht auch im Admin unter **Bootsprüfung › Übersicht › Livegang-Checkliste** (T99): Was das Plugin
+selbst prüfen kann (Rechtstexte ohne Platzhalter, Produkte, Prüfungsregelwerke, Schnupper-Paket, „Zugang ohne
+Shop“, Inhaltspaket, WooCommerce-Grundeinstellungen), steht dort grün/rot mit Link; die übrigen Punkte hakst du
+dort ab (mit Name und Datum, im Protokoll).
+
 | Muss | Punkt | Wo |
 |---|---|---|
 | ☐ | Rechtstexte veröffentlicht und geprüft (Impressum, Datenschutz, AGB, Widerruf, Garantie) | T11, T52, T72 |
