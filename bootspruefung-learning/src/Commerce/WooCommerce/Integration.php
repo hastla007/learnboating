@@ -121,6 +121,7 @@ final class Integration
         (new BankDetails())->register(); // Bankdaten bei offener Überweisung auch in der Bestellansicht (T50)
         (new PriceNote())->register();
         (new ContractSummary())->register(); // Laufzeit je Position und Garantie-Erklärung in der Bestellmail (T52)
+        OssMonitor::register(); // OSS-Schwelle überwachen (T53)
         (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
         (new OrderButton())->register();

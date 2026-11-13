@@ -111,6 +111,47 @@ $check(count($entitlements->forOrder($bacs)) === 2 && $statuses($bacs) === ['act
 $notes = wc_get_order_notes(['order_id' => $bacs]);
 $check((bool) array_filter($notes, static fn ($n) => str_contains($n->content, 'Lernzugang')), 'Bestellnotiz für den Support');
 
+echo "OSS-Schwelle (T53)\n";
+$oss = \Bootspruefung\Learning\Commerce\WooCommerce\OssMonitor::class;
+$ossBase = get_option('woocommerce_default_country');
+update_option('woocommerce_default_country', 'DE');
+$year = (int) wp_date('Y');
+$before = $oss::totals($year, true);
+$ossOrder = static function (string $country) use ($alice, $book): int {
+    $o = wc_create_order(['customer_id' => $alice]);
+    $o->add_product(wc_get_product($book), 1);
+    $o->set_billing_country($country);
+    $o->calculate_totals();
+    $o->update_status('processing', 'bezahlt');
+
+    return (int) $o->get_id();
+};
+$at = $ossOrder('AT');
+$de = $ossOrder('DE');
+$ch = $ossOrder('CH');
+$after = $oss::totals($year, true);
+$atNet = (float) wc_get_order($at)->get_total() - (float) wc_get_order($at)->get_total_tax();
+$check(abs($after['total'] - $before['total'] - $atNet) < 0.01 && $after['orders'] === $before['orders'] + 1 && isset($after['by_country']['AT']), 'nur EU-Ausland gezählt (AT ja, DE und CH nein)');
+wc_create_refund(['order_id' => $at, 'amount' => wc_get_order($at)->get_total(), 'reason' => 'Test']);
+$check(abs($oss::totals($year, true)['total'] - $before['total']) < 0.01, 'Erstattung abgezogen');
+$lowThreshold = static fn () => 1.0;
+add_filter('bootspruefung_oss_threshold', $lowThreshold);
+$ossOrder('FR');
+delete_transient('bp_oss_totals_'.$year);
+$st = $oss::status();
+$check($st['state'] === 'exceeded' && $st['threshold'] === 1.0, 'Schwelle überschritten erkannt');
+wp_set_current_user(1);
+ob_start();
+$oss::adminNotice();
+$notice = (string) ob_get_clean();
+$check($st['oss'] || str_contains($notice, 'OSS-Schwelle:'), 'Hinweis ohne OSS-Steuersätze');
+ob_start();
+$oss::renderStatus();
+$check(str_contains((string) ob_get_clean(), 'Steuer: OSS-Schwelle'), 'Abschnitt im Systemstatus');
+remove_filter('bootspruefung_oss_threshold', $lowThreshold);
+update_option('woocommerce_default_country', $ossBase);
+delete_transient('bp_oss_totals_'.$year);
+
 echo "Vertragsbestätigung: Laufzeit je Position und Garantie (T52)\n";
 \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($video, 14, 20.0);
 $cs = \Bootspruefung\Learning\Commerce\WooCommerce\ContractSummary::class;
