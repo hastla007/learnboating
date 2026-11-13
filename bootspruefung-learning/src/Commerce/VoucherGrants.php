@@ -238,12 +238,14 @@ final class VoucherGrants
     public function revoke(string $redemptionKey, string $reason): array|\WP_Error
     {
         $reference = self::reference($redemptionKey);
-        if ($this->entitlements->forReference($reference) === []) {
+        $rows = $this->entitlements->forReference($reference);
+        if ($rows === []) {
             return self::error('lb_grant_not_found', __('Zu diesem Einlöse-Schlüssel gibt es keine Freischaltung.', 'bootspruefung-learning'), 404);
         }
         $reason = trim($reason) !== '' ? trim($reason) : __('Kursgutschein widerrufen', 'bootspruefung-learning');
         $done = $this->entitlements->revokeReference($reference, $reason);
-        AuditLog::record('entitlement_voucher_revoke', 'grant', $reference, $reason, $done + ['redemption_key' => $redemptionKey]);
+        // The audit object id is numeric: the entry belongs to the learner, the grant is named in the context.
+        AuditLog::record('entitlement_voucher_revoke', 'user', (string) (int) $rows[0]->user_id, $reason, $done + ['redemption_key' => $redemptionKey, 'reference' => $reference]);
         do_action('bootspruefung_voucher_revoked', $redemptionKey, $done);
 
         return $done;
