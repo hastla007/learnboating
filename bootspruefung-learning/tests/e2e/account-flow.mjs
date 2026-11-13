@@ -21,7 +21,14 @@ async function newPage(viewport = { width: 1200, height: 900 }) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
   // Mit Seite und erster Stack-Zeile, damit fremde Skriptfehler zuordenbar sind.
-  page.on('pageerror', (e) => errors.push(`${page.url()}: ${e.message} @ ${(e.stack || '').split('\n').slice(1, 3).join(' | ').trim()}`));
+  // WordPress-Kern: user-profile.js wirft im beforeunload-Handler der Reset-Seite, wenn die Seite vor seinem
+  // DOM-ready verlassen wird ($form noch undefiniert) – nicht unser Code, daher ausgenommen.
+  page.on('pageerror', (e) => {
+    if (/\/wp-admin\/js\/user-profile(\.min)?\.js/.test(e.stack || '')) {
+      return;
+    }
+    errors.push(`${page.url()}: ${e.message} @ ${(e.stack || '').split('\n').slice(1, 3).join(' | ').trim()}`);
+  });
   page.on('requestfailed', (r) => { if (!offline && r.url().startsWith(base) && r.failure()?.errorText !== 'net::ERR_ABORTED') { errors.push(`${r.url()} ${r.failure()?.errorText}`); } });
 
   return page;
