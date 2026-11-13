@@ -100,6 +100,18 @@ Online-Kurs einholen. Datei in der lizenzierten Auflösung hochladen und Lizenz 
 die Produkte mit Preisen der Preis-Seite, Laufzeit, Lernzugang und Garantie. Danach
 `wp bootspruefung shop setup --publish --yes`. Der Befehl ist wiederholbar und gleicht bestehende Produkte ab.
 
+**Handänderungen bleiben (T98):** Der Abgleich merkt sich je Produkt den zuletzt geschriebenen Preis
+(`_bp_catalog_price`). Hast du einen Preis direkt im Produkt geändert, wird er nicht mehr still überschrieben: Die
+Preis-Seite zeigt „im Shop von Hand auf … geändert“ mit dem Haken „beim Abgleich trotzdem … setzen“, WP-CLI die Spalte
+`price` und die Option `--overwrite-prices=<SKU,…|all>`. Preise ändert man am besten nur auf der Preis-Seite.
+„Veröffentlichen“ (`--publish`) veröffentlicht nur neue und vom Katalog als Entwurf angelegte Produkte. Produkte,
+die du selbst auf Entwurf gesetzt hast, bleiben Entwurf (Spalte `status`; bewusst veröffentlichen:
+`--publish-held=<SKU,…|all>` bzw. Haken „trotzdem veröffentlichen“ auf der Preis-Seite). Deaktivierte Kurse wie
+„Ergänzung FKN → SKN“ (ADD-FKN-TO-SKN) bleiben immer Entwurf. Vorschau: `wp bootspruefung shop setup --dry-run --publish`.
+Bei Produkten aus älteren Abgleichen ohne Vermerk gilt ein Preis, der vom Katalog-Standardpreis abweicht, beim ersten
+Abgleich als Handänderung; ein Entwurf, der im Editor bearbeitet wurde, als zurückgestellt – einmal prüfen und bei
+Bedarf bewusst überschreiben bzw. veröffentlichen.
+
 **Zu tun:** Preise final (T16), dann auf Live anlegen und veröffentlichen. Stichprobe je Kategorie: Produktseite,
 Warenkorb, Kasse, Zuordnung „Lernzugang“ am Produkt.
 

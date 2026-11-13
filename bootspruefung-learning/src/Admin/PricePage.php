@@ -63,7 +63,7 @@ final class PricePage
             foreach ($skippedReport as $sku => $fields) {
                 echo '<li><code>'.esc_html((string) $sku).'</code>: '.esc_html(implode(', ', array_map([ShopCatalog::class, 'fieldLabel'], (array) $fields))).'</li>';
             }
-            echo '</ul><p class="description">'.esc_html__('Um wieder den Katalogstand zu übernehmen, das Feld im Produkt auf den Katalogwert zurücksetzen; danach gleicht der Katalog es wieder ab.', 'bootspruefung-learning').'</p></div>';
+            echo '</ul><p class="description">'.esc_html__('Um wieder den Katalogstand zu übernehmen, das Feld im Produkt auf den Katalogwert zurücksetzen; danach gleicht der Katalog es wieder ab. Preise: unter dem Preisfeld „beim Abgleich trotzdem … setzen“ anhaken. Zurückgestellte Entwürfe: „trotzdem veröffentlichen“ anhaken.', 'bootspruefung-learning').'</p></div>';
         }
         echo '<p style="max-width:900px">'.esc_html__('Hier legst du die Verkaufspreise (brutto, in Euro) fest. Ein leeres Feld oder der Katalogpreis bedeutet: festgelegter Katalogpreis. Shop, Kasse und Angebotskarten der Website zeigen die Preise aus WooCommerce – geänderte Preise gelten dort erst nach „Speichern und Katalog abgleichen“. Ein Angebotspreis (Sale), den du in WooCommerce einträgst, bleibt beim Abgleich erhalten und hat Vorrang. Bereits gekaufte Zugänge bleiben unverändert.', 'bootspruefung-learning').'</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_shop_prices', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_shop_prices">';
@@ -126,7 +126,7 @@ final class PricePage
         echo '<button class="button button-primary" name="op" value="'.($woo ? 'apply' : 'save').'">'.esc_html($woo ? __('Speichern und Katalog abgleichen', 'bootspruefung-learning') : __('Preise speichern', 'bootspruefung-learning')).'</button> ';
         if ($woo) {
             echo '<button class="button" name="op" value="save">'.esc_html__('Nur speichern', 'bootspruefung-learning').'</button> ';
-            echo '<label><input type="checkbox" name="publish" value="1"> '.esc_html__('Produkte dabei veröffentlichen (sonst bleiben neue Produkte Entwurf)', 'bootspruefung-learning').'</label>';
+            echo '<label><input type="checkbox" name="publish" value="1"> '.esc_html__('Produkte dabei veröffentlichen (neue und vom Katalog angelegte Entwürfe; von Hand zurückgestellte Entwürfe und deaktivierte Kurse bleiben Entwurf)', 'bootspruefung-learning').'</label>';
             if (ShopCatalog::saleConflicts() !== []) {
                 echo '<br><label><input type="checkbox" name="drop_sales" value="1"> '.esc_html__('Solche Angebotspreise entfernen (regulärer Preis nicht höher als der Angebotspreis)', 'bootspruefung-learning').'</label>';
             }
@@ -159,8 +159,16 @@ final class PricePage
             : esc_html__('Katalogpreis', 'bootspruefung-learning');
         if ($woo && ($pid = (int) wc_get_product_id_by_sku($sku)) && ($product = wc_get_product($pid))) {
             $shop = (string) $product->get_regular_price();
-            if ($shop !== '' && number_format((float) $shop, 2, '.', '') !== $p['price']) {
+            if (ShopCatalog::priceChangedByHand($product, $p)) {
+                // T98: von Hand im Shop geändert – Abgleich überschreibt nur nach ausdrücklicher Wahl.
+                $notes[] = '<span style="color:#996800">'.esc_html(sprintf(__('im Shop von Hand auf %s € geändert – wird beim Abgleich nicht überschrieben', 'bootspruefung-learning'), self::de($shop))).'</span>'
+                    .'<br><label><input type="checkbox" name="overwrite_prices[]" value="'.esc_attr($sku).'"> '.esc_html(sprintf(__('beim Abgleich trotzdem auf %s € setzen', 'bootspruefung-learning'), self::de((string) $p['price']))).'</label>';
+            } elseif ($shop !== '' && number_format((float) $shop, 2, '.', '') !== $p['price']) {
                 $notes[] = '<span style="color:#996800">'.esc_html(sprintf(__('im Shop noch %s € – bitte abgleichen', 'bootspruefung-learning'), self::de($shop))).'</span>';
+            }
+            if ($product->get_status() !== 'publish' && ShopCatalog::heldBack($product)) {
+                $notes[] = '<span>'.esc_html__('Entwurf, von Hand zurückgestellt – „veröffentlichen“ lässt ihn Entwurf', 'bootspruefung-learning').'</span>'
+                    .'<br><label><input type="checkbox" name="publish_held[]" value="'.esc_attr($sku).'"> '.esc_html__('beim Veröffentlichen trotzdem veröffentlichen', 'bootspruefung-learning').'</label>';
             }
             $sale = (string) $product->get_sale_price('edit');
             if ($product->is_on_sale('edit')) {
@@ -236,7 +244,8 @@ final class PricePage
         }
         if ($op === 'apply') {
             try {
-                $rows = ShopCatalog::applyProducts(false, ! empty($_POST['publish']));
+                $pick = static fn (string $key): array => array_values(array_filter(array_map('sanitize_text_field', array_map('strval', (array) wp_unslash($_POST[$key] ?? [])))));
+                $rows = ShopCatalog::applyProducts(false, ! empty($_POST['publish']), ['overwrite_prices' => $pick('overwrite_prices'), 'publish_held' => $pick('publish_held')]);
                 $changed = count(array_filter($rows, static fn ($r) => $r['action'] !== 'unverändert'));
                 $message .= ' '.sprintf(__('Katalog abgeglichen: %1$d Produkte, %2$d geändert.', 'bootspruefung-learning'), count($rows), $changed);
                 $message .= self::skippedMessage($rows);

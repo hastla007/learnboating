@@ -313,6 +313,78 @@ if (function_exists('wc_get_product_id_by_sku')) {
     $check(\Bootspruefung\Learning\Commerce\CourseRelations::evaluate(['FKN'], ['ADD-FKN-TO-SKN', 'SKN'])['ADD-FKN-TO-SKN']['recommended_for'] === [], 'keine Empfehlung für FKN-Inhaber');
     wp_delete_post($legacyId, true);
     wp_delete_term($extraId, 'product_cat');
+
+    echo "Katalog-Abgleich: von Hand geänderte Preise und zurückgestellte Entwürfe (T98)\n";
+    $sknId = (int) wc_get_product_id_by_sku('BP-SKN');
+    $fknId = (int) wc_get_product_id_by_sku('BP-FKN');
+    $statusBak = [$sknId => get_post_status($sknId), $fknId => get_post_status($fknId)];
+    $catalogSkn = ShopCatalog::find('BP-SKN')['price'];
+    ShopCatalog::applyProducts();
+    $check(get_post_meta($sknId, ShopCatalog::PRICE_META, true) === number_format((float) $catalogSkn, 2, '.', ''), 'zuletzt geschriebener Katalogpreis gemerkt');
+    $p = wc_get_product($sknId);
+    $p->set_regular_price('99.00');
+    $p->save();
+    $dry = array_column(ShopCatalog::applyProducts(true), null, 'sku')['BP-SKN'];
+    $check(in_array('price', $dry['skipped'], true) && str_contains($dry['price'], 'nicht überschrieben') && str_contains($dry['price'], '99,00'), 'Vorschau meldet: Preis von Hand geändert, nicht überschrieben');
+    $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === '99.00' && in_array('price', $row['skipped'], true), 'Abgleich überschreibt den Handpreis nicht still');
+    $check(\Bootspruefung\Learning\Admin\PricePage::skippedMessage([$row]) !== '' && ShopCatalog::fieldLabel('price') !== 'price', 'Preis-Seite meldet den übersprungenen Preis');
+    $row = array_column(ShopCatalog::applyProducts(false, false, ['overwrite_prices' => ['BP-SKN']]), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === $catalogSkn && str_contains($row['price'], 'bewusst überschrieben'), 'bewusst überschreiben: Katalogpreis gesetzt');
+    $ownBak = get_option(ShopCatalog::PRICE_OPTION, []);
+    ShopCatalog::saveOwnPrices(['BP-SKN' => '33,90']);
+    $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === '33.90' && ! in_array('price', $row['skipped'], true), 'neuer eigener Preis der Preis-Seite wird übertragen (keine Handänderung)');
+    update_option(ShopCatalog::PRICE_OPTION, $ownBak, false);
+    ShopCatalog::applyProducts();
+    $check(wc_get_product($sknId)->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'eigener Preis zurück: Katalogpreis wieder im Shop');
+    delete_post_meta($sknId, ShopCatalog::PRICE_META);
+    $p = wc_get_product($sknId);
+    $p->set_regular_price('77.00');
+    $p->save();
+    $check(ShopCatalog::priceChangedByHand(wc_get_product($sknId), ShopCatalog::find('BP-SKN')), 'ältere Produkte ohne Vermerk: abweichender Preis gilt als Handänderung');
+    ShopCatalog::applyProducts(false, false, ['overwrite_prices' => true]);
+
+    // Entwurf von Hand zurückgestellt (Statuswechsel außerhalb des Katalogs).
+    wp_update_post(['ID' => $fknId, 'post_status' => 'publish']);
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    $check(get_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META, true) === 'draft', 'Statuswechsel von Hand gemerkt');
+    $dry = array_column(ShopCatalog::applyProducts(true, true), null, 'sku');
+    $check(str_contains($dry['BP-FKN']['status'], 'zurückgestellt') && in_array('status', $dry['BP-FKN']['skipped'], true), 'Vorschau mit Veröffentlichen: zurückgestellter Entwurf bleibt Entwurf');
+    ShopCatalog::applyProducts(false, true);
+    $check(get_post_status($fknId) === 'draft', 'Veröffentlichen lässt den zurückgestellten Entwurf Entwurf');
+    ShopCatalog::applyProducts(false, true, ['publish_held' => ['BP-FKN']]);
+    $check(get_post_status($fknId) === 'publish', 'bewusst gewählt: zurückgestellter Entwurf veröffentlicht');
+    // Vom Katalog als Entwurf angelegt (kein Statuswechsel von Hand): wird veröffentlicht.
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    delete_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META);
+    update_post_meta($fknId, ShopCatalog::STATUS_META, 'draft');
+    $check(! ShopCatalog::heldBack(wc_get_product($fknId)), 'Katalog-Entwurf gilt nicht als zurückgestellt');
+    ShopCatalog::applyProducts(false, true);
+    $check(get_post_status($fknId) === 'publish' && get_post_meta($fknId, ShopCatalog::STATUS_META, true) === 'publish', 'Katalog-Entwurf wird veröffentlicht');
+    // Ältere Produkte ohne Vermerk: im Editor bearbeitet (_edit_last) = zurückgestellt.
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    delete_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META);
+    delete_post_meta($fknId, ShopCatalog::STATUS_META);
+    update_post_meta($fknId, '_edit_last', 1);
+    $check(ShopCatalog::heldBack(wc_get_product($fknId)), 'älterer Entwurf, im Editor bearbeitet: zurückgestellt');
+    delete_post_meta($fknId, '_edit_last');
+    $check(! ShopCatalog::heldBack(wc_get_product($fknId)), 'älterer Entwurf ohne Bearbeitung: wird veröffentlicht');
+    // Deaktivierter Kurs: bleibt immer Entwurf.
+    $legacy = new WC_Product_Simple();
+    $legacy->set_sku('BP-ADD-FKN-TO-SKN');
+    $legacy->set_name('Ergänzung FKN → SKN (alt)');
+    $legacy->set_status('draft');
+    $legacyId = (int) $legacy->save();
+    $dry = array_column(ShopCatalog::applyProducts(true, true), null, 'sku');
+    $check(str_contains((string) ($dry['BP-ADD-FKN-TO-SKN']['status'] ?? ''), 'deaktiviert'), 'Vorschau: deaktivierter Kurs bleibt Entwurf');
+    ShopCatalog::applyProducts(false, true, ['publish_held' => true]);
+    $check(get_post_status($legacyId) === 'draft', 'deaktivierter Kurs wird auch mit „veröffentlichen“ nicht veröffentlicht');
+    wp_delete_post($legacyId, true);
+    foreach ($statusBak as $pid => $st) {
+        wp_update_post(['ID' => $pid, 'post_status' => $st]);
+        delete_post_meta($pid, ShopCatalog::MANUAL_STATUS_META);
+    }
 }
 
 echo "Laufzeit vorbelegt, ohne Ablauf nur ausdrücklich (T101)\n";

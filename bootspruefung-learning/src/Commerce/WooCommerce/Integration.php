@@ -51,6 +51,8 @@ final class Integration
             return;
         }
         $self = new self();
+        // T98: Statuswechsel von Produkten von Hand merken (zurückgestellte Entwürfe nicht veröffentlichen).
+        add_action('transition_post_status', [ShopCatalog::class, 'trackManualStatus'], 10, 3);
 
         // Bestellereignisse → vollständiger, idempotenter Abgleich der Bestellung.
         $sync = static function ($orderId): void {

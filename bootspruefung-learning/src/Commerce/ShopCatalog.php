@@ -301,9 +301,85 @@ final class ShopCatalog
     /** Vom Katalog verwaltete Felder, die nach einer Handänderung im Shop nicht mehr überschrieben werden. */
     public const MANAGED_FIELDS = ['name', 'texts', 'categories', 'visibility', 'sold_individually', 'access', 'money_back'];
 
+    /** Meta: zuletzt vom Katalog geschriebener regulärer Preis („29.90“). */
+    public const PRICE_META = '_bp_catalog_price';
+
+    /** Meta: zuletzt vom Katalog gesetzter Status (draft/publish). */
+    public const STATUS_META = '_bp_catalog_status';
+
+    /** Meta: zuletzt von Hand (nicht vom Katalog) gesetzter Status, siehe trackManualStatus(). */
+    public const MANUAL_STATUS_META = '_bp_manual_status';
+
+    /** Schreibt der Katalog gerade selbst? (Statuswechsel dann nicht als Handänderung merken.) */
+    private static bool $writing = false;
+
+    /** Hook transition_post_status: Statuswechsel eines Produkts von Hand merken (Entwurf = bewusst zurückgestellt). */
+    public static function trackManualStatus(string $new, string $old, \WP_Post $post): void
+    {
+        if (self::$writing || $new === $old || $post->post_type !== 'product' || in_array($new, ['auto-draft', 'inherit', 'trash'], true) || $old === 'new' || $old === 'auto-draft') {
+            return;
+        }
+        update_post_meta($post->ID, self::MANUAL_STATUS_META, $new);
+    }
+
+    /** Preis wie im Katalog („29.90“), leer bleibt leer. */
+    private static function money(string $price): string
+    {
+        return $price === '' ? '' : number_format((float) $price, 2, '.', '');
+    }
+
+    /**
+     * Preis im Shop von Hand geändert? Ja, wenn der reguläre Preis im Shop vom zuletzt vom Katalog geschriebenen
+     * Preis abweicht (Meta PRICE_META) und nicht schon dem Sollpreis entspricht. Ohne Meta (Produkte aus älteren
+     * Abgleichen) gilt der Katalog-Standardpreis bzw. der eigene Preis als zuletzt geschrieben.
+     * @param array<string,mixed> $def Katalogeintrag aus products()
+     */
+    public static function priceChangedByHand(\WC_Product $product, array $def): bool
+    {
+        $current = self::money((string) $product->get_regular_price('edit'));
+        $wanted = self::money((string) $def['price']);
+        if ($current === '' || $current === $wanted) {
+            return false;
+        }
+        $last = self::money((string) $product->get_meta(self::PRICE_META));
+        if ($last !== '') {
+            return $current !== $last;
+        }
+
+        return $current !== self::money((string) ($def['catalog_price'] ?? $def['price']));
+    }
+
+    /**
+     * Bleibt ein vorhandener Entwurf beim Veröffentlichen Entwurf? Ja, wenn der Betreiber ihn selbst auf Entwurf
+     * gesetzt hat (Statuswechsel von Hand gemerkt) oder – bei Produkten aus älteren Abgleichen ohne Vermerk – das
+     * Produkt im Editor bearbeitet wurde. Nur vom Katalog als Entwurf angelegte Produkte werden veröffentlicht.
+     */
+    public static function heldBack(\WC_Product $product): bool
+    {
+        $status = $product->get_status();
+        if ($status === 'publish') {
+            return false;
+        }
+        if ($status !== 'draft') {
+            return true; // privat, ausstehend, geplant: bewusste Wahl des Betreibers
+        }
+        $id = (int) $product->get_id();
+        $manual = (string) get_post_meta($id, self::MANUAL_STATUS_META, true);
+        if ($manual !== '') {
+            return $manual === 'draft';
+        }
+        if ((string) get_post_meta($id, self::STATUS_META, true) === 'draft') {
+            return false;
+        }
+
+        return get_post_meta($id, '_edit_last', true) !== '';
+    }
+
     public static function fieldLabel(string $field): string
     {
         return match ($field) {
+            'price' => __('Preis (im Shop von Hand geändert)', 'bootspruefung-learning'),
+            'status' => __('Status (Entwurf bewusst zurückgestellt)', 'bootspruefung-learning'),
             'name' => __('Name', 'bootspruefung-learning'),
             'texts' => __('Texte', 'bootspruefung-learning'),
             'categories' => __('Kategorien', 'bootspruefung-learning'),
@@ -324,9 +400,17 @@ final class ShopCatalog
      * je Feld). Von Hand im Shop geänderte Felder bleiben erhalten und stehen in
      * 'skipped'. Kategorien werden ergänzt, nie entfernt.
      *
-     * @return list<array{sku:string,product_id:int,action:string,skipped:list<string>}>
+     * Preis (T98): Weicht der reguläre Preis im Shop vom zuletzt vom Katalog geschriebenen ab, wurde er von Hand
+     * geändert – er wird nicht still überschrieben, sondern gemeldet ('price', Feld 'price' in 'skipped'), außer
+     * die SKU steht in $options['overwrite_prices'] (true = alle). Veröffentlichen ($publish) gilt nur für neu
+     * angelegte und vom Katalog als Entwurf angelegte Produkte; vom Betreiber zurückgestellte Entwürfe bleiben
+     * Entwurf ('status'), außer die SKU steht in $options['publish_held'] (true = alle). Deaktivierte Kurse
+     * (z. B. ADD-FKN-TO-SKN) bleiben immer Entwurf.
+     *
+     * @param array{overwrite_prices?:list<string>|bool,publish_held?:list<string>|bool} $options
+     * @return list<array{sku:string,product_id:int,action:string,skipped:list<string>,price:string,status:string}>
      */
-    public static function applyProducts(bool $dryRun = false, bool $publish = false): array
+    public static function applyProducts(bool $dryRun = false, bool $publish = false, array $options = []): array
     {
         if (! function_exists('wc_get_product_id_by_sku')) {
             throw new \RuntimeException(__('WooCommerce ist nicht aktiv.', 'bootspruefung-learning'));
@@ -334,11 +418,40 @@ final class ShopCatalog
         global $wpdb;
         $repo = new ProductAccessRepository($wpdb);
         $report = [];
+        $listed = static function (string $key, string $sku) use ($options): bool {
+            $value = $options[$key] ?? [];
+
+            return $value === true || (is_array($value) && in_array($sku, $value, true));
+        };
+        $de = static fn (string $price): string => number_format((float) $price, 2, ',', '').' €';
         foreach (self::products() as $position => $def) {
             $id = (int) wc_get_product_id_by_sku($def['sku']);
             $product = $id ? wc_get_product($id) : null;
             $isNew = ! $product;
             $action = $product ? 'aktualisiert' : 'neu';
+            // Preis: von Hand im Shop geändert? Dann nur mit ausdrücklicher Bestätigung überschreiben.
+            $priceNote = '';
+            $setPrice = true;
+            if ($product && self::priceChangedByHand($product, $def)) {
+                $shopPrice = (string) $product->get_regular_price('edit');
+                if ($listed('overwrite_prices', $def['sku'])) {
+                    $priceNote = sprintf(__('von Hand geändert (%1$s), bewusst überschrieben mit %2$s', 'bootspruefung-learning'), $de($shopPrice), $de((string) $def['price']));
+                } else {
+                    $setPrice = false;
+                    $priceNote = sprintf(__('von Hand geändert, nicht überschrieben: im Shop %1$s, Katalog %2$s', 'bootspruefung-learning'), $de($shopPrice), $de((string) $def['price']));
+                }
+            }
+            // Status: neue Produkte nach Wunsch veröffentlichen, zurückgestellte Entwürfe nicht.
+            $statusNote = '';
+            $publishThis = $publish && ! $isNew && $product->get_status() !== 'publish';
+            if ($publishThis && self::heldBack($product) && ! $listed('publish_held', $def['sku'])) {
+                $publishThis = false;
+                $statusNote = sprintf(__('bleibt %s (von Hand zurückgestellt)', 'bootspruefung-learning'), $product->get_status() === 'draft' ? __('Entwurf', 'bootspruefung-learning') : $product->get_status());
+            } elseif ($publishThis || ($isNew && $publish)) {
+                $statusNote = __('wird veröffentlicht', 'bootspruefung-learning');
+            } elseif ($isNew) {
+                $statusNote = __('neu als Entwurf', 'bootspruefung-learning');
+            }
             $seats = (int) ($def['seats'] ?? 0);
             $scopes = [];
             foreach (array_unique($def['courses']) as $course) {
@@ -362,6 +475,12 @@ final class ShopCatalog
                 $hashes['texts'] = md5($legacyText);
             }
             $skipped = [];
+            if (! $setPrice) {
+                $skipped[] = 'price';
+            }
+            if ($publish && ! $isNew && ! $publishThis && $product->get_status() !== 'publish') {
+                $skipped[] = 'status';
+            }
             // Feld übernehmen? Neu, schon gleich, oder seit dem letzten Abgleich nicht von Hand geändert.
             $may = static function (string $field, string $current, string $wanted) use ($isNew, &$hashes, &$skipped): bool {
                 if ($isNew || $current === $wanted) {
@@ -386,19 +505,24 @@ final class ShopCatalog
                     $may('access', $currentAccess, $wantedAccess);
                     $may('money_back', $currentPolicy, $wantedPolicy);
                 }
-                $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action.' (Vorschau)', 'skipped' => $skipped];
+                $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action.' (Vorschau)', 'skipped' => $skipped, 'price' => $priceNote, 'status' => $statusNote];
                 continue;
             }
             $before = $product ? self::fingerprint($product) : '';
+            $statusWritten = null;
             if (! $product) {
                 $product = new \WC_Product_Simple();
                 $product->set_sku($def['sku']);
-                $product->set_status($publish ? 'publish' : 'draft');
-            } elseif ($publish) {
-                $product->set_status('publish');
+                $statusWritten = $publish ? 'publish' : 'draft';
+                $product->set_status($statusWritten);
+            } elseif ($publishThis) {
+                $statusWritten = 'publish';
+                $product->set_status($statusWritten);
             }
-            // Preis: immer aus Katalog/Preis-Seite (dort ist die Quelle).
-            $product->set_regular_price($def['price']);
+            // Preis: aus Katalog/Preis-Seite (dort ist die Quelle) – außer von Hand im Shop geändert (T98).
+            if ($setPrice) {
+                $product->set_regular_price($def['price']);
+            }
             $product->set_virtual(true);
             $product->set_reviews_allowed(false); // keine Produktbewertungen (leerer Reiter „Bewertungen (0)“)
             $product->set_menu_order((int) $position); // Shop-Reihenfolge wie im Katalog
@@ -445,7 +569,18 @@ final class ShopCatalog
             if ($action !== 'neu') {
                 $action = self::fingerprint($product) === $before ? 'unverändert' : 'aktualisiert';
             }
-            $id = (int) $product->save();
+            self::$writing = true;
+            try {
+                $id = (int) $product->save();
+            } finally {
+                self::$writing = false;
+            }
+            if ($setPrice) {
+                update_post_meta($id, self::PRICE_META, self::money((string) $def['price']));
+            }
+            if ($statusWritten !== null) {
+                update_post_meta($id, self::STATUS_META, $statusWritten);
+            }
 
             if ($may('access', $currentAccess, $wantedAccess)) {
                 $repo->save($id, 0, $scopes, $def['days'], 'extend', 'revoke_on_full_refund', $seats > 0 ? $seats : null);
@@ -482,24 +617,41 @@ final class ShopCatalog
             if (in_array('texts', $apply, true)) {
                 update_post_meta($id, '_bp_catalog_text', md5($text['short'].'|'.$text['long']));
             }
-            $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action, 'skipped' => $skipped];
+            $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action, 'skipped' => $skipped, 'price' => $priceNote, 'status' => $statusNote];
         }
-        // Deaktivierte Kurse: vorhandene Produkte auf Entwurf (nicht löschen – Bestellungen verweisen darauf).
+        // Deaktivierte Kurse: vorhandene Produkte auf Entwurf (nicht löschen – Bestellungen verweisen darauf),
+        // nie veröffentlichen – auch nicht mit „veröffentlichen“.
         foreach (self::disabledSkus() as $sku) {
             $id = (int) wc_get_product_id_by_sku($sku);
             $product = $id ? wc_get_product($id) : null;
-            if (! $product || $product->get_status() === 'draft') {
+            if (! $product) {
+                continue;
+            }
+            if ($product->get_status() === 'draft') {
+                if ($publish) {
+                    $report[] = ['sku' => $sku, 'product_id' => $id, 'action' => $dryRun ? 'unverändert (Vorschau)' : 'unverändert', 'skipped' => [], 'price' => '', 'status' => __('bleibt Entwurf (Kurs deaktiviert)', 'bootspruefung-learning')];
+                }
                 continue;
             }
             if (! $dryRun) {
-                $product->set_status('draft');
-                $product->save();
+                self::$writing = true;
+                try {
+                    $product->set_status('draft');
+                    $product->save();
+                } finally {
+                    self::$writing = false;
+                }
+                update_post_meta($id, self::STATUS_META, 'draft');
             }
-            $report[] = ['sku' => $sku, 'product_id' => $id, 'action' => $dryRun ? 'deaktiviert (Vorschau)' : 'deaktiviert (Entwurf)', 'skipped' => []];
+            $report[] = ['sku' => $sku, 'product_id' => $id, 'action' => $dryRun ? 'deaktiviert (Vorschau)' : 'deaktiviert (Entwurf)', 'skipped' => [], 'price' => '', 'status' => __('wird Entwurf (Kurs deaktiviert)', 'bootspruefung-learning')];
         }
         if (! $dryRun) {
             $skippedTotal = array_filter(array_column($report, 'skipped', 'sku'));
-            AuditLog::record('shop_catalog_applied', 'settings', null, null, ['products' => count($report), 'publish' => $publish, 'skipped' => $skippedTotal]);
+            AuditLog::record('shop_catalog_applied', 'settings', null, null, [
+                'products' => count($report), 'publish' => $publish, 'skipped' => $skippedTotal,
+                'prices_kept' => array_keys(array_filter(array_column($report, 'skipped', 'sku'), static fn ($s) => in_array('price', (array) $s, true))),
+                'prices_overwritten' => $options['overwrite_prices'] ?? [],
+            ]);
         }
 
         return $report;

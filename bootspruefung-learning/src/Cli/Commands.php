@@ -405,7 +405,15 @@ final class Commands
      * : Nur anzeigen, was passieren würde.
      *
      * [--publish]
-     * : Produkte veröffentlichen (sonst bleiben neue Produkte Entwurf).
+     * : Produkte veröffentlichen: neue und vom Katalog angelegte Entwürfe. Von Hand zurückgestellte Entwürfe
+     * und deaktivierte Kurse (z. B. ADD-FKN-TO-SKN) bleiben Entwurf; --dry-run --publish zeigt das in der Spalte status.
+     *
+     * [--overwrite-prices=<skus>]
+     * : Im Shop von Hand geänderte Preise trotzdem mit dem Katalogpreis überschreiben: kommagetrennte SKUs oder „all“.
+     * Ohne diese Option bleiben sie und stehen in der Spalte price.
+     *
+     * [--publish-held=<skus>]
+     * : Mit --publish: auch diese von Hand zurückgestellten Entwürfe veröffentlichen (kommagetrennte SKUs oder „all“).
      *
      * [--only=<teil>]
      * : products oder free.
@@ -432,7 +440,12 @@ final class Commands
                         WP_CLI::confirm(sprintf('%d bestehende Produkte werden mit dem Katalog abgeglichen (Preise aus der Preis-Seite; von Hand geänderte Felder bleiben). Fortfahren?', $existing), $assoc);
                     }
                 }
-                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts($dry, isset($assoc['publish']));
+                $list = static function (string $key) use ($assoc): array|bool {
+                    $raw = trim((string) ($assoc[$key] ?? ''));
+
+                    return $raw === 'all' ? true : array_values(array_filter(array_map('trim', explode(',', $raw))));
+                };
+                $rows = \Bootspruefung\Learning\Commerce\ShopCatalog::applyProducts($dry, isset($assoc['publish']), ['overwrite_prices' => $list('overwrite-prices'), 'publish_held' => $list('publish-held')]);
             } catch (\RuntimeException $e) {
                 WP_CLI::error($e->getMessage());
             }
@@ -441,9 +454,9 @@ final class Commands
                 $skippedAny = $skippedAny || $row['skipped'] !== [];
                 $rows[$i]['skipped'] = implode(', ', $row['skipped']);
             }
-            WP_CLI\Utils\format_items('table', $rows, ['sku', 'product_id', 'action', 'skipped']);
+            WP_CLI\Utils\format_items('table', $rows, ['sku', 'product_id', 'action', 'status', 'price', 'skipped']);
             if ($skippedAny) {
-                WP_CLI::warning('Spalte „skipped“: im Shop von Hand geänderte Felder, die der Abgleich nicht überschrieben hat.');
+                WP_CLI::warning('Spalte „skipped“: im Shop von Hand geänderte Felder, die der Abgleich nicht überschrieben hat (price = Preis, status = zurückgestellter Entwurf). Bewusst überschreiben: --overwrite-prices=<SKU,…|all> bzw. --publish-held=<SKU,…|all>.');
             }
         }
         if ($only !== 'products') {
