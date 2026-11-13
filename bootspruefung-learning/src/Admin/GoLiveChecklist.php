@@ -37,6 +37,23 @@ final class GoLiveChecklist
                 'detail' => $open === [] ? __('Sprache, Bankverbindung, Shop-Adresse, E-Mail-Format und Absender in Ordnung.', 'bootspruefung-learning') : implode('; ', array_map(static fn ($b) => $b['label'], $open)),
                 'url' => Ui::url('bootspruefung-status'), 'link' => __('Systemstatus', 'bootspruefung-learning')];
         }
+        $manual = self::manualItems();
+        $ticks = self::ticks();
+        foreach ($manual as [$key, $label, $url, $link]) {
+            $tick = $ticks[$key] ?? null;
+            $items[] = ['key' => $key, 'label' => $label, 'auto' => false, 'ok' => $tick !== null, 'detail' => '', 'url' => $url, 'link' => $link]
+                + ($tick !== null ? ['by' => (int) $tick['by'], 'at' => (int) $tick['at']] : []);
+        }
+
+        return $items;
+    }
+
+    /**
+     * Abhakbare Punkte: [Schlüssel, Bezeichnung, Link, Linktext].
+     * @return list<array{0:string,1:string,2:string,3:string}>
+     */
+    private static function manualItems(): array
+    {
         $status = Ui::url('bootspruefung-status');
         $manual = [
             ['legal_review', __('Rechtstexte inhaltlich geprüft (Impressum, Datenschutz, AGB, Widerruf, Garantie)', 'bootspruefung-learning'), '', ''],
@@ -50,14 +67,20 @@ final class GoLiveChecklist
         if (function_exists('kurswasser_content_open_items')) {
             $manual[] = ['content_pages', __('Inhaltsseiten ohne Warnung (Hinweis „Inhaltsseiten aus dem Theme“)', 'bootspruefung-learning'), admin_url('themes.php?page=kurswasser-setup'), __('Kurswasser einrichten', 'bootspruefung-learning')];
         }
-        $ticks = self::ticks();
-        foreach ($manual as [$key, $label, $url, $link]) {
-            $tick = $ticks[$key] ?? null;
-            $items[] = ['key' => $key, 'label' => $label, 'auto' => false, 'ok' => $tick !== null, 'detail' => '', 'url' => $url, 'link' => $link]
-                + ($tick !== null ? ['by' => (int) $tick['by'], 'at' => (int) $tick['at']] : []);
+
+        return $manual;
+    }
+
+    /** Bezeichnung eines abhakbaren Punkts (für das Protokoll), sonst null. */
+    public static function label(string $key): ?string
+    {
+        foreach (self::manualItems() as [$k, $label]) {
+            if ($k === $key) {
+                return $label;
+            }
         }
 
-        return $items;
+        return null;
     }
 
     /** @return array<string,array{by:int,at:int}> */

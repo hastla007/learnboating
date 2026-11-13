@@ -48,7 +48,16 @@ Einstellungen).
   Bezug (Zugang, Gruppe oder Bestellung mit Nummer). 50 Einträge je Seite.
 - **Anzeige:** Zeit, wer gehandelt hat (Anzeigename oder „System (automatisch)“), Ereignis auf Deutsch, Bezug als Link,
   Begründung und Details als Text (z. B. „von aktiv auf ausgesetzt · Kurs: SBF See · Funktion: Fragen lernen“).
-  Unbekannte Ereignisse erscheinen als „Sonstiges Ereignis (interner Name)“.
+  Unbekannte Ereignisse erscheinen als „Sonstiges Ereignis (interner Name)“. Seit T119 hat jede Aktion, die Plugin,
+  Theme oder Add-ons ins Protokoll schreiben, eine Bezeichnung (auch Livegang-Checkliste, „Shop trotz offener Punkte
+  sichtbar gemacht“, Sicherheitseinstellungen, Datenschutz-Löschung); `admin-test.php` sucht dazu alle Aufrufe im Code
+  und schlägt fehl, wenn eine Bezeichnung oder ein Bereich fehlt. Neue zusammengesetzte Namen (`'präfix_'.$wert`)
+  bitte dort in `$auditDynamic` ergänzen.
+- **Bereiche:** „Einstellungen und Livegang“ umfasst auch Sicherheit, Livegang-Checkliste und das Sichtbarmachen des
+  Shops trotz offener Punkte; „Datenschutz und Konten“ auch das Löschen der Lerndaten.
+- **Werte im Klartext:** „Zugang ohne Shop“ mit den Bezeichnungen der Einstellung, PayPal-Umgebung als
+  „Testumgebung (Sandbox)“ bzw. „Echtbetrieb“, Quelle als „Bestellung“, „manuell“, „Gruppe“, „Kursgutschein“, „PayPal“,
+  „Klarna“. Gutscheincodes (Prüfwert) und Fehlermeldungen werden nicht angezeigt.
 - **Datenschutz:** keine E-Mail-Adressen; Personen nur als Anzeigename bzw. Nutzer-Nummer. Prüfwerte gelöschter Konten
   und Fehlermeldungen von Löschvorgängen werden nicht angezeigt. Einträge werden nach 4 Jahren gelöscht.
 - **Verlauf:** In Zugänge › Zugang und in Gruppenlizenzen › Gruppe steht ein aufklappbarer „Verlauf“ mit den

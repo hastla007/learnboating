@@ -32,8 +32,8 @@ final class AuditPage
             'dispute' => [__('Zahlungskonflikte', 'bootspruefung-learning'), 'dispute\_%'],
             'content' => [__('Inhalte, Rechte und Regelwerke', 'bootspruefung-learning'), 'override\_%', 'chart\_%', 'file\_%', 'free\_rule\_%', 'drip\_rule\_%', 'exam\_committee\_%'],
             'import' => [__('Importe', 'bootspruefung-learning'), 'import\_%'],
-            'privacy' => [__('Datenschutz und Konten', 'bootspruefung-learning'), 'privacy\_%', 'account\_%', 'entitlements\_closed\_%'],
-            'settings' => [__('Einstellungen', 'bootspruefung-learning'), 'settings\_%', 'mobile\_%'],
+            'privacy' => [__('Datenschutz und Konten', 'bootspruefung-learning'), 'privacy\_%', 'personal\_data\_%', 'account\_%', 'entitlements\_closed\_%'],
+            'settings' => [__('Einstellungen und Livegang', 'bootspruefung-learning'), 'settings\_%', 'mobile\_%', 'security\_%', 'golive\_%', 'shop\_live\_%'],
         ];
     }
 
@@ -357,6 +357,10 @@ final class AuditPage
         if ($type === '' && $id === '') {
             return '–';
         }
+        if ($type === 'settings' && ($item = GoLiveChecklist::label($id)) !== null) {
+            /* translators: %s: Punkt der Livegang-Checkliste */
+            return esc_html(sprintf(__('Livegang-Checkliste: %s', 'bootspruefung-learning'), $item));
+        }
         if (isset($labels[$type])) {
             return esc_html(sprintf($labels[$type], wp_html_excerpt($id, 40, '…')));
         }
@@ -457,11 +461,15 @@ final class AuditPage
             'account_deleted' => __('Kundenkonto gelöscht', 'bootspruefung-learning'),
             'account_deletion_failed' => __('Kontolöschung fehlgeschlagen', 'bootspruefung-learning'),
             'account_deletion_skipped' => __('Kontolöschung übersprungen', 'bootspruefung-learning'),
-            // Einstellungen
+            'personal_data_erased' => __('Lerndaten einer Person gelöscht (Datenschutz)', 'bootspruefung-learning'),
+            // Einstellungen und Livegang
             'settings_default_access' => __('Einstellung „Zugang ohne Shop“ geändert', 'bootspruefung-learning'),
             'mobile_settings_saved' => __('Einstellungen der App gespeichert', 'bootspruefung-learning'),
             'mobile_sessions_revoked' => __('App-Sitzungen eines Kunden beendet', 'bootspruefung-learning'),
             'security_settings_saved' => __('Sicherheitseinstellungen gespeichert', 'bootspruefung-learning'),
+            'golive_checklist_done' => __('Livegang-Checkliste: Punkt abgehakt', 'bootspruefung-learning'),
+            'golive_checklist_undone' => __('Livegang-Checkliste: Haken zurückgenommen', 'bootspruefung-learning'),
+            'shop_live_confirmed' => __('Shop trotz offener Punkte sichtbar gemacht', 'bootspruefung-learning'),
         ];
         if (isset($labels[$action])) {
             return $labels[$action];
@@ -537,9 +545,10 @@ final class AuditPage
             'case_status' => __('Stand des Falls', 'bootspruefung-learning'), 'paypal' => __('PayPal eingerichtet', 'bootspruefung-learning'), 'mode' => __('Umgebung', 'bootspruefung-learning'),
             'rows' => __('Zeilen', 'bootspruefung-learning'), 'deleted' => __('gelöscht', 'bootspruefung-learning'), 'revoked' => __('beendet', 'bootspruefung-learning'), 'scopes_count' => __('Umfang', 'bootspruefung-learning'),
             'redemption_key' => __('Einlöse-Nr.', 'bootspruefung-learning'), 'grant_source' => __('Herkunft', 'bootspruefung-learning'), 'action' => __('Ergebnis', 'bootspruefung-learning'),
+            'open' => __('offene Punkte', 'bootspruefung-learning'), 'voucher_order' => __('Gutschein-Bestellung', 'bootspruefung-learning'),
         ];
-        // Nicht anzeigen: Prüfwerte gelöschter Konten, Fehlermeldungen (können Adressen enthalten).
-        unset($c['user'], $c['messages']);
+        // Nicht anzeigen: Prüfwerte gelöschter Konten bzw. Gutscheincodes, Fehlermeldungen (können Adressen enthalten).
+        unset($c['user'], $c['messages'], $c['message'], $c['code_hash']);
         foreach ($c as $key => $value) {
             if (in_array($key, ['variation_id', 'rollback_of', 'target_batch'], true) && empty($value)) {
                 continue;
@@ -623,6 +632,17 @@ final class AuditPage
                 return Ui::label($s);
             case 'redemption_key':
                 return wp_html_excerpt($s, 12, '…');
+            case 'voucher_order':
+                return ctype_digit($s) ? sprintf(__('Nr. %d', 'bootspruefung-learning'), (int) $s) : $s;
+            case 'mode':
+                // PayPal-Umgebung der Zahlungskonflikte
+                return ['sandbox' => __('Testumgebung (Sandbox)', 'bootspruefung-learning'), 'live' => __('Echtbetrieb', 'bootspruefung-learning')][$s] ?? $s;
+            case 'source':
+            case 'grant_source':
+                return self::sourceLabel($s);
+        }
+        if ($action === 'settings_default_access' && in_array($key, ['from', 'to'], true)) {
+            return '„'.(Menu::defaultAccessLabels()[$s] ?? $s).'“';
         }
         if (preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/', $s) === 1) {
             return Ui::date(substr(str_replace('T', ' ', $s), 0, 19));
@@ -634,5 +654,23 @@ final class AuditPage
         }
 
         return $s;
+    }
+
+    /** Quelle eines Zugangs bzw. Absender einer Meldung (Zahlungskonflikt, Gutschein) im Klartext. */
+    public static function sourceLabel(string $source): string
+    {
+        $known = [
+            'order' => __('Bestellung', 'bootspruefung-learning'), 'manual' => __('manuell', 'bootspruefung-learning'), 'group' => __('Gruppe', 'bootspruefung-learning'),
+            'voucher' => __('Kursgutschein', 'bootspruefung-learning'), 'paypal' => 'PayPal', 'klarna' => 'Klarna', 'stripe' => 'Stripe',
+        ];
+        if (isset($known[$source])) {
+            return $known[$source];
+        }
+        if (str_starts_with($source, 'voucher-') || str_starts_with($source, 'voucher_')) {
+            /* translators: %s: Kennung der Gutschein-Herkunft */
+            return sprintf(__('Kursgutschein (%s)', 'bootspruefung-learning'), substr($source, 8));
+        }
+
+        return $source;
     }
 }

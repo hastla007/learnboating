@@ -221,6 +221,15 @@ final class Menu
         Ui::table([__('Prüfung nach Wiederherstellung', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], $rows);
     }
 
+    /** Bezeichnungen der Einstellung „Zugang ohne Shop“ (auch im Protokoll). @return array<string,string> */
+    public static function defaultAccessLabels(): array
+    {
+        return [
+            'logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'),
+            'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning'),
+        ];
+    }
+
     public function renderSettings(): void
     {
         if (! current_user_can('manage_options')) {
@@ -239,7 +248,7 @@ final class Menu
         settings_fields('bp_learning');
         echo '<h2 id="bp-set-access">'.esc_html__('Zugang und Erinnerungen', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
         printf('<tr><th scope="row"><label for="bp-default-access">%s</label></th><td><select id="bp-default-access" name="%s[default_access]">', esc_html__('Zugang ohne Shop', 'bootspruefung-learning'), esc_attr(Settings::OPTION));
-        foreach (['logged_in' => __('Alle angemeldeten Nutzer dürfen lernen und prüfen', 'bootspruefung-learning'), 'entitled_only' => __('Nur kostenlose Regeln und Freischaltungen', 'bootspruefung-learning')] as $value => $label) {
+        foreach (self::defaultAccessLabels() as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($settings['default_access'], $value, false), esc_html($label));
         }
         echo '</select><p class="description">'.esc_html__('„Alle angemeldeten Nutzer“ ist für die Zeit vor dem Shopstart gedacht. Sobald Lernprodukte in WooCommerce verkauft werden, auf „Nur kostenlose Regeln und Freischaltungen“ umstellen – erst dann sperren Käufe, Erstattungen und Aussetzungen tatsächlich.', 'bootspruefung-learning').'</p></td></tr>';
@@ -276,7 +285,9 @@ final class Menu
             esc_attr(Settings::OPTION),
             checked(! empty($settings['exam_guide_enabled']), true, false),
             esc_html__('Für Lernende freischalten', 'bootspruefung-learning'),
-            esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und eine Liste von Prüfungsausschüssen (nicht vollständig, Hinweis für die Lernenden). Die Lernenden melden sich selbst beim Prüfungsausschuss an. Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning')
+            esc_html__('Seite „Prüfung anmelden“ je Kurs: Anleitung, Gebühren, Unterlagen, FAQ und eine Liste von Prüfungsausschüssen (nicht vollständig, Hinweis für die Lernenden). Die Lernenden melden sich selbst beim Prüfungsausschuss an.', 'bootspruefung-learning')
+            // T126: nur sagen, dass die Seite aus ist, wenn sie wirklich aus ist.
+            .(empty($settings['exam_guide_enabled']) ? ' '.esc_html__('Derzeit vorbereitet, aber deaktiviert.', 'bootspruefung-learning') : '')
         );
         echo '</tbody></table><h2 id="bp-set-privacy">'.esc_html__('Datenschutz und Daten', 'bootspruefung-learning').'</h2><table class="form-table"><tbody>';
         printf(

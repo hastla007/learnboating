@@ -565,6 +565,78 @@ $wpdb->delete($p.'entitlement', ['user_id' => $t102User]);
 wp_delete_user($t102User);
 wp_delete_user($editor);
 
+echo "Protokoll: alle Ereignisse mit Bezeichnung, Werte im Klartext (T119)\n";
+// Alle Aktionen, die Plugin, Theme und Add-ons ins Protokoll schreiben (AuditLog::record bzw. direkter Eintrag).
+$repoRoot = dirname(__DIR__, 3);
+$auditFiles = [];
+foreach (['bootspruefung-learning/src', 'themes/kurswasser', 'learnboating-affiliate-connector', 'learnboating-voucher-connector'] as $dir) {
+    if (! is_dir($repoRoot.'/'.$dir)) {
+        continue;
+    }
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($repoRoot.'/'.$dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+        if ($f->getExtension() === 'php' && ! str_contains($f->getPathname(), '/tests/') && ! str_contains($f->getPathname(), '/vendor/')) {
+            $auditFiles[] = $f->getPathname();
+        }
+    }
+}
+// Zusammengesetzte Namen ('prefix_'.$wert): alle möglichen Werte (neue Präfixe hier ergänzen).
+$auditDynamic = [
+    'entitlement_' => ['create', 'status', 'user'],
+    'entitlement_manual_' => ['active', 'suspended', 'revoked'],
+    'dispute_' => ['opened', 'won', 'lost'],
+    'group_' => ['active', 'suspended', 'revoked'],
+    'override_' => array_values(array_unique(array_merge(...array_values(\Bootspruefung\Learning\Content\Repositories\Overrides::FIELDS)))),
+];
+$auditActions = [];
+$auditUnknownPrefix = [];
+foreach ($auditFiles as $f) {
+    $src = (string) file_get_contents($f);
+    preg_match_all('/AuditLog::record\(\s*((?:[^,()]|\([^()]*\))+)/', $src, $mm);
+    foreach ($mm[1] as $arg) {
+        preg_match_all("/(?<!\[)'([a-z0-9_]+)'(\s*\.)?/", $arg, $lits, PREG_SET_ORDER); // ohne Array-Schlüssel wie $x['type']
+        foreach ($lits as $lit) {
+            if (! empty($lit[2])) {
+                isset($auditDynamic[$lit[1]]) ? array_push($auditActions, ...array_map(static fn ($v) => $lit[1].$v, $auditDynamic[$lit[1]])) : $auditUnknownPrefix[] = $lit[1].' ('.basename($f).')';
+            } else {
+                $auditActions[] = $lit[1];
+            }
+        }
+    }
+    if (preg_match_all("/insert\(\s*\\\$wpdb->prefix\s*\.\s*'bp_audit_log'.*?'action'\s*=>\s*'([a-z0-9_]+)'/s", $src, $mm)) {
+        array_push($auditActions, ...$mm[1]);
+    }
+}
+$auditActions = array_values(array_unique($auditActions));
+sort($auditActions);
+$unlabeled = array_values(array_filter($auditActions, static fn ($a) => str_starts_with($audit::actionLabel($a), 'Sonstiges Ereignis')));
+$check(count($auditActions) > 60 && in_array('golive_checklist_done', $auditActions, true) && in_array('shop_live_confirmed', $auditActions, true) && in_array('personal_data_erased', $auditActions, true), 'Suche findet die Protokoll-Aktionen ('.count($auditActions).', auch Theme und direkte Einträge)');
+$check($auditUnknownPrefix === [], 'keine unbekannten zusammengesetzten Aktionen'.($auditUnknownPrefix !== [] ? ': '.implode(', ', $auditUnknownPrefix) : ''));
+$check($unlabeled === [], 'jede geschriebene Aktion hat eine Bezeichnung (kein „Sonstiges Ereignis“)'.($unlabeled !== [] ? ': '.implode(', ', $unlabeled) : ''));
+// Bereichsfilter decken jede Aktion ab.
+$areaPatterns = [];
+foreach ((new ReflectionMethod($audit, 'areas'))->invoke(null) as $area) {
+    array_push($areaPatterns, ...array_slice($area, 1));
+}
+$likeToRegex = static fn (string $like): string => '/^'.str_replace(['\\_', '%'], ['_', '.*'], $like).'$/';
+$noArea = array_values(array_filter($auditActions, static function ($a) use ($areaPatterns, $likeToRegex) {
+    foreach ($areaPatterns as $like) {
+        if (preg_match($likeToRegex($like), $a) === 1) {
+            return false;
+        }
+    }
+
+    return true;
+}));
+$check($noArea === [], 'jede Aktion liegt in einem Bereich des Filters'.($noArea !== [] ? ': '.implode(', ', $noArea) : ''));
+$row = static fn (string $action, array $context, string $type = 'settings', string $id = '') => (object) ['action' => $action, 'context' => wp_json_encode($context), 'object_type' => $type, 'object_id' => $id];
+$t = $audit::details($row('settings_default_access', ['from' => 'logged_in', 'to' => 'entitled_only']));
+$check(str_contains($t, 'Alle angemeldeten Nutzer') && str_contains($t, 'Nur kostenlose Regeln') && ! str_contains($t, 'logged_in'), '„Zugang ohne Shop“: Bezeichnungen statt logged_in/entitled_only');
+$t = $audit::details($row('dispute_settings_saved', ['paypal' => true, 'mode' => 'sandbox']));
+$check(str_contains($t, 'Testumgebung') && ! str_contains($t, 'sandbox') && str_contains($audit::details($row('dispute_settings_saved', ['mode' => 'live'])), 'Echtbetrieb'), 'PayPal-Umgebung im Klartext');
+$t = $audit::details($row('entitlement_voucher_grant', ['source' => 'voucher-captain', 'voucher_id' => 7], 'user', '5')).' '.$audit::details($row('dispute_opened', ['source' => 'paypal'], 'order', '5'));
+$check(str_contains($t, 'Kursgutschein (captain)') && str_contains($t, 'Quelle: PayPal'), 'Quelle im Klartext');
+$check(str_contains($audit::objectLink('settings', 'tax'), 'Livegang-Checkliste: Steuer') && $audit::objectLink('settings', 'default_access') === 'Einstellungen', 'Bezug: Punkt der Livegang-Checkliste');
+
 echo "Rechte- und Regelwerk-Freigabe mit Rückfrage (T103)\n";
 require_once ABSPATH.'wp-admin/includes/template.php';
 $cp = \Bootspruefung\Learning\Admin\ContentPages::class;
