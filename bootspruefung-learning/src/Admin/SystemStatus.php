@@ -160,6 +160,17 @@ final class SystemStatus
             __('Bestellabgleich: Rückstand', 'bootspruefung-learning') => ! empty($last['more']) ? __('ja – der nächste Lauf macht weiter', 'bootspruefung-learning') : __('nein', 'bootspruefung-learning'),
             __('Bestellabgleich: Stand bis', 'bootspruefung-learning') => is_array($cursor) ? $time((int) ($cursor['time'] ?? 0)) : '–',
             __('Bestellungen zur Wiederholung', 'bootspruefung-learning') => $retry === [] ? '0' : count($retry).' ('.implode(', ', array_map(static fn ($id) => '#'.$id, array_slice(array_keys($retry), 0, 10))).')',
+            __('Letzter stündlicher Lauf', 'bootspruefung-learning') => ($lastHourly = (int) get_option(\Bootspruefung\Learning\Infrastructure\Monitor::OPTION_HOURLY, 0)) > 0
+                ? $time($lastHourly).(time() - $lastHourly > \Bootspruefung\Learning\Infrastructure\Monitor::CRON_MAX_AGE ? ' · '.__('länger als 3 Stunden her – Cron prüfen', 'bootspruefung-learning') : '')
+                : __('noch keiner', 'bootspruefung-learning'),
+            __('Überwachung', 'bootspruefung-learning') => rest_url('bootspruefung/v1/monitor').(defined('BOOTSPRUEFUNG_MONITOR_KEY') ? '?key=…' : '').' · '.__('200 = ok, 503 = Problem', 'bootspruefung-learning'),
+            __('Zeitzone', 'bootspruefung-learning') => wp_timezone_string().(\Bootspruefung\Learning\Infrastructure\Monitor::timezoneOk() ? '' : ' · '.__('keine Ortszeit – unter Einstellungen › Allgemein „Berlin“ wählen', 'bootspruefung-learning')),
+            __('Wartungs- und Fehlerseite', 'bootspruefung-learning') => sprintf(
+                /* translators: 1: maintenance.php status, 2: php-error.php status */
+                __('maintenance.php: %1$s · php-error.php: %2$s', 'bootspruefung-learning'),
+                is_file(WP_CONTENT_DIR.'/maintenance.php') ? __('vorhanden', 'bootspruefung-learning') : __('fehlt (Vorlage im Plugin-Ordner dropins/)', 'bootspruefung-learning'),
+                is_file(WP_CONTENT_DIR.'/php-error.php') ? __('vorhanden', 'bootspruefung-learning') : __('fehlt (Vorlage im Plugin-Ordner dropins/)', 'bootspruefung-learning')
+            ),
             __('Client-IP dieser Anfrage', 'bootspruefung-learning') => \Bootspruefung\Learning\Mobile\RateLimiter::clientIp().(\Bootspruefung\Learning\Mobile\RateLimiter::trustedProxies() !== [] ? ' · '.__('über eingetragenen Proxy', 'bootspruefung-learning') : ''),
         ];
         echo '<h2>'.esc_html__('Wartung', 'bootspruefung-learning').'</h2><table class="widefat striped" style="max-width:720px"><tbody>';

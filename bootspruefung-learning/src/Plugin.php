@@ -129,6 +129,7 @@ final class Plugin
         // Während einer fälligen Migration schreibende Lern-API-Anfragen mit 503 abweisen (T47).
         \Bootspruefung\Learning\Infrastructure\Maintenance::register();
         \Bootspruefung\Learning\Admin\MailStatus::register(); // Absender angleichen, Testmail (T54)
+        \Bootspruefung\Learning\Infrastructure\Monitor::register(); // Überwachung und Zeitzone (T55)
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
         \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY, [self::class, 'hourly']);
@@ -162,6 +163,8 @@ final class Plugin
     {
         global $wpdb;
         $cron = \Bootspruefung\Learning\Infrastructure\Cron::class;
+        // Zeitpunkt für die Überwachung (Monitor: Cron läuft? T55).
+        update_option(\Bootspruefung\Learning\Infrastructure\Monitor::OPTION_HOURLY, time(), false);
         $cron::run('exam_expire', static function (): void {
             $content = new \Bootspruefung\Learning\Content\Repositories\ContentRepository();
             $access = new \Bootspruefung\Learning\Learning\Services\AccessService();
