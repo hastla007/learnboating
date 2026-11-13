@@ -161,7 +161,7 @@ final class MobileApi
             return null;
         }
 
-        return Problem::response('APP_UPDATE_REQUIRED', __('Bitte aktualisiere die App, um weiterzulernen.', 'bootspruefung-learning'), 426, ['details' => ['platform' => $platform, 'app_version' => $version, 'min_app_version' => $min]]);
+        return Problem::response('APP_UPDATE_REQUIRED', __('Bitte aktualisiere die App, um weiterzulernen.', 'bootspruefung-learning'), 426, ['details' => ['platform' => $platform, 'app_version' => $version, 'min_app_version' => $min, 'store_url' => MobileSettings::storeUrls()[$platform] ?? null]]);
     }
 
     /**
@@ -452,6 +452,7 @@ final class MobileApi
             // Ohne Anmeldung nutzbar (z. B. Links auf dem Anmeldebildschirm, Pflicht-Update vor dem Login).
             'legal' => Controllers\AccountController::legalLinks(),
             'min_app_version' => ['ios' => MobileSettings::minAppVersion('ios'), 'android' => MobileSettings::minAppVersion('android')],
+            'store_urls' => MobileSettings::storeUrls(),
         ]], 200);
     }
 }

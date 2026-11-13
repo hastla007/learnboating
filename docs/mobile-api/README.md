@@ -679,6 +679,11 @@ beibehalten, wo es passt. Abweichungen:
 
 ### 1.11.0 (additiv)
 
+- **Store-Links:** `GET /health` liefert `store_urls.ios/android` (App Store bzw. Google Play, aus
+  „Bootsprüfung → Mobile App“; `null`, solange die App nicht im Store steht). Beim Pflicht-Update (426
+  `APP_UPDATE_REQUIRED`) steht der Link der eigenen Plattform in `details.store_url`. Mit App-Store-Link
+  zeigt Safari auf der Website das App-Banner (`apple-itunes-app`).
+
 - **Kursgutscheine (Gutschein-Plugin):** `POST /coupons/redeem` löst – wenn ein Gutschein-Plugin den
   WordPress-Filter `bootspruefung_voucher_redeem` belegt – auch Kursgutscheine ein. Der Kurs wird über
   eine interne WooCommerce-Bestellung über 0 € freigeschaltet, die Laufzeit beginnt mit der Einlösung.

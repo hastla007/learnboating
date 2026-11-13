@@ -30,6 +30,9 @@ final class MobileSettings
         // Mindestversion der App je Plattform (z. B. 1.4.0); ältere Versionen bekommen 426 APP_UPDATE_REQUIRED. Leer = keine.
         'min_app_version_ios' => '',
         'min_app_version_android' => '',
+        // Store-Einträge der App (To-do T24): Link beim Pflicht-Update und Safari-App-Banner. Leer = keine App im Store.
+        'app_store_url' => '',
+        'play_store_url' => '',
     ];
 
     /** Versionsnummer wie 1.4 oder 1.4.0 (höchstens vier Teile). */
@@ -173,6 +176,8 @@ final class MobileSettings
             'android_package' => preg_match(self::ANDROID_PACKAGE_PATTERN, $package) === 1 ? $package : '',
             'min_app_version_ios' => self::version((string) ($input['min_app_version_ios'] ?? '')),
             'min_app_version_android' => self::version((string) ($input['min_app_version_android'] ?? '')),
+            'app_store_url' => self::storeUrl((string) ($input['app_store_url'] ?? ''), 'ios'),
+            'play_store_url' => self::storeUrl((string) ($input['play_store_url'] ?? ''), 'android'),
             'android_cert_fingerprints' => implode("\n", array_slice(array_values(array_unique(array_filter(array_map([self::class, 'normalizeFingerprint'], preg_split('/[\s,]+/', (string) ($input['android_cert_fingerprints'] ?? '')) ?: [])))), 0, 20)),
         ];
     }
@@ -183,6 +188,48 @@ final class MobileSettings
         $v = (string) (self::all()['min_app_version_'.$platform] ?? '');
 
         return $v !== '' ? $v : null;
+    }
+
+    /** Geprüfter Store-Link für ios|android oder '' (ungültig bzw. App noch nicht im Store). */
+    public static function storeUrl(string $value, string $platform): string
+    {
+        $value = trim($value);
+        $host = strtolower((string) wp_parse_url($value, PHP_URL_HOST));
+        $hosts = $platform === 'ios' ? ['apps.apple.com', 'itunes.apple.com'] : ['play.google.com'];
+        if (! str_starts_with(strtolower($value), 'https://') || ! in_array($host, $hosts, true)) {
+            return '';
+        }
+        // App Store: Adresse muss die numerische App-ID enthalten (…/id123456789); Google Play: ?id=<Paketname>.
+        if ($platform === 'ios' && preg_match('#/id(\d{6,12})(?:[/?]|$)#', $value) !== 1) {
+            return '';
+        }
+        if ($platform === 'android') {
+            parse_str((string) wp_parse_url($value, PHP_URL_QUERY), $query);
+            if (! isset($query['id']) || preg_match(self::ANDROID_PACKAGE_PATTERN, (string) $query['id']) !== 1) {
+                return '';
+            }
+        }
+
+        return esc_url_raw($value, ['https']);
+    }
+
+    /** @return array{ios: ?string, android: ?string} */
+    public static function storeUrls(): array
+    {
+        $s = self::all();
+
+        return [
+            'ios' => (string) $s['app_store_url'] !== '' ? (string) $s['app_store_url'] : null,
+            'android' => (string) $s['play_store_url'] !== '' ? (string) $s['play_store_url'] : null,
+        ];
+    }
+
+    /** Numerische App-Store-ID aus dem Store-Link (für das Safari-App-Banner) oder null. */
+    public static function appStoreId(): ?string
+    {
+        $url = (string) (self::storeUrls()['ios'] ?? '');
+
+        return preg_match('#/id(\d{6,12})(?:[/?]|$)#', $url, $m) === 1 ? $m[1] : null;
     }
 
     private static function version(string $value): string

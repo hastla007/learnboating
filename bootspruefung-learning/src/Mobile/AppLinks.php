@@ -32,6 +32,7 @@ final class AppLinks
     public static function register(): void
     {
         add_action('parse_request', [self::class, 'handleRequest'], 0);
+        add_action('wp_head', [self::class, 'smartBanner'], 2);
     }
 
     /** Pfad ab WordPress-Adresse (ohne Unterverzeichnis), z. B. /.well-known/assetlinks.json */
@@ -264,6 +265,15 @@ final class AppLinks
             return $callback();
         } finally {
             remove_filter('user_request_action_email_content', $filter, 50);
+        }
+    }
+
+    /** Safari-App-Banner („In der App öffnen/Laden“), sobald die App im App Store steht (To-do T24). */
+    public static function smartBanner(): void
+    {
+        $id = MobileSettings::enabled() ? MobileSettings::appStoreId() : null;
+        if ($id !== null) {
+            echo '<meta name="apple-itunes-app" content="app-id='.esc_attr($id).'">'."\n";
         }
     }
 }

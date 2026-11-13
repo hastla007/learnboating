@@ -186,13 +186,19 @@ if ($draftWithdrawal !== null) {
     $check($legal['withdrawal_policy'] === null, 'Seite im Entwurf wird nicht verlinkt');
 }
 $check(($h['body']['data']['min_app_version'] ?? null) === ['ios' => null, 'android' => null], '/health: ohne Vorgabe keine Mindestversion');
+$check(($h['body']['data']['store_urls'] ?? null) === ['ios' => null, 'android' => null], '/health: ohne Store-Einträge keine Store-Links');
 $meLinks = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null])['body']['data']['memberships'][0]['links'] ?? [];
 $check(($meLinks['imprint'] ?? null) === $legal['imprint'] && array_key_exists('terms', $meLinks), '/me: Links enthalten die Rechtstexte');
 $mobileBefore = MobileSettings::all();
-MobileSettings::save(array_merge($mobileBefore, ['min_app_version_ios' => '2.0.0', 'min_app_version_android' => '1.x']));
+MobileSettings::save(array_merge($mobileBefore, ['min_app_version_ios' => '2.0.0', 'min_app_version_android' => '1.x', 'app_store_url' => 'https://apps.apple.com/de/app/bootsschule/id1234567890', 'play_store_url' => 'https://evil.example/store?id=at.example.boot']));
+$check(MobileSettings::all()['play_store_url'] === '' && MobileSettings::storeUrl('https://play.google.com/store/apps/details?id=at.example.boot', 'android') !== '' && MobileSettings::storeUrl('http://apps.apple.com/de/app/x/id1234567890', 'ios') === '' && MobileSettings::storeUrl('https://apps.apple.com/de/app/x', 'ios') === '', 'Store-Links: nur https-Adressen von App Store (mit App-ID) bzw. Google Play (mit Paketname)');
+ob_start();
+\Bootspruefung\Learning\Mobile\AppLinks::smartBanner();
+$check(trim((string) ob_get_clean()) === '<meta name="apple-itunes-app" content="app-id=1234567890">', 'Website: Safari-App-Banner mit der App-ID aus dem Store-Link');
 $check(MobileSettings::minAppVersion('ios') === '2.0.0' && MobileSettings::minAppVersion('android') === null, 'Mindestversion gespeichert, ungültige Angabe verworfen');
 $r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null]);
 $check($r['status'] === 426 && $code($r) === 'APP_UPDATE_REQUIRED' && ($r['body']['details']['min_app_version'] ?? '') === '2.0.0' && ($r['body']['details']['app_version'] ?? '') === '1.0.0', 'Sitzung mit App 1.0.0 (iOS) unter Mindestversion → 426 APP_UPDATE_REQUIRED');
+$check(($r['body']['details']['store_url'] ?? '') === 'https://apps.apple.com/de/app/bootsschule/id1234567890', '426 nennt den Store-Link der Plattform');
 $r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null, 'X-Boatingschool-App-Version' => '2.1.0', 'X-Boatingschool-Platform' => 'ios']);
 $check($r['status'] === 200, 'Header mit neuerer Version → erlaubt');
 $r = $api('GET', '/me', [], $tokenA, ['X-Tenant-Slug' => null, 'X-Boatingschool-App-Version' => '0.1', 'X-Boatingschool-Platform' => 'android']);

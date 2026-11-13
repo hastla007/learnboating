@@ -98,6 +98,15 @@ paths:
                         properties:
                           ios: {type: [string, 'null']}
                           android: {type: [string, 'null']}
+                      store_urls:
+                        description: >-
+                          Seit 1.11.0: Store-Einträge der App (Admin-Einstellung), z. B. für den Knopf „Jetzt
+                          aktualisieren“ beim Pflicht-Update; null = (noch) nicht im Store. Bei 426
+                          APP_UPDATE_REQUIRED steht der Link der eigenen Plattform zusätzlich in `details.store_url`.
+                        type: object
+                        properties:
+                          ios: {type: [string, 'null'], format: uri}
+                          android: {type: [string, 'null'], format: uri}
   /auth/login:
     post:
       tags: [Auth]
