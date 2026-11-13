@@ -241,6 +241,23 @@ function kurswasser_operator_sanitize(array $input): array
     return $out;
 }
 
+/**
+ * E-Mail-Felder mit Inhalt, der keine gültige Adresse ist (T126).
+ * @return list<string> Feldschlüssel
+ */
+function kurswasser_operator_invalid(array $input): array
+{
+    $out = [];
+    foreach (kurswasser_operator_fields() as $key => [, , $type]) {
+        $raw = trim(wp_unslash((string) ($input[$key] ?? '')));
+        if ($type === 'email' && $raw !== '' && ! is_email($raw)) {
+            $out[] = $key;
+        }
+    }
+
+    return $out;
+}
+
 add_action('admin_menu', static function (): void {
     add_theme_page(__('Betreiberangaben', 'kurswasser'), __('Betreiberangaben', 'kurswasser'), 'manage_options', 'kurswasser-operator', 'kurswasser_operator_page');
 });
@@ -250,7 +267,19 @@ add_action('admin_post_kurswasser_operator_save', static function (): void {
         wp_die(esc_html__('Keine Berechtigung.', 'kurswasser'), 403);
     }
     check_admin_referer('kurswasser_operator_save');
-    update_option(KURSWASSER_OPERATOR_OPTION, kurswasser_operator_sanitize((array) ($_POST['kw_operator'] ?? [])), false);
+    $input = (array) ($_POST['kw_operator'] ?? []);
+    // T126: ungültige E-Mail-Adresse nicht still leeren – nichts speichern, Eingaben behalten, Fehler zeigen.
+    $invalid = kurswasser_operator_invalid($input);
+    if ($invalid !== []) {
+        $keep = [];
+        foreach (array_keys(kurswasser_operator_fields()) as $key) {
+            $keep[$key] = mb_substr(sanitize_text_field(trim(wp_unslash((string) ($input[$key] ?? '')))), 0, 300);
+        }
+        set_transient('kurswasser_operator_input_'.get_current_user_id(), ['values' => $keep, 'invalid' => $invalid], 300);
+        wp_safe_redirect(add_query_arg(['page' => 'kurswasser-operator', 'error' => '1'], admin_url('themes.php')));
+        exit;
+    }
+    update_option(KURSWASSER_OPERATOR_OPTION, kurswasser_operator_sanitize($input), false);
     // Wie eine geänderte Vorlage: unbearbeitete Entwürfe nachziehen, veröffentlichte melden.
     if (function_exists('kurswasser_legal_sync')) {
         kurswasser_legal_sync(true);
@@ -265,23 +294,41 @@ function kurswasser_operator_page(): void
         return;
     }
     $data = kurswasser_operator_data();
+    $fields = kurswasser_operator_fields();
+    $kept = get_transient('kurswasser_operator_input_'.get_current_user_id());
+    delete_transient('kurswasser_operator_input_'.get_current_user_id());
+    $invalid = [];
+    if (is_array($kept) && is_array($kept['values'] ?? null)) {
+        $data = array_merge($data, array_intersect_key(array_map('strval', $kept['values']), $data));
+        $invalid = array_values(array_intersect(array_map('strval', (array) ($kept['invalid'] ?? [])), array_keys($fields)));
+    }
     echo '<div class="wrap"><h1>'.esc_html__('Betreiberangaben', 'kurswasser').'</h1>';
+    if ($invalid !== []) {
+        echo '<div class="notice notice-error"><p><strong>'.esc_html__('Nicht gespeichert.', 'kurswasser').'</strong> '.esc_html(sprintf(
+            /* translators: %s: Feldnamen */
+            _n('Bitte eine gültige E-Mail-Adresse eintragen: %s.', 'Bitte gültige E-Mail-Adressen eintragen: %s.', count($invalid), 'kurswasser'),
+            implode(', ', array_map(static fn ($k) => (string) $fields[$k][0], $invalid))
+        )).' '.esc_html__('Deine Eingaben stehen noch im Formular.', 'kurswasser').'</p></div>';
+    }
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nur Anzeige nach Weiterleitung
-    if (isset($_GET['saved'])) {
+    if (isset($_GET['saved']) && $invalid === []) {
         echo '<div class="notice notice-success"><p>'.esc_html__('Gespeichert. Unbearbeitete Entwürfe der Rechtsseiten sind aktualisiert; veröffentlichte Seiten übernimmst du über den Hinweis „Vorlagen übernehmen“.', 'kurswasser').'</p></div>';
     }
     echo '<p>'.esc_html__('Diese Angaben ersetzen die passenden [[Betreiber: …]]-Platzhalter in Impressum, Datenschutzerklärung, AGB, Widerrufsbelehrung und Kontakt. Leere Felder bleiben als Platzhalter stehen. Platzhalter, die eine Entscheidung oder rechtliche Prüfung verlangen, ersetzt du direkt auf der jeweiligen Seite. Keine Rechtsberatung – die Texte vor der Veröffentlichung rechtlich prüfen lassen.', 'kurswasser').'</p>';
     echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="kurswasser_operator_save">';
     wp_nonce_field('kurswasser_operator_save');
     echo '<table class="form-table" role="presentation">';
-    foreach (kurswasser_operator_fields() as $key => [$label, $help, $type]) {
+    foreach ($fields as $key => [$label, $help, $type]) {
+        $bad = in_array($key, $invalid, true);
         printf(
-            '<tr><th scope="row"><label for="kw-op-%1$s">%2$s</label></th><td><input type="%3$s" class="regular-text" id="kw-op-%1$s" name="kw_operator[%1$s]" value="%4$s" maxlength="300">%5$s</td></tr>',
+            '<tr><th scope="row"><label for="kw-op-%1$s">%2$s</label></th><td><input type="%3$s" class="regular-text" id="kw-op-%1$s" name="kw_operator[%1$s]" value="%4$s" maxlength="300"%6$s>%5$s</td></tr>',
             esc_attr($key),
             esc_html($label),
             $type === 'email' ? 'email' : 'text',
             esc_attr($data[$key]),
-            $help !== '' ? '<p class="description">'.esc_html($help).'</p>' : ''
+            ($bad ? '<p class="description" id="kw-op-'.esc_attr($key).'-error" style="color:#b32d2e">'.esc_html__('Keine gültige E-Mail-Adresse.', 'kurswasser').'</p>' : '')
+                .($help !== '' ? '<p class="description">'.esc_html($help).'</p>' : ''),
+            $bad ? ' aria-invalid="true" aria-describedby="kw-op-'.esc_attr($key).'-error"' : ''
         );
     }
     echo '</table>';

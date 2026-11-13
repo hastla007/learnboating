@@ -163,5 +163,46 @@ if ($open !== []) {
     $check(! str_contains($adminNotice, 'Rechtstexte noch nicht fertig'), 'keine offenen Rechtstexte: kein Hinweis');
 }
 
+echo "Ergebnis „Vorlagen einfügen“ und ungültige E-Mail in den Betreiberangaben (T126)\n";
+$msg = kurswasser_legal_fill_message(['impressum' => 'filled', 'agb' => 'edited', 'kontakt' => 'unchanged']);
+$check($msg['type'] === 'success' && str_contains($msg['title'], '1 Seite') && in_array('Impressum: Vorlage übernommen', $msg['items'], true) && in_array('AGB: von Hand bearbeitet – unverändert gelassen', $msg['items'], true), 'Ergebnis je Seite als Meldung');
+$check(kurswasser_legal_fill_message(['impressum' => 'error'])['type'] === 'error' && kurswasser_legal_fill_message('locked')['type'] === 'warning' && kurswasser_legal_fill_message(['agb' => 'edited'])['title'] === 'Keine Seite geändert.', 'Fehler, laufender Abgleich und „nichts geändert“ klar benannt');
+set_transient('kurswasser_legal_fill_result_1', ['impressum' => 'updated', 'datenschutz' => 'edited'], 300);
+ob_start();
+do_action('admin_notices');
+$fillNotice = (string) ob_get_clean();
+$check(str_contains($fillNotice, 'Vorlage in 1 Seite übernommen.') && str_contains($fillNotice, 'Datenschutzerklärung: von Hand bearbeitet') && get_transient('kurswasser_legal_fill_result_1') === false, 'Meldung erscheint nach dem Einfügen einmal im Admin');
+$check(kurswasser_operator_invalid(['email' => 'kein@mail', 'support_email' => 'support@example.org', 'privacy_email' => '', 'firma' => 'x@y']) === ['email'], 'ungültige E-Mail erkannt (leer und Textfelder zählen nicht)');
+$opBak = get_option(KURSWASSER_OPERATOR_OPTION, null);
+update_option(KURSWASSER_OPERATOR_OPTION, ['firma' => 'Alte Firma', 'email' => 'alt@example.org'], false);
+$opStop = static function (string $location): string {
+    throw new RuntimeException('redirect:'.$location);
+};
+$_POST = ['kw_operator' => ['firma' => 'Neue Firma GmbH', 'email' => 'falsch@', 'support_email' => 'support@example.org']];
+$_REQUEST['_wpnonce'] = wp_create_nonce('kurswasser_operator_save');
+add_filter('wp_redirect', $opStop, 1);
+$opTo = '';
+try {
+    do_action('admin_post_kurswasser_operator_save');
+} catch (RuntimeException $e) {
+    $opTo = $e->getMessage();
+}
+remove_filter('wp_redirect', $opStop, 1);
+$_POST = [];
+unset($_REQUEST['_wpnonce']);
+$stored = get_option(KURSWASSER_OPERATOR_OPTION);
+$check(str_contains($opTo, 'error=1') && ! str_contains($opTo, 'saved=1') && ($stored['firma'] ?? '') === 'Alte Firma' && ($stored['email'] ?? '') === 'alt@example.org', 'ungültige E-Mail: nichts gespeichert, kein „Gespeichert.“');
+$_GET['saved'] = '1'; // auch wenn „saved“ in der Adresse stünde
+ob_start();
+kurswasser_operator_page();
+$opPage = (string) ob_get_clean();
+unset($_GET['saved']);
+$check(str_contains($opPage, 'Nicht gespeichert.') && ! str_contains($opPage, 'Gespeichert. Unbearbeitete') && str_contains($opPage, 'value="Neue Firma GmbH"') && str_contains($opPage, 'value="falsch@"') && str_contains($opPage, 'aria-invalid="true"'), 'Fehlermeldung, Eingaben bleiben im Formular, Feld markiert');
+$opBak === null ? delete_option(KURSWASSER_OPERATOR_OPTION) : update_option(KURSWASSER_OPERATOR_OPTION, $opBak, false);
+if (class_exists('\\Bootspruefung\\Learning\\Admin\\GoLiveChecklist')) {
+    $glItems = array_column(\Bootspruefung\Learning\Admin\GoLiveChecklist::items(), null, 'key');
+    $check(isset($glItems['content_pages']) && $glItems['content_pages']['auto'] === true && $glItems['content_pages']['ok'] === (kurswasser_content_open_items() === []), 'Livegang-Checkliste: „Inhaltsseiten ohne Warnung“ automatisch geprüft');
+}
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

@@ -17,7 +17,9 @@ Die Zahl 52 aus der früheren Liste ist überholt.
 ## 1. Angaben einmal eintragen (57 Platzhalter)
 
 Unter **Design › Betreiberangaben** trägst du diese Daten einmal ein; sie ersetzen beim Übernehmen der Vorlagen
-die passenden Platzhalter in allen fünf Texten:
+die passenden Platzhalter in allen fünf Texten. Ist eine E-Mail-Adresse ungültig, speichert die Seite nichts, zeigt
+einen Fehler am Feld und behält deine Eingaben. Nach „Vorlagen in leere Seiten einfügen“ zeigt der Admin je Seite,
+was passiert ist (übernommen, schon aktuell, von Hand bearbeitet und unverändert gelassen, Fehler).
 
 - Name bzw. Firma, Rechtsform, vertretungsberechtigte Person(en)
 - Anschrift (Straße, PLZ/Ort, Land)

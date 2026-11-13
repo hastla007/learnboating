@@ -7,8 +7,9 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 
 Diese Liste steht auch im Admin unter **Bootsprüfung › Übersicht › Livegang-Checkliste** (T99): Was das Plugin
 selbst prüfen kann (Rechtstexte ohne Platzhalter, Produkte, Prüfungsregelwerke, Schnupper-Paket, „Zugang ohne
-Shop“, Inhaltspaket, WooCommerce-Grundeinstellungen), steht dort grün/rot mit Link; die übrigen Punkte hakst du
-dort ab (mit Name und Datum, im Protokoll).
+Shop“, Inhaltspaket, WooCommerce-Grundeinstellungen und – mit dem Theme Kurswasser – Inhaltsseiten ohne Warnung),
+steht dort grün/rot mit Link; die übrigen Punkte hakst du dort ab (mit Name und Datum, im Protokoll). Bei „Mailversand“
+und „Datensicherung“ steht neben dem Haken der geprüfte Zustand (letzte Testmail, Prüfung nach dem Wiederherstellen).
 
 | Muss | Punkt | Wo |
 |---|---|---|

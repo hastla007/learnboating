@@ -436,6 +436,7 @@ add_action('admin_post_kurswasser_legal_fill', static function (): void {
         wp_die(esc_html__('Keine Berechtigung.', 'kurswasser'), '', ['response' => 403]);
     }
     check_admin_referer('kurswasser_legal_fill');
+    $result = null;
     if (kurswasser_legal_lock(true)) {
         try {
             $result = kurswasser_fill_legal_pages();
@@ -447,10 +448,62 @@ add_action('admin_post_kurswasser_legal_fill', static function (): void {
             kurswasser_legal_lock(false);
         }
     }
+    // T126: Ergebnis nach der Weiterleitung als Meldung zeigen (einmal, je Nutzer).
+    set_transient('kurswasser_legal_fill_result_'.get_current_user_id(), $result ?? 'locked', 300);
     kurswasser_assign_legal_pages();
     wp_safe_redirect(wp_get_referer() ?: admin_url('edit.php?post_type=page'));
     exit;
 });
+
+/**
+ * Meldung zum Ergebnis von kurswasser_fill_legal_pages() (T126): je Seite, was passiert ist.
+ *
+ * @param array<string,string>|string $result Slug => Ergebnis bzw. 'locked' (anderer Lauf aktiv)
+ * @return array{type:string,title:string,items:list<string>}
+ */
+function kurswasser_legal_fill_message($result): array
+{
+    if (! is_array($result)) {
+        return ['type' => 'warning', 'title' => __('Vorlagen nicht übernommen: Ein anderer Abgleich der Rechtsseiten läuft gerade. Bitte in einer Minute erneut versuchen.', 'kurswasser'), 'items' => []];
+    }
+    $texts = [
+        'filled' => __('Vorlage übernommen', 'kurswasser'),
+        'updated' => __('Vorlage aktualisiert', 'kurswasser'),
+        'unchanged' => __('schon aktuell', 'kurswasser'),
+        'edited' => __('von Hand bearbeitet – unverändert gelassen', 'kurswasser'),
+        'pending' => __('veröffentlicht – nicht automatisch ersetzt', 'kurswasser'),
+        'no-page' => __('Seite fehlt (Kurswasser einrichten)', 'kurswasser'),
+        'no-file' => __('keine Vorlage vorhanden', 'kurswasser'),
+        'error' => __('Fehler beim Speichern – bitte erneut versuchen', 'kurswasser'),
+    ];
+    $pages = kurswasser_legal_pages();
+    $items = [];
+    foreach ($result as $slug => $state) {
+        $items[] = ($pages[$slug] ?? $slug).': '.($texts[$state] ?? $state);
+    }
+    $changed = count(array_filter($result, static fn ($s) => in_array($s, ['filled', 'updated'], true)));
+    $error = in_array('error', $result, true);
+
+    return [
+        'type' => $error ? 'error' : ($changed > 0 ? 'success' : 'info'),
+        'title' => $error ? __('Vorlagen teilweise übernommen.', 'kurswasser')
+            /* translators: %d: Anzahl Seiten */
+            : ($changed > 0 ? sprintf(_n('Vorlage in %d Seite übernommen.', 'Vorlagen in %d Seiten übernommen.', $changed, 'kurswasser'), $changed) : __('Keine Seite geändert.', 'kurswasser')),
+        'items' => $items,
+    ];
+}
+
+add_action('admin_notices', static function (): void {
+    $key = 'kurswasser_legal_fill_result_'.get_current_user_id();
+    $result = get_transient($key);
+    if ($result === false) {
+        return;
+    }
+    delete_transient($key);
+    $msg = kurswasser_legal_fill_message($result);
+    $list = $msg['items'] === [] ? '' : '<ul style="list-style:disc;margin-left:1.5em"><li>'.implode('</li><li>', array_map('esc_html', $msg['items'])).'</li></ul>';
+    kurswasser_admin_notice(['key' => 'kw_legal_fill_result', 'type' => $msg['type'], 'dismiss' => 'none', 'title' => $msg['title'], 'html' => $list]);
+}, 5);
 
 /**
  * Platzhalter für Redakteure im Frontend hervorheben (nur Textknoten, keine Attribute). Inhalte von
