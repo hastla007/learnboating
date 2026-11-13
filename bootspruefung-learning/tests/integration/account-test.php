@@ -83,6 +83,7 @@ $buy = static function (int $userId) use ($productId): WC_Order {
     $order->set_billing_city('Kiel');
     $order->set_billing_postcode('24103');
     $order->set_billing_country('DE');
+    $order->set_billing_company('Segelverein Kiel e. V.');
     $order->set_billing_phone('0431 123456');
     $order->set_billing_email((string) get_userdata($userId)->user_email);
     $order->set_customer_ip_address('192.0.2.44');
@@ -189,6 +190,8 @@ $check(str_contains((string) ob_get_clean(), 'Verwaltungsrechte'), 'Seite für V
 wp_set_current_user(1);
 
 echo "Kontolöschung nach bestätigtem Antrag (LAW-04, QA-05)\n";
+$erasureBefore = get_option('woocommerce_erasure_request_removes_order_data', 'no');
+update_option('woocommerce_erasure_request_removes_order_data', 'yes'); // T45: WooCommerce-Einstellung „Daten aus Bestellungen entfernen“ an
 $delUser = $customer('acct_loeschen');
 $delOrder = $buy($delUser);
 $txn = $delOrder->get_transaction_id();
@@ -226,12 +229,25 @@ $anon = wc_get_order($delOrder->get_id());
 $personal = [$anon->get_billing_first_name(), $anon->get_billing_last_name(), $anon->get_billing_address_1(), $anon->get_billing_city(), $anon->get_billing_phone(), $anon->get_billing_email(), $anon->get_customer_ip_address()];
 $check($anon instanceof WC_Order && $anon->get_customer_id() === 0 && array_intersect($personal, ['Erika', 'Muster', 'Hafenstraße 1', 'Kiel', '0431 123456', 'acct_loeschen@example.test', '192.0.2.44']) === [] && $anon->get_meta('_anonymized') === 'yes', 'Bestellung anonymisiert (Name, Anschrift, Telefon, E-Mail, IP): '.wp_json_encode($personal, JSON_UNESCAPED_UNICODE));
 $check($anon->get_total() === $total && $anon->get_order_number() === $number && $anon->get_transaction_id() === $txn && count($anon->get_items()) === 1 && $anon->get_date_paid() !== null, 'Bestellnummer, Betrag, Datum, Position und Transaktionsnummer bleiben');
+$check($anon->get_billing_company() === 'Segelverein Kiel e. V.' && $anon->get_billing_country() === 'DE', 'für Steuer und Buchhaltung bleiben Firma und Land (B2B, OSS; T45)');
 $check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}progress WHERE user_id = %d", $delUser)) === 0, 'Lerndaten gelöscht');
 $check($groups->freeSeats($groups->find($groupId)) === 1, 'Gruppenplatz wieder frei (QA-05)');
 $check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}entitlement WHERE user_id = %d AND (order_id IS NULL OR status <> 'revoked')", $delUser)) === 0, 'keine Zugänge ohne Konto: ohne Bestellung entfernt, zu Bestellungen beendet (T42)');
 $check((bool) array_filter($mails, static fn ($m) => $m['to'] === 'acct_loeschen@example.test'), 'Bestätigung der Löschung an die Person gemailt');
 $check(str_contains((string) apply_filters('user_request_action_confirmed_message', '', $delReq), 'Konto ist gelöscht'), 'Bestätigungsseite: „Dein Konto ist gelöscht“');
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'account_deleted' AND object_id = '".(int) $delReq."'") === 1, 'Protokoll: Konto gelöscht (ohne Klartext-Kennung)');
+
+// T45: WooCommerce-Einstellung aus → Bestellungen bleiben unverändert, Konto wird trotzdem gelöscht.
+update_option('woocommerce_erasure_request_removes_order_data', 'no');
+$keepUser = $customer('acct_behalten_bestellung');
+$keepOrder = $buy($keepUser);
+$kr = SelfService::request($keepUser, 'delete');
+do_action('user_request_action_confirmed', (int) $kr['request_id']);
+clean_user_cache($keepUser);
+$kept = wc_get_order($keepOrder->get_id());
+$check(get_userdata($keepUser) === false && $kept->get_billing_last_name() === 'Muster' && $kept->get_meta('_anonymized') !== 'yes', 'WooCommerce-Einstellung „Daten aus Bestellungen entfernen“ aus: Konto gelöscht, Bestellung unverändert aufbewahrt');
+$check(str_contains((string) apply_filters('user_request_action_confirmed_message', '', (int) $kr['request_id']), 'Bestellungen und Rechnungsangaben bewahren wir auf'), 'Bestätigung nennt die Aufbewahrung passend zur Einstellung');
+update_option('woocommerce_erasure_request_removes_order_data', $erasureBefore);
 
 // Verwaltungskonto: nie automatisch löschen.
 $staffReq = (int) wp_create_user_request('acct_shopmanager@example.test', 'remove_personal_data', [], 'pending');

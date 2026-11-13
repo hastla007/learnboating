@@ -238,7 +238,11 @@ final class Menu
             esc_attr(Settings::OPTION),
             checked(! empty($settings['privacy_requests_auto']), true, false),
             esc_html__('Bestätigte Anträge automatisch ausführen', 'bootspruefung-learning'),
-            esc_html__('Sobald jemand den Link in der Bestätigungsmail anklickt: Datenexport erzeugen und den Download-Link mailen bzw. Lerndaten löschen, Bestellungen anonymisieren (Nummer, Datum, Produkte und Beträge bleiben) und das Kundenkonto löschen. Konten mit Verwaltungsrechten werden nie automatisch gelöscht. Aus: Bestätigte Anträge erledigst du unter Werkzeuge → Personenbezogene Daten exportieren/löschen; das Konto bleibt dann bestehen.', 'bootspruefung-learning')
+            esc_html__('Sobald jemand die Löschung bestätigt (Knopf „Konto jetzt löschen“ nach dem Link in der Mail): Datenexport erzeugen und den Download-Link mailen bzw. Lerndaten und Kundenkonto löschen. Konten mit Verwaltungsrechten werden nie automatisch gelöscht. Aus: Bestätigte Anträge erledigst du unter Werkzeuge → Personenbezogene Daten exportieren/löschen; das Konto bleibt dann bestehen.', 'bootspruefung-learning')
+            .' '.esc_html(\Bootspruefung\Learning\Privacy\AccountDeletion::anonymizesOrders()
+                /* translators: %s: aufbewahrte Felder */
+                ? sprintf(__('Bestellungen werden anonymisiert (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist an); Nummer, Datum, Produkte, Beträge und für die Steuer %s bleiben.', 'bootspruefung-learning'), 'Firma, Land, Bundesland, Transaktionsnummer')
+                : __('Bestellungen bleiben unverändert aufbewahrt (WooCommerce › Einstellungen › Konten & Datenschutz: „Persönliche Daten aus Bestellungen entfernen“ ist aus).', 'bootspruefung-learning'))
         );
         echo '</tbody></table>';
         submit_button();

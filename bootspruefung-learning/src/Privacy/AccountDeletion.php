@@ -51,6 +51,9 @@ final class AccountDeletion
         add_filter('user_request_action_email_content', [self::class, 'emailContent'], 20, 2);
         // Geld-zurück-Anfrage einer anonymisierten Bestellung: Kontokennung entfernen, Zeitpunkt/Stand bleiben.
         add_action('woocommerce_privacy_remove_order_personal_data', [self::class, 'eraseOrderMeta'], 10, 1);
+        // Steuerrelevante Bestellfelder beim Anonymisieren behalten – auch für den Bestell-Eraser von WooCommerce und
+        // Löschungen über die Werkzeuge (T45).
+        add_filter('woocommerce_privacy_remove_order_personal_data_props', [self::class, 'retainOrderProps'], 99, 1);
     }
 
     public static function enabled(): bool
@@ -182,34 +185,62 @@ final class AccountDeletion
      */
     public static function anonymizeOrders(\WP_User $user): int
     {
-        if (! function_exists('wc_get_orders') || ! class_exists(\WC_Privacy_Erasers::class)) {
-            return 0;
+        if (! function_exists('wc_get_orders') || ! class_exists(\WC_Privacy_Erasers::class) || ! self::anonymizesOrders()) {
+            return 0; // WooCommerce-Einstellung „Persönliche Daten aus Bestellungen entfernen“ aus: Bestellungen bleiben (T45)
         }
-        $keep = static function ($props) {
-            return is_array($props) ? array_diff_key($props, ['transaction_id' => true]) : $props;
-        };
-        add_filter('woocommerce_privacy_remove_order_personal_data_props', $keep, 99);
         $n = 0;
         $seen = [];
-        try {
-            // Anonymisierte Bestellungen passen nicht mehr zur Suche (Kunde 0, E-Mail entfernt) – daher immer Seite 1.
-            for ($round = 0; $round < 200; $round++) {
-                $orders = wc_get_orders(['customer' => [(int) $user->ID, (string) $user->user_email], 'limit' => 50, 'type' => 'shop_order', 'status' => array_keys(wc_get_order_statuses())]);
-                $todo = array_filter($orders, static fn ($o) => $o instanceof \WC_Order && ! isset($seen[$o->get_id()]));
-                if ($todo === []) {
-                    break;
-                }
-                foreach ($todo as $order) {
-                    $seen[$order->get_id()] = true;
-                    \WC_Privacy_Erasers::remove_order_personal_data($order);
-                    $n++;
-                }
+        // Aufzubewahrende Felder (Firma, Land, Transaktionsnummer …) bleiben über retainOrderProps().
+        // Anonymisierte Bestellungen passen nicht mehr zur Suche (Kunde 0, E-Mail entfernt) – daher immer Seite 1.
+        for ($round = 0; $round < 200; $round++) {
+            $orders = wc_get_orders(['customer' => [(int) $user->ID, (string) $user->user_email], 'limit' => 50, 'type' => 'shop_order', 'status' => array_keys(wc_get_order_statuses())]);
+            $todo = array_filter($orders, static fn ($o) => $o instanceof \WC_Order && ! isset($seen[$o->get_id()]));
+            if ($todo === []) {
+                break;
             }
-        } finally {
-            remove_filter('woocommerce_privacy_remove_order_personal_data_props', $keep, 99);
+            foreach ($todo as $order) {
+                $seen[$order->get_id()] = true;
+                \WC_Privacy_Erasers::remove_order_personal_data($order);
+                $n++;
+            }
         }
 
         return $n;
+    }
+
+    /**
+     * Entfernt eine Kontolöschung persönliche Daten aus Bestellungen? Folgt der WooCommerce-Einstellung
+     * „Persönliche Daten aus Bestellungen auf Anfrage entfernen“ (Konten & Datenschutz; Standard: nein) – T45.
+     */
+    public static function anonymizesOrders(): bool
+    {
+        return function_exists('wc_string_to_bool') && wc_string_to_bool((string) get_option('woocommerce_erasure_request_removes_order_data', 'no'));
+    }
+
+    /**
+     * Bestellfelder, die beim Anonymisieren bleiben (Nachweis für Steuer und Buchhaltung): Transaktionsnummer,
+     * Firma (B2B), Land und Bundesland (Ort der Leistung, OSS). Filter bootspruefung_retained_order_fields – mit der
+     * Steuerberatung abstimmen (docs/steuer-fragen.md, Frage 11). @return list<string>
+     */
+    public static function retainedOrderFields(): array
+    {
+        $fields = (array) apply_filters('bootspruefung_retained_order_fields', ['transaction_id', 'billing_company', 'billing_country', 'billing_state']);
+
+        return array_values(array_filter(array_map('strval', $fields)));
+    }
+
+    /** Filter woocommerce_privacy_remove_order_personal_data_props: aufzubewahrende Felder nicht anonymisieren. @param mixed $props @return mixed */
+    public static function retainOrderProps($props)
+    {
+        return is_array($props) ? array_diff_key($props, array_flip(self::retainedOrderFields())) : $props;
+    }
+
+    /** Satz zu den Bestellungen nach einer Kontolöschung (je nach WooCommerce-Einstellung). */
+    public static function orderRetentionText(): string
+    {
+        return self::anonymizesOrders()
+            ? __('Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen.', 'bootspruefung-learning')
+            : __('Bestellungen und Rechnungsangaben bewahren wir auf, solange gesetzliche Aufbewahrungsfristen laufen.', 'bootspruefung-learning');
     }
 
     /** Anonymisierte Bestellung: Kontokennung aus der Geld-zurück-Anfrage entfernen. */
@@ -353,7 +384,7 @@ final class AccountDeletion
         }
         if ($request->action_name === 'remove_personal_data' && get_post_meta((int) $requestId, self::DELETED_META, true)) {
             return '<p class="success">'.esc_html__('Dein Konto ist gelöscht.', 'bootspruefung-learning').'</p><p>'
-                .esc_html__('Dein Kundenkonto und deine Lerndaten sind gelöscht; eine Bestätigung ist per E-Mail unterwegs. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen.', 'bootspruefung-learning').'</p>';
+                .esc_html__('Dein Kundenkonto und deine Lerndaten sind gelöscht; eine Bestätigung ist per E-Mail unterwegs.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p>';
         }
         if ($request->action_name === 'remove_personal_data' && $request->status === 'request-completed') {
             return '<p class="success">'.esc_html__('Deine Daten sind gelöscht.', 'bootspruefung-learning').'</p><p>'
@@ -414,7 +445,7 @@ final class AccountDeletion
         $action = add_query_arg(['action' => 'confirmaction', 'request_id' => $requestId, 'confirm_key' => rawurlencode($key)], wp_login_url());
 
         return '<div class="message"><p><strong>'.esc_html__('Möchtest du dein Konto wirklich löschen?', 'bootspruefung-learning').'</strong></p><p>'
-            .esc_html__('Mit dem Klick auf „Konto jetzt löschen“ werden dein Kundenkonto und deine Lerndaten (Lernstand, Prüfungen, Einstellungen) sofort gelöscht. Gekaufte Zugänge enden damit. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').'</p></div>'
+            .esc_html__('Mit dem Klick auf „Konto jetzt löschen“ werden dein Kundenkonto und deine Lerndaten (Lernstand, Prüfungen, Einstellungen) sofort gelöscht. Gekaufte Zugänge enden damit. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').' '.esc_html(self::orderRetentionText()).'</p></div>'
             .'<form method="post" action="'.esc_url($action).'"><input type="hidden" name="bp_confirm_deletion" value="1">'
             .'<p class="submit"><button type="submit" class="button button-primary button-large">'.esc_html__('Konto jetzt löschen', 'bootspruefung-learning').'</button></p></form>'
             .'<p><a href="'.esc_url(home_url('/')).'">'.esc_html__('Abbrechen und Konto behalten', 'bootspruefung-learning').'</a></p>';
@@ -431,7 +462,7 @@ final class AccountDeletion
         if (! self::enabled() || ! $request instanceof \WP_User_Request || $request->action_name !== 'remove_personal_data' || ! str_contains($content, '###CONFIRM_URL###')) {
             return $content;
         }
-        $note = __('Der Link öffnet eine Seite mit dem Knopf „Konto jetzt löschen“. Erst dieser Klick löscht dein Kundenkonto und deine Lerndaten – sofort und endgültig. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen. Hast du die Löschung nicht beantragt, ignoriere diese E-Mail.', 'bootspruefung-learning');
+        $note = __('Der Link öffnet eine Seite mit dem Knopf „Konto jetzt löschen“. Erst dieser Klick löscht dein Kundenkonto und deine Lerndaten – sofort und endgültig.', 'bootspruefung-learning').' '.self::orderRetentionText().' '.__('Hast du die Löschung nicht beantragt, ignoriere diese E-Mail.', 'bootspruefung-learning');
 
         return (string) preg_replace('/###CONFIRM_URL###/', "###CONFIRM_URL###\n\n".$note, $content, 1);
     }

@@ -310,7 +310,7 @@ final class PrivacyController extends BaseController
             'already_requested' => $existing,
             'message' => $completed
                 ? (get_post_meta($requestId, \Bootspruefung\Learning\Privacy\AccountDeletion::DELETED_META, true)
-                    ? __('Dein Konto ist gelöscht. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen.', 'bootspruefung-learning')
+                    ? __('Dein Konto ist gelöscht.', 'bootspruefung-learning').' '.\Bootspruefung\Learning\Privacy\AccountDeletion::orderRetentionText()
                     : __('Deine Daten sind gelöscht.', 'bootspruefung-learning'))
                 : ($status === 'request-confirmed'
                     ? __('Du hast die Löschung bereits bestätigt. Wir bearbeiten deinen Antrag und melden uns per E-Mail.', 'bootspruefung-learning')

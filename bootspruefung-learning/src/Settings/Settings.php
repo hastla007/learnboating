@@ -29,7 +29,7 @@ final class Settings
         'expiry_reminder_enabled' => true,
         'expiry_reminder_days' => 14,
         // Bestätigte Datenschutz-Anträge sofort ausführen: Export per Download-Link, Löschung inkl. Kundenkonto
-        // (Bestellungen anonymisiert). Aus = WordPress-Standard (Betreiber erledigt sie in den Werkzeugen).
+        // (Bestellungen je nach WooCommerce-Einstellung anonymisiert). Aus = WordPress-Standard (Werkzeuge).
         'privacy_requests_auto' => true,
     ];
 
