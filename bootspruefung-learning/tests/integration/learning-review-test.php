@@ -13,6 +13,7 @@ declare(strict_types=1);
  *   abgewiesen; ein älterer Stand überschreibt keinen neueren; Web-REST liefert den gespeicherten Stand und
  *   den Fachcode; App-API nutzt dieselbe Logik (Parameter age_ms/answered_at);
  * - QA-10: laufende Zufallsprüfung nach Zugangsende nicht weiter bearbeitbar, auch mit kostenlosem Teilumfang.
+ * - T114: Antwort-Begrenzung je Minute über den atomaren Zähler (bp_mobile_rate_limit), keine Optionen bp_rl_*.
  *
  *   WP_DIR=/pfad/zu/wordpress php tests/integration/learning-review-test.php
  *
@@ -35,6 +36,7 @@ use Bootspruefung\Learning\Learning\Services\LearningService;
 use Bootspruefung\Learning\Learning\Services\QuestionPresenter;
 use Bootspruefung\Learning\Mobile\Mapper\CourseMapper;
 use Bootspruefung\Learning\Mobile\Mapper\QuestionMapper;
+use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Plugin;
 use Bootspruefung\Learning\Settings\Settings;
 use Bootspruefung\Learning\Support\AccessDenied;
@@ -81,7 +83,7 @@ wp_set_current_user(0);
 
 $correctIds = static fn (int $revisionId): array => array_map('intval', $wpdb->get_col($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 1", $revisionId)));
 $wrongId = static fn (int $revisionId): int => (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$p}answer WHERE revision_id = %d AND is_correct = 0 LIMIT 1", $revisionId));
-$noRateLimit = static fn (int $u) => delete_transient('bp_rl_'.$u.'_'.intdiv(time(), 60));
+$noRateLimit = static fn (int $u) => RateLimiter::clear(LearningService::rateLimitBucket($u));
 $answer = static function (int $u, array $q, bool $right) use ($learning, $correctIds, $wrongId, $noRateLimit): array {
     $noRateLimit($u);
 
@@ -328,6 +330,29 @@ foreach (array_keys(rest_get_server()->get_routes()) as $route) {
 }
 $check($abortRoute, 'App-API: POST /exams/{examId}/abort registriert');
 
+echo "T114: Antwort-Begrenzung (atomarer Zähler statt Transients)\n";
+$rlLimit = (int) (new ReflectionClassConstant(LearningService::class, 'RATE_LIMIT'))->getValue();
+$rlBucket = LearningService::rateLimitBucket($lea);
+$rlOptions = static fn (): int => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $wpdb->esc_like('_transient_bp_rl_'.$lea.'_').'%', $wpdb->esc_like('_transient_timeout_bp_rl_'.$lea.'_').'%'));
+RateLimiter::clear($rlBucket);
+for ($i = 1; $i < $rlLimit; $i++) {
+    RateLimiter::take($rlBucket, MINUTE_IN_SECONDS); // wie $rlLimit - 1 Antworten in dieser Minute
+}
+$rlQ = $learning->next($lea, $course, $moduleId, 'smart');
+$rlOk = $learning->answer($lea, $rlQ['token'], $correctIds((int) $rlQ['revision_id']), null, wp_generate_uuid4(), 1500);
+$rlQ2 = $learning->next($lea, $course, $moduleId, 'smart');
+$rlErr = null;
+try {
+    $learning->answer($lea, $rlQ2['token'], $correctIds((int) $rlQ2['revision_id']), null, wp_generate_uuid4(), 1500);
+} catch (DomainException $e) {
+    $rlErr = $e;
+}
+$check(isset($rlOk['correct']) && $rlErr !== null && $rlErr->errorCode() === DomainException::ANSWER_RATE_LIMITED && $rlErr->getMessage() === 'Zu viele Antworten in kurzer Zeit. Bitte kurz warten.', 'Grenze greift: Antwort '.$rlLimit.' angenommen, Antwort '.($rlLimit + 1).' abgewiesen (gleiche Meldung)');
+$rlHits = (int) $wpdb->get_var($wpdb->prepare("SELECT hits FROM {$p}mobile_rate_limit WHERE bucket_hash = %s", hash('sha256', $rlBucket.'|'.wp_salt('nonce'))));
+$check($rlHits === $rlLimit + 1 && $rlOptions() === 0, 'Zähler in bp_mobile_rate_limit, keine Option bp_rl_* entstanden');
+RateLimiter::clear($rlBucket);
+$check(isset($learning->answer($lea, $rlQ2['token'], $correctIds((int) $rlQ2['revision_id']), null, wp_generate_uuid4(), 1500)['correct']), 'nach Ablauf (Zähler zurückgesetzt) wieder möglich');
+
 echo "QA-10: Zugangsende während einer Zufallsprüfung\n";
 $now = current_time('mysql', true);
 $wpdb->insert($p.'access_rule', ['course_code' => 'SBF-SEE', 'feature_code' => 'exam_simulation', 'access_type' => 'free_limited', 'limit_type' => AccessService::LIMIT_TYPES['exam_simulation'], 'limit_value' => 1, 'created_at' => $now, 'updated_at' => $now]);
@@ -351,6 +376,7 @@ $check($exams->show($ole, $sim)['status'] === 'evaluated', 'Abgabe bleibt mögli
 // Aufräumen
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code = 'SBF-SEE'");
 foreach ([$lea, $ole] as $u) {
+    RateLimiter::clear(LearningService::rateLimitBucket($u));
     foreach (['attempt_answer' => "attempt_id IN (SELECT id FROM {$p}attempt WHERE user_id = {$u})", 'attempt' => "user_id = {$u}", 'progress' => "user_id = {$u}", 'exam_session_question' => "session_id IN (SELECT id FROM {$p}exam_session WHERE user_id = {$u})", 'exam_session' => "user_id = {$u}", 'entitlement' => "user_id = {$u}"] as $table => $where) {
         $wpdb->query("DELETE FROM {$p}{$table} WHERE {$where}");
     }

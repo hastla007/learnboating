@@ -785,13 +785,23 @@ final class LearningService
         )));
     }
 
+    /**
+     * Höchstens RATE_LIMIT Antworten je Nutzer und Minute (Web und App). Atomarer Zähler der Tabelle
+     * bp_mobile_rate_limit (T114; vorher Transients bp_rl_<Nutzer>_<Minute> mit Lesen-Prüfen-Schreiben – parallele
+     * Anfragen konnten die Grenze überholen, und ohne Objekt-Cache entstand je Minute eine Option).
+     */
     private function rateLimit(int $userId): void
     {
-        $key = 'bp_rl_'.$userId.'_'.intdiv(time(), 60);
-        $count = (int) get_transient($key);
-        if ($count >= self::RATE_LIMIT) {
+        try {
+            \Bootspruefung\Learning\Mobile\RateLimiter::hit(self::rateLimitBucket($userId), self::RATE_LIMIT, MINUTE_IN_SECONDS);
+        } catch (\Bootspruefung\Learning\Mobile\ApiException) {
             throw new \Bootspruefung\Learning\Support\DomainException(\Bootspruefung\Learning\Support\DomainException::ANSWER_RATE_LIMITED, 'Zu viele Antworten in kurzer Zeit. Bitte kurz warten.');
         }
-        set_transient($key, $count + 1, 120);
+    }
+
+    /** Zählername der Antwort-Begrenzung (für Tests und Support: RateLimiter::clear()). */
+    public static function rateLimitBucket(int $userId): string
+    {
+        return 'answer|'.$userId;
     }
 }
