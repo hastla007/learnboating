@@ -55,9 +55,13 @@ final class NoCache
     {
         $content = (string) $post->post_content;
 
+        // Eigene Shortcodes am Text erkennen: has_shortcode() greift nur, wenn der Shortcode registriert ist (die
+        // Widerrufsfunktion z. B. nur mit passendem WooCommerce) – die Seite darf trotzdem nie im Cache landen.
+        $shortcodes = str_contains($content, '[')
+            && preg_match('/'.get_shortcode_regex(['bootspruefung_zugang', 'bootspruefung_vertrag_widerrufen']).'/', $content) === 1;
+
         return ContentGate::requirement((int) $post->ID) !== null
-            || has_shortcode($content, 'bootspruefung_zugang')
-            || has_shortcode($content, 'bootspruefung_vertrag_widerrufen')
+            || $shortcodes
             || (function_exists('has_block') && has_block('bootspruefung/zugang', $content));
     }
 
