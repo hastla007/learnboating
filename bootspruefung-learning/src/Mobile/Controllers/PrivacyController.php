@@ -129,7 +129,7 @@ final class PrivacyController extends BaseController
      */
     public function deletionConfirm(WP_REST_Request $request): WP_REST_Response
     {
-        RateLimiter::hit('deletion-confirm-ip|'.RateLimiter::clientIp(), 20, HOUR_IN_SECONDS);
+        RateLimiter::hit('deletion-confirm-ip|'.RateLimiter::clientKey(), 20, HOUR_IN_SECONDS);
         $raw = $request['request_id'];
         $id = is_int($raw) || (is_string($raw) && ctype_digit($raw)) ? (int) $raw : 0;
         $key = sanitize_text_field((string) $request['confirm_key']);

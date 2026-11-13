@@ -78,7 +78,7 @@ final class AuthController extends BaseController
 
     public function refresh(WP_REST_Request $request): WP_REST_Response
     {
-        RateLimiter::hit('refresh-ip|'.RateLimiter::clientIp(), 120, 15 * MINUTE_IN_SECONDS);
+        RateLimiter::hit('refresh-ip|'.RateLimiter::clientKey(), 120, 15 * MINUTE_IN_SECONDS);
         [, $tokens] = TokenAuth::refresh(trim((string) $request['refresh_token']));
 
         return $this->ok($tokens);
@@ -101,20 +101,61 @@ final class AuthController extends BaseController
         if (! is_email($email)) {
             throw ApiException::validation(['email' => [__('Bitte gib eine gültige E-Mail-Adresse ein.', 'bootspruefung-learning')]]);
         }
-        RateLimiter::hit('forgot-ip|'.RateLimiter::ipKey(RateLimiter::clientIp()), 10, HOUR_IN_SECONDS);
+        RateLimiter::hit('forgot-ip|'.RateLimiter::clientKey(), 10, HOUR_IN_SECONDS);
         RateLimiter::hit('forgot-email|'.strtolower($email), 3, HOUR_IN_SECONDS);
         $user = get_user_by('email', $email);
         if ($user instanceof \WP_User) {
             // WordPress-/WooCommerce-Mechanismus: E-Mail mit Link zum Setzen eines neuen Passworts.
             // Mit eingetragenen App-Kennungen zeigt der Link auf den App-Link-Pfad (öffnet die App,
             // ohne App leitet der Server auf die Web-Seite weiter); Web-Ablauf sonst unverändert.
-            $result = AppLinks::withAppResetLink(static fn () => retrieve_password($user->user_login));
-            if (is_wp_error($result)) {
-                error_log('[bootspruefung-learning mobile] Passwort-Mail fehlgeschlagen: '.$result->get_error_message());
-            }
+            // Erst nach dem Senden der Antwort (T88): Schlüssel und Mailversand dauern messbar – sonst verriete die
+            // Antwortzeit, ob es das Konto gibt. Die Antwort ist für bekannte und unbekannte Adressen gleich.
+            self::afterResponse(static function () use ($user): void {
+                $result = AppLinks::withAppResetLink(static fn () => retrieve_password($user->user_login));
+                if (is_wp_error($result)) {
+                    error_log('[bootspruefung-learning mobile] Passwort-Mail fehlgeschlagen: '.$result->get_error_message());
+                }
+            });
         }
 
         return new WP_REST_Response(null, 202);
+    }
+
+    /** @var list<callable():void> nach dem Senden der Antwort auszuführen */
+    private static array $deferred = [];
+
+    /**
+     * Arbeit nach dem Senden der Antwort erledigen (PHP-FPM: fastcgi_finish_request, LiteSpeed:
+     * litespeed_finish_request). Ohne diese Möglichkeit (z. B. mod_php, Kommandozeile) sofort.
+     * Filter bootspruefung_defer_after_response erzwingt bzw. verhindert das Verschieben.
+     */
+    public static function afterResponse(callable $fn): void
+    {
+        $finish = function_exists('fastcgi_finish_request') || function_exists('litespeed_finish_request');
+        if (! (bool) apply_filters('bootspruefung_defer_after_response', $finish && PHP_SAPI !== 'cli')) {
+            $fn();
+
+            return;
+        }
+        if (self::$deferred === []) {
+            add_action('shutdown', static function (): void {
+                if (function_exists('fastcgi_finish_request')) {
+                    fastcgi_finish_request();
+                } elseif (function_exists('litespeed_finish_request')) {
+                    litespeed_finish_request();
+                }
+                self::runDeferred();
+            }, 0);
+        }
+        self::$deferred[] = $fn;
+    }
+
+    /** Verschobene Arbeit jetzt ausführen (Ende der Anfrage; Tests). */
+    public static function runDeferred(): void
+    {
+        while (($fn = array_shift(self::$deferred)) !== null) {
+            $fn();
+        }
     }
 
     /**
@@ -145,7 +186,7 @@ final class AuthController extends BaseController
     /** Neues Passwort mit dem Schlüssel aus der Reset-E-Mail; widerruft alle App-Sitzungen. */
     public function resetPassword(WP_REST_Request $request): WP_REST_Response
     {
-        RateLimiter::hit('reset-ip|'.RateLimiter::clientIp(), 20, HOUR_IN_SECONDS);
+        RateLimiter::hit('reset-ip|'.RateLimiter::clientKey(), 20, HOUR_IN_SECONDS);
         $email = sanitize_email((string) $request['email']);
         $key = trim((string) $request['token']);
         $password = (string) $request['password'];

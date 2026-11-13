@@ -38,13 +38,14 @@ final class Tips
                 'add_new_item' => __('Neuen Tipp anlegen', 'bootspruefung-learning'), 'edit_item' => __('Tipp bearbeiten', 'bootspruefung-learning'),
                 'menu_name' => __('Tipps', 'bootspruefung-learning'),
             ],
-            'public' => false, 'show_ui' => true, 'show_in_menu' => 'bootspruefung', 'show_in_rest' => true,
+            // REST für den Block-Editor; lesen nur mit Bearbeitungsrecht (T88, TipsRest).
+            'public' => false, 'show_ui' => true, 'show_in_menu' => 'bootspruefung', 'show_in_rest' => true, 'rest_controller_class' => TipsPostsController::class,
             'supports' => ['title', 'editor', 'page-attributes', 'revisions'],
             'capability_type' => 'post', 'map_meta_cap' => true,
         ]);
         register_taxonomy(self::TAXONOMY, self::POST_TYPE, [
             'labels' => ['name' => __('Tipp-Kategorien', 'bootspruefung-learning'), 'singular_name' => __('Tipp-Kategorie', 'bootspruefung-learning')],
-            'public' => false, 'show_ui' => true, 'show_in_rest' => true, 'hierarchical' => true, 'show_admin_column' => true,
+            'public' => false, 'show_ui' => true, 'show_in_rest' => true, 'rest_controller_class' => TipsTermsController::class, 'hierarchical' => true, 'show_admin_column' => true,
         ]);
     }
 

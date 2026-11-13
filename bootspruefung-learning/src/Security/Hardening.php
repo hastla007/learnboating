@@ -130,7 +130,7 @@ final class Hardening
         if (! $errors instanceof \WP_Error || ! self::enabled('register_limit')) {
             return $errors;
         }
-        $hits = \Bootspruefung\Learning\Mobile\RateLimiter::increment('register-ip|'.\Bootspruefung\Learning\Mobile\RateLimiter::ipKey(\Bootspruefung\Learning\Mobile\RateLimiter::clientIp()), HOUR_IN_SECONDS);
+        $hits = \Bootspruefung\Learning\Mobile\RateLimiter::increment('register-ip|'.\Bootspruefung\Learning\Mobile\RateLimiter::clientKey(), HOUR_IN_SECONDS);
         if ($hits > 10) {
             $errors->add('bp_register_limit', __('Zu viele Registrierungen von deinem Anschluss. Bitte versuche es in einer Stunde erneut.', 'bootspruefung-learning'));
         }

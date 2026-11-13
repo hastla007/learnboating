@@ -510,6 +510,40 @@ $healthT49 = rest_do_request(new WP_REST_Request('GET', '/boatingschool/v1/healt
 wp_set_current_user(1);
 $check(array_key_exists('api_version', $healthT49) && ($healthT49['plugin_version'] ?? null) === null, '/health ohne Anmeldung nennt keine Plugin-Version');
 
+echo "Tipps in der Core-REST-API, IPv6 in allen Limits (T88)\n";
+$tipIds = get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'publish', 'numberposts' => 1, 'fields' => 'ids']);
+$tipId = (int) ($tipIds[0] ?? wp_insert_post(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'publish', 'post_title' => 'Tipp T88', 'post_content' => 'Text']));
+$tipStatus = static function (int $user, string $route, array $query = []): int {
+    wp_set_current_user($user);
+    $request = new WP_REST_Request('GET', $route);
+    $request->set_query_params($query);
+    $status = rest_do_request($request)->get_status();
+    wp_set_current_user(1);
+
+    return $status;
+};
+$check($tipStatus(0, '/wp/v2/bp_tip') === 401 && $tipStatus(0, '/wp/v2/bp_tip/'.$tipId) === 401 && $tipStatus(0, '/wp/v2/bp_tip_category') === 401, 'Gast: Tipps und Tipp-Kategorien über /wp/v2 gesperrt (401)');
+$check($tipStatus((int) $userId, '/wp/v2/bp_tip') === 403 && $tipStatus((int) $userId, '/wp/v2/bp_tip/'.$tipId) === 403, 'Kunde ohne Bearbeitungsrecht: 403');
+$check($tipStatus(1, '/wp/v2/bp_tip') === 200 && $tipStatus(1, '/wp/v2/bp_tip/'.$tipId, ['context' => 'edit']) === 200 && $tipStatus(1, '/wp/v2/bp_tip_category') === 200, 'Redaktion: lesen und Block-Editor (context=edit) wie bisher');
+$check($tipStatus((int) $userId, '/bootspruefung/v1/tips') === 200, 'Lernbereich: /bootspruefung/v1/tips für angemeldete Lernende unverändert');
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+for ($i = 0; $i < 10; $i++) {
+    $_SERVER['REMOTE_ADDR'] = '2001:db8:42:1:'.dechex($i + 1).'::1';
+    $H::limitRegistration(new WP_Error());
+}
+$_SERVER['REMOTE_ADDR'] = '2001:db8:42:1:ffff::abcd';
+$v6Blocked = $H::limitRegistration(new WP_Error())->get_error_code() === 'bp_register_limit';
+$_SERVER['REMOTE_ADDR'] = '2001:db8:42:2::1';
+$check($v6Blocked && ! $H::limitRegistration(new WP_Error())->has_errors() && \Bootspruefung\Learning\Mobile\RateLimiter::clientKey() === '2001:db8:42:2::/64', 'IPv6: neue Adressen im selben /64-Netz teilen sich das Limit, anderes Netz frei');
+$rawIp = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__, 2).'/src', FilesystemIterator::SKIP_DOTS)) as $f) {
+    if ($f->getExtension() === 'php' && preg_match_all("/\\|'\\s*\\.\\s*[\\\\\\w]*RateLimiter::clientIp\\(\\)/", (string) file_get_contents($f->getPathname()), $mm) > 0) {
+        $rawIp[] = basename($f->getPathname());
+    }
+}
+$check($rawIp === [], 'kein Zähler mit roher Client-IP (immer RateLimiter::clientKey(), IPv6 je /64)'.($rawIp !== [] ? ': '.implode(', ', $rawIp) : ''));
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+
 echo "Seiten-Cache: persönliche Seiten nicht zwischenspeichern (T78)\n";
 $NC = \Bootspruefung\Learning\Frontend\NoCache::class;
 $ncSignals = ['headers' => 0, 'litespeed' => 0];

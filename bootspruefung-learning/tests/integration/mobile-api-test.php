@@ -1612,6 +1612,17 @@ $capture = static function ($return, $atts) use (&$mails) {
 add_filter('pre_wp_mail', $capture, 10, 2);
 $api('POST', '/auth/password/forgot', ['email' => 'mobile_kundin_a@example.test'], null, ['X-Tenant-Slug' => null]);
 $check(count($mails) === 1 && str_contains($mails[0], 'wp-login.php') && ! str_contains($mails[0], '/app/passwort/'), 'ohne App-Kennungen: Reset-Mail aus der App mit Web-Link (unverändert)');
+// T88: Schlüssel und Mail erst nach dem Senden der Antwort (PHP-FPM) – gleiche Antwort und Antwortzeit für bekannte
+// und unbekannte Adressen. Auf der Kommandozeile wird das Verschieben über den Filter erzwungen.
+$defer = static fn () => true;
+add_filter('bootspruefung_defer_after_response', $defer);
+$knownForgot = $api('POST', '/auth/password/forgot', ['email' => 'mobile_kundin_a@example.test'], null, ['X-Tenant-Slug' => null], '192.0.2.31');
+$unknownForgot = $api('POST', '/auth/password/forgot', ['email' => 'niemand-'.wp_generate_password(6, false, false).'@example.test'], null, ['X-Tenant-Slug' => null], '192.0.2.31');
+$mailsBeforeFlush = count($mails);
+\Bootspruefung\Learning\Mobile\Controllers\AuthController::runDeferred();
+remove_filter('bootspruefung_defer_after_response', $defer);
+$check($knownForgot['status'] === 202 && $knownForgot['status'] === $unknownForgot['status'] && $knownForgot['body'] === $unknownForgot['body'] && $mailsBeforeFlush === 1 && count($mails) === 2, 'Passwort vergessen: gleiche Antwort für bekannte und unbekannte Adresse, Mail erst nach der Antwort');
+array_pop($mails);
 $hexPrint = strtolower(str_repeat('ab', 16).str_repeat('0f', 16));
 MobileSettings::save(array_merge(MobileSettings::all(), ['ios_app_ids' => "ABCDE12345.at.example.bootsschule\nkaputt\nabcde12345.klein", 'android_package' => 'at.example.bootsschule', 'android_cert_fingerprints' => $hexPrint."\nZZ:00"]));
 $check(MobileSettings::iosAppIds() === ['ABCDE12345.at.example.bootsschule'] && MobileSettings::androidFingerprints() === [implode(':', str_split(strtoupper($hexPrint), 2))], 'Einstellungen geprüft und normalisiert (ungültige Einträge verworfen)');

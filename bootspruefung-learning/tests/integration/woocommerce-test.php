@@ -644,7 +644,11 @@ $order->save();
 $order->payment_complete('CAPTURE-'.wp_generate_password(6, false));
 $ppOrder = (int) $order->get_id();
 $capture = wc_get_order($ppOrder)->get_transaction_id();
-$postHook = static function (string $route, array $body, array $headers = []) {
+// PayPal schickt jede Nachricht mit diesen Kopfzeilen; ohne sie weist der Vorfilter (T88) vor der Prüfung ab.
+$ppDefaultHeaders = ['paypal-auth-algo' => 'SHA256withRSA', 'paypal-cert-url' => 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-1', 'paypal-transmission-id' => 'TX-0',
+    'paypal-transmission-sig' => 'c2lnbmF0dXI=', 'paypal-transmission-time' => '2026-11-13T10:00:00Z'];
+$postHook = static function (string $route, array $body, ?array $headers = null) use ($ppDefaultHeaders) {
+    $headers ??= $route === 'paypal' ? $ppDefaultHeaders : [];
     $request = new WP_REST_Request('POST', '/bootspruefung/v1/webhooks/'.$route);
     $request->set_body(wp_json_encode($body));
     $request->set_header('content-type', 'application/json');
@@ -859,7 +863,7 @@ $ppHttp['token_error'] = false;
 
 // Ohne PayPal-Kopfzeilen: 401 ohne Anfrage bei PayPal.
 $ppHttp['requests'] = [];
-$r = $postHook('paypal', $ppEvent3('WH-H-1', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'));
+$r = $postHook('paypal', $ppEvent3('WH-H-1', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'), []);
 $check($r->get_status() === 401 && $ppHttp['requests'] === [] && $statuses($pp3) === ['suspended'], 'ohne PAYPAL-Kopfzeilen: 401, keine Anfrage bei PayPal');
 
 // Live-Umgebung: api-m.paypal.com.
@@ -882,6 +886,48 @@ ob_start();
 $dw::renderSettings();
 $check(str_contains((string) ob_get_clean(), 'Signatur nicht geprüft'), 'Einstellungen zeigen „Signatur nicht geprüft“');
 $check(\Bootspruefung\Learning\Admin\SystemStatus::collect()['disputes']['paypal_signature_verified'] === false, 'Systemstatus (REST/CLI): paypal_signature_verified = false');
+
+// Vorfilter vor der Signaturprüfung (T88): offensichtlich ungültige Anfragen ohne Anfrage bei PayPal verwerfen.
+update_option($dw::OPTION, array_merge($dw::settings(), ['paypal_webhook_id' => 'WH-ID-1', 'paypal_mode' => 'sandbox']));
+$ppHttp['requests'] = [];
+$rawHook = static function (string $body, array $headers, string $method = 'POST') {
+    $request = new WP_REST_Request($method, '/bootspruefung/v1/webhooks/paypal');
+    $request->set_body($body);
+    foreach ($headers as $k => $v) {
+        $request->set_header($k, $v);
+    }
+
+    return \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::prefilterPaypal($request);
+};
+$okBody = (string) wp_json_encode($ppEvent3('WH-P-1', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-9'));
+$json = ['content-type' => 'application/json; charset=utf-8'] + $ppHeaders('TX-P');
+$_SERVER['REMOTE_ADDR'] = '198.51.100.140';
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$check($rawHook($okBody, $json) === null, 'Vorfilter: gültige PayPal-Anfrage geht weiter zur Signaturprüfung');
+$codeOf = static fn ($e): int => $e instanceof WP_Error ? (int) ($e->get_error_data()['status'] ?? 0) : 0;
+$check($codeOf($rawHook($okBody, ['content-type' => 'text/plain'] + $ppHeaders('TX-P'))) === 415, 'falscher Content-Type → 415');
+$check($codeOf($rawHook($okBody, $json, 'PUT')) === 405, 'andere Methode → 405');
+$check($codeOf($rawHook('', $json)) === 400 && $codeOf($rawHook(str_repeat(' ', $dw::PAYPAL_MAX_BODY + 1), $json)) === 413, 'leer → 400, zu groß → 413');
+$noSig = $json;
+unset($noSig['paypal-transmission-sig']);
+$check($codeOf($rawHook($okBody, $noSig)) === 401, 'Pflicht-Kopfzeile fehlt → 401');
+$check($codeOf($rawHook($okBody, ['paypal-cert-url' => 'https://paypal.com.example.test/cert'] + $json)) === 401 && $codeOf($rawHook($okBody, ['paypal-cert-url' => 'http://api.paypal.com/cert'] + $json)) === 401, 'Zertifikat nicht unter https://…paypal.com → 401');
+$r = $postHook('paypal', $ppEvent3('WH-P-2', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-9'), ['paypal-cert-url' => 'https://evil.example.test/c'] + $ppHeaders('TX-P2'));
+$check($r->get_status() === 401 && $ppHttp['requests'] === [] && $statuses($pp3) === ['active'], 'über die Route: abgewiesen ohne Anfrage bei PayPal, nichts verarbeitet');
+$perIp = static fn () => 3;
+add_filter('bootspruefung_paypal_webhook_per_ip', $perIp);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$_SERVER['REMOTE_ADDR'] = '2001:db8:aa:bb::1';
+$limited = [];
+foreach (['2001:db8:aa:bb::1', '2001:db8:aa:bb::2', '2001:db8:aa:bb:1::3', '2001:db8:aa:bb:ffff::4'] as $ip6) {
+    $_SERVER['REMOTE_ADDR'] = $ip6;
+    $limited[] = $codeOf($rawHook($okBody, $json));
+}
+$_SERVER['REMOTE_ADDR'] = '2001:db8:aa:cc::1';
+$check($limited === [0, 0, 0, 429] && $rawHook($okBody, $json) === null, 'Limit je IP (IPv6 je /64-Netz): danach 429, anderes Netz frei');
+remove_filter('bootspruefung_paypal_webhook_per_ip', $perIp);
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+unset($_SERVER['REMOTE_ADDR']);
 remove_filter('pre_http_request', $ppMock, 10);
 
 echo "Klarna-Konflikt von Hand melden (Bestellaktion, T65)\n";

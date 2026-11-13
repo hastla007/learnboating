@@ -196,7 +196,7 @@ final class LoginGuard
     {
         $id = strtolower((string) $user->user_email);
         RateLimiter::clear('login-email|'.$id);
-        RateLimiter::clear('login-email-ip|'.$id.'|'.RateLimiter::ipKey(RateLimiter::clientIp()));
+        RateLimiter::clear('login-email-ip|'.$id.'|'.RateLimiter::clientKey());
     }
 
     public static function resetHint(): string
@@ -368,8 +368,7 @@ final class LoginGuard
             return; // anderer Aufrufer (Admin „Link senden“, App): nicht eingreifen
         }
         if ($userData instanceof WP_User) {
-            $ip = RateLimiter::clientIp();
-            $perIp = RateLimiter::increment('forgot-ip|'.RateLimiter::ipKey($ip), HOUR_IN_SECONDS);
+            $perIp = RateLimiter::increment('forgot-ip|'.RateLimiter::clientKey(), HOUR_IN_SECONDS);
             $perUser = RateLimiter::increment('forgot-email|'.strtolower((string) $userData->user_email), HOUR_IN_SECONDS);
             if ($perIp <= 10 && $perUser <= 3) {
                 return; // Mail wird wie gewohnt verschickt

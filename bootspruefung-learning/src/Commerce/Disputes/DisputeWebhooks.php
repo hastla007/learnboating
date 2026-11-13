@@ -7,6 +7,8 @@ namespace Bootspruefung\Learning\Commerce\Disputes;
 use Bootspruefung\Learning\Audit\AuditLog;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Infrastructure\Lock;
+use Bootspruefung\Learning\Mobile\ApiException;
+use Bootspruefung\Learning\Mobile\RateLimiter;
 use Bootspruefung\Learning\Rest\RestRegistrar;
 use Bootspruefung\Learning\Security\Capabilities;
 use WP_Error;
@@ -56,6 +58,13 @@ final class DisputeWebhooks
     public const META_EVENTS = '_bp_dispute_events';
 
     private const MAX_EVENTS = 100;
+
+    /** PayPal-Webhook: größte angenommene Nachricht in Bytes (Konflikt-Ereignisse sind wenige KB groß). */
+    public const PAYPAL_MAX_BODY = 262144;
+    /** PayPal-Webhook: Anfragen je IP und Minute vor der Signaturprüfung (Filter bootspruefung_paypal_webhook_per_ip). */
+    public const PAYPAL_PER_IP = 60;
+    /** Kopfzeilen, die PayPal jeder Webhook-Nachricht mitgibt (für die Signaturprüfung nötig). */
+    public const PAYPAL_HEADERS = ['paypal_transmission_id', 'paypal_transmission_time', 'paypal_transmission_sig', 'paypal_cert_url', 'paypal_auth_algo'];
 
     /** Option: Ergebnis der letzten Prüfung bei PayPal [result, time, mode] – für Einstellungen und Systemstatus. */
     public const OPTION_LAST_VERIFY = 'bp_learning_paypal_verify_last';
@@ -228,6 +237,10 @@ final class DisputeWebhooks
 
     public function paypal(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
+        $rejected = self::prefilterPaypal($request);
+        if ($rejected !== null) {
+            return $rejected;
+        }
         $settings = self::settings();
         if ($settings['paypal_webhook_id'] === '' || $settings['paypal_client_id'] === '' || $settings['paypal_secret'] === '') {
             // Wie bisher: ohne Zugangsdaten keine Prüfung möglich, also nichts annehmen (Einstellungen/Systemstatus warnen).
@@ -262,6 +275,55 @@ final class DisputeWebhooks
         $time = self::eventTime($event['resource']['update_time'] ?? $event['create_time'] ?? null);
 
         return self::respond($this->handle('paypal', (string) $event['id'], $action, null, $transactions, $disputeId, $time, $disputeId !== '' ? $disputeId : null));
+    }
+
+    /**
+     * Vorfilter vor JSON-Auswertung und Signaturprüfung (T88): Offensichtlich ungültige Anfragen kosten so keine
+     * Anfrage bei PayPal und keinen Datenbankzugriff auf Bestellungen. Geprüft werden Limit je IP (IPv6 je /64),
+     * Methode, Content-Type application/json, Größe und die PAYPAL-Kopfzeilen samt Zertifikatsadresse bei PayPal.
+     */
+    public static function prefilterPaypal(WP_REST_Request $request): ?WP_Error
+    {
+        try {
+            RateLimiter::hit('webhook-paypal-ip|'.RateLimiter::clientKey(), max(1, (int) apply_filters('bootspruefung_paypal_webhook_per_ip', self::PAYPAL_PER_IP)), MINUTE_IN_SECONDS);
+        } catch (ApiException) {
+            return new WP_Error('bp_rate_limited', 'Too many requests.', ['status' => 429]);
+        }
+        $reason = null;
+        $status = 400;
+        $body = (string) $request->get_body();
+        $type = strtolower(trim(explode(';', (string) $request->get_header('content_type'))[0]));
+        if (strtoupper($request->get_method()) !== 'POST') {
+            [$reason, $status] = ['method', 405];
+        } elseif ($type !== 'application/json') {
+            [$reason, $status] = ['content_type', 415];
+        } elseif ($body === '') {
+            $reason = 'empty';
+        } elseif (strlen($body) > self::PAYPAL_MAX_BODY) {
+            [$reason, $status] = ['too_large', 413];
+        } else {
+            foreach (self::PAYPAL_HEADERS as $header) {
+                if (trim((string) $request->get_header($header)) === '') {
+                    [$reason, $status] = ['headers', 401];
+                    break;
+                }
+            }
+            if ($reason === null) {
+                $cert = wp_parse_url(trim((string) $request->get_header('paypal_cert_url')));
+                $host = strtolower((string) ($cert['host'] ?? ''));
+                if (($cert['scheme'] ?? '') !== 'https' || ! str_ends_with('.'.$host, '.paypal.com')) {
+                    [$reason, $status] = ['cert_url', 401];
+                }
+            }
+        }
+        if ($reason === null) {
+            return null;
+        }
+        self::logRejected('paypal_prefilter', ['reason' => $reason], 'prefilter');
+
+        return $status === 401
+            ? new WP_Error('bp_signature', 'Signature verification failed.', ['status' => 401])
+            : new WP_Error('bp_invalid', 'Invalid request.', ['status' => $status]);
     }
 
     /** @param array<string,mixed> $result */
