@@ -76,7 +76,11 @@ $make = static function (string $name, string $price): int {
 $lern = $make('Lernpaket Test', '49');
 $video = $make('Videokurs Test', '19');
 $book = $make('Buch (kein Lernprodukt)', '25');
+// T101: „dauerhaft“ nur ausdrücklich (Checkbox „ohne Ablauf“); leeres Feld ergäbe die Vorbelegung (365 Tage).
 $_POST['bp_access'] = ['present' => '1', 'scope' => [$course => ['question_bank' => '1', 'exam_simulation' => '1']], 'duration' => '', 'renewal' => 'extend', 'refund' => 'revoke_on_full_refund'];
+do_action('woocommerce_process_product_meta', $lern);
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT MAX(duration_days) FROM {$p}product_access WHERE product_id = %d", $lern)) === 365, 'Laufzeit leer: Vorbelegung 365 Tage statt dauerhaft (T101)');
+$_POST['bp_access']['unlimited'] = '1';
 do_action('woocommerce_process_product_meta', $lern);
 $_POST['bp_access'] = ['present' => '1', 'scope' => [$course => ['video_course' => '1'], 'UNBEKANNT' => ['all' => '1']], 'duration' => '365', 'renewal' => 'extend', 'refund' => 'revoke_on_full_refund'];
 do_action('woocommerce_process_product_meta', $video);
