@@ -8,6 +8,7 @@ namespace Bootspruefung\Learning\Admin;
 final class Ui
 {
     private const FLASH = 'bp_learning_flash_';
+    private const CONFIRM = 'bp_learning_confirm_';
 
     /** @param array<string,scalar> $args */
     public static function url(string $page, array $args = []): string
@@ -28,6 +29,47 @@ final class Ui
             delete_transient($key);
             printf('<div class="notice notice-%s is-dismissible"><p>%s</p></div>', in_array($flash['type'], ['error', 'warning', 'info'], true) ? $flash['type'] : 'success', esc_html($flash['message']));
         }
+    }
+
+    /** Wurde die Rückfrage bestätigt (JS-Dialog setzt bp_confirmed, sonst der Knopf auf der Zwischenseite)? */
+    public static function confirmed(): bool
+    {
+        return ! empty($_POST['bp_confirmed']); // phpcs:ignore WordPress.Security.NonceVerification -- Nonce prüft der Aufrufer
+    }
+
+    /**
+     * Rückfrage ohne JavaScript (T103): Formularwerte merken und zur Seite $back zurück, die sie mit confirmBox()
+     * als Zwischenschritt „Wirklich ausführen?“ zeigt. Mit JavaScript bestätigt der Dialog vorher (bp_confirmed=1).
+     * @param array<string,string> $fields
+     */
+    public static function rememberConfirm(string $action, string $nonce, array $fields, string $message, string $back): string
+    {
+        set_transient(self::CONFIRM.get_current_user_id(), ['action' => $action, 'nonce' => $nonce, 'fields' => $fields, 'message' => $message], 10 * MINUTE_IN_SECONDS);
+
+        return add_query_arg('bp_confirm', '1', $back);
+    }
+
+    /** Zwischenschritt anzeigen, wenn ein Formular auf Bestätigung wartet (siehe rememberConfirm()). */
+    public static function confirmBox(): void
+    {
+        if (empty($_GET['bp_confirm'])) { // phpcs:ignore WordPress.Security.NonceVerification -- nur Anzeige
+            return;
+        }
+        $pending = get_transient(self::CONFIRM.get_current_user_id());
+        if (! is_array($pending) || ! isset($pending['action'], $pending['nonce'], $pending['fields'], $pending['message'])) {
+            return;
+        }
+        echo '<div class="notice notice-warning bp-confirm"><p><strong>'.esc_html__('Bitte bestätigen', 'bootspruefung-learning').':</strong> '.esc_html((string) $pending['message']).'</p>';
+        if (($pending['fields']['reason'] ?? '') !== '') {
+            echo '<p>'.esc_html__('Begründung', 'bootspruefung-learning').': '.esc_html((string) $pending['fields']['reason']).'</p>';
+        }
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><p>'.wp_nonce_field((string) $pending['nonce'], '_wpnonce', true, false); // phpcs:ignore
+        printf('<input type="hidden" name="action" value="%s"><input type="hidden" name="bp_confirmed" value="1">', esc_attr((string) $pending['action']));
+        foreach ((array) $pending['fields'] as $name => $value) {
+            printf('<input type="hidden" name="%s" value="%s">', esc_attr((string) $name), esc_attr((string) $value));
+        }
+        echo '<button type="submit" class="button button-primary">'.esc_html__('Ja, ausführen', 'bootspruefung-learning').'</button> ';
+        echo '<a class="button" href="'.esc_url(remove_query_arg('bp_confirm')).'">'.esc_html__('Abbrechen', 'bootspruefung-learning').'</a></p></form></div>';
     }
 
     /**

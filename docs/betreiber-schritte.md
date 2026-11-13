@@ -48,7 +48,8 @@ CI-Läufe mit PHP 8.1 und 8.5 sowie WooCommerce 11.2 und 11.3 (Beta), Block-Kass
 `wp bootspruefung rights release --dry-run` zählt, was freigegeben würde. Danach
 `wp bootspruefung rights release --reason="Freigabe <Datum>, <Name>" --exam-rules --yes`. Das gibt alle Inhalte mit
 Rechte-Status „unknown“ ohne eigene Einstellung frei, außer Seekarten, und veröffentlicht die Prüfungsregelwerke.
-Jede Freigabe steht im Audit-Log.
+Jede Freigabe steht im Protokoll (Bootsprüfung › Protokoll). Im Admin fragt jede Freigabe vorher mit der Anzahl der
+betroffenen Einträge nach; die Begründung ist Pflicht und nicht vorbelegt (`docs/admin-bereich.md`).
 
 **Zu tun:** Vorher klären, dass die Nutzungsrechte bestehen: amtliche Fragen, Abbildungen, Navigationsaufgaben,
 Praxiskarten, Funktexte, Videos, Untertitel. Regelwerke mit Übungsmodus, z. B. Ergänzung FKN → SKN, erst nach der

@@ -430,6 +430,49 @@ $wpdb->delete($p.'entitlement', ['user_id' => $t102User]);
 wp_delete_user($t102User);
 wp_delete_user($editor);
 
+echo "Rechte- und Regelwerk-Freigabe mit Rückfrage (T103)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$cp = \Bootspruefung\Learning\Admin\ContentPages::class;
+$check(str_contains($cp::releaseConfirmMessage(7), '7 Inhalte') && str_contains($cp::rulesConfirmMessage(1), '1 Regelwerk') && str_contains($cp::overrideConfirmMessage(12), '12 Einträge'), 'Rückfrage nennt die Anzahl');
+$sum = $cp::overrideSummary('media', 'rights_status', 'licensed', 5);
+$check(str_contains($sum, '5 Einträge') && str_contains($sum, 'Medien') && str_contains($sum, 'lizenziert') && str_contains($cp::overrideSummary('exam_rule', 'verified', '', 1), 'importierter Wert gilt'), 'Rückfrage im Klartext: Anzahl, Art und neuer Wert');
+$check($cp::overrideText(['verified' => '1', 'status' => 'published']) === 'verifiziert: ja · Status: veröffentlicht' && $cp::overrideText([]) === '–', 'Lokale Abweichung eines Regelwerks als Text statt JSON');
+$_POST = [];
+$check(! \Bootspruefung\Learning\Admin\Ui::confirmed(), 'ohne Bestätigung: nicht ausführen');
+$_POST['bp_confirmed'] = '1';
+$check(\Bootspruefung\Learning\Admin\Ui::confirmed(), 'mit Bestätigung (Dialog oder Zwischenschritt): ausführen');
+$_POST = [];
+$back = \Bootspruefung\Learning\Admin\Ui::rememberConfirm('bp_override', 'bp_override', ['type' => 'media', 'value' => 'licensed', 'reason' => 'T103 Grund', 'ids' => '1,2'], 'T103: 2 Einträge ändern?', admin_url('admin.php?page=bootspruefung-rights'));
+$check(str_contains($back, 'bp_confirm=1'), 'ohne JavaScript: Rücksprung zum Zwischenschritt');
+$_GET['bp_confirm'] = '1';
+ob_start();
+\Bootspruefung\Learning\Admin\Ui::confirmBox();
+$box = (string) ob_get_clean();
+unset($_GET['bp_confirm']);
+$check(str_contains($box, 'T103: 2 Einträge ändern?') && str_contains($box, 'name="bp_confirmed" value="1"') && str_contains($box, 'name="ids" value="1,2"') && str_contains($box, 'T103 Grund') && str_contains($box, 'Abbrechen') && str_contains($box, '_wpnonce'), 'Zwischenschritt: Rückfrage, gemerkte Werte, Nonce, Abbrechen');
+delete_transient('bp_learning_confirm_'.get_current_user_id());
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderRights();
+$html = (string) ob_get_clean();
+$check(! str_contains($html, 'value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON).'"'), 'Rechte: Begründung nicht vorbelegt');
+$preselectOk = preg_match_all('#name="effective" value="([a-z]*)".*?<select name="value"[^>]*>(.*?)</select>#s', $html, $forms, PREG_SET_ORDER) > 0;
+foreach ($forms as $f) {
+    $preselectOk = $preselectOk && preg_match('#<option value="'.preg_quote($f[1], '#').'"\s+selected#', $f[2]) === 1;
+}
+$check($preselectOk, 'Rechte je Gruppe: aktueller (wirksamer) Status vorausgewählt');
+$check(preg_match_all('#data-bp-confirm="Wert für \d+ Eintr#', $html) === count($forms) && str_contains($html, 'name="bp_confirmed" value=""'), 'jede Änderung mit Rückfrage und Anzahl');
+$check(! str_contains($html, '<code>{') && ! str_contains($html, '{&quot;'), 'Letzte Freigaben ohne JSON');
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderRules();
+$html = (string) ob_get_clean();
+$check(! str_contains($html, 'value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON).'"') && ! str_contains($html, '{&quot;'), 'Regelwerke: Begründung nicht vorbelegt, Abweichung ohne JSON');
+$rulesOk = true;
+foreach ($wpdb->get_results("SELECT id FROM {$p}exam_rule") as $rule) {
+    $current = \Bootspruefung\Learning\Content\Repositories\Overrides::get('exam_rule', (int) $rule->id, 'verified') ?? '';
+    $rulesOk = $rulesOk && preg_match('#name="ids" value="'.(int) $rule->id.'".*?<option value="'.preg_quote($current, '#').'"\s+selected#s', $html) === 1;
+}
+$check($rulesOk, 'Regelwerk: aktueller Stand vorausgewählt');
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');

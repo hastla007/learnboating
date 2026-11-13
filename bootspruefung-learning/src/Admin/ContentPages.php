@@ -202,6 +202,7 @@ final class ContentPages
         $questionId = absint($_GET['question'] ?? 0);
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Fragen', 'bootspruefung-learning').'</h1>';
         Ui::notice();
+        Ui::confirmBox();
         $questionId > 0 ? $this->renderQuestion($questionId) : $this->renderQuestionList();
         echo '</div>';
     }
@@ -376,11 +377,14 @@ final class ContentPages
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Prüfungsregeln', 'bootspruefung-learning').'</h1>';
         Ui::notice();
         echo '<p class="description">'.esc_html__('Live-Prüfungsmodus nur mit veröffentlichtem, gültigem und fachlich verifiziertem Regelwerk (Kap. 4.5). Sonst ist die Simulation als Übungsmodus gekennzeichnet.', 'bootspruefung-learning').'</p>';
+        Ui::confirmBox();
         $pendingRules = \Bootspruefung\Learning\Content\RightsRelease::releaseExamRules(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON, true);
         if ($pendingRules !== []) {
             echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'.esc_html(sprintf(__('%1$d Regelwerke sind noch nicht live: %2$s. Freigabe markiert sie als verifiziert und – bei Entwürfen der Quelle – als veröffentlicht (lokaler Override, umkehrbar).', 'bootspruefung-learning'), count($pendingRules), implode(', ', array_column($pendingRules, 'course')))).'</p>';
-            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rules_release', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_rules_release"><input type="text" class="regular-text" name="reason" required value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON).'"> ';
-            submit_button(__('Alle Regelwerke freigeben', 'bootspruefung-learning'), 'primary', '', false);
+            // T103: Begründung nicht vorbelegen (Pflichtfeld), Rückfrage mit Anzahl – mit JS als Dialog, ohne JS als Zwischenschritt.
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rules_release', '_wpnonce', true, false).'<input type="hidden" name="action" value="bp_rules_release"><input type="hidden" name="bp_confirmed" value="">';
+            echo '<label for="bp-rules-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label> <input type="text" class="regular-text" id="bp-rules-reason" name="reason" required placeholder="'.esc_attr__('z. B. Freigabe durch den Betreiber am …', 'bootspruefung-learning').'"> ';
+            echo '<button type="submit" class="button button-primary" data-bp-confirm="'.esc_attr(self::rulesConfirmMessage(count($pendingRules))).'">'.esc_html__('Alle Regelwerke freigeben', 'bootspruefung-learning').'</button>';
             echo '</form></div>';
         }
         $overrides = Overrides::forType('exam_rule');
@@ -398,14 +402,20 @@ final class ContentPages
                 __('Bestehensgrenze', 'bootspruefung-learning') => esc_html(round(((float) ($passing['min_correct_ratio'] ?? 0.75)) * 100, 1).' %'.($parts ? ' · '.implode(' · ', $parts) : '')),
                 __('Hinweis', 'bootspruefung-learning') => esc_html((string) ($passing['note'] ?? '–')),
                 __('Verifiziert (Quelle)', 'bootspruefung-learning') => $rule->verified ? '✓' : '✗',
-                __('Lokaler Override', 'bootspruefung-learning') => esc_html($o === [] ? '–' : wp_json_encode($o)),
+                __('Lokaler Override', 'bootspruefung-learning') => esc_html(self::overrideText($o)),
             ]);
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="margin-top:8px">';
             wp_nonce_field('bp_override');
-            printf('<input type="hidden" name="action" value="bp_override"><input type="hidden" name="type" value="exam_rule"><input type="hidden" name="ids" value="%d"><input type="hidden" name="field" value="verified"><input type="hidden" name="back" value="%s">', (int) $rule->id, esc_attr(Ui::url('bootspruefung-rules')));
-            echo '<select name="value"><option value="1">'.esc_html__('als verifiziert markieren', 'bootspruefung-learning').'</option><option value="0">'.esc_html__('als nicht verifiziert markieren', 'bootspruefung-learning').'</option><option value="">'.esc_html__('Override entfernen (Quelle gilt)', 'bootspruefung-learning').'</option></select> ';
-            echo '<input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
-            submit_button(__('Speichern', 'bootspruefung-learning'), 'secondary', '', false);
+            printf('<input type="hidden" name="action" value="bp_override"><input type="hidden" name="bp_confirmed" value=""><input type="hidden" name="type" value="exam_rule"><input type="hidden" name="ids" value="%d"><input type="hidden" name="field" value="verified"><input type="hidden" name="back" value="%s">', (int) $rule->id, esc_attr(Ui::url('bootspruefung-rules')));
+            // T103: aktuellen Stand vorauswählen (lokale Abweichung, sonst „Quelle gilt“).
+            $current = isset($o['verified']) ? (string) $o['verified'] : '';
+            echo '<select name="value" aria-label="'.esc_attr__('Prüfung des Regelwerks', 'bootspruefung-learning').'">';
+            foreach (['1' => __('als verifiziert markieren', 'bootspruefung-learning'), '0' => __('als nicht verifiziert markieren', 'bootspruefung-learning'), '' => __('Override entfernen (Quelle gilt)', 'bootspruefung-learning')] as $value => $label) {
+                printf('<option value="%s" %s>%s</option>', esc_attr((string) $value), selected($current, (string) $value, false), esc_html($label));
+            }
+            echo '</select> ';
+            echo '<input type="text" name="reason" required class="regular-text" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
+            echo '<button type="submit" class="button" data-bp-confirm="'.esc_attr(self::overrideConfirmMessage(1)).'">'.esc_html__('Speichern', 'bootspruefung-learning').'</button>';
             echo '</form></div>';
         }
         echo '</div>';
@@ -436,14 +446,16 @@ final class ContentPages
         echo '<div class="wrap bp-admin"><h1>'.esc_html__('Rechte und Freigabe', 'bootspruefung-learning').'</h1>';
         Ui::notice();
         echo '<p class="description">'.esc_html__('Rechte-Status „ungeklärt“ (unknown) und „gesperrt“ (restricted) sperren die Auslieferung (Kap. 4.10). Eine Freigabe wird als lokaler Override mit Begründung gespeichert, überlebt Reimporte und steht im Audit-Log.', 'bootspruefung-learning').'</p>';
+        Ui::confirmBox();
         $this->renderCharts();
         $pending = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON, true));
         echo '<div class="card" style="max-width:900px"><h2>'.esc_html__('Sammelfreigabe', 'bootspruefung-learning').'</h2><p>'
             .esc_html(sprintf(__('%d Inhalte haben den Rechte-Status „ungeklärt“ (unknown) und noch keine lokale Entscheidung (Fragen aller Kataloge inkl. ohne Quellenangabe, ELWIS-Bilder, Navigations- und Praxisaufgaben, Videos, Funktexte). Nur diese werden freigegeben; bewusst gesetzte Werte (z. B. „gesperrt“ oder „in Prüfung“), archivierte Inhalte und Seekarten bleiben unverändert.', 'bootspruefung-learning'), $pending)).'</p>';
         if ($pending > 0) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">'.wp_nonce_field('bp_rights_release', '_wpnonce', true, false)
-                .'<input type="hidden" name="action" value="bp_rights_release"><input type="text" class="regular-text" name="reason" value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON).'" required> ';
-            echo '<button type="submit" class="button button-primary" data-bp-confirm="'.esc_attr(sprintf(__('%d Inhalte mit Rechte-Status „ungeklärt“ als „lizenziert“ freigeben? Sie werden danach an Lernende ausgeliefert.', 'bootspruefung-learning'), $pending)).'">'.esc_html__('Ungeklärte Inhalte freigeben (außer Seekarten)', 'bootspruefung-learning').'</button>';
+                .'<input type="hidden" name="action" value="bp_rights_release"><input type="hidden" name="bp_confirmed" value="">';
+            echo '<label for="bp-rights-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label> <input type="text" class="regular-text" id="bp-rights-reason" name="reason" required placeholder="'.esc_attr__('z. B. Rechte geklärt durch …, am …', 'bootspruefung-learning').'"> ';
+            echo '<button type="submit" class="button button-primary" data-bp-confirm="'.esc_attr(self::releaseConfirmMessage($pending)).'">'.esc_html__('Ungeklärte Inhalte freigeben (außer Seekarten)', 'bootspruefung-learning').'</button>';
             echo '</form>';
         }
         echo '</div>';
@@ -460,35 +472,29 @@ final class ContentPages
                 echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
                 wp_nonce_field('bp_override');
                 printf(
-                    '<input type="hidden" name="action" value="bp_override"><input type="hidden" name="type" value="%s"><input type="hidden" name="group" value="%s"><input type="hidden" name="imported" value="%s"><input type="hidden" name="effective" value="%s"><input type="hidden" name="field" value="rights_status"><input type="hidden" name="back" value="%s">',
+                    '<input type="hidden" name="action" value="bp_override"><input type="hidden" name="bp_confirmed" value=""><input type="hidden" name="type" value="%s"><input type="hidden" name="group" value="%s"><input type="hidden" name="imported" value="%s"><input type="hidden" name="effective" value="%s"><input type="hidden" name="field" value="rights_status"><input type="hidden" name="back" value="%s">',
                     esc_attr($type),
                     esc_attr($row->grp),
                     esc_attr($row->imported),
                     esc_attr($row->effective),
                     esc_attr(Ui::url('bootspruefung-rights'))
                 );
-                echo '<select name="value">';
+                // T103: aktuellen (wirksamen) Status vorauswählen statt immer „lizenziert“.
+                echo '<select name="value" aria-label="'.esc_attr(sprintf(__('Neuer Rechte-Status für %s', 'bootspruefung-learning'), $row->grp)).'">';
                 foreach (Overrides::RIGHTS as $r) {
-                    printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($r, 'licensed', false), esc_html(Ui::label($r)));
+                    printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($r, (string) $row->effective, false), esc_html(Ui::label($r)));
                 }
                 echo '<option value="">'.esc_html__('Override entfernen', 'bootspruefung-learning').'</option></select> ';
-                echo '<input type="text" name="reason" required placeholder="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'"> ';
-                submit_button(__('Anwenden', 'bootspruefung-learning'), 'small', '', false);
+                echo '<input type="text" name="reason" required aria-label="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'" placeholder="'.esc_attr__('Rechtsgrundlage/Begründung', 'bootspruefung-learning').'"> ';
+                echo '<button type="submit" class="button button-small" data-bp-confirm="'.esc_attr(self::overrideConfirmMessage((int) $row->n)).'">'.esc_html__('Anwenden', 'bootspruefung-learning').'</button>';
                 echo '</form>';
                 $out[] = [esc_html($row->grp), Ui::status($row->imported), Ui::status($row->effective), (int) $row->n, (string) ob_get_clean()];
             }
             Ui::table([__('Gruppe', 'bootspruefung-learning'), __('importiert', 'bootspruefung-learning'), __('wirksam', 'bootspruefung-learning'), __('Anzahl', 'bootspruefung-learning'), __('Ändern', 'bootspruefung-learning')], $out);
         }
         echo '<h2>'.esc_html__('Letzte Freigaben', 'bootspruefung-learning').'</h2>';
-        $log = $this->db->get_results("SELECT * FROM {$this->t('audit_log')} WHERE action LIKE 'override_%' ORDER BY id DESC LIMIT 20");
-        Ui::table([__('Zeit', 'bootspruefung-learning'), __('Person', 'bootspruefung-learning'), __('Aktion', 'bootspruefung-learning'), __('Objekt', 'bootspruefung-learning'), __('Begründung', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], array_map(static fn ($l) => [
-            esc_html(Ui::date($l->created_at)),
-            esc_html($l->actor_user_id ? (get_userdata((int) $l->actor_user_id)->display_name ?? '#'.$l->actor_user_id) : '–'),
-            esc_html($l->action),
-            esc_html($l->object_type.' '.wp_trim_words((string) $l->object_id, 8)),
-            esc_html((string) $l->reason),
-            '<code>'.esc_html((string) $l->context).'</code>',
-        ], $log));
+        $log = $this->db->get_results("SELECT * FROM {$this->t('audit_log')} WHERE action LIKE 'override\\_%' ORDER BY id DESC LIMIT 20");
+        AuditPage::table($log ?: [], true); // T103: Klartext statt JSON
         echo '</div>';
     }
 
@@ -523,13 +529,16 @@ final class ContentPages
         $this->can();
         check_admin_referer('bp_rights_release');
         $reason = trim(sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
+        $back = Ui::url('bootspruefung-rights');
         if ($reason === '') {
             Ui::flash(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'), 'error');
+        } elseif (! Ui::confirmed()) {
+            $back = Ui::rememberConfirm('bp_rights_release', 'bp_rights_release', ['reason' => $reason], self::releaseConfirmMessage(array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason, true))), $back);
         } else {
             $n = array_sum(\Bootspruefung\Learning\Content\RightsRelease::releaseAll($reason));
             Ui::flash(sprintf(__('%d Inhalte freigegeben.', 'bootspruefung-learning'), $n));
         }
-        wp_safe_redirect(Ui::url('bootspruefung-rights'));
+        wp_safe_redirect($back);
         exit;
     }
 
@@ -538,13 +547,16 @@ final class ContentPages
         $this->can();
         check_admin_referer('bp_rules_release');
         $reason = trim(sanitize_text_field(wp_unslash($_POST['reason'] ?? '')));
+        $back = Ui::url('bootspruefung-rules');
         if ($reason === '') {
             Ui::flash(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'), 'error');
+        } elseif (! Ui::confirmed()) {
+            $back = Ui::rememberConfirm('bp_rules_release', 'bp_rules_release', ['reason' => $reason], self::rulesConfirmMessage(count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules($reason, true))), $back);
         } else {
             $n = count(\Bootspruefung\Learning\Content\RightsRelease::releaseExamRules($reason));
             Ui::flash(sprintf(__('%d Regelwerke freigegeben – Prüfungssimulation jetzt im Live-Modus.', 'bootspruefung-learning'), $n));
         }
-        wp_safe_redirect(Ui::url('bootspruefung-rules'));
+        wp_safe_redirect($back);
         exit;
     }
 
@@ -595,19 +607,90 @@ final class ContentPages
         $value = (string) wp_unslash($_POST['value'] ?? '');
         $reason = sanitize_textarea_field(wp_unslash((string) ($_POST['reason'] ?? '')));
         $back = wp_validate_redirect((string) wp_unslash($_POST['back'] ?? ''), Ui::url('bootspruefung'));
+        $fields = ['type' => $type, 'field' => $field, 'value' => $value, 'reason' => $reason, 'back' => $back];
         if (isset($_POST['group'])) {
-            $ids = $this->idsForGroup($type, (string) wp_unslash($_POST['group']), (string) wp_unslash($_POST['imported'] ?? ''), (string) wp_unslash($_POST['effective'] ?? ''));
+            $fields += ['group' => (string) wp_unslash($_POST['group']), 'imported' => (string) wp_unslash($_POST['imported'] ?? ''), 'effective' => (string) wp_unslash($_POST['effective'] ?? '')];
+            $ids = $this->idsForGroup($type, $fields['group'], $fields['imported'], $fields['effective']);
         } else {
             $ids = array_map('absint', explode(',', (string) ($_POST['ids'] ?? '')));
+            $fields['ids'] = implode(',', array_filter($ids));
         }
+        $ids = array_values(array_filter($ids));
         try {
-            $count = Overrides::set($type, array_values(array_filter($ids)), $field, $value === '' ? null : $value, $reason);
-            Ui::flash(sprintf(__('%d Einträge aktualisiert.', 'bootspruefung-learning'), $count));
+            if (trim($reason) === '') {
+                throw new InvalidArgumentException(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'));
+            }
+            if (! Ui::confirmed()) {
+                // T103: ohne JS-Bestätigung erst der Zwischenschritt mit Anzahl und neuem Wert.
+                wp_safe_redirect(Ui::rememberConfirm('bp_override', 'bp_override', $fields, self::overrideSummary($type, $field, $value, count($ids)), $back));
+                exit;
+            }
+            $count = Overrides::set($type, $ids, $field, $value === '' ? null : $value, $reason);
+            Ui::flash(self::overrideSummary($type, $field, $value, $count, true));
         } catch (InvalidArgumentException $e) {
             Ui::flash($e->getMessage(), 'error');
         }
         wp_safe_redirect($back);
         exit;
+    }
+
+    /** Rückfrage-Text der Sammelfreigabe (Rechte). */
+    public static function releaseConfirmMessage(int $n): string
+    {
+        /* translators: %d: Anzahl Inhalte */
+        return sprintf(_n('%d Inhalt mit Rechte-Status „ungeklärt“ als „lizenziert“ freigeben? Er wird danach an Lernende ausgeliefert.', '%d Inhalte mit Rechte-Status „ungeklärt“ als „lizenziert“ freigeben? Sie werden danach an Lernende ausgeliefert.', $n, 'bootspruefung-learning'), $n);
+    }
+
+    /** Rückfrage-Text der Sammelfreigabe (Regelwerke). */
+    public static function rulesConfirmMessage(int $n): string
+    {
+        /* translators: %d: Anzahl Regelwerke */
+        return sprintf(_n('%d Regelwerk freigeben? Die Prüfungssimulation dieses Kurses zählt danach als echte Prüfungssimulation.', '%d Regelwerke freigeben? Die Prüfungssimulation dieser Kurse zählt danach als echte Prüfungssimulation.', $n, 'bootspruefung-learning'), $n);
+    }
+
+    /** Rückfrage im Browser-Dialog: Anzahl der betroffenen Einträge (der neue Wert steht im Auswahlfeld daneben). */
+    public static function overrideConfirmMessage(int $n): string
+    {
+        /* translators: %d: Anzahl Einträge */
+        return sprintf(_n('Wert für %d Eintrag ändern?', 'Wert für %d Einträge ändern?', $n, 'bootspruefung-learning'), $n);
+    }
+
+    /** Klartext für Rückfrage und Meldung: Anzahl, Inhaltsart und neuer Wert. */
+    public static function overrideSummary(string $type, string $field, string $value, int $n, bool $done = false): string
+    {
+        $what = Ui::entityLabel($type);
+        $new = match (true) {
+            $value === '' => __('lokale Abweichung entfernen (importierter Wert gilt)', 'bootspruefung-learning'),
+            $field === 'verified' => $value === '1' ? __('als verifiziert markiert', 'bootspruefung-learning') : __('als nicht verifiziert markiert', 'bootspruefung-learning'),
+            default => sprintf(__('Rechte-Status „%s“', 'bootspruefung-learning'), Ui::label($value)),
+        };
+        if ($done) {
+            /* translators: 1: Anzahl, 2: Inhaltsart, 3: neuer Wert */
+            return sprintf(_n('%1$d Eintrag (%2$s) geändert: %3$s.', '%1$d Einträge (%2$s) geändert: %3$s.', $n, 'bootspruefung-learning'), $n, $what, $new);
+        }
+
+        /* translators: 1: Anzahl, 2: Inhaltsart, 3: neuer Wert */
+        return sprintf(_n('%1$d Eintrag (%2$s) ändern: %3$s?', '%1$d Einträge (%2$s) ändern: %3$s?', $n, 'bootspruefung-learning'), $n, $what, $new);
+    }
+
+    /** Lokale Abweichungen eines Regelwerks als Text. @param array<string,?string> $o */
+    public static function overrideText(array $o): string
+    {
+        if ($o === []) {
+            return '–';
+        }
+        $parts = [];
+        foreach ($o as $field => $value) {
+            $parts[] = match ($field) {
+                'verified' => __('verifiziert', 'bootspruefung-learning').': '.($value === '1' ? __('ja', 'bootspruefung-learning') : __('nein', 'bootspruefung-learning')),
+                'status' => __('Status', 'bootspruefung-learning').': '.Ui::label((string) $value),
+                'valid_from' => __('gültig ab', 'bootspruefung-learning').': '.($value ? Ui::date((string) $value) : '–'),
+                'valid_until' => __('gültig bis', 'bootspruefung-learning').': '.($value ? Ui::date((string) $value) : '–'),
+                default => $field.': '.(string) $value,
+            };
+        }
+
+        return implode(' · ', $parts);
     }
 
     /** @return list<int> */
@@ -633,14 +716,15 @@ final class ContentPages
     {
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('bp_override');
-        printf('<input type="hidden" name="action" value="bp_override"><input type="hidden" name="type" value="%s"><input type="hidden" name="ids" value="%s"><input type="hidden" name="field" value="%s"><input type="hidden" name="back" value="%s">', esc_attr($type), esc_attr(implode(',', $ids)), esc_attr($field), esc_attr($back));
-        echo '<select name="value">';
+        printf('<input type="hidden" name="action" value="bp_override"><input type="hidden" name="bp_confirmed" value=""><input type="hidden" name="type" value="%s"><input type="hidden" name="ids" value="%s"><input type="hidden" name="field" value="%s"><input type="hidden" name="back" value="%s">', esc_attr($type), esc_attr(implode(',', $ids)), esc_attr($field), esc_attr($back));
+        echo '<select name="value" aria-label="'.esc_attr__('Neuer Rechte-Status', 'bootspruefung-learning').'">';
         foreach (Overrides::RIGHTS as $r) {
-            printf('<option value="%s" %s>%s</option>', esc_attr($r), selected($current, $r, false), esc_html(Ui::label($r)));
+            printf('<option value="%s" %s>%s</option>', esc_attr($r), selected((string) $current, $r, false), esc_html(Ui::label($r)));
         }
-        echo '<option value="">'.esc_html__('Override entfernen (Quelle gilt)', 'bootspruefung-learning').'</option></select> ';
-        echo '<input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
-        submit_button(__('Speichern', 'bootspruefung-learning'), 'secondary', '', false);
+        // Ohne lokale Abweichung ist „Quelle gilt“ der aktuelle Stand.
+        echo '<option value="" '.selected($current === null, true, false).'>'.esc_html__('Override entfernen (Quelle gilt)', 'bootspruefung-learning').'</option></select> ';
+        echo '<input type="text" name="reason" required class="regular-text" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"> ';
+        echo '<button type="submit" class="button" data-bp-confirm="'.esc_attr(self::overrideConfirmMessage(count($ids))).'">'.esc_html__('Speichern', 'bootspruefung-learning').'</button>';
         echo '</form>';
     }
 

@@ -82,7 +82,7 @@ final class Menu
             return;
         }
         $default = esc_js(__('Wirklich ausführen? Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning'));
-        echo "<script>document.addEventListener('submit',function(e){var b=e.submitter;if(!b){return;}var m=b.getAttribute('data-bp-confirm')||((b.classList.contains('button-link-delete')||b.classList.contains('delete'))?'{$default}':null);if(m&&!window.confirm(m)){e.preventDefault();}},true);</script>"; // phpcs:ignore
+        echo "<script>document.addEventListener('submit',function(e){var b=e.submitter;if(!b){return;}var m=b.getAttribute('data-bp-confirm')||((b.classList.contains('button-link-delete')||b.classList.contains('delete'))?'{$default}':null);if(m&&!window.confirm(m)){e.preventDefault();return;}var h=m&&b.form?b.form.querySelector('input[name=bp_confirmed]'):null;if(h){h.value='1';}},true);</script>"; // phpcs:ignore
     }
 
     public function enqueue(string $hook): void

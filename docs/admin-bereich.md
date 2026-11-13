@@ -38,3 +38,17 @@ Einstellungen).
 - **Verlauf:** In Zugänge › Zugang und in Gruppenlizenzen › Gruppe steht ein aufklappbarer „Verlauf“ mit den
   passenden Einträgen (beim Zugang auch die der Bestellung bzw. manuellen Freischaltung) und, für Administratoren,
   ein Link „Im Protokoll öffnen“.
+
+## Rechte und Regelwerke freigeben (T103)
+
+Seiten „Rechte“ und „Prüfungsregeln“ (sowie der Rechte-Status einer einzelnen Frage):
+
+- **Rückfrage mit Anzahl:** Vor jeder Änderung fragt die Seite nach, z. B. „12 Inhalte mit Rechte-Status „ungeklärt“
+  als „lizenziert“ freigeben?“ oder „Wert für 40 Einträge ändern?“. Mit JavaScript als Dialog im Browser; ohne
+  JavaScript erscheint oben auf der Seite ein Zwischenschritt mit Anzahl, neuem Wert und Begründung und den Knöpfen
+  „Ja, ausführen“ und „Abbrechen“ (gilt 10 Minuten).
+- **Auswahlfeld:** zeigt den aktuellen Stand (wirksamer Rechte-Status der Gruppe bzw. die lokale Prüfung des
+  Regelwerks; ohne lokale Abweichung „Quelle gilt“). Früher war immer „lizenziert“ vorausgewählt.
+- **Begründung:** bleibt Pflicht und ist nicht mehr vorbelegt – bitte eigene Begründung mit Datum und Namen eintragen.
+- **Anzeige:** lokale Abweichungen eines Regelwerks und „Letzte Freigaben“ stehen als Text (wie im Protokoll),
+  nicht mehr als JSON.
