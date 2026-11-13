@@ -233,6 +233,7 @@ Verantwortung ist das anders. Welche Rolle ein Dienst hat, bitte anwaltlich best
 | – | Apple App Store, Google Play | – | eigene Verantwortung | Download, Store-Konto | DSE Nr. 7 „App“ hat einen Platzhalter |
 | ☐ | Dienste in der App (Absturzberichte, Push, Analyse) | **unbekannt** | Frage | Frage | Abschnitt 6 |
 | – | Partner im Partnerprogramm | [[Betreiber]] | Frage | siehe 1.11 | |
+| – | GitHub (Versionsprüfung, nur wenn eingeschaltet) | GitHub | Frage (vermutlich keine personenbezogenen Daten der Kunden) | IP-Adresse des Servers, einmal am Tag; keine Website-Daten, eigene Kennung ohne Adresse | Standard aus; Bootsprüfung › Einstellungen › Betrieb (`Infrastructure/UpdateCheck.php`, T117) |
 
 Für jeden Auftragsverarbeiter zusätzlich festhalten: Unterauftragnehmer, Serverstandort, Drittlandgarantie,
 Meldepflicht bei Datenpannen „unverzüglich“ (Art. 33 Abs. 2 DSGVO), Löschung bei Vertragsende.

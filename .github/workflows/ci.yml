@@ -228,6 +228,10 @@ jobs:
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/operations-test.php | tee operations.log
           if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" operations.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Versionsprüfung (Standard aus, HTTP simuliert) und Website-Zustand (Integration)
+        run: |
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/release-ops-test.php | tee release-ops.log
+          if grep -iE "PHP (Warning|Deprecated|Notice|Fatal)" release-ops.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
       - name: WooCommerce bereitstellen
         run: |
           # GitHub-Release, bei Störung wordpress.org (gleiche Version); je Quelle mit Wiederholungen.

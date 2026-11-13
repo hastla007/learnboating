@@ -216,6 +216,8 @@ final class Plugin
         \Bootspruefung\Learning\Infrastructure\Maintenance::register();
         \Bootspruefung\Learning\Admin\MailStatus::register(); // Absender angleichen, Testmail (T54)
         \Bootspruefung\Learning\Infrastructure\Monitor::register(); // Überwachung und Zeitzone (T55)
+        \Bootspruefung\Learning\Infrastructure\UpdateCheck::register(); // „Auf neue Versionen prüfen“, Standard aus (T117)
+        \Bootspruefung\Learning\Admin\SiteHealth::register(); // Website-Zustand, Datenschutz-Textvorschlag (T127)
         (new \Bootspruefung\Learning\Frontend\Router($this))->register();
         \Bootspruefung\Learning\Frontend\ReturnAfterLogin::register();
         add_action(\Bootspruefung\Learning\Infrastructure\Cron::HOURLY, [self::class, 'hourly']);

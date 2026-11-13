@@ -81,8 +81,24 @@ Preise · Protokoll · Einstellungen · Mobile App · Systemstatus. Seiten ander
 (`Menu::ORDER`).
 
 **Einstellungen** sind in Bereiche gegliedert (Sprungmarken oben): „Zugang und Erinnerungen“, „Darstellung und
-Lernen“, „Datenschutz und Daten“, „Sicherheit“, „Zahlungskonflikte“. Die gespeicherten Optionen und ihre Schlüssel
-sind unverändert.
+Lernen“, „Datenschutz und Daten“, „Betrieb“, „Sicherheit“, „Zahlungskonflikte“. Die gespeicherten Optionen und ihre
+Schlüssel sind unverändert.
+
+**Betrieb (T117):** „Auf neue Versionen prüfen“ (Standard aus, `update_check_enabled`). Eingeschaltet fragt der
+stündliche Wartungslauf höchstens einmal am Tag die GitHub-Releases ab (`Infrastructure\UpdateCheck`, Quelle per
+Konstante `BOOTSPRUEFUNG_UPDATE_SOURCE` bzw. Filter `bootspruefung_update_source`). Ergebnis: Zeile „Neue Version“ im
+Systemstatus und ein Hinweis auf Dashboard, Plugins, Aktualisierungen und den Bootsprüfung-Seiten (wegklickbar bis
+zur nächsten Version; Sicherheitsupdates als Warnung, nur einen Tag vertagbar). Nichts wird automatisch installiert.
+Ausschalten verwirft das gespeicherte Ergebnis.
+
+**Website-Zustand (T127):** Unter Werkzeuge › Website-Zustand › Bericht steht ein Abschnitt „Bootsprüfung“
+(Versionen, Schema, Migration, Wartungslauf, Speicher-Selbsttest, Zugang ohne Shop, WooCommerce, Versionsprüfung –
+ohne Pfade und Geheimnisse; wird beim „Bericht kopieren“ mitgenommen). Unter „Status“ prüfen zwei Tests ohne Anfrage
+nach außen: „Datenbank-Migration“ (fehlgeschlagen = kritisch, fällig = empfohlen) und „Inhaltspakete und geschützte
+Dateien“ (nutzt das Ergebnis des Selbsttests im Systemstatus; noch nicht geprüft = empfohlen). Unter Einstellungen ›
+Datenschutz › Leitfaden liegt ein Vorschlagstext „Bootsprüfung Lernplattform“ (Lernstand, App-Sitzungen,
+Anmeldeschutz, Protokoll 4 Jahre, Ablauf-Erinnerung mit den eingestellten Tagen) – keine Rechtsberatung, bitte
+mit der Datenschutzerklärung des Themes abgleichen.
 
 **Sicherheit:** „Vertrauenswürdige Proxys“ steht jetzt hier (vorher unter „Mobile App“) und gilt für Website und App
 (Anmelde-Grenzen je IP). Gespeichert wird weiter in `bp_learning_mobile[trusted_proxies]`; die Seite „Mobile App“

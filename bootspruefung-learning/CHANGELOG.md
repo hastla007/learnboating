@@ -8,6 +8,14 @@ Release-Regel in `docs/release-regel.md`. Datenbank-Schema und App-API haben eig
 
 Datenbank-Schema 1.15.0, App-API 1.12.0. Seit 0.13.0 rund 120 Änderungen; die wichtigsten:
 
+**Betrieb und Auslieferung (Audit T106, T117, T118, T127)**
+- „Auf neue Versionen prüfen“ (Einstellungen › Betrieb, Standard aus): höchstens einmal am Tag die GitHub-Releases,
+  Ergebnis im Systemstatus („Neue Version“) und als Admin-Hinweis mit Link zur Release-Seite; Sicherheitsupdates als
+  Warnung; keine automatische Installation, keine Website-Daten.
+- Werkzeuge › Website-Zustand: Abschnitt „Bootsprüfung“ und Tests „Datenbank-Migration“ und „Inhaltspakete und
+  geschützte Dateien“; Vorschlag für die Datenschutzerklärung (Einstellungen › Datenschutz › Leitfaden).
+- Plugin-ZIP enthält CREDITS.md; „WC tested up to: 11.2“; das Theme-Paket enthält das Plugin nicht mehr.
+
 **Lernbereich und App**
 - Prüfungssimulation abbrechen (Web und App); Prüfungsantworten werden offline gepuffert und nachgesendet.
 - Smarttrainer mit verteilter Wiederholung; Navigationstrainer mit Punktestand nach Selbsteinschätzung.
