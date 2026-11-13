@@ -10,6 +10,7 @@ use Bootspruefung\Learning\Commerce\Labels;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Commerce\WooCommerce\MemberDiscounts;
+use Bootspruefung\Learning\Infrastructure\NamedLock;
 use Bootspruefung\Learning\Learning\Services\AccessService;
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\RateLimiter;
@@ -38,6 +39,14 @@ final class Vouchers
     public const OPTION_COMBINE = 'bp_learning_voucher_with_member_discount';
     /** Höchstzahl der Einlöseversuche je Nutzer und Stunde (App und Web zusammen, wie POST /coupons/redeem). */
     public const RATE_LIMIT = 10;
+    /**
+     * Höchstzahl der Einlöseversuche je IP und Stunde über alle Wege zusammen (T109): App (POST /vouchers/check,
+     * /vouchers/redeem, /coupons/redeem), Formular unter „Mein Lernen“ und Einlöseseite des Kursgutschein-Connectors.
+     * Sonst ließen sich Codes über viele Konten durchprobieren. Filter bootspruefung_voucher_redeem_per_ip.
+     */
+    public const REDEEM_PER_IP = 30;
+    /** Zählername des IP-Limits (derselbe wie zuvor auf der Einlöseseite des Connectors, IPv6 je /64-Netz). */
+    public const IP_BUCKET = 'lbvc-redeem-ip';
 
     private const LOCK_WAIT = 10;
 
@@ -46,6 +55,24 @@ final class Vouchers
         add_action('bootspruefung_voucher_redeemed', [self::class, 'onRedeemed'], 10, 4);
         add_action('admin_post_bp_voucher_redeem', [self::class, 'handleWebForm']);
         add_filter('bootspruefung_coupon_allow_with_member_discount', [self::class, 'allowWithMemberDiscount'], 10, 3);
+    }
+
+    /** Grenze des gemeinsamen IP-Limits (mindestens 1). */
+    public static function ipLimit(): int
+    {
+        /** Filter: Einlöseversuche je IP und Stunde für Gutscheine und Codes (alle Wege zusammen, Standard 30). */
+        return max(1, (int) apply_filters('bootspruefung_voucher_redeem_per_ip', self::REDEEM_PER_IP));
+    }
+
+    /**
+     * Einen Einlöseversuch der Client-IP zählen (gemeinsamer Zähler aller Wege, T109). Vor dem Nachschlagen des Codes
+     * aufrufen – sonst verraten die Antworten gültige Codes.
+     *
+     * @throws ApiException RATE_LIMITED, sobald mehr als ipLimit() Versuche in der Stunde liegen
+     */
+    public static function hitIpLimit(): void
+    {
+        RateLimiter::hit(self::IP_BUCKET.'|'.RateLimiter::clientKey(), self::ipLimit(), HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
     }
 
     public static function hash(string $code): string
@@ -99,8 +126,10 @@ final class Vouchers
         if (! $mapped) {
             return new WP_Error('bp_voucher_product', __('Zu diesem Gutschein gehört kein Kurs. Bitte wende dich an uns.', 'bootspruefung-learning'));
         }
-        $lock = 'bp_voucher_'.substr($hash, 0, 40).'_'.substr(md5((string) $wpdb->prefix), 0, 8);
-        if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock, self::LOCK_WAIT)) !== '1') {
+        // NamedLock (T115): je Code, Datenbank und Präfix; belegt → „wird gerade eingelöst“; GET_LOCK nicht verfügbar
+        // (NULL) → ohne Sperre weiter (die Prüfung auf eine Bestellung zu diesem Code bleibt), statt nie einzulösen.
+        $lock = self::lockName($hash);
+        if (! NamedLock::acquire($lock, self::LOCK_WAIT)) {
             return new WP_Error('bp_voucher_busy', __('Dein Gutschein wird gerade eingelöst. Bitte lade die Seite in einem Moment neu.', 'bootspruefung-learning'));
         }
         try {
@@ -115,7 +144,7 @@ final class Vouchers
             }
             $orderId = self::createOrder($product, $userId, $hash, (int) ($args['voucher_order_id'] ?? 0));
         } finally {
-            $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            NamedLock::release($lock);
         }
         if ($orderId instanceof WP_Error) {
             return $orderId;
@@ -134,6 +163,12 @@ final class Vouchers
         do_action('bootspruefung_voucher_order_created', $orderId, $userId, $productId, $args);
 
         return ['order_id' => $orderId, 'created' => true];
+    }
+
+    /** Name der Sperre je Gutscheincode (Hash), NamedLock::dbName() macht daraus den Namen in der Datenbank. */
+    public static function lockName(string $hash): string
+    {
+        return 'voucher:'.$hash;
     }
 
     private static function createOrder(\WC_Product $product, int $userId, string $hash, int $voucherOrderId): int|WP_Error
@@ -263,7 +298,8 @@ final class Vouchers
     // ------------------------------------------------------------------ Web: „Mein Lernen“
 
     /**
-     * Einlösung aus dem Formular unter „Mein Lernen“ (gleiche Logik und gleiches Limit wie POST /coupons/redeem).
+     * Einlösung aus dem Formular unter „Mein Lernen“ (gleiche Logik und gleiche Limits wie POST /coupons/redeem:
+     * je Konto und – gemeinsam mit allen Einlösewegen – je IP).
      *
      * @return array{result:string,message:string,order_id:?int}
      */
@@ -274,6 +310,7 @@ final class Vouchers
             return ['result' => 'invalid', 'message' => __('Bitte gib einen Code ein.', 'bootspruefung-learning'), 'order_id' => null];
         }
         try {
+            self::hitIpLimit();
             RateLimiter::hit('redeem|'.$userId, self::RATE_LIMIT, HOUR_IN_SECONDS);
         } catch (ApiException) {
             return ['result' => 'rate_limited', 'message' => __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'), 'order_id' => null];

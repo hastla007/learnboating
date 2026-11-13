@@ -7,6 +7,7 @@ declare(strict_types=1);
  * Die Plugins werden im Test simuliert (eigene add_filter/do_action):
  *   Gutschein: Aktion bootspruefung_voucher_redeemed (genau eine 0-€-Bestellung, Zugang ab heute, idempotent),
  *              POST /coupons/redeem mit Filter bootspruefung_voucher_redeem, Formular unter „Mein Lernen“,
+ *              gemeinsames IP-Limit aller Einlösewege (T109), Sperre je Code über NamedLock (T115),
  *              Filter bootspruefung_user_owns_course, Mitgliederrabatt vs. Shop-Gutschein,
  *              Garantie ohne Gutscheinanteil (_bp_paid_by_voucher) und ohne Garantie für Gutschein-Bestellungen.
  *   Tickets:   bootspruefung_ticket_issued/_redeemed/_cancelled, Kurs-Hub-Feld tickets, GET /me/tickets,
@@ -76,6 +77,11 @@ foreach (['ext_a', 'ext_b', 'ext_c', 'ext_d', 'ext_e', 'ext_f'] as $login) {
 }
 ['ext_a' => $userA, 'ext_b' => $userB, 'ext_c' => $userC, 'ext_d' => $userD, 'ext_e' => $userE, 'ext_f' => $userF] = $users;
 $bucket = static fn (int $uid): string => hash('sha256', 'redeem|'.$uid.'|'.wp_salt('nonce'));
+// Gemeinsames IP-Limit aller Einlösewege (T109): Zähler der Test-IPs leeren (sonst zählen frühere Läufe mit).
+$ipBuckets = array_map(static fn (string $ip): string => hash('sha256', Vouchers::IP_BUCKET.'|'.$ip.'|'.wp_salt('nonce')), ['192.0.2.20', '198.51.100.31', '198.51.100.32']);
+foreach ($ipBuckets as $ipBucket) {
+    $wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => $ipBucket]);
+}
 foreach ($users as $uid) {
     $wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => $bucket($uid)]);
 }
@@ -88,13 +94,13 @@ $courseId = (string) $course->id;
 $today = gmdate('Y-m-d');
 
 /** App-Anfrage wie in mobile-api-test.php (Bearer, Tenant, rest_post_dispatch). */
-$api = static function (string $method, string $path, array $body = [], ?string $token = null, array $headers = []) use ($tenant): array {
+$api = static function (string $method, string $path, array $body = [], ?string $token = null, array $headers = [], string $ip = '192.0.2.20') use ($tenant): array {
     global $current_user;
     $current_user = null;
     TokenAuth::reset();
     Problem::reset();
     $_SERVER['REQUEST_URI'] = '/wp-json/boatingschool/v1'.$path;
-    $_SERVER['REMOTE_ADDR'] = '192.0.2.20';
+    $_SERVER['REMOTE_ADDR'] = $ip;
     if ($token !== null) {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer '.$token;
     } else {
@@ -186,6 +192,19 @@ if ($woo) {
     $other = Vouchers::redeem($code, $userB, $productId);
     $check($other instanceof WP_Error && $other->get_error_code() === 'bp_voucher_used' && $voucherOrders($code) === 1, 'gleicher Code für ein anderes Konto: abgelehnt, keine Bestellung');
     $check(Vouchers::redeem('X-'.wp_generate_password(8, false), $userB, 999999999) instanceof WP_Error, 'Produkt ohne Lernzugang: abgelehnt');
+    // T115: Sperre je Code über NamedLock. Eine zweite Datenbankverbindung (= parallele Anfrage) hält sie.
+    $busyCode = 'KURS-'.wp_generate_password(10, false);
+    $busyLock = \Bootspruefung\Learning\Infrastructure\NamedLock::dbName(Vouchers::lockName(Vouchers::hash($busyCode)));
+    $parallelDb = new wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
+    $heldVoucherLock = (int) $parallelDb->get_var($parallelDb->prepare('SELECT GET_LOCK(%s, 0)', $busyLock)) === 1;
+    $noWait = static fn () => 0;
+    add_filter('bootspruefung_named_lock_timeout', $noWait);
+    $busy = Vouchers::redeem($busyCode, $userB, $productId);
+    remove_filter('bootspruefung_named_lock_timeout', $noWait);
+    $check($heldVoucherLock && $busy instanceof WP_Error && $busy->get_error_code() === 'bp_voucher_busy' && $voucherOrders($busyCode) === 0, 'Gutschein gerade in einer parallelen Anfrage: „wird gerade eingelöst“, keine Bestellung');
+    $parallelDb->query($parallelDb->prepare('SELECT RELEASE_LOCK(%s)', $busyLock));
+    $parallelDb->close();
+    $check(strlen($busyLock) <= 64 && $busyLock !== \Bootspruefung\Learning\Infrastructure\NamedLock::dbName(Vouchers::lockName(Vouchers::hash($busyCode.'x'))), 'Sperrname je Code, Datenbank und Präfix (höchstens 64 Zeichen)');
 
     echo "Garantie bei Gutschein-Bestellungen\n";
     $s = MoneyBackWoo::status(wc_get_order($orderId));
@@ -257,6 +276,21 @@ if ($woo) {
         $last = Vouchers::submitWeb($userE, 'NIX-'.$i);
     }
     $check($last['result'] === 'rate_limited', 'Rate-Limit wie in der App (10 Versuche je Stunde)');
+    // T109: gemeinsames IP-Limit über alle Konten und Wege (hier Grenze 3 über den Filter).
+    $perIp = static fn () => 3;
+    add_filter('bootspruefung_voucher_redeem_per_ip', $perIp);
+    $_SERVER['REMOTE_ADDR'] = '198.51.100.31';
+    $ipResults = [Vouchers::submitWeb($userA, 'NIX-IP-1')['result'], Vouchers::submitWeb($userB, 'NIX-IP-2')['result']];
+    $tokIp = $token($userF);
+    $ipApi = $api('POST', '/coupons/redeem', ['code' => 'NIX-IP-3'], $tokIp, [], '198.51.100.31');
+    $seenBefore = count($seen);
+    $ipResults[] = Vouchers::submitWeb($userF, 'NIX-IP-4')['result'];
+    $check($ipResults === ['invalid', 'invalid', 'rate_limited'] && $ipApi['status'] === 422 && count($seen) === $seenBefore, 'IP-Limit: 3 Versuche je IP über verschiedene Konten (Web und App gemeinsam), danach gesperrt – ohne den Code nachzuschlagen');
+    $ipApi = $api('POST', '/coupons/redeem', ['code' => 'NIX-IP-5'], $tokIp, [], '198.51.100.31');
+    $check($ipApi['status'] === 429 && ($ipApi['body']['code'] ?? '') === 'RATE_LIMITED', 'IP-Limit: App POST /coupons/redeem von derselben IP → 429 RATE_LIMITED');
+    $_SERVER['REMOTE_ADDR'] = '198.51.100.32';
+    $check(Vouchers::submitWeb($userA, 'NIX-IP-6')['result'] === 'invalid', 'andere IP: eigener Zähler');
+    remove_filter('bootspruefung_voucher_redeem_per_ip', $perIp);
     remove_filter('bootspruefung_voucher_redeem', $plugin, 10);
     ob_start();
     (new Integration())->renderAccount();
@@ -476,6 +510,9 @@ foreach ($cleanupProducts as $pid) {
     (new ProductAccessRepository($wpdb))->save($pid, 0, [], null, 'extend', 'revoke_on_full_refund');
     MoneyBack::setPolicy($pid, null, null);
     wp_delete_post($pid, true);
+}
+foreach ($ipBuckets as $ipBucket) {
+    $wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => $ipBucket]);
 }
 foreach ($users as $uid) {
     $wpdb->delete($p.'entitlement', ['user_id' => $uid]);

@@ -132,7 +132,21 @@ Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Buil
   `GET_LOCK`, endet spätestens mit der Verbindung). Zwei gleichzeitige Beitritte können so nicht denselben letzten
   Platz belegen, eine Person wird nicht doppelt eingetragen. Ist die Sperre länger als 5 Sekunden belegt, kommt
   „Gerade nehmen mehrere Personen gleichzeitig einen Platz in dieser Gruppe …“.
-- **Kursgutscheine:** siehe `docs/kursgutscheine.md` (Sperre je Gutschein, Limit der Einlöseseite).
+- **Kursgutscheine:** siehe `docs/kursgutscheine.md` (Sperre je Gutschein, Limits). Seit T109 zählt ein
+  gemeinsames Limit je IP (30 je Stunde) alle Einlösewege zusammen – App, „Mein Lernen“, Einlöseseite –, damit sich
+  Codes nicht über viele Konten durchprobieren lassen; im Warenkorb bestätigt nur ein angemeldetes Konto nach der
+  Limitprüfung, dass ein Code ein Kursgutschein ist.
+- **Benannte Sperren (T115):** Kurze Sperren einzelner Anfragen laufen über `Infrastructure\NamedLock` (MySQL
+  `GET_LOCK`, Name je Datenbank und Tabellenpräfix): Gruppenbeitritt, Prüfungsstart je Nutzer, Kursgutschein-Bestellung
+  je Code. Belegt (Wartezeit abgelaufen) → freundliche Meldung „gerade belegt, bitte gleich erneut“. Kann die Datenbank
+  keine benannten Sperren (`GET_LOCK` liefert NULL, z. B. bestimmte Cluster-Proxys), geht es ohne Sperre weiter und es
+  wird protokolliert – die fachliche Prüfung danach (laufende Prüfung, Bestellung je Code, freie Plätze) bleibt; früher
+  blockierte ein NULL den Prüfungsstart bzw. die Einlösung dauerhaft. Mit HyperDB/LudicrousDB schickt NamedLock vor
+  `GET_LOCK` alle Lesezugriffe der Anfrage an den Hauptserver (`send_reads_to_masters()`), damit Sperre und Freigabe
+  dieselbe Verbindung nutzen. Filter `bootspruefung_named_lock_timeout` (Wartezeit; Prüfungsstart und Gutschein
+  10 Sekunden, Gruppen 5).
+- **Antworten je Minute (T114):** höchstens 60 Antworten je Nutzer und Minute (Web und App), gezählt atomar in der
+  Tabelle `bp_mobile_rate_limit` wie die App-Limits (vorher Transients `bp_rl_*`, nicht atomar).
 - **Einladungsvorschau (Web und App):** nennt die kaufende Person nur mit Vor- und Nachname aus dem Konto, sonst
   niemanden – nie den Anzeigenamen (oft der Anmeldename).
 - **Passwort vergessen in der App:** Antwort immer 202, gleich für bekannte und unbekannte Adressen. Reset-Schlüssel
@@ -140,4 +154,4 @@ Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Buil
 - **Tipps:** Über die WordPress-Schnittstelle `/wp/v2/bp_tip` (und die Kategorien) lesen nur Konten mit
   Bearbeitungsrecht; der Block-Editor funktioniert wie bisher. Lernende lesen Tipps im Lernbereich.
 - **IPv6:** Alle Limits je IP zählen IPv6-Adressen je /64-Netz (`RateLimiter::clientKey()`): Anmeldung, Passwort
-  vergessen/zurücksetzen, Registrierung, App-Token, Kontolöschung, PayPal-Webhook, Gutschein-Einlöseseite.
+  vergessen/zurücksetzen, Registrierung, App-Token, Kontolöschung, PayPal-Webhook, Gutschein-Einlösung (alle Wege).

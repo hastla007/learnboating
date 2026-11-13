@@ -2,14 +2,14 @@
 # This file is distributed under the proprietary.
 msgid ""
 msgstr ""
-"Project-Id-Version: LearnBoating Kursgutschein-Connector 1.0.1\n"
+"Project-Id-Version: LearnBoating Kursgutschein-Connector 1.1.0\n"
 "Report-Msgid-Bugs-To: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T21:18:08+00:00\n"
+"POT-Creation-Date: 2026-11-13T22:50:08+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: learnboating-voucher-connector\n"
@@ -29,129 +29,133 @@ msgstr ""
 msgid "LearnBoating"
 msgstr ""
 
-#: src/Connector.php:69
+#: src/Connector.php:84
 msgid "LearnBoating Kursgutschein-Connector ist inaktiv: Er braucht die Bootsprüfung-Lernplattform (Grant-Vertrag 1.x) und Voucher Captain."
 msgstr ""
 
-#: src/Connector.php:91
+#: src/Connector.php:107
 msgid "Kursgutschein (LearnBoating)"
 msgstr ""
 
-#: src/Connector.php:92
+#: src/Connector.php:108
 msgid "LearnBoating („Mein Lernen“)"
 msgstr ""
 
-#: src/Connector.php:103
+#: src/Connector.php:119
 msgid "Kurs freigeschaltet (LearnBoating)"
 msgstr ""
 
-#: src/Connector.php:104
+#: src/Connector.php:120
 msgid "Kursfreischaltung fehlgeschlagen"
 msgstr ""
 
-#: src/Connector.php:105
+#: src/Connector.php:121
 msgid "Kurszugang widerrufen (LearnBoating)"
 msgstr ""
 
-#: src/Connector.php:183
+#: src/Connector.php:212
 msgid "Das ist ein Kursgutschein. Du löst ihn in „Mein Lernen“ ein (App oder Gutschein-Einlöseseite) – nicht im Warenkorb."
 msgstr ""
 
-#: src/Connector.php:195
-#: src/Connector.php:707
+#: src/Connector.php:218
+msgid "Dieser Gutscheincode kann im Warenkorb nicht eingelöst werden. Kursgutscheine löst du nach der Anmeldung in „Mein Lernen“ ein."
+msgstr ""
+
+#: src/Connector.php:235
+#: src/Connector.php:764
 msgid "Das ist kein Kursgutschein."
 msgstr ""
 
-#: src/Connector.php:198
+#: src/Connector.php:238
 msgid "Dieser Gutschein gilt für einen anderen Kurs."
 msgstr ""
 
-#: src/Connector.php:226
+#: src/Connector.php:266
 msgid "– kein Kursgutschein –"
 msgstr ""
 
-#: src/Connector.php:228
+#: src/Connector.php:268
 msgid "Nicht mehr verfügbares Kursprodukt"
 msgstr ""
 
-#: src/Connector.php:232
+#: src/Connector.php:272
 msgid "Kursprodukt (LearnBoating)"
 msgstr ""
 
-#: src/Connector.php:236
+#: src/Connector.php:276
 msgid "Macht den Gutschein zum Kursgutschein: Beim Einlösen in „Mein Lernen“ wird genau dieses Kursprodukt freigeschaltet – Kurse, Bereiche und Laufzeit aus seinem Lernzugang. Das Gutscheinprodukt selbst darf keinen Lernzugang haben."
 msgstr ""
 
-#: src/Connector.php:254
+#: src/Connector.php:294
 msgid "Ungültiges Kursprodukt."
 msgstr ""
 
-#: src/Connector.php:257
+#: src/Connector.php:297
 msgid "Das Gutscheinprodukt hat selbst einen Lernzugang und würde den Kurs schon beim Kauf freischalten. Entferne den Lernzugang am Gutscheinprodukt."
 msgstr ""
 
-#: src/Connector.php:261
+#: src/Connector.php:301
 msgid "Kursgutschein nicht gespeichert:"
 msgstr ""
 
-#: src/Connector.php:320
+#: src/Connector.php:360
 msgid "Kursgutscheine können nicht eingelöst werden, weil ihr Kursprodukt fehlt oder keinen Lernzugang mehr hat:"
 msgstr ""
 
-#: src/Connector.php:362
-#: src/Connector.php:410
+#: src/Connector.php:402
+#: src/Connector.php:450
 msgid "Dieser Gutschein wurde bereits eingelöst."
 msgstr ""
 
-#: src/Connector.php:390
-#: src/Connector.php:413
+#: src/Connector.php:430
+#: src/Connector.php:453
 msgid "Dieser Gutschein wird gerade eingelöst."
 msgstr ""
 
-#: src/Connector.php:440
+#: src/Connector.php:480
 msgid "Vorübergehender Fehler. Bitte versuche es erneut."
 msgstr ""
 
-#: src/Connector.php:474
+#: src/Connector.php:514
 msgid "Gutschein nicht mehr einlösbar"
 msgstr ""
 
 #. translators: 1: user id, 2: course product, 3: redemption key
-#: src/Connector.php:489
+#: src/Connector.php:529
 #, php-format
 msgid "Nutzer #%1$d, Kursprodukt %2$s, Einlöse-ID %3$s"
 msgstr ""
 
-#: src/Connector.php:548
+#: src/Connector.php:588
 msgid "Gutscheinreservierung abgelaufen"
 msgstr ""
 
-#: src/Connector.php:641
+#: src/Connector.php:698
 msgid "Gutschein ungültig gemacht (z. B. Kauf erstattet)"
 msgstr ""
 
-#: src/Connector.php:655
+#: src/Connector.php:712
 msgid "Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut."
 msgstr ""
 
-#: src/Connector.php:663
+#: src/Connector.php:720
 msgid "Bitte melde dich an (oder lege ein Konto an), um deinen Kursgutschein einzulösen. Der Kurs wird deinem Konto freigeschaltet."
 msgstr ""
 
-#: src/Connector.php:671
+#: src/Connector.php:728
 msgid "Gerade ist ein vorübergehender Fehler aufgetreten. Dein Gutschein ist nicht verloren – bitte versuche es in ein paar Minuten noch einmal."
 msgstr ""
 
 #. translators: 1: course names, 2: link
-#: src/Connector.php:678
+#: src/Connector.php:735
 #, php-format
 msgid "Freigeschaltet: %1$s. Du findest den Kurs in „Mein Lernen“: %2$s"
 msgstr ""
 
-#: src/Connector.php:680
+#: src/Connector.php:737
 msgid "Jetzt lernen"
 msgstr ""
 
-#: src/Connector.php:703
+#: src/Connector.php:760
 msgid "Dieser Gutscheincode ist ungültig."
 msgstr ""

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
+use Bootspruefung\Learning\Extensions\Vouchers;
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\Idempotency;
 use Bootspruefung\Learning\Mobile\RateLimiter;
@@ -24,6 +25,9 @@ use WP_REST_Response;
  * Fehlercodes (docs/kursgutscheine.md): VOUCHER_INVALID, VOUCHER_RESERVED, VOUCHER_REDEEMED, VOUCHER_EXPIRED,
  * VOUCHER_NOT_YET_VALID, VOUCHER_WRONG_COURSE, VOUCHER_NOT_FOR_COURSES, VOUCHER_NOT_ALLOWED, ACCESS_NOT_POSSIBLE,
  * TEMPORARY_ERROR (mit retry_after; derselbe Code kann gefahrlos erneut gesendet werden), RATE_LIMITED.
+ *
+ * Limits (vor dem Nachschlagen des Codes): 30 Versuche je Konto und Stunde (check und redeem zusammen) und das
+ * gemeinsame IP-Limit aller Einlösewege (Vouchers::hitIpLimit(), 30 je IP und Stunde, T109).
  */
 final class VoucherController extends BaseController
 {
@@ -75,6 +79,7 @@ final class VoucherController extends BaseController
     {
         $user = $this->user();
         $code = $this->code($request);
+        Vouchers::hitIpLimit();
         RateLimiter::hit('voucher|'.$user, 30, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
         $result = $this->service()->check($code, $user);
         if ($result instanceof \WP_Error) {
@@ -90,6 +95,7 @@ final class VoucherController extends BaseController
         $user = $this->user();
         $code = $this->code($request);
         [$status, $body] = Idempotency::run($user, 'voucher_redeem', $this->idempotencyKey($request, false), ['code' => hash('sha256', strtoupper($code)), 'course_id' => (string) ($request['course_id'] ?? '')], function () use ($user, $code, $request): array {
+            Vouchers::hitIpLimit();
             RateLimiter::hit('voucher|'.$user, 30, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
             $service = $this->service();
             if (($request['course_id'] ?? null) !== null && (string) $request['course_id'] !== '') {

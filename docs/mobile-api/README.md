@@ -718,6 +718,9 @@ beibehalten, wo es passt. Abweichungen:
   (`docs/kursgutscheine.md`), Connector `learnboating-voucher-connector` für Voucher Captain.
 - `POST /coupons/redeem` antwortet für Kursgutscheine mit 422 `COURSE_VOUCHER` und `details.redeem_path`
   statt `COUPON_NOT_SUPPORTED`; Gruppencodes unverändert.
+- **Limit je IP (T109, nur Server):** `POST /vouchers/check`, `POST /vouchers/redeem` und `POST /coupons/redeem`
+  zählen zusätzlich zum Limit je Konto gemeinsam mit „Mein Lernen“ und der Einlöseseite höchstens 30 Versuche je
+  IP und Stunde (IPv6 je /64-Netz), sonst 429 `RATE_LIMITED` mit `retry_after`. Für die App ändert sich nichts.
 
 ### 1.11.0 (additiv)
 

@@ -417,6 +417,7 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
           WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php
           WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/connector-integration-test.php | tee connector.log
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/locks-test.php | tee -a connector.log
           if grep -E "PHP Fatal" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           if grep -E "PHP (Warning|Deprecated|Notice).*(bootspruefung-learning|learnboating-voucher-connector)" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
 

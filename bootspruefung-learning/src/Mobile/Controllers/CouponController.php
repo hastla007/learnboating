@@ -38,7 +38,12 @@ final class CouponController extends BaseController
         if ($raw === '') {
             throw ApiException::validation(['code' => [__('Bitte gib einen Code ein.', 'bootspruefung-learning')]]);
         }
-        $limit = static fn () => RateLimiter::hit('redeem|'.$user, 10, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
+        // Je Konto 10 Versuche je Stunde und das gemeinsame IP-Limit aller Einlösewege (T109: sonst ließen sich Codes
+        // über viele Konten durchprobieren).
+        $limit = static function () use ($user): void {
+            Vouchers::hitIpLimit();
+            RateLimiter::hit('redeem|'.$user, Vouchers::RATE_LIMIT, HOUR_IN_SECONDS, __('Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut.', 'bootspruefung-learning'));
+        };
         // Ganzer Einladungslink oder nur der Code.
         $code = preg_match('#/gruppe/([gi][0-9a-f]{32})/?#i', $raw, $m) === 1 ? strtolower($m[1]) : strtolower($raw);
 

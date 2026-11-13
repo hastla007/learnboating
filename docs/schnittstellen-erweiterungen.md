@@ -33,6 +33,7 @@ Code im Lern-Plugin: `src/Extensions/Vouchers.php`, `src/Extensions/Tickets.php`
 | `bootspruefung_voucher_money_back` | Filter | Lern (Betreiber) | Garantie für Gutschein-Bestellungen (Standard `false`) |
 | `bootspruefung_user_owns_course` | Filter | Gutschein → Lern | Hat der Nutzer vollen Zugang zum Kurs? |
 | `bootspruefung_coupon_allow_with_member_discount` | Filter | Gutschein → Lern | Shop-Gutschein zusätzlich zu einem Mitgliederrabatt erlaubt? |
+| `bootspruefung_voucher_redeem_per_ip` | Filter | Lern (Betreiber/Gutschein) | Einlöseversuche je IP und Stunde über alle Wege zusammen (App, „Mein Lernen“, Einlöseseite des Kursgutschein-Connectors), Standard 30; Zähler `Extensions\Vouchers::hitIpLimit()` (T109) |
 | `bootspruefung_hide_coupon_field` | Filter | Lern (Betreiber/Gutschein) | Gutscheinfeld in Warenkorb und Kasse ausblenden, wenn es keinen gültigen Gutschein gibt (T58) |
 | `_bp_paid_by_voucher` | Bestell-Meta | Gutschein → Lern | per Gutschein bezahlter Betrag einer Bestellung (Garantie) |
 | `bootspruefung_money_back_cash_amount` | Filter | Lern (Betreiber/Gutschein) | als Geld zu erstattender Garantiebetrag |
@@ -156,7 +157,8 @@ App-Antwort bei Erfolg (Format wie beim Gruppencode):
 ```
 
 Idempotency-Key und Rate-Limit wie beim Gruppencode: 10 Versuche je Konto und Stunde, App und Web-Formular
-zusammen; eine Wiederholung mit demselben Idempotency-Key liefert die gespeicherte Antwort.
+zusammen; eine Wiederholung mit demselben Idempotency-Key liefert die gespeicherte Antwort. Dazu zählt ein
+gemeinsames Limit je IP über alle Einlösewege (30 je Stunde, Filter `bootspruefung_voucher_redeem_per_ip`, T109).
 
 Das Formular „Kursgutschein einlösen“ unter „Mein Lernen“ (Nonce, gleiches Limit) erscheint nur, wenn ein Plugin
 den Filter belegt (`has_filter('bootspruefung_voucher_redeem')`).

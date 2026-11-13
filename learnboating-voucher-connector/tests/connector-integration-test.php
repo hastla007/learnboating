@@ -155,6 +155,30 @@ $cartOrder = wc_create_order(['customer_id' => $alice]);
 $cartOrder->add_product($wcProduct('Ware'), 1);
 $cartOrder->calculate_totals();
 $check(true !== $cartOrder->apply_coupon($v1->code), 'Kursgutschein im Warenkorb abgelehnt');
+// T109: Die eindeutige Meldung „Das ist ein Kursgutschein“ nur angemeldet und nach bestandener Limitprüfung.
+$_SERVER['REMOTE_ADDR'] = '198.51.100.61';
+$ipHash = hash('sha256', 'lbvc-redeem-ip|198.51.100.61|'.wp_salt('nonce'));
+$wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => $ipHash]);
+$userBefore = get_current_user_id();
+wp_set_current_user(0);
+$guestMsg = $connector->shopRefusedMessage('Standardmeldung', $v1);
+wp_set_current_user($alice);
+$aliceMsg = $connector->shopRefusedMessage('Standardmeldung', $v1);
+$aliceAgain = $connector->shopRefusedMessage('Standardmeldung', $v1);
+$ipHits = (int) $wpdb->get_var($wpdb->prepare("SELECT hits FROM {$p}mobile_rate_limit WHERE bucket_hash = %s", $ipHash));
+$check($guestMsg === Connector::neutralShopMessage() && ! str_contains($guestMsg, 'Das ist ein Kursgutschein'), 'Warenkorb, nicht angemeldet: neutrale Meldung (verrät nicht, dass es ein Kursgutschein ist)');
+$check(str_contains((string) $aliceMsg, 'Das ist ein Kursgutschein') && $aliceAgain === $aliceMsg && $ipHits === 1, 'Warenkorb, angemeldet: eindeutige Meldung nach der Limitprüfung (ein Versuch je Anfrage gezählt)');
+$onePerIp = static fn () => 1;
+add_filter('bootspruefung_voucher_redeem_per_ip', $onePerIp);
+wp_set_current_user($bob);
+$check($connector->shopRefusedMessage('Standardmeldung', $v1) === Connector::neutralShopMessage(), 'Warenkorb: IP-Limit erreicht (gemeinsamer Zähler) → neutrale Meldung');
+remove_filter('bootspruefung_voucher_redeem_per_ip', $onePerIp);
+wp_set_current_user($userBefore);
+$wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => $ipHash]);
+foreach ([$alice, $bob] as $uid) {
+    $wpdb->delete($p.'mobile_rate_limit', ['bucket_hash' => hash('sha256', 'redeem|'.$uid.'|'.wp_salt('nonce'))]);
+}
+unset($_SERVER['REMOTE_ADDR']);
 $check($connector->is_course_voucher($v1->code) && ! $connector->is_course_voucher('GIBT-ES-NICHT'), 'is_course_voucher() für den App-Hinweis');
 
 echo "Einlösung: exakt Kurs und Bereiche, Laufzeit ab Einlösung\n";

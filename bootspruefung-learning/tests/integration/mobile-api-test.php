@@ -1147,6 +1147,24 @@ $r = $api('POST', '/vouchers/redeem', ['code' => 'KURS-GONE'], $tokenA);
 $check(str_contains((string) $r['body']['detail'], 'Grund aus dem Grant-Service'), 'ACCESS_NOT_POSSIBLE zeigt den fachlichen Grund der Lernplattform');
 $r = $api('POST', '/coupons/redeem', ['code' => 'KURS-1234'], $tokenA);
 $check($r['status'] === 422 && $code($r) === 'COURSE_VOUCHER' && ($r['body']['details']['redeem_path'] ?? '') === '/vouchers/redeem', '/coupons/redeem verweist Kursgutscheine auf /vouchers/redeem');
+// T109: gemeinsames IP-Limit über Konten und Wege (/vouchers/check, /vouchers/redeem, /coupons/redeem; Grenze per Filter 3).
+$perIp = static fn () => 3;
+add_filter('bootspruefung_voucher_redeem_per_ip', $perIp);
+$ipCalls = count($fake->calls);
+$ipRes = [
+    $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA, [], '198.51.100.41')['status'],
+    $api('POST', '/vouchers/redeem', ['code' => 'KURS-NONE'], $tokenB, [], '198.51.100.41')['status'],
+    $api('POST', '/coupons/redeem', ['code' => 'KURS-1234'], $tokenB, [], '198.51.100.41')['status'],
+];
+$callsBefore = count($fake->calls);
+$r = $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA, [], '198.51.100.41');
+$r2 = $api('POST', '/vouchers/redeem', ['code' => 'KURS-1234'], $tokenB, [], '198.51.100.41');
+$r3 = $api('POST', '/coupons/redeem', ['code' => 'KURS-1234'], $tokenA, [], '198.51.100.41');
+$check($ipRes === [200, 422, 422] && $r['status'] === 429 && $code($r) === 'RATE_LIMITED' && $r2['status'] === 429 && $r3['status'] === 429 && count($fake->calls) === $callsBefore && $callsBefore === $ipCalls + 2, 'IP-Limit: nach 3 Versuchen von einer IP (zwei Konten, drei Routen) 429 RATE_LIMITED – ohne den Code nachzuschlagen');
+$ipV6 = [$api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA, [], '2001:db8:41:1::a')['status'], $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenB, [], '2001:db8:41:1:ffff::b')['status'], $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA, [], '2001:db8:41:1::c')['status'], $api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenB, [], '2001:db8:41:1::d')['status']];
+$check($ipV6 === [200, 200, 200, 429], 'IP-Limit: IPv6 zählt je /64-Netz');
+$check($api('POST', '/vouchers/check', ['code' => 'KURS-1234'], $tokenA, [], '198.51.100.42')['status'] === 200, 'IP-Limit: andere IP hat einen eigenen Zähler');
+remove_filter('bootspruefung_voucher_redeem_per_ip', $perIp);
 remove_filter('bootspruefung_course_voucher_redeemer_v1', $redeemer);
 $wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 // Gruppen-Beitrittscode: Idempotenz vor Rate-Limit (Netzwiederholung verbraucht keinen Versuch).

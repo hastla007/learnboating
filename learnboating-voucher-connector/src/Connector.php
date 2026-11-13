@@ -27,8 +27,14 @@ use VCAP\Voucher;
  *   Gutschein (MySQL GET_LOCK, endet mit der Verbindung). Die Warteschlange überspringt gesperrte Gutscheine, eine
  *   zweite Einlösung wartet kurz und bekommt sonst „wird gerade eingelöst“. Die Warteschlange selbst (Option
  *   lbvc_pending) wird nur unter einer eigenen Sperre gelesen und geschrieben (keine verlorenen Einträge).
- * - Einlöseseite [vcap_redeem] (T88): höchstens REDEEM_PER_IP Versuche je IP und Stunde und – wie App und
- *   „Mein Lernen“ – höchstens 10 je Konto und Stunde (Zähler der Lernplattform, IPv6 je /64-Netz).
+ * - Einlöseseite [vcap_redeem] (T88, T109): höchstens 30 Versuche je IP und Stunde – ein gemeinsamer Zähler mit App
+ *   und „Mein Lernen“ (Vouchers::hitIpLimit() der Lernplattform, Filter bootspruefung_voucher_redeem_per_ip) – und wie
+ *   dort höchstens 10 je Konto und Stunde (IPv6 je /64-Netz).
+ * - Warenkorb (T109): Die eindeutige Meldung „Das ist ein Kursgutschein …“ gibt es nur angemeldet und nach bestandener
+ *   Limitprüfung (dieselben Zähler); Gäste und gesperrte Versuche bekommen eine neutrale Meldung.
+ * - Die Warteschlange wird nie ohne ihre Sperre geschrieben: Ist sie belegt, wird die Änderung in 60 Sekunden per
+ *   WP-Cron nachgeholt (QUEUE_HOOK), nach mehreren Fehlversuchen nur protokolliert. Nur wenn die Datenbank keine
+ *   benannten Sperren kann (GET_LOCK liefert NULL), wird ohne Sperre geschrieben (T115).
  */
 final class Connector
 {
@@ -46,12 +52,21 @@ final class Connector
     public const NOTICE_TTL = 10 * MINUTE_IN_SECONDS;
     /** Sekunden, die eine Einlösung auf die Sperre ihres Gutscheins wartet (Filter lbvc_lock_timeout). */
     public const LOCK_WAIT = 10;
-    /** Einlöseversuche auf der Einlöseseite je IP und Stunde (Filter lbvc_redeem_per_ip). */
+    /**
+     * Einlöseversuche je IP und Stunde, nur falls die Lernplattform Vouchers::hitIpLimit() (noch) nicht hat; sonst gilt
+     * deren gemeinsamer Zähler. Grenze in beiden Fällen über den Filter bootspruefung_voucher_redeem_per_ip.
+     */
     public const REDEEM_PER_IP = 30;
+    /** WP-Cron: Änderung der Warteschlange nachholen, deren Sperre belegt war (T115). */
+    public const QUEUE_HOOK = 'lbvc_queue_edit';
+    /** So oft wird eine Änderung der Warteschlange versucht, danach nur noch protokolliert. */
+    public const QUEUE_ATTEMPTS = 5;
     /** Einlöseversuche je Konto und Stunde – derselbe Zähler wie App und „Mein Lernen“. */
     public const REDEEM_PER_USER = 10;
 
     private static ?self $instance = null;
+    /** @var array<string,bool> Ergebnis der Limitprüfung je Konto und Gutschein in dieser Anfrage (Warenkorb-Meldung). */
+    private array $shopChecked = [];
 
     public function __construct(private readonly object $grants, private readonly RedemptionService $redemptions)
     {
@@ -84,6 +99,7 @@ final class Connector
     public static function deactivate(): void
     {
         wp_clear_scheduled_hook(self::RETRY_HOOK);
+        wp_unschedule_hook(self::QUEUE_HOOK);
     }
 
     public function register(): void
@@ -115,6 +131,7 @@ final class Connector
             add_action($hook, [self::class, 'flushNotice'], $priority, 0);
         }
         add_action(self::RETRY_HOOK, [$this, 'retry']);
+        add_action(self::QUEUE_HOOK, [self::class, 'deferredQueueEdit'], 10, 4);
         if (! wp_next_scheduled(self::RETRY_HOOK)) {
             wp_schedule_event(time() + 300, 'hourly', self::RETRY_HOOK);
         }
@@ -177,11 +194,34 @@ final class Connector
         return $allowed;
     }
 
+    /**
+     * Meldung, wenn ein Kursgutschein im Warenkorb abgelehnt wird (T109): Die eindeutige Meldung bestätigt, dass der Code
+     * ein gültiger Kursgutschein ist. Sie kommt deshalb nur für angemeldete Kunden und nach bestandener Limitprüfung
+     * (gleiche Zähler wie die Einlösewege: je IP und je Konto); sonst eine neutrale Meldung, die nichts über den Code sagt.
+     */
     public function shopRefusedMessage($message, $voucher)
     {
-        return $voucher instanceof Voucher && $this->target($voucher) !== null
-            ? __('Das ist ein Kursgutschein. Du löst ihn in „Mein Lernen“ ein (App oder Gutschein-Einlöseseite) – nicht im Warenkorb.', 'learnboating-voucher-connector')
-            : $message;
+        if (! $voucher instanceof Voucher || $this->target($voucher) === null) {
+            return $message;
+        }
+        $userId = get_current_user_id();
+        if ($userId <= 0 || $this->shopLimited($userId, (int) $voucher->id)) {
+            return self::neutralShopMessage();
+        }
+
+        return __('Das ist ein Kursgutschein. Du löst ihn in „Mein Lernen“ ein (App oder Gutschein-Einlöseseite) – nicht im Warenkorb.', 'learnboating-voucher-connector');
+    }
+
+    /** Neutrale Ablehnung im Warenkorb: bestätigt nicht, dass der Code ein Kursgutschein ist. */
+    public static function neutralShopMessage(): string
+    {
+        return __('Dieser Gutscheincode kann im Warenkorb nicht eingelöst werden. Kursgutscheine löst du nach der Anmeldung in „Mein Lernen“ ein.', 'learnboating-voucher-connector');
+    }
+
+    /** Limitprüfung für die Warenkorb-Meldung, einmal je Konto und Gutschein in dieser Anfrage (der Warenkorb fragt mehrfach). */
+    private function shopLimited(int $userId, int $voucherId): bool
+    {
+        return $this->shopChecked[$userId.':'.$voucherId] ??= self::redeemLimited($userId);
     }
 
     /** Für Ziele learnboating:* nur der eigene Kursgutschein mit genau diesem Ziel (auch bei direkten API-Aufrufen). */
@@ -562,10 +602,13 @@ final class Connector
 
     /* ---- Sperren und Limits (T83, T88) -------------------------------------------------------------- */
 
-    /** Sperre eines Gutscheins holen; wartet höchstens $wait Sekunden. false = belegt. */
+    /**
+     * Sperre eines Gutscheins holen; wartet höchstens $wait Sekunden. false = belegt. Kann die Datenbank keine benannten
+     * Sperren (NULL), geht es ohne Sperre weiter (Voucher Captain reserviert trotzdem atomar).
+     */
     public static function lockVoucher(int $voucherId, int $wait): bool
     {
-        return self::lock('voucher:'.$voucherId, $wait);
+        return self::lock('voucher:'.$voucherId, $wait) !== false;
     }
 
     public static function unlockVoucher(int $voucherId): void
@@ -581,16 +624,23 @@ final class Connector
         return 'lbvc:'.substr(hash('sha256', DB_NAME.'|'.$wpdb->prefix.'|'.$name), 0, 40);
     }
 
-    private static function lock(string $name, int $wait): bool
+    /**
+     * GET_LOCK auf der Verbindung von WordPress (Name mit Datenbank und Präfix, siehe lockName()).
+     * @return bool|null true = gehalten, false = belegt (Wartezeit abgelaufen), null = Datenbank kann keine benannten Sperren
+     */
+    private static function lock(string $name, int $wait): ?bool
     {
         global $wpdb;
         $wait = max(0, (int) apply_filters('lbvc_lock_timeout', $wait, $name));
+        // HyperDB/LudicrousDB: Sperre und Freigabe nicht auf einem Lese-Replikat (andere Verbindung, andere Sperre).
+        if (method_exists($wpdb, 'send_reads_to_masters')) {
+            $wpdb->send_reads_to_masters();
+        }
         $result = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', self::lockName($name), $wait));
         if ($result === null) {
-            // Datenbank ohne benannte Sperren: weiter wie bisher (Voucher Captain reserviert trotzdem atomar).
             error_log('[learnboating-voucher-connector] GET_LOCK nicht verfügbar: '.$wpdb->last_error); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 
-            return true;
+            return null;
         }
 
         return (int) $result === 1;
@@ -603,17 +653,24 @@ final class Connector
     }
 
     /**
-     * Einlöseseite: Versuch zählen und prüfen (je IP und je Konto), mit den Zählern der Lernplattform.
+     * Einlöseseite und Warenkorb: Versuch zählen und prüfen (je IP und je Konto), mit den Zählern der Lernplattform.
+     * Das IP-Limit ist derselbe Zähler wie in App und „Mein Lernen“ (T109).
      * @return bool true = zu viele Versuche
      */
     public static function redeemLimited(int $userId): bool
     {
         $limiter = '\Bootspruefung\Learning\Mobile\RateLimiter';
+        $vouchers = '\Bootspruefung\Learning\Extensions\Vouchers';
         if (! class_exists($limiter)) {
             return false;
         }
         try {
-            $limiter::hit('lbvc-redeem-ip|'.$limiter::clientKey(), max(1, (int) apply_filters('lbvc_redeem_per_ip', self::REDEEM_PER_IP)), HOUR_IN_SECONDS);
+            if (method_exists($vouchers, 'hitIpLimit')) {
+                $vouchers::hitIpLimit();
+            } else {
+                // Ältere Lernplattform: gleicher Zählername und gleiche Grenze, nur ohne die gemeinsame Hilfe.
+                $limiter::hit('lbvc-redeem-ip|'.$limiter::clientKey(), max(1, (int) apply_filters('bootspruefung_voucher_redeem_per_ip', self::REDEEM_PER_IP)), HOUR_IN_SECONDS);
+            }
             if ($userId > 0) {
                 $limiter::hit('redeem|'.$userId, self::REDEEM_PER_USER, HOUR_IN_SECONDS);
             }
@@ -736,20 +793,12 @@ final class Connector
 
     private function pending(string $key, array $data): void
     {
-        self::editQueue(static function (array $pending) use ($key, $data): array {
-            $pending[$key] = $data + ['since' => (int) ($pending[$key]['since'] ?? time())];
-
-            return $pending;
-        });
+        self::editQueue('add', $key, $data);
     }
 
     private function done(string $key): void
     {
-        self::editQueue(static function (array $pending) use ($key): array {
-            unset($pending[$key]);
-
-            return $pending;
-        });
+        self::editQueue('done', $key);
     }
 
     /** Warteschlange frisch aus der Datenbank (nicht aus dem Objekt-Cache einer anderen Anfrage). @return array<string,array> */
@@ -760,20 +809,56 @@ final class Connector
         return (array) get_option(self::PENDING_OPTION, []);
     }
 
-    /** Lesen-Ändern-Schreiben der Warteschlange unter eigener Sperre (parallele Einlösungen verlieren keine Einträge). */
-    private static function editQueue(callable $change): void
+    /**
+     * Lesen-Ändern-Schreiben der Warteschlange unter eigener Sperre (parallele Einlösungen verlieren keine Einträge).
+     * $op 'add' trägt $key mit $data ein (der Beginn „since“ bleibt erhalten), 'done' entfernt ihn.
+     *
+     * Sperre belegt (false): nicht schreiben – ohne Sperre könnte die Änderung einer parallelen Anfrage verloren gehen.
+     * Die Änderung wird stattdessen per WP-Cron in 60 Sekunden nachgeholt (insgesamt höchstens QUEUE_ATTEMPTS Versuche,
+     * danach nur protokolliert; ein liegengebliebener Eintrag wird über den Gutscheinstatus ohnehin richtig behandelt).
+     * Nur wenn die Datenbank keine benannten Sperren kann (null), wird ohne Sperre geschrieben (T115).
+     *
+     * @param array<string,mixed> $data
+     * @return bool true = geschrieben (oder nichts zu ändern), false = vertagt bzw. verworfen
+     */
+    public static function editQueue(string $op, string $key, array $data = [], int $attempt = 0): bool
     {
         $locked = self::lock('queue', 5);
+        if ($locked === false) {
+            $again = $attempt + 1 < self::QUEUE_ATTEMPTS;
+            if ($again) {
+                wp_schedule_single_event(time() + 60, self::QUEUE_HOOK, [$op, $key, $data, $attempt + 1]);
+            }
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Betriebshinweis
+            error_log(sprintf('[learnboating-voucher-connector] Warteschlange gesperrt: Änderung „%s“ für %s %s.', $op, $key, $again ? 'wird in 60 Sekunden erneut versucht' : 'verworfen'));
+
+            return false;
+        }
         try {
             $before = self::queue();
-            $after = $change($before);
+            $after = $before;
+            if ($op === 'add') {
+                $after[$key] = $data + ['since' => (int) ($before[$key]['since'] ?? time())];
+            } else {
+                unset($after[$key]);
+            }
             if ($after !== $before) {
                 update_option(self::PENDING_OPTION, $after, false);
             }
         } finally {
-            if ($locked) {
+            if ($locked === true) {
                 self::unlock('queue');
             }
+        }
+
+        return true;
+    }
+
+    /** WP-Cron (QUEUE_HOOK): vertagte Änderung der Warteschlange nachholen. */
+    public static function deferredQueueEdit($op, $key, $data = [], $attempt = 1): void
+    {
+        if (in_array($op, ['add', 'done'], true) && is_string($key) && $key !== '') {
+            self::editQueue($op, $key, is_array($data) ? $data : [], (int) $attempt);
         }
     }
 }

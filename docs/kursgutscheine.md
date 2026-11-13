@@ -63,8 +63,9 @@ Audit-Log: `entitlement_voucher_grant` (Nutzer, Gutschein-ID, Kursprodukt, Einl�
 | Erstattung **nach** der Einlösung | Voucher Captain lehnt die Erstattung eines eingelösten Gutscheins standardmäßig ab (`vcap_allow_refund_of_spent_vouchers`). Wird sie zugelassen, wird der Gutschein ungültig → `revoke()` nach `refund_rule`: `revoke_on_full_refund`/`revoke_on_any_refund` widerrufen, `keep` behält. Noch nicht begonnene Verlängerungen rücken nach vorn. |
 | Geld-zurück-Garantie | gilt für den Kauf des Gutscheins (Bestellung im Shop); Bearbeitung wie eine Erstattung nach der Einlösung. |
 | Zielzuordnung | zum **Kaufzeitpunkt**: das Kursprodukt wird in der Bestellposition festgehalten (`_vcap_line.learnboating_target`); spätere Änderungen am Gutscheinprodukt ändern verkaufte Gutscheine nicht. Geprüft wird beim Einlösen. |
-| Gleichzeitige Einlösung | Sperre je Gutschein (T83): parallele Einlösungen und die Warteschlange bearbeiten denselben Gutschein nie gleichzeitig; die zweite Einlösung wartet kurz, sonst `vcap_reserved` (App: `VOUCHER_RESERVED`, 409). |
-| Einlöseseite `[vcap_redeem]` | höchstens 30 Versuche je IP und Stunde, 10 je Konto und Stunde (gemeinsam mit App und „Mein Lernen“), T88. |
+| Gleichzeitige Einlösung | Sperre je Gutschein (T83): parallele Einlösungen und die Warteschlange bearbeiten denselben Gutschein nie gleichzeitig; die zweite Einlösung wartet kurz, sonst `vcap_reserved` (App: `VOUCHER_RESERVED`, 409). Die Warteschlange `lbvc_pending` wird nie ohne ihre Sperre geschrieben: Ist sie belegt, holt WP-Cron die Änderung nach 60 Sekunden nach (`lbvc_queue_edit`, höchstens 5 Versuche, danach Eintrag im PHP-Fehlerprotokoll); nur wenn die Datenbank keine benannten Sperren kann (`GET_LOCK` liefert NULL), geht es ohne Sperre weiter (T115). |
+| Limits (alle Wege) | **je IP: 30 Versuche je Stunde, ein gemeinsamer Zähler** für App (`/vouchers/check`, `/vouchers/redeem`, `/coupons/redeem`), Formular unter „Mein Lernen“ und Einlöseseite `[vcap_redeem]` (T109; `Extensions\Vouchers::hitIpLimit()`, Filter `bootspruefung_voucher_redeem_per_ip`, IPv6 je /64-Netz). Sonst ließen sich Codes über viele Konten durchprobieren. Dazu je Konto: 10 je Stunde (`/coupons/redeem`, „Mein Lernen“, Einlöseseite) bzw. 30 je Stunde (`/vouchers/check` und `/vouchers/redeem`). Gezählt wird vor dem Nachschlagen des Codes. |
+| Warenkorb | Ein Kursgutschein im Warenkorb wird abgelehnt. Die eindeutige Meldung „Das ist ein Kursgutschein …“ bekommen nur angemeldete Kunden nach bestandener Limitprüfung (dieselben Zähler je IP und Konto, ein Versuch je Anfrage); Gäste und gesperrte Versuche bekommen eine neutrale Meldung, die nicht verrät, ob der Code ein Kursgutschein ist (T109). |
 | Gutscheinprodukt | darf selbst keinen Lernzugang tragen (sonst Freischaltung schon beim Kauf über `OrderSync`) – der Connector lehnt das Speichern ab. |
 
 Betreiber-Entscheidungen, die diese Regeln festlegen (Laufzeitbeginn, Verlängern statt Ablehnen, Erstattung nach
@@ -98,7 +99,7 @@ Der Connector stellt über `bootspruefung_course_voucher_redeemer_v1` ein Objekt
 | `VOUCHER_NOT_ALLOWED` | 403 | `vcap_not_allowed` | Dieser Gutschein ist für ein anderes Konto ausgestellt. Melde dich mit der E-Mail-Adresse an, für die er bestimmt ist. |
 | `ACCESS_NOT_POSSIBLE` | 409 | `lb_target_*`, `lb_course_unavailable`, `lb_access_exists`, `vcap_target_unavailable` | fachlicher Grund der Lernplattform (z. B. „Du hast diesen Kurs bereits dauerhaft freigeschaltet. Der Gutschein bleibt gültig – du kannst ihn verschenken.“) |
 | `TEMPORARY_ERROR` | 503 | `lb_temporary_failure`, `vcap_temporary_failure`, unbekannte Fehler | Gerade ist ein vorübergehender Fehler aufgetreten. Dein Gutschein ist nicht verloren – bitte versuche es in ein paar Minuten noch einmal. (`retry_after`) |
-| `RATE_LIMITED` | 429 | zu viele Versuche | Zu viele Versuche. Bitte warte kurz und versuche es dann erneut. |
+| `RATE_LIMITED` | 429 | zu viele Versuche (je Konto oder je IP über alle Einlösewege) | Zu viele Versuche. Bitte warte eine Stunde und versuche es dann erneut. |
 
 `details.reason` nennt immer den ursprünglichen Code.
 
