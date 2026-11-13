@@ -609,6 +609,91 @@ $mobileBak === null ? delete_option(\Bootspruefung\Learning\Mobile\MobileSetting
 $wpdb->delete($p.'audit_log', ['action' => 'security_settings_saved', 'object_id' => \Bootspruefung\Learning\Mobile\MobileSettings::OPTION]);
 $check(is_file(dirname(__DIR__, 2).'/assets/admin/admin.css'), 'Admin-CSS vorhanden');
 
+echo "Paket-Import: Upload-Grenze, Vorprüfung vor dem Entpacken, Ablageordner (T96/T88)\n";
+use Bootspruefung\Learning\Content\Import\ImportSources;
+use Bootspruefung\Learning\Content\Media\MediaStorage;
+use Bootspruefung\Learning\Content\Package\Package;
+
+$work = sys_get_temp_dir().'/bp-t96-'.getmypid();
+wp_mkdir_p($work);
+$makeZip = static function (string $name, array $files, array $links = []) use ($work): string {
+    $path = $work.'/'.$name;
+    $zip = new ZipArchive();
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    foreach ($files as $entry => $content) {
+        $zip->addFromString($entry, $content);
+    }
+    foreach ($links as $entry => $target) {
+        $zip->addFromString($entry, $target);
+        $zip->setExternalAttributesName($entry, ZipArchive::OPSYS_UNIX, (0120777 << 16));
+    }
+    $zip->close();
+
+    return $path;
+};
+$manifest = ['manifest.json' => '{}'];
+$rejects = [
+    'Pfad außerhalb' => [$makeZip('traversal.zip', $manifest + ['media/../../evil.php' => 'x']), 'Unzulässiger Pfad'],
+    'PHP-Datei in media/' => [$makeZip('php.zip', $manifest + ['media/shell.php' => '<?php']), 'Medium nicht erlaubt'],
+    'Doppelendung .php.png' => [$makeZip('double.zip', $manifest + ['media/bild.php.png' => 'x']), 'Doppelte Endung'],
+    'versteckte Datei' => [$makeZip('hidden.zip', $manifest + ['media/.htaccess' => 'x']), 'Medium nicht erlaubt'],
+    'fremde Datei oben' => [$makeZip('extra.zip', $manifest + ['index.php' => '<?php']), 'Unerwartete Datei'],
+    'symbolischer Link' => [$makeZip('link.zip', $manifest, ['media/link.png' => '/etc/passwd']), 'Symbolischer Link'],
+    'ZIP-Bombe' => [$makeZip('bomb.zip', $manifest + ['data/questions.json' => str_repeat('0', 8 * 1024 * 1024)]), 'ZIP-Bombe'],
+    'ohne manifest.json' => [$makeZip('nomanifest.zip', ['data/courses.json' => '[]']), 'manifest.json fehlt'],
+];
+foreach ($rejects as $label => [$zipPath, $needle]) {
+    $target = $work.'/x-'.md5($label);
+    $check($throws(static fn () => Package::extract($zipPath, $target), $needle) && ! is_dir($target), "abgelehnt vor dem Entpacken, nichts entpackt: {$label}");
+}
+$ok = $makeZip('ok.zip', $manifest + ['data/courses.json' => '[]', 'media/elwis/bild.png' => 'png']);
+$check(Package::inspect($ok) instanceof ZipArchive, 'gültige Struktur besteht die Vorprüfung');
+$before = glob(MediaStorage::packagesDir().'/upload-*') ?: [];
+$check($throws(static fn () => $service->createFromZip($rejects['PHP-Datei in media/'][0]), 'Medium nicht erlaubt') && (glob(MediaStorage::packagesDir().'/upload-*') ?: []) === $before, 'createFromZip: abgelehntes Paket hinterlässt keine Teilentpackung');
+$dirPkg = $work.'/dirpkg';
+wp_mkdir_p($dirPkg.'/media');
+file_put_contents($dirPkg.'/manifest.json', '{}');
+file_put_contents($dirPkg.'/media/x.phtml', '<?php');
+$check($throws(static fn () => Package::inspectDirectory($dirPkg), 'Medium nicht erlaubt'), 'Paketordner mit .phtml abgelehnt');
+unlink($dirPkg.'/media/x.phtml');
+symlink('/etc/passwd', $dirPkg.'/media/link.png');
+$check($throws(static fn () => Package::inspectDirectory($dirPkg), 'Symbolischer Link'), 'Paketordner mit symbolischem Link abgelehnt');
+unlink($dirPkg.'/media/link.png');
+
+$limit = ImportSources::uploadLimit();
+$check($limit > 0 && $limit <= Package::MAX_ZIP_BYTES && $limit <= (int) wp_max_upload_size(), 'Upload-Grenze = kleinster Wert (PHP, WordPress, 200 MB)');
+$check(ImportSources::postTooLarge(20 * 1024 * 1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(20 * 1024 * 1024, 0), 'zu große Anfrage (CONTENT_LENGTH > post_max_size) erkannt');
+$msg = (string) ImportSources::uploadErrorMessage(UPLOAD_ERR_INI_SIZE, 11 * 1024 * 1024);
+$check(str_contains($msg, 'zu groß') && str_contains($msg, ImportSources::DROP_FOLDER) && str_contains($msg, 'wp bootspruefung import') && str_contains($msg, 'post_max_size'), 'Meldung „zu groß“ nennt Ablageordner, WP-CLI und Servergrenze');
+$check(ImportSources::uploadErrorMessage(UPLOAD_ERR_FORM_SIZE) === ImportSources::tooLargeMessage() && ImportSources::uploadErrorMessage(UPLOAD_ERR_OK) === null && str_contains((string) ImportSources::uploadErrorMessage(UPLOAD_ERR_PARTIAL), 'teilweise'), 'Upload-Fehlercodes verständlich');
+
+$drop = ImportSources::dropDir();
+$check(is_dir($drop) && is_file($drop.'/.htaccess') && is_file($drop.'/index.php'), 'Ablageordner angelegt und für Besucher gesperrt');
+copy($ok, $drop.'/t96-paket.zip');
+file_put_contents($drop.'/notizen.txt', 'x');
+symlink($ok, $drop.'/t96-link.zip');
+$names = array_column(ImportSources::dropItems(), 'name');
+$check(in_array('t96-paket.zip', $names, true) && ! in_array('notizen.txt', $names, true) && ! in_array('t96-link.zip', $names, true), 'Liste: nur ZIP-Dateien und Paketordner, keine Links');
+$check(ImportSources::resolveDrop('t96-paket.zip') === realpath($drop.'/t96-paket.zip'), 'Paket im Ablageordner auflösbar');
+foreach (['../wp-config.php', '../../wp-config.php', 'sub/../t96-paket.zip', 'notizen.txt', 't96-link.zip', '.htaccess', 'fehlt.zip', ''] as $bad) {
+    $check($throws(static fn () => ImportSources::resolveDrop($bad)), 'Ablageordner: abgelehnt „'.$bad.'“');
+}
+unlink($drop.'/t96-paket.zip');
+unlink($drop.'/notizen.txt');
+unlink($drop.'/t96-link.zip');
+$check($throws(static fn () => ImportSources::download('http://example.com/paket.zip'), 'https') && $throws(static fn () => ImportSources::download('https://127.0.0.1/paket.zip')) && $throws(static fn () => ImportSources::download('file:///etc/passwd'), 'https'), 'Link: nur https, keine internen Adressen');
+$check((glob(MediaStorage::packagesDir().'/download-*') ?: []) === [], 'Link: keine temporären Dateien liegen geblieben');
+
+ob_start();
+require_once ABSPATH.'wp-admin/includes/template.php';
+(new \Bootspruefung\Learning\Admin\ImportPage())->render();
+$html = (string) ob_get_clean();
+$check(str_contains($html, 'Höchstgröße zum Hochladen auf diesem Server: '.size_format($limit)) && str_contains($html, 'data-max-bytes="'.$limit.'"') && str_contains($html, 'action=bp_import_upload'), 'Seite zeigt die Upload-Grenze, Formular trägt die Aktion in der Adresse');
+$check(str_contains($html, 'Ohne Hochladen importieren') && str_contains($html, ImportSources::DROP_FOLDER) && str_contains($html, 'bp_import_url') && str_contains($html, 'wp bootspruefung import'), 'Seite bietet Ablageordner, Link und WP-CLI an');
+$js = (string) file_get_contents(dirname(__DIR__, 2).'/assets/admin/import.js');
+$check(str_contains($js, 'data-max-bytes') && str_contains($js, 'AbortController') && str_contains($js, 'text.http') && ! preg_match('/[\'"](Error|Import running|failed)[\'"]/', $js), 'import.js: Größenprüfung, Zeitüberschreitung, HTTP-Fehler; Texte aus PHP (deutsch)');
+ImportService::removeDir($work);
+
 echo "Markenname (T10)\n";
 $settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
 $blogBak = get_option('blogname');

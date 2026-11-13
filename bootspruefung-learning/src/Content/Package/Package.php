@@ -28,9 +28,54 @@ final class Package
     {
     }
 
-    /** Entpackt ein ZIP sicher nach $targetDir. */
+    /** Höchstes Verhältnis entpackt/gepackt je Datei ab 1 MB (Schutz vor ZIP-Bomben; JSON im Paket liegt unter 40). */
+    public const MAX_RATIO = 200;
+
+    /** Höchstes Verhältnis entpackt/gepackt für das ganze Paket ab 50 MB entpackt (Medien sind kaum komprimierbar). */
+    public const MAX_TOTAL_RATIO = 50;
+
+    /**
+     * Entpackt ein ZIP sicher nach $targetDir. Vorher wird das Inhaltsverzeichnis des ZIP geprüft (inspect):
+     * Pfade, erlaubte Dateien und Endungen, symbolische Links, Anzahl, Gesamtgröße und Kompressionsverhältnis.
+     * Ein abgelehntes Paket wird gar nicht erst entpackt; scheitert das Entpacken mittendrin, wird der
+     * Zielordner wieder entfernt.
+     */
     public static function extract(string $zipPath, string $targetDir): self
     {
+        $zip = self::inspect($zipPath);
+        $existed = is_dir($targetDir);
+        $cleanup = static function () use ($existed, $targetDir): void {
+            if (! $existed && is_dir($targetDir)) {
+                \Bootspruefung\Learning\Content\Import\ImportService::removeDir($targetDir);
+            }
+        };
+        if (! wp_mkdir_p($targetDir) || ! $zip->extractTo($targetDir)) {
+            $zip->close();
+            $cleanup();
+            throw new RuntimeException('Paket konnte nicht entpackt werden.');
+        }
+        $zip->close();
+        // Zur Sicherheit auch nach dem Entpacken: kein symbolischer Link im Paket.
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($targetDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($it as $file) {
+            if ($file->isLink()) {
+                $cleanup();
+                throw new RuntimeException('Symbolische Links sind im Paket nicht erlaubt.');
+            }
+        }
+
+        return new self($targetDir);
+    }
+
+    /**
+     * Prüft das Inhaltsverzeichnis eines ZIP, ohne etwas zu entpacken, und gibt das geöffnete Archiv zurück.
+     * Wirft RuntimeException mit deutscher Meldung, wenn das Paket abgelehnt wird.
+     */
+    public static function inspect(string $zipPath): ZipArchive
+    {
+        if (! is_file($zipPath)) {
+            throw new RuntimeException('Paketdatei nicht gefunden.');
+        }
         if (filesize($zipPath) > self::MAX_ZIP_BYTES) {
             throw new RuntimeException('Paket ist größer als 200 MB.');
         }
@@ -38,37 +83,117 @@ final class Package
         if ($zip->open($zipPath) !== true) {
             throw new RuntimeException('Datei ist kein gültiges ZIP-Archiv.');
         }
-        if ($zip->numFiles > self::MAX_ENTRIES) {
+        $fail = static function (string $message) use ($zip): never {
             $zip->close();
-            throw new RuntimeException('Paket enthält zu viele Dateien.');
+            throw new RuntimeException($message);
+        };
+        if ($zip->numFiles === 0) {
+            $fail('Das ZIP-Archiv ist leer.');
+        }
+        if ($zip->numFiles > self::MAX_ENTRIES) {
+            $fail('Paket enthält zu viele Dateien.');
         }
         $total = 0;
+        $compressed = 0;
+        $hasManifest = false;
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $stat = $zip->statIndex($i);
+            if (! is_array($stat)) {
+                $fail('Inhaltsverzeichnis des ZIP-Archivs ist beschädigt.');
+            }
             $name = (string) $stat['name'];
-            if ($name === '' || str_starts_with($name, '/') || str_contains($name, '\\') || preg_match('#(^|/)\.\.(/|$)#', $name) || str_contains($name, "\0")) {
-                $zip->close();
-                throw new RuntimeException("Unzulässiger Pfad im Paket: {$name}");
+            if (($error = self::entryError($name)) !== null) {
+                $fail($error);
             }
-            $allowed = $name === 'manifest.json' || $name === 'data/' || $name === 'media/'
-                || preg_match('#^data/[a-z_]+\.json$#', $name) || str_starts_with($name, 'media/');
-            if (! $allowed) {
-                $zip->close();
-                throw new RuntimeException("Unerwartete Datei im Paket: {$name}");
+            // Symbolische Links (Unix-Dateimodus im ZIP) nie entpacken.
+            $opsys = 0;
+            $attr = 0;
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attr) && $opsys === ZipArchive::OPSYS_UNIX && (($attr >> 16) & 0170000) === 0120000) {
+                $fail("Symbolischer Link im Paket nicht erlaubt: {$name}");
             }
-            $total += (int) $stat['size'];
+            $size = (int) $stat['size'];
+            $comp = (int) $stat['comp_size'];
+            if ($size > 1024 * 1024 && ($comp <= 0 || $size / $comp > self::MAX_RATIO)) {
+                $fail("Datei im Paket lässt sich ungewöhnlich stark entpacken (mögliche ZIP-Bombe): {$name}");
+            }
+            $hasManifest = $hasManifest || $name === 'manifest.json';
+            $total += $size;
+            $compressed += $comp;
         }
         if ($total > 4 * self::MAX_ZIP_BYTES) {
-            $zip->close();
-            throw new RuntimeException('Entpacktes Paket wäre zu groß.');
+            $fail('Entpacktes Paket wäre zu groß.');
         }
-        if (! wp_mkdir_p($targetDir) || ! $zip->extractTo($targetDir)) {
-            $zip->close();
-            throw new RuntimeException('Paket konnte nicht entpackt werden.');
+        if ($total > 50 * 1024 * 1024 && $total / max(1, $compressed) > self::MAX_TOTAL_RATIO) {
+            $fail('Paket lässt sich ungewöhnlich stark entpacken (mögliche ZIP-Bombe).');
         }
-        $zip->close();
+        if (! $hasManifest) {
+            $fail('manifest.json fehlt im Paket. Erwartet wird das ZIP aus tools/content-build mit manifest.json, data/ und media/ auf oberster Ebene.');
+        }
 
-        return new self($targetDir);
+        return $zip;
+    }
+
+    /**
+     * Ist dieser Eintrag (relativer Pfad im Paket, Ordner mit „/“ am Ende) erlaubt? Gilt für ZIP-Einträge und
+     * für Dateien eines Paketordners. @return string|null Fehlermeldung oder null
+     */
+    public static function entryError(string $name): ?string
+    {
+        if ($name === '' || str_starts_with($name, '/') || str_contains($name, '\\') || preg_match('#(^|/)\.\.(/|$)#', $name) || str_contains($name, "\0") || preg_match('#^[A-Za-z]:#', $name)) {
+            return "Unzulässiger Pfad im Paket: {$name}";
+        }
+        $allowed = $name === 'manifest.json' || $name === 'data/' || $name === 'media/'
+            || preg_match('#^data/[a-z_]+\.json$#', $name) || str_starts_with($name, 'media/');
+        if (! $allowed) {
+            return "Unerwartete Datei im Paket: {$name}";
+        }
+        if (! str_starts_with($name, 'media/')) {
+            return null;
+        }
+        if (str_ends_with($name, '/')) {
+            foreach (explode('/', rtrim($name, '/')) as $segment) {
+                if ($segment === '' || str_starts_with($segment, '.')) {
+                    return "Unzulässiger Pfad im Paket: {$name}";
+                }
+            }
+
+            return null;
+        }
+        // Medien: nur erlaubte Endungen, keine versteckten Dateien, keine Doppelendungen wie .php.png.
+        $error = MediaStorage::mediaTypeError($name, null);
+
+        return $error === null ? null : "Medium nicht erlaubt: {$name} – {$error}";
+    }
+
+    /**
+     * Prüft einen entpackten Paketordner (Import aus einem Ordner auf dem Server bzw. per WP-CLI) mit denselben
+     * Regeln wie ein ZIP: erlaubte Dateien und Endungen, keine symbolischen Links, Anzahl und Gesamtgröße.
+     */
+    public static function inspectDirectory(string $dir): void
+    {
+        $dir = rtrim($dir, '/');
+        if (! is_file($dir.'/manifest.json')) {
+            throw new RuntimeException('manifest.json fehlt im Paketordner.');
+        }
+        $count = 0;
+        $total = 0;
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($it as $file) {
+            $relative = substr($file->getPathname(), strlen($dir) + 1).($file->isDir() ? '/' : '');
+            if ($file->isLink()) {
+                throw new RuntimeException("Symbolischer Link im Paket nicht erlaubt: {$relative}");
+            }
+            if (($error = self::entryError($relative)) !== null) {
+                throw new RuntimeException($error);
+            }
+            if (++$count > self::MAX_ENTRIES) {
+                throw new RuntimeException('Paket enthält zu viele Dateien.');
+            }
+            $total += $file->isFile() ? (int) $file->getSize() : 0;
+        }
+        if ($total > 4 * self::MAX_ZIP_BYTES) {
+            throw new RuntimeException('Paket ist zu groß.');
+        }
     }
 
     /** @return array<string,mixed> */

@@ -41,6 +41,9 @@ Systemstatus gemeldet.
 und PDF. Grund: Eine SVG-Datei kann Skripte enthalten, die auf der eigenen Domain laufen würden. Das heutige
 Content-Paket enthält nur PNG.
 
+Seit T88/T96 prüft der Import Dateinamen und Endungen schon im Inhaltsverzeichnis des ZIP, bevor etwas entpackt wird
+(dazu symbolische Links, Größe, Anzahl und ZIP-Bomben); abgelehnte Pakete werden gelöscht (`docs/betreiber-schritte.md`, T96).
+
 **Möglich:** SVG über den Filter `bootspruefung_media_allowed_types` zulassen. Sicherer ist es, SVG-Grafiken
 beim Erstellen des Pakets in PNG umzuwandeln.
 

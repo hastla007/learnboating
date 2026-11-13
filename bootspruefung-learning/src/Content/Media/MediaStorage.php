@@ -503,6 +503,12 @@ final class MediaStorage
         return $secret;
     }
 
+    /** Ordner anlegen und gegen Direktabruf sperren (index.php, .htaccess „Require all denied“). */
+    public static function protectDir(string $dir): void
+    {
+        self::ensureDir($dir, true);
+    }
+
     private static function ensureDir(string $dir, bool $private): void
     {
         if (! is_dir($dir) && ! wp_mkdir_p($dir)) {

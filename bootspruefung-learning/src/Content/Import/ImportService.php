@@ -107,6 +107,7 @@ final class ImportService
     public function createFromDirectory(string $dir): int
     {
         self::raiseLimits();
+        Package::inspectDirectory($dir); // dieselben Regeln wie beim ZIP (Dateitypen, Links, Größe)
         $batchId = $this->createBatch(new Package(rtrim($dir, '/')));
         $this->clearBatchDir($batchId);
         self::copyDir(rtrim($dir, '/'), $this->batchDir($batchId));

@@ -42,6 +42,31 @@ CI-Läufe mit PHP 8.1 und 8.5 sowie WooCommerce 11.2 und 11.3 (Beta), Block-Kass
 
 **Erledigt, wenn:** Protokoll mit Versionen, Plugin-Liste und leerem Log vorliegt.
 
+## T96 Inhaltspaket importieren (Grenze für das Hochladen)
+
+Das Inhaltspaket (ZIP aus `tools/content-build`) hat rund 11 MB. Viele Hoster erlauben beim Hochladen im Browser
+weniger (`upload_max_filesize`, `post_max_size`, oft 2 bis 8 MB). Die Seite Bootsprüfung › Inhaltspakete zeigt die
+Höchstgröße dieses Servers an, prüft die Dateigröße schon vor dem Hochladen im Browser und meldet eine zu große
+Datei mit Lösungsweg (früher kam „Bitte eine ZIP-Datei auswählen“ bzw. „Link abgelaufen“).
+
+Wege ohne Hochladen im Browser:
+
+1. **Ablageordner:** ZIP-Datei (oder entpackten Paketordner) per SFTP oder Dateimanager des Hosters nach
+   `wp-content/uploads/bootspruefung-import/` legen, Seite neu laden, unter „Ohne Hochladen importieren“ auswählen
+   und „Übernehmen und prüfen“. Der Ordner ist für Besucher gesperrt (`.htaccess`; bei nginx gilt die Sperrregel
+   unten nicht automatisch – Ordner nicht öffentlich verlinken). Nur Dateien direkt in diesem Ordner sind wählbar
+   (keine Unterordner, keine Links). Eine ZIP-Datei wird nach dem Übernehmen bzw. wenn sie abgelehnt wird gelöscht.
+2. **Link:** https-Link auf die ZIP-Datei eintragen (nur https, keine internen Adressen, höchstens 200 MB). Die Datei
+   wird in den geschützten Paketordner geladen und nach der Prüfung gelöscht.
+3. **WP-CLI:** `wp bootspruefung import /pfad/zum/paket.zip` (ohne Zeitlimit des Browsers).
+4. Oder beim Hoster `upload_max_filesize` und `post_max_size` erhöhen (z. B. 64M).
+
+Vor dem Entpacken prüft das Plugin das Inhaltsverzeichnis des ZIP: keine Pfade außerhalb des Pakets, nur
+`manifest.json`, `data/*.json` und Medien mit erlaubter Endung (keine Doppelendungen, keine versteckten Dateien),
+keine symbolischen Links, höchstens 20.000 Dateien und 800 MB entpackt, kein auffälliges Kompressionsverhältnis
+(ZIP-Bombe). Ein abgelehntes Paket wird nicht entpackt; die hochgeladene bzw. geladene Datei und eine etwaige
+Teilentpackung werden gelöscht. Dieselben Regeln gelten für Paketordner (Ablageordner, WP-CLI).
+
 ## T68 Rechte und Prüfungsregelwerke im Live-System freigeben
 
 **Vorhanden:** Bootsprüfung › Rechte (Admin) und WP-CLI:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Admin;
 
 use Bootspruefung\Learning\Content\Import\ImportService;
+use Bootspruefung\Learning\Content\Import\ImportSources;
 use Bootspruefung\Learning\Plugin;
 use Bootspruefung\Learning\Security\Capabilities;
 use RuntimeException;
@@ -17,25 +18,132 @@ final class ImportPage
     public function register(): void
     {
         add_action('admin_post_bp_import_upload', [$this, 'handleUpload']);
+        add_action('admin_post_bp_import_server', [$this, 'handleServer']);
+        add_action('admin_post_bp_import_url', [$this, 'handleUrl']);
         add_action('admin_post_bp_import_action', [$this, 'handleAction']);
+        // Nach Menu::enqueue (Priorität 10): deutsche Texte für import.js.
+        add_action('admin_enqueue_scripts', [$this, 'scriptTexts'], 20);
+    }
+
+    /** Texte und Phasennamen für import.js (Fortschritt, Fehlermeldungen, Größenprüfung vor dem Hochladen). */
+    public function scriptTexts(): void
+    {
+        if (! wp_script_is('bp-admin-import', 'enqueued')) {
+            return;
+        }
+        $phases = [];
+        foreach (array_keys(ImportService::PHASES) as $phase) {
+            $phases[$phase] = Ui::entityLabel($phase);
+        }
+        wp_localize_script('bp-admin-import', 'bpImportText', [
+            'phases' => $phases,
+            'step' => __('Schritt %1$d von %2$d: %3$s – %4$d von %5$d', 'bootspruefung-learning'),
+            'done' => __('Import abgeschlossen. Die Seite wird neu geladen …', 'bootspruefung-learning'),
+            'network' => __('Keine Verbindung zum Server. Bitte die Internetverbindung prüfen und mit „Import fortsetzen“ weitermachen – bereits importierte Schritte bleiben erhalten.', 'bootspruefung-learning'),
+            'timeout' => __('Zeitüberschreitung: Der Server hat zu lange nicht geantwortet. Bitte die Seite neu laden und mit „Import fortsetzen“ weitermachen. Hält das an, per WP-CLI fortsetzen: wp bootspruefung import resume %d', 'bootspruefung-learning'),
+            'http' => __('Fehler auf dem Server (HTTP %d). Bitte die Seite neu laden und mit „Import fortsetzen“ weitermachen. Hält das an, das Fehlerprotokoll des Servers prüfen oder per WP-CLI fortsetzen: wp bootspruefung import resume %d', 'bootspruefung-learning'),
+            'invalid' => __('Der Server hat keine gültige Antwort geschickt (oft ein Zeitlimit oder PHP-Fehler). Bitte die Seite neu laden und mit „Import fortsetzen“ weitermachen. Hält das an, per WP-CLI fortsetzen: wp bootspruefung import resume %d', 'bootspruefung-learning'),
+            'expired' => __('Die Anmeldung ist abgelaufen. Bitte die Seite neu laden (ggf. neu anmelden) und mit „Import fortsetzen“ weitermachen.', 'bootspruefung-learning'),
+            'error' => __('Import angehalten: %s', 'bootspruefung-learning'),
+            'tooLarge' => ImportSources::tooLargeMessage(),
+            'tooLargeSize' => __('Die gewählte Datei hat %s.', 'bootspruefung-learning'),
+            'notZip' => __('Bitte eine ZIP-Datei auswählen (Endung .zip).', 'bootspruefung-learning'),
+            'uploading' => __('Wird hochgeladen und geprüft … Das kann bei großen Paketen einige Minuten dauern. Bitte die Seite nicht schließen.', 'bootspruefung-learning'),
+        ]);
     }
 
     public function handleUpload(): void
     {
+        // PHP verwirft eine Anfrage über post_max_size komplett: $_POST und $_FILES sind leer, das
+        // Sicherheitsfeld fehlt. Ohne diese Prüfung käme „Link abgelaufen“ statt eines verständlichen Hinweises.
+        // Es wird nichts verändert, nur gemeldet – daher vor der Nonce-Prüfung (Berechtigung wird geprüft).
+        if ($_POST === [] && $_FILES === [] && ImportSources::postTooLarge()) {
+            if (! current_user_can(Capabilities::IMPORT_CONTENT)) {
+                wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), 403);
+            }
+            $this->redirect(null, ImportSources::tooLargeMessage((int) ($_SERVER['CONTENT_LENGTH'] ?? 0)), 'error');
+        }
         $this->guard('bp_import_upload');
         $file = $_FILES['package'] ?? null;
-        if (! is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || ! is_uploaded_file((string) $file['tmp_name'])) {
+        $code = is_array($file) ? (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE;
+        if (($message = ImportSources::uploadErrorMessage($code, is_array($file) ? (int) ($file['size'] ?? 0) : 0)) !== null) {
+            $this->redirect(null, $message, 'error');
+        }
+        $tmp = (string) $file['tmp_name'];
+        if (! is_uploaded_file($tmp)) {
             $this->redirect(null, __('Bitte eine ZIP-Datei auswählen.', 'bootspruefung-learning'), 'error');
         }
         if (! str_ends_with(strtolower((string) $file['name']), '.zip')) {
+            @unlink($tmp); // phpcs:ignore WordPress.PHP.NoSilencedErrors
             $this->redirect(null, __('Nur ZIP-Dateien sind erlaubt.', 'bootspruefung-learning'), 'error');
         }
+        $error = null;
         try {
-            $batchId = Plugin::instance()->importService()->createFromZip((string) $file['tmp_name']);
+            $batchId = Plugin::instance()->importService()->createFromZip($tmp);
+        } catch (RuntimeException $e) {
+            $error = $e->getMessage();
+        }
+        // Abgelehnte und übernommene Uploads nicht liegen lassen (das Paket liegt entpackt beim Import).
+        if (is_file($tmp)) {
+            @unlink($tmp); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+        }
+        if ($error !== null) {
+            $this->redirect(null, self::rejected($error), 'error');
+        }
+        $this->redirect($batchId, __('Paket hochgeladen und geprüft.', 'bootspruefung-learning'));
+    }
+
+    /** Paket aus dem Ablageordner auf dem Server übernehmen (ohne Hochladen im Browser). */
+    public function handleServer(): void
+    {
+        $this->guard('bp_import_server');
+        $name = sanitize_file_name(wp_unslash((string) ($_POST['file'] ?? '')));
+        try {
+            $path = ImportSources::resolveDrop($name);
         } catch (RuntimeException $e) {
             $this->redirect(null, $e->getMessage(), 'error');
         }
-        $this->redirect($batchId, __('Paket hochgeladen und geprüft.', 'bootspruefung-learning'));
+        $service = Plugin::instance()->importService();
+        $isZip = is_file($path);
+        try {
+            $batchId = $isZip ? $service->createFromZip($path) : $service->createFromDirectory($path);
+        } catch (RuntimeException $e) {
+            if ($isZip) {
+                @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- abgelehntes Paket entfernen
+            }
+            $this->redirect(null, self::rejected($e->getMessage()).($isZip ? ' '.__('Die Datei wurde aus dem Ablageordner gelöscht.', 'bootspruefung-learning') : ''), 'error');
+        }
+        if ($isZip) {
+            @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- übernommen: liegt jetzt beim Import
+        }
+        $this->redirect($batchId, sprintf(__('Paket „%s“ aus dem Ablageordner übernommen und geprüft.', 'bootspruefung-learning'), $name));
+    }
+
+    /** Paket über einen https-Link laden (wp_safe_remote_get, Größenlimit, temporäre Datei). */
+    public function handleUrl(): void
+    {
+        $this->guard('bp_import_url');
+        $url = esc_url_raw(trim(wp_unslash((string) ($_POST['url'] ?? ''))), ['https']);
+        $tmp = null;
+        $error = null;
+        try {
+            $tmp = ImportSources::download($url);
+            $batchId = Plugin::instance()->importService()->createFromZip($tmp);
+        } catch (RuntimeException $e) {
+            $error = $e->getMessage();
+        }
+        if ($tmp !== null && is_file($tmp)) {
+            @unlink($tmp); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- temporäre Datei immer entfernen
+        }
+        if ($error !== null) {
+            $this->redirect(null, $tmp === null ? $error : self::rejected($error), 'error');
+        }
+        $this->redirect($batchId, __('Paket über den Link geladen und geprüft.', 'bootspruefung-learning'));
+    }
+
+    private static function rejected(string $reason): string
+    {
+        return sprintf(__('Paket abgelehnt: %s', 'bootspruefung-learning'), $reason);
     }
 
     public function handleAction(): void
@@ -96,7 +204,7 @@ final class ImportPage
             wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'));
         }
         $batchId = absint($_GET['batch'] ?? 0);
-        echo '<div class="wrap bp-admin"><h1>'.esc_html__('Content-Pakete', 'bootspruefung-learning').'</h1>';
+        echo '<div class="wrap bp-admin"><h1>'.esc_html__('Inhaltspakete', 'bootspruefung-learning').'</h1>';
         Ui::notice();
         $batchId > 0 ? $this->renderBatch($batchId) : $this->renderList();
         echo '</div>';
@@ -105,13 +213,20 @@ final class ImportPage
     private function renderList(): void
     {
         $service = Plugin::instance()->importService();
+        $limit = ImportSources::uploadLimit();
         echo '<h2>'.esc_html__('Paket hochladen', 'bootspruefung-learning').'</h2>';
-        echo '<form method="post" enctype="multipart/form-data" action="'.esc_url(admin_url('admin-post.php')).'">';
+        // action in der Adresse: Verwirft PHP eine zu große Anfrage (post_max_size), kommt sie trotzdem beim Handler an.
+        echo '<form method="post" enctype="multipart/form-data" id="bp-import-upload" data-max-bytes="'.(int) $limit.'" action="'.esc_url(add_query_arg('action', 'bp_import_upload', admin_url('admin-post.php'))).'">';
         wp_nonce_field('bp_import_upload');
-        echo '<input type="hidden" name="action" value="bp_import_upload">';
+        echo '<input type="hidden" name="action" value="bp_import_upload"><input type="hidden" name="MAX_FILE_SIZE" value="'.(int) $limit.'">';
         echo '<p><input type="file" name="package" accept=".zip,application/zip" required> ';
         submit_button(__('Hochladen und prüfen', 'bootspruefung-learning'), 'primary', 'submit', false);
-        echo '</p><p class="description">'.esc_html__('ZIP aus tools/content-build (manifest.json, data/, media/). Max. 200 MB; der Server-Uploadwert kann niedriger sein. Prüfung und Entpacken laufen in diesem Request – bei großen Paketen (viele Medien) oder knappen Server-Zeitlimits besser per WP-CLI importieren: wp bootspruefung import <paket>.', 'bootspruefung-learning').'</p></form>';
+        echo '</p><div id="bp-import-upload-message" aria-live="polite"></div>';
+        echo '<p><strong>'.esc_html(sprintf(__('Höchstgröße zum Hochladen auf diesem Server: %s', 'bootspruefung-learning'), size_format($limit))).'</strong> '
+            .'<span class="description">'.esc_html(sprintf(__('(kleinster Wert aus upload_max_filesize %1$s, post_max_size %2$s, WordPress-Grenze %3$s und der Paketgrenze 200 MB)', 'bootspruefung-learning'), (string) ini_get('upload_max_filesize'), (string) ini_get('post_max_size'), size_format((int) wp_max_upload_size()))).'</span></p>';
+        echo '<p class="description">'.esc_html__('ZIP aus tools/content-build (manifest.json, data/, media/; das aktuelle Paket hat rund 11 MB). Ist die Datei größer als die Höchstgröße, unten „Ohne Hochladen importieren“ nutzen. Prüfung und Entpacken laufen in dieser Anfrage – bei großen Paketen oder knappen Zeitlimits des Servers besser per WP-CLI: wp bootspruefung import <paket>.', 'bootspruefung-learning').'</p></form>';
+
+        $this->renderAlternatives();
 
         $aborted = $service->abortedImport();
         if ($aborted !== null) {
@@ -136,6 +251,48 @@ final class ImportPage
             ];
         }
         Ui::table([__('Import', 'bootspruefung-learning'), __('Paket', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), 'Commit', __('Hochgeladen', 'bootspruefung-learning'), __('Veröffentlicht', 'bootspruefung-learning')], $rows, __('Noch keine Importe.', 'bootspruefung-learning'));
+    }
+
+    /** Import ohne Hochladen: Ablageordner auf dem Server, https-Link, WP-CLI. */
+    private function renderAlternatives(): void
+    {
+        echo '<h2 id="bp-import-alternatives">'.esc_html__('Ohne Hochladen importieren', 'bootspruefung-learning').'</h2>';
+        echo '<h3>'.esc_html__('Aus dem Ablageordner auf dem Server', 'bootspruefung-learning').'</h3>';
+        echo '<p>'.sprintf(
+            esc_html__('Die ZIP-Datei (oder den entpackten Paketordner) per SFTP oder Dateimanager des Hosters in den Ordner %s legen und hier auswählen. Der Ordner ist für Besucher gesperrt. Eine ZIP-Datei wird nach dem Übernehmen bzw. wenn sie abgelehnt wird aus dem Ordner gelöscht.', 'bootspruefung-learning'),
+            '<code>'.esc_html(ImportSources::dropDirLabel()).'</code>'
+        ).'</p>';
+        $items = ImportSources::dropItems();
+        if ($items === []) {
+            echo '<p class="description">'.esc_html__('Im Ablageordner liegt noch kein Paket. Nach dem Ablegen diese Seite neu laden.', 'bootspruefung-learning').'</p>';
+        } else {
+            echo '<form method="post" action="'.esc_url(add_query_arg('action', 'bp_import_server', admin_url('admin-post.php'))).'">';
+            wp_nonce_field('bp_import_server');
+            echo '<input type="hidden" name="action" value="bp_import_server"><fieldset>';
+            foreach ($items as $i => $item) {
+                $detail = $item['type'] === 'zip' ? size_format($item['size']) : __('Paketordner', 'bootspruefung-learning');
+                printf(
+                    '<label style="display:block;margin:.3em 0"><input type="radio" name="file" value="%s"%s> <code>%s</code> – %s, %s</label>',
+                    esc_attr($item['name']),
+                    checked($i, 0, false),
+                    esc_html($item['name']),
+                    esc_html($detail),
+                    esc_html(wp_date((string) get_option('date_format').' '.(string) get_option('time_format'), $item['modified']))
+                );
+            }
+            echo '</fieldset><p>';
+            submit_button(__('Übernehmen und prüfen', 'bootspruefung-learning'), 'secondary', 'submit', false);
+            echo '</p></form>';
+        }
+        echo '<h3>'.esc_html__('Über einen Link', 'bootspruefung-learning').'</h3>';
+        echo '<form method="post" action="'.esc_url(add_query_arg('action', 'bp_import_url', admin_url('admin-post.php'))).'">';
+        wp_nonce_field('bp_import_url');
+        echo '<input type="hidden" name="action" value="bp_import_url"><p><label for="bp-import-url" class="screen-reader-text">'.esc_html__('Link zur ZIP-Datei', 'bootspruefung-learning').'</label>'
+            .'<input type="url" id="bp-import-url" name="url" class="regular-text" placeholder="https://…/paket.zip" pattern="https://.+" required> ';
+        submit_button(__('Herunterladen und prüfen', 'bootspruefung-learning'), 'secondary', 'submit', false);
+        echo '</p><p class="description">'.esc_html(sprintf(__('Nur https-Links, höchstens %s. Die Datei wird in einen geschützten Ordner geladen und nach der Prüfung gelöscht.', 'bootspruefung-learning'), size_format(ImportSources::MAX_DOWNLOAD_BYTES))).'</p></form>';
+        echo '<h3>'.esc_html__('Per WP-CLI', 'bootspruefung-learning').'</h3><p><code>wp bootspruefung import /pfad/zum/paket.zip</code> '
+            .esc_html__('(prüft, zeigt die Vorschau und importiert nach Rückfrage; ohne Zeitlimit des Browsers).', 'bootspruefung-learning').'</p>';
     }
 
     private function renderBatch(int $batchId): void
