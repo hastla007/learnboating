@@ -331,7 +331,8 @@ if (function_exists('wc_get_product_id_by_sku')) {
     $prod->set_regular_price('99.00');
     $prod->save();
     $dry = array_column(ShopCatalog::applyProducts(true), null, 'sku')['BP-SKN'];
-    $check(in_array('price', $dry['skipped'], true) && str_contains($dry['price'], 'nicht überschrieben') && str_contains($dry['price'], '99,00'), 'Vorschau meldet: Preis von Hand geändert, nicht überschrieben');
+    // Betrag im Format des Shops (T128: ShopCatalog::priceText, im deutschen Shop „99,00 €“).
+    $check(in_array('price', $dry['skipped'], true) && str_contains($dry['price'], 'nicht überschrieben') && str_contains($dry['price'], ShopCatalog::priceText('99.00')), 'Vorschau meldet: Preis von Hand geändert, nicht überschrieben');
     $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
     $check(wc_get_product($sknId)->get_regular_price() === '99.00' && in_array('price', $row['skipped'], true), 'Abgleich überschreibt den Handpreis nicht still');
     $check(\Bootspruefung\Learning\Admin\PricePage::skippedMessage([$row]) !== '' && ShopCatalog::fieldLabel('price') !== 'price', 'Preis-Seite meldet den übersprungenen Preis');

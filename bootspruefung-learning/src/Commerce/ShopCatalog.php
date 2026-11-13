@@ -423,7 +423,7 @@ final class ShopCatalog
 
             return $value === true || (is_array($value) && in_array($sku, $value, true));
         };
-        $de = static fn (string $price): string => number_format((float) $price, 2, ',', '').' €';
+        $de = static fn (string $price): string => self::priceText($price);
         foreach (self::products() as $position => $def) {
             $id = (int) wc_get_product_id_by_sku($def['sku']);
             $product = $id ? wc_get_product($id) : null;
@@ -783,12 +783,6 @@ final class ShopCatalog
         return (int) $id;
     }
 
-    /**
-     * Produkttexte aus dem tatsächlichen Inhalt der Kurse (Zahlen aus der Datenbank).
-     *
-     * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
-     * @return array{short:string,long:string}
-     */
     /** Transient mit den Kennzahlen je Kursmenge (T85). */
     public const STATS_TRANSIENT = 'bp_learning_course_stats';
 
@@ -859,6 +853,14 @@ final class ShopCatalog
         // phpcs:enable
     }
 
+    /**
+     * Produkttexte aus dem tatsächlichen Inhalt der Kurse (Zahlen aus der Datenbank).
+     *
+     * Übersetzbar (T128): alle Sätze über __() mit Platzhaltern; Beträge über priceText() im Format des Shops.
+     *
+     * @param array{sku:string,name:string,days:int,courses:list<string>,group:string} $def
+     * @return array{short:string,long:string}
+     */
     public static function texts(array $def): array
     {
         if (($def['group'] ?? '') === 'simulator') {
@@ -883,72 +885,145 @@ final class ShopCatalog
         if ($pass) {
             [$nav, $praxis, $videos, $papers] = [0, 0, 0, 0];
         }
-        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 180 ? '6 Monate' : $def['days'].' Tage');
+        $months = self::termLabel((int) $def['days'], 180, __('6 Monate', 'bootspruefung-learning'));
         $names = array_map([Labels::class, 'course'], $all);
+        // Kursname ohne „Vollkurs“/„Kombikurs“ (z. B. „SBF See“).
+        $shortName = trim((string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0]));
 
         $seats = (int) ($def['seats'] ?? 0);
         $intro = match ($def['group']) {
-            'groups' => sprintf('%d Lernzugänge für %s – zum Beispiel für Paare, Familien, Crews oder Vereine, die gemeinsam auf die Prüfung lernen.', $seats, implode(' und ', array_unique(array_map(static fn ($n) => preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $n), [$names[0]])))),
+            /* translators: 1: number of seats, 2: course name */
+            'groups' => sprintf(__('%1$d Lernzugänge für %2$s – zum Beispiel für Paare, Familien, Crews oder Vereine, die gemeinsam auf die Prüfung lernen.', 'bootspruefung-learning'), $seats, (string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0])),
             'bundle' => str_starts_with($def['sku'], 'BP-PASS')
-                ? sprintf('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', $months)
-                : 'Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.',
+                /* translators: %s: term, e.g. "12 Monate" */
+                ? sprintf(__('Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst.', 'bootspruefung-learning'), $months)
+                : __('Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI.', 'bootspruefung-learning'),
             // FKN → SKN: keine belegte verkürzte Prüfung; der Kurs enthält den vollständigen SKN-Katalog (T52/LIVE-07).
             'addon' => $all === ['ADD-FKN-TO-SKN']
-                ? 'Du hast schon den Fachkundenachweis Seenotsignalmittel (FKN) und willst den SKN? Dieser Kurs enthält den vollständigen SKN-Fragenkatalog mit Prüfungssimulation. Welche Prüfungsteile dir angerechnet werden, sagt dir dein Prüfungsausschuss.'
-                : sprintf('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor.', preg_replace('/^Ergänzung\s+/u', '', $names[0])),
-            default => sprintf('Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone.', trim((string) preg_replace('/\s+(Vollkurs|Kombikurs)$/u', '', $names[0]))),
+                ? __('Du hast schon den Fachkundenachweis Seenotsignalmittel (FKN) und willst den SKN? Dieser Kurs enthält den vollständigen SKN-Fragenkatalog mit Prüfungssimulation. Welche Prüfungsteile dir angerechnet werden, sagt dir dein Prüfungsausschuss.', 'bootspruefung-learning')
+                /* translators: %s: name of the supplementary part, e.g. "SBF Binnen Segeln" */
+                : sprintf(__('Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor.', 'bootspruefung-learning'), preg_replace('/^Ergänzung\s+/u', '', $names[0])),
+            /* translators: %s: course name */
+            default => sprintf(__('Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone.', 'bootspruefung-learning'), $shortName),
         };
         $items = [];
         if ($questions > 0) {
-            $items[] = sprintf('%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Favoriten', $questions);
+            /* translators: %d: number of exam questions */
+            $items[] = sprintf(__('%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Favoriten', 'bootspruefung-learning'), $questions);
         }
-        $items[] = $papers > 0 ? sprintf('Prüfungssimulation mit Zeitlimit und Auswertung, inkl. %d Prüfungsbögen', $papers) : 'Prüfungssimulation mit Zeitlimit und Auswertung';
+        $items[] = $papers > 0
+            /* translators: %d: number of exam papers */
+            ? sprintf(__('Prüfungssimulation mit Zeitlimit und Auswertung, inkl. %d Prüfungsbögen', 'bootspruefung-learning'), $papers)
+            : __('Prüfungssimulation mit Zeitlimit und Auswertung', 'bootspruefung-learning');
         if ($nav > 0) {
-            $items[] = sprintf('%d Navigationsaufgaben mit Musterlösungen', $nav);
+            /* translators: %d: number of navigation tasks */
+            $items[] = sprintf(__('%d Navigationsaufgaben mit Musterlösungen', 'bootspruefung-learning'), $nav);
         }
         if ($praxis > 0) {
-            $items[] = sprintf('%d Praxiskarten zur Vorbereitung auf die praktische Prüfung', $praxis);
+            /* translators: %d: number of practice cards */
+            $items[] = sprintf(__('%d Praxiskarten zur Vorbereitung auf die praktische Prüfung', 'bootspruefung-learning'), $praxis);
         }
         $withVideo = in_array(AccessService::VIDEO, $def['features'] ?? [AccessService::VIDEO], true);
         if ($videos > 0 && $withVideo) {
-            $items[] = sprintf('Videokurs mit %d Lektionen', $videos);
+            /* translators: %d: number of video lessons */
+            $items[] = sprintf(__('Videokurs mit %d Lektionen', 'bootspruefung-learning'), $videos);
         } elseif ($videos > 0 && ($def['tier'] ?? '') === 'theorie') {
-            $items[] = sprintf('Videokurs (%d Lektionen) nicht enthalten – als Upgrade für %s € erhältlich, erste Lektion kostenlos', $videos, number_format((float) (self::find(self::videoSku($def['sku']))['price'] ?? self::VIDEO_TIERS[$def['sku']] ?? 0), 2, ',', '.'));
+            $upgradePrice = (string) (self::find(self::videoSku($def['sku']))['price'] ?? self::VIDEO_TIERS[$def['sku']] ?? 0);
+            /* translators: 1: number of video lessons, 2: price with currency, e.g. "11,90 €" */
+            $items[] = sprintf(__('Videokurs (%1$d Lektionen) nicht enthalten – als Upgrade für %2$s erhältlich, erste Lektion kostenlos', 'bootspruefung-learning'), $videos, self::priceText($upgradePrice));
         }
         $withSim = in_array(AccessService::DEVICE, $def['features'] ?? [AccessService::DEVICE], true);
         if ($radio && $seats > 0 && ! $withSim) {
-            $items[] = 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator nicht enthalten (für jede Person als Simulator-Zugang erhältlich)';
+            $items[] = __('Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator nicht enthalten (für jede Person als Simulator-Zugang erhältlich)', 'bootspruefung-learning');
         } elseif ($radio) {
             $items[] = $withSim
-                ? 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Funkgerät-Simulator'
-                : 'Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator als kostenlose Testversion (Vollversion als Upgrade)';
+                ? __('Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Funkgerät-Simulator', 'bootspruefung-learning')
+                : __('Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator als kostenlose Testversion (Vollversion als Upgrade)', 'bootspruefung-learning');
         }
         if ($pass) {
-            $items[] = sprintf('Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos', count($all));
+            /* translators: %d: number of courses */
+            $items[] = sprintf(__('Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos', 'bootspruefung-learning'), count($all));
         }
-        $items[] = 'Lernfortschritt wird gespeichert – überall weiterlernen';
+        $items[] = __('Lernfortschritt wird gespeichert – überall weiterlernen', 'bootspruefung-learning');
         if ($seats > 0) {
-            array_unshift($items, sprintf('%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein.', $seats));
+            /* translators: %d: number of seats */
+            array_unshift($items, sprintf(__('%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein.', 'bootspruefung-learning'), $seats));
         }
+        /* translators: 1: term, e.g. "12 Monate", 2: name of the learning area */
+        $access = sprintf(__('Zugang %1$s ab Zahlungseingang – freigeschaltet, sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', 'bootspruefung-learning'), $months, \Bootspruefung\Learning\Settings\Settings::brand());
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
-            .'<p>'.esc_html(sprintf('Zugang %1$s ab Zahlungseingang – freigeschaltet, sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto.', $months, \Bootspruefung\Learning\Settings\Settings::brand())).'</p>'
+            .'<p>'.esc_html($access).'</p>'
             .($seats > 0
-                ? '<p>'.esc_html('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.').'</p>'
+                ? '<p>'.esc_html__('Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', 'bootspruefung-learning').'</p>'
                 : self::guaranteeParagraph())
-            .(count($all) > 1 && ! $pass ? '<p>'.esc_html('Enthält: '.implode(', ', $names)).'</p>' : '');
-        $short = $seats > 0
-            ? sprintf('%d Lernzugänge · %s · Zugang %s', $seats, $questions > 0 ? $questions.' Prüfungsfragen je Person' : 'Alle Inhalte', $months)
-            : sprintf('%s · %s · Zugang %s · %d Tage Geld-zurück-Garantie', $questions > 0 ? $questions.' Prüfungsfragen' : 'Alle Inhalte', 'Prüfungssimulation', $months, self::MONEY_BACK_DAYS);
+            /* translators: %s: comma-separated list of course names */
+            .(count($all) > 1 && ! $pass ? '<p>'.esc_html(sprintf(__('Enthält: %s', 'bootspruefung-learning'), implode(', ', $names))).'</p>' : '');
+        if ($seats > 0) {
+            $short = sprintf(
+                /* translators: 1: number of seats, 2: "N Prüfungsfragen je Person" or "Alle Inhalte", 3: term, e.g. "12 Monate" */
+                __('%1$d Lernzugänge · %2$s · Zugang %3$s', 'bootspruefung-learning'),
+                $seats,
+                /* translators: %d: number of exam questions */
+                $questions > 0 ? sprintf(__('%d Prüfungsfragen je Person', 'bootspruefung-learning'), $questions) : __('Alle Inhalte', 'bootspruefung-learning'),
+                $months
+            );
+        } else {
+            $short = sprintf(
+                /* translators: 1: "N Prüfungsfragen" or "Alle Inhalte", 2: term, e.g. "12 Monate", 3: days of the money-back guarantee */
+                __('%1$s · Prüfungssimulation · Zugang %2$s · %3$d Tage Geld-zurück-Garantie', 'bootspruefung-learning'),
+                /* translators: %d: number of exam questions */
+                $questions > 0 ? sprintf(__('%d Prüfungsfragen', 'bootspruefung-learning'), $questions) : __('Alle Inhalte', 'bootspruefung-learning'),
+                $months,
+                self::MONEY_BACK_DAYS
+            );
+        }
 
         return ['short' => esc_html($short), 'long' => $long];
+    }
+
+    /**
+     * Betrag mit Währung im Format des Shops (WooCommerce: Währungszeichen, Position, Trennzeichen, Nachkommastellen),
+     * als Text ohne HTML; ohne WooCommerce „11,90 €“ nach Sprache der Website (T128). Geschützte Leerzeichen werden zu
+     * normalen, damit die Produkttexte bei deutschem Shop-Format unverändert bleiben (kein Neuschreiben beim Abgleich).
+     */
+    public static function priceText(float|int|string $amount): string
+    {
+        $amount = (float) $amount;
+        if (function_exists('wc_price')) {
+            $text = html_entity_decode(wp_strip_all_tags(wc_price($amount)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+            return trim(str_replace(["\u{00A0}", "\u{202F}"], ' ', $text));
+        }
+
+        /* translators: %s: amount, e.g. "11,90" */
+        return sprintf(__('%s €', 'bootspruefung-learning'), number_format_i18n($amount, 2));
+    }
+
+    /** Laufzeit als Text: „12 Monate“ ab 360 Tagen, $mid ab $midDays, sonst „N Tage“. */
+    private static function termLabel(int $days, int $midDays, string $mid): string
+    {
+        if ($days >= 360) {
+            return __('12 Monate', 'bootspruefung-learning');
+        }
+        if ($days >= $midDays) {
+            return $mid;
+        }
+
+        /* translators: %d: number of days */
+        return sprintf(__('%d Tage', 'bootspruefung-learning'), $days);
     }
 
     /** Garantie-Absatz der Produkttexte (Bedingungen wie in den AGB, Abschnitt „Geld-zurück-Garantie“). */
     private static function guaranteeParagraph(): string
     {
-        return '<p><strong>'.esc_html(sprintf('%d Tage Geld-zurück-Garantie (weniger als %d %% genutzt):', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS)).'</strong> '
-            .esc_html(sprintf('Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).', self::MONEY_BACK_DAYS, (int) self::MONEY_BACK_MAX_PROGRESS))
-            .' <a href="'.esc_url(home_url('/agb/#geld-zurueck-garantie')).'">'.esc_html('Details in den AGB').'</a></p>';
+        $days = self::MONEY_BACK_DAYS;
+        $max = (int) self::MONEY_BACK_MAX_PROGRESS;
+
+        /* translators: 1: days, 2: maximum usage in percent */
+        return '<p><strong>'.esc_html(sprintf(__('%1$d Tage Geld-zurück-Garantie (weniger als %2$d %% genutzt):', 'bootspruefung-learning'), $days, $max)).'</strong> '
+            /* translators: 1: days, 2: maximum usage in percent */
+            .esc_html(sprintf(__('Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).', 'bootspruefung-learning'), $days, $max))
+            .' <a href="'.esc_url(home_url('/agb/#geld-zurueck-garantie')).'">'.esc_html__('Details in den AGB', 'bootspruefung-learning').'</a></p>';
     }
 
     /** Texte des Video-Upgrades (nur zusammen mit der Theorie-Stufe). @return array{short:string,long:string} */
@@ -956,20 +1031,27 @@ final class ShopCatalog
     {
         $course = Labels::course($def['courses'][0]);
         $videos = self::courseStats([$def['courses'][0]])['videos'];
-        $long = '<p>'.esc_html(sprintf('Erweitere deinen Theoriekurs %s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt%s.', $course, $videos > 0 ? sprintf(' – %d Lektionen', $videos) : '')).'</p>'
-            .'<p>'.esc_html(sprintf('Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Der Videokurs läuft so lange wie dein Theoriezugang zu diesem Kurs.', $course)).'</p>'
+        $intro = $videos > 0
+            /* translators: 1: course name, 2: number of video lessons */
+            ? sprintf(__('Erweitere deinen Theoriekurs %1$s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt – %2$d Lektionen.', 'bootspruefung-learning'), $course, $videos)
+            /* translators: %s: course name */
+            : sprintf(__('Erweitere deinen Theoriekurs %s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt.', 'bootspruefung-learning'), $course);
+        $long = '<p>'.esc_html($intro).'</p>'
+            /* translators: %s: course name */
+            .'<p>'.esc_html(sprintf(__('Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Der Videokurs läuft so lange wie dein Theoriezugang zu diesem Kurs.', 'bootspruefung-learning'), $course)).'</p>'
             .self::guaranteeParagraph();
 
-        return ['short' => esc_html(sprintf('Videokurs zum Theoriekurs %s · Laufzeit wie dein Theoriezugang · %d Tage Geld-zurück-Garantie', $course, self::MONEY_BACK_DAYS)), 'long' => $long];
+        /* translators: 1: course name, 2: days of the money-back guarantee */
+        return ['short' => esc_html(sprintf(__('Videokurs zum Theoriekurs %1$s · Laufzeit wie dein Theoriezugang · %2$d Tage Geld-zurück-Garantie', 'bootspruefung-learning'), $course, self::MONEY_BACK_DAYS)), 'long' => $long];
     }
 
     /** Web-App-Vorteile des Simulators (ohne Vergleich mit Anbietern, Festlegung 06.11.2026). @return list<string> */
     public static function simBenefits(): array
     {
         return [
-            'Ein Login für alle Geräte: Übe am PC, auf dem Tablet oder auf dem Smartphone.',
-            'Keine Installation: läuft direkt im Browser auf Mac, Windows, iOS und Android.',
-            'Keine Updates nötig: Aktualisierungen kommen automatisch.',
+            __('Ein Login für alle Geräte: Übe am PC, auf dem Tablet oder auf dem Smartphone.', 'bootspruefung-learning'),
+            __('Keine Installation: läuft direkt im Browser auf Mac, Windows, iOS und Android.', 'bootspruefung-learning'),
+            __('Keine Updates nötig: Aktualisierungen kommen automatisch.', 'bootspruefung-learning'),
         ];
     }
 
@@ -977,28 +1059,35 @@ final class ShopCatalog
     private static function simTexts(array $def): array
     {
         $intro = match ($def['sku']) {
-            'SIM-PASS-14D' => 'Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus.',
-            'SIM-PASS-3M' => 'Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate.',
-            'SIM-PASS-12M' => 'Für alle, die sich maximal Zeit lassen wollen oder vor der Prüfung immer wieder üben möchten: alle Funkgeräte-Simulationen für zwölf Monate. Persönlicher Zugang für eine Person.',
-            default => 'Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator frei, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate.',
+            'SIM-PASS-14D' => __('Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus.', 'bootspruefung-learning'),
+            'SIM-PASS-3M' => __('Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate.', 'bootspruefung-learning'),
+            'SIM-PASS-12M' => __('Für alle, die sich maximal Zeit lassen wollen oder vor der Prüfung immer wieder üben möchten: alle Funkgeräte-Simulationen für zwölf Monate. Persönlicher Zugang für eine Person.', 'bootspruefung-learning'),
+            default => __('Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator frei, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate.', 'bootspruefung-learning'),
         };
         $sim = self::simStats();
         $items = [
-            sprintf('%d Lektionen an %d Funkgeräten: Bedienung, Routineverkehr, DSC, Not-, Dringlichkeits- und Sicherheitsverkehr', $sim['lessons'], $sim['devices']),
-            sprintf('Notalarm (DISTRESS) mit DSC-Controller und Notmeldung per Sprechfunk'),
-            sprintf('Prüfungsmodus: %d Prüfungsaufgaben in %d Prüfungsreihen wie in der praktischen SRC- und UBI-Prüfung', $sim['tasks'], $sim['series']),
-            'Freies Üben: Rufe empfangen und beantworten',
+            /* translators: 1: number of lessons, 2: number of radio devices */
+            sprintf(__('%1$d Lektionen an %2$d Funkgeräten: Bedienung, Routineverkehr, DSC, Not-, Dringlichkeits- und Sicherheitsverkehr', 'bootspruefung-learning'), $sim['lessons'], $sim['devices']),
+            __('Notalarm (DISTRESS) mit DSC-Controller und Notmeldung per Sprechfunk', 'bootspruefung-learning'),
+            /* translators: 1: number of exam tasks, 2: number of exam series */
+            sprintf(__('Prüfungsmodus: %1$d Prüfungsaufgaben in %2$d Prüfungsreihen wie in der praktischen SRC- und UBI-Prüfung', 'bootspruefung-learning'), $sim['tasks'], $sim['series']),
+            __('Freies Üben: Rufe empfangen und beantworten', 'bootspruefung-learning'),
         ];
-        $months = $def['days'] >= 360 ? '12 Monate' : ($def['days'] >= 91 ? '3 Monate' : $def['days'].' Tage');
+        $months = self::termLabel((int) $def['days'], 91, __('3 Monate', 'bootspruefung-learning'));
         // Upgrade: ruht, sobald kein Funkkurs (SRC/UBI) mehr aktiv ist (AccessService::entitledFeatures).
         $upgrade = $def['sku'] === self::SIM_UPGRADE;
-        $term = $upgrade ? 'Zugang, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate ab Zahlungseingang' : sprintf('Zugang %s ab Zahlungseingang', $months);
+        $term = $upgrade
+            ? __('Zugang, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate ab Zahlungseingang', 'bootspruefung-learning')
+            /* translators: %s: term, e.g. "3 Monate" */
+            : sprintf(__('Zugang %s ab Zahlungseingang', 'bootspruefung-learning'), $months);
         $long = '<p>'.esc_html($intro).'</p><ul><li>'.implode('</li><li>', array_map('esc_html', $items)).'</li></ul>'
-            .'<p><strong>'.esc_html('Läuft direkt im Browser').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
-            .'<p>'.esc_html(sprintf('%s, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', $term)).'</p>';
+            .'<p><strong>'.esc_html__('Läuft direkt im Browser', 'bootspruefung-learning').'</strong></p><ul><li>'.implode('</li><li>', array_map('esc_html', self::simBenefits())).'</li></ul>'
+            /* translators: %s: access term, e.g. "Zugang 3 Monate ab Zahlungseingang" */
+            .'<p>'.esc_html(sprintf(__('%s, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung.', 'bootspruefung-learning'), $term)).'</p>';
         $short = $upgrade
-            ? 'Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate · kein Abo'
-            : sprintf('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', $months);
+            ? __('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate · kein Abo', 'bootspruefung-learning')
+            /* translators: %s: term, e.g. "3 Monate" */
+            : sprintf(__('Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo', 'bootspruefung-learning'), $months);
 
         return ['short' => esc_html($short), 'long' => $long];
     }

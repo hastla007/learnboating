@@ -632,6 +632,7 @@ final class Strings
             'sim_recommended' => __('Empfehlung', 'bootspruefung-learning'),
             'sim_once' => __('Einmalzahlung, kein Abo – der Zugang endet automatisch.', 'bootspruefung-learning'),
             'sim_benefits_title' => __('Dein Vorteil: Web-App statt Download', 'bootspruefung-learning'),
+            // Übersetzbar in ShopCatalog::simBenefits() (dieselben Sätze wie im Produkttext, T128).
             'sim_benefits' => implode("\n", \Bootspruefung\Learning\Commerce\ShopCatalog::simBenefits()),
             'sim_no_offers' => __('Die Vollversion ist in Kürze im Shop erhältlich.', 'bootspruefung-learning'),
             'sim_close' => __('Schließen', 'bootspruefung-learning'),

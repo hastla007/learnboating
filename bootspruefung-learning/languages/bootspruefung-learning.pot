@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T21:18:06+00:00\n"
+"POT-Creation-Date: 2026-11-13T22:47:34+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: bootspruefung-learning\n"
@@ -61,8 +61,8 @@ msgstr ""
 #: src/Admin/Notices.php:202
 #: src/Admin/PricePage.php:41
 #: src/Admin/PricePage.php:211
-#: src/Commerce/Disputes/DisputeWebhooks.php:745
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:243
+#: src/Commerce/Disputes/DisputeWebhooks.php:750
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:246
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:445
 #: src/Mobile/Admin/MobileAdminPage.php:39
 #: src/Mobile/Admin/MobileAdminPage.php:92
@@ -175,8 +175,8 @@ msgstr ""
 #: src/Admin/ContentPages.php:737
 #: src/Admin/ImportPage.php:253
 #: src/Commerce/WooCommerce/Integration.php:437
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:215
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:232
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:218
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:235
 msgid "Status"
 msgstr ""
 
@@ -598,8 +598,8 @@ msgstr ""
 #: src/Admin/AccessPages.php:494
 #: src/Admin/AccessPages.php:529
 #: src/Admin/AuditPage.php:526
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:208
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:232
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:211
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:235
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:327
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:341
 msgid "Bestellung"
@@ -1526,7 +1526,7 @@ msgid "PayPal eingerichtet"
 msgstr ""
 
 #: src/Admin/AuditPage.php:537
-#: src/Commerce/Disputes/DisputeWebhooks.php:800
+#: src/Commerce/Disputes/DisputeWebhooks.php:805
 msgid "Umgebung"
 msgstr ""
 
@@ -3533,7 +3533,7 @@ msgid "abgelehnt"
 msgstr ""
 
 #: src/Admin/ImportPage.php:508
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:232
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:235
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:341
 msgid "Aktion"
 msgstr ""
@@ -3842,7 +3842,7 @@ msgstr ""
 
 #: src/Admin/Menu.php:236
 #: src/Admin/Menu.php:339
-#: src/Frontend/Strings.php:661
+#: src/Frontend/Strings.php:662
 msgid "Sicherheit"
 msgstr ""
 
@@ -4815,98 +4815,98 @@ msgstr ""
 msgid "Klarna-Konflikt: Dieser Stand ist bereits gemeldet – nichts geändert."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:686
-#: src/Commerce/WooCommerce/Integration.php:669
+#: src/Commerce/Disputes/DisputeWebhooks.php:691
+#: src/Commerce/WooCommerce/Integration.php:670
 msgid "Lernzugang:"
 msgstr ""
 
 #. translators: 1: Ereignis, z. B. „PayPal-Konflikt eröffnet“, 2: Stand des Falls, z. B. „gewonnen“
-#: src/Commerce/Disputes/DisputeWebhooks.php:695
+#: src/Commerce/Disputes/DisputeWebhooks.php:700
 #, php-format
 msgid "Lernzugang: %1$s nicht angewendet – der Konfliktfall ist bereits %2$s (neuerer Stand)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:782
+#: src/Commerce/Disputes/DisputeWebhooks.php:787
 msgid "Zahlungskonflikte (Disputes)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:783
+#: src/Commerce/Disputes/DisputeWebhooks.php:788
 msgid "Stripe meldet Disputes als „In Wartestellung“ – das erkennt das Plugin ohne Einrichtung. Für PayPal und Klarna hier die Benachrichtigungen einrichten; ein eröffneter Konflikt setzt den Zugang aus, ein gewonnener hebt das auf, ein verlorener widerruft."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:787
+#: src/Commerce/Disputes/DisputeWebhooks.php:792
 msgid "PayPal-Webhook-URL"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:788
+#: src/Commerce/Disputes/DisputeWebhooks.php:793
 msgid "Im PayPal-Developer-Dashboard bei der App als Webhook eintragen, Ereignisse: Customer dispute created, updated, resolved."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:790
+#: src/Commerce/Disputes/DisputeWebhooks.php:795
 msgid "Signaturprüfung PayPal"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:795
+#: src/Commerce/Disputes/DisputeWebhooks.php:800
 msgid "Festgelegt in wp-config.php."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:796
+#: src/Commerce/Disputes/DisputeWebhooks.php:801
 msgid "PayPal Client-ID"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:797
+#: src/Commerce/Disputes/DisputeWebhooks.php:802
 msgid "PayPal Secret"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:797
+#: src/Commerce/Disputes/DisputeWebhooks.php:802
 msgid "gespeichert – leer lassen zum Behalten"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:798
+#: src/Commerce/Disputes/DisputeWebhooks.php:803
 msgid "PayPal Webhook-ID"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:800
+#: src/Commerce/Disputes/DisputeWebhooks.php:805
 msgid "PayPal-Zugangsdaten löschen"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:801
+#: src/Commerce/Disputes/DisputeWebhooks.php:806
 msgid "Sandbox = Testkonto aus dem PayPal-Developer-Dashboard, Live = echtes Händlerkonto. Client-ID, Secret und Webhook-ID müssen zur gewählten Umgebung gehören. Statt hier können sie auch in wp-config.php stehen: BOOTSPRUEFUNG_PAYPAL_CLIENT_ID, BOOTSPRUEFUNG_PAYPAL_SECRET, BOOTSPRUEFUNG_PAYPAL_WEBHOOK_ID, BOOTSPRUEFUNG_PAYPAL_MODE (live oder sandbox)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:802
+#: src/Commerce/Disputes/DisputeWebhooks.php:807
 msgid "Allgemeiner Dispute-Webhook (Klarna u. a.)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:803
+#: src/Commerce/Disputes/DisputeWebhooks.php:808
 msgid "POST mit JSON {\"event\":\"opened|won|lost\",\"order_id\":123 oder \"transaction_id\":\"…\",\"id\":\"eindeutige Ereignis-ID\",\"source\":\"klarna\",\"dispute_id\":\"Fall-ID\",\"timestamp\":\"2026-11-12T10:00:00Z\"} und Header X-Bootspruefung-Signature: sha256=HMAC-SHA256(Rohtext, Schlüssel). dispute_id und timestamp sind optional, aber empfohlen: Ein gewonnener oder verlorener Fall ist endgültig, ein später eintreffendes „opened“ desselben Falls wird ignoriert. Geeignet für Benachrichtigungen aus dem Klarna-Händlerportal über eine Automatisierung (z. B. E-Mail-/Webhook-Weiterleitung). Ohne Automatisierung: in der Klarna-Bestellung die Bestellaktion „Klarna-Konflikt melden“ nutzen – sie wirkt genauso."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:804
+#: src/Commerce/Disputes/DisputeWebhooks.php:809
 msgid "Schlüssel:"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:804
+#: src/Commerce/Disputes/DisputeWebhooks.php:809
 msgid "neu erzeugen"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:804
+#: src/Commerce/Disputes/DisputeWebhooks.php:809
 msgid "Der Schlüssel wird beim Speichern erzeugt."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:805
+#: src/Commerce/Disputes/DisputeWebhooks.php:810
 msgid "Pflichtfelder"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:806
+#: src/Commerce/Disputes/DisputeWebhooks.php:811
 msgid "dispute_id und timestamp verlangen (sonst 400)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:807
+#: src/Commerce/Disputes/DisputeWebhooks.php:812
 msgid "Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:809
+#: src/Commerce/Disputes/DisputeWebhooks.php:814
 msgid "Konflikt-Einstellungen speichern"
 msgstr ""
 
@@ -4914,76 +4914,76 @@ msgstr ""
 msgid "Das Enddatum liegt in der Vergangenheit. Bitte ein künftiges Datum wählen oder „dauerhaft“."
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:297
+#: src/Commerce/ExpiryReminder.php:385
 msgid "Kurz bevor ein gekaufter Zugang abläuft, erinnern wir dich per E-Mail daran. Du kannst dem jederzeit widersprechen – über den Link in jeder Erinnerung oder unter „Mein Lernen“ –, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen."
 msgstr ""
 
 #. translators: %s: first name
-#: src/Commerce/ExpiryReminder.php:338
+#: src/Commerce/ExpiryReminder.php:426
 #, php-format
 msgid "Hallo %s,"
 msgstr ""
 
 #. translators: %s: first name
-#: src/Commerce/ExpiryReminder.php:338
+#: src/Commerce/ExpiryReminder.php:426
 msgid "Hallo,"
 msgstr ""
 
 #. translators: 1: course name, 2: date
-#: src/Commerce/ExpiryReminder.php:343
+#: src/Commerce/ExpiryReminder.php:431
 #, php-format
 msgid "Dein Zugang zu %1$s läuft am %2$s ab"
 msgstr ""
 
 #. translators: 1: course name, 2: date
-#: src/Commerce/ExpiryReminder.php:345
+#: src/Commerce/ExpiryReminder.php:433
 #, php-format
 msgid "dein Zugang zu %1$s läuft am %2$s ab."
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:346
-#: src/Commerce/ExpiryReminder.php:361
+#: src/Commerce/ExpiryReminder.php:434
+#: src/Commerce/ExpiryReminder.php:449
 msgid "Dein Lernstand bleibt erhalten."
 msgstr ""
 
 #. translators: %s: link
-#: src/Commerce/ExpiryReminder.php:349
-#: src/Commerce/ExpiryReminder.php:358
+#: src/Commerce/ExpiryReminder.php:437
+#: src/Commerce/ExpiryReminder.php:446
 #, php-format
 msgid "Verlängern: %s"
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:351
+#: src/Commerce/ExpiryReminder.php:439
 msgid "Deine Lernzugänge laufen bald ab"
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:352
+#: src/Commerce/ExpiryReminder.php:440
 msgid "diese Zugänge laufen bald ab:"
 msgstr ""
 
 #. translators: 1: course name, 2: date
-#: src/Commerce/ExpiryReminder.php:356
+#: src/Commerce/ExpiryReminder.php:444
 #, php-format
 msgid "%1$s: läuft am %2$s ab"
 msgstr ""
 
 #. translators: %s: link
-#: src/Commerce/ExpiryReminder.php:365
+#: src/Commerce/ExpiryReminder.php:453
 #, php-format
 msgid "Zum Lernbereich: %s"
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:368
+#: src/Commerce/ExpiryReminder.php:456
 msgid "Du bekommst diese Erinnerung, weil du bei uns einen Lernzugang gekauft hast."
 msgstr ""
 
 #. translators: %s: link
-#: src/Commerce/ExpiryReminder.php:370
+#: src/Commerce/ExpiryReminder.php:458
 #, php-format
 msgid "Du kannst diesen Erinnerungen jederzeit widersprechen, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen. Abbestellen: %s"
 msgstr ""
 
-#: src/Commerce/ExpiryReminder.php:371
+#: src/Commerce/ExpiryReminder.php:459
 msgid "Oder in deinem Konto unter „Mein Lernen“."
 msgstr ""
 
@@ -5036,7 +5036,7 @@ msgstr ""
 
 #. translators: 1: date, 2: time
 #: src/Commerce/GroupService.php:640
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:181
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:184
 #, php-format
 msgid "%1$s, %2$s Uhr"
 msgstr ""
@@ -5133,14 +5133,17 @@ msgid "ausgesetzt"
 msgstr ""
 
 #: src/Commerce/Labels.php:66
+#: src/Commerce/ShopCatalog.php:1006
 msgid "12 Monate"
 msgstr ""
 
 #: src/Commerce/Labels.php:67
+#: src/Commerce/ShopCatalog.php:888
 msgid "6 Monate"
 msgstr ""
 
 #: src/Commerce/Labels.php:68
+#: src/Commerce/ShopCatalog.php:1076
 msgid "3 Monate"
 msgstr ""
 
@@ -5316,8 +5319,8 @@ msgid "Lernzugang (Zuordnung, Laufzeit, Verlängerung, Erstattung, Plätze)"
 msgstr ""
 
 #: src/Commerce/ShopCatalog.php:389
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:223
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:387
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:226
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:390
 msgid "Geld-zurück-Garantie"
 msgstr ""
 
@@ -5350,6 +5353,283 @@ msgstr ""
 
 #: src/Commerce/ShopCatalog.php:646
 msgid "wird Entwurf (Kurs deaktiviert)"
+msgstr ""
+
+#. translators: 1: number of seats, 2: course name
+#: src/Commerce/ShopCatalog.php:896
+#, php-format
+msgid "%1$d Lernzugänge für %2$s – zum Beispiel für Paare, Familien, Crews oder Vereine, die gemeinsam auf die Prüfung lernen."
+msgstr ""
+
+#. translators: %s: term, e.g. "12 Monate"
+#: src/Commerce/ShopCatalog.php:899
+#, php-format
+msgid "Voller Zugriff auf alle Kurse der Plattform für %s – ideal, wenn du konzentriert auf einen Prüfungstermin hinlernst oder mehrere Scheine kombinierst."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:900
+msgid "Alle wichtigen Scheine für Küste und Binnen in einem Paket: Sportbootführerschein See und Binnen plus die Funkzeugnisse SRC und UBI."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:903
+msgid "Du hast schon den Fachkundenachweis Seenotsignalmittel (FKN) und willst den SKN? Dieser Kurs enthält den vollständigen SKN-Fragenkatalog mit Prüfungssimulation. Welche Prüfungsteile dir angerechnet werden, sagt dir dein Prüfungsausschuss."
+msgstr ""
+
+#. translators: %s: name of the supplementary part, e.g. "SBF Binnen Segeln"
+#: src/Commerce/ShopCatalog.php:905
+#, php-format
+msgid "Du hast bereits einen Schein und brauchst nur noch den Ergänzungsteil (%s)? Dieser Kurs bereitet dich gezielt auf die Ergänzungsprüfung vor."
+msgstr ""
+
+#. translators: %s: course name
+#: src/Commerce/ShopCatalog.php:907
+#, php-format
+msgid "Online-Vorbereitung auf die Prüfung %s: lernen, üben und Prüfungen simulieren – am Rechner, Tablet oder Smartphone."
+msgstr ""
+
+#. translators: %d: number of exam questions
+#: src/Commerce/ShopCatalog.php:912
+#, php-format
+msgid "%d Prüfungsfragen im Smarttrainer mit Erklärungen, Wiederholung falsch beantworteter Fragen und Favoriten"
+msgstr ""
+
+#. translators: %d: number of exam papers
+#: src/Commerce/ShopCatalog.php:916
+#, php-format
+msgid "Prüfungssimulation mit Zeitlimit und Auswertung, inkl. %d Prüfungsbögen"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:917
+msgid "Prüfungssimulation mit Zeitlimit und Auswertung"
+msgstr ""
+
+#. translators: %d: number of navigation tasks
+#: src/Commerce/ShopCatalog.php:920
+#, php-format
+msgid "%d Navigationsaufgaben mit Musterlösungen"
+msgstr ""
+
+#. translators: %d: number of practice cards
+#: src/Commerce/ShopCatalog.php:924
+#, php-format
+msgid "%d Praxiskarten zur Vorbereitung auf die praktische Prüfung"
+msgstr ""
+
+#. translators: %d: number of video lessons
+#: src/Commerce/ShopCatalog.php:929
+#, php-format
+msgid "Videokurs mit %d Lektionen"
+msgstr ""
+
+#. translators: 1: number of video lessons, 2: price with currency, e.g. "11,90 €"
+#: src/Commerce/ShopCatalog.php:933
+#, php-format
+msgid "Videokurs (%1$d Lektionen) nicht enthalten – als Upgrade für %2$s erhältlich, erste Lektion kostenlos"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:937
+msgid "Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator nicht enthalten (für jede Person als Simulator-Zugang erhältlich)"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:940
+msgid "Funktraining: Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und Funkgerät-Simulator"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:941
+msgid "Funktraining: Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien; Funkgerät-Simulator als kostenlose Testversion (Vollversion als Upgrade)"
+msgstr ""
+
+#. translators: %d: number of courses
+#: src/Commerce/ShopCatalog.php:945
+#, php-format
+msgid "Alle %d Kurse: Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel und Ergänzungskurse – mit allen Trainern und Videos"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:947
+msgid "Lernfortschritt wird gespeichert – überall weiterlernen"
+msgstr ""
+
+#. translators: %d: number of seats
+#: src/Commerce/ShopCatalog.php:950
+#, php-format
+msgid "%d Plätze: Du lädst die Teilnehmenden per Link oder E-Mail ein; jede Person lernt mit eigenem Konto und eigenem Fortschritt. Ein Platz kann auch für dich selbst sein."
+msgstr ""
+
+#. translators: 1: term, e.g. "12 Monate", 2: name of the learning area
+#: src/Commerce/ShopCatalog.php:953
+#, php-format
+msgid "Zugang %1$s ab Zahlungseingang – freigeschaltet, sobald die Zahlung eingegangen ist. Du lernst im Bereich „%2$s“; deine Zugänge findest du unter „Mein Lernen“ im Kundenkonto."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:957
+msgid "Die Gruppe verwaltest du unter „Meine Gruppen“ im Lernbereich. Der Zugang gilt für alle Teilnehmenden bis zum Ende der Laufzeit ab Zahlungseingang. Für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung."
+msgstr ""
+
+#. translators: %s: comma-separated list of course names
+#: src/Commerce/ShopCatalog.php:960
+#, php-format
+msgid "Enthält: %s"
+msgstr ""
+
+#. translators: 1: number of seats, 2: "N Prüfungsfragen je Person" or "Alle Inhalte", 3: term, e.g. "12 Monate"
+#: src/Commerce/ShopCatalog.php:964
+#, php-format
+msgid "%1$d Lernzugänge · %2$s · Zugang %3$s"
+msgstr ""
+
+#. translators: %d: number of exam questions
+#: src/Commerce/ShopCatalog.php:967
+#, php-format
+msgid "%d Prüfungsfragen je Person"
+msgstr ""
+
+#. translators: %d: number of exam questions
+#: src/Commerce/ShopCatalog.php:967
+#: src/Commerce/ShopCatalog.php:975
+#: src/Commerce/WooCommerce/Integration.php:457
+msgid "Alle Inhalte"
+msgstr ""
+
+#. translators: 1: "N Prüfungsfragen" or "Alle Inhalte", 2: term, e.g. "12 Monate", 3: days of the money-back guarantee
+#: src/Commerce/ShopCatalog.php:973
+#, php-format
+msgid "%1$s · Prüfungssimulation · Zugang %2$s · %3$d Tage Geld-zurück-Garantie"
+msgstr ""
+
+#. translators: %d: number of exam questions
+#: src/Commerce/ShopCatalog.php:975
+#, php-format
+msgid "%d Prüfungsfragen"
+msgstr ""
+
+#. translators: %s: amount, e.g. "11,90"
+#: src/Commerce/ShopCatalog.php:999
+#, php-format
+msgid "%s €"
+msgstr ""
+
+#. translators: %d: number of days
+#: src/Commerce/ShopCatalog.php:1013
+#, php-format
+msgid "%d Tage"
+msgstr ""
+
+#. translators: 1: days, 2: maximum usage in percent
+#: src/Commerce/ShopCatalog.php:1023
+#, php-format
+msgid "%1$d Tage Geld-zurück-Garantie (weniger als %2$d %% genutzt):"
+msgstr ""
+
+#. translators: 1: days, 2: maximum usage in percent
+#: src/Commerce/ShopCatalog.php:1025
+#, php-format
+msgid "Innerhalb von %1$d Tagen ab Zahlungseingang erstatten wir dir den Preis, wenn du weniger als %2$d %% der gekauften Inhalte genutzt hast (beantwortete Fragen bzw. abgeschlossene Video-Lektionen). Anfrage unter „Mein Lernen“. Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung)."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1026
+msgid "Details in den AGB"
+msgstr ""
+
+#. translators: 1: course name, 2: number of video lessons
+#: src/Commerce/ShopCatalog.php:1036
+#, php-format
+msgid "Erweitere deinen Theoriekurs %1$s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt – %2$d Lektionen."
+msgstr ""
+
+#. translators: %s: course name
+#: src/Commerce/ShopCatalog.php:1038
+#, php-format
+msgid "Erweitere deinen Theoriekurs %s um den Videokurs: Der gesamte Prüfungsstoff Kapitel für Kapitel erklärt."
+msgstr ""
+
+#. translators: %s: course name
+#: src/Commerce/ShopCatalog.php:1041
+#, php-format
+msgid "Nur zusammen mit dem Theoriekurs %s erhältlich (im Warenkorb oder bereits gekauft). Der Videokurs läuft so lange wie dein Theoriezugang zu diesem Kurs."
+msgstr ""
+
+#. translators: 1: course name, 2: days of the money-back guarantee
+#: src/Commerce/ShopCatalog.php:1045
+#, php-format
+msgid "Videokurs zum Theoriekurs %1$s · Laufzeit wie dein Theoriezugang · %2$d Tage Geld-zurück-Garantie"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1052
+msgid "Ein Login für alle Geräte: Übe am PC, auf dem Tablet oder auf dem Smartphone."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1053
+msgid "Keine Installation: läuft direkt im Browser auf Mac, Windows, iOS und Android."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1054
+msgid "Keine Updates nötig: Aktualisierungen kommen automatisch."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1062
+msgid "Voller Web-Zugriff auf alle Funkgeräte-Simulationen – für die letzten Tage vor der praktischen Prüfung. Läuft nach 14 Tagen automatisch aus."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1063
+msgid "Der Standard-Zugang für die reguläre Kurszeit: alle Funkgeräte-Simulationen für drei Monate."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1064
+msgid "Für alle, die sich maximal Zeit lassen wollen oder vor der Prüfung immer wieder üben möchten: alle Funkgeräte-Simulationen für zwölf Monate. Persönlicher Zugang für eine Person."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1065
+msgid "Zusatzoption beim Kauf eines Funkkurses: schaltet den Funkgerät-Simulator frei, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate."
+msgstr ""
+
+#. translators: 1: number of lessons, 2: number of radio devices
+#: src/Commerce/ShopCatalog.php:1070
+#, php-format
+msgid "%1$d Lektionen an %2$d Funkgeräten: Bedienung, Routineverkehr, DSC, Not-, Dringlichkeits- und Sicherheitsverkehr"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1071
+msgid "Notalarm (DISTRESS) mit DSC-Controller und Notmeldung per Sprechfunk"
+msgstr ""
+
+#. translators: 1: number of exam tasks, 2: number of exam series
+#: src/Commerce/ShopCatalog.php:1073
+#, php-format
+msgid "Prüfungsmodus: %1$d Prüfungsaufgaben in %2$d Prüfungsreihen wie in der praktischen SRC- und UBI-Prüfung"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1074
+msgid "Freies Üben: Rufe empfangen und beantworten"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1080
+msgid "Zugang, solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate ab Zahlungseingang"
+msgstr ""
+
+#. translators: %s: term, e.g. "3 Monate"
+#: src/Commerce/ShopCatalog.php:1082
+#, php-format
+msgid "Zugang %s ab Zahlungseingang"
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1084
+msgid "Läuft direkt im Browser"
+msgstr ""
+
+#. translators: %s: access term, e.g. "Zugang 3 Monate ab Zahlungseingang"
+#: src/Commerce/ShopCatalog.php:1086
+#, php-format
+msgid "%s, Einmalzahlung ohne Abo – endet automatisch. Gilt für die Funkkurse SRC und UBI. Für diesen Zugang gibt es keine Geld-zurück-Garantie; für das gesetzliche Widerrufsrecht gilt die Widerrufsbelehrung."
+msgstr ""
+
+#: src/Commerce/ShopCatalog.php:1088
+msgid "Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · solange ein Funkkurs (SRC oder UBI) aktiv ist, höchstens 12 Monate · kein Abo"
+msgstr ""
+
+#. translators: %s: term, e.g. "3 Monate"
+#: src/Commerce/ShopCatalog.php:1090
+#, php-format
+msgid "Funkgerät-Simulator · alle Lektionen und Prüfungsaufgaben · Zugang %s · kein Abo"
 msgstr ""
 
 #: src/Commerce/VoucherGrants.php:72
@@ -5620,7 +5900,7 @@ msgid "Für %1$s gilt unsere kostenlose Geld-zurück-Garantie: Innerhalb von %2$
 msgstr ""
 
 #: src/Commerce/WooCommerce/ContractSummary.php:123
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:228
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:231
 #, php-format
 msgid "Garantiegeber: %s."
 msgstr ""
@@ -5817,7 +6097,7 @@ msgid "Summe"
 msgstr ""
 
 #: src/Commerce/WooCommerce/Integration.php:423
-#: src/Frontend/Router.php:207
+#: src/Frontend/Router.php:209
 msgid "Zum Lernbereich"
 msgstr ""
 
@@ -5827,10 +6107,6 @@ msgstr ""
 
 #: src/Commerce/WooCommerce/Integration.php:431
 msgid "Für dein Konto sind noch keine Lernzugänge gebucht."
-msgstr ""
-
-#: src/Commerce/WooCommerce/Integration.php:457
-msgid "Alle Inhalte"
 msgstr ""
 
 #: src/Commerce/WooCommerce/Integration.php:460
@@ -5972,88 +6248,88 @@ msgid "alle Produkte"
 msgstr ""
 
 #. translators: %s: Betrag
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:164
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:167
 #, php-format
 msgid "Den mit einem Gutschein bezahlten Anteil (%s) erstatten wir nicht als Geld."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:198
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:201
 msgid "Erstattung anfordern? Nach der Erstattung endet dein Zugang."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:199
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:202
 #, php-format
 msgid "Erstattung anfordern? Erstattet werden %1$s; nicht umfasst: %2$s. Nach der Erstattung endet der Zugang zu den erstatteten Kursen."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:204
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:207
 msgid "Geld zurück anfordern"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:210
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:232
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:213
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:235
 msgid "Gelernt / Grenze"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:213
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:232
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:216
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:235
 msgid "Frist bis"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:224
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:227
 #, php-format
 msgid "Innerhalb von %1$d Tagen ab Zahlungseingang und solange du weniger als %2$d %% der gekauften Inhalte genutzt hast, erstatten wir dir den Kaufpreis über die ursprüngliche Zahlungsart."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:226
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:229
 msgid "Je Bestellung ist eine Anfrage möglich; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Ausgenommen sind Gruppenpakete und die eigenständigen Zugänge zum Funkgerät-Simulator (Simulator-Pässe und Simulator-Upgrade); Kurse, Bundle und Pässe, die den Simulator enthalten, fallen unter die Garantie. Details stehen in den AGB (Nr. 9)."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:269
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:272
 msgid "Deine Anfrage wird gerade bearbeitet. Bitte lade die Seite in einem Moment neu."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:274
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:277
 msgid "Deine Anfrage zu dieser Bestellung ist bereits eingegangen und wird bearbeitet."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:290
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:293
 msgid "Deine Anfrage ist eingegangen. Wir erstatten den Betrag in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:291
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:294
 #, php-format
 msgid "Deine Anfrage ist eingegangen. Wir erstatten %1$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Zugang zu den erstatteten Kursen. Nicht von der Garantie umfasst und nicht erstattet: %2$s."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:318
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:321
 #, php-format
 msgid "Zu erstatten: %s (gesamte Bestellung)."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:319
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:322
 #, php-format
 msgid "Zu erstatten: %1$s – nur die Positionen mit Garantie. Ausgenommen (nicht erstatten): %2$s."
 msgstr ""
 
 #. translators: %s: Betrag
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:322
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:325
 #, php-format
 msgid "Davon per Gutschein bezahlt (nicht als Geld erstatten): %s."
 msgstr ""
 
 #. translators: 1: Lernstand, 2: Grenze, 3: Frist
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:328
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:331
 #, php-format
 msgid "Geld-zurück-Garantie angefragt. Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s. %4$s Bitte über „Erstattung“ die betreffenden Positionen erstatten – deren Zugang endet dann automatisch."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:336
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:339
 #, php-format
 msgid "Geld-zurück-Anfrage zu Bestellung #%d"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:337
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:340
 #, php-format
 msgid ""
 "Kunde %1$s fordert die Geld-zurück-Garantie an.\n"
@@ -6066,12 +6342,12 @@ msgid ""
 "Bestellung öffnen: %6$s"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:347
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:350
 #, php-format
 msgid "Deine Geld-zurück-Anfrage zu Bestellung #%d"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:348
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:351
 #, php-format
 msgid ""
 "Hallo,\n"
@@ -6081,22 +6357,22 @@ msgid ""
 "Die Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung)."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:351
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:354
 #, php-format
 msgid "Nicht von der Garantie umfasst und nicht erstattet: %s."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:394
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:397
 #, php-format
 msgid "Lernstand %1$s %% (Grenze %2$s %%), Frist bis %3$s – %4$s"
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:401
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:404
 #, php-format
 msgid "Angefragt am %1$s bei %2$s %% Lernstand."
 msgstr ""
 
-#: src/Commerce/WooCommerce/MoneyBackWoo.php:405
+#: src/Commerce/WooCommerce/MoneyBackWoo.php:408
 #, php-format
 msgid "Lerndaten am %1$s gelöscht; bis dahin genutzt: %2$s %% (zählt weiter für die Garantie)."
 msgstr ""
@@ -9237,239 +9513,239 @@ msgstr ""
 msgid "Dein Vorteil: Web-App statt Download"
 msgstr ""
 
-#: src/Frontend/Strings.php:636
+#: src/Frontend/Strings.php:637
 msgid "Die Vollversion ist in Kürze im Shop erhältlich."
 msgstr ""
 
-#: src/Frontend/Strings.php:637
+#: src/Frontend/Strings.php:638
 msgid "Schließen"
 msgstr ""
 
-#: src/Frontend/Strings.php:638
+#: src/Frontend/Strings.php:639
 msgid "Vollversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:639
+#: src/Frontend/Strings.php:640
 msgid "{title} starten"
 msgstr ""
 
-#: src/Frontend/Strings.php:640
+#: src/Frontend/Strings.php:641
 msgid "Aufgaben wie in der praktischen Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung."
 msgstr ""
 
-#: src/Frontend/Strings.php:641
+#: src/Frontend/Strings.php:642
 msgid "Der Prüfungsmodus mit {tasks} Aufgaben gehört zur Vollversion."
 msgstr ""
 
-#: src/Frontend/Strings.php:642
+#: src/Frontend/Strings.php:643
 msgid "Löse Ereignisse aus und reagiere frei darauf: Notalarme, Einzel- und Gebietsanrufe, Sicherheitsmeldungen und Sprechfunk der Gegenstationen."
 msgstr ""
 
-#: src/Frontend/Strings.php:643
+#: src/Frontend/Strings.php:644
 msgid "Freies Üben mit allen Ereignissen gehört zur Vollversion."
 msgstr ""
 
-#: src/Frontend/Strings.php:644
+#: src/Frontend/Strings.php:645
 msgid "Bediene ein UKW-Funkgerät wie in der praktischen Prüfung: Lektionen mit Hilfe, nur mit Hinweis oder allein, Prüfungsreihen und freies Üben. Gegenstationen sprechen mit der Stimme deines Browsers."
 msgstr ""
 
-#: src/Frontend/Strings.php:645
+#: src/Frontend/Strings.php:646
 msgid "{catalog}-Funkpraxis"
 msgstr ""
 
-#: src/Frontend/Strings.php:646
+#: src/Frontend/Strings.php:647
 msgid "Lies die Lage, trage Verkehrsart, Bedienung und Funkspruch ein und lass alles gegen die Prüfpunkte auswerten."
 msgstr ""
 
-#: src/Frontend/Strings.php:647
+#: src/Frontend/Strings.php:648
 msgid "Aufgabe {number} ({kind}): {state}"
 msgstr ""
 
-#: src/Frontend/Strings.php:648
+#: src/Frontend/Strings.php:649
 msgid "{catalog}-Funkpraxis {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:649
+#: src/Frontend/Strings.php:650
 msgid "Lage"
 msgstr ""
 
-#: src/Frontend/Strings.php:650
+#: src/Frontend/Strings.php:651
 msgid "Lage auf Englisch"
 msgstr ""
 
-#: src/Frontend/Strings.php:651
+#: src/Frontend/Strings.php:652
 msgid "Lage auf Deutsch"
 msgstr ""
 
-#: src/Frontend/Strings.php:652
+#: src/Frontend/Strings.php:653
 msgid "Einsprechen"
 msgstr ""
 
-#: src/Frontend/Strings.php:653
+#: src/Frontend/Strings.php:654
 msgid "Höre zu …"
 msgstr ""
 
-#: src/Frontend/Strings.php:654
+#: src/Frontend/Strings.php:655
 msgid "Spracherkennung deines Browsers; an den Server geht nur der Text."
 msgstr ""
 
-#: src/Frontend/Strings.php:655
+#: src/Frontend/Strings.php:656
 msgid "{passed} von {total} Prüfpunkten erfüllt"
 msgstr ""
 
-#: src/Frontend/Strings.php:656
+#: src/Frontend/Strings.php:657
 msgid "Notverkehr"
 msgstr ""
 
-#: src/Frontend/Strings.php:657
+#: src/Frontend/Strings.php:658
 msgid "Weiterleitung"
 msgstr ""
 
-#: src/Frontend/Strings.php:658
+#: src/Frontend/Strings.php:659
 msgid "Bestätigung"
 msgstr ""
 
-#: src/Frontend/Strings.php:659
+#: src/Frontend/Strings.php:660
 msgid "Fehlalarm"
 msgstr ""
 
-#: src/Frontend/Strings.php:660
+#: src/Frontend/Strings.php:661
 msgid "Dringlichkeit"
 msgstr ""
 
-#: src/Frontend/Strings.php:662
+#: src/Frontend/Strings.php:663
 msgid "Routine"
 msgstr ""
 
-#: src/Frontend/Strings.php:663
+#: src/Frontend/Strings.php:664
 msgid "Aufhebung Dringlichkeit"
 msgstr ""
 
-#: src/Frontend/Strings.php:664
+#: src/Frontend/Strings.php:665
 msgid "Muster-Funksprüche"
 msgstr ""
 
-#: src/Frontend/Strings.php:665
+#: src/Frontend/Strings.php:666
 msgid "Je Meldungsart ein vollständiges Beispiel"
 msgstr ""
 
-#: src/Frontend/Strings.php:666
+#: src/Frontend/Strings.php:667
 msgid "Vollständige Beispiele für die praktische Prüfung: Situation, Bedienung des Funkgeräts und die Meldung im Wortlaut."
 msgstr ""
 
-#: src/Frontend/Strings.php:667
+#: src/Frontend/Strings.php:668
 msgid "Die Beispiele stammen aus den Funkpraxis-Übungen (erfundene Fahrzeuge, Rufzeichen und Positionen). Übe danach die passende Aufgabe selbst."
 msgstr ""
 
-#: src/Frontend/Strings.php:668
+#: src/Frontend/Strings.php:669
 msgid "Beispiele"
 msgstr ""
 
-#: src/Frontend/Strings.php:669
+#: src/Frontend/Strings.php:670
 msgid "Weitere Muster-Funksprüche gibt es mit dem vollen Zugang zum Funktraining."
 msgstr ""
 
-#: src/Frontend/Strings.php:670
+#: src/Frontend/Strings.php:671
 msgid "Dieses Beispiel ist im kostenlosen Umfang nicht enthalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:671
+#: src/Frontend/Strings.php:672
 msgid "Situation:"
 msgstr ""
 
-#: src/Frontend/Strings.php:672
+#: src/Frontend/Strings.php:673
 msgid "Meldung im Wortlaut"
 msgstr ""
 
-#: src/Frontend/Strings.php:673
+#: src/Frontend/Strings.php:674
 msgid "Als Übung lösen (Aufgabe {number})"
 msgstr ""
 
-#: src/Frontend/Strings.php:674
+#: src/Frontend/Strings.php:675
 msgid "Notalarm und Notmeldung (MAYDAY)"
 msgstr ""
 
-#: src/Frontend/Strings.php:675
+#: src/Frontend/Strings.php:676
 msgid "Bestätigung einer Notmeldung"
 msgstr ""
 
-#: src/Frontend/Strings.php:676
+#: src/Frontend/Strings.php:677
 msgid "Weiterleitung einer Notmeldung (MAYDAY RELAY)"
 msgstr ""
 
-#: src/Frontend/Strings.php:677
+#: src/Frontend/Strings.php:678
 msgid "Widerruf eines Fehlalarms"
 msgstr ""
 
-#: src/Frontend/Strings.php:678
+#: src/Frontend/Strings.php:679
 msgid "Dringlichkeitsmeldung (PAN PAN)"
 msgstr ""
 
-#: src/Frontend/Strings.php:679
+#: src/Frontend/Strings.php:680
 msgid "Aufhebung einer Dringlichkeitsmeldung"
 msgstr ""
 
-#: src/Frontend/Strings.php:680
+#: src/Frontend/Strings.php:681
 msgid "Sicherheitsmeldung (SECURITE)"
 msgstr ""
 
-#: src/Frontend/Strings.php:681
+#: src/Frontend/Strings.php:682
 msgid "Routineverkehr"
 msgstr ""
 
-#: src/Frontend/Strings.php:682
+#: src/Frontend/Strings.php:683
 msgid "Internationale Buchstabiertafel"
 msgstr ""
 
-#: src/Frontend/Strings.php:683
+#: src/Frontend/Strings.php:684
 msgid "NATO-Alphabet und Ziffern zum Nachschlagen und Anhören"
 msgstr ""
 
-#: src/Frontend/Strings.php:684
+#: src/Frontend/Strings.php:685
 msgid "Buchstaben und Ziffern, wie sie im Sprechfunk buchstabiert werden – mit Aussprachehilfe zum Anhören."
 msgstr ""
 
-#: src/Frontend/Strings.php:685
+#: src/Frontend/Strings.php:686
 msgid "Buchstaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:686
+#: src/Frontend/Strings.php:687
 msgid "Ziffern"
 msgstr ""
 
-#: src/Frontend/Strings.php:687
+#: src/Frontend/Strings.php:688
 msgid "Buchstaben (NATO-Alphabet)"
 msgstr ""
 
-#: src/Frontend/Strings.php:688
+#: src/Frontend/Strings.php:689
 msgid "Ziffern ({catalog})"
 msgstr ""
 
-#: src/Frontend/Strings.php:689
+#: src/Frontend/Strings.php:690
 msgid "Im Seefunk (SRC) werden Ziffern einzeln auf Englisch gesprochen."
 msgstr ""
 
-#: src/Frontend/Strings.php:690
+#: src/Frontend/Strings.php:691
 msgid "Im Binnenschifffahrtsfunk (UBI) werden Ziffern einzeln auf Deutsch gesprochen."
 msgstr ""
 
-#: src/Frontend/Strings.php:691
+#: src/Frontend/Strings.php:692
 msgid "gesprochen: {hint}"
 msgstr ""
 
-#: src/Frontend/Strings.php:692
+#: src/Frontend/Strings.php:693
 msgid "Selbst ausprobieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:693
+#: src/Frontend/Strings.php:694
 msgid "Wort eingeben, z. B. Rufzeichen"
 msgstr ""
 
-#: src/Frontend/Strings.php:694
+#: src/Frontend/Strings.php:695
 msgid "{text} anhören"
 msgstr ""
 
-#: src/Frontend/Strings.php:695
+#: src/Frontend/Strings.php:696
 msgid "Eine Vokabel gilt nach {n} × „Gewusst“ in Folge als gelernt."
 msgstr ""
 
@@ -10570,13 +10846,13 @@ msgid "Die Anmeldung für die Webansicht konnte nicht vorbereitet werden. Bitte 
 msgstr ""
 
 #. translators: 1: installiertes Schema, 2: Plugin-Version, 3: erwartetes Schema
-#: src/Plugin.php:333
+#: src/Plugin.php:335
 #, php-format
 msgid "Die Datenbank hat Schema %1$s, diese Plugin-Version %2$s erwartet %3$s. Das Plugin wurde ohne Rücksicherung der Datenbank auf eine ältere Version zurückgesetzt. Bitte die neuere Version wieder einspielen oder das Datenbank-Backup von vor dem Update zurückspielen (siehe Release-Regel, „Downgrade“)."
 msgstr ""
 
 #. translators: %s: Fehlermeldung
-#: src/Plugin.php:349
+#: src/Plugin.php:351
 #, php-format
 msgid "Die Datenbank-Aktualisierung ist fehlgeschlagen und wird in einigen Minuten erneut versucht. Fehler: %s"
 msgstr ""

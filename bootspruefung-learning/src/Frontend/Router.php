@@ -184,6 +184,8 @@ final class Router
 
                 return is_string($link) ? $link : null;
             })(),
+            // Sprache der Seite für Datumsangaben im Lernbereich (T128), z. B. „de-DE“ oder „de-AT“.
+            'locale' => str_replace('_', '-', determine_locale()),
             'i18n' => Strings::all(),
         ]);
     }

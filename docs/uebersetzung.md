@@ -24,6 +24,30 @@ für Österreich (`de_AT`) oder die Schweiz (`de_CH`), braucht nur Übersetzungs
 - **Block „Nur mit Lernzugang“:** nutzt `wp.i18n`; das Plugin meldet die Übersetzungen mit
   `wp_set_script_translations` an.
 
+### Ergänzt mit T128
+
+- **Produkttexte des Shop-Katalogs** (`Commerce/ShopCatalog.php`, `texts()`): Kurztext, Langtext, Garantie-Absatz,
+  Video-Upgrade und Simulator-Zugänge laufen über `__()` mit Platzhaltern (`%1$d`, `%2$s` …) und Hinweisen für
+  Übersetzer. Auf Deutsch sind die Texte Wort für Wort gleich geblieben.
+  Die Produktnamen (z. B. „… – Komplett mit Videokurs“) sind Katalogdaten und werden nicht übersetzt.
+- **Beträge** in Produkttexten und in der Meldung des Katalog-Abgleichs („von Hand geändert …“) kommen aus
+  `ShopCatalog::priceText()`: mit WooCommerce im Format des Shops (WooCommerce › Einstellungen › Allgemein ›
+  Währungsoptionen: Währungszeichen, Position, Trennzeichen, Nachkommastellen), ohne WooCommerce als Zahl nach
+  Sprache der Website mit „€“ (Text `%s €`, übersetzbar). Mit dem deutschen Shop-Format („11,90 €“, das die
+  Theme-Einrichtung „Shop einrichten“ setzt) bleibt alles wie bisher; geschützte Leerzeichen aus WooCommerce
+  werden zu normalen, damit der Abgleich die Produkte nicht unnötig neu schreibt. Die Preise selbst ändern sich nicht.
+- **Sprache der Produkttexte im Shop:** Der Katalog-Abgleich schreibt die Texte in der Sprache, die beim Abgleich
+  aktiv ist (Website-Sprache). Nach einem Sprachwechsel den Abgleich erneut ausführen (Bootsprüfung › Preise ›
+  „Speichern und Katalog abgleichen“ bzw. `wp bootspruefung shop setup`); von Hand geänderte Produkttexte bleiben
+  dabei wie immer unangetastet.
+  Die Kurzfassung der Angebotskarten im Theme (`kurswasser_offer_item()`) kürzt nur deutsche Texte; in anderen
+  Sprachen zeigen die Karten die vollständigen Punkte.
+- **Simulator-Vorteile** („Ein Login für alle Geräte …“): `ShopCatalog::simBenefits()` ist übersetzbar; derselbe Text
+  erscheint im Lernbereich (`sim_benefits` in `Frontend/Strings.php`).
+- **Datumsangaben im Lernbereich** (`assets/build/app.js`: Verlaufskurve der Prüfungsergebnisse, Ablauf des Zugangs,
+  Laufzeit der Gruppen, Freischalttermine, Verlauf der Prüfungen): Format nach der Sprache der Website statt fest „de-DE“. Das Plugin gibt sie als `bpLearning.locale`
+  mit (`determine_locale()`, „de_AT“ → „de-AT“, `Frontend/Router.php`); fehlt sie, gilt `<html lang>`, sonst „de-DE“.
+
 ## Vorlagen aktualisieren
 
 Nach Textänderungen und vor jedem Release:

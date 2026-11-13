@@ -623,12 +623,63 @@ $own = $SC::ownPrices();
 $check($own === ['BP-SBF-SEE' => '31.50', 'BP-SBF-SEE-VIDEO' => '9.90'] && array_keys($r['errors']) === ['BP-SRC', 'BP-PASS-1M'], 'eigene Preise: Komma/Punkt, Katalogpreis und leer werden nicht gespeichert, ungültige abgewiesen');
 $now = $SC::find('BP-SBF-SEE');
 $check($now['price'] === '31.50' && $now['catalog_price'] === '28.90' && $SC::find('BP-SBF-SEE-KOMPLETT')['price'] === '40.80', 'eigener Preis gilt im Katalog, Komplett bleibt eigenständig');
-$check(str_contains($SC::texts($now)['long'], 'Upgrade für 9,90 €'), 'Text nennt den eigenen Upgrade-Preis');
+// T128: Betrag im Format des Shops (ShopCatalog::priceText); im deutschen Shop-Format unverändert „9,90 €“ (Prüfung unten).
+$check(str_contains($SC::texts($now)['long'], 'Upgrade für '.$SC::priceText('9.90').' erhältlich'), 'Text nennt den eigenen Upgrade-Preis');
 $SC::saveOwnPrices(['BP-SBF-SEE' => '0', 'BP-SBF-SEE-VIDEO' => '9,90']);
 $check($SC::ownPrices() === ['BP-SBF-SEE' => '31.50', 'BP-SBF-SEE-VIDEO' => '9.90'], 'ungültige Änderung behält den bisherigen eigenen Preis');
 update_option($SC::PRICE_OPTION, ['BP-SKN' => '1e3', 'BP-SRC' => ['x']]);
 $check($SC::ownPrices() === [], 'manipulierte Option wird ignoriert');
 delete_option($SC::PRICE_OPTION);
+
+echo "Katalogtexte übersetzbar, Beträge im Shop-Format, Datumsformat (T128)\n";
+// Deutsches Shop-Format wie im Livebetrieb (Theme-Einrichtung „Shop einrichten“): Texte bleiben wörtlich wie bisher.
+$deFormat = ['woocommerce_currency' => 'EUR', 'woocommerce_currency_pos' => 'right_space', 'woocommerce_price_decimal_sep' => ',', 'woocommerce_price_thousand_sep' => '.', 'woocommerce_price_num_decimals' => '2'];
+$deFilters = [];
+foreach ($deFormat as $opt => $val) {
+    $deFilters[$opt] = static fn () => $val;
+    add_filter('pre_option_'.$opt, $deFilters[$opt]);
+}
+$seeTheory = $SC::find('BP-SBF-SEE');
+$deLong = $SC::texts($seeTheory)['long'];
+if (function_exists('wc_price')) {
+    $check($SC::priceText('11.9') === '11,90 €' && $SC::priceText(1234.5) === '1.234,50 €' && $SC::priceText('0') === '0,00 €', 'Beträge im deutschen Shop-Format wie bisher („11,90 €“, normales Leerzeichen)');
+    $check(! str_contains($deLong, 'als Upgrade für') || str_contains($deLong, 'als Upgrade für '.number_format((float) $SC::find('BP-SBF-SEE-VIDEO')['price'], 2, ',', '.').' € erhältlich'), 'Produkttext: Upgrade-Preis unverändert im deutschen Format');
+    add_filter('pre_option_woocommerce_currency_pos', $enLeft = static fn () => 'left', 20);
+    add_filter('pre_option_woocommerce_price_decimal_sep', $enDot = static fn () => '.', 20);
+    $check($SC::priceText('11.9') === '€11.90', 'Betrag folgt der Shop-Einstellung (Währungsposition, Trennzeichen)');
+    remove_filter('pre_option_woocommerce_currency_pos', $enLeft, 20);
+    remove_filter('pre_option_woocommerce_price_decimal_sep', $enDot, 20);
+} else {
+    $check($SC::priceText('11.9') === number_format_i18n(11.9, 2).' €', 'ohne WooCommerce: Betrag nach Sprache der Website mit „€“');
+}
+// Übersetzungen greifen (gettext): Simulator-Vorteile (auch Lernbereich sim_benefits) und Produkttexte.
+$t128 = static fn ($translation, $text, $domain) => $domain === 'bootspruefung-learning' && in_array($text, ['Keine Installation: läuft direkt im Browser auf Mac, Windows, iOS und Android.', 'Lernfortschritt wird gespeichert – überall weiterlernen', '%1$s · Prüfungssimulation · Zugang %2$s · %3$d Tage Geld-zurück-Garantie', 'Läuft direkt im Browser'], true)
+    ? (str_contains($text, '%') ? 'ÜBERSETZT %1$s / %2$s / %3$d' : 'ÜBERSETZT') : $translation;
+$before128 = $SC::texts($seeTheory);
+add_filter('gettext', $t128, 10, 3);
+$simDef = $SC::find('SIM-PASS-3M');
+$tr = $SC::texts($seeTheory);
+$check($SC::simBenefits()[1] === 'ÜBERSETZT' && str_contains(\Bootspruefung\Learning\Frontend\Strings::all()['sim_benefits'], "\nÜBERSETZT\n"), 'Simulator-Vorteile übersetzbar (Produkttext und Lernbereich)');
+$check(str_contains($tr['long'], '<li>ÜBERSETZT</li>') && str_starts_with($tr['short'], 'ÜBERSETZT ') && ($simDef === null || str_contains($SC::texts($simDef)['long'], '<strong>ÜBERSETZT</strong>')), 'Produkttexte übersetzbar (Langtext, Kurztext mit Platzhaltern, Simulator)');
+remove_filter('gettext', $t128, 10);
+$check($SC::texts($seeTheory) === $before128 && str_contains($before128['short'], ' · Prüfungssimulation · Zugang ') && str_contains($before128['long'], 'Lernfortschritt wird gespeichert – überall weiterlernen'), 'ohne Übersetzung: Texte unverändert deutsch');
+foreach ($deFilters as $opt => $fn) {
+    remove_filter('pre_option_'.$opt, $fn);
+}
+// Datumsformat im Lernbereich: Sprache der Seite statt fest „de-DE“.
+$appJs = (string) file_get_contents(dirname(__DIR__, 2).'/assets/build/app.js');
+$check(! str_contains($appJs, "toLocaleDateString('de-DE')") && ! str_contains($appJs, "var locale = 'de-DE'") && str_contains($appJs, 'cfg.locale || document.documentElement.lang'), 'app.js: Datumsformat aus bpLearning.locale bzw. <html lang>, Rückfall „de-DE“');
+$prevUser = get_current_user_id();
+wp_set_current_user($taster);
+set_query_var('bp_app', '1');
+wp_scripts()->remove('bp-learning-app');
+(new \Bootspruefung\Learning\Frontend\Router(\Bootspruefung\Learning\Plugin::instance()))->assets();
+$appData = (string) wp_scripts()->get_data('bp-learning-app', 'data');
+set_query_var('bp_app', '');
+wp_dequeue_script('bp-learning-app');
+wp_dequeue_style('bp-learning-app');
+wp_set_current_user($prevUser);
+$check(str_contains($appData, '"locale":"'.str_replace('_', '-', determine_locale()).'"'), 'bpLearning.locale aus der Sprache der Website („de_DE“ → „de-DE“)');
 
 $mbProduct = 995001;
 $products->save($mbProduct, 0, [['course_code' => 'SKN', 'feature_code' => 'question_bank']], 182, 'extend', 'revoke_on_full_refund');

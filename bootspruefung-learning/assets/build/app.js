@@ -15,6 +15,16 @@
 	// Fehlermeldung (role=alert) doppelt angesagt; Seitenwechsel meldet die App über den Fokus auf die Überschrift.
 	root.removeAttribute('aria-live');
 	var T = cfg.i18n;
+	// Datumsformat in der Sprache der Seite (T128): bpLearning.locale (WordPress-Sprache, „de_AT“ → „de-AT“),
+	// sonst <html lang>, sonst „de-DE“. Unbekannte oder ungültige Angaben fallen auf „de-DE“ zurück.
+	var LOCALE = (function () {
+		var raw = String(cfg.locale || document.documentElement.lang || '').replace(/_/g, '-');
+		try {
+			return raw && Intl.DateTimeFormat.supportedLocalesOf([raw]).length ? raw : 'de-DE';
+		} catch (e) {
+			return 'de-DE';
+		}
+	})();
 	var base = cfg.base.replace(/\/?$/, '/');
 	var timers = [];
 
@@ -1724,7 +1734,7 @@
 		var avg = Math.floor(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length);
 		var best = Math.max.apply(null, pcts);
 		var last = pcts[pcts.length - 1];
-		var locale = 'de-DE'; // Lernbereich ist deutsch, unabhängig von der Seitensprache
+		var locale = LOCALE;
 		var DAY = 86400000;
 		var xOf = function (ms) { return span > 0 ? 4 + (ms - t0) * 92 / span : 50; };
 
@@ -2518,7 +2528,7 @@
 			return '';
 		}
 		var d = new Date(String(utc).replace(' ', 'T') + 'Z');
-		return isNaN(d.getTime()) ? String(utc) : d.toLocaleDateString('de-DE');
+		return isNaN(d.getTime()) ? String(utc) : d.toLocaleDateString(LOCALE);
 	}
 
 	var TRAINER_FEATURES = { 'navigation/': 'navigation_trainer', 'praxis/': 'praxis_trainer', 'video/': 'video_course', 'funk/': 'radio_training' };
