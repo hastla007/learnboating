@@ -45,6 +45,10 @@ final class AccountDeletion
         add_action('wp_privacy_personal_data_erased', [self::class, 'erased'], 20, 1);
         add_action(self::EXPORT_HOOK, [self::class, 'processExport'], 10, 1);
         add_filter('user_request_action_confirmed_message', [self::class, 'confirmedMessage'], 20, 2);
+        // Löschantrag erst nach Klick auf „Konto jetzt löschen“ ausführen, nicht schon beim Aufruf des Mail-Links
+        // (Link-Scanner von Mailprogrammen rufen Links ab; To-do T42). Vor wp-login.php (action=confirmaction).
+        add_action('login_form_confirmaction', [self::class, 'confirmPage'], 1);
+        add_filter('user_request_action_email_content', [self::class, 'emailContent'], 20, 2);
         // Geld-zurück-Anfrage einer anonymisierten Bestellung: Kontokennung entfernen, Zeitpunkt/Stand bleiben.
         add_action('woocommerce_privacy_remove_order_personal_data', [self::class, 'eraseOrderMeta'], 10, 1);
     }
@@ -361,5 +365,91 @@ final class AccountDeletion
         }
 
         return $message;
+    }
+
+    /**
+     * Braucht dieser Aufruf von wp-login.php?action=confirmaction erst den Knopf? Nur bei Löschanträgen mit
+     * automatischer Ausführung und solange nicht per POST bestätigt (Exporte bleiben wie bisher).
+     */
+    public static function needsButton(int $requestId, string $method, bool $confirmedByButton): bool
+    {
+        if (! self::enabled() || $requestId <= 0) {
+            return false;
+        }
+        $request = wp_get_user_request($requestId);
+        if (! $request instanceof \WP_User_Request || $request->action_name !== 'remove_personal_data' || ! in_array($request->status, ['request-pending', 'request-failed'], true)) {
+            return false;
+        }
+
+        return ! (strtoupper($method) === 'POST' && $confirmedByButton);
+    }
+
+    /** login_form_confirmaction: Bestätigungsseite statt sofortiger Löschung. */
+    public static function confirmPage(): void
+    {
+        // phpcs:disable WordPress.Security.NonceVerification -- abgesichert über den geheimen confirm_key wie in WordPress
+        $requestId = absint($_GET['request_id'] ?? 0);
+        $key = sanitize_text_field(wp_unslash((string) ($_GET['confirm_key'] ?? '')));
+        $confirmed = ! empty($_POST['bp_confirm_deletion']);
+        // phpcs:enable
+        if ($key === '' || ! self::needsButton($requestId, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), $confirmed)) {
+            return; // WordPress fährt fort (prüft den Schlüssel, bestätigt, führt aus)
+        }
+        if (is_wp_error(wp_validate_user_request_key($requestId, $key))) {
+            return; // WordPress zeigt die Fehlermeldung
+        }
+        if (function_exists('login_header')) {
+            login_header(__('Konto löschen', 'bootspruefung-learning'));
+        }
+        echo self::confirmForm($requestId, $key); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- in confirmForm maskiert
+        if (function_exists('login_footer')) {
+            login_footer();
+        }
+        exit;
+    }
+
+    /** Formular „Konto jetzt löschen“ (POST an dieselbe Adresse). */
+    public static function confirmForm(int $requestId, string $key): string
+    {
+        $action = add_query_arg(['action' => 'confirmaction', 'request_id' => $requestId, 'confirm_key' => rawurlencode($key)], wp_login_url());
+
+        return '<div class="message"><p><strong>'.esc_html__('Möchtest du dein Konto wirklich löschen?', 'bootspruefung-learning').'</strong></p><p>'
+            .esc_html__('Mit dem Klick auf „Konto jetzt löschen“ werden dein Kundenkonto und deine Lerndaten (Lernstand, Prüfungen, Einstellungen) sofort gelöscht. Gekaufte Zugänge enden damit. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen. Das lässt sich nicht rückgängig machen.', 'bootspruefung-learning').'</p></div>'
+            .'<form method="post" action="'.esc_url($action).'"><input type="hidden" name="bp_confirm_deletion" value="1">'
+            .'<p class="submit"><button type="submit" class="button button-primary button-large">'.esc_html__('Konto jetzt löschen', 'bootspruefung-learning').'</button></p></form>'
+            .'<p><a href="'.esc_url(home_url('/')).'">'.esc_html__('Abbrechen und Konto behalten', 'bootspruefung-learning').'</a></p>';
+    }
+
+    /**
+     * Bestätigungsmail eines Löschantrags: erklären, was nach dem Klick passiert (Knopf auf der Seite, dann sofort).
+     * @param mixed $content @param mixed $emailData
+     */
+    public static function emailContent($content, $emailData): string
+    {
+        $content = (string) $content;
+        $request = is_array($emailData) ? ($emailData['request'] ?? null) : null;
+        if (! self::enabled() || ! $request instanceof \WP_User_Request || $request->action_name !== 'remove_personal_data' || ! str_contains($content, '###CONFIRM_URL###')) {
+            return $content;
+        }
+        $note = __('Der Link öffnet eine Seite mit dem Knopf „Konto jetzt löschen“. Erst dieser Klick löscht dein Kundenkonto und deine Lerndaten – sofort und endgültig. Bestellungen bewahren wir ohne Namen und Kontaktdaten auf, solange gesetzliche Aufbewahrungsfristen laufen. Hast du die Löschung nicht beantragt, ignoriere diese E-Mail.', 'bootspruefung-learning');
+
+        return (string) preg_replace('/###CONFIRM_URL###/', "###CONFIRM_URL###\n\n".$note, $content, 1);
+    }
+
+    /**
+     * Konto gelöscht: Zugänge ohne Bestellung (manuell, Gruppe, Gutschein) entfernen, Zugänge zu Bestellungen
+     * beenden (die Bestellung bleibt anonymisiert der Nachweis). Sonst blieben Zeilen ohne Konto stehen.
+     */
+    public static function closeEntitlements(int $userId): int
+    {
+        global $wpdb;
+        $t = $wpdb->prefix.'bp_entitlement';
+        $deleted = (int) $wpdb->query($wpdb->prepare("DELETE FROM {$t} WHERE user_id = %d AND order_id IS NULL", $userId));
+        $ended = (int) $wpdb->query($wpdb->prepare("UPDATE {$t} SET status = 'revoked', reason = %s WHERE user_id = %d AND status <> 'revoked'", __('Konto gelöscht', 'bootspruefung-learning'), $userId));
+        if ($deleted + $ended > 0) {
+            AuditLog::record('entitlements_closed_account_deleted', 'user', hash('sha256', $userId.wp_salt()), null, ['deleted' => $deleted, 'revoked' => $ended]);
+        }
+
+        return $deleted + $ended;
     }
 }

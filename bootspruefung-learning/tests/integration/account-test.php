@@ -208,6 +208,16 @@ $dr = SelfService::request($delUser, 'delete');
 $delReq = (int) $dr['request_id'];
 $check($dr['result'] === 'created' && get_userdata($delUser) !== false && preg_match('/confirm_key=([A-Za-z0-9]+)/', $mails[0]['message'] ?? '', $km) === 1, 'Löschantrag gestellt, Bestätigungsmail mit Link; Konto besteht noch');
 $check(! is_wp_error(wp_validate_user_request_key($delReq, $km[1] ?? '')), 'Schlüssel aus der Mail gültig');
+// T42: Mail-Link löscht nicht beim Aufruf, erst der Knopf (POST).
+$AD = \Bootspruefung\Learning\Privacy\AccountDeletion::class;
+$check(str_contains((string) ($mailsBefore = $mails[0]['message'] ?? ''), 'Konto jetzt löschen') && str_contains($mailsBefore, 'sofort und endgültig'), 'Mail erklärt: Link öffnet eine Seite, erst der Knopf löscht');
+$check($AD::needsButton($delReq, 'GET', false) && $AD::needsButton($delReq, 'POST', false) && ! $AD::needsButton($delReq, 'POST', true), 'Aufruf des Links (GET, z. B. Link-Scanner) braucht den Knopf; erst POST mit Bestätigung führt aus');
+$check(! $AD::needsButton((int) $exportReq, 'GET', false), 'Export-Anträge unverändert (kein Knopf)');
+$form = $AD::confirmForm($delReq, (string) ($km[1] ?? ''));
+$check(str_contains($form, 'method="post"') && str_contains($form, 'name="bp_confirm_deletion"') && str_contains($form, 'confirm_key=') && str_contains($form, 'Konto jetzt löschen') && str_contains($form, 'Abbrechen'), 'Bestätigungsseite: Knopf „Konto jetzt löschen“ (POST) und Abbrechen');
+$check(has_action('login_form_confirmaction', [$AD, 'confirmPage']) !== false && get_userdata($delUser) !== false, 'wp-login.php?action=confirmaction zeigt zuerst die Seite; Konto besteht noch');
+// Zugang ohne Bestellung (manuell) – nach der Löschung darf keine Zeile ohne Konto bleiben.
+(new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb))->grantManual($delUser, 'SKN', ['all'], null, 'Test T42');
 $mails = [];
 do_action('user_request_action_confirmed', $delReq); // wie wp-login.php?action=confirmaction
 clean_user_cache($delUser);
@@ -218,6 +228,7 @@ $check($anon instanceof WC_Order && $anon->get_customer_id() === 0 && array_inte
 $check($anon->get_total() === $total && $anon->get_order_number() === $number && $anon->get_transaction_id() === $txn && count($anon->get_items()) === 1 && $anon->get_date_paid() !== null, 'Bestellnummer, Betrag, Datum, Position und Transaktionsnummer bleiben');
 $check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}progress WHERE user_id = %d", $delUser)) === 0, 'Lerndaten gelöscht');
 $check($groups->freeSeats($groups->find($groupId)) === 1, 'Gruppenplatz wieder frei (QA-05)');
+$check((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$p}entitlement WHERE user_id = %d AND (order_id IS NULL OR status <> 'revoked')", $delUser)) === 0, 'keine Zugänge ohne Konto: ohne Bestellung entfernt, zu Bestellungen beendet (T42)');
 $check((bool) array_filter($mails, static fn ($m) => $m['to'] === 'acct_loeschen@example.test'), 'Bestätigung der Löschung an die Person gemailt');
 $check(str_contains((string) apply_filters('user_request_action_confirmed_message', '', $delReq), 'Konto ist gelöscht'), 'Bestätigungsseite: „Dein Konto ist gelöscht“');
 $check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'account_deleted' AND object_id = '".(int) $delReq."'") === 1, 'Protokoll: Konto gelöscht (ohne Klartext-Kennung)');

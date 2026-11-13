@@ -40,6 +40,8 @@ final class PersonalData
             global $wpdb;
             (new \Bootspruefung\Learning\Commerce\GroupService($wpdb))->releaseUser((int) $userId);
             self::eraseUser((int) $userId, $user instanceof \WP_User ? (string) $user->user_email : '');
+            // Keine Zugangszeilen ohne Konto stehen lassen (T42).
+            AccountDeletion::closeEntitlements((int) $userId);
         }, 10, 3);
         // Bestätigte Löschanträge: Konto wirklich löschen; Selbstbedienung unter „Mein Konto“ (LAW-04, QA-08).
         AccountDeletion::register();
