@@ -258,25 +258,6 @@ jobs:
           if grep -E "PHP Fatal" voucher-grant.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           if grep -E "PHP (Warning|Deprecated|Notice).*bootspruefung-learning" voucher-grant.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
           WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
-      - name: Kursgutscheine mit Voucher Captain – Connector-Abnahme (Integration)
-        run: |
-          # Voucher Captain (öffentlich, hastla007/wp-couponmaster): Arbeitszweig, sonst main; Release-ZIP bauen wie im Shop.
-          for ref in claude/youthful-bardeen-7ejd7a main; do
-            if curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/vcap-src.zip" "https://codeload.github.com/hastla007/wp-couponmaster/zip/refs/heads/$ref"; then echo "Voucher Captain: $ref"; break; fi
-          done
-          unzip -q "$RUNNER_TEMP/vcap-src.zip" -d "$RUNNER_TEMP/vcap-src"
-          src="$(ls -d "$RUNNER_TEMP"/vcap-src/*/ | head -1)"
-          (cd "$src" && bin/build.sh)
-          unzip -q "$src/build/voucher-captain.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
-          ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
-          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/connector-integration-test.php | tee connector.log
-          if grep -E "PHP Fatal" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
-          if grep -E "PHP (Warning|Deprecated|Notice).*(bootspruefung-learning|learnboating-voucher-connector)" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
-          # Folgende Schritte erwarten die Installation ohne Voucher Captain, Connector und Shop.
-          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php deactivate
-          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Konto und Garantie – Datenschutz-Anträge, Kontolöschung, Geld-zurück-Anfrage (Integration, mit WooCommerce)
         run: |
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
@@ -350,6 +331,26 @@ jobs:
           mkdir -p "$RUNNER_TEMP/theme-shots"
           BP_SHOTS="$RUNNER_TEMP/theme-shots" BP_USER=lerner1 BP_PASS=Test-Passwort-123 node themes/kurswasser/tests/screenshots.mjs
           if grep -E "PHP (Fatal|Warning|Notice|Deprecated).*themes/kurswasser" "$RUNNER_TEMP/php-server.log"; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+      - name: Kursgutscheine mit Voucher Captain – Connector-Abnahme (Integration)
+        # Am Ende des Jobs: hängt am externen Repo wp-couponmaster – scheitert der Bau dort, laufen die übrigen Tests trotzdem.
+        run: |
+          # Voucher Captain (öffentlich, hastla007/wp-couponmaster): Arbeitszweig, sonst main; Release-ZIP bauen wie im Shop.
+          for ref in claude/youthful-bardeen-7ejd7a main; do
+            if curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/vcap-src.zip" "https://codeload.github.com/hastla007/wp-couponmaster/zip/refs/heads/$ref"; then echo "Voucher Captain: $ref"; break; fi
+          done
+          unzip -q "$RUNNER_TEMP/vcap-src.zip" -d "$RUNNER_TEMP/vcap-src"
+          src="$(ls -d "$RUNNER_TEMP"/vcap-src/*/ | head -1)"
+          (cd "$src" && bin/build.sh)
+          unzip -q "$src/build/voucher-captain.zip" -d "$RUNNER_TEMP/wp/wp-content/plugins"
+          ln -s "$GITHUB_WORKSPACE/learnboating-voucher-connector" "$RUNNER_TEMP/wp/wp-content/plugins/learnboating-voucher-connector"
+          WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/connector-integration-test.php | tee connector.log
+          if grep -E "PHP Fatal" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          if grep -E "PHP (Warning|Deprecated|Notice).*(bootspruefung-learning|learnboating-voucher-connector)" connector.log; then echo "PHP-Fehler im Log (siehe oben)"; exit 1; fi
+          # Folgende Schritte erwarten die Installation ohne Voucher Captain, Connector und Shop.
+          WP_DIR="$RUNNER_TEMP/wp" php learnboating-voucher-connector/tests/setup.php deactivate
+          WP_DIR="$RUNNER_TEMP/wp" WOO_DEACTIVATE=1 php bootspruefung-learning/tests/integration/woocommerce-setup.php
       - name: Theme-Screenshots hochladen
         if: always() && matrix.e2e && matrix.theme == 'kurswasser'
         uses: actions/upload-artifact@v4
