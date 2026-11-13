@@ -12,7 +12,8 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 | ☐ | Mailversand eingerichtet, Zustelltest bestanden | T54, `docs/mailversand.md` |
 | ☐ | Zahlungsarten in der Sandbox Ende-zu-Ende getestet (Kauf, Erstattung, Dispute) | T63 |
 | ☐ | Staging-Abnahme mit Zielsystem bestanden | T67 |
-| ☐ | Backup und Restore einmal geübt | T66 |
+| ☐ | Backup und Restore einmal geübt (`docs/backup-restore.md`, danach `wp bootspruefung backup-check`) | T66 |
+| ☐ | WooCommerce-Grundeinstellungen ohne Hinweis: Systemstatus › Shop › „Grundeinstellungen“ (Deutsch, Bankverbindung, Shop-Adresse, E-Mail-Format, Absender) | T73 |
 | ☐ | Inhalte: Content-Import, Rechte und Regelwerke freigegeben | T68 |
 | ☐ | Produktkatalog angelegt, Preise final | T16, T71 |
 | ☐ | Inhaltsseiten ohne Warnung (Hinweis „Inhaltsseiten aus dem Theme“) | T59 |
@@ -47,7 +48,7 @@ einen Haken und einen Namen. Abbrechen, sobald ein „Muss“-Punkt nicht erfül
 
 | Zeit | Schritt | Haken |
 |---|---|---|
-| T−2 h | Vollbackup Live (Datenbank, `wp-content/uploads/bootspruefung/` bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), Rückspielen auf Testkopie stichprobenartig prüfen (T66) | ☐ |
+| T−2 h | Vollbackup Live (Datenbank, `wp-content/uploads/bootspruefung/` bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), Rückspielen auf Testkopie und `wp bootspruefung backup-check` (T66, `docs/backup-restore.md`) | ☐ |
 | T−1 h | Shop-Modus „Demnächst verfügbar“ an (WooCommerce), Theme und Plugins in den Versionen von Staging einspielen | ☐ |
 | T−45 min | Admin öffnen: Datenbank-Migration läuft, Systemstatus › Schema „aktuell“, Wartung ohne Fehler | ☐ |
 | T−40 min | Content-Paket importieren bzw. prüfen, Rechte und Regelwerke freigeben (T68) | ☐ |

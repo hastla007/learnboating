@@ -9,13 +9,14 @@ use Bootspruefung\Learning\Plugin;
 use WP_CLI;
 
 /**
- * WP-CLI: `wp bootspruefung status|migrate|import|rollback|reconcile|access|shop setup|rights release|chart`.
+ * WP-CLI: `wp bootspruefung status|backup-check|migrate|import|rollback|reconcile|access|shop setup|rights release|chart`.
  */
 final class Commands
 {
     public static function register(): void
     {
         WP_CLI::add_command('bootspruefung status', [self::class, 'status']);
+        WP_CLI::add_command('bootspruefung backup-check', [self::class, 'backupCheck']);
         WP_CLI::add_command('bootspruefung migrate', [self::class, 'migrate']);
         WP_CLI::add_command('bootspruefung import', [self::class, 'import']);
         WP_CLI::add_command('bootspruefung rollback', [self::class, 'rollback']);
@@ -53,6 +54,37 @@ final class Commands
             $rows[] = ['table' => 'bp_'.$table, 'engine' => $info['engine'] ?? 'fehlt', 'rows' => $info['rows'] ?? '–'];
         }
         WP_CLI\Utils\format_items('table', $rows, ['table', 'engine', 'rows']);
+    }
+
+    /**
+     * Prüft nach einem Restore, ob Schema, Tabellen, Optionen, Paket- und Schutzordner, geschützte Dateien,
+     * Medien, Lernzugänge und Bestellungen zusammenpassen. Ändert nichts (docs/backup-restore.md).
+     *
+     * Exit-Code 0 = alles ok, 1 = mindestens ein Fehler. Warnungen ändern den Exit-Code nicht.
+     *
+     * [--format=<format>]
+     * : table oder json. Standard: table.
+     *
+     * ## EXAMPLES
+     *
+     *     wp bootspruefung backup-check
+     *
+     * @param list<string> $args
+     * @param array<string,string> $assoc
+     */
+    public static function backupCheck(array $args, array $assoc): void
+    {
+        $rows = \Bootspruefung\Learning\Infrastructure\BackupCheck::run();
+        $overall = \Bootspruefung\Learning\Infrastructure\BackupCheck::overall($rows);
+        if (($assoc['format'] ?? 'table') === 'json') {
+            WP_CLI::line((string) wp_json_encode(['overall' => $overall, 'checks' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        } else {
+            WP_CLI\Utils\format_items('table', $rows, ['status', 'check', 'detail']);
+        }
+        if ($overall === 'fail') {
+            WP_CLI::error('Restore nicht konsistent – Zeilen mit „fail“ beheben.');
+        }
+        $overall === 'warn' ? WP_CLI::warning('Restore nutzbar, Warnungen prüfen.') : WP_CLI::success('Restore konsistent.');
     }
 
     /**

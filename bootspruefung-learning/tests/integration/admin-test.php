@@ -185,6 +185,54 @@ $pricesBefore === null ? delete_option(ShopCatalog::PRICE_OPTION) : update_optio
 $check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true]) !== null && SystemStatus::taxWarning(['prices_include_tax' => true, 'tax_enabled' => true]) === null && SystemStatus::taxWarning(['prices_include_tax' => null]) === null, 'Warnung bei Nettopreisen in WooCommerce');
 $check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'ohne MwSt. – Kleinunternehmer gem. § 19 UStG']) === null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'inkl. MwSt.']) !== null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true, 'price_note' => 'Kleinunternehmer']) !== null, 'Steuer aus: keine Warnung bei Kleinunternehmer-Hinweis am Preis, sonst Warnung');
 
+echo "Shop-Grundeinstellungen (T73)\n";
+$check(SystemStatus::ibanValid('DE89 3704 0044 0532 0130 00') && ! SystemStatus::ibanValid('DE89370400440532013001') && ! SystemStatus::ibanValid('DE12') && SystemStatus::maskIban('DE89370400440532013000') === 'DE89 … 3000', 'IBAN-Prüfziffer und gekürzte Anzeige');
+$t73Keys = ['woocommerce_bacs_settings', 'woocommerce_bacs_accounts', 'woocommerce_store_address', 'woocommerce_store_postcode', 'woocommerce_store_city', 'woocommerce_default_country', 'woocommerce_email_from_address', 'woocommerce_email_from_name', 'woocommerce_customer_processing_order_settings'];
+$t73Bak = [];
+foreach ($t73Keys as $k) {
+    $t73Bak[$k] = get_option($k, null);
+}
+$langDir = sys_get_temp_dir().'/bp-t73-lang-'.wp_generate_password(6, false);
+wp_mkdir_p($langDir.'/plugins');
+$basics = static fn (string $locale = 'de_DE'): array => array_column(SystemStatus::shopBasics($locale, $langDir), null, 'key');
+update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Überweisung']);
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => '', 'bic' => '']]);
+update_option('woocommerce_store_address', 'Hafenstraße 1');
+update_option('woocommerce_store_postcode', '');
+update_option('woocommerce_store_city', 'Kiel');
+update_option('woocommerce_default_country', 'US:CA');
+update_option('woocommerce_email_from_address', 'keine-adresse');
+update_option('woocommerce_email_from_name', 'Testschule');
+$b = $basics('en_US');
+$check(! $b['language']['ok'] && ! $b['woocommerce_language']['ok'] && str_contains($b['woocommerce_language']['detail'], 'woocommerce-de_DE.mo'), 'Sprache Englisch und fehlende WooCommerce-Sprachdatei gemeldet');
+$check(! $b['bacs_account']['ok'] && str_contains($b['bacs_account']['detail'], 'keine Bankverbindung'), 'Überweisung aktiv ohne IBAN gemeldet');
+$check(! $b['store_address']['ok'] && str_contains($b['store_address']['detail'], 'PLZ') && str_contains($b['store_address']['detail'], 'Land') && ! str_contains($b['store_address']['detail'], 'Ort'), 'unvollständige Shop-Adresse: PLZ und Land fehlen');
+$check(! $b['email_from']['ok'], 'Absender ohne gültige Adresse gemeldet');
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => 'DE89370400440532013001']]);
+$b = $basics();
+$check(! $b['bacs_account']['ok'] && str_contains($b['bacs_account']['detail'], 'ungültig'), 'IBAN mit falscher Prüfziffer gemeldet');
+file_put_contents($langDir.'/plugins/woocommerce-de_DE.mo', 'x');
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => 'DE89 3704 0044 0532 0130 00']]);
+update_option('woocommerce_store_postcode', '24103');
+update_option('woocommerce_default_country', 'DE');
+update_option('woocommerce_email_from_address', 'kurse@example.test');
+update_option('woocommerce_customer_processing_order_settings', ['enabled' => 'yes', 'email_type' => 'multipart']);
+$b = $basics();
+$check(count(array_filter($b, static fn ($r) => ! $r['ok'])) === 0 && str_contains($b['bacs_account']['detail'], '3000') && ! str_contains($b['bacs_account']['detail'], '05320130'), 'alles vollständig: keine Hinweise, IBAN nur gekürzt angezeigt');
+if (function_exists('WC')) {
+    update_option('woocommerce_customer_processing_order_settings', ['enabled' => 'yes', 'email_type' => 'plain']);
+    $b = $basics();
+    $check(! $b['email_type']['ok'], 'Kundenmail „nur Text“ gemeldet');
+}
+update_option('woocommerce_bacs_settings', ['enabled' => 'no']);
+$check(! isset($basics()['bacs_account']), 'Überweisung aus: keine Prüfung der Bankverbindung');
+foreach ($t73Bak as $k => $v) {
+    $v === null ? delete_option($k) : update_option($k, $v);
+}
+@unlink($langDir.'/plugins/woocommerce-de_DE.mo');
+@rmdir($langDir.'/plugins');
+@rmdir($langDir);
+
 echo "Admin-Anzeige\n";
 $check(\Bootspruefung\Learning\Admin\Ui::label('draft') === 'Entwurf' && \Bootspruefung\Learning\Admin\Ui::label('single_choice') === 'Einfachauswahl' && str_contains(\Bootspruefung\Learning\Admin\Ui::status('source_archived'), 'archiviert'), 'Status und Typen auf Deutsch');
 ob_start();

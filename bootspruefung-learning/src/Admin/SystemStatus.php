@@ -45,6 +45,121 @@ final class SystemStatus
         return (bool) preg_match('/Kleinunternehmer|§\s*19\s*UStG|§\s*6\s*Abs\.\s*1\s*Z\s*27\s*UStG/u', $note);
     }
 
+    /**
+     * WooCommerce-Grundeinstellungen (To-do T73): Sprache, deutsche WooCommerce-Sprachdateien, Bankverbindung bei
+     * aktiver Überweisung, vollständige Shop-Adresse, E-Mail-Format der Kundenmails, Absender. Nur Prüfung – ändert
+     * nichts; die Hinweise sagen, wo es einzustellen ist.
+     *
+     * @param string|null $locale  Sprache der Website (Standard: get_locale())
+     * @param string|null $langDir Sprachordner (Standard: WP_LANG_DIR)
+     * @return list<array{key:string,ok:bool,label:string,detail:string}>
+     */
+    public static function shopBasics(?string $locale = null, ?string $langDir = null): array
+    {
+        $locale ??= get_locale();
+        $langDir ??= WP_LANG_DIR;
+        $rows = [];
+        $add = static function (string $key, bool $ok, string $label, string $detail) use (&$rows): void {
+            $rows[] = ['key' => $key, 'ok' => $ok, 'label' => $label, 'detail' => $detail];
+        };
+
+        $german = str_starts_with($locale, 'de_');
+        $add('language', $german, __('Sprache der Website', 'bootspruefung-learning'), $german ? $locale
+            : sprintf(__('%s – unter Einstellungen › Allgemein › Sprache der Website „Deutsch“ wählen (oder Design › Kurswasser einrichten › Shop).', 'bootspruefung-learning'), $locale === '' ? 'en_US' : $locale));
+        $woo = 'woocommerce-'.($german ? $locale : 'de_DE');
+        $wooLang = is_file($langDir.'/plugins/'.$woo.'.mo') || is_file($langDir.'/plugins/'.$woo.'.l10n.php');
+        $add('woocommerce_language', $wooLang, __('WooCommerce-Sprachdateien', 'bootspruefung-learning'), $wooLang
+            ? 'languages/plugins/'.$woo.'.mo'
+            : sprintf(__('languages/plugins/%s.mo fehlt – Kasse, Bestellmails und Rechnungstexte von WooCommerce bleiben englisch. Unter Dashboard › Aktualisierungen „Übersetzungen aktualisieren“.', 'bootspruefung-learning'), $woo));
+
+        $bacs = get_option('woocommerce_bacs_settings', []);
+        if (is_array($bacs) && ($bacs['enabled'] ?? 'no') === 'yes') {
+            $ibans = [];
+            foreach ((array) get_option('woocommerce_bacs_accounts', []) as $account) {
+                $iban = strtoupper((string) preg_replace('/\s+/', '', (string) (is_array($account) ? ($account['iban'] ?? '') : '')));
+                if ($iban !== '') {
+                    $ibans[] = $iban;
+                }
+            }
+            $invalid = array_values(array_filter($ibans, static fn (string $iban): bool => ! self::ibanValid($iban)));
+            $where = __('WooCommerce › Einstellungen › Zahlungen › Direkte Banküberweisung › Kontodetails', 'bootspruefung-learning');
+            $add('bacs_account', $ibans !== [] && $invalid === [], __('Bankverbindung für Überweisung', 'bootspruefung-learning'), match (true) {
+                $ibans === [] => sprintf(__('Überweisung ist aktiv, aber keine Bankverbindung mit IBAN eingetragen – Kunden bekommen keine Kontodaten. %s', 'bootspruefung-learning'), $where),
+                $invalid !== [] => sprintf(__('IBAN ungültig (Prüfziffer): %1$s – bitte prüfen. %2$s', 'bootspruefung-learning'), implode(', ', array_map([self::class, 'maskIban'], $invalid)), $where),
+                default => implode(', ', array_map([self::class, 'maskIban'], $ibans)),
+            });
+        }
+
+        $fields = [
+            'woocommerce_store_address' => __('Straße', 'bootspruefung-learning'),
+            'woocommerce_store_postcode' => __('PLZ', 'bootspruefung-learning'),
+            'woocommerce_store_city' => __('Ort', 'bootspruefung-learning'),
+        ];
+        $missing = [];
+        foreach ($fields as $option => $name) {
+            if (trim((string) get_option($option, '')) === '') {
+                $missing[] = $name;
+            }
+        }
+        $country = (string) get_option('woocommerce_default_country', '');
+        if ($country === '' || $country === 'US:CA') {
+            $missing[] = __('Land (steht noch auf der WooCommerce-Vorgabe USA – Kalifornien)', 'bootspruefung-learning');
+        }
+        $address = trim(implode(', ', array_filter([(string) get_option('woocommerce_store_address', ''), trim((string) get_option('woocommerce_store_postcode', '').' '.(string) get_option('woocommerce_store_city', '')), $country])));
+        $add('store_address', $missing === [], __('Shop-Adresse', 'bootspruefung-learning'), $missing === [] ? $address
+            : sprintf(__('Fehlt: %s. Steht im Impressum der Mails und ist Grundlage für Steuer und Rechnungen. WooCommerce › Einstellungen › Allgemein › Shop-Adresse.', 'bootspruefung-learning'), implode(', ', $missing)));
+
+        $plain = [];
+        if (function_exists('WC') && WC()->mailer()) {
+            foreach (WC()->mailer()->get_emails() as $email) {
+                if (! $email instanceof \WC_Email || ! $email->is_customer_email()) {
+                    continue;
+                }
+                $settings = get_option('woocommerce_'.$email->id.'_settings', []);
+                $type = is_array($settings) && ! empty($settings['email_type']) ? (string) $settings['email_type'] : 'html';
+                if ($type === 'plain' || ! class_exists(\DOMDocument::class)) {
+                    $plain[] = $email->get_title();
+                }
+            }
+        }
+        $add('email_type', $plain === [], __('E-Mail-Format der Kundenmails', 'bootspruefung-learning'), $plain === []
+            ? __('HTML bzw. HTML und Text', 'bootspruefung-learning')
+            : sprintf(__('Nur Text bei: %s. Rechtstexte und Garantie-Erklärung sind dann schlecht lesbar. WooCommerce › Einstellungen › E-Mails › jeweilige Mail › E-Mail-Typ „HTML“ oder „Multipart“.', 'bootspruefung-learning'), implode(', ', $plain)));
+
+        $from = MailStatus::shopAddress();
+        $fromName = trim((string) get_option('woocommerce_email_from_name', ''));
+        $add('email_from', $from !== '' && $fromName !== '', __('Absender der Shop-Mails', 'bootspruefung-learning'), $from !== '' && $fromName !== ''
+            ? $fromName.' <'.$from.'>'
+            : __('Name oder Adresse fehlt (WooCommerce › Einstellungen › E-Mails › Absender). Details im Abschnitt „E-Mail-Versand“.', 'bootspruefung-learning'));
+
+        return $rows;
+    }
+
+    /** IBAN-Prüfziffer (ISO 13616, Modulo 97). */
+    public static function ibanValid(string $iban): bool
+    {
+        $iban = strtoupper((string) preg_replace('/\s+/', '', $iban));
+        if (! preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/', $iban)) {
+            return false;
+        }
+        $digits = '';
+        foreach (str_split(substr($iban, 4).substr($iban, 0, 4)) as $char) {
+            $digits .= ctype_alpha($char) ? (string) (ord($char) - 55) : $char;
+        }
+        $rest = 0;
+        foreach (str_split($digits, 7) as $chunk) {
+            $rest = (int) ($rest.$chunk) % 97;
+        }
+
+        return $rest === 1;
+    }
+
+    /** IBAN gekürzt anzeigen (Land, Prüfziffer, letzte vier Stellen). */
+    public static function maskIban(string $iban): string
+    {
+        return strlen($iban) > 8 ? substr($iban, 0, 4).' … '.substr($iban, -4) : $iban;
+    }
+
     /** @return array<string,mixed> */
     public static function collect(): array
     {

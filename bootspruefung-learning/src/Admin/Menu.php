@@ -163,7 +163,18 @@ final class Menu
         printf('<li>%s <code>%s</code>%s</li>', esc_html__('der Ordner', 'bootspruefung-learning'), esc_html($dir), esc_html__(' – Content-Pakete, Medien und geschützte Dateien (protected-…); manche Backup-Plugins schließen Unterordner oder große Dateien standardmäßig aus', 'bootspruefung-learning'));
         printf('<li>%s <code>bp_learning_*</code> %s</li>', esc_html__('die Optionen', 'bootspruefung-learning'), esc_html__('in der Tabelle wp_options (Einstellungen, aktives Paket, Rabatte, Dispute-Protokoll)', 'bootspruefung-learning'));
         printf('<li>%s</li>', esc_html__('WooCommerce-Bestellungen und Kundenkonten (Zugänge verweisen auf Bestellpositionen und Nutzer-IDs)', 'bootspruefung-learning'));
-        echo '</ul><p>'.esc_html__('Einmal eine Wiederherstellung auf einer Testkopie üben: danach Systemstatus prüfen (Schema, Tabellen), eine geschützte PDF öffnen und einen Lernzugang im Lernbereich testen.', 'bootspruefung-learning').'</p>';
+        if (($private = \Bootspruefung\Learning\Content\Media\MediaStorage::configuredPrivateDir()) !== null) {
+            printf('<li>%s <code>%s</code> %s</li>', esc_html__('der private Ordner', 'bootspruefung-learning'), esc_html($private), esc_html__('(BOOTSPRUEFUNG_PRIVATE_DIR, liegt außerhalb des Upload-Ordners)', 'bootspruefung-learning'));
+        }
+        printf('<li>%s</li>', esc_html__('wp-config.php (Datenbank-Zugang, Sicherheitsschlüssel für Abmeldelinks und Anmeldungen, BOOTSPRUEFUNG_*-Konstanten)', 'bootspruefung-learning'));
+        echo '</ul><p>'.esc_html__('Ablauf, Häufigkeit, Aufbewahrung und Restore-Schritte: docs/backup-restore.md. Nach einem Restore: wp bootspruefung backup-check (nur prüfen) – dieselbe Prüfung steht hier:', 'bootspruefung-learning').'</p>';
+        $labels = ['ok' => __('ok', 'bootspruefung-learning'), 'warn' => __('Warnung', 'bootspruefung-learning'), 'fail' => __('Fehler', 'bootspruefung-learning')];
+        $colors = ['ok' => '#008a20', 'warn' => '#996800', 'fail' => '#b32d2e'];
+        $rows = [];
+        foreach (\Bootspruefung\Learning\Infrastructure\BackupCheck::run() as $r) {
+            $rows[] = [esc_html($r['check']), '<strong style="color:'.esc_attr($colors[$r['status']] ?? '#000').'">'.esc_html($labels[$r['status']] ?? $r['status']).'</strong>', esc_html($r['detail'])];
+        }
+        Ui::table([__('Prüfung nach Restore', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], $rows);
     }
 
     public function renderSettings(): void
@@ -280,6 +291,14 @@ final class Menu
         foreach ($warnings as $w) {
             echo '<div class="notice notice-warning inline"><p>'.esc_html($w).'</p></div>';
         }
+        // T73: Grundeinstellungen nur prüfen, nichts ändern.
+        echo '<h3>'.esc_html__('Grundeinstellungen', 'bootspruefung-learning').'</h3>';
+        $basics = [];
+        foreach (SystemStatus::shopBasics() as $b) {
+            $basics[] = [esc_html($b['label']), $b['ok'] ? '<span style="color:#008a20">'.esc_html__('ok', 'bootspruefung-learning').'</span>' : '<strong style="color:#b32d2e">'.esc_html__('prüfen', 'bootspruefung-learning').'</strong>', esc_html($b['detail'])];
+        }
+        Ui::table([__('Punkt', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning')], $basics);
+        echo '<h3>'.esc_html__('Zahlungsarten', 'bootspruefung-learning').'</h3>';
         $rows = [];
         foreach (\Bootspruefung\Learning\Commerce\WooCommerce\Gateways::enabled() as $g) {
             $p = $g['profile'];

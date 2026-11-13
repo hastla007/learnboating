@@ -21,7 +21,7 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
 1. Version an den drei Stellen erhöhen, Eintrag oben in `bootspruefung-learning/CHANGELOG.md` (Datum, Schema- und
    App-API-Version, Änderungen für Betreiber und Kunden).
 2. CI grün (alle Jobs).
-3. **Backup** von Datenbank und `wp-content/uploads/bootspruefung/` (bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), siehe T66.
+3. **Backup** von Datenbank und `wp-content/uploads/bootspruefung/` (bzw. `BOOTSPRUEFUNG_PRIVATE_DIR`), siehe `docs/backup-restore.md` (T66).
 4. Erst auf Staging einspielen, Systemstatus prüfen: Schema „aktuell“, Abschnitt „Wartung“ ohne Fehler.
 5. Dann live einspielen. Nach einem Update ohne erneute Aktivierung läuft die Datenbank-Migration im Admin, per
    Cron oder in der CLI (`wp bootspruefung migrate`). Bis dahin beantwortet die Lern-API schreibende Anfragen mit 503

@@ -459,5 +459,32 @@ remove_filter('bootspruefung_video_captions_url', $capFilter, 10);
 $check(\Bootspruefung\Learning\Settings\Settings::sanitize(['video_captions' => 'quatsch'])['video_captions'] === 'off', 'Einstellung nur off/vtt');
 $setBefore === false ? delete_option(\Bootspruefung\Learning\Settings\Settings::OPTION) : update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $setBefore);
 
+echo "Prüfung nach Restore (T66)\n";
+$bc = \Bootspruefung\Learning\Infrastructure\BackupCheck::class;
+$ms = \Bootspruefung\Learning\Content\Media\MediaStorage::class;
+$layoutBefore = get_option($ms::LAYOUT_OPTION, null);
+$optionsBefore = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->options}");
+$rows = $bc::run();
+$byCheck = array_column($rows, null, 'check');
+$check(isset($byCheck['Datenbank-Schema'], $byCheck['Tabellen'], $byCheck['Paketordner'], $byCheck['Schutzordner'], $byCheck['Geschützte Dateien'], $byCheck['Lernzugänge']) && $byCheck['Datenbank-Schema']['status'] === 'ok' && $byCheck['Tabellen']['status'] === 'ok', 'Prüfungen vorhanden, Schema und Tabellen ok');
+$check(get_option($ms::LAYOUT_OPTION, null) === $layoutBefore && (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->options}") === $optionsBefore, 'nur lesend: Ordner-Layout und Optionen unverändert');
+// Restore neben dem Original: Layout zeigt auf einen fremden, vorhandenen Ordner – Fehler, aber nichts verschieben.
+$foreign = sys_get_temp_dir().'/bp-t66-original-'.wp_generate_password(6, false).'/packages-x';
+wp_mkdir_p($foreign);
+file_put_contents($foreign.'/probe.txt', 'x');
+update_option($ms::LAYOUT_OPTION, array_merge(is_array($layoutBefore) ? $layoutBefore : [], ['packages' => $foreign]), true);
+$byCheck = array_column($bc::run(), null, 'check');
+$check($byCheck['Paketordner']['status'] === 'fail' && str_contains($byCheck['Paketordner']['detail'], $foreign) && $bc::overall(array_values($byCheck)) === 'fail', 'fremder Paketordner im Layout: Fehler mit Pfad');
+$check(is_file($foreign.'/probe.txt'), 'fremder Ordner bleibt, wo er ist');
+$layoutBefore === null ? delete_option($ms::LAYOUT_OPTION) : update_option($ms::LAYOUT_OPTION, $layoutBefore, true);
+@unlink($foreign.'/probe.txt');
+@rmdir($foreign);
+@rmdir(dirname($foreign));
+$fakeId = (int) $wpdb->get_var("SELECT MAX(ID) FROM {$wpdb->posts}") + 1000;
+$wpdb->insert($wpdb->postmeta, ['post_id' => $fakeId, 'meta_key' => \Bootspruefung\Learning\Gate\ProtectedFiles::PATH_META, 'meta_value' => '/gibt/es/nicht/t66.pdf']);
+$byCheck = array_column($bc::run(), null, 'check');
+$check($byCheck['Geschützte Dateien']['status'] === 'fail' && str_contains($byCheck['Geschützte Dateien']['detail'], '#'.$fakeId), 'fehlende geschützte Datei gemeldet');
+$wpdb->delete($wpdb->postmeta, ['post_id' => $fakeId, 'meta_key' => \Bootspruefung\Learning\Gate\ProtectedFiles::PATH_META]);
+
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);
