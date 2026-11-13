@@ -252,5 +252,20 @@ if (function_exists('wc_get_product_id_by_sku')) {
     wp_delete_term($extraId, 'product_cat');
 }
 
+echo "Markenname (T10)\n";
+$settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
+$blogBak = get_option('blogname');
+update_option('blogname', 'Wassertest');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => 'XXXX']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'Wassertest' && ! \Bootspruefung\Learning\Settings\Settings::brandIsSet(), 'alter Platzhalter „XXXX“ gespeichert: Name der Website statt XXXX');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => 'Kurswasser']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'Kurswasser' && \Bootspruefung\Learning\Settings\Settings::brandIsSet(), 'eigener Markenname gewinnt');
+$check(\Bootspruefung\Learning\Settings\Settings::sanitize(['brand_name' => 'XXXX'])['brand_name'] === '' && \Bootspruefung\Learning\Settings\Settings::sanitize(['brand_name' => ''])['brand_name'] === '', 'Speichern: leer bzw. XXXX = nicht festgelegt');
+update_option('blogname', '');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => '']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'XXXX', 'ohne Markenname und Website-Namen: Platzhalter');
+update_option('blogname', $blogBak);
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $settingsBak);
+
 echo $failures === 0 ? "Alle Prüfungen bestanden.\n" : "{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

@@ -190,11 +190,12 @@ final class Menu
         }
         echo '</select></td></tr>';
         printf(
-            '<tr><th scope="row">%s</th><td><input type="text" class="regular-text" name="%s[brand_name]" value="%s" maxlength="60"><p class="description">%s</p></td></tr>',
+            '<tr><th scope="row">%s</th><td><input type="text" class="regular-text" name="%s[brand_name]" value="%s" placeholder="%s" maxlength="60"><p class="description">%s</p></td></tr>',
             esc_html__('Markenname', 'bootspruefung-learning'),
             esc_attr(Settings::OPTION),
+            esc_attr(Settings::brandIsSet() ? (string) Settings::get('brand_name') : ''),
             esc_attr(Settings::brand()),
-            esc_html__('Erscheint als Titel des Lernbereichs, im Seitentitel und in den Produkttexten. Platzhalter „XXXX“, bis der Name feststeht.', 'bootspruefung-learning')
+            esc_html__('Erscheint als Titel des Lernbereichs, im Seitentitel, in den Produkttexten und in der App. Leer = Name der Website (Einstellungen › Allgemein › Titel der Website). Logo und Favicon: Design › Website-Editor bzw. Customizer › Website-Icon. Achtung: Der Name der App-Kennung (Tenant-Slug) folgt dem Markennamen, solange unter „App“ keine eigene Kennung eingetragen ist – vor dem App-Start festlegen und danach nicht mehr ändern.', 'bootspruefung-learning')
         );
         printf(
             '<tr><th scope="row"><label for="bp-price-note">%s</label></th><td><input type="text" class="regular-text" id="bp-price-note" name="%s[price_note]" value="%s" maxlength="80"><p class="description">%s</p></td></tr>',

@@ -23,7 +23,7 @@ const step = (s) => console.log('·', s);
 
 step('Anmeldehinweis ohne Login');
 await page.goto(`${base}/bootsscheine/`);
-await page.getByRole('heading', { name: 'XXXX' }).waitFor();
+await page.getByRole('heading', { name: 'Testmarke' }).waitFor(); // Markenname aus e2e/setup.php
 assert.ok(await page.locator('#bp-app').getByRole('link', { name: 'Anmelden' }).isVisible());
 
 step('Anmelden');

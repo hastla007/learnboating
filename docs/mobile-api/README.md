@@ -110,7 +110,7 @@ entfernt).
 1. Plugin aktualisieren – die Migration legt die Tabellen an (Systemstatus zeigt Schema 1.13.0).
 2. **Bootsprüfung → Mobile App** (nur Administratoren):
    - *App-Schnittstelle aktiv* (Standard: an). Aus = alle App-Anfragen erhalten 503 `MOBILE_API_DISABLED`; der Web-Lernbereich ist nicht betroffen.
-   - *Tenant-Slug*: Kennung des Shops für die App. Leer = aus dem Markennamen (Einstellungen → Markenname; derzeit Platzhalter „XXXX“ → `xxxx`). **Vor dem App-Start festlegen und danach nicht mehr ändern.**
+   - *Tenant-Slug*: Kennung des Shops für die App. Leer = aus dem Markennamen (Einstellungen → Markenname; leer = Name der Website, erst ohne beides der Platzhalter „XXXX“ → `xxxx`). **Vor dem App-Start festlegen und danach nicht mehr ändern.**
    - *Markenfarbe*, *Support-E-Mail* (Standard: Absender von WooCommerce bzw. Admin-E-Mail). Logo = Website-Icon bzw. Theme-Logo.
    - *Vertrauenswürdige Proxys* (seit 1.4.0 **Standard: keiner**): IPs/CIDRs der Reverse-Proxys,
      Load-Balancer oder CDNs direkt vor WordPress. Nur von diesen wird `X-Forwarded-For` übernommen;
@@ -611,7 +611,7 @@ beibehalten, wo es passt. Abweichungen:
 1. **Kauflink in der App (App-Store-Regeln):** Apple (3.1.1) und Google erlauben Links zu externen
    Käufen digitaler Inhalte nur eingeschränkt bzw. je Land. Vor dem Release rechtlich klären, ob
    `webshop_url` angezeigt werden darf (z. B. als „Reader“-App ohne Kaufhinweis, oder nur im Web).
-2. **Tenant-Slug und Markenname** festlegen (derzeit Platzhalter `xxxx`/„XXXX“) – danach nicht mehr ändern.
+2. **Tenant-Slug und Markenname** festlegen (ohne Eintrag folgen beide dem Namen der Website) – danach nicht mehr ändern.
 3. **Kontolöschung (entschieden):** Nach der Bestätigung löscht der Shop sofort Lerndaten und Konto
    (`wp_delete_user`); WooCommerce-Bestellungen bleiben anonymisiert erhalten (Nummer, Datum, Produkte,
    Beträge, Transaktionsnummer), Gruppenplätze werden frei. Abschaltbar in den Plugin-Einstellungen

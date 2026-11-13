@@ -47,7 +47,7 @@ function kurswasser_content_tokens(string $text): string
         return $text;
     }
 
-    return strtr($text, ['{{brand}}' => (string) get_bloginfo('name'), '{{theme}}' => get_template_directory_uri()]);
+    return strtr($text, ['{{brand}}' => kurswasser_brand(), '{{theme}}' => get_template_directory_uri()]);
 }
 
 add_action('init', static function (): void {
@@ -91,7 +91,7 @@ function kurswasser_seo_title(WP_Post $post): ?string
     if ($title === '') {
         return null;
     }
-    $brand = (string) get_bloginfo('name');
+    $brand = kurswasser_brand();
     $with = $title.' | '.$brand;
     if ($brand !== '' && ! str_contains($title, $brand) && mb_strlen($with) <= 60) {
         return $with;
@@ -226,7 +226,7 @@ function kurswasser_breadcrumbs_html(array $items): string
 /** JSON-LD-Daten (Liste von Objekten) für die aktuelle Ansicht. */
 function kurswasser_seo_json_ld(): array
 {
-    $brand = (string) get_bloginfo('name');
+    $brand = kurswasser_brand();
     $home = home_url('/');
     $org = ['@type' => 'Organization', '@id' => $home.'#organization', 'name' => $brand, 'url' => $home];
     $data = [];
@@ -285,7 +285,7 @@ function kurswasser_seo_json_ld(): array
 /** Startseite (Vorlage front-page bzw. statische Seite ohne eigene SEO-Felder): SEO-Titel und Beschreibung (Filter kurswasser_front_seo). */
 function kurswasser_seo_front(): array
 {
-    $brand = (string) get_bloginfo('name');
+    $brand = kurswasser_brand();
     $tagline = trim((string) get_bloginfo('description'));
     $defaults = [
         'title' => 'Bootsführerschein online lernen: SBF, SRC & UBI'.($brand !== '' ? ' | '.$brand : ''),
@@ -320,7 +320,7 @@ function kurswasser_seo_social_html(?WP_Post $post, string $desc): string
     $tags = [
         ['property', 'og:locale', 'de_DE'],
         ['property', 'og:type', $post && get_post_meta($post->ID, '_kw_schema', true) === 'Article' ? 'article' : 'website'],
-        ['property', 'og:site_name', (string) get_bloginfo('name')],
+        ['property', 'og:site_name', kurswasser_brand()],
         ['property', 'og:title', $title],
         ['property', 'og:description', $desc],
         ['property', 'og:url', $url],
@@ -463,7 +463,7 @@ unset($kurswasser_seo_fallback);
 // gibt dann „author“ mit leerem Namen aus – ungültig für Rich Results. Wie die eigene Ausgabe: die Marke als Autor.
 add_filter('wpseo_schema_article', static function ($data) {
     if (is_array($data) && trim((string) ($data['author']['name'] ?? '')) === '') {
-        $data['author'] = ['@type' => 'Organization', 'name' => (string) get_bloginfo('name'), 'url' => home_url('/')];
+        $data['author'] = ['@type' => 'Organization', 'name' => kurswasser_brand(), 'url' => home_url('/')];
     }
 
     return $data;

@@ -19,8 +19,9 @@ final class Settings
         'default_access' => 'logged_in',
         // Prüfungsanmeldung (Anleitung + Prüfungsausschüsse): vorbereitet, aber noch nicht freigeschaltet.
         'exam_guide_enabled' => false,
-        // Markenname (Platzhalter, bis Name/Logo feststehen) – Lernbereich, Seitentitel, Produkttexte.
-        'brand_name' => 'XXXX',
+        // Markenname – Lernbereich, Seitentitel, Produkttexte, App (Tenant). Leer = Name der Website
+        // (Einstellungen › Allgemein); erst ohne Website-Namen der Platzhalter „XXXX“ (siehe brand()).
+        'brand_name' => '',
         // Preisangabe (PAngV): Hinweis an allen Preisen, Kasse und E-Mails; z. B. „inkl. MwSt.“
         // oder bei Kleinunternehmern „gem. § 19 UStG ohne MwSt.“ (Festlegung 07.11.2026).
         'price_note' => 'inkl. MwSt.',
@@ -40,9 +41,30 @@ final class Settings
         return array_merge(self::DEFAULTS, is_array($stored) ? $stored : []);
     }
 
+    /** Früherer Standardwert; gespeichert gilt er als „nicht festgelegt“. */
+    public const BRAND_PLACEHOLDER = 'XXXX';
+
+    /**
+     * Markenname: eigener Wert aus den Einstellungen, sonst der Name der Website, erst ohne beides „XXXX“.
+     * So erscheint öffentlich nie der Platzhalter, sobald die Website einen Namen hat (UX-02, T10).
+     */
     public static function brand(): string
     {
-        return (string) (self::get('brand_name') ?: self::DEFAULTS['brand_name']);
+        $own = trim((string) self::get('brand_name'));
+        if ($own !== '' && $own !== self::BRAND_PLACEHOLDER) {
+            return $own;
+        }
+        $site = trim(wp_strip_all_tags(html_entity_decode((string) get_bloginfo('name'), ENT_QUOTES, 'UTF-8')));
+
+        return $site !== '' ? mb_substr($site, 0, 60) : self::BRAND_PLACEHOLDER;
+    }
+
+    /** Ist ein eigener Markenname eingetragen (nicht leer, nicht der alte Platzhalter)? */
+    public static function brandIsSet(): bool
+    {
+        $own = trim((string) self::get('brand_name'));
+
+        return $own !== '' && $own !== self::BRAND_PLACEHOLDER;
     }
 
     public static function priceNote(): string
@@ -80,7 +102,7 @@ final class Settings
             'expiry_reminder_enabled' => array_key_exists('expiry_reminder_enabled', $input) ? ! empty($input['expiry_reminder_enabled']) : self::DEFAULTS['expiry_reminder_enabled'],
             'expiry_reminder_days' => isset($input['expiry_reminder_days']) && (int) $input['expiry_reminder_days'] > 0 ? min(90, (int) $input['expiry_reminder_days']) : self::DEFAULTS['expiry_reminder_days'],
             'privacy_requests_auto' => array_key_exists('privacy_requests_auto', $input) ? ! empty($input['privacy_requests_auto']) : self::DEFAULTS['privacy_requests_auto'],
-            'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' ? mb_substr($brand, 0, 60) : self::DEFAULTS['brand_name'],
+            'brand_name' => ($brand = trim(sanitize_text_field((string) ($input['brand_name'] ?? '')))) !== '' && $brand !== self::BRAND_PLACEHOLDER ? mb_substr($brand, 0, 60) : '',
         ];
     }
 }
