@@ -18,7 +18,13 @@ use WP_User;
  * fremdes Konto aussperren. Eine erfolgreiche Anmeldung setzt den Zähler Konto + IP zurück.
  *
  * Fehlermeldungen sind neutral (kein Hinweis, ob es den Benutzernamen bzw. die E-Mail gibt);
- * gesperrt wird mit einer ebenso neutralen Meldung – auch für nicht vorhandene Konten.
+ * gesperrt wird mit einer ebenso neutralen Meldung – auch für nicht vorhandene Konten. Für unbekannte Konten
+ * prüft eine Dummy-Passwortprüfung gleich lange wie für bekannte (keine Aufzählung über die Antwortzeit, T88).
+ *
+ * Zählen ohne Wettlauf (T83): Jeder Versuch wird VOR der Passwortprüfung atomar vorgemerkt (authenticate,
+ * Priorität 1: INSERT … ON DUPLICATE KEY UPDATE hits = hits + 1). Liegt ein Zähler danach über der Grenze, wird
+ * der Versuch abgewiesen und die Vormerkung zurückgenommen. Erfolgreiche Anmeldungen nehmen ihre Vormerkung
+ * zurück (nur Fehlversuche zählen). Parallele Anfragen können die Grenze so nicht mehr überholen.
  *
  * Abschaltbar über den Filter bootspruefung_hardening (Merkmal „login_limit“ bzw. „login_errors“);
  * die Begrenzung nimmt sich selbst zurück, wenn ein bekanntes Sicherheits-Plugin mit eigener
@@ -37,8 +43,18 @@ final class LoginGuard
     /** Während des App-Logins zählt der AuthController selbst (sonst doppelt). */
     private static bool $paused = false;
 
+    /**
+     * Vormerkungen laufender Anmeldungen (Stapel, falls ein Plugin innerhalb von authenticate erneut anmeldet).
+     * @var list<array{login:string,ip:string,buckets:array<string,int>,ok:bool,counts:array<string,int>,retry:int}>
+     */
+    private static array $reservations = [];
+
+    /** Option mit dem Hash für die Dummy-Passwortprüfung. */
+    private const DUMMY_HASH_OPTION = 'bp_learning_login_dummy_hash';
+
     public static function register(): void
     {
+        add_filter('authenticate', [self::class, 'reserveAttempt'], 1, 3);
         add_filter('authenticate', [self::class, 'authenticate'], 100, 3);
         KnownDevice::register();
         // Reset-Mails sind begrenzt (3 je Konto und Stunde): auf der Bestätigungsseite sagen, was zu tun ist,
@@ -82,6 +98,64 @@ final class LoginGuard
             try {
                 RateLimiter::check($bucket, $limit, self::WINDOW);
             } catch (\Throwable) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Versuch atomar vormerken (T83): jeden Zähler um 1 erhöhen. Liegt einer danach über seiner Grenze, ist der
+     * Versuch abgewiesen und alle Vormerkungen werden zurückgenommen (gesperrte Versuche zählen nicht weiter).
+     * Ein angenommener Versuch zählt als Fehlversuch, bis settle() ihn nach Erfolg zurücknimmt.
+     *
+     * @param array<string,int> $buckets
+     * @return array{ok:bool,counts:array<string,int>,retry:int}
+     */
+    public static function reserve(array $buckets): array
+    {
+        $counts = [];
+        $ok = true;
+        $retry = 1;
+        foreach ($buckets as $bucket => $limit) {
+            [$count, $reset] = RateLimiter::take($bucket, self::WINDOW);
+            $counts[$bucket] = $count;
+            if ($count > $limit) {
+                $ok = false;
+                $retry = max($retry, $reset - time());
+            }
+        }
+        if (! $ok) {
+            self::release($buckets);
+        }
+
+        return ['ok' => $ok, 'counts' => $counts, 'retry' => $retry];
+    }
+
+    /** Vormerkungen zurücknehmen. @param array<string,int> $buckets */
+    public static function release(array $buckets): void
+    {
+        foreach (array_keys($buckets) as $bucket) {
+            RateLimiter::release($bucket);
+        }
+    }
+
+    /**
+     * Ergebnis eines vorgemerkten Versuchs: Erfolg nimmt die Vormerkungen zurück und setzt Konto + IP zurück;
+     * ein Fehlversuch bleibt gezählt. @param array<string,int> $buckets @param array<string,int> $counts
+     * @return bool true, wenn nach diesem Fehlversuch gesperrt
+     */
+    public static function settle(array $buckets, array $counts, bool $success, string $login, string $ip): bool
+    {
+        if ($success) {
+            self::release($buckets);
+            self::succeeded($login, $ip);
+
+            return false;
+        }
+        foreach ($buckets as $bucket => $limit) {
+            if (($counts[$bucket] ?? 0) >= $limit) {
                 return true;
             }
         }
@@ -159,8 +233,31 @@ final class LoginGuard
     }
 
     /**
+     * Filter authenticate (Priorität 1, vor der Passwortprüfung von WordPress bei 20): Versuch atomar vormerken.
+     * Über der Grenze → Sperrmeldung; das Ergebnis setzt authenticate() (Priorität 100) in jedem Fall durch.
+     * @param WP_User|WP_Error|null $user
+     * @param mixed $username
+     * @param mixed $password
+     * @return WP_User|WP_Error|null
+     */
+    public static function reserveAttempt($user, $username, $password)
+    {
+        $login = is_string($username) ? trim($username) : '';
+        if ($login === '' || ! is_string($password) || $password === '' || self::$paused || $user instanceof WP_User || ! Hardening::enabled('login_limit')) {
+            return $user;
+        }
+        $ip = RateLimiter::clientIp();
+        $buckets = self::scope(self::buckets($login, $ip), KnownDevice::trustedFor($login));
+        $reservation = self::reserve($buckets);
+        self::$reservations[] = ['login' => $login, 'ip' => $ip, 'buckets' => $buckets] + $reservation;
+
+        return $reservation['ok'] ? $user : self::lockedError();
+    }
+
+    /**
      * Filter authenticate (Priorität 100, nach der Passwortprüfung von WordPress bei 20):
-     * gesperrt → Sperrmeldung (auch bei richtigem Passwort), Fehlversuch → zählen und neutrale Meldung.
+     * gesperrt → Sperrmeldung (auch bei richtigem Passwort), Fehlversuch → gezählt lassen und neutrale Meldung,
+     * Erfolg → Vormerkung zurücknehmen.
      * @param WP_User|WP_Error|null $user
      * @param mixed $username
      * @param mixed $password
@@ -172,9 +269,32 @@ final class LoginGuard
         if ($login === '' || ! is_string($password) || $password === '') {
             return $user; // leeres Formular bzw. Cookie-Anmeldung: nichts zu zählen
         }
+        if ($user instanceof WP_Error && in_array($user->get_error_code(), ['invalid_username', 'invalid_email'], true)) {
+            self::equalizeTiming($password); // unbekanntes Konto: gleich teure Arbeit wie eine echte Prüfung
+        }
         $failed = $user === null || ($user instanceof WP_Error && in_array($user->get_error_code(), self::FAIL_CODES, true));
-        $limit = ! self::$paused && Hardening::enabled('login_limit');
-        if ($limit) {
+        $reservation = self::$reservations !== [] && end(self::$reservations)['login'] === $login ? array_pop(self::$reservations) : null;
+        if ($reservation !== null) {
+            if (! $reservation['ok']) {
+                /** Aktion: Anmeldung wegen zu vieler Fehlversuche abgewiesen. */
+                do_action('bootspruefung_login_locked', $login, $reservation['ip']);
+
+                return self::lockedError();
+            }
+            if ($user instanceof WP_User) {
+                self::settle($reservation['buckets'], $reservation['counts'], true, $login, $reservation['ip']);
+
+                return $user;
+            }
+            if (! $failed) {
+                self::release($reservation['buckets']); // anderer Fehler (z. B. Konto gesperrt): kein Fehlversuch
+            } elseif (self::settle($reservation['buckets'], $reservation['counts'], false, $login, $reservation['ip'])) {
+                do_action('bootspruefung_login_locked', $login, $reservation['ip']);
+
+                return self::lockedError();
+            }
+        } elseif (! self::$paused && Hardening::enabled('login_limit')) {
+            // Ohne Vormerkung (Filter bei Priorität 1 entfernt): wie früher prüfen und zählen.
             $ip = RateLimiter::clientIp();
             $buckets = self::scope(self::buckets($login, $ip), KnownDevice::trustedFor($login));
             if (self::locked($buckets)) {
@@ -199,6 +319,21 @@ final class LoginGuard
         }
 
         return $user;
+    }
+
+    /**
+     * Dummy-Passwortprüfung für unbekannte Konten (T88): Gleich teuer wie wp_check_password() eines echten Kontos,
+     * damit die Antwortzeit nicht verrät, ob es einen Benutzernamen bzw. eine E-Mail-Adresse gibt. Der Hash wird
+     * einmal mit dem aktuellen Verfahren von WordPress erzeugt und gespeichert (neu, wenn sich das Verfahren ändert).
+     */
+    public static function equalizeTiming(string $password): void
+    {
+        $hash = (string) get_option(self::DUMMY_HASH_OPTION, '');
+        if ($hash === '' || (function_exists('wp_password_needs_rehash') && wp_password_needs_rehash($hash))) {
+            $hash = wp_hash_password(wp_generate_password(32, true, true));
+            update_option(self::DUMMY_HASH_OPTION, $hash, false);
+        }
+        wp_check_password($password, $hash);
     }
 
     public static function neutralError(): WP_Error

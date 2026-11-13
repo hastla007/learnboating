@@ -50,6 +50,26 @@ final class RateLimiter
         return self::add($bucket, $window)[0];
     }
 
+    /**
+     * Einen Treffer atomar zählen und den neuen Stand liefern (zum Vormerken eines Versuchs vor der eigentlichen
+     * Arbeit, T83). @return array{0:int,1:int} [Treffer im Fenster, Fensterende als Unix-Zeit]
+     */
+    public static function take(string $bucket, int $window): array
+    {
+        return self::add($bucket, $window);
+    }
+
+    /** Einen vorgemerkten Treffer zurücknehmen (atomar, nie unter 0; abgelaufene Fenster bleiben unberührt). */
+    public static function release(string $bucket): void
+    {
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            'UPDATE '.self::table().' SET hits = hits - 1 WHERE bucket_hash = %s AND hits > 0 AND expires_at > %s',
+            self::key($bucket),
+            gmdate('Y-m-d H:i:s')
+        ));
+    }
+
     /** Zähler zurücksetzen (alle Fenster dieses Zählers). */
     public static function clear(string $bucket): void
     {
@@ -131,6 +151,15 @@ final class RateLimiter
 
         /** Filter: Client-IP für Rate-Limits anpassen (z. B. eigener CDN-Header). */
         return (string) apply_filters('bootspruefung_mobile_client_ip', $ip);
+    }
+
+    /**
+     * Zählerschlüssel der Client-IP dieser Anfrage (IPv6 als /64-Netz). Gemeinsame Hilfe für alle Limits je IP –
+     * nie clientIp() direkt in einen Zählernamen schreiben (T88).
+     */
+    public static function clientKey(): string
+    {
+        return self::ipKey(self::clientIp());
     }
 
     /**

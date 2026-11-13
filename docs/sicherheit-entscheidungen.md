@@ -18,6 +18,13 @@ Drei Fragen. Je Frage: wie es heute ist, was sich ändern ließe, unser Vorschla
 - Ist ein Sicherheits-Plugin mit eigener Login-Sperre aktiv (Wordfence, Limit Login Attempts (Reloaded), Solid
   Security, All In One WP Security, Loginizer), nimmt sich die Sperre des Lern-Plugins zurück.
 - Ändern ohne Programmierung: Filter `bootspruefung_login_limits` (Schlüssel `ip`, `login_ip`, `login`).
+- **Zählen ohne Wettlauf (T83):** Jeder Versuch wird vor der Passwortprüfung in einer einzigen
+  Datenbank-Anweisung vorgemerkt. Liegt ein Zähler danach über der Grenze, wird der Versuch abgewiesen. Viele
+  gleichzeitige Versuche können die Grenze so nicht mehr überholen. Erfolgreiche Anmeldungen nehmen ihre
+  Vormerkung zurück; es zählen nur Fehlversuche.
+- **Keine Aufzählung über die Antwortzeit (T88):** Bei unbekanntem Benutzernamen bzw. unbekannter E-Mail prüft
+  das Plugin ein Dummy-Passwort. Die Anmeldung dauert dann gleich lang wie bei einem echten Konto, die Meldung ist
+  gleich (Web und App).
 
 **Seit T41 („bekanntes Gerät“):** Wer sich auf einem Gerät schon erfolgreich angemeldet oder dort das Passwort
 zurückgesetzt hat, bekommt einen signierten Nachweis (Web: Cookie, App: `device_token`, 180 Tage, mit

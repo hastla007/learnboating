@@ -332,6 +332,47 @@ $check(! $kd::valid($token, (int) $userId), 'Passwortänderung macht alte Gerät
 wp_set_password($pass, (int) $userId);
 // IPv6: ein /64-Netz zählt wie eine Adresse.
 $check(\Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:aaaa::1') === \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:bbbb::9') && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:aaaa::1') === '2001:db8:1:2::/64' && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('::ffff:203.0.113.5') === '203.0.113.5' && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('203.0.113.5') === '203.0.113.5', 'IPv6 je /64-Netz, IPv4 unverändert');
+// T83: Versuche werden vor der Passwortprüfung atomar vorgemerkt – parallele Anfragen überholen die Grenze nicht.
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$_SERVER['REMOTE_ADDR'] = '203.0.113.90';
+for ($i = 0; $i < LoginGuard::FAILS_PER_LOGIN_IP - 1; $i++) {
+    wp_authenticate($login, 'falsch');
+}
+$idT83 = strtolower($login.'@example.test');
+$inflight = LoginGuard::reserve(LoginGuard::buckets($login, '203.0.113.90')); // Anfrage A: letzter erlaubter Versuch läuft noch
+$parallel = wp_authenticate($login, $pass); // Anfrage B gleichzeitig, mit richtigem Passwort
+$check($inflight['ok'] && is_wp_error($parallel) && $parallel->get_error_code() === 'bp_login_locked', 'paralleler Versuch über der Grenze abgewiesen, obwohl A noch nicht gezählt war (früher: prüfen, dann zählen)');
+$check($hits('login-email-ip|'.$idT83.'|203.0.113.90') === LoginGuard::FAILS_PER_LOGIN_IP && $hits('login-ip|203.0.113.90') === LoginGuard::FAILS_PER_LOGIN_IP, 'abgewiesener Versuch zählt nicht mit (Vormerkung zurückgenommen)');
+$check(LoginGuard::settle(LoginGuard::buckets($login, '203.0.113.90'), $inflight['counts'], false, $login, '203.0.113.90'), 'A scheitert: danach gesperrt');
+$_SERVER['REMOTE_ADDR'] = '203.0.113.91';
+wp_authenticate($login, 'falsch');
+$check(wp_authenticate($login, $pass) instanceof WP_User && $hits('login-ip|203.0.113.91') === 1, 'erfolgreiche Anmeldung nimmt ihre Vormerkung zurück (nur Fehlversuche zählen)');
+$appBuckets = LoginGuard::buckets($login, '203.0.113.92');
+$first = LoginGuard::reserve($appBuckets);
+$wpdb->query($wpdb->prepare("UPDATE {$p}mobile_rate_limit SET hits = %d WHERE bucket_hash = %s", LoginGuard::FAILS_PER_LOGIN_IP, hash('sha256', 'login-email-ip|'.$idT83.'|203.0.113.92|'.wp_salt('nonce'))));
+$second = LoginGuard::reserve($appBuckets);
+$check($first['ok'] && ! $second['ok'] && $second['retry'] > 0 && $hits('login-ip|203.0.113.92') === 1, 'App-Login nutzt dieselbe Vormerkung: zweiter Versuch über der Grenze abgewiesen, ohne zu zählen');
+// T88: unbekanntes Konto – gleich viele Passwortprüfungen wie bei einem bekannten (keine Aufzählung über die Antwortzeit).
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+$_SERVER['REMOTE_ADDR'] = '203.0.113.93';
+$checks = 0;
+$countChecks = static function ($result) use (&$checks) {
+    $checks++;
+
+    return $result;
+};
+add_filter('check_password', $countChecks);
+wp_authenticate($login, 'falsch');
+$knownChecks = $checks;
+$checks = 0;
+$unknownT88 = wp_authenticate('gibt_es_nicht_'.wp_generate_password(6, false, false), 'falsch');
+$unknownName = $checks;
+$checks = 0;
+wp_authenticate('niemand-'.wp_generate_password(6, false, false).'@example.test', 'falsch');
+remove_filter('check_password', $countChecks);
+$check($knownChecks === 1 && $unknownName === 1 && $checks === 1 && is_wp_error($unknownT88) && $unknownT88->get_error_code() === 'bp_login_failed', 'unbekannter Name bzw. unbekannte E-Mail: Dummy-Passwortprüfung, gleiche Meldung');
+$check(str_starts_with((string) get_option('bp_learning_login_dummy_hash'), '$'), 'Dummy-Hash mit dem Verfahren von WordPress gespeichert');
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 // Hinweis zur Begrenzung der Reset-Mails (ohne Kontoaufzählung).
 $check(str_contains((string) apply_filters('woocommerce_lost_password_confirmation_message', 'Gesendet.'), 'höchstens drei Links pro Stunde'), 'Bestätigung „Link gesendet“ nennt die Begrenzung (Spam-Ordner, eine Stunde warten)');
 // Proxy nicht eingetragen: Warnung.

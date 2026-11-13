@@ -55,19 +55,19 @@ final class AuthController extends BaseController
         // Dieselben Zähler wie wp-login/WooCommerce-Login (LoginGuard): Web und App teilen die Fehlversuche.
         // Bekanntes Gerät (device_token aus einer früheren Anmeldung): Sperren je IP und je Konto gelten nicht (T41).
         $buckets = LoginGuard::scope(LoginGuard::buckets($email, $ip), \Bootspruefung\Learning\Security\KnownDevice::trustedFor($email, trim((string) $request['device_token'])));
-        foreach ($buckets as $bucket => $limit) {
-            RateLimiter::check($bucket, $limit, self::LOGIN_WINDOW, $limitMessage);
+        // Versuch vor der Passwortprüfung atomar vormerken (T83): parallele Anfragen können die Grenze nicht überholen.
+        $reservation = LoginGuard::reserve($buckets);
+        if (! $reservation['ok']) {
+            throw ApiException::rateLimited($reservation['retry'], $limitMessage);
         }
 
         // E-Mail oder Benutzername (wie das Web-Login von WordPress/WooCommerce).
         $user = LoginGuard::uncounted(static fn () => wp_authenticate($email, $password));
         if (is_wp_error($user) || ! $user instanceof \WP_User || ! apply_filters('bootspruefung_mobile_user_allowed', true, $user)) {
-            foreach (array_keys($buckets) as $bucket) {
-                RateLimiter::increment($bucket, self::LOGIN_WINDOW);
-            }
+            LoginGuard::settle($buckets, $reservation['counts'], false, $email, $ip); // Fehlversuch bleibt gezählt
             throw new ApiException('UNAUTHENTICATED', __('E-Mail-Adresse oder Passwort ist nicht korrekt.', 'bootspruefung-learning'), 401);
         }
-        LoginGuard::succeeded($email, $ip);
+        LoginGuard::settle($buckets, $reservation['counts'], true, $email, $ip);
         $platform = in_array($request['device_platform'], ['ios', 'android'], true) ? (string) $request['device_platform'] : null;
         $tokens = TokenAuth::issue((int) $user->ID, $device, $platform, $request['app_version'] !== null ? sanitize_text_field((string) $request['app_version']) : null);
         /** Aktion: erfolgreiche App-Anmeldung (Protokoll, Statistik). */

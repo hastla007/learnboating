@@ -1771,6 +1771,17 @@ for ($round = 0; $round < 2; $round++) {
     $r = $api('POST', '/auth/login', ['email' => 'mobile_kunde_b@example.test', 'password' => 'Mobil-Passwort-456!', 'device_name' => 'x'], null, ['X-Tenant-Slug' => null], '203.0.113.50');
 }
 $check($r['status'] === 200, 'erfolgreiche Anmeldung setzt den Zähler E-Mail + IP zurück (2 × 4 Fehlversuche)');
+// T83: 4 Fehlversuche, der 5. läuft noch (vorgemerkt) – ein paralleler Versuch mit richtigem Passwort wird abgewiesen.
+for ($i = 0; $i < 4; $i++) {
+    $api('POST', '/auth/login', ['email' => 'mobile_kunde_b@example.test', 'password' => 'falsch', 'device_name' => 'x'], null, ['X-Tenant-Slug' => null], '203.0.113.51');
+}
+$_SERVER['REMOTE_ADDR'] = '203.0.113.51';
+$inflightApp = \Bootspruefung\Learning\Security\LoginGuard::reserve(\Bootspruefung\Learning\Security\LoginGuard::buckets('mobile_kunde_b@example.test', '203.0.113.51'));
+$r = $api('POST', '/auth/login', ['email' => 'mobile_kunde_b@example.test', 'password' => 'Mobil-Passwort-456!', 'device_name' => 'x'], null, ['X-Tenant-Slug' => null], '203.0.113.51');
+$check($inflightApp['ok'] && $r['status'] === 429 && $code($r) === 'RATE_LIMITED', 'App: paralleler Versuch über der Grenze → 429 (Versuch wird vor der Passwortprüfung atomar vorgemerkt)');
+\Bootspruefung\Learning\Security\LoginGuard::release(\Bootspruefung\Learning\Security\LoginGuard::buckets('mobile_kunde_b@example.test', '203.0.113.51'));
+$r = $api('POST', '/auth/login', ['email' => 'mobile_kunde_b@example.test', 'password' => 'Mobil-Passwort-456!', 'device_name' => 'x'], null, ['X-Tenant-Slug' => null], '203.0.113.51');
+$check($r['status'] === 200, 'App: nach Ende des anderen Versuchs (erfolgreich) wieder anmeldbar');
 for ($i = 0; $i < \Bootspruefung\Learning\Mobile\Controllers\AuthController::LOGIN_FAILS_PER_EMAIL; $i++) {
     $api('POST', '/auth/login', ['email' => 'mobile_kundin_c@example.test', 'password' => 'falsch', 'device_name' => 'x'], null, ['X-Tenant-Slug' => null], '198.18.0.'.(10 + $i));
 }
