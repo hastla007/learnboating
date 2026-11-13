@@ -23,7 +23,7 @@ final class GoLiveChecklist
 
     /**
      * Punkte der Checkliste. auto = vom Plugin geprüft (ok true/false), sonst abhakbar (done).
-     * @return list<array{key:string,label:string,auto:bool,ok:bool,detail:string,url:string,link:string,by?:int,at?:int}>
+     * @return list<array{key:string,label:string,auto:bool,ok:bool,detail:string,url:string,link:string,by?:int,at?:int,checked?:array{ok:?bool,text:string}}>
      */
     public static function items(): array
     {
@@ -56,7 +56,7 @@ final class GoLiveChecklist
     /**
      * T126: „Inhaltsseiten ohne Warnung“ prüft das Plugin selbst, wenn das Theme Kurswasser aktiv ist
      * (dieselbe Liste wie der Hinweis „Inhaltsseiten aus dem Theme“).
-     * @return array<string,mixed>|null
+     * @return array{key:string,label:string,auto:bool,ok:bool,detail:string,url:string,link:string}|null
      */
     private static function contentPages(): ?array
     {
