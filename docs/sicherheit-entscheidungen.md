@@ -93,3 +93,19 @@ Zugang aus bzw. stellt ihn wieder her.
 
 **Fragen:** Wie meldet Klarna dir Konflikte (E-Mail aus dem Händlerportal oder eine eigene Schnittstelle)?
 Erst danach lässt sich die Automatisierung genau beschreiben. Reicht bis dahin die Meldung von Hand?
+
+## 5. Geschützte Seiten und Page-Builder (T77)
+
+**Heute:** Seiten und Beiträge mit „Lernzugang erforderlich“ zeigen ohne Zugang nur Titel, manuellen Auszug und
+einen Hinweis mit Produktlink (`src/Gate/ContentGate.php`). Page-Builder wie Elementor oder Beaver Builder setzen
+ihren Inhalt aber erst nach dieser Sperre ein. Deshalb gibt es eine zweite Sperre ganz am Ende:
+
+- `the_content`, `the_content_feed` und `get_the_excerpt` werden mit der letzten Priorität (`PHP_INT_MAX`) noch
+  einmal geprüft; bei fehlendem Zugang steht danach wieder der Hinweis da. Das gilt auch für REST-API, Feeds und
+  Einbettungen (oEmbed), die dieselben Filter nutzen.
+- Elementor bekommt für gesperrte Seiten keine Layout-Daten (`elementor/frontend/builder_content_data`), Beaver
+  Builder rendert sie nicht (`fl_builder_do_render_content`). Die Filter greifen nur, wenn das Plugin aktiv ist.
+- Andere Builder (z. B. Divi) arbeiten über `the_content` und sind durch die zweite Sperre abgedeckt.
+
+**Bitte auf Staging prüfen**, falls ein Page-Builder eingesetzt wird: eine Seite mit „Lernzugang erforderlich“ im
+Builder gestalten und abgemeldet aufrufen. Erwartung: nur der Hinweis, kein Builder-Inhalt.

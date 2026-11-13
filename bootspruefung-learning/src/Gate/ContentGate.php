@@ -15,6 +15,13 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
  * - Block „Nur mit Lernzugang“ und Shortcode [bootspruefung_zugang] für Abschnitte.
  * Ohne Zugang erscheint ein Hinweis mit Anmelde- bzw. Produktlink; der
  * geschützte Inhalt wird nicht ausgegeben (auch nicht in REST, Feeds, Auszügen).
+ *
+ * Page-Builder (T77): Elementor, Beaver Builder & Co. setzen ihren Inhalt erst nach unserer Sperre
+ * (the_content, Priorität 1) ein. Deshalb prüft ein zweiter Filter ganz am Ende (PHP_INT_MAX) von
+ * the_content, the_content_feed und get_the_excerpt erneut und ersetzt den Inhalt wieder durch den Hinweis.
+ * Zusätzlich bekommen Elementor (elementor/frontend/builder_content_data) und Beaver Builder
+ * (fl_builder_do_render_content) für gesperrte Beiträge gar keine Layout-Daten – ohne Abhängigkeit, die
+ * Filter greifen nur, wenn das jeweilige Plugin sie aufruft.
  */
 final class ContentGate
 {
@@ -27,6 +34,12 @@ final class ContentGate
         add_action('save_post', [$this, 'save'], 10, 2);
         add_filter('the_content', [$this, 'filterContent'], 1);
         add_filter('get_the_excerpt', [$this, 'filterExcerpt'], 1, 2);
+        // Späte Sicherung: nach allen Page-Buildern und anderen Filtern noch einmal sperren (T77).
+        add_filter('the_content', [$this, 'filterContent'], PHP_INT_MAX);
+        add_filter('the_content_feed', [$this, 'filterContent'], PHP_INT_MAX);
+        add_filter('get_the_excerpt', [$this, 'filterExcerptLate'], PHP_INT_MAX, 2);
+        add_filter('elementor/frontend/builder_content_data', [$this, 'builderData'], PHP_INT_MAX, 2);
+        add_filter('fl_builder_do_render_content', [$this, 'builderRender'], PHP_INT_MAX, 2);
         add_shortcode('bootspruefung_zugang', [$this, 'shortcode']);
         add_action('init', [$this, 'registerBlock']);
         add_filter('post_class', [$this, 'postClass'], 10, 3);
@@ -71,18 +84,37 @@ final class ContentGate
         return self::allows($userId, $req['course'], $req['feature']);
     }
 
+    /** Gesperrt für den aktuellen Nutzer? (Beitrag mit Lernzugang-Vorgabe ohne passenden Zugang) */
+    public static function locked(int $postId): bool
+    {
+        return $postId > 0 && ! self::canView($postId);
+    }
+
+    /** the_content (Priorität 1 und PHP_INT_MAX) und the_content_feed: Hinweis statt geschütztem Inhalt. */
     public function filterContent($content)
     {
         $post = get_post();
-        if (! $post instanceof \WP_Post) {
-            return $content;
-        }
-        if (self::canView((int) $post->ID)) {
+        if (! $post instanceof \WP_Post || ! self::locked((int) $post->ID)) {
             return $content;
         }
         $req = self::requirement((int) $post->ID);
 
         return self::notice($req['course'], $req['feature']);
+    }
+
+    /**
+     * Elementor: Layout-Daten eines gesperrten Beitrags verwerfen. Mit leeren Daten gibt Elementor nichts aus und
+     * lässt the_content (also unseren Hinweis) stehen. @param mixed $data @param mixed $postId @return mixed
+     */
+    public function builderData($data, $postId = 0)
+    {
+        return self::locked((int) $postId) ? [] : $data;
+    }
+
+    /** Beaver Builder: Layout eines gesperrten Beitrags nicht rendern. @param mixed $render @param mixed $postId */
+    public function builderRender($render, $postId = 0): bool
+    {
+        return self::locked((int) ($postId ?: get_the_ID())) ? false : (bool) $render;
     }
 
     public function filterExcerpt($excerpt, $post = null)
@@ -94,6 +126,21 @@ final class ContentGate
         }
 
         return $excerpt;
+    }
+
+    /**
+     * get_the_excerpt ganz am Ende: Hat ein anderer Filter (Page-Builder, SEO-Plugin) den Auszug aus dem
+     * geschützten Text erzeugt, gilt wieder nur der manuelle Auszug bzw. der Hinweis.
+     */
+    public function filterExcerptLate($excerpt, $post = null)
+    {
+        $post = get_post($post);
+        if (! $post instanceof \WP_Post || ! self::locked((int) $post->ID)) {
+            return $excerpt;
+        }
+        $manual = trim((string) $post->post_excerpt);
+
+        return $manual !== '' ? $manual : __('Dieser Inhalt gehört zum Lernzugang.', 'bootspruefung-learning');
     }
 
     /** @param list<string> $classes */
