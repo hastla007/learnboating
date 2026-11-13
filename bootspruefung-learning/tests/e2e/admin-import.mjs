@@ -51,9 +51,14 @@ await shot('12-admin-kurse');
 step('Rechtefreigabe für Praxiskarten SBF-SEE');
 await page.goto(`${base}/wp-admin/admin.php?page=bootspruefung-rights`);
 const row = page.locator('tr', { hasText: 'SBF-SEE' }).filter({ has: page.locator('input[name="group"][value="SBF-SEE"]') }).first();
+// T103: Auswahlfeld zeigt den aktuellen Stand, Begründung ist leer, vor dem Ausführen kommt eine Rückfrage mit Anzahl.
+await row.locator('select[name="value"]').selectOption('licensed');
 await row.locator('input[name="reason"]').fill('Eigene Inhalte (E2E)');
+let confirmText = '';
+page.once('dialog', (dialog) => { confirmText = dialog.message(); dialog.accept(); });
 await row.getByRole('button', { name: 'Anwenden' }).click();
-await page.getByText(/Einträge aktualisiert/).waitFor();
+await page.getByText(/geändert: Rechte-Status/).first().waitFor();
+assert.match(confirmText, /\d+ Eintr(ag|äge)/);
 await shot('13-admin-rechte');
 
 assert.deepEqual(errors, []);
