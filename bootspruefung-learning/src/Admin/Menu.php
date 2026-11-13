@@ -125,6 +125,9 @@ final class Menu
             printf('<tr><th scope="row">%s</th><td>%s</td></tr>', esc_html($label), esc_html((string) $value));
         }
         echo '</tbody></table>';
+        if (($proxy = \Bootspruefung\Learning\Mobile\RateLimiter::proxyWarning()) !== null) {
+            echo '<div class="notice notice-warning inline"><p><strong>'.esc_html__('Client-IP:', 'bootspruefung-learning').'</strong> '.esc_html($proxy).'</p></div>';
+        }
 
         if ($woo['active']) {
             $this->renderShopStatus($woo);

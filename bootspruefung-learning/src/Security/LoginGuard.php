@@ -40,6 +40,11 @@ final class LoginGuard
     public static function register(): void
     {
         add_filter('authenticate', [self::class, 'authenticate'], 100, 3);
+        KnownDevice::register();
+        // Reset-Mails sind begrenzt (3 je Konto und Stunde): auf der Bestätigungsseite sagen, was zu tun ist,
+        // ohne zu verraten, ob es das Konto gibt (T41).
+        add_filter('woocommerce_lost_password_confirmation_message', static fn ($message): string => trim((string) $message.' '.self::resetHint()));
+        add_filter('wp_login_errors', [self::class, 'resetHintOnLogin'], 10, 1);
         add_filter('shake_error_codes', static fn ($codes): array => array_merge((array) $codes, ['bp_login_failed', 'bp_login_locked']));
     }
 
@@ -51,6 +56,7 @@ final class LoginGuard
     public static function buckets(string $login, string $ip): array
     {
         $id = self::identity($login);
+        $ip = RateLimiter::ipKey($ip);
         $limits = (array) apply_filters('bootspruefung_login_limits', ['ip' => self::FAILS_PER_IP, 'login_ip' => self::FAILS_PER_LOGIN_IP, 'login' => self::FAILS_PER_LOGIN]);
 
         return [
@@ -96,10 +102,42 @@ final class LoginGuard
         return $locked;
     }
 
+    /**
+     * Bekanntes Gerät (KnownDevice): nur der eigene Zähler Konto + IP gilt, nicht die Sperre je IP und je Konto.
+     * @param array<string,int> $buckets @return array<string,int>
+     */
+    public static function scope(array $buckets, bool $knownDevice): array
+    {
+        return $knownDevice ? array_filter($buckets, static fn (string $b): bool => str_starts_with($b, 'login-email-ip|'), ARRAY_FILTER_USE_KEY) : $buckets;
+    }
+
     /** Nach erfolgreicher Anmeldung: Zähler Konto + IP zurücksetzen. */
     public static function succeeded(string $login, string $ip): void
     {
-        RateLimiter::clear('login-email-ip|'.self::identity($login).'|'.$ip);
+        RateLimiter::clear('login-email-ip|'.self::identity($login).'|'.RateLimiter::ipKey($ip));
+    }
+
+    /** Nach einem Passwort-Reset: Zähler des Kontos (insgesamt und von dieser IP) zurücksetzen. */
+    public static function resetAccount(WP_User $user): void
+    {
+        $id = strtolower((string) $user->user_email);
+        RateLimiter::clear('login-email|'.$id);
+        RateLimiter::clear('login-email-ip|'.$id.'|'.RateLimiter::ipKey(RateLimiter::clientIp()));
+    }
+
+    public static function resetHint(): string
+    {
+        return __('Kommt keine E-Mail, schau bitte auch im Spam-Ordner nach. Aus Sicherheitsgründen schicken wir je Konto höchstens drei Links pro Stunde – fordere den Link sonst nach einer Stunde erneut an.', 'bootspruefung-learning');
+    }
+
+    /** wp-login.php?checkemail=confirm: Hinweis zur Begrenzung unter der Bestätigung. @param mixed $errors @return mixed */
+    public static function resetHintOnLogin($errors)
+    {
+        if ($errors instanceof WP_Error && ($_GET['checkemail'] ?? '') === 'confirm' && Hardening::enabled('lost_password')) { // phpcs:ignore WordPress.Security.NonceVerification -- Anzeige
+            $errors->add('bp_reset_hint', esc_html(self::resetHint()), 'message');
+        }
+
+        return $errors;
     }
 
     /**
@@ -138,7 +176,7 @@ final class LoginGuard
         $limit = ! self::$paused && Hardening::enabled('login_limit');
         if ($limit) {
             $ip = RateLimiter::clientIp();
-            $buckets = self::buckets($login, $ip);
+            $buckets = self::scope(self::buckets($login, $ip), KnownDevice::trustedFor($login));
             if (self::locked($buckets)) {
                 /** Aktion: Anmeldung wegen zu vieler Fehlversuche abgewiesen. */
                 do_action('bootspruefung_login_locked', $login, $ip);
@@ -196,7 +234,7 @@ final class LoginGuard
         }
         if ($userData instanceof WP_User) {
             $ip = RateLimiter::clientIp();
-            $perIp = RateLimiter::increment('forgot-ip|'.$ip, HOUR_IN_SECONDS);
+            $perIp = RateLimiter::increment('forgot-ip|'.RateLimiter::ipKey($ip), HOUR_IN_SECONDS);
             $perUser = RateLimiter::increment('forgot-email|'.strtolower((string) $userData->user_email), HOUR_IN_SECONDS);
             if ($perIp <= 10 && $perUser <= 3) {
                 return; // Mail wird wie gewohnt verschickt

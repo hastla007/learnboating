@@ -118,7 +118,11 @@ paths:
         5 Fehlversuche je E-Mail-Adresse **und** Client-IP, 10 je Client-IP, 30 je E-Mail-Adresse
         insgesamt (danach 429 mit `retry_after`). Eine erfolgreiche Anmeldung setzt den Zähler
         E-Mail + IP zurück. Bis 1.3.x sperrten schon 5 Fehlversuche von beliebigen IPs das Konto.
-        Client-IP: `REMOTE_ADDR`; `X-Forwarded-For` nur von im Shop eingetragenen Proxys.
+        Client-IP: `REMOTE_ADDR`; `X-Forwarded-For` nur von im Shop eingetragenen Proxys; IPv6 zählt seit
+        1.11.0 je /64-Netz. Seit 1.11.0 liefert die Anmeldung einen `device_token` (bekanntes Gerät, 180 Tage,
+        nach Passwortänderung ungültig). Schickt die App ihn bei der nächsten Anmeldung mit, gelten für dieses
+        Konto nur die 5 Fehlversuche je E-Mail-Adresse und IP – die Sperren je IP (Mobilfunk, WLAN) und je Konto
+        treffen sie nicht.
         Abweichung: Konten gelten immer als bestätigt (`email_verified: true`), es gibt keine
         eingeschränkte Sitzung und keinen Bestätigungsablauf – die App darf keine
         E-Mail-Bestätigung anbieten.
@@ -2354,6 +2358,7 @@ components:
         device_name: {type: string, minLength: 1, maxLength: 100}
         device_platform: {type: [string, 'null'], enum: [ios, android, null]}
         app_version: {type: [string, 'null'], maxLength: 40}
+        device_token: {type: [string, 'null'], description: 'Seit 1.11.0: device_token aus der letzten erfolgreichen Anmeldung auf diesem Gerät (sicher speichern, z. B. Keychain/Keystore)'}
     LoginResponse:
       type: object
       required: [data]
@@ -2362,6 +2367,9 @@ components:
           allOf:
             - {$ref: '#/components/schemas/TokenPair'}
             - {$ref: '#/components/schemas/Profile'}
+            - type: object
+              properties:
+                device_token: {type: string, description: 'Seit 1.11.0: Nachweis „bekanntes Gerät“ für die nächste Anmeldung (180 Tage gültig)'}
     User:
       type: object
       required: [id, name, email, email_verified]

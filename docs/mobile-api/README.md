@@ -684,6 +684,11 @@ beibehalten, wo es passt. Abweichungen:
   „Bootsprüfung → Mobile App“; `null`, solange die App nicht im Store steht). Beim Pflicht-Update (426
   `APP_UPDATE_REQUIRED`) steht der Link der eigenen Plattform in `details.store_url`. Mit App-Store-Link
   zeigt Safari auf der Website das App-Banner (`apple-itunes-app`).
+- **Bekanntes Gerät bei der Anmeldung:** `POST /auth/login` liefert `device_token`. Die App speichert ihn sicher
+  und schickt ihn bei der nächsten Anmeldung im Body mit. Dann gelten für dieses Konto nur die 5 Fehlversuche je
+  E-Mail-Adresse und IP; die Sperre je IP (Mobilfunk mit geteilter Adresse, WLAN der Fahrschule) und je Konto
+  (Angriff von vielen IPs) trifft es nicht. Der Nachweis gilt 180 Tage und wird mit einer Passwortänderung
+  ungültig. Das Web nutzt dasselbe als Cookie. IPv6-Adressen zählen je /64-Netz.
 - **Videos auf fremden Servern:** `Media.external_host` (nur Videos) nennt den Hostnamen, wenn das Video nicht auf
   der Shop-Domain liegt. Die App lädt es dann erst nach Einwilligung bzw. Antippen und sagt vorher, dass der
   Anbieter die IP-Adresse erhält (wie das Web: Hinweis im Vorschaubild, „künftig ohne Nachfrage“).

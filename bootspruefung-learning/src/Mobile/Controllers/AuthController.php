@@ -53,7 +53,8 @@ final class AuthController extends BaseController
         $ip = RateLimiter::clientIp();
         $limitMessage = __('Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.', 'bootspruefung-learning');
         // Dieselben Zähler wie wp-login/WooCommerce-Login (LoginGuard): Web und App teilen die Fehlversuche.
-        $buckets = LoginGuard::buckets($email, $ip);
+        // Bekanntes Gerät (device_token aus einer früheren Anmeldung): Sperren je IP und je Konto gelten nicht (T41).
+        $buckets = LoginGuard::scope(LoginGuard::buckets($email, $ip), \Bootspruefung\Learning\Security\KnownDevice::trustedFor($email, trim((string) $request['device_token'])));
         foreach ($buckets as $bucket => $limit) {
             RateLimiter::check($bucket, $limit, self::LOGIN_WINDOW, $limitMessage);
         }
@@ -72,7 +73,7 @@ final class AuthController extends BaseController
         /** Aktion: erfolgreiche App-Anmeldung (Protokoll, Statistik). */
         do_action('bootspruefung_mobile_login', (int) $user->ID, (int) $tokens['session_id']);
 
-        return $this->ok($tokens + AccountController::profile((int) $user->ID));
+        return $this->ok($tokens + AccountController::profile((int) $user->ID) + ['device_token' => \Bootspruefung\Learning\Security\KnownDevice::issue((int) $user->ID)]);
     }
 
     public function refresh(WP_REST_Request $request): WP_REST_Response
@@ -100,7 +101,7 @@ final class AuthController extends BaseController
         if (! is_email($email)) {
             throw ApiException::validation(['email' => [__('Bitte gib eine gültige E-Mail-Adresse ein.', 'bootspruefung-learning')]]);
         }
-        RateLimiter::hit('forgot-ip|'.RateLimiter::clientIp(), 10, HOUR_IN_SECONDS);
+        RateLimiter::hit('forgot-ip|'.RateLimiter::ipKey(RateLimiter::clientIp()), 10, HOUR_IN_SECONDS);
         RateLimiter::hit('forgot-email|'.strtolower($email), 3, HOUR_IN_SECONDS);
         $user = get_user_by('email', $email);
         if ($user instanceof \WP_User) {

@@ -134,6 +134,47 @@ final class RateLimiter
     }
 
     /**
+     * Schlüssel einer IP für Zähler: IPv4 unverändert, IPv6 als /64-Netz (ein Anschluss bekommt meist ein ganzes
+     * /64 – sonst könnte ein Angreifer je Versuch eine neue Adresse nehmen; To-do T41). IPv4 in IPv6 (::ffff:a.b.c.d)
+     * zählt als IPv4.
+     */
+    public static function ipKey(string $ip): string
+    {
+        $bin = @inet_pton($ip);
+        if ($bin === false || strlen($bin) !== 16) {
+            return $ip;
+        }
+        if (str_starts_with($bin, str_repeat("\0", 10)."\xff\xff")) {
+            return (string) inet_ntop(substr($bin, 12));
+        }
+
+        return inet_ntop(substr($bin, 0, 8).str_repeat("\0", 8)).'/64';
+    }
+
+    /**
+     * Steht ein Proxy vor WordPress, ohne dass er eingetragen ist? Dann teilen sich alle Besucher die IP des Proxys
+     * und damit die Anmelde-Limits (To-do T41). Hinweis für Systemstatus und Einstellungen, sonst null.
+     */
+    public static function proxyWarning(): ?string
+    {
+        $remote = self::cleanIp((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($remote === null || self::trusted($remote)) {
+            return null;
+        }
+        $forwarded = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? ''));
+        $private = filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        if ($forwarded === '' && ! $private) {
+            return null;
+        }
+
+        return sprintf(
+            /* translators: %s: IP-Adresse der direkten Gegenstelle */
+            __('Die Anfrage kommt über %s (Proxy bzw. internes Netz), dieser ist aber nicht als vertrauenswürdiger Proxy eingetragen. Dann zählen alle Besucher mit dieser Adresse, und die Anmelde-Limits treffen alle gemeinsam. Proxy unter Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“ eintragen.', 'bootspruefung-learning'),
+            $remote
+        );
+    }
+
+    /**
      * Vertrauenswürdige Proxys (IP oder CIDR): Einstellung „Vertrauenswürdige Proxys“ plus Filter.
      * Standard: keine – auch Loopback und private Netze nicht (sonst könnte jeder Dienst im selben
      * Netz bzw. eine Fehlkonfiguration die Client-IP vorgeben).

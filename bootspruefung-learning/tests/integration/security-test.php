@@ -302,6 +302,46 @@ for ($i = 0; $i < LoginGuard::FAILS_PER_IP; $i++) {
 }
 $byIp = wp_authenticate($login, $pass);
 $check(is_wp_error($byIp) && $byIp->get_error_code() === 'bp_login_locked', LoginGuard::FAILS_PER_IP.' Fehlversuche einer IP mit verschiedenen Namen → IP gesperrt');
+// Bekanntes Gerät (T41): IP gesperrt, aber dieses Konto hat sich hier schon angemeldet → kommt rein.
+$kd = \Bootspruefung\Learning\Security\KnownDevice::class;
+$token = $kd::issue((int) $userId);
+$check($kd::valid($token, (int) $userId) && ! $kd::valid($token, (int) $userId + 1) && ! $kd::valid($token.'0', (int) $userId) && ! $kd::valid($token, (int) $userId, time() + $kd::LIFETIME + 60), 'Gerätenachweis: nur für dieses Konto, unverfälscht und befristet');
+$_COOKIE[$kd::COOKIE] = $token;
+$check(wp_authenticate($login, $pass) instanceof WP_User, 'IP gesperrt: bekanntes Gerät meldet sich mit richtigem Passwort trotzdem an (Fahrschul-WLAN, Mobilfunk)');
+$check(is_wp_error(wp_authenticate('rate_x_'.wp_generate_password(4, false, false), 'falsch')) && wp_authenticate('rate_y_'.wp_generate_password(4, false, false), $pass) instanceof WP_Error, 'Nachweis gilt nur für sein Konto: andere Namen bleiben gesperrt');
+unset($_COOKIE[$kd::COOKIE]);
+$check(is_wp_error(wp_authenticate($login, $pass)), 'ohne Nachweis bleibt die IP gesperrt');
+// Fremdes Konto aussperren (viele IPs, 30 Fehlversuche je Konto): der Besitzer mit Nachweis kommt weiter rein.
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
+for ($i = 0; $i < LoginGuard::FAILS_PER_LOGIN; $i++) {
+    $_SERVER['REMOTE_ADDR'] = '198.51.100.'.($i + 1);
+    wp_authenticate($login, 'falsch');
+}
+$_SERVER['REMOTE_ADDR'] = '203.0.113.80';
+$check(is_wp_error(wp_authenticate($login, $pass)), LoginGuard::FAILS_PER_LOGIN.' Fehlversuche von vielen IPs: Konto ohne Nachweis gesperrt');
+$_COOKIE[$kd::COOKIE] = $token;
+$check(wp_authenticate($login, $pass) instanceof WP_User, 'Besitzer mit bekanntem Gerät wird nicht ausgesperrt');
+unset($_COOKIE[$kd::COOKIE]);
+// Passwort-Reset setzt die Kontozähler zurück und merkt das Gerät.
+do_action('after_password_reset', get_userdata((int) $userId), $pass);
+$check(! empty($_COOKIE[$kd::COOKIE]) && $kd::valid((string) $_COOKIE[$kd::COOKIE], (int) $userId), 'nach Passwort-Reset: Gerät als bekannt gemerkt');
+unset($_COOKIE[$kd::COOKIE]);
+$check(wp_authenticate($login, $pass) instanceof WP_User, 'nach Passwort-Reset: Kontosperre aufgehoben');
+wp_set_password($pass.'-neu', (int) $userId);
+$check(! $kd::valid($token, (int) $userId), 'Passwortänderung macht alte Gerätenachweise ungültig');
+wp_set_password($pass, (int) $userId);
+// IPv6: ein /64-Netz zählt wie eine Adresse.
+$check(\Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:aaaa::1') === \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:bbbb::9') && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('2001:db8:1:2:aaaa::1') === '2001:db8:1:2::/64' && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('::ffff:203.0.113.5') === '203.0.113.5' && \Bootspruefung\Learning\Mobile\RateLimiter::ipKey('203.0.113.5') === '203.0.113.5', 'IPv6 je /64-Netz, IPv4 unverändert');
+// Hinweis zur Begrenzung der Reset-Mails (ohne Kontoaufzählung).
+$check(str_contains((string) apply_filters('woocommerce_lost_password_confirmation_message', 'Gesendet.'), 'höchstens drei Links pro Stunde'), 'Bestätigung „Link gesendet“ nennt die Begrenzung (Spam-Ordner, eine Stunde warten)');
+// Proxy nicht eingetragen: Warnung.
+$_SERVER['REMOTE_ADDR'] = '10.0.0.5';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.9';
+$check(is_string(\Bootspruefung\Learning\Mobile\RateLimiter::proxyWarning()), 'Proxy davor, aber nicht eingetragen: Warnung im Systemstatus');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+$_SERVER['REMOTE_ADDR'] = '203.0.113.81';
+$check(\Bootspruefung\Learning\Mobile\RateLimiter::proxyWarning() === null, 'öffentliche Adresse ohne Proxy: keine Warnung');
+$wpdb->query("DELETE FROM {$p}mobile_rate_limit");
 // Unbekannter Name: gleiche Sperre wie bei einem echten Konto (keine Aufzählung über die Sperre).
 $_SERVER['REMOTE_ADDR'] = '203.0.113.75';
 $ghost = 'gibt_es_nicht_'.wp_generate_password(6, false, false);

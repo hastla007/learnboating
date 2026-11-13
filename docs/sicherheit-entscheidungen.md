@@ -19,8 +19,12 @@ Drei Fragen. Je Frage: wie es heute ist, was sich ändern ließe, unser Vorschla
   Security, All In One WP Security, Loginizer), nimmt sich die Sperre des Lern-Plugins zurück.
 - Ändern ohne Programmierung: Filter `bootspruefung_login_limits` (Schlüssel `ip`, `login_ip`, `login`).
 
-**Bekannte Schwäche** (T41, wird in der Entwicklung behoben): Die Sperre je IP trifft alle Konten hinter derselben
-IP, auch Admins (Fahrschul-WLAN, Mobilfunk, Proxy).
+**Seit T41 („bekanntes Gerät“):** Wer sich auf einem Gerät schon erfolgreich angemeldet oder dort das Passwort
+zurückgesetzt hat, bekommt einen signierten Nachweis (Web: Cookie, App: `device_token`, 180 Tage, mit
+Passwortänderung ungültig). Für diese Person zählen nur die 5 Fehlversuche je Konto und IP. Die Sperre je IP
+(Fahrschul-WLAN, Mobilfunk, Proxy) und die Sperre je Konto (Angreifer mit vielen IPs) treffen sie nicht mehr.
+Ein Passwort-Reset setzt die Kontozähler zurück. IPv6 zählt je /64-Netz. Ein nicht eingetragener Proxy wird im
+Systemstatus gemeldet.
 
 **Frage:** Passen 10 / 5 / 30 in 15 Minuten? Sollen Konten mit Verwaltungsrechten eigene Grenzen bekommen?
 

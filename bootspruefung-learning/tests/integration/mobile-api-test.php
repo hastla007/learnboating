@@ -161,6 +161,7 @@ $check($cookies === 0, 'keine Login-Cookies gesetzt (wp_authenticate statt wp_si
 $r = $login('mobile_kundin_a', $passA, 'Zweitgerät');
 $check($r['status'] === 200, 'Anmeldung auch mit Benutzername');
 $tokensA2 = $r['body']['data'];
+$check(\Bootspruefung\Learning\Security\KnownDevice::valid((string) ($tokensA2['device_token'] ?? ''), (int) get_user_by('login', 'mobile_kundin_a')->ID), 'Anmeldung liefert device_token (bekanntes Gerät, T41)');
 $tokenA = (string) $tokensA['access_token'];
 
 echo "Profil, Tenant, Bearer nur für diesen Namespace\n";
