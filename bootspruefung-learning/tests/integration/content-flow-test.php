@@ -8,7 +8,8 @@ declare(strict_types=1);
  *
  *   WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php tests/integration/content-flow-test.php
  *
- * Voraussetzung: Plugin ist aktiv (z. B. nach smoke-test.php).
+ * Läuft eigenständig (support/standalone.php): aktiviert das Plugin bei Bedarf, beginnt mit Standard-
+ * Einstellungen und stellt die vorherigen am Ende wieder her. Nur gegen eine Test-Datenbank.
  */
 
 $wpDir = rtrim((string) getenv('WP_DIR'), '/');
@@ -21,6 +22,7 @@ $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
 require __DIR__.'/support/guard.php';
+require __DIR__.'/support/standalone.php';
 
 use Bootspruefung\Learning\Content\Import\ImportService;
 use Bootspruefung\Learning\Content\Repositories\Overrides;

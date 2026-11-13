@@ -14,7 +14,7 @@ declare(strict_types=1);
  *
  *   WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php tests/integration/navigation-check-test.php
  *
- * Voraussetzung: Plugin aktiv (smoke-test.php). Nur gegen eine Test-Datenbank.
+ * Läuft eigenständig (support/standalone.php, importiert das Paket selbst). Nur gegen eine Test-Datenbank.
  */
 
 $wpDir = rtrim((string) getenv('WP_DIR'), '/');
@@ -27,6 +27,7 @@ $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require $wpDir.'/wp-load.php';
 require __DIR__.'/support/guard.php';
+require __DIR__.'/support/standalone.php';
 
 use Bootspruefung\Learning\Infrastructure\Database\Migrator;
 use Bootspruefung\Learning\Plugin;

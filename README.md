@@ -99,6 +99,10 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/smoke-tes
 WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php bootspruefung-learning/tests/integration/content-flow-test.php
 ```
 
+`content-flow-test.php` und `navigation-check-test.php` laufen eigenständig (`tests/integration/support/standalone.php`):
+Sie aktivieren das Plugin bei Bedarf, holen eine fällige Migration nach, beginnen mit Standard-Einstellungen und
+stellen die vorherigen am Ende wieder her – unabhängig davon, welche Tests vorher liefen. Nur gegen eine Test-Datenbank.
+
 Zugangslogik ohne Shop (Testbestellungen) und gegen echtes WooCommerce (vorher `woocommerce-setup.php`):
 
 ```bash
@@ -146,6 +150,14 @@ Kaufablauf (WooCommerce aktiv, vorher `woocommerce-setup.php`):
 
 ```bash
 WP_DIR=/pfad/zu/wordpress node bootspruefung-learning/tests/e2e/checkout-flow.mjs
+```
+
+Konto und Ausfallsicherheit (WooCommerce aktiv): Prüfung am Handy ohne Netz und abbrechen, „Meine Daten“ mit
+Kontolöschung über den Bestätigungsknopf, Abmeldelink der Ablauf-Erinnerung, Login-Sperre mit Passwort-Reset.
+Mails fängt der Test über ein MU-Plugin ab; Konten, Zähler und Einstellungen räumt er danach auf:
+
+```bash
+WP_DIR=/pfad/zu/wordpress node bootspruefung-learning/tests/e2e/account-flow.mjs
 ```
 
 ## Staging (Docker)

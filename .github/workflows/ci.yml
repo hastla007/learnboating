@@ -320,6 +320,9 @@ jobs:
           WP_DIR="$RUNNER_TEMP/wp" php bootspruefung-learning/tests/integration/woocommerce-setup.php
           mkdir -p "$RUNNER_TEMP/shots"
           WP_DIR="$RUNNER_TEMP/wp" BP_SHOTS="$RUNNER_TEMP/shots" node bootspruefung-learning/tests/e2e/checkout-flow.mjs
+          # Konto und Ausfallsicherheit (T60): Prüfung offline am Handy und abbrechen, „Meine Daten“ mit Kontolöschung,
+          # Abmeldelink der Ablauf-Erinnerung, Login-Sperre mit Passwort-Reset (räumt Konten und Zähler danach auf)
+          WP_DIR="$RUNNER_TEMP/wp" BP_SHOTS="$RUNNER_TEMP/shots" node bootspruefung-learning/tests/e2e/account-flow.mjs
         env:
           BP_THEME: ${{ matrix.theme }}
       - name: Theme Kurswasser – Demo-Stand und Screenshots
