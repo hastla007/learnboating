@@ -73,6 +73,7 @@ $settingsBefore = get_option(Settings::OPTION);
 update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'entitled_only']));
 update_option('vcap_attach_pdf', 'no');
 add_filter('pre_wp_mail', '__return_true');
+require_once ABSPATH.'wp-admin/includes/user.php'; // wp_delete_user()
 $user = static function (string $login): int {
     $u = get_user_by('login', $login);
     if ($u) {
