@@ -131,6 +131,7 @@ final class Menu
 
         if ($woo['active']) {
             $this->renderShopStatus($woo);
+            \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::renderStatus(); // T64/T65
         }
         $this->renderBackupHint();
         SystemStatus::renderMaintenance();

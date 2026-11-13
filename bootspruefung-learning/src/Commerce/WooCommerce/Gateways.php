@@ -40,7 +40,7 @@ final class Gateways
             'klarna' => [
                 'label' => 'Klarna',
                 'payment' => __('Freischaltung, sobald Klarna die Bestellung bestätigt und WooCommerce sie als bezahlt führt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“.', $d),
-                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft. Konflikte über den allgemeinen Dispute-Webhook (Einstellungen › Zahlungskonflikte, z. B. Weiterleitung der Klarna-Benachrichtigung) oder manuell „Lernzugang aussetzen“.', $d),
+                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft. Konflikte über den allgemeinen Dispute-Webhook (Einstellungen › Zahlungskonflikte, z. B. Weiterleitung der Klarna-Benachrichtigung) oder von Hand in der Bestellung mit der Aktion „Klarna-Konflikt melden“ (eröffnet, gewonnen, verloren).', $d),
             ],
             'kco' => [
                 'label' => 'Klarna Checkout',

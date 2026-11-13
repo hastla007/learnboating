@@ -65,6 +65,13 @@ final class SystemStatus
                 'tax_enabled' => function_exists('wc_tax_enabled') ? wc_tax_enabled() : null,
                 'prices_include_tax' => function_exists('wc_prices_include_tax') ? wc_prices_include_tax() : null,
             ],
+            // Zahlungskonflikte (T64): nur ja/nein und Umgebung, keine Zugangsdaten.
+            'disputes' => [
+                'paypal_signature_verified' => ($paypal = \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::paypalStatus())['verified'],
+                'paypal_mode' => $paypal['mode'],
+                'paypal_last_verification' => $paypal['last']['result'] ?? null,
+                'generic_webhook' => \Bootspruefung\Learning\Commerce\Disputes\DisputeWebhooks::settings()['generic_secret'] !== '',
+            ],
             'php_version' => PHP_VERSION,
             'wp_version' => (string) $wp_version,
         ];

@@ -588,6 +588,178 @@ $check($statuses($pp2) === ['active'], 'PayPal: RESOLVED vor CREATED/UPDATED –
 $check($dw::paypalAction(['event_type' => 'CUSTOMER.DISPUTE.UPDATED', 'resource' => ['status' => 'RESOLVED', 'dispute_outcome' => ['outcome_code' => 'RESOLVED_BUYER_FAVOUR']]]) === 'lost'
     && $dw::paypalAction(['event_type' => 'CUSTOMER.DISPUTE.UPDATED', 'resource' => ['status' => 'WAITING_FOR_SELLER_RESPONSE']]) === 'opened', 'PayPal: UPDATED nach resource.status ausgewertet');
 remove_filter('bootspruefung_paypal_verify', '__return_true');
+
+echo "PayPal: echte Signaturprüfung über verify-webhook-signature (T64)\n";
+// HTTP-Antworten von PayPal über pre_http_request vorgeben: Token, dann SUCCESS / FAILURE / Netzwerkfehler.
+wp_set_current_user(1);
+update_option($dw::OPTION, ['paypal_client_id' => 'cid', 'paypal_secret' => 'sec', 'paypal_webhook_id' => 'WH-ID-1', 'paypal_mode' => 'sandbox', 'generic_secret' => 'test-secret']);
+delete_option($dw::OPTION_LAST_VERIFY);
+foreach (['bp_paypal_verify_calls', 'bp_webhook_rejected_paypal', 'bp_webhook_rejected_paypal_unconfigured'] as $t) {
+    delete_transient($t);
+}
+$dropTokens = static function (): void {
+    foreach (['sandbox', 'live'] as $mode) {
+        delete_transient('bp_paypal_token_'.md5($mode.'|cid'));
+    }
+};
+$dropTokens();
+$auditMax = (int) $wpdb->get_var("SELECT MAX(id) FROM {$p}audit_log");
+$ppHttp = ['verify' => 'SUCCESS', 'token_error' => false, 'requests' => []];
+$ppMock = static function ($pre, $args, $url) use (&$ppHttp) {
+    if (! str_contains((string) $url, 'paypal.com/')) {
+        return $pre;
+    }
+    $ppHttp['requests'][] = ['url' => (string) $url, 'args' => $args];
+    $json = static fn (array $data, int $code = 200) => ['headers' => [], 'body' => (string) wp_json_encode($data), 'response' => ['code' => $code, 'message' => 'OK'], 'cookies' => [], 'filename' => null];
+    if (str_ends_with((string) $url, '/v1/oauth2/token')) {
+        return $ppHttp['token_error'] ? new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host') : $json(['access_token' => 'TOKEN-1', 'token_type' => 'Bearer', 'expires_in' => 32400]);
+    }
+    if ($ppHttp['verify'] === 'network') {
+        return new WP_Error('http_request_failed', 'cURL error 28: Operation timed out');
+    }
+
+    return $json(['verification_status' => $ppHttp['verify']]);
+};
+add_filter('pre_http_request', $ppMock, 10, 3);
+$ppHeaders = static fn (string $tid) => ['paypal-auth-algo' => 'SHA256withRSA', 'paypal-cert-url' => 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-1', 'paypal-transmission-id' => $tid,
+    'paypal-transmission-sig' => 'c2lnbmF0dXI=', 'paypal-transmission-time' => '2026-11-13T10:00:00Z'];
+$pp3 = $paidOrder($alice, 'ppcp-gateway', 'CAPTURE-'.wp_generate_password(6, false));
+$capture3 = wc_get_order($pp3)->get_transaction_id();
+$ppEvent3 = static fn (string $id, string $type, string $outcome = '', string $case = 'PP-D-3') => ['id' => $id, 'event_type' => $type, 'create_time' => '2026-11-13T10:00:00Z',
+    'resource' => ['dispute_id' => $case, 'reason' => 'Ware nicht erhalten – „Prüfung“', 'amount' => ['value' => 19.9], 'disputed_transactions' => [['seller_transaction_id' => $capture3]], 'dispute_outcome' => ['outcome_code' => $outcome]]];
+
+// Erfolgreich: Zugang ausgesetzt; Anfrage an die Sandbox mit Token, Webhook-ID, Kopfzeilen und unverändertem Rohtext.
+$rawEvent = (string) wp_json_encode($ppEvent3('WH-S-1', 'CUSTOMER.DISPUTE.CREATED'), JSON_UNESCAPED_UNICODE);
+$request = new WP_REST_Request('POST', '/bootspruefung/v1/webhooks/paypal');
+$request->set_body($rawEvent);
+$request->set_header('content-type', 'application/json');
+foreach ($ppHeaders('TX-1') as $k => $v) {
+    $request->set_header($k, $v);
+}
+$r = rest_do_request($request);
+$check($r->get_status() === 200 && $statuses($pp3) === ['suspended'], 'PayPal-Prüfung SUCCESS: Nachricht verarbeitet, Zugang ausgesetzt');
+$tokenReq = $ppHttp['requests'][0] ?? null;
+$verifyReq = $ppHttp['requests'][1] ?? null;
+$check($tokenReq !== null && $tokenReq['url'] === 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
+    && ($tokenReq['args']['headers']['Authorization'] ?? '') === 'Basic '.base64_encode('cid:sec'), 'OAuth-Token mit Client-ID/Secret bei der Sandbox geholt');
+$sent = json_decode((string) ($verifyReq['args']['body'] ?? ''), true);
+$check($verifyReq !== null && $verifyReq['url'] === 'https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature'
+    && ($verifyReq['args']['headers']['Authorization'] ?? '') === 'Bearer TOKEN-1'
+    && ($sent['webhook_id'] ?? '') === 'WH-ID-1' && ($sent['transmission_id'] ?? '') === 'TX-1' && ($sent['auth_algo'] ?? '') === 'SHA256withRSA'
+    && ($sent['cert_url'] ?? '') === 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-1' && ($sent['transmission_sig'] ?? '') === 'c2lnbmF0dXI=' && ($sent['transmission_time'] ?? '') === '2026-11-13T10:00:00Z',
+    'verify-webhook-signature: Webhook-ID aus den Einstellungen und alle PAYPAL-Kopfzeilen');
+$check(str_contains((string) ($verifyReq['args']['body'] ?? ''), '"webhook_event":'.$rawEvent), 'webhook_event als unveränderter Rohtext (Umlaute, Zahlen) an PayPal');
+$check(($dw::paypalStatus()['last']['result'] ?? '') === 'success' && str_contains($dw::paypalStatusText(), 'erfolgreich'), 'Ergebnis der letzten Prüfung für Einstellungen/Systemstatus gemerkt');
+
+// Token wird wiederverwendet (keine zweite Token-Anfrage).
+$ppHttp['requests'] = [];
+$postHook('paypal', $ppEvent3('WH-S-2', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR'), $ppHeaders('TX-2'));
+$check($statuses($pp3) === ['active'] && count($ppHttp['requests']) === 1 && str_ends_with($ppHttp['requests'][0]['url'], '/verify-webhook-signature'), 'zweite Nachricht: Token aus dem Zwischenspeicher, gewonnen → wieder aktiv');
+
+// FAILURE: 401, nichts verarbeitet, Audit-Log (neuer Konfliktfall PP-D-4; PP-D-3 ist gewonnen und damit abgeschlossen).
+$ppHttp['verify'] = 'FAILURE';
+$r = $postHook('paypal', $ppEvent3('WH-F-1', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-4'), $ppHeaders('TX-3'));
+$check($r->get_status() === 401 && $statuses($pp3) === ['active'], 'PayPal-Prüfung FAILURE: 401, Zugang unverändert');
+$check((bool) $wpdb->get_var("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_webhook_rejected' AND object_id = 'paypal' AND context LIKE '%WH-F-1%failure%' AND id > {$auditMax}"), 'FAILURE im Audit-Log');
+$check(! wc_get_order($pp3)->get_meta($dw::META_EVENTS) || ! in_array(md5('paypal|WH-F-1'), (array) wc_get_order($pp3)->get_meta($dw::META_EVENTS), true), 'abgewiesenes Ereignis nicht als verarbeitet vermerkt');
+$check(($dw::paypalStatus()['last']['result'] ?? '') === 'failure', 'letzte Prüfung: abgelehnt');
+// Dieselbe Nachricht nach erfolgreicher Prüfung (PayPal stellt erneut zu) wird normal verarbeitet.
+$ppHttp['verify'] = 'SUCCESS';
+$postHook('paypal', $ppEvent3('WH-F-1', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-4'), $ppHeaders('TX-3'));
+$check($statuses($pp3) === ['suspended'], 'nach Ablehnung erneut zugestellt und geprüft: verarbeitet');
+
+// Netzwerkfehler bei der Prüfung: 503 (PayPal stellt erneut zu), nichts verarbeitet.
+$ppHttp['verify'] = 'network';
+$r = $postHook('paypal', $ppEvent3('WH-N-1', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'), $ppHeaders('TX-4'));
+$check($r->get_status() === 503 && $statuses($pp3) === ['suspended'], 'Netzwerkfehler bei verify-webhook-signature: 503, Zugang unverändert');
+$check(($dw::paypalStatus()['last']['result'] ?? '') === 'error', 'letzte Prüfung: PayPal nicht erreichbar');
+// Netzwerkfehler beim Token: ebenfalls 503.
+$dropTokens();
+$ppHttp['verify'] = 'SUCCESS';
+$ppHttp['token_error'] = true;
+$r = $postHook('paypal', $ppEvent3('WH-N-2', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'), $ppHeaders('TX-5'));
+$check($r->get_status() === 503 && $statuses($pp3) === ['suspended'], 'Netzwerkfehler beim Token: 503, Zugang unverändert');
+$ppHttp['token_error'] = false;
+
+// Ohne PayPal-Kopfzeilen: 401 ohne Anfrage bei PayPal.
+$ppHttp['requests'] = [];
+$r = $postHook('paypal', $ppEvent3('WH-H-1', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'));
+$check($r->get_status() === 401 && $ppHttp['requests'] === [] && $statuses($pp3) === ['suspended'], 'ohne PAYPAL-Kopfzeilen: 401, keine Anfrage bei PayPal');
+
+// Live-Umgebung: api-m.paypal.com.
+update_option($dw::OPTION, array_merge($dw::settings(), ['paypal_mode' => 'live']));
+$ppHttp['requests'] = [];
+$postHook('paypal', $ppEvent3('WH-L-1', 'CUSTOMER.DISPUTE.RESOLVED', 'RESOLVED_SELLER_FAVOUR', 'PP-D-4'), $ppHeaders('TX-6'));
+$check(($ppHttp['requests'][0]['url'] ?? '') === 'https://api-m.paypal.com/v1/oauth2/token' && $statuses($pp3) === ['active'], 'Live-Einstellung: Anfrage an api-m.paypal.com');
+
+// Nicht eingerichtet: wie bisher 503, nichts verarbeitet; Systemstatus und Einstellungen zeigen „Signatur nicht geprüft“.
+update_option($dw::OPTION, array_merge($dw::settings(), ['paypal_webhook_id' => '']));
+$ppHttp['requests'] = [];
+$r = $postHook('paypal', $ppEvent3('WH-U-1', 'CUSTOMER.DISPUTE.CREATED', '', 'PP-D-4'), $ppHeaders('TX-7'));
+$check($r->get_status() === 503 && $ppHttp['requests'] === [] && $statuses($pp3) === ['active'], 'ohne Webhook-ID: 503 wie bisher, nichts verarbeitet');
+$check(! $dw::paypalStatus()['verified'] && $dw::paypalStatus()['missing'] === ['Webhook-ID'] && str_contains($dw::paypalStatusText(), 'Signatur nicht geprüft'), 'Status: „Signatur nicht geprüft“, fehlende Angabe benannt');
+ob_start();
+$dw::renderStatus();
+$statusHtml = (string) ob_get_clean();
+$check(str_contains($statusHtml, 'Zahlungskonflikte') && str_contains($statusHtml, 'Signatur nicht geprüft'), 'Systemstatus: Abschnitt „Zahlungskonflikte“ mit „Signatur nicht geprüft“');
+ob_start();
+$dw::renderSettings();
+$check(str_contains((string) ob_get_clean(), 'Signatur nicht geprüft'), 'Einstellungen zeigen „Signatur nicht geprüft“');
+$check(\Bootspruefung\Learning\Admin\SystemStatus::collect()['disputes']['paypal_signature_verified'] === false, 'Systemstatus (REST/CLI): paypal_signature_verified = false');
+remove_filter('pre_http_request', $ppMock, 10);
+
+echo "Klarna-Konflikt von Hand melden (Bestellaktion, T65)\n";
+$k4 = $paidOrder($bob, 'klarna_payments');
+$check(isset(apply_filters('woocommerce_order_actions', [], wc_get_order($k4))['bp_dispute_klarna_opened']), 'Bestellaktion „Klarna-Konflikt melden“ bei Klarna-Bestellung');
+$check(! isset(apply_filters('woocommerce_order_actions', [], wc_get_order($pp3))['bp_dispute_klarna_opened']), 'nicht bei anderen Zahlungsarten');
+ob_start();
+do_action('woocommerce_order_actions_end', $k4);
+$check(str_contains((string) ob_get_clean(), 'bp_dispute_case'), 'Feld „Klarna-Fall-ID“ bei Klarna-Bestellung');
+\WC_Admin_Meta_Boxes::$meta_box_errors = [];
+unset($_POST['bp_access_reason'], $_POST['bp_dispute_case']);
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k4));
+$check($statuses($k4) === ['active'] && \WC_Admin_Meta_Boxes::$meta_box_errors !== [], 'ohne Begründung: nichts geändert, Hinweis im Admin');
+$_POST['bp_access_reason'] = 'Kundin hat bei Klarna reklamiert';
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k4));
+$check($statuses($k4) === ['suspended'], 'eröffnet: Zugang ausgesetzt');
+$check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_opened' AND object_id = %s AND actor_user_id = 1 AND reason LIKE %s", (string) $k4, '%Klarna-Konflikt eröffnet (Kundin hat bei Klarna reklamiert)%')), 'Audit-Log mit Begründung und handelnder Person');
+$notes = implode("\n", array_map(static fn ($n) => $n->content, wc_get_order_notes(['order_id' => $k4])));
+$check(str_contains($notes, 'Klarna-Konflikt eröffnet (Kundin hat bei Klarna reklamiert)'), 'Bestellnotiz wie beim Webhook');
+$state = wc_get_order($k4)->get_meta($dw::META_STATE);
+$check(($state['klarna|']['status'] ?? '') === 'opened', 'Stand des Falls wie beim allgemeinen Webhook (Quelle klarna, ohne Fall-ID)');
+$_POST['bp_access_reason'] = 'Klarna hat zu unseren Gunsten entschieden';
+do_action('woocommerce_order_action_bp_dispute_klarna_won', wc_get_order($k4));
+$check($statuses($k4) === ['active'], 'gewonnen: Zugang wiederhergestellt');
+// Abgeschlossener Fall: ein weiteres „eröffnet“ ohne Fall-ID wird nicht angewendet (wie beim Webhook), Hinweis im Admin.
+\WC_Admin_Meta_Boxes::$meta_box_errors = [];
+$_POST['bp_access_reason'] = 'neuer Konflikt';
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k4));
+$check($statuses($k4) === ['active'] && str_contains(implode(' ', \WC_Admin_Meta_Boxes::$meta_box_errors), 'Klarna-Fall-ID'), 'abgeschlossener Fall: „eröffnet“ ignoriert, Hinweis auf Fall-ID');
+// Mit eigener Fall-ID: neuer Fall, dann verloren → widerrufen.
+$_POST['bp_dispute_case'] = 'KL-777';
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k4));
+$check($statuses($k4) === ['suspended'], 'neuer Fall mit Klarna-Fall-ID: ausgesetzt');
+// Gleiche Fall-ID über den allgemeinen Webhook: derselbe Fall (ein „eröffnet“ ändert nichts mehr).
+$r = $send(['id' => 'K4-open-webhook', 'event' => 'opened', 'order_id' => $k4, 'source' => 'klarna', 'dispute_id' => 'KL-777']);
+$state = wc_get_order($k4)->get_meta($dw::META_STATE);
+$check($r->get_status() === 200 && $statuses($k4) === ['suspended'] && ($state['klarna|KL-777']['status'] ?? '') === 'opened'
+    && str_starts_with((string) ($state['klarna|KL-777']['event'] ?? ''), 'admin-') && count($state) === 2, 'Webhook mit derselben Fall-ID: derselbe Fall (kein zweiter Fall)');
+\WC_Admin_Meta_Boxes::$meta_box_errors = [];
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k4));
+$check(str_contains(implode(' ', \WC_Admin_Meta_Boxes::$meta_box_errors), 'bereits gemeldet'), 'doppelte Meldung: Hinweis „bereits gemeldet“');
+$_POST['bp_access_reason'] = 'Klarna hat für die Kundin entschieden';
+do_action('woocommerce_order_action_bp_dispute_klarna_lost', wc_get_order($k4));
+$check($statuses($k4) === ['revoked'], 'verloren: Zugang widerrufen');
+$check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_lost' AND object_id = %s", (string) $k4)), 'verloren im Audit-Log');
+// Ohne Recht „Zugänge verwalten“: keine Aktion, keine Wirkung.
+$k5 = $paidOrder($bob, 'klarna_payments');
+wp_set_current_user($alice);
+$check(! isset(apply_filters('woocommerce_order_actions', [], wc_get_order($k5))['bp_dispute_klarna_opened']), 'ohne Recht: keine Klarna-Aktion');
+do_action('woocommerce_order_action_bp_dispute_klarna_opened', wc_get_order($k5));
+$check($statuses($k5) === ['active'], 'ohne Recht: Zugang unverändert');
+wp_set_current_user(1);
+unset($_POST['bp_access_reason'], $_POST['bp_dispute_case']);
+\WC_Admin_Meta_Boxes::$meta_box_errors = [];
 update_option($dw::OPTION, []);
 
 echo "Automatischer Abgleich verpasster Bestellereignisse (ARC-03)\n";

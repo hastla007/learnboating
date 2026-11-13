@@ -51,3 +51,45 @@ Anmeldung, Passwort-Reset und App-Login damit funktionieren. Die App meldet sich
 an; wie sich das Plugin beim App-Login eines Admin-Kontos verhält, auf Staging prüfen.
 
 **Frage:** Zwei-Faktor für Admins einführen, und mit welchem Plugin?
+
+## 4. Zahlungskonflikte: PayPal-Signatur und Klarna (T64/T65)
+
+**PayPal heute:** Der Webhook `/wp-json/bootspruefung/v1/webhooks/paypal` prüft jede Nachricht bei PayPal
+(`POST /v1/notifications/verify-webhook-signature`, mit den Kopfzeilen `PAYPAL-TRANSMISSION-ID`, `-TIME`, `-SIG`,
+`PAYPAL-CERT-URL`, `PAYPAL-AUTH-ALGO` und der Webhook-ID). Erst nach der Antwort `SUCCESS` setzt das Plugin den
+Zugang aus bzw. stellt ihn wieder her.
+
+| Fall | Antwort | Wirkung |
+|---|---|---|
+| Zugangsdaten fehlen | 503 | nichts verarbeitet; Einstellungen und Systemstatus zeigen „Signatur nicht geprüft“ |
+| PayPal antwortet `FAILURE` oder Kopfzeilen fehlen | 401 | nichts verarbeitet; Audit-Log und PHP-Fehlerprotokoll |
+| PayPal nicht erreichbar, kein Token | 503 | nichts verarbeitet; PayPal stellt die Nachricht später erneut zu |
+
+**Was du einrichten musst:**
+
+1. Im PayPal-Developer-Dashboard (zuerst **Sandbox**) bei der App einen Webhook anlegen:
+   URL aus *Bootsprüfung › Einstellungen › Zahlungskonflikte*, Ereignisse „Customer dispute created“,
+   „updated“ und „resolved“.
+2. Client-ID, Secret und die Webhook-ID dieses Webhooks eintragen und „Sandbox“ wählen. Alternativ in
+   `wp-config.php` (haben dann Vorrang, stehen nicht in der Datenbank):
+   `BOOTSPRUEFUNG_PAYPAL_CLIENT_ID`, `BOOTSPRUEFUNG_PAYPAL_SECRET`, `BOOTSPRUEFUNG_PAYPAL_WEBHOOK_ID`,
+   `BOOTSPRUEFUNG_PAYPAL_MODE` (`live` oder `sandbox`).
+3. Sandbox-Test: mit einem Sandbox-Käuferkonto kaufen, dann einen Konflikt eröffnen. Erwartung: Zugang
+   „ausgesetzt“, Bestellnotiz „PayPal-Konflikt eröffnet“; im Systemstatus „Letzte Prüfung: … erfolgreich“.
+4. Für den Livebetrieb einen eigenen Webhook in der Live-App anlegen und Live-Zugangsdaten mit „Live“
+   eintragen. Sandbox- und Live-Werte nicht mischen.
+
+**Klarna:** Klarna meldet Konflikte nicht an WooCommerce. Zwei Wege:
+
+- **Von Hand:** In der Bestellung (Bestellaktionen) „Klarna-Konflikt melden: eröffnet / gewonnen / verloren“
+  wählen, Begründung eintragen (Pflicht), optional die Klarna-Fall-ID. Das wirkt genau wie der allgemeine
+  Webhook: aussetzen, wiederherstellen oder widerrufen, Audit-Log, Bestellnotiz. Ein abgeschlossener Fall ist
+  endgültig. Für einen zweiten Konflikt zur selben Bestellung die Klarna-Fall-ID angeben.
+- **Automatisch:** Eine Automatisierung (z. B. Zapier, Make, n8n oder ein eigenes Skript) wertet die
+  Klarna-Benachrichtigung aus und schickt sie an den allgemeinen Webhook
+  `/wp-json/bootspruefung/v1/webhooks/dispute`: JSON mit `event` (`opened`/`won`/`lost`), `order_id` oder
+  `transaction_id`, `id`, `source: "klarna"`, `dispute_id`, `timestamp`; Kopfzeile
+  `X-Bootspruefung-Signature: sha256=<HMAC-SHA256 über den Rohtext mit dem Schlüssel aus den Einstellungen>`.
+
+**Fragen:** Wie meldet Klarna dir Konflikte (E-Mail aus dem Händlerportal oder eine eigene Schnittstelle)?
+Erst danach lässt sich die Automatisierung genau beschreiben. Reicht bis dahin die Meldung von Hand?
