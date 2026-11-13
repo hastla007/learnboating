@@ -733,6 +733,7 @@ $relUsers = ['bin' => $user('bp_rel_binnen'), 'combo' => $user('bp_rel_kombi'), 
 $expUsers = ['a' => $user('bp_exp_a'), 'b' => $user('bp_exp_b'), 'later' => $user('bp_exp_later'), 'open' => $user('bp_exp_open'), 'far' => $user('bp_exp_far')];
 $relAll = implode(',', array_merge($relUsers, $expUsers));
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$relAll})");
+$giftUser = $user('bp_exp_member');
 $wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $giftUser));
 foreach (array_merge($relUsers, $expUsers) as $uid) {
     delete_user_meta($uid, \Bootspruefung\Learning\Commerce\ExpiryReminder::META);
