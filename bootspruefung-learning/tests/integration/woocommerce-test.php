@@ -568,8 +568,9 @@ $check(is_array($stats) && $stats['checked'] === 1 && $statuses($stuckFresh) ===
 // T47: fehlgeschlagene Bestellung wird in späteren Läufen erneut versucht.
 $failing = $paidOrder($bob, 'bacs');
 $wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE order_id = %d", $failing));
-$setModified([$failing], time() - 20 * MINUTE_IN_SECONDS);
-update_option($AR::OPTION_CURSOR, ['time' => time() - 30 * MINUTE_IN_SECONDS, 'id' => 0], false);
+$failTs = time() - 20 * MINUTE_IN_SECONDS;
+$setModified([$failing], $failTs);
+update_option($AR::OPTION_CURSOR, ['time' => $failTs, 'id' => $failing - 1], false); // direkt vor die Testbestellung
 $boom = static function ($target, $order) use ($failing) {
     if (is_object($order) && (int) ($order->id ?? 0) === $failing) {
         throw new RuntimeException('Testfehler');
@@ -578,10 +579,10 @@ $boom = static function ($target, $order) use ($failing) {
     return $target;
 };
 add_filter('bootspruefung_order_access_target', $boom, 10, 2);
-$stats = $AR::run(100, time());
+$stats = $AR::run(1, time());
 $check(is_array($stats) && $stats['failed'] >= 1 && isset($AR::retryList()[$failing]), 'Fehler beim Abgleich: Bestellung kommt auf die Wiederholungsliste');
 remove_filter('bootspruefung_order_access_target', $boom, 10);
-$stats = $AR::run(100, time());
+$stats = $AR::run(1, time());
 $check(! isset($AR::retryList()[$failing]) && $statuses($failing) === ['active'] && ($stats['retried'] ?? 0) >= 1, 'nächster Lauf wiederholt sie erfolgreich und nimmt sie von der Liste');
 $check(is_array(get_option($AR::OPTION_LAST_RUN)) && isset(get_option($AR::OPTION_LAST_RUN)['at']), 'letzter Lauf gemerkt (Wartungsanzeige)');
 foreach ($sameSecond as $bulkId) {
@@ -825,8 +826,20 @@ $check($h !== null && $h['kind'] === $cdh::RENEW_SOON && $cdh::message($h)['titl
 $h = $cdh::evaluate($st('expired', '2026-10-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14);
 $check($h !== null && $h['kind'] === $cdh::RENEW_EXPIRED && str_contains($cdh::message($h)['text'], 'abgelaufen') && str_contains($cdh::message($h)['text'], '12 Monate ab Zahlungseingang'), 'abgelaufen: als Verlängerung erklärt (Laufzeit ab Zahlungseingang)');
 $check(($cdh::evaluate($st('suspended', '2027-06-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14)['kind'] ?? null) === $cdh::SUSPENDED && ($cdh::evaluate($st('active', null), 'BP-SBF-SEE', 365, $tNow, 14)['kind'] ?? null) === $cdh::OWNED_UNLIMITED, 'gesperrt bzw. unbefristet: eigener Hinweis');
-$check($cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE-VIDEO', 365, $tNow, 14) === null && $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-KAPITAEN', 365, $tNow, 14) === null
-    && $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-BIN', 365, $tNow, 14) === null && $cdh::evaluate([], 'BP-SBF-SEE', 365, $tNow, 14) === null, 'kein Hinweis für Video-Upgrade, Bundle, anderen Kurs oder ohne Kauf');
+$check($cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE-VIDEO', 365, $tNow, 14) === null
+    && $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-BIN', 365, $tNow, 14) === null && $cdh::evaluate([], 'BP-SBF-SEE', 365, $tNow, 14) === null && $cdh::evaluate([], 'BP-KAPITAEN', 365, $tNow, 14) === null, 'kein Hinweis für Video-Upgrade, anderen Kurs oder ohne Kauf');
+// T50: Bundle, Pass und Kombi prüfen die enthaltenen Kurse.
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-KAPITAEN', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::OVERLAP && $h['parts'] === ['SBF-SEE'] && ! $h['all_parts'] && str_contains($cdh::message($h)['text'], 'SBF See') && $cdh::message($h)['title'] === 'Einen Teil davon hast du schon', 'Kapitäns-Bundle mit vorhandenem SBF See: Hinweis „Einen Teil davon hast du schon“');
+$h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE-BIN', 365, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::OVERLAP && in_array('SBF-SEE', $h['parts'], true), 'Kombi See & Binnen mit vorhandenem SBF See: Hinweis auf den enthaltenen Kurs');
+$h = $cdh::evaluate($st('pending', null, ['order_id' => 4713, 'pending_orders' => [4713]]), 'BP-PASS-3M', 90, $tNow, 14);
+$check($h !== null && $h['kind'] === $cdh::ORDERED && $h['order_id'] === 4713, 'Pass mit offener Bestellung eines enthaltenen Kurses: „schon bestellt“');
+// T50: Theorie-Verlängerung bei vorhandenem Videokurs.
+$h = $cdh::evaluate($st('active', '2026-11-20 12:00:00', ['video' => true]), 'BP-SBF-SEE', 365, $tNow, 14);
+$check($h !== null && $h['video_lost'] && str_contains($cdh::message($h)['text'], 'Videokurs ist in der Theorie-Stufe nicht enthalten') && str_contains($cdh::message($h)['text'], '20.11.2026'), 'Theorie verlängern trotz Videokurs: Hinweis, dass der Videokurs nicht mitverlängert wird');
+$h = $cdh::evaluate($st('active', '2026-11-20 12:00:00', ['video' => true]), 'BP-SBF-SEE-KOMPLETT', 365, $tNow, 14);
+$check($h !== null && ! $h['video_lost'], 'Komplett verlängern: kein Video-Hinweis');
 $h = $cdh::evaluate($st('active', '2027-06-01 12:00:00'), 'BP-SBF-SEE', 365, $tNow, 14, 'parallel');
 $check($h !== null && $h['kind'] === $cdh::OWNED && $h['new_until'] === null, 'parallele Laufzeit: kein neues Enddatum behauptet');
 if (function_exists('wc_load_cart')) {
@@ -838,6 +851,16 @@ if (function_exists('wc_load_cart')) {
     $dupOrder->set_payment_method('bacs');
     $dupOrder->calculate_totals();
     $dupOrder->update_status('on-hold', 'Warte auf Überweisung');
+    // T50: Bankdaten bei offener Überweisung auch in der Bestellansicht.
+    $bacsAccountsBefore = get_option('woocommerce_bacs_accounts', null);
+    update_option('woocommerce_bacs_accounts', [['account_name' => 'Testschule GmbH', 'account_number' => '', 'bank_name' => 'Testbank', 'sort_code' => '', 'iban' => 'DE02120300000000202051', 'bic' => 'BYLADEM1001']]);
+    $gwAll = WC()->payment_gateways()->payment_gateways();
+    if (isset($gwAll['bacs'])) {
+        $gwAll['bacs']->account_details = get_option('woocommerce_bacs_accounts');
+    }
+    $bankHtml = \Bootspruefung\Learning\Commerce\WooCommerce\BankDetails::html((int) $dupOrder->get_id());
+    $check(str_contains($bankHtml, 'Zahlung per Überweisung') && str_contains($bankHtml, 'DE02120300000000202051') && has_action('woocommerce_view_order') !== false, 'offene Überweisung: Bankdaten auch in „Bestellung ansehen“ (T50)');
+    $bacsAccountsBefore === null ? delete_option('woocommerce_bacs_accounts') : update_option('woocommerce_bacs_accounts', $bacsAccountsBefore);
     $dupId = (int) $dupOrder->get_id();
     $states = \Bootspruefung\Learning\Commerce\AccessStatus::forUser($dupUser);
     $check(($states['SBF-SEE']['status'] ?? null) === 'pending' && ($states['SBF-SEE']['pending_orders'] ?? []) === [$dupId] && ($states['SBF-SEE']['duration_days'] ?? null) === 365, 'Überweisung offen: Kaufstatus pending mit Bestellung und Laufzeit');

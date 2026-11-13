@@ -21,8 +21,11 @@ use Bootspruefung\Learning\Learning\Services\AccessService;
  */
 final class CartDuplicateHint
 {
-    /** Katalog-Gruppen mit einem Hauptkurs (wie CartRelationHint); Bundle, Pässe, Gruppen und Simulator nicht. */
+    /** Katalog-Gruppen mit einem Hauptkurs (wie CartRelationHint); Gruppen und Simulator nicht. */
     private const GROUPS = ['sbf', 'funk', 'signal', 'addon'];
+
+    /** Pakete (Kapitäns-Bundle, Pässe): enthaltene Kurse einzeln prüfen (T50). */
+    private const PACKAGE_GROUPS = ['bundle'];
 
     public const ORDERED = 'ordered';
     public const OWNED = 'owned';
@@ -30,6 +33,8 @@ final class CartDuplicateHint
     public const RENEW_SOON = 'renew_soon';
     public const RENEW_EXPIRED = 'renew_expired';
     public const SUSPENDED = 'suspended';
+    /** Kombi, Bundle oder Pass: einige bzw. alle enthaltenen Kurse hat der Kunde schon (T50). */
+    public const OVERLAP = 'overlap';
 
     public function register(): void
     {
@@ -54,11 +59,16 @@ final class CartDuplicateHint
             return null; // Video-Upgrade: eigener Hinweis (VideoUpgrade)
         }
         $def = ShopCatalog::find($base ?? $sku);
-        if ($def === null || ! in_array($def['group'] ?? '', self::GROUPS, true) || ($def['courses'] ?? []) === []) {
+        $group = (string) ($def['group'] ?? '');
+        if ($def === null || ! in_array($group, [...self::GROUPS, ...self::PACKAGE_GROUPS], true) || ($def['courses'] ?? []) === []) {
             return null;
         }
         $main = (string) $def['courses'][0];
         $state = $states[$main] ?? null;
+        // Pakete immer, Kombis ohne eigenen Kauf: enthaltene Kurse einzeln prüfen (T50).
+        if (in_array($group, self::PACKAGE_GROUPS, true) || ($state === null && count($def['courses']) > 1)) {
+            return self::overlap($states, $sku, array_map('strval', $def['courses']), $now, $days, $renewalMode);
+        }
         if ($state === null) {
             return null;
         }
@@ -92,7 +102,46 @@ final class CartDuplicateHint
             'order_id' => $pending !== [] ? (int) $pending[count($pending) - 1] : ($state['order_id'] ?? null),
             // Komplett-Stufe gewählt, Videokurs fehlt noch: Hinweis auf das Video-Upgrade.
             'video_hint' => $base !== null && empty($state['video']) && in_array($kind, [self::OWNED, self::OWNED_UNLIMITED], true),
+            // Theorie-Stufe verlängert, Videokurs vorhanden: Der Videokurs wird nicht mitverlängert (T50).
+            'video_lost' => $base === null && ! empty($state['video']) && in_array($kind, [self::OWNED, self::RENEW_SOON], true) && $until !== null,
+            'parts' => [],
+            'all_parts' => false,
         ];
+    }
+
+    /**
+     * Kombi, Bundle, Pass: Welche enthaltenen Kurse hat der Kunde schon bzw. bestellt?
+     *
+     * @param array<string,array<string,mixed>> $states
+     * @param list<string> $courses
+     * @return array<string,mixed>|null
+     */
+    private static function overlap(array $states, string $sku, array $courses, string $now, ?int $days, string $renewalMode): ?array
+    {
+        $owned = [];
+        foreach ($courses as $code) {
+            $st = $states[$code] ?? null;
+            if ($st === null) {
+                continue;
+            }
+            if ((array) ($st['pending_orders'] ?? []) !== [] || $st['status'] === 'pending') {
+                $pending = (array) ($st['pending_orders'] ?? []);
+
+                return ['kind' => self::ORDERED, 'sku' => $sku, 'course' => $code, 'until' => $st['valid_until'] ?? null, 'new_until' => null, 'days' => $days,
+                    'order_id' => $pending !== [] ? (int) $pending[count($pending) - 1] : ($st['order_id'] ?? null), 'video_hint' => false, 'video_lost' => false, 'parts' => [], 'all_parts' => false];
+            }
+            if ($st['status'] === 'active' && ($st['valid_until'] === null || $st['valid_until'] >= $now)) {
+                $owned[] = $code;
+            }
+        }
+        if ($owned === []) {
+            return null;
+        }
+        // Mitgekaufte Teilkurse (z. B. SBF See in der Kombi See & Binnen) nicht doppelt nennen.
+        $owned = array_keys(\Bootspruefung\Learning\Commerce\ExpiryReminder::collapse(array_fill_keys($owned, '')));
+
+        return ['kind' => self::OVERLAP, 'sku' => $sku, 'course' => $owned[0], 'until' => null, 'new_until' => null, 'days' => $days, 'order_id' => null,
+            'video_hint' => false, 'video_lost' => false, 'parts' => $owned, 'all_parts' => count($owned) >= count(array_keys(\Bootspruefung\Learning\Commerce\ExpiryReminder::collapse(array_fill_keys($courses, '')))), 'renewal' => $renewalMode];
     }
 
     /**
@@ -174,6 +223,18 @@ final class CartDuplicateHint
                     'text' => sprintf(__('Du hast %s schon unbefristet freigeschaltet – ein weiterer Kauf ist dafür nicht nötig.', $d), $course)
                         .($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', $d) : ''),
                 ];
+            case self::OVERLAP:
+                $names = implode(', ', array_map([Labels::class, 'course'], (array) $hint['parts']));
+
+                return [
+                    'flag' => __('Teilweise schon in deinem Konto', $d),
+                    'title' => ! empty($hint['all_parts']) ? __('Alle enthaltenen Kurse hast du schon', $d) : __('Einen Teil davon hast du schon', $d),
+                    /* translators: %s: course names */
+                    'text' => sprintf(__('Diese Kurse aus dem Angebot hast du schon: %s.', $d), $names).' '
+                        .(($hint['renewal'] ?? 'extend') === 'extend'
+                            ? __('Mit dem Kauf verlängert sich ihr Zugang. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', $d)
+                            : __('Du bezahlst sie mit diesem Angebot noch einmal. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', $d)),
+                ];
             case self::OWNED:
                 $text = $hint['new_until'] !== null
                     /* translators: 1: course name, 2: end date, 3: new end date */
@@ -184,17 +245,18 @@ final class CartDuplicateHint
                 return [
                     'flag' => __('Schon in deinem Konto', $d),
                     'title' => __('Diesen Kurs hast du schon', $d),
-                    'text' => $text.($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', $d) : ''),
+                    'text' => $text.($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', $d) : '').self::videoLostText($hint),
                 ];
             case self::RENEW_SOON:
                 return [
                     'flag' => __('Verlängerung', $d),
                     'title' => __('Du verlängerst deinen Zugang', $d),
-                    'text' => $hint['new_until'] !== null
+                    'text' => ($hint['new_until'] !== null
                         /* translators: 1: course name, 2: end date, 3: new end date */
                         ? sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn bis %3$s; dein Lernstand bleibt erhalten.', $d), $course, $date($hint['until']), $date($hint['new_until']))
                         /* translators: 1: course name, 2: end date */
-                        : sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn; dein Lernstand bleibt erhalten.', $d), $course, $date($hint['until'])),
+                        : sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn; dein Lernstand bleibt erhalten.', $d), $course, $date($hint['until'])))
+                        .self::videoLostText($hint),
                 ];
             case self::RENEW_EXPIRED:
                 $term = $hint['days'] !== null
@@ -216,6 +278,20 @@ final class CartDuplicateHint
                     'text' => sprintf(__('Dein Zugang zu %s ist derzeit gesperrt, zum Beispiel wegen einer Rückbuchung. Bitte melde dich bei uns, bevor du den Kurs noch einmal kaufst.', $d), $course),
                 ];
         }
+    }
+
+    /** Theorie-Stufe verlängert, Videokurs vorhanden: Hinweis, dass der Videokurs nicht mitverlängert wird. */
+    private static function videoLostText(array $hint): string
+    {
+        if (empty($hint['video_lost'])) {
+            return '';
+        }
+
+        return ' '.sprintf(
+            /* translators: %s: date */
+            __('Achtung: Der Videokurs ist in der Theorie-Stufe nicht enthalten und endet weiterhin am %s. Willst du die Videos weiter nutzen, wähle „Komplett mit Videokurs“.', 'bootspruefung-learning'),
+            ExpiryReminder::date((string) $hint['until'])
+        );
     }
 
     /** @return array<string,array{sku:string,product_id:int,variation_id:int}> Warenkorb-Schlüssel => Produkt */

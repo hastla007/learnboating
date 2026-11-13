@@ -118,6 +118,7 @@ final class Integration
         (new VideoUpgrade())->register();
         (new CartRelationHint())->register();
         (new CartDuplicateHint())->register(); // Hinweis gegen Doppelkäufe (schon gekauft bzw. bestellt, Verlängerung)
+        (new BankDetails())->register(); // Bankdaten bei offener Überweisung auch in der Bestellansicht (T50)
         (new PriceNote())->register();
         (new PurchaseInfo())->register();
         (new DigitalConsent())->register();
