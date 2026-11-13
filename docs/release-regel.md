@@ -27,6 +27,9 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
    Cron oder in der CLI (`wp bootspruefung migrate`). Bis dahin beantwortet die Lern-API schreibende Anfragen mit 503
    „Wartung“ (Eingaben gehen nicht verloren). Empfehlung: direkt nach dem Einspielen einmal den Admin öffnen.
 6. Browser laden neue Dateien sofort: Die Version der eingebundenen Dateien enthält den Dateistand.
+7. Mit einem neuen Theme-Stand gleicht das Theme die Inhaltsseiten automatisch ab (nur unveränderte Seiten, siehe
+   `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“). Danach im Dashboard den Hinweis
+   „Inhaltsseiten“ prüfen: Seiten mit Warnung „von dir bearbeitet“ von Hand angleichen.
 
 ## Downgrade
 

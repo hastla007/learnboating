@@ -30,6 +30,26 @@ Bestehende Seiten, Beiträge, Produkte, Bestellungen und Lernstände ändert das
 3. Kursseiten unter `/kurse/` sind sofort öffentlich. Wenn sie erst mit dem Shop sichtbar sein sollen, direkt
    nach dem Aktivieren auf Entwurf stellen.
 4. Rechtstexte prüfen und veröffentlichen (T11, T52). Danach Shop sichtbar schalten.
+5. Vor dem Sichtbarschalten: Hinweis „Inhaltsseiten aus dem Theme“ (Dashboard, Seiten) muss ohne Warnung sein –
+   keine Seite „neuer Vorlagenstand“ oder „von dir bearbeitet“ offen. Prüfen per CLI:
+   `wp kurswasser content-pages status` bzw. Probelauf `wp kurswasser content-pages sync --dry-run`.
+
+## Inhaltsseiten bei Theme-Updates (To-do T59)
+
+Die Info- und Marketingseiten aus `content/` (z. B. „So funktioniert die Lernplattform“) beschreiben Funktionen
+der Lernplattform. Ändert ein Theme-Update ihre Vorlagen, gleicht das Theme **automatisch** ab:
+
+- Beim nächsten Aufruf des Admins merkt das Theme den neuen Vorlagenstand (Fingerabdruck über Manifest und
+  Seitendateien) und startet einen Lauf im Hintergrund (WP-Cron).
+- **Unveränderte Seiten** bekommen den neuen Stand. Status, Eltern und vom Betreiber geänderte SEO-Felder bleiben.
+- **Von dir bearbeitete Seiten** werden nicht angetastet. Sie erscheinen im Hinweis als Warnung: dort prüfen, ob
+  veraltete Angaben stehen (Lernregeln, Preise, Fristen), und die Seite anpassen oder unter Design › Kurswasser
+  einrichten „Alles aus dem Theme übernehmen“ wählen.
+- **Neue Seiten** legt der Lauf nicht an (bewusste Entscheidung, Knopf im Hinweis). Live-Seiten, deren neue
+  Vorlage Platzhalter enthält, bleiben ebenfalls stehen und werden gemeldet.
+- Das Ergebnis erscheint einmal als Hinweis „Inhaltsseiten nach dem Theme-Update automatisch abgeglichen“.
+- Ist Yoast aktiv und noch nicht gewählt, wohin die SEO-Daten sollen, wartet der Lauf auf diese Wahl.
+- Abschalten (nur Abgleich per Knopf oder CLI): `add_filter('kurswasser_content_auto_sync_enabled', '__return_false');`
 
 ## Rückweg
 

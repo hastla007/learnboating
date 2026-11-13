@@ -361,7 +361,7 @@ function kurswasser_content_pages_sync(array $options = []): array
 
             if (! $page) {
                 $planned[$path] = true;
-                if ($dry) {
+                if ($dry || ! empty($options['skip_new'])) {
                     $set('new');
                     continue;
                 }
@@ -834,13 +834,94 @@ add_filter('render_block', static function (string $html, array $block): string 
  * Admin: Hinweis mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ (nur unveränderte Seiten) und die
  * offenen Punkte je Seite. Auf Dashboard, Seitenliste und Themes.
  */
+/**
+ * Fester Abgleich nach Theme-Updates (To-do T59/UX4-08): Ändern sich die Vorlagen in content/ (neuer Theme-Stand),
+ * übernimmt ein einmaliger Lauf im Hintergrund den neuen Stand in alle Seiten, die der Betreiber nicht bearbeitet hat –
+ * genau das, was der Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ täte, nur ohne Neuanlage. Bearbeitete Seiten,
+ * Live-Seiten mit Platzhaltern und neue Seiten bleiben dem Betreiber überlassen und stehen weiter im Hinweis.
+ * Läuft nur, wenn die Inhaltsseiten schon eingerichtet sind und (bei aktivem Yoast) das SEO-Ziel gewählt ist.
+ * Abschalten: add_filter('kurswasser_content_auto_sync_enabled', '__return_false').
+ */
+const KURSWASSER_CONTENT_AUTO_HOOK = 'kurswasser_content_auto_sync_run';
+
+/** Fingerabdruck der Vorlagen: Manifest und Seitendateien (Name, Größe, Prüfsumme). */
+function kurswasser_content_fingerprint(?string $dir = null): string
+{
+    $dir ??= kurswasser_content_dir();
+    $parts = [is_readable($dir.'/pages.php') ? (string) md5_file($dir.'/pages.php') : ''];
+    foreach (glob($dir.'/pages/*.html') ?: [] as $file) {
+        $parts[] = basename($file).':'.md5_file($file);
+    }
+
+    return md5(implode('|', $parts));
+}
+
+/** Sind Inhaltsseiten aus dem Theme schon angelegt (Einrichtung gelaufen)? */
+function kurswasser_content_installed(): bool
+{
+    return get_posts(['post_type' => 'page', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_kw_content_hash', 'no_found_rows' => true]) !== [];
+}
+
+/** Ist ein automatischer Abgleich fällig? */
+function kurswasser_content_auto_due(): bool
+{
+    if (! apply_filters('kurswasser_content_auto_sync_enabled', true) || kurswasser_content_manifest() === []) {
+        return false;
+    }
+    if (get_option('kurswasser_content_fingerprint', '') === kurswasser_content_fingerprint()) {
+        return false;
+    }
+    if (kurswasser_yoast_active() && kurswasser_content_seo_choice() === '') {
+        return false; // erst fragen, wohin die SEO-Daten sollen (Einrichtungsseite)
+    }
+
+    return kurswasser_content_installed();
+}
+
+/**
+ * Abgleich nur für unveränderte Seiten: keine Neuanlage (neue Seiten legt der Betreiber bewusst an), kein force.
+ * Gibt die Gruppen zurück oder null, wenn gerade ein anderer Abgleich läuft (dann beim nächsten Mal).
+ */
+function kurswasser_content_auto_sync(): ?array
+{
+    $fingerprint = kurswasser_content_fingerprint();
+    if (! kurswasser_legal_lock(true, 'kurswasser_content_lock')) {
+        return null;
+    }
+    try {
+        $groups = kurswasser_content_group(kurswasser_content_pages_sync(['skip_new' => true]));
+    } finally {
+        kurswasser_legal_lock(false, 'kurswasser_content_lock');
+    }
+    update_option('kurswasser_content_fingerprint', $fingerprint, false);
+    $report = array_intersect_key($groups, array_flip(['updated', 'edited', 'blocked', 'error', 'new']));
+    update_option('kurswasser_content_auto_result', ['time' => time(), 'groups' => $report], false);
+
+    return $groups;
+}
+
+add_action(KURSWASSER_CONTENT_AUTO_HOOK, 'kurswasser_content_auto_sync');
+
+// Neuer Vorlagenstand: im Hintergrund abgleichen (Cron), nicht in der laufenden Seitenanfrage.
+add_action('admin_init', static function (): void {
+    if (wp_doing_ajax() || ! kurswasser_content_auto_due() || wp_next_scheduled(KURSWASSER_CONTENT_AUTO_HOOK)) {
+        return;
+    }
+    wp_schedule_single_event(time(), KURSWASSER_CONTENT_AUTO_HOOK);
+});
+
+// Wer den Fingerabdruck per Knopf, Einrichtung oder CLI ohnehin abgleicht, braucht keinen zweiten Lauf.
+add_action('kurswasser_content_synced', static function (): void {
+    update_option('kurswasser_content_fingerprint', kurswasser_content_fingerprint(), false);
+});
+
 add_action('admin_notices', static function (): void {
     if (! current_user_can('edit_pages')) {
         return;
     }
     $screen = function_exists('get_current_screen') ? get_current_screen() : null;
     $setup = $screen && $screen->id === 'appearance_page_kurswasser-setup';
-    if ($screen && ! $setup && ! in_array($screen->id, ['dashboard', 'edit-page', 'themes'], true)) {
+    if ($screen && ! $setup && ! in_array($screen->id, ['dashboard', 'edit-page', 'themes', 'update-core', 'plugins'], true)) {
         return;
     }
     $uid = get_current_user_id();
@@ -853,6 +934,26 @@ add_action('admin_notices', static function (): void {
             echo '<li>'.esc_html(($labels[$state] ?? $state).': '.implode(', ', $titles)).'</li>';
         }
         echo '</ul></div>';
+    }
+    // Ergebnis des automatischen Abgleichs nach einem Theme-Update (einmal zeigen).
+    $auto = get_option('kurswasser_content_auto_result');
+    if (is_array($auto) && current_user_can('manage_options')) {
+        delete_option('kurswasser_content_auto_result');
+        $labels = kurswasser_content_state_labels();
+        $rows = array_filter((array) ($auto['groups'] ?? []));
+        if ($rows) {
+            $warn = array_intersect_key($rows, array_flip(['edited', 'blocked', 'error'])) !== [];
+            echo '<div class="notice '.($warn ? 'notice-warning' : 'notice-success').' is-dismissible"><p><strong>'.esc_html__('Inhaltsseiten nach dem Theme-Update automatisch abgeglichen', 'kurswasser').'</strong> ('
+                .esc_html(wp_date(get_option('date_format').' '.get_option('time_format'), (int) ($auto['time'] ?? time()))).'):</p><ul style="list-style:disc;margin-left:1.5em">';
+            foreach ($rows as $state => $titles) {
+                echo '<li>'.esc_html(($labels[$state] ?? $state).': '.implode(', ', (array) $titles)).'</li>';
+            }
+            echo '</ul>';
+            if ($warn) {
+                echo '<p>'.esc_html__('Von dir bearbeitete Seiten haben den neuen Stand nicht bekommen. Bitte prüfen, ob dort veraltete Angaben stehen (z. B. Lernregeln, Preise, Fristen), und die Seite anpassen oder „Alles aus dem Theme übernehmen“ wählen.', 'kurswasser').'</p>';
+            }
+            echo '</div>';
+        }
     }
     if ($setup || kurswasser_content_manifest() === []) {
         return; // Die Einrichtungsseite zeigt den Stand selbst.
@@ -868,7 +969,9 @@ add_action('admin_notices', static function (): void {
     if (! $report && ! $open && ! $askYoast) {
         return;
     }
-    echo '<div class="notice notice-info"><p><strong>'.esc_html__('Inhaltsseiten aus dem Theme', 'kurswasser').'</strong> – '
+    // Veraltete oder bearbeitete Seiten mit neuem Vorlagenstand: deutlich als Warnung (T59).
+    $stale = array_intersect_key($groups, array_flip(['outdated', 'edited', 'blocked'])) !== [];
+    echo '<div class="notice '.($stale ? 'notice-warning' : 'notice-info').'"><p><strong>'.esc_html__('Inhaltsseiten aus dem Theme', 'kurswasser').'</strong> – '
         .esc_html__('Info- und Marketingseiten aus content/. Unveränderte Seiten übernehmen neue Vorlagenstände; von dir bearbeitete Seiten und SEO-Felder bleiben, außer du wählst ausdrücklich „Alles aus dem Theme übernehmen“.', 'kurswasser').'</p>';
     if ($report) {
         echo '<ul style="list-style:disc;margin-left:1.5em">';
@@ -928,6 +1031,9 @@ function kurswasser_content_run_sync(array $options = []): ?array
     }
     try {
         $groups = kurswasser_content_group(kurswasser_content_pages_sync($options));
+        if (empty($options['dry_run'])) {
+            do_action('kurswasser_content_synced', $groups);
+        }
         set_transient('kurswasser_content_flash_'.get_current_user_id(), array_intersect_key($groups, array_flip(['created', 'updated', 'edited', 'foreign', 'blocked', 'no-parent', 'no-file', 'error', 'yoast-written', 'yoast-kept'])), 5 * MINUTE_IN_SECONDS);
 
         return $groups;
@@ -961,6 +1067,9 @@ if (defined('WP_CLI') && WP_CLI) {
                 return;
             }
             $result = kurswasser_content_pages_sync($options);
+            if (! $options['dry_run'] && ! isset($options['dir'])) {
+                do_action('kurswasser_content_synced', kurswasser_content_group($result));
+            }
             foreach ($result as $path => $row) {
                 $yoast = '';
                 if (! empty($row['yoast']['written'])) {

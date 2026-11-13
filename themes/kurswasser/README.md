@@ -275,6 +275,10 @@ wp kurswasser content-pages sync --user=<admin>                             # an
   meldet der Admin-Hinweis (Dashboard, Seiten) mit Knopf „Inhaltsseiten anlegen bzw. aktualisieren“ und den
   offenen Punkten je Seite. Seiten mit `[[Betreiber: …]]` bzw. „Offen“-Kasten entstehen als Entwurf. Regeln im
   Einzelnen und „Alles aus dem Theme übernehmen“: Abschnitt „Einrichtung“ oben.
+- Theme-Update mit neuen Vorlagen: Ein Lauf im Hintergrund (WP-Cron, ausgelöst beim nächsten Admin-Aufruf)
+  übernimmt den neuen Stand in alle **unveränderten** Seiten; bearbeitete Seiten meldet der Hinweis als Warnung,
+  neue Seiten bleiben dem Knopf vorbehalten. Abschalten: Filter `kurswasser_content_auto_sync_enabled`.
+  Ablauf: `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“ (To-do T59).
 - Optionales Front-Matter-Feld `focus_keyword:` (ein Begriff, ohne `{{brand}}`) – nur für Yoast (Option B).
 - Einträge für Rechtstext-Seiten (`kontakt` usw.) werden übersprungen – die pflegt `inc/legal.php`
   (Seite 33 steckt in `legal/kontakt.html`).

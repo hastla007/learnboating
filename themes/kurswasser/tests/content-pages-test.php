@@ -173,6 +173,30 @@ if (is_file(ABSPATH.'wp-admin/includes/admin.php')) {
     do_action('admin_notices');
     $notice = (string) ob_get_clean();
     $check(str_contains($notice, 'Inhaltsseiten anlegen bzw. aktualisieren') && str_contains($notice, 'neuer Vorlagenstand, Seite unverändert') && str_contains($notice, 'kurswasser_content_sync'), 'neuer Vorlagenstand: Hinweis mit Knopf');
+    $check(str_contains($notice, 'notice-warning'), 'veraltete Seite: Hinweis als Warnung (T59)');
+
+    // T59: fester Abgleich nach einem Theme-Update (nur unveränderte Seiten, im Hintergrund).
+    echo "Automatischer Abgleich nach Theme-Update\n";
+    $savedFp = get_option('kurswasser_content_fingerprint', null);
+    $yoastAsk = kurswasser_yoast_active() && kurswasser_content_seo_choice() === '';
+    delete_option('kurswasser_content_fingerprint');
+    $check(kurswasser_content_auto_due() === ! $yoastAsk, 'neuer Vorlagenstand: Abgleich fällig');
+    $check(! has_filter('kurswasser_content_auto_sync_enabled') && has_action(KURSWASSER_CONTENT_AUTO_HOOK) !== false, 'Cron-Hook getrennt vom Schalter-Filter');
+    add_filter('kurswasser_content_auto_sync_enabled', '__return_false');
+    $check(kurswasser_content_auto_due() === false, 'abschaltbar per Filter');
+    remove_filter('kurswasser_content_auto_sync_enabled', '__return_false');
+    // Betreiber bearbeitet Seite 3, die Vorlage von Seite 3 ändert sich ebenfalls.
+    wp_update_post(['ID' => $p3->ID, 'post_content' => $p3->post_content."\n<!-- wp:paragraph --><p>Betreibertext.</p><!-- /wp:paragraph -->"]);
+    file_put_contents($tmp.'/pages/03-beispiel-ueber-uns.html', str_replace('</p>', ' Noch neuer.</p>', (string) file_get_contents($tmp.'/pages/03-beispiel-ueber-uns.html')));
+    $auto = kurswasser_content_auto_sync();
+    $check(in_array(get_the_title($p5 = get_page_by_path('beispiel-faq', OBJECT, 'page')), $auto['updated'] ?? [], true) && str_contains((string) get_post_field('post_content', $p5->ID), 'Neu.'), 'unveränderte Seite übernimmt den neuen Stand automatisch');
+    $check(in_array(get_the_title($p3->ID), $auto['edited'] ?? [], true) && str_contains((string) get_post_field('post_content', $p3->ID), 'Betreibertext.'), 'bearbeitete Seite bleibt und wird gemeldet');
+    $check(get_option('kurswasser_content_fingerprint') === kurswasser_content_fingerprint() && kurswasser_content_auto_due() === false, 'danach nicht erneut fällig');
+    ob_start();
+    do_action('admin_notices');
+    $notice = (string) ob_get_clean();
+    $check(str_contains($notice, 'nach dem Theme-Update automatisch abgeglichen') && str_contains($notice, 'Von dir bearbeitete Seiten') && get_option('kurswasser_content_auto_result') === false, 'Ergebnis einmal als Hinweis');
+    $savedFp === null ? delete_option('kurswasser_content_fingerprint') : update_option('kurswasser_content_fingerprint', $savedFp, false);
     remove_filter('kurswasser_content_dir', $dirFilter);
     $GLOBALS['current_screen'] = null;
 }
