@@ -440,6 +440,14 @@ $req($won, $sign($won));
 $check($statuses($klarna) === ['active'], 'Konflikt gewonnen: aktiv');
 $check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_opened' AND object_id = %s", (string) $klarna)), 'Konflikt protokolliert');
 
+// Pflichtfelder dispute_id und timestamp (Einstellung, T39)
+update_option($dw::OPTION, array_merge($dw::settings(), ['generic_strict' => true]));
+$strictBody = wp_json_encode(['id' => 'K-3', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna']);
+$check($req($strictBody, $sign($strictBody))->get_status() === 400 && $statuses($klarna) === ['active'], 'Pflichtfelder an: ohne dispute_id/timestamp 400, Zugang unverändert');
+$strictBody = wp_json_encode(['id' => 'K-4', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna', 'dispute_id' => 'KD-9', 'timestamp' => 'kein Datum']);
+$check($req($strictBody, $sign($strictBody))->get_status() === 400, 'Pflichtfelder an: ungültiger timestamp 400');
+update_option($dw::OPTION, array_merge($dw::settings(), ['generic_strict' => false]));
+
 echo "Disputes: Reihenfolge nach Ereigniszeit, abgeschlossener Fall endgültig (SEC-04)\n";
 $paidOrder = static function (int $customer, string $method, string $tx = '') use ($video): int {
     $order = wc_create_order(['customer_id' => $customer]);

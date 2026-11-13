@@ -54,12 +54,12 @@ final class DisputeWebhooks
         add_action('admin_post_bp_dispute_settings', [$this, 'saveSettings']);
     }
 
-    /** @return array{paypal_client_id:string,paypal_secret:string,paypal_webhook_id:string,paypal_mode:string,generic_secret:string} */
+    /** @return array{paypal_client_id:string,paypal_secret:string,paypal_webhook_id:string,paypal_mode:string,generic_secret:string,generic_strict:bool} */
     public static function settings(): array
     {
         $stored = get_option(self::OPTION, []);
 
-        return array_merge(['paypal_client_id' => '', 'paypal_secret' => '', 'paypal_webhook_id' => '', 'paypal_mode' => 'live', 'generic_secret' => ''], is_array($stored) ? $stored : []);
+        return array_merge(['paypal_client_id' => '', 'paypal_secret' => '', 'paypal_webhook_id' => '', 'paypal_mode' => 'live', 'generic_secret' => '', 'generic_strict' => false], is_array($stored) ? $stored : []);
     }
 
     public function routes(): void
@@ -220,6 +220,11 @@ final class DisputeWebhooks
         if (! in_array($action, ['opened', 'won', 'lost'], true) || (empty($data['order_id']) && empty($data['transaction_id']))) {
             return new WP_Error('bp_invalid', 'Expected event (opened|won|lost) and order_id or transaction_id.', ['status' => 400]);
         }
+        // Pflichtfelder (Einstellung, To-do T39): ohne dispute_id gälte ein Fall je Quelle und Bestellung – ein zweiter
+        // Konflikt nach einem abgeschlossenen ginge verloren; ohne timestamp zählt die Eingangszeit.
+        if (! empty(self::settings()['generic_strict']) && (trim((string) ($data['dispute_id'] ?? '')) === '' || self::eventTime($data['timestamp'] ?? $data['occurred_at'] ?? null) === null)) {
+            return new WP_Error('bp_invalid', 'Expected dispute_id and timestamp.', ['status' => 400]);
+        }
         // Ohne ID: Hash über den normalisierten Inhalt (Leerzeichen oder Schlüsselreihenfolge ändern nichts).
         $eventId = (string) ($data['id'] ?? hash('sha256', (string) wp_json_encode(self::normalize($data))));
         $disputeId = (string) ($data['dispute_id'] ?? '');
@@ -378,6 +383,7 @@ final class DisputeWebhooks
             'paypal_webhook_id' => trim(sanitize_text_field(wp_unslash($_POST['paypal_webhook_id'] ?? ''))),
             'paypal_mode' => ($_POST['paypal_mode'] ?? '') === 'sandbox' ? 'sandbox' : 'live',
             'generic_secret' => ! empty($_POST['regenerate_secret']) || $current['generic_secret'] === '' ? wp_generate_password(40, false, false) : $current['generic_secret'],
+            'generic_strict' => ! empty($_POST['generic_strict']),
         ];
         if (! empty($_POST['clear_paypal'])) {
             $new['paypal_client_id'] = $new['paypal_secret'] = $new['paypal_webhook_id'] = '';
@@ -406,6 +412,9 @@ final class DisputeWebhooks
         printf('<tr><th>%s</th><td><code>%s</code><p class="description">%s</p>%s</td></tr>', esc_html__('Allgemeiner Dispute-Webhook (Klarna u. a.)', 'bootspruefung-learning'), esc_html(rest_url(RestRegistrar::NAMESPACE.'/webhooks/dispute')),
             esc_html__('POST mit JSON {"event":"opened|won|lost","order_id":123 oder "transaction_id":"…","id":"eindeutige Ereignis-ID","source":"klarna","dispute_id":"Fall-ID","timestamp":"2026-11-12T10:00:00Z"} und Header X-Bootspruefung-Signature: sha256=HMAC-SHA256(Rohtext, Schlüssel). dispute_id und timestamp sind optional, aber empfohlen: Ein gewonnener oder verlorener Fall ist endgültig, ein später eintreffendes „opened“ desselben Falls wird ignoriert. Geeignet für Benachrichtigungen aus dem Klarna-Händlerportal über eine Automatisierung (z. B. E-Mail-/Webhook-Weiterleitung).', 'bootspruefung-learning'),
             $s['generic_secret'] !== '' ? '<p>'.esc_html__('Schlüssel:', 'bootspruefung-learning').' <code>'.esc_html($s['generic_secret']).'</code> <label><input type="checkbox" name="regenerate_secret" value="1"> '.esc_html__('neu erzeugen', 'bootspruefung-learning').'</label></p>' : '<p>'.esc_html__('Der Schlüssel wird beim Speichern erzeugt.', 'bootspruefung-learning').'</p>');
+        printf('<tr><th>%s</th><td><label><input type="checkbox" name="generic_strict" value="1" %s> %s</label><p class="description">%s</p></td></tr>', esc_html__('Pflichtfelder', 'bootspruefung-learning'), checked(! empty($s['generic_strict']), true, false),
+            esc_html__('dispute_id und timestamp verlangen (sonst 400)', 'bootspruefung-learning'),
+            esc_html__('Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden.', 'bootspruefung-learning'));
         echo '</tbody></table>';
         submit_button(__('Konflikt-Einstellungen speichern', 'bootspruefung-learning'));
         echo '</form>';
