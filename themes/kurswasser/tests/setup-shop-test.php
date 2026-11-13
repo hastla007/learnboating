@@ -164,6 +164,19 @@ $consentCss = (string) file_get_contents(dirname(__DIR__).'/assets/css/consent.c
 $consentJs = (string) file_get_contents(dirname(__DIR__).'/assets/js/consent.js');
 $check(! str_contains($consentCss, 'body:has([aria-modal="true"]) .kw-consent') && str_contains($consentCss, '[aria-modal="true"]:not(.pswp)') && str_contains($consentCss, '.pswp.pswp--open'), 'Cookie-Banner (CSS): versteckte Bildergalerie blendet es nicht aus, geöffnete schon');
 $check(str_contains($consentJs, "classList.contains('pswp--open')") && str_contains($consentJs, 'getClientRects().length'), 'Cookie-Banner (JS): nur sichtbare Dialoge zählen');
+// Banner-Kategorie „Externe Medien“ (T23): nur wenn Videos auf fremden Servern liegen (Filter), dann mit Hostnamen.
+$extHosts = static fn ($h): array => array_merge((array) $h, ['cdn.example-video.com', '<b>x</b>']);
+add_filter('kurswasser_consent_external_hosts', $extHosts, 99);
+$extList = kurswasser_consent_external_hosts();
+$check(in_array('cdn.example-video.com', $extList, true) && ! in_array('<b>x</b>', $extList, true), 'Externe Medien: nur gültige Hostnamen aus dem Filter');
+ob_start();
+kurswasser_consent_banner();
+$banner = (string) ob_get_clean();
+remove_filter('kurswasser_consent_external_hosts', $extHosts, 99);
+$check((str_contains($banner, 'id="kw-consent-cat-extern"') && str_contains($banner, 'cdn.example-video.com') && ! str_contains($banner, '<b>x</b>')), 'Banner: Kategorie „Externe Medien“ mit Hostnamen, sobald Videos fremd gehostet sind');
+$check(str_contains($consentJs, "cfg.grant = function") && str_contains($consentJs, "kw-consent-change") && str_contains($consentJs, "list.push('extern')"), 'Cookie-Banner (JS): Kategorie „extern“ speichern, Schnittstelle has/grant, Ereignis bei Änderung');
+$purchaseInfo = do_shortcode('[kurswasser_purchase_info]');
+$check(str_contains($purchaseInfo, 'class="bp-purchase-info"') && str_contains($purchaseInfo, 'Lieferung: digital'), 'Shortcode [kurswasser_purchase_info]: Hinweis Zahlungsarten/Lieferung frei platzierbar (T38)');
 // Hinweis Zahlungsarten/Lieferung (Lern-Plugin, § 312j BGB) im Stil des Preis-Hinweises.
 $check(str_contains((string) file_get_contents(dirname(__DIR__).'/assets/css/theme.css'), '.bp-purchase-info {'), 'Hinweis Zahlungsarten/Lieferung gestaltet');
 

@@ -192,6 +192,18 @@ function kurswasser_offer_cards(array $skus, ?string $featured, array $compare, 
     return $html.'</div>';
 }
 
+/**
+ * Hinweis Zahlungsarten, Verkaufsländer und Lieferung (wie unter dem Kaufknopf) zum freien Platzieren, z. B. in der
+ * Fußzeile oder auf Kursseiten (To-do T38). Ohne Lern-Plugin bzw. ohne WooCommerce leer. Nicht automatisch eingefügt.
+ */
+add_shortcode('kurswasser_purchase_info', static function (): string {
+    if (! class_exists('\Bootspruefung\Learning\Commerce\WooCommerce\PurchaseInfo') || ! function_exists('WC') || ! kurswasser_learning_compatible()) {
+        return '';
+    }
+
+    return \Bootspruefung\Learning\Commerce\WooCommerce\PurchaseInfo::html(true);
+});
+
 add_shortcode('kurswasser_offers', static function (): string {
     $tabs = kurswasser_offer_tabs();
     if (kurswasser_offer('BP-SBF-SEE') === null) {

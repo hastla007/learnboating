@@ -34,5 +34,6 @@ Stand 0.11.0 (Konzept Kap. 11, Schritte 3–9c):
 * Datenbankschema mit InnoDB und Fremdschlüsseln, Migration bei Aktivierung/Update, Datenschutz-Export/-Löschung, sichere Deinstallation
 * Shortcode [bootspruefung] für einen Einstiegslink
 * Kursübersicht: passende Ergänzungen als „Empfohlen“, bereits abgedeckte Kurse ausgeblendet (Tabelle `CourseRelations`, Filter `bootspruefung_course_relations`); Hinweis und tägliche E-Mail-Erinnerung vor Ablauf eines Zugangs (abschaltbar, Tage einstellbar); Warenkorb und Kasse (klassisch und Block) weisen angemeldete Kunden auf Kurse hin, die ein besessener Kurs schon abdeckt, und bieten die günstigere Alternative mit Tausch-Knopf an, z. B. Ergänzung Binnen → See statt Kombi (`CartRelationHint`, Filter `bootspruefung_cart_relation_hint`)
+* Schnittstellen für Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Kursgutschein einlösen (über den Grant-Dienst der Kursgutscheine, App und „Mein Lernen“), Filter „besitzt Kurs“, Mitgliederrabatt vs. Shop-Gutschein, Garantie ohne Gutscheinanteil, Tickets im Kurs-Hub und in der App (`GET /me/tickets`), „Praxis in deiner Nähe“ – Übersicht in docs/schnittstellen-erweiterungen.md
 
 Noch offen: Content-Freigabe und Go-live (Schritt 10).

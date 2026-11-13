@@ -1,0 +1,73 @@
+# Live-Server: Apache oder nginx (To-do T33)
+
+Entscheidung des Betreibers bzw. Hosters: Läuft die Live-Website unter Apache oder unter nginx? Beides geht. Unter
+nginx sind ein paar Regeln von Hand nötig, weil nginx keine `.htaccess`-Dateien liest. Die Schritte je Server
+stehen unten. Alles Weitere zu App und API: `docs/mobile-api/README.md`, Abschnitt „Server-Voraussetzungen“.
+
+## Versionen (To-do T34)
+
+| Software | Mindestens | Getestet in CI |
+|---|---|---|
+| PHP | 8.1 | 8.1 und 8.5 (Einzeltests), 8.5 (mit WordPress und WooCommerce) |
+| WordPress | 7.0 | 7.1.4 |
+| WooCommerce | 11.2 | 11.2.2 und 11.3 (Beta) |
+
+- **Zu altes WordPress:** WordPress selbst verhindert das Aktivieren des Lern-Plugins und des Themes
+  (Kopfzeile „Requires at least: 7.0“).
+- **Zu altes WooCommerce:** Das Plugin lässt sich aktivieren, zeigt aber im ganzen Admin einen Hinweis. Kasse,
+  Freischaltung und die Zustimmung zur sofortigen Ausführung sind mit älteren Versionen nicht getestet.
+- **Bitte bestätigen:** Läuft das Live-System mit mindestens WordPress 7.0 und WooCommerce 11.2?
+
+## Für beide gleich
+
+- **HTTPS** mit gültigem Zertifikat. Hinter einem TLS-Proxy muss `X-Forwarded-Proto: https` ankommen.
+- **Proxy-Adresse eintragen**, falls ein Reverse-Proxy, Load-Balancer oder CDN vor WordPress steht:
+  Bootsprüfung → Mobile App → „Vertrauenswürdige Proxys“. Sonst teilen sich alle Kunden die Anmelde-Limits der
+  Proxy-IP.
+- **Echter System-Cron** statt WP-Cron bei Besuchen (`define('DISABLE_WP_CRON', true);` und auf dem Server
+  `wp cron event run --due-now` alle 5 Minuten). Das Lern-Plugin braucht den Cron für Aufräumen, Erinnerungen,
+  Bestellabgleich und Datenexporte.
+- **Kein Seiten-Cache** für `/wp-json/boatingschool/*`, `/bootsscheine/*`, Warenkorb, Kasse und „Mein Konto“.
+- **Ordner außerhalb des Webroots (empfohlen, für beide Server):** in `wp-config.php`
+  `define('BOOTSPRUEFUNG_PRIVATE_DIR', '/pfad/außerhalb/des/webroots');`. Dann liegen Content-Pakete und
+  geschützte PDFs gar nicht im Webordner, und die Sperrregeln unten sind nur noch eine zweite Sicherung.
+- **Prüfen:** Bootsprüfung → Systemstatus, Abschnitt „Dateischutz“ (Selbsttest) und
+  Bootsprüfung → Mobile App → „Server prüfen“ (kommt der Authorization-Header an?).
+
+## Apache
+
+Läuft ohne Zusatzregeln für den Dateischutz: Das Plugin legt in den geschützten Ordnern eine `.htaccess` mit
+„Require all denied“ an. Voraussetzung: `AllowOverride` erlaubt `.htaccess` im Upload-Ordner.
+
+- **Authorization-Header:** Die Standard-`.htaccess` von WordPress reicht ihn weiter
+  (`RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]`). Bei CGI/FastCGI ohne diese Zeile:
+  `CGIPassAuth On`.
+- **App-Links:** `/.well-known/apple-app-site-association` und `/.well-known/assetlinks.json` müssen bei WordPress
+  ankommen. Keine statischen Dateien gleichen Namens anlegen.
+
+## nginx
+
+Drei Punkte sind von Hand nötig:
+
+1. **Dateischutz:** Die passenden Regeln für diese Installation zeigt Bootsprüfung → Systemstatus → „Dateischutz“
+   an (mit dem tatsächlichen Upload-Pfad). Bei Standardpfaden sehen sie so aus:
+
+   ```nginx
+   location ~* ^/wp-content/uploads/bootspruefung/(packages|protected) {
+       deny all;
+   }
+   location ~* ^/wp-content/uploads/bootspruefung/media/.*\.(php[0-9]?|phtml|phar|html?|svgz?)$ {
+       deny all;
+   }
+   ```
+
+   Die Regeln vor den allgemeinen Regeln für statische Dateien eintragen. Danach den Selbsttest auf der
+   Statusseite erneut starten.
+2. **Authorization-Header** an PHP-FPM weiterreichen: `fastcgi_param HTTP_AUTHORIZATION $http_authorization;`
+3. **App-Links:** Sperrt eine Regel Punkt-Verzeichnisse (z. B. `location ~ /\.`), davor eine Ausnahme setzen:
+   `location ^~ /.well-known/ { try_files $uri /index.php?$args; }`
+
+## Frage an den Betreiber
+
+Welcher Webserver läuft beim Hoster: Apache oder nginx? Kann `BOOTSPRUEFUNG_PRIVATE_DIR` gesetzt werden (Ordner
+außerhalb des Webroots)?

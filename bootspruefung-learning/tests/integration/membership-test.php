@@ -987,6 +987,28 @@ $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$stAll}, {$ooUser})
 delete_user_meta($ooUser, $ER::META);
 delete_user_meta($ooUser, $OO::META);
 
+echo "Videos auf fremden Servern (T23)\n";
+$ownHost = (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
+$check(VideoService::externalHost('https://'.$ownHost.'/wp-content/uploads/a.mp4') === null && VideoService::externalHost('https://media.'.preg_replace('/^www\./', '', $ownHost).'/a.mp4') === null && VideoService::externalHost('/wp-content/uploads/a.mp4') === null, 'eigene Domain, Subdomain und relative Adresse gelten nicht als fremd');
+$check(VideoService::externalHost('https://CDN.Example-Video.com/kurs/a.mp4') === 'cdn.example-video.com', 'fremder Host wird erkannt (klein geschrieben)');
+$fp = static fn (): array => ['cdn.example-video.com'];
+add_filter('bootspruefung_video_first_party_hosts', $fp);
+$check(VideoService::externalHost('https://cdn.example-video.com/a.mp4') === null, 'Filter: eigener Auftragsverarbeiter gilt nicht als fremd');
+remove_filter('bootspruefung_video_first_party_hosts', $fp);
+$vlId = (int) $wpdb->get_var("SELECT id FROM {$p}video_lesson ORDER BY id LIMIT 1");
+if ($vlId > 0) {
+    $vlRow = $wpdb->get_row($wpdb->prepare("SELECT video_url, is_placeholder FROM {$p}video_lesson WHERE id = %d", $vlId), ARRAY_A);
+    $wpdb->update($p.'video_lesson', ['video_url' => 'https://cdn.example-video.com/t23.mp4', 'is_placeholder' => 0], ['id' => $vlId]);
+    \Bootspruefung\Learning\Content\Repositories\ContentCache::invalidate();
+    $check(in_array('cdn.example-video.com', VideoService::externalHosts(), true), 'Lektion mit fremdem Host: Host steht in der Liste');
+    $check(in_array('cdn.example-video.com', (array) apply_filters('kurswasser_consent_external_hosts', []), true), 'Theme-Filter für die Banner-Kategorie „Externe Medien“ bekommt den Host');
+    $wpdb->update($p.'video_lesson', $vlRow, ['id' => $vlId]);
+    \Bootspruefung\Learning\Content\Repositories\ContentCache::invalidate();
+    $check(! in_array('cdn.example-video.com', VideoService::externalHosts(), true), 'nach Zurücksetzen und Cache-Leerung nicht mehr in der Liste');
+} else {
+    $check(false, 'Videolektionen importiert');
+}
+
 // Aufräumen.
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");

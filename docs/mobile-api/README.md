@@ -70,6 +70,7 @@ entfernt).
 | `POST /auth/password/forgot`, `POST /auth/password/reset` | `retrieve_password()` (mit App-Kennungen: Link über `AppLinks`), `check_password_reset_key()`, `reset_password()` |
 | `POST /auth/web-session` | `WebSession::create` (Einlösen: `WebSession::handleRequest` mit Header `X-Boatingschool-Web-Verifier` → `wp_set_auth_cookie`) |
 | `GET/PUT /me/settings` | `AppSettings` (Nutzer-Meta `bp_app_settings`) |
+| `GET /me/tickets` | `Extensions\Tickets` (Filter `bootspruefung_tickets_for_user` des Ticket-Plugins, sonst Nutzer-Meta `_bp_tickets`) |
 | `GET /me` | WordPress-Konto, `Settings::brand()`, `MobileSettings` |
 | `GET /courses`, `GET /courses/{id}` | `ContentRepository::courses`, `AccessService::scopes`, `LearningService::courseTotal`, `ExamService::overview`, `TrainerController::summary`, `Integration::offers`, `VideoUpgrade::offerFor`, `DownloadService`, `SectionFiles`, `Charts`, `DeviceSimService::available/premium` (`device_simulator`), `ExamGuideService::pagesFor` (`exam_registration`) |
 | `GET /courses/{id}/exam-registration` | `ExamGuideService` (`enabled`, `payload` = Anleitungen + `committees`) wie `ExamGuideController` |
@@ -88,7 +89,7 @@ entfernt).
 | `GET /courses/{id}/radio/vocabulary`, `POST …/vocabulary/{cardId}/answers` | `RadioService` (`vocabulary`, `vocabularyAnswer`) |
 | `GET /courses/{id}/radio/practice[/{scenarioId}]`, `POST …/evaluate`, `PUT …/done` | `RadioPracticeService` (`overview`, `show`, `evaluate`, `setDone`) |
 | `GET /courses/{id}/radio/samples` | `RadioPracticeService::samples` |
-| `POST /coupons/redeem` | `GroupService::join` (Beitrittscodes `g…` und persönliche Einladungen `i…` von Gruppenlizenzen, wie Web `groups/join`) |
+| `POST /coupons/redeem` | `GroupService::join` (Beitrittscodes `g…` und persönliche Einladungen `i…` von Gruppenlizenzen, wie Web `groups/join`); seit 1.11.0 Kursgutscheine über `Extensions\Vouchers` (Filter `bootspruefung_voucher_redeem`, interne 0-€-Bestellung) |
 | `GET /groups/join/{token}` (1.7.0) | `GroupService::describeToken`, `GroupService::resolve` (Vorschau wie Web `GET groups/join/{token}`) |
 | `GET /me/groups`, `GET /me/groups/{id}` (1.7.0) | `GroupService::forOwner`, `find`, `membersOf`, `freeSeats`, `inviteBudget`, `inviteCutoff`/`inviteExpiresAt`, `joinUrl` (wie Web `GET me/groups`) |
 | `POST /me/groups/{id}/invites` (1.7.0) | `GroupService::invite` (gleiche Prüfung, Tageslimit, Einladungsmail wie Web `me/groups/{id}/invite`) |
@@ -565,13 +566,13 @@ beibehalten, wo es passt. Abweichungen:
 | Prüfungsergebnis | Grunddaten, Themen | + Teilergebnisse/Teilgrenzen, `reduced`, `live`, `expired`, falsche Fragen, vollständige Auswertung | Regeln der Plattform (z. B. Basis 5/7, See 18/23) |
 | Videos | `/videos/{id}` | Kurs wird aus der Lektion ermittelt; Schrittbilder als Platzhalter „Bild folgt“; `completed` optional | Inhalte haben noch keine Schrittbilder |
 | Navigation | `show_solution` | Lösungen erst nach Antwort/Aufdecken; `show_solution=true` deckt dauerhaft auf (wie Web); neuer Endpunkt für Antwort + Einschätzung; `course_id` optional | Aufgaben gehören zu mehreren Kursen |
-| Zugangscodes | Bootsschule mailt Code nach Kauf | Kauf schaltet automatisch frei. `/coupons/redeem` löst nur Beitrittscodes von Gruppenlizenzen ein; WooCommerce-Gutschein → 422 `COUPON_NOT_SUPPORTED`; unbekannt → 422 `COUPON_INVALID` mit Hinweis | Gutscheine sind Rabatte, keine Zugänge |
+| Zugangscodes | Bootsschule mailt Code nach Kauf | Kauf schaltet automatisch frei. `/coupons/redeem` löst nur Beitrittscodes von Gruppenlizenzen ein; WooCommerce-Gutschein → 422 `COUPON_NOT_SUPPORTED`; unbekannt → 422 `COUPON_INVALID` mit Hinweis; seit 1.11.0 Kursgutscheine eines Gutschein-Plugins (`kind: course_voucher`) | Gutscheine sind Rabatte, keine Zugänge (Kursgutscheine laufen über eine interne 0-€-Bestellung) |
 | Datenexport | asynchron, öffentliche Datei mit Link-Token | asynchron (seit 1.4.0; `pending` → `ready`/`failed`, Action Scheduler bzw. WP-Cron, Rückfall in der Statusabfrage), in der Datenbank, Download nur mit Bearer-Token, 24 h, automatisch gelöscht; enthält alle WordPress-Exporte (Plugin, Konto, WooCommerce) | kein öffentliches Upload-Verzeichnis; keine Zeitüberschreitung bei großen Konten (bis 1.3.x synchron) |
 | Kontolöschung | nicht in der App | `POST /me/deletion-request` (WordPress-Datenschutzanfrage mit Bestätigungsmail); seit 1.4.0 öffnet der Mail-Link die App (`/app/konto-loeschen/`), Bestätigung über `POST /me/deletion-request/confirm` | Apple verlangt einen Weg zur Kontolöschung in der App; Bestätigung ohne Wechsel in den Browser |
 | Prüfung nach Zugangsende | – | Abgabe und Ergebnis möglich, weitere Antworten 403 `CONTENT_LOCKED`, kein Neustart (wie Web, gleicher Service) | Bereits Gearbeitetes nicht verlieren, aber keine weitere Nutzung ohne Zugang |
 | Webansicht-Anmeldung | – | seit 1.4.0 nur mit Prüfwert-Header der App-WebView, kein Kontowechsel bei anderer bestehender Anmeldung | Schutz vor Login-CSRF über weitergeleitete Einmal-Links |
 | Idempotency-Key | bei allen POST Pflicht | Pflicht bei `attempts`; optional (aber unterstützt) bei Sammlung, Prüfungsstart, Code, Export | übrige Vorgänge sind ohnehin wiederholbar |
-| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm`, `/tips`, `/me/groups…`, `/groups/join/{token}`, `/courses/{id}/faqs` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0, 1.7.0, 1.10.0) |
+| Neue Endpunkte | – | `/health`, `/me/sessions` (DELETE), `/trainer/reveal`, `/mistakes`, `/exams/{id}/answers/{pos}/reveal`, `/exams/{id}/answers/{pos}/flag`, `/navigation-tasks/{id}/parts/{partId}`, `/praxis`, `/radio/…`, `/exam-registration`, `/files/{id}`, `/profile/export/{id}/download`, `/auth/web-session`, `/me/settings`, `/me/deletion-request/confirm`, `/tips`, `/me/groups…`, `/groups/join/{token}`, `/courses/{id}/faqs`, `/me/tickets` | Plattform-Funktionen, Server-Prüfung, Wünsche des App-Teams (1.3.0, 1.4.0, 1.7.0, 1.10.0, 1.11.0) |
 | Gruppenlizenzen | – | Verwalten nur durch die besitzende Person (wie Web-Lernbereich); Personal mit `manage_bp_entitlements` verwaltet im Backend, nicht über die App; Einladen/neuer Link nur bei aktiver Gruppe (409 statt still wie im Web-REST) | Gleiche Rechte wie die Web-Oberfläche; keine Mails aus ausgesetzten Gruppen |
 | Fehlerobjekt | RFC 9457 | gleiches Format, `type` als URN, zusätzlich `message`, `details`, `retry_after` | einheitlich und einfach auswertbar |
 
@@ -642,7 +643,8 @@ beibehalten, wo es passt. Abweichungen:
 6. **Sprache der WordPress-Mails** (Reset, Löschbestätigung) folgt der Website-Sprache; auf Staging
    englisch, live mit deutschem Sprachpaket deutsch.
 7. **Medien:** Videos sind Platzhalter. Für echte Videos klären: Hosting (Datenschutz, keine
-   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Fragenbilder liegen wie im
+   Drittanbieter-Einbettung ohne Einwilligung) und ggf. signierte URLs. Seit 1.11.0 meldet
+   `Media.external_host` einen fremden Video-Server; die App fragt dann vor dem Laden (wie das Web). Fragenbilder liegen wie im
    Web öffentlich unter `uploads/bootspruefung/media/`.
 8. **„Zur Überprüfung markieren“ (seit 1.3.0 in der App):** serverseitig gespeichert
    (`PUT /exams/{examId}/answers/{position}/flag`, `flagged` in Prüfung und Ergebnis). Entschieden:
@@ -701,6 +703,31 @@ beibehalten, wo es passt. Abweichungen:
 
 ### 1.11.0 (additiv)
 
+- **Store-Links:** `GET /health` liefert `store_urls.ios/android` (App Store bzw. Google Play, aus
+  „Bootsprüfung → Mobile App“; `null`, solange die App nicht im Store steht). Beim Pflicht-Update (426
+  `APP_UPDATE_REQUIRED`) steht der Link der eigenen Plattform in `details.store_url`. Mit App-Store-Link
+  zeigt Safari auf der Website das App-Banner (`apple-itunes-app`).
+- **Videos auf fremden Servern:** `Media.external_host` (nur Videos) nennt den Hostnamen, wenn das Video nicht auf
+  der Shop-Domain liegt. Die App lädt es dann erst nach Einwilligung bzw. Antippen und sagt vorher, dass der
+  Anbieter die IP-Adresse erhält (wie das Web: Hinweis im Vorschaubild, „künftig ohne Nachfrage“).
+
+- **Kursgutscheine (Gutschein-Plugin):** `POST /coupons/redeem` löst – wenn ein Gutschein-Plugin den
+  WordPress-Filter `bootspruefung_voucher_redeem` belegt – auch Kursgutscheine ein. Der Kurs wird (seit
+  1.12.0) über den Grant-Dienst der Kursgutscheine freigeschaltet (1.11: interne 0-€-Bestellung), die
+  Laufzeit beginnt mit der Einlösung.
+  Antwort wie beim Beitrittscode mit `kind: course_voucher` (neuer Enum-Wert; `group_name` ist `null`),
+  `courses` und `entitlement` (`valid_from`/`valid_until`). Gleicher Code durch dasselbe Konto erneut →
+  200 ohne zweiten Zugang; abgelehnt → 422 `COUPON_INVALID` mit der Meldung des Gutschein-Plugins.
+  Ohne Gutschein-Plugin unverändert. **Ältere App-Versionen:** Wer `kind` streng auf `group_license`
+  prüft, sollte unbekannte Werte wie „eingelöst“ behandeln.
+- **Neu: `GET /me/tickets`** (ohne Tenant-Header): Praxis-Tickets aus einem Ticket-Plugin (`PracticeTicket`:
+  Einheiten gesamt/absolviert/übrig, Status `issued|redeemed|cancelled`, Termin, Ort, Grund bei Storno).
+  Ohne Ticket-Plugin `data: []`. Anzeige z. B. „Praxis: 3 von 5 Einheiten absolviert“, mit dem Hinweis,
+  dass das kein amtlicher Nachweis ist.
+- **Neues Feld `practice_offers`** in `GET /courses/{courseId}`: „Praxis in deiner Nähe“ (`PracticeOffer`:
+  `title`, `url`, `date`, `location`, `price`), ohne Ticket-Plugin leer – dann nichts anzeigen.
+- Schnittstellen für die Erweiterungs-Plugins (Hooks, Filter): `docs/schnittstellen-erweiterungen.md`.
+  Test: `tests/integration/extensions-test.php`.
 - **Kaufstatus sichtbar (Zahlung offen, abgelaufen, gesperrt):** `access.status` liefert `pending`,
   `suspended` bzw. `expired` jetzt auch, wenn der Kurs einen kostenlosen Teilumfang hat (bisher kam
   dann immer `limited`, entgegen dieser Doku). Reihenfolge: `active` vor `pending` vor `suspended` vor

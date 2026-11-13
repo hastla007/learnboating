@@ -151,7 +151,7 @@ final class DefaultCustomerFaqs
         );
         $out[] = $faq(3, $all, self::TECH, 1,
             'Was passiert, wenn mein Zugang endet?',
-            "Endet dein Zugang zum Kurs bald, zeigt dir der Lernbereich einen Hinweis mit dem Enddatum und einem Link zum Verlängern. Zusätzlich erinnern wir dich vorher per E-Mail.\n\n"
+            "Endet dein Zugang zum Kurs bald, zeigt dir der Lernbereich einen Hinweis mit dem Enddatum und einem Link zum Verlängern – er führt zu dem Angebot, das du gekauft hast. Zusätzlich erinnern wir dich vorher per E-Mail; die Erinnerung kannst du jederzeit über den Link in der E-Mail oder in deinem Konto unter **„Mein Lernen“** abbestellen.\n\n"
             .'Dein Lernstand bleibt erhalten – verlängerst du später, lernst du dort weiter, wo du aufgehört hast.',
             'Startpaket (Entwurf): Die E-Mail-Erinnerung ist unter Bootsprüfung › Einstellungen abschaltbar (Standard: ein, 14 Tage vorher). Ist sie aus, den Satz zur E-Mail streichen.',
             $copies(['SBF-SEE' => 5, 'SBF-BIN-MOTOR' => 4, 'SBF-BIN-SEGEL' => 4, 'SRC' => 5, 'UBI' => 5, 'SKN' => 5, 'FKN' => 5])
@@ -188,7 +188,7 @@ final class DefaultCustomerFaqs
             'Wie übe ich die Navigationsaufgaben?',
             "Im Bereich **„Navigationsaufgaben“** löst du die amtlichen Aufgaben Teilaufgabe für Teilaufgabe mit Seekarte und Kursdreieck. Du arbeitest mit der Übungskarte D49 des BSH: Ist die digitale Karte freigeschaltet, öffnest du sie direkt in der Aufgabe, sonst nimmst du die gedruckte Übungskarte.\n\n"
             ."Trägst du deine Lösung ein und deckst das amtliche Ergebnis auf, prüfen wir bei Teilaufgaben mit hinterlegten Lösungswerten deine Werte – zum Beispiel Kurs, Distanz, Position oder Uhrzeit – automatisch mit Toleranz. Das ist eine Hilfe: Ob deine Lösung stimmt, entscheidest du mit deiner Selbsteinschätzung.\n\n"
-            .'In der Prüfung brauchst du in der Navigationsaufgabe mindestens 7 von 9 Punkten. Die Prüfungssimulation bewertet die Navigationsaufgabe nicht mit – übe sie deshalb hier.'
+            .'In der Prüfung brauchst du in der Navigationsaufgabe mindestens 7 von 9 Punkten. Nach deiner Selbsteinschätzung zeigt dir der Trainer deinen Punktestand: Jede richtig gelöste Teilaufgabe zählt einen Punkt, „teilweise“ zählt nicht. Die Prüfungssimulation bewertet die Navigationsaufgabe nicht mit – übe sie deshalb hier.'
         );
         $out[] = $faq(403, ['SRC'], self::RADIO, 1,
             'Was übe ich im Funktraining?',
@@ -214,7 +214,7 @@ final class DefaultCustomerFaqs
     /** Prüfungssimulation je Schein [B2]. @return array{0:string,1:string} */
     private static function exam(string $key): array
     {
-        $common = "Während der Prüfung siehst du keine Lösungen. Fragen, die du dir vor dem Abgeben noch einmal ansehen willst, kannst du markieren; läuft die Zeit ab, wird automatisch abgegeben. In der Auswertung siehst du deine Fehler und kannst sie anschließend gezielt wiederholen.\n\n"
+        $common = "Während der Prüfung siehst du keine Lösungen. Fragen, die du dir vor dem Abgeben noch einmal ansehen willst, kannst du markieren; läuft die Zeit ab, wird automatisch abgegeben. Brauchst du eine Pause, kannst du die Prüfung auch abbrechen – sie wird dann nicht gewertet und erscheint nicht in deinen Ergebnissen. In der Auswertung siehst du deine Fehler und kannst sie anschließend gezielt wiederholen.\n\n"
             .'Im Kombi- oder Ergänzungskurs gilt das Regelwerk deines Kurses – Fragenzahl und Bestehensgrenzen stehen auf der Startseite der Prüfungssimulation.';
         $papers = ' Zusätzlich kannst du die festen Prüfungsbögen einzeln üben.';
         $text = match ($key) {

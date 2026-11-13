@@ -187,6 +187,11 @@ Beim Aktivieren legt das Theme **Entwürfe** für Impressum, Datenschutz, AGB, W
 Kontakt an – nur mit Platzhalter, keine Rechtstexte. Die Links im Fußbereich zeigen auf diese
 Seiten (`/impressum/` usw.).
 
+**Betreiberangaben** (Design › Betreiberangaben, `inc/operator.php`): Firmenname, Anschrift, Kontakt, Register,
+Steuernummern, Dienstleister, Fristen einmal eintragen – sie ersetzen die passenden `[[Betreiber: …]]`-Platzhalter
+der Rechtstext-Vorlagen beim Übernehmen (57 von 82; der Rest sind Entscheidungen bzw. Prüfungen) und dieselben Platzhalter in den Inhaltsseiten (z. B. Garantiegeber, Erstattungsfrist, Support-E-Mail). Geänderte Angaben
+aktualisieren unbearbeitete Entwürfe automatisch, bearbeitete Seiten nie. Ausfüll-Liste: `docs/rechtstexte-platzhalter.md`.
+
 ## Muster (Editor › Muster › Kurswasser)
 
 `hero`, `usp`, `courses`, `features`, `steps`, `popular`, `groups`, `guarantee`, `faq`, `cta` –
@@ -222,6 +227,9 @@ Angebote, das mittlere hervorgehoben. Alles kommt aus echten Daten:
 - Inhaltspunkte aus den Produkttexten des Plugins (Fragen, Bögen, Aufgaben, Videos).
 - „Jetzt starten“ legt den Kurs in den Warenkorb und öffnet direkt die Kasse.
 - Keine künstliche Verknappung, keine erfundenen Verkaufszahlen.
+
+Hinweis zu Zahlungsarten, Verkaufsländern und Lieferung (wie unter dem Kaufknopf) frei platzieren, z. B. in der
+Fußzeile oder auf einer Kursseite: Shortcode `[kurswasser_purchase_info]` (ohne Lern-Plugin bzw. WooCommerce leer).
 
 ## Links ohne feste IDs
 

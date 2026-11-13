@@ -440,6 +440,14 @@ $req($won, $sign($won));
 $check($statuses($klarna) === ['active'], 'Konflikt gewonnen: aktiv');
 $check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_opened' AND object_id = %s", (string) $klarna)), 'Konflikt protokolliert');
 
+// Pflichtfelder dispute_id und timestamp (Einstellung, T39)
+update_option($dw::OPTION, array_merge($dw::settings(), ['generic_strict' => true]));
+$strictBody = wp_json_encode(['id' => 'K-3', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna']);
+$check($req($strictBody, $sign($strictBody))->get_status() === 400 && $statuses($klarna) === ['active'], 'Pflichtfelder an: ohne dispute_id/timestamp 400, Zugang unverändert');
+$strictBody = wp_json_encode(['id' => 'K-4', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna', 'dispute_id' => 'KD-9', 'timestamp' => 'kein Datum']);
+$check($req($strictBody, $sign($strictBody))->get_status() === 400, 'Pflichtfelder an: ungültiger timestamp 400');
+update_option($dw::OPTION, array_merge($dw::settings(), ['generic_strict' => false]));
+
 echo "Disputes: Reihenfolge nach Ereigniszeit, abgeschlossener Fall endgültig (SEC-04)\n";
 $paidOrder = static function (int $customer, string $method, string $tx = '') use ($video): int {
     $order = wc_create_order(['customer_id' => $customer]);
@@ -1163,6 +1171,33 @@ remove_filter('bootspruefung_legal_texts_email_pages', $onlyTerms);
 update_option('woocommerce_terms_page_id', $termsBefore);
 wp_delete_post($termsPage, true);
 $mailOrder->delete(true);
+
+echo "Livegang-Warnung „Zugang ohne Shop“ (T15)\n";
+$soonBak = get_option('woocommerce_coming_soon');
+$mapped = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->productIds();
+$probe = (int) ($mapped[0] ?? 0);
+$probeStatus = $probe ? get_post_status($probe) : '';
+if ($probe) {
+    wp_update_post(['ID' => $probe, 'post_status' => 'publish']);
+}
+update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'logged_in']));
+update_option('woocommerce_coming_soon', 'yes');
+$RQ = \Bootspruefung\Learning\Infrastructure\Requirements::class;
+ob_start();
+$RQ::adminNotice();
+$rqNotice = (string) ob_get_clean();
+$check($RQ::wooCommerceStatus()['supported'] === true && $rqNotice === '' && ! $RQ::wooCommerceSupported('11.1.9') && $RQ::wooCommerceSupported('11.2.0') && $RQ::wooCommerceSupported('11.3'), 'Mindestversion WooCommerce 11.2: getestete Version ohne Hinweis, ältere wird erkannt (T34)');
+$check(has_action('admin_notices', [$RQ, 'adminNotice']) !== false, 'Hinweis bei zu altem WooCommerce im Admin registriert');
+$check(! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop noch „Demnächst verfügbar“: keine Warnung');
+update_option('woocommerce_coming_soon', 'no');
+$check($probe > 0 && \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop sichtbar, Lernprodukt veröffentlicht, Zugang für alle Angemeldeten: Warnung');
+\Bootspruefung\Learning\Admin\GoLiveNotice::apply();
+$check(Settings::get('default_access') === 'entitled_only' && ! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Umstellen: nur kostenlose Regeln und Freischaltungen, Warnung weg');
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bp_audit_log WHERE action = 'settings_default_access'") > 0, 'Umstellung im Audit-Log');
+update_option('woocommerce_coming_soon', $soonBak);
+if ($probe && $probeStatus) {
+    wp_update_post(['ID' => $probe, 'post_status' => $probeStatus]);
+}
 
 foreach (array_column($rows, 'product_id') as $pid) {
     (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');

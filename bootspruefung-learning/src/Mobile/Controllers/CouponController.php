@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bootspruefung\Learning\Mobile\Controllers;
 
 use Bootspruefung\Learning\Commerce\GroupService;
+use Bootspruefung\Learning\Extensions\Vouchers;
 use Bootspruefung\Learning\Mobile\ApiException;
 use Bootspruefung\Learning\Mobile\Idempotency;
 use Bootspruefung\Learning\Mobile\RateLimiter;
@@ -17,8 +18,15 @@ use WP_REST_Response;
  * per E-Mail verschickten Zugangscodes. Echte Zugangscodes sind nur die Beitrittscodes von
  * Gruppenlizenzen (Einladungslink „…/gruppe/<code>/“); diese werden über GroupService::join
  * eingelöst wie im Web. WooCommerce-Gutscheine sind Rabatte für den Kauf und werden mit klarer
- * Meldung abgelehnt. Kursgutscheine (seit 1.12.0, über einen Gutschein-Connector) werden hier nicht eingelöst:
- * 422 COURSE_VOUCHER verweist auf POST /vouchers/redeem.
+ * Meldung abgelehnt.
+ *
+ * Kursgutscheine schalten immer über den Grant-Dienst frei (Commerce\VoucherGrants, docs/kursgutscheine.md):
+ * - Voucher Captain (seit 1.12.0, Connector mit Reservieren → Freischalten → Verbuchen) wird hier nicht
+ *   eingelöst: 422 COURSE_VOUCHER verweist auf POST /vouchers/redeem.
+ * - Einfache Gutschein-Plugins über den Filter bootspruefung_voucher_redeem (seit 1.11.0, Extensions\Vouchers):
+ *   liefert das Plugin ein Produkt, schaltet der Grant-Dienst frei (Einlöse-Schlüssel = Hash des Codes) und die
+ *   Antwort hat kind „course_voucher“; ein WP_Error des Plugins wird 422 COUPON_INVALID mit dessen Meldung;
+ *   null = bisheriges Verhalten.
  *
  * Seit 1.4.0 zuerst Idempotenz, dann Rate-Limit: Eine Netzwiederholung mit demselben
  * Idempotency-Key liefert die gespeicherte Antwort, ohne einen Versuch zu verbrauchen.
@@ -54,15 +62,65 @@ final class CouponController extends BaseController
 
             return new WP_REST_Response($body, $status);
         }
-        $limit();
         if (VoucherController::isCourseVoucher($raw)) {
+            $limit();
             // Kursgutscheine (Voucher Captain) schalten einen Kurs frei – über die eigene Route, nicht als Gruppencode.
             throw new ApiException('COURSE_VOUCHER', __('Das ist ein Kursgutschein. Löse ihn unter „Mein Lernen“ › „Kursgutschein einlösen“ ein.', 'bootspruefung-learning'), 422, ['details' => ['redeem_path' => '/vouchers/redeem', 'check_path' => '/vouchers/check']]);
         }
+        if (Vouchers::available()) {
+            [$status, $body] = Idempotency::run($user, 'redeem', $this->idempotencyKey($request, false), ['code' => hash('sha256', $raw)], function () use ($user, $raw, $limit): array {
+                $limit();
+                $result = Vouchers::redeemCode($raw, $user);
+                if ($result === null) {
+                    $this->rejectUnknown($raw);
+                }
+                if ($result instanceof \WP_Error) {
+                    throw new ApiException('COUPON_INVALID', $result->get_error_message(), 422);
+                }
+
+                return [200, ['data' => $this->voucherPayload($result['grant'])], 'voucher:'.($result['redemption_key'] !== '' ? $result['redemption_key'] : 'order-'.$result['order_id'])];
+            });
+
+            return new WP_REST_Response($body, $status);
+        }
+        $limit();
+        $this->rejectUnknown($raw);
+    }
+
+    /** Kein Zugangscode: Shop-Gutschein (Rabatt beim Kauf) oder unbekannt – immer 422. */
+    private function rejectUnknown(string $raw): never
+    {
         if (function_exists('wc_get_coupon_id_by_code') && wc_get_coupon_id_by_code($raw) > 0) {
             throw new ApiException('COUPON_NOT_SUPPORTED', __('Das ist ein Gutscheincode für den Shop. Löse ihn beim Kauf im Shop ein – dein Zugang wird nach dem Kauf automatisch freigeschaltet.', 'bootspruefung-learning'), 422);
         }
         throw new ApiException('COUPON_INVALID', __('Dieser Code ist ungültig. Hinweis: Kurse aus dem Shop brauchen keinen Code – dein Zugang wird nach dem Kauf automatisch freigeschaltet, sobald du dich mit demselben Konto anmeldest.', 'bootspruefung-learning'), 422);
+    }
+
+    /**
+     * Antwort wie beim Gruppencode, kind „course_voucher“.
+     *
+     * @param array<string,mixed> $grant Ergebnis des Grant-Dienstes
+     * @return array<string,mixed>
+     */
+    private function voucherPayload(array $grant): array
+    {
+        $summary = Vouchers::summary($grant);
+        $courses = [];
+        foreach ($this->publishedCourses() as $course) {
+            if (in_array((string) $course->code, $summary['courses'], true)) {
+                $courses[] = ['course_id' => (string) $course->id, 'code' => (string) $course->code, 'name' => (string) $course->name];
+            }
+        }
+
+        return [
+            'redeemed' => true,
+            'kind' => 'course_voucher',
+            'group_name' => null,
+            'course_id' => $courses[0]['course_id'] ?? null,
+            'course_name' => $courses[0]['name'] ?? null,
+            'courses' => $courses,
+            'entitlement' => ['status' => $summary['status'], 'valid_from' => TokenAuth::iso($summary['valid_from']), 'valid_until' => TokenAuth::iso($summary['valid_until'])],
+        ];
     }
 
     /** @return array<string,mixed> */

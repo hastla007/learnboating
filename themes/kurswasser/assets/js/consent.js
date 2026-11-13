@@ -13,6 +13,7 @@
 	var toggle = root.querySelector('[data-kw-consent-toggle]');
 	var save = root.querySelector('[data-kw-consent-save]');
 	var stats = root.querySelector('#kw-consent-cat-statistik');
+	var extern = root.querySelector('#kw-consent-cat-extern');
 	var html = document.documentElement;
 	var returnFocus = null;
 	var observer = null;
@@ -31,6 +32,7 @@
 	}
 
 	function hasStats(cats) { return !!cats && cats.indexOf('statistik') !== -1; }
+	function hasCat(cats, cat) { return !!cats && cats.indexOf(cat) !== -1; }
 
 	function removeSbjs() {
 		var host = location.hostname;
@@ -92,14 +94,34 @@
 		setTimeout(function () { region.textContent = ''; }, 6000);
 	}
 
-	function store(statistik) {
-		var cats = statistik ? 'notwendig,statistik' : 'notwendig';
+	function store(statistik, ext) {
+		var list = ['notwendig'];
+		if (statistik) { list.push('statistik'); }
+		if (ext && extern) { list.push('extern'); }
+		var cats = list.join(',');
 		var value = encodeURIComponent(cfg.version + '|' + cats + '|' + Math.floor(Date.now() / 1000));
 		document.cookie = cfg.cookie + '=' + value + '; path=' + (cfg.path || '/') + '; max-age=' + (365 * 24 * 60 * 60) + '; SameSite=Lax' + (cfg.secure ? '; Secure' : '');
 		applyConsentApi(statistik);
 		applyTracking(statistik);
+		notify(list);
 		close(true);
 	}
+
+	/* Andere Teile der Seite (z. B. Videos der Lern-App) reagieren auf geänderte Einwilligungen. */
+	function notify(list) {
+		try { document.dispatchEvent(new CustomEvent('kw-consent-change', { detail: { categories: list } })); } catch (e) { /* alte Browser */ }
+	}
+
+	/* Öffentliche Schnittstelle: Einwilligung abfragen bzw. eine Kategorie gezielt erteilen (z. B. „Externe Medien“
+	 * aus dem Video-Hinweis heraus), ohne die übrigen Kategorien zu ändern. */
+	cfg.has = function (cat) { return cat === 'notwendig' || hasCat(read(), cat); };
+	cfg.grant = function (cat) {
+		var cats = read() || ['notwendig'];
+		if (cats.indexOf(cat) === -1) { cats.push(cat); }
+		var value = encodeURIComponent(cfg.version + '|' + cats.join(',') + '|' + Math.floor(Date.now() / 1000));
+		document.cookie = cfg.cookie + '=' + value + '; path=' + (cfg.path || '/') + '; max-age=' + (365 * 24 * 60 * 60) + '; SameSite=Lax' + (cfg.secure ? '; Secure' : '');
+		notify(cats);
+	};
 
 	function setSettings(open) {
 		form.hidden = !open;
@@ -158,6 +180,7 @@
 
 	function show(focus) {
 		stats.checked = hasStats(read());
+		if (extern) { extern.checked = hasCat(read(), 'extern'); }
 		setSettings(false);
 		root.hidden = false;
 		updatePadding();
@@ -188,10 +211,10 @@
 		returnFocus = null;
 	}
 
-	root.querySelector('[data-kw-consent-accept]').addEventListener('click', function () { store(true); });
-	root.querySelector('[data-kw-consent-reject]').addEventListener('click', function () { store(false); });
+	root.querySelector('[data-kw-consent-accept]').addEventListener('click', function () { store(true, true); });
+	root.querySelector('[data-kw-consent-reject]').addEventListener('click', function () { store(false, false); });
 	toggle.addEventListener('click', function () { setSettings(true); });
-	form.addEventListener('submit', function (e) { e.preventDefault(); store(stats.checked); });
+	form.addEventListener('submit', function (e) { e.preventDefault(); store(stats.checked, extern ? extern.checked : false); });
 
 	// ESC, solange das Banner offen ist: Einstellungen zuklappen, sonst Banner für diesen Seitenaufruf
 	// schließen (ohne Entscheidung = nur notwendige). Nur wenn der Fokus im Banner oder auf body/main liegt

@@ -57,6 +57,8 @@ final class MediaMapper
             'height' => null,
             'duration_seconds' => $duration,
             'placeholder_reason' => null,
+            // Fremder Video-Server (wie Web: erst nach Einwilligung bzw. Antippen laden), sonst null.
+            'external_host' => \Bootspruefung\Learning\Trainers\VideoService::externalHost($url),
         ];
     }
 

@@ -114,3 +114,14 @@ Der Connector stellt über `bootspruefung_course_voucher_redeemer_v1` ein Objekt
 
 CI-Job „WordPress-Plugin“: Schritte „Kursgutscheine – Grant-Service“ und „Kursgutscheine mit Voucher Captain –
 Connector-Abnahme“ (Voucher Captain wird aus `hastla007/wp-couponmaster` gebaut wie das Release-ZIP).
+
+## 6. Andere Gutschein-Plugins (Extensions\Vouchers)
+
+Neben Voucher Captain gibt es eine einfache Gegenstelle für Gutschein-Plugins ohne eigenen Reservierungsablauf
+(`docs/schnittstellen-erweiterungen.md`: Aktion `bootspruefung_voucher_redeemed`, Filter
+`bootspruefung_voucher_redeem` für `POST /coupons/redeem` und das Formular unter „Mein Lernen“). Sie schaltet
+**über denselben Grant-Dienst** frei – Einlöse-Schlüssel `code-` + SHA-256 des Codes, Herkunft `voucher_plugin` –,
+es gibt also nur einen Freischaltweg mit denselben Regeln, Fehlercodes, Audit-Einträgen und derselben Supportansicht.
+Die 0-€-Bestellungen der Version 1.11 dieser Gegenstelle entstehen nicht mehr; vorhandene werden weiter erkannt.
+Voucher-Captain-Codes beantwortet `POST /coupons/redeem` mit 422 `COURSE_VOUCHER` (Verweis auf `/vouchers/redeem`),
+die Gruppen-Code-Route wird also nicht für Voucher Captain umgewidmet.

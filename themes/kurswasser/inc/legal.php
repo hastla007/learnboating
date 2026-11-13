@@ -107,6 +107,8 @@ function kurswasser_fill_legal_pages(bool $force = false, bool $draftsOnly = fal
             continue;
         }
         $template = kurswasser_legal_resolve_links($template);
+        // Betreiberangaben (Design › Betreiberangaben) in die Platzhalter einsetzen – inc/operator.php.
+        $template = function_exists('kurswasser_operator_fill') ? kurswasser_operator_fill($template) : $template;
         $stored = (string) get_post_meta($page->ID, '_kurswasser_legal_source', true);
         if (! $force && $stored === md5($template) && trim($page->post_content) !== '' && ! str_contains($page->post_content, 'Platzhalter – hier den geprüften Text einfügen')) {
             $result[$slug] = 'unchanged';
@@ -189,6 +191,9 @@ function kurswasser_legal_templates_hash(): string
         $content = kurswasser_legal_content($slug);
         $sums[] = $slug.':'.($content === null ? '-' : md5($content));
     }
+
+    // Geänderte Betreiberangaben gelten wie eine geänderte Vorlage.
+    $sums[] = 'operator:'.(function_exists('kurswasser_operator_hash') ? kurswasser_operator_hash() : '-');
 
     return md5(implode('|', $sums));
 }

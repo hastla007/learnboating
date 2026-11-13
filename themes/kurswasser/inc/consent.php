@@ -2,7 +2,9 @@
 /**
  * Cookie-Einwilligung (TDDDG § 25, DSGVO): schlankes, selbst gehostetes Banner ohne Drittanbieter.
  *
- * Kategorien: „notwendig“ (immer aktiv) und „statistik“ (WooCommerce-Bestellzuordnung, sbjs_*-Cookies).
+ * Kategorien: „notwendig“ (immer aktiv), „statistik“ (WooCommerce-Bestellzuordnung, sbjs_*-Cookies) und – nur
+ * wenn Inhalte von fremden Servern geladen würden (Filter kurswasser_consent_external_hosts, z. B. Videos des
+ * Lern-Plugins bei einem Video-Dienst) – „extern“ (Externe Medien: Laden erst nach Einwilligung bzw. Klick).
  * Einwilligungs-Cookie kw_consent = rawurlencode("<version>|<kategorien>|<unix-zeit>"), 12 Monate.
  * Seiten-Cache-fest: Der Server liefert allen dieselbe Seite. wc_order_attribution_allow_tracking ist daher
  * immer false. Ein Inline-Script direkt vor order-attribution.js liest kw_consent im Browser und setzt bei
@@ -42,7 +44,21 @@ function kurswasser_consent_categories(): array
         return [];
     }
 
-    return array_values(array_intersect(['notwendig', 'statistik'], explode(',', $parts[1])));
+    return array_values(array_intersect(['notwendig', 'statistik', 'extern'], explode(',', $parts[1])));
+}
+
+/**
+ * Fremde Server, von denen Inhalte geladen würden (z. B. Video-Dienst des Lern-Plugins). Nicht leer = das Banner
+ * zeigt die Kategorie „Externe Medien“. @return list<string> Hostnamen
+ */
+function kurswasser_consent_external_hosts(): array
+{
+    $hosts = apply_filters('kurswasser_consent_external_hosts', []);
+
+    $hosts = array_map(static fn ($h) => strtolower(trim((string) $h)), is_array($hosts) ? $hosts : []);
+
+    // Nur echte Hostnamen (Buchstaben, Ziffern, Bindestrich, Punkt) – der Wert erscheint im Banner.
+    return array_values(array_unique(array_filter($hosts, static fn (string $h): bool => (bool) preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $h))));
 }
 
 /** Hat die besuchende Person in diese Kategorie eingewilligt? „notwendig“ ist immer erlaubt. */
@@ -78,6 +94,7 @@ add_action('wp_enqueue_scripts', static function (): void {
         'path' => (string) (wp_parse_url(home_url('/'), PHP_URL_PATH) ?: '/'),
         'secure' => is_ssl(),
         'saved' => __('Deine Auswahl ist gespeichert.', 'kurswasser'),
+        'external' => kurswasser_consent_external_hosts() !== [],
     ]);
 
     /*
@@ -162,6 +179,16 @@ function kurswasser_consent_banner(): void
 				<label for="kw-consent-cat-statistik"><strong><?php esc_html_e('Statistik', 'kurswasser'); ?></strong></label>
 				<p id="kw-consent-desc-statistik"><?php esc_html_e('WooCommerce-Bestellzuordnung: Herkunft deines Besuchs (z. B. Suchmaschine oder Link) und Sitzungsdauer, gespeichert in sbjs_*-Cookies. Keine Weitergabe an Dritte.', 'kurswasser'); ?></p>
 			</div>
+			<?php if (($kwHosts = kurswasser_consent_external_hosts()) !== []) : ?>
+			<div class="kw-consent-cat">
+				<input type="checkbox" id="kw-consent-cat-extern" name="extern" value="1" aria-describedby="kw-consent-desc-extern">
+				<label for="kw-consent-cat-extern"><strong><?php esc_html_e('Externe Medien', 'kurswasser'); ?></strong></label>
+				<p id="kw-consent-desc-extern"><?php
+                /* translators: %s: Hostnamen, z. B. videos.example.com */
+                echo esc_html(sprintf(__('Videos werden von einem externen Dienst geladen (%s). Dabei erhält der Anbieter deine IP-Adresse. Ohne Einwilligung lädst du ein Video mit einem Klick einzeln.', 'kurswasser'), implode(', ', $kwHosts)));
+                ?></p>
+			</div>
+			<?php endif; ?>
 		</fieldset>
 	</form>
 	<div class="kw-consent-actions">

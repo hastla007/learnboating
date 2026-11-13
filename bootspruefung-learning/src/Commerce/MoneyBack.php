@@ -107,13 +107,21 @@ final class MoneyBack
     /**
      * Garantie-Status einer Bestellung.
      *
-     * @param array{id:int,user_id:int,status:string,date_paid:?string,refunded:bool,items:list<array{product_id:int,variation_id:int}>,usage?:mixed} $order
-     *        usage: festgeschriebener Stand (USAGE_META) oder null
+     * @param array{id:int,user_id:int,status:string,date_paid:?string,refunded:bool,items:list<array{product_id:int,variation_id:int}>,usage?:mixed,voucher?:bool} $order
+     *        usage: festgeschriebener Stand (USAGE_META) oder null; voucher: Kursgutschein-Einlösung (Extensions\Vouchers)
      * @return array{applies:bool,eligible:bool,deadline:?string,progress:float,max_progress:float,requested:?array<string,mixed>,reason:string,usage?:array{exact:float,percent:float,done:int,total:int}}
      */
     public static function status(array $order, ?array $requested = null, ?string $now = null): array
     {
         $now ??= EntitlementService::now();
+        /*
+         * Kursgutschein-Einlösung (interne 0-€-Bestellung, voucher = true): standardmäßig keine Garantie. Ob und wie
+         * die Garantie beim Gutscheinkauf bzw. bei der Einlösung gilt, entscheidet der Betreiber (offene Frage);
+         * bis dahin bietet „Mein Lernen“ für solche Bestellungen keine Erstattung an.
+         */
+        if (! empty($order['voucher']) && ! (bool) apply_filters('bootspruefung_voucher_money_back', false, (int) ($order['id'] ?? 0))) {
+            return ['applies' => false, 'eligible' => false, 'deadline' => null, 'progress' => 0.0, 'max_progress' => 0.0, 'requested' => $requested, 'reason' => 'voucher'];
+        }
         $repo = new ProductAccessRepository($GLOBALS['wpdb']);
         $policy = null;
         $courses = [];

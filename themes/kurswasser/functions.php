@@ -18,6 +18,7 @@ require_once __DIR__.'/inc/offers.php';
 require_once __DIR__.'/inc/courses.php';
 require_once __DIR__.'/inc/consent.php';
 require_once __DIR__.'/inc/legal.php';
+require_once __DIR__.'/inc/operator.php';
 require_once __DIR__.'/inc/seo.php';
 require_once __DIR__.'/inc/content-yoast.php';
 require_once __DIR__.'/inc/content-pages.php';

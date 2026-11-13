@@ -59,8 +59,9 @@ Zusätzlich gleicht der stündliche Wartungslauf automatisch die seit dem letzte
 der Lauf nicht ab; sie stehen in der Option `bp_learning_cron_errors` und im PHP-Fehlerprotokoll.
 
 Prüfung anmelden: Lernende melden sich selbst beim Prüfungsausschuss an; der Lernbereich zeigt je Kurs die
-Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen; für Lernende
-unter Einstellungen › Prüfungsanmeldung freischalten (Standard: aus).
+Anleitung und alle Prüfungsausschüsse. Ausschüsse unter Bootsprüfung → Prüfungsanmeldung pflegen (fehlende mit „Prüfungsausschuss hinzufügen“, nur mit
+Quelle; eigene Einträge bleiben bei Content-Importen erhalten); für Lernende unter Einstellungen › Prüfungsanmeldung
+freischalten (Standard: aus).
 
 Membership-Funktionen (ohne Zusatz-Plugin): kostenlose Teilumfänge und zeitgesteuerte Freigaben unter
 Bootsprüfung → Kostenlose Bereiche; geschützte Seiten über die Metabox „Lernzugang erforderlich“,
@@ -74,6 +75,14 @@ Benutzer-Aufzählung) einzeln abschaltbar über den Filter `bootspruefung_harden
 Reiter Lernzugang; Mitgliederrabatte unter Bootsprüfung → Mitgliederrabatte. PDFs für die Downloadliste eines
 Kurses in der Mediathek mit „Kurs · Downloads (PDF)“ markieren. Dispute-Webhooks (PayPal, allgemein für Klarna u. a.)
 unter Bootsprüfung → Einstellungen › Zahlungskonflikte einrichten.
+Videos auf einem fremden Server (anderer Host als die eigene Domain samt Subdomains) lädt die Lern-App erst nach
+Klick oder mit der Einwilligung „Externe Medien“ im Cookie-Banner des Themes; die Kategorie erscheint dort automatisch,
+sobald eine Videolektion fremd gehostet ist. Einen Dienstleister mit Auftragsverarbeitung als eigenen Server behandeln:
+Filter `bootspruefung_video_first_party_hosts` (Liste von Hostnamen).
+
+Erweiterungs-Plugins (Gutschein, Praxis-Tickets): Hooks, Filter und App-Routen, über die ein Gutschein- bzw.
+Ticket-Plugin mit dem Lern-Plugin zusammenarbeitet, stehen in `docs/schnittstellen-erweiterungen.md`
+(Kursgutschein einlösen, besitzt Kurs, Mitgliederrabatt, Garantie-Anteil, Tickets, „Praxis in deiner Nähe“).
 
 ### Tests des Plugins
 
@@ -99,6 +108,12 @@ WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/woocommer
 
 ```bash
 WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/membership-test.php
+```
+
+Schnittstellen für Gutschein- und Ticket-Plugins (mit WooCommerce, vorher `woocommerce-setup.php`):
+
+```bash
+WP_DIR=/pfad/zu/wordpress php bootspruefung-learning/tests/integration/extensions-test.php
 ```
 
 ```bash
