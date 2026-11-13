@@ -131,6 +131,8 @@ final class Plugin
         add_action(\Bootspruefung\Learning\Commerce\ExpiryReminder::HOOK, [\Bootspruefung\Learning\Commerce\ExpiryReminder::class, 'run']);
         (new \Bootspruefung\Learning\Commerce\ReminderOptOut())->register(); // Widerspruch gegen die Ablauf-Erinnerung
         PersonalData::register();
+        // Gegenstellen für Gutschein- und Ticket-Plugins (docs/schnittstellen-erweiterungen.md).
+        \Bootspruefung\Learning\Extensions\Extensions::register();
         \Bootspruefung\Learning\Security\Hardening::register();
         (new \Bootspruefung\Learning\Gate\ContentGate())->register();
         (new \Bootspruefung\Learning\Gate\ProtectedFiles())->register();

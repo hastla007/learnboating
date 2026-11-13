@@ -37,6 +37,9 @@ delete_option(Settings::OPTION);
 delete_metadata('user', 0, 'bp_app_settings', '', true);
 // Merker der Ablauf-Erinnerungen (je Kurs und Ablaufdatum).
 delete_metadata('user', 0, \Bootspruefung\Learning\Commerce\ExpiryReminder::META, '', true);
+// Praxis-Tickets aus einem Ticket-Plugin (Kopie je Konto und Suchschlüssel).
+delete_metadata('user', 0, \Bootspruefung\Learning\Extensions\Tickets::META, '', true);
+delete_metadata('user', 0, \Bootspruefung\Learning\Extensions\Tickets::LOOKUP_META, '', true);
 
 // Eigene Optionen, Zwischenspeicher und Tipps.
 $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'bp\\_learning\\_%' OR option_name LIKE '\\_transient\\_bp\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bp\\_%'");

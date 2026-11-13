@@ -381,6 +381,8 @@ final class Integration
             echo ' <a class="button" href="'.esc_url(Router::url('gruppen')).'">'.esc_html__('Meine Gruppen verwalten', 'bootspruefung-learning').'</a>';
         }
         echo '</p>';
+        // Kursgutschein einlösen – nur, wenn ein Gutschein-Plugin den Filter bootspruefung_voucher_redeem belegt.
+        \Bootspruefung\Learning\Extensions\Vouchers::renderAccountForm(get_current_user_id());
         if ($rows === []) {
             echo '<p>'.esc_html__('Für dein Konto sind noch keine Lernzugänge gebucht.', 'bootspruefung-learning').'</p>';
             MoneyBackWoo::renderAccountSection(get_current_user_id());

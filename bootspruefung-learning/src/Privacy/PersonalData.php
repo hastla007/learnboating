@@ -134,7 +134,7 @@ final class PersonalData
         if ($index >= count($tables)) {
             return ['data' => [], 'done' => true];
         }
-        $extra = $page === 1 && $user ? self::appSettingsItems((int) $user->ID) : [];
+        $extra = $page === 1 && $user ? array_merge(self::appSettingsItems((int) $user->ID), self::ticketItems((int) $user->ID)) : [];
         $table = $tables[$index];
         $rows = $wpdb->get_results(self::sql('SELECT *', $table, $sources[$table][1]).' ORDER BY id LIMIT '.self::EXPORT_LIMIT.' OFFSET '.(int) $offset, ARRAY_A) ?: [];
         $data = [];
@@ -170,6 +170,12 @@ final class PersonalData
                 ['name' => 'updated_at', 'value' => (string) $state['updated_at']],
             ],
         ]];
+    }
+
+    /** Praxis-Tickets (Nutzer-Meta _bp_tickets, vom Ticket-Plugin gemeldet). @return list<array<string,mixed>> */
+    private static function ticketItems(int $userId): array
+    {
+        return \Bootspruefung\Learning\Extensions\Tickets::exportItems($userId, self::GROUP.'-tickets', __('Bootsprüfung', 'bootspruefung-learning').' – '.__('Praxis-Tickets', 'bootspruefung-learning'));
     }
 
     /** $where ist bereits vorbereitet (sources()). */
@@ -247,6 +253,8 @@ final class PersonalData
             $removed = \Bootspruefung\Learning\Mobile\AppSettings::delete((int) $user->ID) || $removed;
             // Merker der Ablauf-Erinnerungen (Nutzer-Meta).
             $removed = \Bootspruefung\Learning\Commerce\ExpiryReminder::forget((int) $user->ID) || $removed;
+            // Praxis-Tickets (Nutzer-Meta; die Tickets selbst führt das Ticket-Plugin).
+            $removed = \Bootspruefung\Learning\Extensions\Tickets::erase((int) $user->ID) || $removed;
             // Gruppenplätze: E-Mail-Adresse entfernen, Platzhistorie bleibt (Kontingent der Bestellung).
             $members = self::eraseGroupMembers((int) $user->ID, $email);
             if ($members === false) {
