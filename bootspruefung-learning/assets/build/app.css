@@ -1482,3 +1482,7 @@ body.admin-bar .bp-app * { scroll-margin-top: calc(32px + 1rem); }
 .bp-expiry a { font-weight: 700; white-space: nowrap; }
 /* Lange Linktexte („Bestellung und Zahlungsdaten ansehen“) mobil umbrechen statt über den Rand ragen (UX4-06, T51). */
 @media (max-width: 600px) { .bp-expiry a { white-space: normal; overflow-wrap: anywhere; } .bp-expiry { flex-wrap: wrap; } }
+
+/* Barrierefreiheit (T56, axe color-contrast): gesperrte Bögen und PDFs ohne abgeschwächte Deckkraft, Kontrast ≥ 4,5:1. */
+.bp-app .bp-exam-page .bp-paper-locked .bp-paper-state { opacity: 1; color: #4a5565; }
+.bp-pdf.is-locked .bp-pdf-ico { opacity: 1; color: #9b4743; }
