@@ -29,6 +29,10 @@ final class Connector
 
     /** Grund, warum der Connector inaktiv ist ('' = aktiv). */
     private static string $problem = '';
+    /** @var array<string,string> Partnercode je Rohwert, einmal je Anfrage aufgelöst. */
+    private static array $resolved = [];
+    /** Läuft gerade eine Anfrage an die App-Schnittstelle (auch intern per rest_do_request)? */
+    private static int $mobileDepth = 0;
 
     public static function boot(): void
     {
@@ -43,6 +47,8 @@ final class Connector
         add_filter('wpac_commission_base', [self::class, 'commissionBase'], 10, 3);
         add_filter('wpac_hold_until', [self::class, 'holdUntil'], 10, 2);
         add_filter('bootspruefung_shop_offer_url', [self::class, 'offerUrl'], 10, 1);
+        add_filter('rest_pre_dispatch', [self::class, 'enterRest'], 1, 3);
+        add_filter('rest_post_dispatch', [self::class, 'leaveRest'], 99, 3);
     }
 
     /** Leerer String, wenn alles kompatibel ist; sonst verständliche Fehlermeldung. */
@@ -228,13 +234,44 @@ final class Connector
         if ($code === '' || strlen($code) > 64) {
             return '';
         }
-        $resolved = wpac_resolve_partner_code($code, ['context' => 'app', 'source' => self::SOURCE]);
+        if (! array_key_exists($code, self::$resolved)) {
+            $resolved = wpac_resolve_partner_code($code, ['context' => 'app', 'source' => self::SOURCE]);
+            self::$resolved[$code] = is_array($resolved) && ! empty($resolved['code']) ? (string) $resolved['code'] : '';
+        }
 
-        return is_array($resolved) && ! empty($resolved['code']) ? (string) $resolved['code'] : '';
+        return self::$resolved[$code];
+    }
+
+    /** @param mixed $result */
+    public static function enterRest($result, $server, $request)
+    {
+        if (is_object($request) && method_exists($request, 'get_route') && self::isMobileRoute((string) $request->get_route())) {
+            self::$mobileDepth++;
+        }
+
+        return $result;
+    }
+
+    /** @param mixed $response */
+    public static function leaveRest($response, $server, $request)
+    {
+        if (self::$mobileDepth > 0 && is_object($request) && method_exists($request, 'get_route') && self::isMobileRoute((string) $request->get_route())) {
+            self::$mobileDepth--;
+        }
+
+        return $response;
+    }
+
+    private static function isMobileRoute(string $route): bool
+    {
+        return class_exists(MobileApi::class) && ($route === '/'.MobileApi::NAMESPACE || str_starts_with($route, '/'.MobileApi::NAMESPACE.'/'));
     }
 
     private static function isMobileRequest(): bool
     {
+        if (self::$mobileDepth > 0) {
+            return true;
+        }
         if (! defined('REST_REQUEST') || ! REST_REQUEST) {
             return false;
         }

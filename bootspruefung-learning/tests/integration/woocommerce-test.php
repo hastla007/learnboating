@@ -665,6 +665,12 @@ if (function_exists('wc_load_cart')) {
     $wpdb->insert($wpdb->prefix.'bp_entitlement', ['user_id' => $vidUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'question_bank', 'status' => 'active', 'valid_from' => $now, 'valid_until' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS), 'source' => 'manual', 'reference_key' => 'video-test-'.$vidUser, 'created_at' => $now, 'updated_at' => $now]);
     $offer = \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::offerFor($vidUser, 'SBF-SEE');
     $check($offer !== null && str_contains($offer['url'], 'add-to-cart='.$vUp) && apply_filters('woocommerce_add_to_cart_validation', true, $vUp, 1) === true, 'Theorie gekauft: Upgrade im Lernbereich angeboten und kaufbar');
+    $mark = static fn ($url) => $url.(str_contains((string) $url, '?') ? '&' : '?').'partner=TEST';
+    add_filter('bootspruefung_shop_offer_url', $mark);
+    $offerP = \Bootspruefung\Learning\Commerce\WooCommerce\VideoUpgrade::offerFor($vidUser, 'SBF-SEE');
+    $links = \Bootspruefung\Learning\Mobile\Controllers\AccountController::links();
+    remove_filter('bootspruefung_shop_offer_url', $mark);
+    $check(str_ends_with((string) ($offerP['url'] ?? ''), 'partner=TEST') && str_ends_with((string) ($links['shop'] ?? ''), 'partner=TEST'), 'Video-Upgrade und Shop-Link der App laufen durch bootspruefung_shop_offer_url (Partnercode)');
     $wpdb->delete($wpdb->prefix.'bp_entitlement', ['reference_key' => 'video-test-'.$vidUser]);
     WC()->cart->empty_cart();
     wc_clear_notices();

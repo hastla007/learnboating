@@ -65,7 +65,8 @@ final class AccountController extends BaseController
 
         return [
             'web_learning' => Router::url(),
-            'shop' => $shop !== '' ? $shop : null,
+            // Shop-Link der App wie die Kaufangebote durch den Filter (Partnercode, Kampagne).
+            'shop' => $shop !== '' ? (string) apply_filters('bootspruefung_shop_offer_url', $shop, null, '', 'shop') : null,
             'account' => function_exists('wc_get_page_permalink') && Integration::active() ? (string) wc_get_page_permalink('myaccount') : null,
             'privacy_policy' => $privacy !== '' ? $privacy : null,
         ] + self::legalLinks();

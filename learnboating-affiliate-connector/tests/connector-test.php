@@ -26,7 +26,7 @@ namespace {
     function wp_unslash($v) { return $v; }
     function add_query_arg(array $args, string $url): string { return $url.(str_contains($url, '?') ? '&' : '?').http_build_query($args, '', '&', PHP_QUERY_RFC3986); }
     function wpac_contract_version() { return $GLOBALS['test_contract']; }
-    function wpac_resolve_partner_code($code, array $ctx = []) { return in_array(strtoupper($code), ['NORD-1'], true) ? ['affiliate_id' => 1, 'code_id' => 1, 'code' => 'NORD-1'] : null; }
+    function wpac_resolve_partner_code($code, array $ctx = []) { $GLOBALS['test_resolve_calls'] = ($GLOBALS['test_resolve_calls'] ?? 0) + 1; return in_array(strtoupper($code), ['NORD-1'], true) ? ['affiliate_id' => 1, 'code_id' => 1, 'code' => 'NORD-1'] : null; }
     function wc_get_product($id) { return null; }
 }
 
@@ -106,8 +106,20 @@ namespace {
     $_SERVER['HTTP_X_PARTNER_CODE'] = 'NORD-1';
     $check(str_contains(Connector::offerUrl($url), 'partner=NORD-1'), 'App: Code per Header X-Partner-Code');
     $check($url.'?utm_campaign=sommer&partner=NORD-1' === Connector::offerUrl($url.'?utm_campaign=sommer'), 'vorhandene Kampagne bleibt');
+    $calls = $GLOBALS['test_resolve_calls'] ?? 0;
+    for ($i = 0; $i < 20; $i++) {
+        Connector::offerUrl($url.'?n='.$i);
+    }
+    $check(($GLOBALS['test_resolve_calls'] ?? 0) === $calls, 'Partnercode einmal je Anfrage aufgelöst (20 Angebote, keine weitere Abfrage)');
     $GLOBALS['wp']->query_vars['rest_route'] = '/wc/store/v1/cart';
     $check($url === Connector::offerUrl($url), 'nur Mobile-API, nicht Web oder Store API');
+    $req = new class {
+        public function get_route(): string { return '/boatingschool/v1/courses/2'; }
+    };
+    Connector::enterRest(null, null, $req);
+    $check(str_contains(Connector::offerUrl($url), 'partner=NORD-1'), 'interne Anfrage an die App-Schnittstelle (rest_do_request) wird erkannt');
+    Connector::leaveRest(null, null, $req);
+    $check($url === Connector::offerUrl($url), 'nach der internen Anfrage wieder Web');
 
     $GLOBALS['test_contract'] = '2.0.0';
     $GLOBALS['test_hooks'] = [];

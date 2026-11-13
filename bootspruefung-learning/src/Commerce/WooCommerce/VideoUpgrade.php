@@ -136,7 +136,8 @@ final class VideoUpgrade
             if ($upgrade) {
                 return [
                     'name' => $upgrade->get_name(),
-                    'url' => add_query_arg('add-to-cart', $upgrade->get_id(), wc_get_checkout_url()),
+                    // Wie alle Kaufangebote durch den Filter (z. B. Partnercode der App, Add-on learnboating-affiliate-connector).
+                    'url' => (string) apply_filters('bootspruefung_shop_offer_url', add_query_arg('add-to-cart', $upgrade->get_id(), wc_get_checkout_url()), $upgrade, $courseCode, AccessService::VIDEO),
                     'price' => html_entity_decode(wp_strip_all_tags((string) $upgrade->get_price_html()), ENT_QUOTES, 'UTF-8'),
                 ];
             }
