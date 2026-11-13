@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-const KURSWASSER_VERSION = '2.0.0';
+const KURSWASSER_VERSION = '2.1.0';
 
 require_once __DIR__.'/inc/learning.php';
 require_once __DIR__.'/inc/offers.php';

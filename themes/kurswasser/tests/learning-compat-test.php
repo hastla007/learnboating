@@ -70,8 +70,17 @@ $check(! kurswasser_learning_compatible(), 'andere Vertragsversion: inkompatibel
 remove_filter('bootspruefung_learning_contract', $other);
 $check(kurswasser_learning_compatible(), 'danach wieder kompatibel');
 
-$headers = get_file_data($theme.'/style.css', ['update' => 'Update URI', 'wp' => 'Requires at least']);
+$headers = get_file_data($theme.'/style.css', ['update' => 'Update URI', 'wp' => 'Requires at least', 'version' => 'Version', 'author' => 'Author']);
 $check($headers['update'] === 'false', 'Theme-Kopf: Update URI (keine fremden Updates von wordpress.org)');
+
+echo "Theme-Version (T92)\n";
+$check($headers['version'] === KURSWASSER_VERSION, 'Version in style.css = KURSWASSER_VERSION ('.$headers['version'].' / '.KURSWASSER_VERSION.')');
+preg_match('/^## (\S+)/m', (string) @file_get_contents($theme.'/CHANGELOG.md'), $log);
+$check(($log[1] ?? '') === KURSWASSER_VERSION, 'oberster Eintrag in CHANGELOG.md = Theme-Version');
+$check($headers['author'] !== '' && ! str_contains($headers['author'], 'XXXX'), 'Theme-Kopf: Author ohne Platzhalter');
+do_action('wp_enqueue_scripts');
+$offers = wp_scripts()->registered['kurswasser-offers'] ?? null;
+$check($offers !== null && $offers->ver === KURSWASSER_VERSION, 'offers.js trägt die Theme-Version (Browser laden nach einem Theme-Update neu)');
 
 echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
 exit($failures === 0 ? 0 : 1);

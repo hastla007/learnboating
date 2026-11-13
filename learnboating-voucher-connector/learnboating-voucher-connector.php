@@ -2,10 +2,11 @@
 /**
  * Plugin Name:       LearnBoating Kursgutschein-Connector
  * Description:       Verbindet die Bootsprüfung-Lernplattform mit Voucher Captain: Kursgutscheine im Shop verkaufen und in „Mein Lernen“ (App und Einlöseseite) einlösen. Reserviert den Gutschein, schaltet den Kurs über die Produktzuordnung „Lernzugang“ frei und verbucht erst danach.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 7.0
  * Requires PHP:      8.1
  * Requires Plugins:  bootspruefung-learning, voucher-captain
+ * Author:            LearnBoating
  * Update URI:        false
  * Text Domain:       learnboating-voucher-connector
  * Domain Path:       /languages
@@ -18,7 +19,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('LBVC_VERSION', '1.0.0');
+define('LBVC_VERSION', '1.0.1');
 define('LBVC_FILE', __FILE__);
 
 require_once __DIR__.'/src/Connector.php';

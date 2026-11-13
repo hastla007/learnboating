@@ -126,6 +126,19 @@ namespace {
     Connector::boot();
     $check(! Connector::active() && str_contains(Connector::diagnose(), '2.0.0') && ! isset($GLOBALS['test_hooks']['wpac_commission_base']), 'inkompatibler Vertrag: kontrolliert inaktiv mit verständlicher Meldung');
 
+    echo "\nAdd-on-Versionen (T92)\n";
+    foreach (['learnboating-affiliate-connector' => 'LBAC_VERSION', 'learnboating-voucher-connector' => 'LBVC_VERSION'] as $slug => $const) {
+        $dir = dirname(__DIR__, 2).'/'.$slug;
+        $main = (string) file_get_contents($dir.'/'.$slug.'.php');
+        preg_match('/^\s*\*\s*Version:\s*(\S+)/m', $main, $header);
+        preg_match("/define\\('".$const."',\\s*'([^']+)'\\)/", $main, $constant);
+        preg_match('/^## (\S+)/m', (string) @file_get_contents($dir.'/CHANGELOG.md'), $log);
+        $v = $header[1] ?? '';
+        $check($v !== '' && $v === ($constant[1] ?? null), $slug.': Version im Kopf = '.$const.' ('.$v.')');
+        $check($v === ($log[1] ?? null), $slug.': oberster Eintrag in CHANGELOG.md = '.$v);
+        $check(preg_match('/^\s*\*\s*Author:\s*(\S.*)$/m', $main, $author) === 1 && ! str_contains($author[1], 'XXXX'), $slug.': Autor im Kopf');
+    }
+
     echo $failures ? "\n$failures Fehler\n" : "\nAlle Prüfungen bestanden.\n";
     exit($failures ? 1 : 0);
 }

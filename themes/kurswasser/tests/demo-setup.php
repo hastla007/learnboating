@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 /*
  * Demo-Stand für Theme-Screenshots (CI): Produktkatalog veröffentlichen, Schnupper-Paket.
+ * Schaltet das Theme um, legt Seiten an und ändert den Website-Titel – deshalb nur gegen eine Test-Datenbank
+ * (Schutz wie bei den Integrationstests: DB_NAME muss „test“ enthalten).
  *   WP_DIR=/pfad/zu/wordpress php themes/kurswasser/tests/demo-setup.php
  */
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REQUEST_URI'] = '/';
 require rtrim((string) getenv('WP_DIR'), '/').'/wp-load.php';
+require dirname(__DIR__, 3).'/bootspruefung-learning/tests/integration/support/guard.php';
 
 wp_set_current_user(1);
 switch_theme('kurswasser');
