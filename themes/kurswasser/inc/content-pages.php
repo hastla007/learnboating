@@ -298,7 +298,7 @@ function kurswasser_content_source_hash(array $entry, string $content): string
  * der Vorlage), blocked (live und neue Vorlage enthält Platzhalter), legal (ersetzt einen Rechtstext),
  * trashed, no-parent, no-file, error.
  *
- * @return array<string,array{state:string,id:int,title:string,nr:int}>
+ * @return array<string,array{state:string,id:int,title:string,nr:int,yoast?:array{written:list<string>,kept:list<string>,dry:bool}}>
  */
 function kurswasser_content_pages_sync(array $options = []): array
 {

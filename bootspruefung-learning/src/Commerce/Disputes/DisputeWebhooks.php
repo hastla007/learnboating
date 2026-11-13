@@ -627,6 +627,11 @@ final class DisputeWebhooks
      */
     public function handle(string $source, string $eventId, string $action, ?int $orderId, array $transactions, string $reference, ?int $eventTime = null, ?string $caseId = null): array
     {
+        // Nur die drei bekannten Ereignisse; alle Aufrufer prüfen das schon, aber handle() ist öffentlich
+        // (sonst Abbruch mit UnhandledMatchError nach dem Sperren der Bestellung).
+        if (! in_array($action, ['opened', 'won', 'lost'], true)) {
+            return ['matched' => false, 'invalid_action' => true];
+        }
         $eventKey = md5($source.'|'.$eventId);
         $key = 'bp_dispute_'.$eventKey;
         if (get_transient($key)) {

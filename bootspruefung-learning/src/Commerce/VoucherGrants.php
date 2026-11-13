@@ -64,7 +64,7 @@ final class VoucherGrants
     /**
      * Ist das Kursprodukt (bzw. die Variation) ein gültiges Gutscheinziel?
      *
-     * @return array{product_id:int,variation_id:int,name:string,sku:string,scopes:list<array<string,mixed>>}|\WP_Error
+     * @return array{product_id:int,variation_id:int,name:string,sku:string,scopes:list<array<string,mixed>>,rows:list<object>}|\WP_Error
      */
     public function target(int $productId, int $variationId = 0): array|\WP_Error
     {

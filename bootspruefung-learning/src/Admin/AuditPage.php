@@ -60,7 +60,7 @@ final class AuditPage
         echo '</div>';
     }
 
-    /** @param array<string,string> $filter */
+    /** @param array<string,int|string> $filter siehe filterFromRequest() */
     private function renderFilter(array $filter): void
     {
         echo '<form method="get" class="bp-filter" style="margin:12px 0"><input type="hidden" name="page" value="'.esc_attr(self::SLUG).'">';

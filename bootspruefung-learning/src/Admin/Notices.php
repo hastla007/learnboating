@@ -191,7 +191,7 @@ final class Notices
         if (! is_user_logged_in() || ! current_user_can('read')) {
             wp_send_json_error(null, 403);
         }
-        self::dismiss((string) wp_unslash($_POST['key'] ?? ''), absint($_POST['days'] ?? 0), (string) wp_unslash($_POST['v'] ?? ''));
+        self::dismiss(sanitize_key(wp_unslash($_POST['key'] ?? '')), absint($_POST['days'] ?? 0), sanitize_key(wp_unslash($_POST['v'] ?? '')));
         wp_send_json_success();
     }
 
@@ -201,7 +201,7 @@ final class Notices
         if (! is_user_logged_in()) {
             wp_die(esc_html__('Keine Berechtigung.', 'bootspruefung-learning'), 403);
         }
-        self::dismiss((string) wp_unslash($_GET['key'] ?? ''), absint($_GET['days'] ?? 0), (string) wp_unslash($_GET['v'] ?? ''));
+        self::dismiss(sanitize_key(wp_unslash($_GET['key'] ?? '')), absint($_GET['days'] ?? 0), sanitize_key(wp_unslash($_GET['v'] ?? '')));
         wp_safe_redirect(wp_get_referer() ?: admin_url());
         exit;
     }

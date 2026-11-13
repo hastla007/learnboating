@@ -570,7 +570,7 @@ final class AccessPages
             $delete = '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline">'.wp_nonce_field('bp_member_discount', '_wpnonce', true, false)
                 .'<input type="hidden" name="action" value="bp_member_discount"><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="'.esc_attr($rule['id']).'">'
                 .'<button class="button-link-delete">'.esc_html__('entfernen', 'bootspruefung-learning').'</button></form>';
-            $rows[] = [esc_html($md::courseLabel($rule['course'])), esc_html(wc_format_localized_decimal($rule['percent']).' %'), esc_html($md::appliesLabel($rule['applies'])), esc_html($rule['label']), $delete];
+            $rows[] = [esc_html($md::courseLabel($rule['course'])), esc_html(wc_format_localized_decimal((string) $rule['percent']).' %'), esc_html($md::appliesLabel($rule['applies'])), esc_html($rule['label']), $delete];
         }
         Ui::table([__('Zugang zu', 'bootspruefung-learning'), __('Rabatt', 'bootspruefung-learning'), __('gilt für', 'bootspruefung-learning'), __('Bezeichnung', 'bootspruefung-learning'), ''], $rows, __('Keine Mitgliederrabatte festgelegt.', 'bootspruefung-learning'));
         echo '<h2>'.esc_html__('Rabatt hinzufügen', 'bootspruefung-learning').'</h2><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';

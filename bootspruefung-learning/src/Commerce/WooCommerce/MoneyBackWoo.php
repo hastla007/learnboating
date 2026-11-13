@@ -137,6 +137,9 @@ final class MoneyBackWoo
         if ($paidByVoucher > 0.004 && $amount > 0) {
             $gross = 0.0;
             foreach ($order->get_items(['line_item', 'shipping', 'fee']) as $item) {
+                if (! $item instanceof \WC_Order_Item_Product && ! $item instanceof \WC_Order_Item_Shipping && ! $item instanceof \WC_Order_Item_Fee) {
+                    continue; // get_items() liefert nur diese drei Arten; Schutz für Filter von Dritten
+                }
                 $line = (float) $item->get_total() + (float) $item->get_total_tax();
                 $gross += $item instanceof \WC_Order_Item_Fee ? max(0.0, $line) : $line;
             }

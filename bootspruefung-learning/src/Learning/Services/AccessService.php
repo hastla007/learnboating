@@ -475,6 +475,7 @@ final class AccessService
     private static function groupFreeRules(array $rules, string $now): array
     {
         $groups = [];
+        $limits = [];
         foreach ($rules as $r) {
             if ($r->module_code !== null || ! in_array($r->access_type, ['free', 'free_limited'], true)
                 || ($r->valid_from !== null && $r->valid_from > $now) || ($r->valid_until !== null && $r->valid_until < $now)) {
@@ -483,7 +484,8 @@ final class AccessService
             $key = $r->feature_code.'|'.$r->access_type;
             $groups[$key] ??= (object) ['feature_code' => (string) $r->feature_code, 'access_type' => (string) $r->access_type, 'limit_value' => null];
             if ($r->limit_value !== null) {
-                $groups[$key]->limit_value = $groups[$key]->limit_value === null ? (int) $r->limit_value : max((int) $groups[$key]->limit_value, (int) $r->limit_value);
+                $limits[$key] = max($limits[$key] ?? (int) $r->limit_value, (int) $r->limit_value);
+                $groups[$key]->limit_value = $limits[$key];
             }
         }
 
@@ -498,6 +500,7 @@ final class AccessService
     private static function groupDripRules(array $rules, string $feature): array
     {
         $groups = [];
+        $maxDays = [];
         foreach ($rules as $r) {
             if ($r->module_code === null || $r->access_type !== 'drip' || $r->feature_code !== $feature) {
                 continue;
@@ -505,7 +508,8 @@ final class AccessService
             $key = (string) $r->module_code;
             $groups[$key] ??= (object) ['module_code' => $key, 'days' => null];
             if ($r->limit_value !== null) {
-                $groups[$key]->days = $groups[$key]->days === null ? (int) $r->limit_value : max((int) $groups[$key]->days, (int) $r->limit_value);
+                $maxDays[$key] = max($maxDays[$key] ?? (int) $r->limit_value, (int) $r->limit_value);
+                $groups[$key]->days = $maxDays[$key];
             }
         }
 

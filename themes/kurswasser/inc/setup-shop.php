@@ -111,7 +111,7 @@ function kurswasser_shop_rate_label(float $rate): string
  * Eingaben aus Formular bzw. WP-CLI prüfen. Fehlt der Satz bei „eigener Satz“ bzw. der Hinweistext bei
  * „Kleinunternehmer“, gilt der Vorschlag für das Land.
  *
- * @return array{country:string,state:string,address:string,postcode:string,city:string,tax:string,rate:?float,note:string,sell:string,products:bool,free:bool,registration:bool,language:bool,errors:list<string>}
+ * @return array{country:string,state:string,address:string,postcode:string,city:string,tax:string,rate:?float,note:string,sell:string,products:bool,free:bool,registration:bool,language:bool,live:bool,live_confirm:bool,errors:list<string>}
  */
 function kurswasser_shop_input(array $raw): array
 {

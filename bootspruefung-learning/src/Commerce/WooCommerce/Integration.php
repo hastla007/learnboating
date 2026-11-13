@@ -649,6 +649,7 @@ final class Integration
             'approve' => self::sync()->approveOrder($id, $reason),
             'suspend' => self::sync()->suspendOrder($id, $reason),
             'release' => self::sync()->releaseOrder($id, $reason),
+            default => null, // nur die vier in register() angemeldeten Aktionen
         };
     }
 

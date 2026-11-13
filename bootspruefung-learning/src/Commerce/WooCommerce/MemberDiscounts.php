@@ -131,12 +131,12 @@ final class MemberDiscounts
             if ($discount === null) {
                 // Nur zurücksetzen, wenn wir vorher rabattiert hatten – Preise anderer Plugins nicht überschreiben.
                 if (isset($cart->cart_contents[$key]['bp_member_discount'])) {
-                    $product->set_price($base);
+                    $product->set_price(wc_format_decimal($base));
                     unset($cart->cart_contents[$key]['bp_member_discount']);
                 }
                 continue;
             }
-            $product->set_price(round($base * (1 - $discount['percent'] / 100), wc_get_price_decimals()));
+            $product->set_price(wc_format_decimal(round($base * (1 - $discount['percent'] / 100), wc_get_price_decimals())));
             $cart->cart_contents[$key]['bp_member_discount'] = $discount;
         }
     }
@@ -152,14 +152,14 @@ final class MemberDiscounts
         }
         $price = (float) wc_get_price_to_display($product);
 
-        return $html.' <small class="bp-member-price">'.esc_html(sprintf(__('Für dich: %1$s (−%2$s %% %3$s)', 'bootspruefung-learning'), wp_strip_all_tags(wc_price($price * (1 - $discount['percent'] / 100))), wc_format_localized_decimal($discount['percent']), $discount['label'])).'</small>';
+        return $html.' <small class="bp-member-price">'.esc_html(sprintf(__('Für dich: %1$s (−%2$s %% %3$s)', 'bootspruefung-learning'), wp_strip_all_tags(wc_price($price * (1 - $discount['percent'] / 100))), wc_format_localized_decimal((string) $discount['percent']), $discount['label'])).'</small>';
     }
 
     public function lineItemMeta($item, $cartItemKey, $values, $order): void
     {
         if (! empty($values['bp_member_discount']) && $item instanceof \WC_Order_Item_Product) {
             $d = $values['bp_member_discount'];
-            $item->add_meta_data(__('Mitgliederrabatt', 'bootspruefung-learning'), wc_format_localized_decimal($d['percent']).' % ('.$d['label'].')', true);
+            $item->add_meta_data(__('Mitgliederrabatt', 'bootspruefung-learning'), wc_format_localized_decimal((string) $d['percent']).' % ('.$d['label'].')', true);
         }
     }
 

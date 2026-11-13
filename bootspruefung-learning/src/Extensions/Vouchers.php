@@ -152,7 +152,7 @@ final class Vouchers
             $order->set_payment_method_title(__('Kursgutschein', 'bootspruefung-learning'));
             $order->update_meta_data(self::CODE_META, $hash);
             if ($voucherOrderId > 0) {
-                $order->update_meta_data(self::VOUCHER_ORDER_META, $voucherOrderId);
+                $order->update_meta_data(self::VOUCHER_ORDER_META, (string) $voucherOrderId);
             }
             $order->calculate_totals(false);
             $order->set_date_paid(time());

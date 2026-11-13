@@ -754,6 +754,9 @@ $check($statuses($k2) === ['active'], 'älteres „verloren“ ändert ein jüng
 // Neuer Konfliktfall derselben Bestellung (eigene dispute_id): wird normal ausgewertet.
 $send(['id' => 'K2-open-2', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-2', 'timestamp' => '2026-11-12T08:00:00Z']);
 $check($statuses($k2) === ['suspended'], 'neuer Fall (andere dispute_id) setzt aus');
+// Unbekanntes Ereignis direkt an handle(): kein Abbruch (UnhandledMatchError), nichts geändert.
+$r = (new $dw())->handle('klarna', 'K2-unknown', 'refunded', $k2, [], 'Test', time(), 'KD-2');
+$check(! empty($r['invalid_action']) && empty($r['matched']) && $statuses($k2) === ['suspended'], 'unbekanntes Konflikt-Ereignis wird abgewiesen, Zugang unverändert');
 // Ohne ID: Duplikat trotz anderer Leerzeichen/Schlüsselreihenfolge.
 $k3 = $paidOrder($bob, 'klarna_payments');
 $b1 = '{"event":"opened","order_id":'.$k3.',"source":"klarna-ohne-id"}';

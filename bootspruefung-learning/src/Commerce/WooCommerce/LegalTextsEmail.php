@@ -135,7 +135,7 @@ final class LegalTextsEmail
             return;
         }
         if ($id > 0 && $sent === 0) {
-            $order->update_meta_data(self::SENT_META, $time);
+            $order->update_meta_data(self::SENT_META, (string) $time);
             $order->save_meta_data();
             self::$sentNow[$id] = ['email' => $emailId, 'time' => $time];
         }
