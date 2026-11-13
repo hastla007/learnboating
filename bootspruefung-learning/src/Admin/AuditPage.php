@@ -301,6 +301,8 @@ final class AuditPage
     public static function table(array $rows, bool $withObject): void
     {
         $out = [];
+        // T124: handelnde Personen vorab in einer Abfrage laden (actorLabel ohne Abfrage je Zeile).
+        AccessPages::primeUsers(array_map(static fn ($r) => (int) $r->actor_user_id, $rows));
         foreach ($rows as $r) {
             $cells = [
                 esc_html(Ui::date((string) $r->created_at)),
@@ -327,7 +329,12 @@ final class AuditPage
         if ($userId === null || $userId === 0) {
             return __('System (automatisch)', 'bootspruefung-learning');
         }
-        $user = get_userdata($userId);
+        // Gelöschte Konten fragt get_userdata() sonst je Zeile erneut ab.
+        static $missing = [];
+        $user = isset($missing[$userId]) ? false : get_userdata($userId);
+        if (! $user) {
+            $missing[$userId] = true;
+        }
 
         // Nur der Anzeigename, keine E-Mail-Adresse.
         return $user ? $user->display_name : sprintf(__('Nutzer %d (gelöscht)', 'bootspruefung-learning'), $userId);

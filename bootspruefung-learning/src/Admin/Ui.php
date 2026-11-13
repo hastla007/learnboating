@@ -78,7 +78,8 @@ final class Ui
      */
     public static function table(array $headers, array $rows, ?string $empty = null): void
     {
-        echo '<table class="widefat striped bp-table"><thead><tr>';
+        // T126: am Handy seitlich scrollen statt die Seite zu verbreitern (CSS .bp-table-wrap in admin.css).
+        echo '<div class="bp-table-wrap"><table class="widefat striped bp-table"><thead><tr>';
         foreach ($headers as $h) {
             echo '<th scope="col">'.esc_html($h).'</th>';
         }
@@ -93,7 +94,7 @@ final class Ui
             }
             echo '</tr>';
         }
-        echo '</tbody></table>';
+        echo '</tbody></table></div>';
     }
 
     /** @param array<string,string> $pairs Label => bereits escaptes HTML */

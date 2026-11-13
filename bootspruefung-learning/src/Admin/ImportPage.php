@@ -10,7 +10,7 @@ use Bootspruefung\Learning\Plugin;
 use Bootspruefung\Learning\Security\Capabilities;
 use RuntimeException;
 
-/** Content-Pakete: Upload, Prüfung, Vorschau (Dry-Run), Freigabe, Import, Protokoll (Kap. 9). */
+/** Inhaltspakete: Upload, Prüfung, Vorschau, Freigabe, Import, Protokoll. Sichtbare Texte nach Glossary (T100/T126). */
 final class ImportPage
 {
     public const SLUG = 'bootspruefung-import';
@@ -177,7 +177,7 @@ final class ImportPage
                     $batchId = 0;
                     break;
                 case 'discard_restore':
-                    // Abgebrochenen Import verwerfen und den aktiven Stand per Rollback-Import wiederherstellen.
+                    // Abgebrochenen Import verwerfen und den aktiven Stand per Wiederherstellungs-Import zurückholen.
                     $service->discard($batchId);
                     try {
                         $restore = $service->restoreActive($note !== '' ? $note : __('Wiederherstellung nach abgebrochenem Import', 'bootspruefung-learning'));
@@ -188,7 +188,7 @@ final class ImportPage
                         $this->redirect(null, __('Import verworfen. Es gibt keinen veröffentlichten Stand zum Wiederherstellen – bitte ein vollständiges Paket importieren.', 'bootspruefung-learning'), 'warning');
                     }
                     $batchId = $restore;
-                    $message = __('Import verworfen. Ein Rollback-Import auf das aktive Paket wurde angelegt: bitte Vorschau erstellen, freigeben und importieren, um den Mischstand zu beseitigen.', 'bootspruefung-learning');
+                    $message = __('Import verworfen. Ein Import zur Wiederherstellung des aktiven Pakets wurde angelegt: bitte Vorschau erstellen, freigeben und importieren – danach stammen wieder alle Inhalte aus einem Paket.', 'bootspruefung-learning');
                     break;
                 case 'validate':
                     $service->validate($batchId);
@@ -226,19 +226,19 @@ final class ImportPage
         echo '<form method="post" enctype="multipart/form-data" id="bp-import-upload" data-max-bytes="'.(int) $limit.'" action="'.esc_url(add_query_arg('action', 'bp_import_upload', admin_url('admin-post.php'))).'">';
         wp_nonce_field('bp_import_upload');
         echo '<input type="hidden" name="action" value="bp_import_upload"><input type="hidden" name="MAX_FILE_SIZE" value="'.(int) $limit.'">';
-        echo '<p><input type="file" name="package" accept=".zip,application/zip" required> ';
+        echo '<p><label for="bp-import-file">'.esc_html__('ZIP-Datei des Inhaltspakets', 'bootspruefung-learning').'</label> <input type="file" id="bp-import-file" name="package" accept=".zip,application/zip" required> ';
         submit_button(__('Hochladen und prüfen', 'bootspruefung-learning'), 'primary', 'submit', false);
         echo '</p><div id="bp-import-upload-message" aria-live="polite"></div>';
         echo '<p><strong>'.esc_html(sprintf(__('Höchstgröße zum Hochladen auf diesem Server: %s', 'bootspruefung-learning'), size_format($limit))).'</strong> '
             .'<span class="description">'.esc_html(sprintf(__('(kleinster Wert aus upload_max_filesize %1$s, post_max_size %2$s, WordPress-Grenze %3$s und der Paketgrenze 200 MB)', 'bootspruefung-learning'), (string) ini_get('upload_max_filesize'), (string) ini_get('post_max_size'), size_format((int) wp_max_upload_size()))).'</span></p>';
-        echo '<p class="description">'.esc_html__('ZIP aus tools/content-build (manifest.json, data/, media/; das aktuelle Paket hat rund 11 MB). Ist die Datei größer als die Höchstgröße, unten „Ohne Hochladen importieren“ nutzen. Prüfung und Entpacken laufen in dieser Anfrage – bei großen Paketen oder knappen Zeitlimits des Servers besser per WP-CLI: wp bootspruefung import <paket>.', 'bootspruefung-learning').'</p></form>';
+        echo '<p class="description">'.esc_html__('Die ZIP-Datei des Inhaltspakets enthält manifest.json sowie die Ordner data/ und media/ (das aktuelle Paket hat rund 11 MB). Ist die Datei größer als die Höchstgröße, unten „Ohne Hochladen importieren“ nutzen. Prüfung und Entpacken laufen in dieser Anfrage – bei großen Paketen oder knappen Zeitlimits des Servers besser per WP-CLI: wp bootspruefung import <paket>.', 'bootspruefung-learning').'</p></form>';
 
         $this->renderAlternatives();
 
         $aborted = $service->abortedImport();
         if ($aborted !== null) {
-            echo '<div class="notice notice-error inline"><p><strong>'.esc_html__('Achtung: Mischstand.', 'bootspruefung-learning').'</strong> '
-                .sprintf(esc_html__('Import #%d wurde abgebrochen. Die Inhalte sind teils alt, teils neu. Bitte den Import fortsetzen oder verwerfen und den aktiven Stand wiederherstellen.', 'bootspruefung-learning'), $aborted)
+            echo '<div class="notice notice-error inline"><p><strong>'.esc_html__('Achtung: Inhalte aus zwei Paketen (Mischstand).', 'bootspruefung-learning').'</strong> '
+                .sprintf(esc_html__('Import #%d wurde abgebrochen. Ein Teil der Inhalte stammt schon aus dem neuen Paket, der Rest aus dem bisherigen. Bitte den Import fortsetzen oder verwerfen und den aktiven Stand wiederherstellen.', 'bootspruefung-learning'), $aborted)
                 .' <a href="'.esc_url(Ui::url(self::SLUG, ['batch' => $aborted])).'">'.esc_html__('Zum Import', 'bootspruefung-learning').'</a></p></div>';
         }
 
@@ -252,12 +252,12 @@ final class ImportPage
                 '<a href="'.esc_url(Ui::url(self::SLUG, ['batch' => $b->id])).'">#'.(int) $b->id.'</a>',
                 '<code>'.esc_html($b->package_id).'</code>',
                 Ui::status($b->status),
-                esc_html(substr((string) $b->source_commit, 0, 7)),
+                self::sourceState((string) $b->source_commit),
                 esc_html(Ui::date($b->created_at)),
                 esc_html(Ui::date($b->published_at)),
             ];
         }
-        Ui::table([__('Import', 'bootspruefung-learning'), __('Paket', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), 'Commit', __('Hochgeladen', 'bootspruefung-learning'), __('Veröffentlicht', 'bootspruefung-learning')], $rows, __('Noch keine Importe.', 'bootspruefung-learning'));
+        Ui::table([__('Import', 'bootspruefung-learning'), __('Paket', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('Stand', 'bootspruefung-learning'), __('Hochgeladen', 'bootspruefung-learning'), __('Veröffentlicht', 'bootspruefung-learning')], $rows, __('Noch keine Importe.', 'bootspruefung-learning'));
     }
 
     /** Import ohne Hochladen: Ablageordner auf dem Server, https-Link, WP-CLI. */
@@ -278,7 +278,7 @@ final class ImportPage
         } else {
             echo '<form method="post" action="'.esc_url(add_query_arg('action', 'bp_import_server', admin_url('admin-post.php'))).'">';
             wp_nonce_field('bp_import_server');
-            echo '<input type="hidden" name="action" value="bp_import_server"><fieldset>';
+            echo '<input type="hidden" name="action" value="bp_import_server"><fieldset><legend class="screen-reader-text">'.esc_html__('Paket im Ablageordner auswählen', 'bootspruefung-learning').'</legend>';
             foreach ($items as $i => $item) {
                 $detail = $item['type'] === 'zip' ? size_format($item['size']) : __('Paketordner', 'bootspruefung-learning');
                 printf(
@@ -314,7 +314,10 @@ final class ImportPage
         try {
             $batch = $service->batch($batchId);
         } catch (RuntimeException $e) {
-            echo '<p>'.esc_html($e->getMessage()).'</p>';
+            // T126: keine Sackgasse – Hinweis mit Weg zurück zur Liste.
+            /* translators: %d: Nummer des Imports */
+            echo '<div class="notice notice-warning inline"><p>'.esc_html(sprintf(__('Import #%d nicht gefunden. Alte Importe werden nach einiger Zeit aufgeräumt, oder die Nummer ist falsch.', 'bootspruefung-learning'), $batchId)).'</p></div>';
+            echo '<p><a class="button" href="'.esc_url(Ui::url(self::SLUG)).'">&larr; '.esc_html__('Zurück zu allen Importen', 'bootspruefung-learning').'</a></p>';
 
             return;
         }
@@ -325,7 +328,7 @@ final class ImportPage
 
         Ui::keyValue([
             __('Paket', 'bootspruefung-learning') => '<code>'.esc_html($batch->package_id).'</code>',
-            __('Quelle', 'bootspruefung-learning') => esc_html(($manifest['source']['repository'] ?? '').' @ '.substr((string) ($manifest['source']['commit_sha'] ?? ''), 0, 7)),
+            __('Quelle', 'bootspruefung-learning') => esc_html((string) ($manifest['source']['repository'] ?? '–')).' · '.esc_html__('Stand', 'bootspruefung-learning').' '.self::sourceState((string) ($manifest['source']['commit_sha'] ?? '')),
             __('Erstellt (Konverter)', 'bootspruefung-learning') => esc_html(($manifest['built_at'] ?? '–').' · v'.($manifest['converter_version'] ?? '?')),
             __('Schema', 'bootspruefung-learning') => esc_html((string) $batch->schema_version),
             __('Hochgeladen', 'bootspruefung-learning') => esc_html(Ui::date($batch->created_at)),
@@ -335,7 +338,7 @@ final class ImportPage
 
         $batchStats = $service->stats($batch);
         if (isset($batchStats['rollback_of'])) {
-            echo '<div class="notice notice-warning inline"><p>'.sprintf(esc_html__('Rollback auf den Stand von Import #%1$d. Begründung: %2$s', 'bootspruefung-learning'), (int) $batchStats['rollback_of'], esc_html((string) ($batchStats['rollback_reason'] ?? ''))).'</p></div>';
+            echo '<div class="notice notice-warning inline"><p>'.sprintf(esc_html__('Wiederherstellung des Stands von Import #%1$d. Begründung: %2$s', 'bootspruefung-learning'), (int) $batchStats['rollback_of'], esc_html((string) ($batchStats['rollback_reason'] ?? ''))).'</p></div>';
         }
         if ($batch->error) {
             echo '<div class="notice notice-error inline"><p><strong>'.esc_html__('Fehler', 'bootspruefung-learning').'</strong></p><pre style="white-space:pre-wrap">'.esc_html((string) $batch->error).'</pre></div>';
@@ -345,7 +348,7 @@ final class ImportPage
         $this->renderActions($batch);
 
         if (isset($stats['preview'])) {
-            echo '<h3>'.esc_html__('Vorschau (Dry-Run)', 'bootspruefung-learning').'</h3>';
+            echo '<h3>'.esc_html__('Vorschau', 'bootspruefung-learning').'</h3><p class="description">'.esc_html__('Was der Import ändern würde – noch ist nichts geändert.', 'bootspruefung-learning').'</p>';
             $rows = [];
             foreach ($stats['preview'] as $entity => $counts) {
                 if ($entity === '_rights') {
@@ -353,9 +356,14 @@ final class ImportPage
                 }
                 $rows[] = [esc_html(Ui::entityLabel($entity)), (int) $counts['create'], (int) $counts['update'], (int) $counts['unchanged'], (int) $counts['archive']];
             }
-            Ui::table([__('Bereich', 'bootspruefung-learning'), __('neu', 'bootspruefung-learning'), __('geändert', 'bootspruefung-learning'), __('unverändert', 'bootspruefung-learning'), __('archivieren', 'bootspruefung-learning')], $rows);
+            Ui::table([__('Bereich', 'bootspruefung-learning'), self::actionLabel('create'), self::actionLabel('update'), self::actionLabel('unchanged'), __('archivieren', 'bootspruefung-learning')], $rows);
             if (! empty($stats['preview']['_rights'])) {
-                echo '<h4>'.esc_html__('Rechte-Status im Paket', 'bootspruefung-learning').'</h4><p class="description">'.esc_html__('„ungeklärt“ (unknown) und „gesperrt“ (restricted) werden importiert, aber nicht ausgeliefert, bis sie unter „Rechte“ freigegeben sind.', 'bootspruefung-learning').'</p>';
+                echo '<h4>'.esc_html__('Rechte-Status im Paket', 'bootspruefung-learning').'</h4><p class="description">'.sprintf(
+                    /* translators: 1: „ungeklärt“, 2: „gesperrt“ (mit internem Wert als Tooltip) */
+                    esc_html__('Inhalte mit Rechte-Status %1$s und %2$s werden importiert, aber nicht ausgeliefert, bis sie unter „Rechte“ freigegeben sind.', 'bootspruefung-learning'),
+                    '<span title="unknown">„'.esc_html(Ui::label('unknown')).'“</span>',
+                    '<span title="restricted">„'.esc_html(Ui::label('restricted')).'“</span>'
+                ).'</p>';
                 $rows = [];
                 foreach ($stats['preview']['_rights'] as $entity => $counts) {
                     $rows[] = [esc_html(Ui::entityLabel($entity)), esc_html(implode(', ', array_map(static fn ($k, $v) => Ui::label((string) $k).": {$v}", array_keys($counts), $counts)))];
@@ -368,9 +376,9 @@ final class ImportPage
             echo '<h3>'.esc_html__('Ergebnis', 'bootspruefung-learning').'</h3>';
             $rows = [];
             foreach ($stats['actions'] as $phase => $counts) {
-                $rows[] = [esc_html(Ui::entityLabel($phase)), esc_html(implode(', ', array_map(static fn ($k, $v) => "{$k}: {$v}", array_keys($counts), $counts)))];
+                $rows[] = [esc_html(Ui::entityLabel($phase)), self::countsText((array) $counts)];
             }
-            Ui::table([__('Phase', 'bootspruefung-learning'), __('Aktionen', 'bootspruefung-learning')], $rows);
+            Ui::table([__('Bereich', 'bootspruefung-learning'), __('Ergebnis', 'bootspruefung-learning')], $rows);
         }
 
         $warnings = $manifest['warnings'] ?? [];
@@ -379,12 +387,12 @@ final class ImportPage
         echo '<h3>'.sprintf(esc_html__('Hinweise aus dem Paket (%1$d Warnungen, %2$d übersprungene Quellzeilen)', 'bootspruefung-learning'), count($warnings), count($skipped)).'</h3>';
         $rows = [];
         foreach ($warnings as $w) {
-            $rows[] = [esc_html($w['code']), esc_html(Ui::entityLabel($w['entity'])), '<code>'.esc_html((string) $w['source_id']).'</code>', esc_html($w['message'])];
+            $rows[] = [self::warningCell((string) ($w['code'] ?? '')), esc_html(Ui::entityLabel((string) ($w['entity'] ?? ''))), '<code>'.esc_html((string) ($w['source_id'] ?? '')).'</code>', esc_html((string) ($w['message'] ?? ''))];
         }
         foreach ($skipped as $s) {
-            $rows[] = ['skipped', esc_html(Ui::entityLabel($s['entity'])), '<code>'.esc_html((string) $s['source_id']).'</code>', esc_html($s['source_file'].($s['line'] ? ':'.$s['line'] : '').' – '.$s['reason'])];
+            $rows[] = [self::warningCell('skipped'), esc_html(Ui::entityLabel((string) ($s['entity'] ?? ''))), '<code>'.esc_html((string) ($s['source_id'] ?? '')).'</code>', esc_html(($s['source_file'] ?? '').(! empty($s['line']) ? ':'.$s['line'] : '').' – '.($s['reason'] ?? ''))];
         }
-        Ui::table([__('Code', 'bootspruefung-learning'), __('Bereich', 'bootspruefung-learning'), 'ID', __('Meldung', 'bootspruefung-learning')], $rows, __('Keine.', 'bootspruefung-learning'));
+        Ui::table([__('Art', 'bootspruefung-learning'), __('Bereich', 'bootspruefung-learning'), __('Kennung', 'bootspruefung-learning'), __('Meldung', 'bootspruefung-learning')], $rows, __('Keine.', 'bootspruefung-learning'));
         if ($notConverted !== []) {
             echo '<p><strong>'.esc_html__('Noch nicht im Paket:', 'bootspruefung-learning').'</strong> '.esc_html(implode(', ', array_column($notConverted, 'entity'))).'</p>';
         }
@@ -449,7 +457,7 @@ final class ImportPage
                     echo $form('discard', __('Verwerfen', 'bootspruefung-learning'), 'delete');
                     break;
                 }
-                echo $form('preview', __('Vorschau erstellen (Dry-Run)', 'bootspruefung-learning'), 'primary');
+                echo $form('preview', __('Vorschau erstellen', 'bootspruefung-learning'), 'primary');
                 echo $form('discard', __('Verwerfen', 'bootspruefung-learning'), 'delete');
                 break;
             case 'previewed':
@@ -467,23 +475,24 @@ final class ImportPage
                 if ($superseded) {
                     echo $form('discard', __('Verwerfen', 'bootspruefung-learning'), 'delete');
                     if ($aborted && $service->activeBatchId() !== null) {
-                        echo $form('discard_restore', __('Verwerfen und aktiven Stand wiederherstellen', 'bootspruefung-learning'), 'primary', $restoreNote, ['data-bp-confirm' => __('Abgebrochenen Import verwerfen und einen Rollback-Import auf das aktive Paket anlegen?', 'bootspruefung-learning')]);
+                        echo $form('discard_restore', __('Verwerfen und aktiven Stand wiederherstellen', 'bootspruefung-learning'), 'primary', $restoreNote, ['data-bp-confirm' => __('Abgebrochenen Import verwerfen und einen Import zur Wiederherstellung des aktiven Pakets anlegen?', 'bootspruefung-learning')]);
                     }
                     break;
                 }
                 printf(
-                    '<button type="button" class="button button-primary" id="bp-import-run" data-batch="%d">%s</button> <progress id="bp-import-progress" max="100" value="0" style="width:300px;vertical-align:middle"></progress> <span id="bp-import-status" aria-live="polite"></span>',
+                    '<button type="button" class="button button-primary" id="bp-import-run" data-batch="%d">%s</button> <progress id="bp-import-progress" max="100" value="0" aria-label="%s" style="width:300px;vertical-align:middle"></progress> <span id="bp-import-status" aria-live="polite"></span>',
                     (int) $batch->id,
-                    esc_html($batch->status === 'importing' ? __('Import fortsetzen', 'bootspruefung-learning') : __('Import starten', 'bootspruefung-learning'))
+                    esc_html($batch->status === 'importing' ? __('Import fortsetzen', 'bootspruefung-learning') : __('Import starten', 'bootspruefung-learning')),
+                    esc_attr__('Fortschritt des Imports', 'bootspruefung-learning')
                 );
                 // Abgebrochener Import: fortsetzen oder verwerfen (blockiert sonst keine weiteren Importe).
                 if ($aborted) {
                     echo '<p>';
                     if ($service->activeBatchId() !== null) {
-                        echo $form('discard_restore', __('Verwerfen und aktiven Stand wiederherstellen', 'bootspruefung-learning'), 'secondary', $restoreNote, ['data-bp-confirm' => __('Abgebrochenen Import verwerfen und einen Rollback-Import auf das aktive Paket anlegen?', 'bootspruefung-learning')]);
+                        echo $form('discard_restore', __('Verwerfen und aktiven Stand wiederherstellen', 'bootspruefung-learning'), 'secondary', $restoreNote, ['data-bp-confirm' => __('Abgebrochenen Import verwerfen und einen Import zur Wiederherstellung des aktiven Pakets anlegen?', 'bootspruefung-learning')]);
                     }
                     echo $form('discard', __('Nur verwerfen (Mischstand bleibt)', 'bootspruefung-learning'), 'delete');
-                    echo '</p><p class="description">'.esc_html__('„Verwerfen und wiederherstellen“ legt einen Rollback-Import auf das aktive Paket an; nach Vorschau und Freigabe sind alle Inhalte wieder auf diesem Stand. Per WP-CLI: wp bootspruefung import resume|discard <ID>.', 'bootspruefung-learning').'</p>';
+                    echo '</p><p class="description">'.esc_html__('„Verwerfen und wiederherstellen“ legt einen Import zur Wiederherstellung des aktiven Pakets an; nach Vorschau und Freigabe sind alle Inhalte wieder auf diesem Stand. Per WP-CLI: wp bootspruefung import resume|discard <ID>.', 'bootspruefung-learning').'</p>';
                 } elseif ($batch->status === 'approved') {
                     echo ' '.$form('discard', __('Verwerfen', 'bootspruefung-learning'), 'delete');
                 }
@@ -492,7 +501,7 @@ final class ImportPage
                 if ($batch->package_id === get_option('bp_learning_active_package') && $service->abortedImport() !== null && $service->activeBatchId() === (int) $batch->id) {
                     echo $form('rollback', __('Auf diesen Stand zurücksetzen (Mischstand beseitigen)', 'bootspruefung-learning'), 'primary', '<label>'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').' <input type="text" name="note" class="regular-text" required value="'.esc_attr__('Wiederherstellung nach abgebrochenem Import', 'bootspruefung-learning').'"></label> ');
                 } elseif ($batch->package_id !== get_option('bp_learning_active_package')) {
-                    echo '<p class="description">'.esc_html__('Dieser Stand ist nicht mehr aktiv. Zurücksetzen legt einen neuen Import aus diesem Paket an, der wie jeder Import geprüft, als Vorschau angezeigt und freigegeben wird. Frühere Fragenrevisionen werden wieder aktiv, nichts wird gelöscht.', 'bootspruefung-learning').'</p>';
+                    echo '<p class="description">'.esc_html__('Dieser Stand ist nicht mehr aktiv. Zurücksetzen legt einen neuen Import aus diesem Paket an, der wie jeder Import geprüft, als Vorschau angezeigt und freigegeben wird. Die früheren Fassungen der Fragen werden wieder aktiv, nichts wird gelöscht.', 'bootspruefung-learning').'</p>';
                     echo $form('rollback', __('Auf diesen Stand zurücksetzen', 'bootspruefung-learning'), 'secondary', '<label>'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').' <input type="text" name="note" class="regular-text" required></label> ');
                 }
                 break;
@@ -510,16 +519,77 @@ final class ImportPage
         $page = max(1, absint($_GET['log_page'] ?? 1));
         $logs = Plugin::instance()->importService()->logs($batchId, $filter === '' ? null : $filter, 100, ($page - 1) * 100);
         echo '<h3>'.esc_html__('Protokoll', 'bootspruefung-learning').'</h3><p>';
-        foreach (['' => __('alle', 'bootspruefung-learning'), 'create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning'), 'rejected' => __('abgelehnt', 'bootspruefung-learning')] as $value => $label) {
+        foreach (['' => __('alle', 'bootspruefung-learning')] + array_combine(['create', 'update', 'unchanged', 'archive', 'error', 'rejected'], array_map([self::class, 'actionLabel'], ['create', 'update', 'unchanged', 'archive', 'error', 'rejected'])) as $value => $label) {
             printf('<a class="button%s" href="%s">%s</a> ', $filter === $value ? ' button-primary' : '', esc_url(Ui::url(self::SLUG, ['batch' => $batchId, 'log_action' => $value])), esc_html($label));
         }
         echo '</p>';
         $rows = [];
         foreach ($logs as $log) {
-            $rows[] = [esc_html(Ui::entityLabel($log->entity)), '<code>'.esc_html((string) $log->source_id).'</code>', esc_html(['create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'), 'archive' => __('archiviert', 'bootspruefung-learning'), 'error' => __('Fehler', 'bootspruefung-learning'), 'rejected' => __('abgelehnt', 'bootspruefung-learning')][$log->action] ?? $log->action), esc_html((string) $log->message)];
+            $rows[] = [esc_html(Ui::entityLabel($log->entity)), '<code>'.esc_html((string) $log->source_id).'</code>', esc_html(self::actionLabel((string) $log->action)), esc_html((string) $log->message)];
         }
-        Ui::table([__('Bereich', 'bootspruefung-learning'), 'ID', __('Aktion', 'bootspruefung-learning'), __('Meldung', 'bootspruefung-learning')], $rows, __('Keine Einträge.', 'bootspruefung-learning'));
+        Ui::table([__('Bereich', 'bootspruefung-learning'), __('Kennung', 'bootspruefung-learning'), __('Aktion', 'bootspruefung-learning'), __('Meldung', 'bootspruefung-learning')], $rows, __('Keine Einträge.', 'bootspruefung-learning'));
         Ui::pager($page, count($logs) === 100, fn (int $p) => Ui::url(self::SLUG, ['batch' => $batchId, 'log_action' => $filter, 'log_page' => $p]));
+    }
+
+    /** Aktion eines Imports auf Deutsch (Ergebnis, Protokoll; wie renderLog). */
+    public static function actionLabel(string $action): string
+    {
+        $labels = [
+            'create' => __('neu', 'bootspruefung-learning'), 'update' => __('geändert', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'),
+            'archive' => __('archiviert', 'bootspruefung-learning'), 'skipped' => __('übersprungen', 'bootspruefung-learning'), 'skip' => __('übersprungen', 'bootspruefung-learning'),
+            'error' => __('Fehler', 'bootspruefung-learning'), 'rejected' => __('abgelehnt', 'bootspruefung-learning'),
+        ];
+
+        return $labels[$action] ?? $action;
+    }
+
+    /** Zählung je Aktion als Text, z. B. „neu: 3, unverändert: 120“ (T121). @param array<string,mixed> $counts */
+    public static function countsText(array $counts): string
+    {
+        $parts = [];
+        foreach ($counts as $action => $n) {
+            $parts[] = '<span title="'.esc_attr((string) $action).'">'.esc_html(self::actionLabel((string) $action)).'</span>: '.(int) $n;
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /** Warnungscode aus dem Paket lesbar; der Code steht im Tooltip (T121). */
+    public static function warningLabel(string $code): string
+    {
+        $labels = [
+            'skipped' => __('Quellzeile übersprungen', 'bootspruefung-learning'),
+            'source_removed' => __('In der Quelle entfernt (wird archiviert)', 'bootspruefung-learning'),
+            'image_missing' => __('Pflichtbild fehlt', 'bootspruefung-learning'),
+            'image_unassigned' => __('Bild ohne veröffentlichte Frage', 'bootspruefung-learning'),
+            'praxis_image_missing' => __('Bild des Praxistrainers fehlt', 'bootspruefung-learning'),
+            'praxis_elwis_missing' => __('ELWIS-Bild fehlt', 'bootspruefung-learning'),
+            'chart_task_without_solution' => __('Kartenaufgabe ohne Lösung', 'bootspruefung-learning'),
+            'exam_rule_unverified' => __('Regelwerk nicht geprüft (Übungsmodus)', 'bootspruefung-learning'),
+            'combo_rule_mismatch' => __('Regelwerk des Kombikurses weicht ab', 'bootspruefung-learning'),
+            'exam_papers_skipped' => __('Prüfungsbögen übersprungen', 'bootspruefung-learning'),
+            'ubi_erg_missing' => __('UBI-Ergänzung übersprungen', 'bootspruefung-learning'),
+            'video_chapter_missing' => __('Videokapitel fehlt', 'bootspruefung-learning'),
+            'video_placeholder' => __('Platzhaltervideo', 'bootspruefung-learning'),
+            'video_quiz_unresolved' => __('Quizfrage im Videokurs nicht zuzuordnen', 'bootspruefung-learning'),
+            'video_url_unknown_lesson' => __('Videolink zu unbekannter Lektion', 'bootspruefung-learning'),
+            'vocabulary_duplicate_key' => __('Doppelte Funk-Vokabel', 'bootspruefung-learning'),
+        ];
+
+        return $labels[$code] ?? __('Hinweis', 'bootspruefung-learning');
+    }
+
+    private static function warningCell(string $code): string
+    {
+        return '<span title="'.esc_attr($code).'">'.esc_html(self::warningLabel($code)).'</span>';
+    }
+
+    /** Stand der Quelle: Kurzform, die vollständige Kennung als Tooltip (statt Spalte „Commit“). */
+    private static function sourceState(string $sha): string
+    {
+        $sha = trim($sha);
+
+        return $sha === '' ? '–' : '<span title="'.esc_attr($sha).'"><code>'.esc_html(substr($sha, 0, 7)).'</code></span>';
     }
 
     private function guard(string $nonce): void

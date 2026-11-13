@@ -637,6 +637,144 @@ $t = $audit::details($row('entitlement_voucher_grant', ['source' => 'voucher-cap
 $check(str_contains($t, 'Kursgutschein (captain)') && str_contains($t, 'Quelle: PayPal'), 'Quelle im Klartext');
 $check(str_contains($audit::objectLink('settings', 'tax'), 'Livegang-Checkliste: Steuer') && $audit::objectLink('settings', 'default_access') === 'Einstellungen', 'Bezug: Punkt der Livegang-Checkliste');
 
+echo "Zugänge: Eingaben behalten, Import-Ergebnis lesbar (T121), weniger Abfragen (T124), keine Sackgassen (T126)\n";
+$AP = \Bootspruefung\Learning\Admin\AccessPages::class;
+$stopRedirect = static function (string $location): string {
+    throw new RuntimeException('redirect:'.$location);
+};
+$postGrant = static function (array $post) use ($stopRedirect): string {
+    $_POST = $post + ['action' => 'bp_access_grant'];
+    $_REQUEST['_wpnonce'] = wp_create_nonce('bp_access_grant');
+    add_filter('wp_redirect', $stopRedirect, 1);
+    try {
+        (new \Bootspruefung\Learning\Admin\AccessPages())->handleGrant();
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    } finally {
+        remove_filter('wp_redirect', $stopRedirect, 1);
+        $_POST = [];
+        unset($_REQUEST['_wpnonce']);
+    }
+
+    return '';
+};
+$grantCourse = (string) (array_key_first(\Bootspruefung\Learning\Commerce\Labels::courses()) ?? '');
+if ($grantCourse !== '') {
+    $ghost = 'niemand-'.wp_generate_password(6, false, false).'@example.test';
+    $to = $postGrant(['user' => $ghost, 'course' => $grantCourse, 'features' => ['question_bank', 'exam_simulation'], 'valid_until' => '2031-05-04', 'reason' => 'Admin-Test T121']);
+    $flash = get_transient('bp_learning_flash_'.get_current_user_id());
+    $check(str_contains($to, '#bp-grant') && is_array($flash) && $flash['type'] === 'error' && str_contains($flash['message'], 'Nutzer nicht gefunden') && ! str_contains($flash['message'], 'Benutzer'), 'unbekannter Nutzer: Meldung „Nutzer nicht gefunden“ (Glossar), zurück zum Formular');
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    $check(str_contains($html, 'value="'.esc_attr($ghost).'"') && str_contains($html, 'value="Admin-Test T121"') && str_contains($html, 'value="2031-05-04"')
+        && preg_match('#value="question_bank"\s+checked#', $html) === 1 && preg_match('#value="exam_simulation"\s+checked#', $html) === 1, 'Eingaben bleiben nach dem Fehler erhalten (Nutzer, Funktionen, Datum, Begründung)');
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    $check(! str_contains($html, 'value="'.esc_attr($ghost).'"'), 'nur einmal (danach wieder leeres Formular)');
+}
+$check(\Bootspruefung\Learning\Admin\ImportPage::actionLabel('skipped') === 'übersprungen' && \Bootspruefung\Learning\Admin\ImportPage::actionLabel('archive') === 'archiviert'
+    && str_contains(\Bootspruefung\Learning\Admin\ImportPage::countsText(['create' => 2, 'unchanged' => 5]), 'neu</span>: 2') && ! str_contains(wp_strip_all_tags(\Bootspruefung\Learning\Admin\ImportPage::countsText(['create' => 2])), 'create'), 'Import-Ergebnis mit deutschen Bezeichnungen (wie das Protokoll)');
+$check(\Bootspruefung\Learning\Admin\ImportPage::warningLabel('image_missing') === 'Pflichtbild fehlt' && \Bootspruefung\Learning\Admin\ImportPage::warningLabel('gibt_es_nicht') === 'Hinweis', 'Warnungscodes des Pakets lesbar (Code nur im Tooltip)');
+// Sackgassen: Zugang, Import und Gruppe nicht gefunden – mit Weg zurück.
+$_GET['entitlement'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+unset($_GET['entitlement']);
+$check(str_contains($html, 'nicht gefunden') && str_contains($html, 'Zurück zu allen Zugängen'), 'Zugang nicht gefunden: Hinweis mit Zurück-Link');
+$_GET['batch'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\ImportPage())->render();
+$html = (string) ob_get_clean();
+unset($_GET['batch']);
+$check(str_contains($html, 'Import #999999999 nicht gefunden') && str_contains($html, 'Zurück zu allen Importen'), 'Import nicht gefunden: Hinweis mit Zurück-Link');
+$_GET['group'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups();
+$html = (string) ob_get_clean();
+unset($_GET['group']);
+$check(str_contains($html, 'Gruppe Nr. 999999999 nicht gefunden'), 'Gruppe nicht gefunden: Hinweis über der Liste');
+$gs = new \Bootspruefung\Learning\Commerce\GroupService($wpdb);
+$wpdb->insert($p.'learning_group', ['owner_user_id' => 1, 'name' => 'Admin-Test T126', 'seats' => 2, 'status' => 'revoked', 'join_token' => wp_generate_password(20, false, false), 'scopes' => wp_json_encode([]), 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')]);
+$endedGroup = (int) $wpdb->insert_id;
+if ($endedGroup > 0) {
+    $_GET['group'] = $endedGroup;
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups();
+    $html = (string) ob_get_clean();
+    unset($_GET['group']);
+    $check(str_contains($html, 'Gruppe ist beendet – nicht mehr änderbar') && ! str_contains($html, 'name="op" value="status"'), 'beendete Gruppe: Satz statt leerem Formular');
+    $wpdb->delete($p.'learning_group', ['id' => $endedGroup]);
+} else {
+    $check(false, 'Testgruppe angelegt ('.$wpdb->last_error.')');
+}
+// T124: Liste „Zugänge“ – Abfragen wachsen nicht mit der Zahl der Zeilen (Bestell-Link ohne Laden der Bestellung, Nutzer vorab).
+$qUser = (int) wp_insert_user(['user_login' => 't124-'.wp_generate_password(6, false, false), 'user_email' => 't124-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'subscriber']);
+$granters = [];
+for ($i = 0; $i < 12; $i++) {
+    $granters[] = (int) wp_insert_user(['user_login' => 't124g-'.$i.'-'.wp_generate_password(6, false, false), 'user_email' => 't124g-'.$i.'-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'editor']);
+}
+$addRows = static function (int $from, int $to) use ($wpdb, $p, $qUser, $granters): void {
+    for ($i = $from; $i < $to; $i++) {
+        $wpdb->insert($p.'entitlement', ['user_id' => $qUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'question_bank', 'status' => 'active', 'source' => 'woocommerce', 'reference_key' => 't124:order:'.$qUser.':'.$i, 'order_id' => 880000 + $i, 'order_item_id' => 1]);
+        $wpdb->insert($p.'entitlement', ['user_id' => $qUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'exam', 'status' => 'active', 'source' => 'manual', 'reference_key' => 't124:manual:'.$qUser.':'.$i, 'granted_by' => $granters[$i]]);
+    }
+};
+$countQueries = static function () use ($qUser): int {
+    wp_cache_flush();
+    $n = 0;
+    $counter = static function (string $q) use (&$n): string {
+        $n++;
+
+        return $q;
+    };
+    add_filter('query', $counter);
+    $_GET['s'] = (string) $qUser;
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    unset($_GET['s']);
+    remove_filter('query', $counter);
+
+    return str_contains($html, 'Bestellung #88') ? $n : -1;
+};
+$addRows(0, 2);
+$few = $countQueries();
+$addRows(2, 12);
+$many = $countQueries();
+$check($few > 0 && $many > 0 && $many - $few <= 2, "Liste „Zugänge“: Abfragen unabhängig von der Zeilenzahl ({$few} bei 4 Zeilen, {$many} bei 24 Zeilen)");
+$check(str_contains($AP::orderEditUrl(880001), '880001') && $AP::orderEditUrl(0) === '', 'Bestell-Link ohne Laden der Bestellung');
+$auditRows = [];
+foreach ($granters as $g) {
+    $auditRows[] = (object) ['id' => 0, 'created_at' => gmdate('Y-m-d H:i:s'), 'actor_user_id' => $g, 'action' => 'entitlement_extended', 'object_type' => 'entitlement', 'object_id' => '1', 'reason' => null, 'context' => null];
+}
+$countTable = static function (array $rows): int {
+    wp_cache_flush();
+    $n = 0;
+    $counter = static function (string $q) use (&$n): string {
+        $n++;
+
+        return $q;
+    };
+    add_filter('query', $counter);
+    ob_start();
+    \Bootspruefung\Learning\Admin\AuditPage::table($rows, true);
+    ob_end_clean();
+    remove_filter('query', $counter);
+
+    return $n;
+};
+$fewA = $countTable(array_slice($auditRows, 0, 2));
+$manyA = $countTable($auditRows);
+$check($manyA - $fewA <= 2, "Protokoll: Namen der Handelnden vorab geladen ({$fewA} bei 2 Zeilen, {$manyA} bei 12 Zeilen)");
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $qUser));
+wp_delete_user($qUser);
+foreach ($granters as $g) {
+    wp_delete_user($g);
+}
+
 echo "Rechte- und Regelwerk-Freigabe mit Rückfrage (T103)\n";
 require_once ABSPATH.'wp-admin/includes/template.php';
 $cp = \Bootspruefung\Learning\Admin\ContentPages::class;
@@ -695,7 +833,15 @@ $t100Pages = [
     'Kostenlose Bereiche' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderFree(),
     'Gruppenlizenzen' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups(),
     'Protokoll' => static fn () => (new \Bootspruefung\Learning\Admin\AuditPage())->render(),
+    'Inhaltspakete' => static fn () => (new \Bootspruefung\Learning\Admin\ImportPage())->render(),
 ];
+if (($lastBatch = (int) $wpdb->get_var("SELECT id FROM {$p}import_batch WHERE status = 'published' ORDER BY id DESC LIMIT 1")) > 0) {
+    $t100Pages['Import'] = static function () use ($lastBatch): void {
+        $_GET['batch'] = $lastBatch;
+        (new \Bootspruefung\Learning\Admin\ImportPage())->render();
+        unset($_GET['batch']);
+    };
+}
 $firstQuestion = (int) $wpdb->get_var("SELECT id FROM {$p}question ORDER BY id LIMIT 1");
 if ($firstQuestion > 0) {
     $t100Pages['Frage'] = static function () use ($firstQuestion): void {
@@ -712,7 +858,7 @@ foreach ($t100Pages as $name => $renderPage) {
     $overviewHtml = $name === 'Übersicht' ? $html : $overviewHtml;
     // Nur sichtbarer Text (ohne Attribute und Skripte).
     $visible = html_entity_decode(wp_strip_all_tags($html), ENT_QUOTES, 'UTF-8');
-    $found = preg_match_all('/\b(Entitlements?|Scopes?|Features?|Drip|Packages?|Releases?|Overrides?|Content-Pakete?|Audit-Log|live geschaltet|Live-Modus)\b|Kap\.\s*\d|Kapitel\s+\d|docs\//u', $visible, $hits);
+    $found = preg_match_all('/\b(Entitlements?|Scopes?|Features?|Drip|Packages?|Releases?|Overrides?|Content-Pakete?|Audit-Log|live geschaltet|Live-Modus|Dry-Run|Rollback(?:-Import)?|Commit|Fragenrevisionen?)\b|Kap\.\s*\d|Kapitel\s+\d|docs\/|tools\/content-build|\((?:unknown|restricted)\)/u', $visible, $hits);
     $check($found === 0, "{$name}: keine englischen Fachwörter, Kapitel- oder docs-Verweise".($found ? ' ('.implode(', ', array_unique($hits[0])).')' : ''));
 }
 $check(str_contains($overviewHtml, 'class="bp-glossary"') && str_contains($overviewHtml, 'Zeitversetzte Freischaltung'), 'Übersicht: Glossar aufklappbar');

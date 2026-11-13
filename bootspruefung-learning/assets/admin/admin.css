@@ -41,7 +41,7 @@
 	color: #1d2327;
 }
 
-.bp-history .bp-table {
+.bp-history .bp-table-wrap {
 	margin-top: 8px;
 }
 
@@ -58,4 +58,21 @@
 .bp-filter select,
 .bp-filter input {
 	margin-bottom: 4px;
+}
+
+/* Tabellen (Ui::table) am Handy: seitlich scrollen statt die Seite zu verbreitern (T126) */
+.bp-table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.bp-table-wrap > .bp-table {
+	margin: 0;
+}
+
+@media screen and (max-width: 782px) {
+	.bp-table-wrap > .bp-table {
+		min-width: 560px;
+	}
 }

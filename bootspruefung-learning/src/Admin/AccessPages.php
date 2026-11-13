@@ -23,6 +23,8 @@ final class AccessPages
     public const FREE_SLUG = 'bootspruefung-free';
     public const GROUP_SLUG = 'bootspruefung-groups';
     public const DISCOUNT_SLUG = 'bootspruefung-discounts';
+    /** Eingaben der manuellen Freischaltung nach einem Fehler (je Nutzer, 5 Minuten). */
+    public const GRANT_INPUT = 'bp_grant_input_';
 
     public function register(): void
     {
@@ -83,6 +85,8 @@ final class AccessPages
         echo '</form>';
 
         $result = $this->service()->search($filter, $page);
+        // T124: Personen der Spalte „Quelle“ (manuell freigeschaltet von …) vorab in einer Abfrage laden.
+        self::primeUsers(array_map(static fn ($r) => (int) $r->granted_by, $result['rows']));
         $rows = [];
         foreach ($result['rows'] as $row) {
             $rows[] = [
@@ -112,7 +116,7 @@ final class AccessPages
     private function sourceCell(object $row): string
     {
         if ($row->source === EntitlementService::SOURCE_WOO && $row->order_id) {
-            $url = function_exists('wc_get_order') && ($order = wc_get_order((int) $row->order_id)) ? $order->get_edit_order_url() : '';
+            $url = self::orderEditUrl((int) $row->order_id);
 
             return $url !== '' ? '<a href="'.esc_url($url).'">'.esc_html(sprintf(__('Bestellung #%d', 'bootspruefung-learning'), $row->order_id)).'</a>' : esc_html(sprintf(__('Bestellung #%d', 'bootspruefung-learning'), $row->order_id));
         }
@@ -130,14 +134,45 @@ final class AccessPages
             return $url !== '' ? '<a href="'.esc_url($url).'">'.esc_html($label).'</a>' : esc_html($label);
         }
 
-        return esc_html__('manuell', 'bootspruefung-learning').($row->granted_by ? ' ('.esc_html((string) (get_userdata((int) $row->granted_by)->display_name ?? '#'.$row->granted_by)).')' : '');
+        $by = $row->granted_by ? get_userdata((int) $row->granted_by) : false;
+
+        return esc_html__('manuell', 'bootspruefung-learning').($row->granted_by ? ' ('.esc_html($by ? (string) $by->display_name : '#'.(int) $row->granted_by).')' : '');
+    }
+
+    /**
+     * Link zur Bestellung im Admin, ohne die Bestellung zu laden (T124): WooCommerce kennt den Weg je Speicherart
+     * (HPOS oder Beiträge); ohne WooCommerce leer.
+     */
+    public static function orderEditUrl(int $orderId): string
+    {
+        if ($orderId <= 0 || ! function_exists('wc_get_order')) {
+            return '';
+        }
+        $util = 'Automattic\\WooCommerce\\Utilities\\OrderUtil';
+        if (class_exists($util) && method_exists($util, 'get_order_admin_edit_url')) {
+            return (string) $util::get_order_admin_edit_url($orderId);
+        }
+
+        return admin_url('post.php?post='.$orderId.'&action=edit');
+    }
+
+    /** Nutzer in einer Abfrage in den Objekt-Cache laden (get_userdata danach ohne weitere Abfrage). @param list<int> $ids */
+    public static function primeUsers(array $ids): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if ($ids !== [] && function_exists('cache_users')) {
+            cache_users($ids);
+        }
     }
 
     private function renderDetail(int $id): void
     {
         $row = $this->service()->find($id);
         if ($row === null) {
-            echo '<p>'.esc_html__('Zugang nicht gefunden.', 'bootspruefung-learning').'</p>';
+            // T126: keine Sackgasse – Hinweis mit Weg zurück zur Liste.
+            /* translators: %d: Nummer des Zugangs */
+            echo '<div class="notice notice-warning inline"><p>'.esc_html(sprintf(__('Zugang Nr. %d nicht gefunden. Vielleicht wurde er mit dem Konto gelöscht oder die Nummer ist falsch.', 'bootspruefung-learning'), $id)).'</p></div>';
+            echo '<p><a class="button" href="'.esc_url(Ui::url(self::SLUG)).'">&larr; '.esc_html__('Zurück zu allen Zugängen', 'bootspruefung-learning').'</a></p>';
 
             return;
         }
@@ -185,31 +220,37 @@ final class AccessPages
     private function renderGrantForm(): void
     {
         $courses = Labels::courses();
-        echo '<h2>'.esc_html__('Zugang manuell freischalten', 'bootspruefung-learning').'</h2>';
+        echo '<h2 id="bp-grant">'.esc_html__('Zugang manuell freischalten', 'bootspruefung-learning').'</h2>';
         if ($courses === []) {
             echo '<p>'.esc_html__('Noch keine Kurse veröffentlicht.', 'bootspruefung-learning').'</p>';
 
             return;
         }
+        // T121: nach einem Fehler die Eingaben wieder zeigen (wie auf der Seite „Preise“).
+        $in = get_transient(self::GRANT_INPUT.get_current_user_id());
+        delete_transient(self::GRANT_INPUT.get_current_user_id());
+        $in = is_array($in) ? $in : [];
+        $inFeatures = array_map('strval', (array) ($in['features'] ?? []));
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('bp_access_grant');
         echo '<input type="hidden" name="action" value="bp_access_grant"><table class="form-table"><tbody>';
-        echo '<tr><th><label for="bp-grant-user">'.esc_html__('Nutzer (E-Mail, Login oder ID)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-user" type="text" name="user" required class="regular-text"></td></tr>';
+        echo '<tr><th><label for="bp-grant-user">'.esc_html__('Nutzer (E-Mail, Login oder ID)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-user" type="text" name="user" required class="regular-text" value="'.esc_attr((string) ($in['user'] ?? '')).'"></td></tr>';
         // T101: Laufzeit je Kurs aus dem Shop-Katalog (sonst 182 Tage) vorbelegen; „ohne Ablauf“ nur ausdrücklich.
         $days = \Bootspruefung\Learning\Commerce\DefaultDuration::forCourses(array_keys($courses));
+        $selected = isset($in['course'], $courses[$in['course']]) ? (string) $in['course'] : (string) array_key_first($courses);
         echo '<tr><th><label for="bp-grant-course">'.esc_html__('Kurs', 'bootspruefung-learning').'</label></th><td><select id="bp-grant-course" name="course">';
         foreach ($courses as $code => $name) {
-            printf('<option value="%s" data-bp-until="%s">%s</option>', esc_attr($code), esc_attr(self::defaultUntil($days[$code])), esc_html($name));
+            printf('<option value="%s" data-bp-until="%s" %s>%s</option>', esc_attr($code), esc_attr(self::defaultUntil($days[$code])), selected($selected, (string) $code, false), esc_html($name));
         }
         echo '</select></td></tr><tr><th id="bp-grant-features">'.esc_html__('Funktionen', 'bootspruefung-learning').'</th><td role="group" aria-labelledby="bp-grant-features">';
         foreach (ProductAccessRepository::features() as $feature) {
-            printf('<label style="display:inline-block;margin-right:12px"><input type="checkbox" name="features[]" value="%s"> %s</label>', esc_attr($feature), esc_html(Labels::feature($feature)));
+            printf('<label style="display:inline-block;margin-right:12px"><input type="checkbox" name="features[]" value="%s" %s> %s</label>', esc_attr($feature), checked(in_array($feature, $inFeatures, true), true, false), esc_html(Labels::feature($feature)));
         }
-        $firstDays = (int) reset($days);
-        echo '</td></tr><tr><th><label for="bp-grant-until">'.esc_html__('Gültig bis', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-until" type="date" name="valid_until" value="'.esc_attr(self::defaultUntil($firstDays)).'"> ';
-        echo '<label><input type="checkbox" name="unlimited" value="1"> '.esc_html__('ohne Ablauf (dauerhaft)', 'bootspruefung-learning').'</label>';
+        $until = isset($in['valid_until']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $in['valid_until']) === 1 ? (string) $in['valid_until'] : self::defaultUntil((int) ($days[$selected] ?? reset($days)));
+        echo '</td></tr><tr><th><label for="bp-grant-until">'.esc_html__('Gültig bis', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-until" type="date" name="valid_until" value="'.esc_attr($until).'"> ';
+        echo '<label><input type="checkbox" name="unlimited" value="1" '.checked(! empty($in['unlimited']), true, false).'> '.esc_html__('ohne Ablauf (dauerhaft)', 'bootspruefung-learning').'</label>';
         echo '<p class="description">'.esc_html__('Vorbelegt mit der Laufzeit des Kurses im Shop (Vollkurse 12 Monate, SKN/FKN und Ergänzungen 6 Monate). Ohne Ablauf nur bewusst wählen.', 'bootspruefung-learning').'</p></td></tr>';
-        echo '<tr><th><label for="bp-grant-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-reason" type="text" name="reason" required class="regular-text"></td></tr>';
+        echo '<tr><th><label for="bp-grant-reason">'.esc_html__('Begründung (Pflicht)', 'bootspruefung-learning').'</label></th><td><input id="bp-grant-reason" type="text" name="reason" required class="regular-text" value="'.esc_attr((string) ($in['reason'] ?? '')).'"></td></tr>';
         echo '</tbody></table>';
         submit_button(__('Zugang freischalten', 'bootspruefung-learning'));
         echo '</form>';
@@ -226,12 +267,18 @@ final class AccessPages
     public function handleGrant(): void
     {
         $this->guard('bp_access_grant');
-        $user = $this->findUser(sanitize_text_field(wp_unslash($_POST['user'] ?? '')));
+        $needle = sanitize_text_field(wp_unslash($_POST['user'] ?? ''));
+        $user = $this->findUser($needle);
         $features = array_values(array_intersect(array_map('sanitize_key', (array) wp_unslash($_POST['features'] ?? [])), ProductAccessRepository::features()));
         $course = sanitize_text_field(wp_unslash($_POST['course'] ?? ''));
+        $back = Ui::url(self::SLUG);
         try {
             if ($user === null) {
-                throw new \InvalidArgumentException(__('Benutzer nicht gefunden.', 'bootspruefung-learning'));
+                throw new \InvalidArgumentException(sprintf(
+                    /* translators: %s: Eingabe */
+                    __('Nutzer nicht gefunden: „%s“. Bitte E-Mail-Adresse, Login oder Nutzer-Nummer prüfen.', 'bootspruefung-learning'),
+                    $needle
+                ));
             }
             if ($features === [] || ! isset(Labels::courses()[$course])) {
                 throw new \InvalidArgumentException(__('Bitte Kurs und mindestens eine Funktion wählen.', 'bootspruefung-learning'));
@@ -245,9 +292,21 @@ final class AccessPages
             Ui::flash(sprintf(_n('%d Zugang freigeschaltet.', '%d Zugänge freigeschaltet.', count($ids), 'bootspruefung-learning'), count($ids)));
         } catch (\InvalidArgumentException $e) {
             Ui::flash($e->getMessage(), 'error');
+            self::keepGrantInput([
+                'user' => $needle, 'course' => $course, 'features' => $features,
+                'valid_until' => sanitize_text_field(wp_unslash($_POST['valid_until'] ?? '')), 'unlimited' => ! empty($_POST['unlimited']),
+                'reason' => sanitize_text_field(wp_unslash($_POST['reason'] ?? '')),
+            ]);
+            $back .= '#bp-grant';
         }
-        wp_safe_redirect(Ui::url(self::SLUG));
+        wp_safe_redirect($back);
         exit;
+    }
+
+    /** Eingaben der manuellen Freischaltung für die nächste Anzeige merken (T121). @param array<string,mixed> $input */
+    public static function keepGrantInput(array $input): void
+    {
+        set_transient(self::GRANT_INPUT.get_current_user_id(), $input, 300);
     }
 
     public function handleChange(): void
@@ -505,18 +564,29 @@ final class AccessPages
             AuditPage::historyBox(AuditPage::forGroup((int) $group->id), 'group', (int) $group->id);
             echo '<h2>'.esc_html__('Teilnehmende', 'bootspruefung-learning').'</h2>';
             Ui::table([__('Person', 'bootspruefung-learning'), __('Status', 'bootspruefung-learning'), __('seit', 'bootspruefung-learning'), ''], $rows, __('Noch niemand eingeladen.', 'bootspruefung-learning'));
-            echo '<h2>'.esc_html__('Gruppe ändern', 'bootspruefung-learning').'</h2><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
+            echo '<h2>'.esc_html__('Gruppe ändern', 'bootspruefung-learning').'</h2>';
+            if ($group->status === 'revoked') {
+                // T126: beendete Gruppe – kein leeres Formular ohne Knöpfe.
+                echo '<p class="bp-group-ended">'.esc_html__('Die Gruppe ist beendet – nicht mehr änderbar. Die Plätze sind widerrufen; für neue Plätze ist ein neuer Kauf nötig.', 'bootspruefung-learning').'</p></div>';
+
+                return;
+            }
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
             wp_nonce_field('bp_group_admin');
             echo '<input type="hidden" name="action" value="bp_group_admin"><input type="hidden" name="op" value="status"><input type="hidden" name="group" value="'.(int) $group->id.'">';
             echo '<p><input type="text" name="reason" required class="regular-text" placeholder="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Begründung (Pflicht)', 'bootspruefung-learning').'"></p><p>';
             foreach (['active' => __('Aktivieren', 'bootspruefung-learning'), 'suspended' => __('Aussetzen', 'bootspruefung-learning'), 'revoked' => __('Beenden (alle Plätze widerrufen)', 'bootspruefung-learning')] as $status => $label) {
-                if ($group->status !== $status && $group->status !== 'revoked') {
+                if ($group->status !== $status) {
                     printf('<button class="button" name="status" value="%s"%s>%s</button> ', esc_attr($status), $status === 'revoked' ? ' data-bp-confirm="'.esc_attr__('Gruppe wirklich beenden? Alle Plätze werden widerrufen.', 'bootspruefung-learning').'"' : '', esc_html($label));
                 }
             }
             echo '</p></form></div>';
 
             return;
+        }
+        if ($id > 0) {
+            /* translators: %d: Nummer der Gruppe */
+            echo '<div class="notice notice-warning inline"><p>'.esc_html(sprintf(__('Gruppe Nr. %d nicht gefunden. Unten stehen alle Gruppenlizenzen.', 'bootspruefung-learning'), $id)).'</p></div>';
         }
         echo '<form method="get"><input type="hidden" name="page" value="'.esc_attr(self::GROUP_SLUG).'"><input type="search" name="s" value="'.esc_attr($search).'" placeholder="'.esc_attr__('Name, E-Mail, Bestellnummer', 'bootspruefung-learning').'" aria-label="'.esc_attr__('Gruppen suchen: Name, E-Mail, Bestellnummer', 'bootspruefung-learning').'"> ';
         submit_button(__('Suchen', 'bootspruefung-learning'), 'secondary', '', false);

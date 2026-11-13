@@ -64,6 +64,33 @@ Einstellungen).
   passenden Einträgen (beim Zugang auch die der Bestellung bzw. manuellen Freischaltung) und, für Administratoren,
   ein Link „Im Protokoll öffnen“.
 
+## Zugänge und Inhaltspakete: Fehler, Ergebnis, Tempo (T121, T124)
+
+- **Zugang manuell freischalten:** Schlägt die Freischaltung fehl (z. B. „Nutzer nicht gefunden: … Bitte E-Mail-Adresse,
+  Login oder Nutzer-Nummer prüfen.“), springt die Seite zurück zum Formular und zeigt die Eingaben wieder (Nutzer, Kurs,
+  Funktionen, Datum, „ohne Ablauf“, Begründung; 5 Minuten je Person, Transient `bp_grant_input_<Nutzer>`).
+- **Import-Ergebnis:** Die Tabelle „Ergebnis“ eines Imports nennt die Aktionen auf Deutsch wie das Import-Protokoll
+  (neu, geändert, unverändert, archiviert, übersprungen); die Hinweise aus dem Paket zeigen eine lesbare Art
+  (z. B. „Pflichtbild fehlt“, „Regelwerk nicht geprüft (Übungsmodus)“), der interne Code steht im Tooltip.
+- **Liste „Zugänge“ und Protokoll:** Der Link zur Bestellung entsteht ohne Laden der Bestellung
+  (`OrderUtil::get_order_admin_edit_url`, sonst `post.php?post=…`), die Namen der Personen werden vorab in einer
+  Abfrage geladen. Die Zahl der Datenbankabfragen hängt nicht mehr von der Zahl der Zeilen ab.
+
+## Feinschliff der Admin-Seiten (T126)
+
+- **Begriffe:** Inhaltspakete ohne „Dry-Run“, „Rollback“, „Commit“, „Fragenrevisionen“ und ohne Pfad ins Repository:
+  „Vorschau“, „Wiederherstellung“, Spalte „Stand“ (vollständige Kennung im Tooltip), „Fassungen der Fragen“. Rohwerte
+  wie `unknown`/`restricted` erscheinen nur noch als Tooltip. Die Livegang-Checkliste erklärt „Mischstand“
+  (Inhalte teils aus dem neuen, teils aus dem bisherigen Paket).
+- **Keine Sackgassen:** „Zugang Nr. … nicht gefunden“ und „Import #… nicht gefunden“ mit Knopf zurück zur Liste,
+  „Gruppe Nr. … nicht gefunden“ über der Liste. Eine beendete Gruppe zeigt statt eines leeren Formulars „Die Gruppe ist
+  beendet – nicht mehr änderbar.“
+- **Einstellungen › Prüfungsanmeldung:** „Derzeit vorbereitet, aber deaktiviert.“ steht nur noch, wenn die Seite aus ist.
+- **Handy:** Tabellen der Plugin-Seiten (`Ui::table()`) liegen in einem seitlich scrollbaren Bereich
+  (`.bp-table-wrap` in `assets/admin/admin.css`), die Seite wird nicht mehr breiter als der Bildschirm.
+- **Barrierefreiheit:** Datei-Feld „ZIP-Datei des Inhaltspakets“ mit Beschriftung, Auswahl im Ablageordner als
+  Gruppe mit Überschrift, Fortschrittsbalken des Imports mit Namen.
+
 ## Rechte und Regelwerke freigeben (T103)
 
 Seiten „Rechte“ und „Prüfungsregeln“ (sowie der Rechte-Status einer einzelnen Frage):

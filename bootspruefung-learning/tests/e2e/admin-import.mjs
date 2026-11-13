@@ -28,8 +28,8 @@ await page.getByText('Paket hochgeladen und geprüft.').waitFor();
 assert.match(await page.locator('h2').first().innerText(), /validated|geprüft/);
 
 step('Vorschau und Freigabe');
-await page.getByRole('button', { name: 'Vorschau erstellen (Dry-Run)' }).click();
-await page.getByRole('heading', { name: 'Vorschau (Dry-Run)' }).waitFor();
+await page.getByRole('button', { name: 'Vorschau erstellen' }).click();
+await page.getByRole('heading', { name: 'Vorschau', exact: true }).waitFor();
 await shot('10-admin-vorschau');
 await page.fill('input[name="note"]', 'E2E-Test');
 await page.getByRole('button', { name: 'Freigeben', exact: true }).click();
