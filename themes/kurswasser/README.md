@@ -187,6 +187,11 @@ Beim Aktivieren legt das Theme **Entwürfe** für Impressum, Datenschutz, AGB, W
 Kontakt an – nur mit Platzhalter, keine Rechtstexte. Die Links im Fußbereich zeigen auf diese
 Seiten (`/impressum/` usw.).
 
+**Betreiberangaben** (Design › Betreiberangaben, `inc/operator.php`): Firmenname, Anschrift, Kontakt, Register,
+Steuernummern, Dienstleister, Fristen einmal eintragen – sie ersetzen die passenden `[[Betreiber: …]]`-Platzhalter
+der Rechtstext-Vorlagen beim Übernehmen (56 von 76; der Rest sind Entscheidungen bzw. Prüfungen). Geänderte Angaben
+aktualisieren unbearbeitete Entwürfe automatisch, bearbeitete Seiten nie. Ausfüll-Liste: `docs/rechtstexte-platzhalter.md`.
+
 ## Muster (Editor › Muster › Kurswasser)
 
 `hero`, `usp`, `courses`, `features`, `steps`, `popular`, `groups`, `guarantee`, `faq`, `cta` –
