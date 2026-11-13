@@ -34,10 +34,19 @@ final class Faq
     public function register(): void
     {
         add_action('init', [self::class, 'registerTypes']);
-        add_action('init', [FaqImporter::class, 'maybeImport'], 20);
+        // Standard-FAQs nur ohne wartenden Besucher anlegen bzw. aktualisieren: Admin, Cron oder WP-CLI (T84).
+        add_action('init', [self::class, 'maybeImportInBackground'], 20);
         add_action('rest_api_init', [self::class, 'routes']);
         add_shortcode('bootspruefung_faq', [FaqShortcode::class, 'render']);
         self::registerCacheInvalidation();
+    }
+
+    /** init: FaqImporter::maybeImport() nur im Admin, per Cron oder in der CLI (nie in Besucheranfragen). */
+    public static function maybeImportInBackground(): void
+    {
+        if (\Bootspruefung\Learning\Plugin::isBackgroundRequest()) {
+            FaqImporter::maybeImport();
+        }
     }
 
     public static function registerTypes(): void

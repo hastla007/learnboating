@@ -30,6 +30,9 @@ Plugin-Version über den Versionsvertrag (`bootspruefung_learning_compatible()`)
    nicht selbst, sie planen nur einen sofortigen Cron-Lauf. Schlägt die Migration fehl, wartet jeder weitere Versuch
    außerhalb der CLI 15 Minuten (auch der Cron-Lauf); danach plant das Plugin den nächsten Versuch von selbst.
    `wp bootspruefung migrate` versucht es immer sofort.
+   Neue Standard-FAQs, Kunden-FAQs und Starttexte der Tipps legt das Plugin ebenfalls nur im Admin, per Cron oder
+   in der CLI an bzw. gleicht sie an, nie in einer Besucheranfrage (T84). Auch dafür nach dem Einspielen einmal den
+   Admin öffnen.
 6. Browser laden neue Dateien sofort: Die Version der eingebundenen Dateien enthält den Dateistand.
 7. Mit einem neuen Theme-Stand gleicht das Theme die Inhaltsseiten automatisch ab (nur unveränderte Seiten, siehe
    `docs/theme-livegang.md`, Abschnitt „Inhaltsseiten bei Theme-Updates“). Danach im Dashboard den Hinweis

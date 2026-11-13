@@ -47,7 +47,8 @@ final class CustomerFaq
     public function register(): void
     {
         add_action('init', [self::class, 'registerTypes']);
-        add_action('init', [CustomerFaqImporter::class, 'maybeImport'], 20);
+        // Startpaket nur ohne wartenden Besucher anlegen bzw. aktualisieren: Admin, Cron oder WP-CLI (T84).
+        add_action('init', [self::class, 'maybeImportInBackground'], 20);
         add_action('rest_api_init', [self::class, 'routes']);
         // Zusätzlich zu public=false: nie in der Sitemap, auch wenn ein Filter Typen ergänzt.
         add_filter('wp_sitemaps_post_types', static function (array $types): array {
@@ -61,6 +62,14 @@ final class CustomerFaq
             return $taxonomies;
         });
         FaqTerms::flushOnChange(self::POST_TYPE, self::TAXONOMY, [], [self::TERM_KEY, self::TERM_ORDER], [CustomerFaqRepository::class, 'flush']);
+    }
+
+    /** init: CustomerFaqImporter::maybeImport() nur im Admin, per Cron oder in der CLI (nie in Besucheranfragen). */
+    public static function maybeImportInBackground(): void
+    {
+        if (\Bootspruefung\Learning\Plugin::isBackgroundRequest()) {
+            CustomerFaqImporter::maybeImport();
+        }
     }
 
     public static function registerTypes(): void

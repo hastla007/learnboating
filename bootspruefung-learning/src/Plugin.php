@@ -96,6 +96,9 @@ final class Plugin
         // Kunden-FAQ: Scheine, Unterkategorien und Startpaket (Entwürfe), solange es keine Kunden-FAQ gibt.
         \Bootspruefung\Learning\Faq\CustomerFaq::registerTypes();
         \Bootspruefung\Learning\Faq\CustomerFaqImporter::maybeImport();
+        // Starttexte „Tipps & Tricks“ (einmalig).
+        \Bootspruefung\Learning\Tips\Tips::registerTypes();
+        \Bootspruefung\Learning\Tips\Tips::maybeSeed();
     }
 
     public static function deactivate(): void
@@ -286,6 +289,23 @@ final class Plugin
         }
 
         return $script === 'admin-post.php';
+    }
+
+    /**
+     * Anfrage ohne wartenden Besucher: WP-CLI, WP-Cron oder Admin-Seite (nicht admin-ajax.php/admin-post.php).
+     * Dort dürfen längere Arbeiten laufen (FAQ-, Kunden-FAQ- und Tipps-Import, T84).
+     */
+    public static function isBackgroundRequest(): bool
+    {
+        $cli = PHP_SAPI === 'cli' || (defined('WP_CLI') && WP_CLI);
+
+        return self::backgroundContext($cli, wp_doing_cron(), is_admin(), $cli ? false : self::isCustomerAdminRequest());
+    }
+
+    /** Entscheidung zu isBackgroundRequest() ohne globale Zustände (Tests). */
+    public static function backgroundContext(bool $cli, bool $cron, bool $admin, bool $customerAdmin): bool
+    {
+        return $cli || $cron || ($admin && ! $customerAdmin);
     }
 
     /**

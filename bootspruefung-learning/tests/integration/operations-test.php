@@ -567,6 +567,33 @@ foreach ($ordersT80 as $orderId) {
     }
 }
 
+echo "FAQ-, Kunden-FAQ- und Tipps-Import nicht in Besucheranfragen (T84)\n";
+$check(Plugin::backgroundContext(false, false, false, false) === false, 'Besucheranfrage (Frontend): kein Import');
+$check(Plugin::backgroundContext(false, false, true, true) === false, 'admin-ajax.php/admin-post.php: kein Import');
+$check(Plugin::backgroundContext(false, false, true, false) && Plugin::backgroundContext(false, true, false, false) && Plugin::backgroundContext(true, false, false, false), 'Admin, Cron und WP-CLI: Import läuft');
+$check(has_action('init', [\Bootspruefung\Learning\Faq\FaqImporter::class, 'maybeImport']) === false
+    && has_action('init', [\Bootspruefung\Learning\Faq\CustomerFaqImporter::class, 'maybeImport']) === false
+    && has_action('init', [\Bootspruefung\Learning\Tips\Tips::class, 'maybeSeed']) === false, 'Importe hängen nicht mehr direkt an init');
+$check(has_action('init', [\Bootspruefung\Learning\Faq\Faq::class, 'maybeImportInBackground']) !== false
+    && has_action('init', [\Bootspruefung\Learning\Faq\CustomerFaq::class, 'maybeImportInBackground']) !== false
+    && has_action('init', [\Bootspruefung\Learning\Tips\Tips::class, 'maybeSeedInBackground']) !== false, 'Importe nur über die geprüften Einstiege (Admin, Cron, CLI)');
+// Tipps gegen Doppelung: Sperre und Prüfung auf vorhandene Starttexte.
+$T = \Bootspruefung\Learning\Tips\Tips::class;
+\Bootspruefung\Learning\Tips\Tips::registerTypes();
+$T::maybeSeed();
+$tipCount = static fn (): int => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s AND post_status <> 'auto-draft'", $T::POST_TYPE));
+$tipsBefore = $tipCount();
+$seededBefore = get_option($T::SEEDED_OPTION);
+delete_option($T::SEEDED_OPTION); // z. B. Option verloren oder zweiter Lauf parallel
+Lock::acquire($T::SEED_LOCK, 300, 'anderer-lauf');
+$T::maybeSeed();
+$check($tipCount() === $tipsBefore && get_option($T::SEEDED_OPTION) === false, 'Sperre gehalten (paralleler Lauf): keine Tipps angelegt');
+Lock::release($T::SEED_LOCK, 'anderer-lauf');
+$T::maybeSeed();
+$check($tipsBefore >= 13 && $tipCount() === $tipsBefore && get_option($T::SEEDED_OPTION) !== false, 'Starttexte vorhanden: keine doppelten Tipps');
+$check(Lock::holder($T::SEED_LOCK) === null, 'Sperre der Tipps-Anlage freigegeben');
+$seededBefore !== false ? update_option($T::SEEDED_OPTION, $seededBefore, false) : null;
+
 echo "Überwachung und Zeitzone (T55)\n";
 $mon = \Bootspruefung\Learning\Infrastructure\Monitor::class;
 $hourlyBefore = get_option($mon::OPTION_HOURLY, null);

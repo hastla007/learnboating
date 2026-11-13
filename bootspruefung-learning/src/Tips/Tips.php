@@ -19,11 +19,14 @@ final class Tips
     /** Textstand der Starttexte; weicht er ab, werden unbearbeitete Starttexte nachgezogen (updateDefaults). */
     public const VERSION = '2';
     public const VERSION_OPTION = 'bp_learning_tips_version';
+    /** Sperre gegen doppelte Anlage der Starttexte (Infrastructure\Lock). */
+    public const SEED_LOCK = 'bp_learning_tips_seed_lock';
 
     public function register(): void
     {
         add_action('init', [self::class, 'registerTypes']);
-        add_action('init', [self::class, 'maybeSeed'], 20);
+        // Starttexte nur ohne wartenden Besucher anlegen: Admin, Cron oder WP-CLI (T84).
+        add_action('init', [self::class, 'maybeSeedInBackground'], 20);
         add_action('rest_api_init', [$this, 'routes']);
     }
 
@@ -45,33 +48,76 @@ final class Tips
         ]);
     }
 
+    /** init: maybeSeed() nur im Admin, per Cron oder in der CLI (nie in Besucheranfragen). */
+    public static function maybeSeedInBackground(): void
+    {
+        if (\Bootspruefung\Learning\Plugin::isBackgroundRequest()) {
+            self::maybeSeed();
+        }
+    }
+
     /**
      * Starttexte einmalig anlegen (später gelöschte Tipps kommen nicht zurück). Auf bestehenden Installationen
      * werden bei neuem Textstand unbearbeitete Starttexte nachgezogen (updateDefaults).
+     *
+     * Gegen Doppelung (T84): Eine Sperre lässt nur einen Lauf gleichzeitig zu; danach wird der Stand frisch aus der
+     * Datenbank geprüft, und ein Starttext mit gleichem Titel (jeder Status, auch Papierkorb) wird nicht noch einmal
+     * angelegt.
      */
     public static function maybeSeed(): void
     {
-        if (get_option(self::SEEDED_OPTION)) {
-            if (get_option(self::VERSION_OPTION) !== self::VERSION) {
-                update_option(self::VERSION_OPTION, self::VERSION, false);
-                self::updateDefaults();
-            }
-
+        $seeded = get_option(self::SEEDED_OPTION);
+        if ($seeded && get_option(self::VERSION_OPTION) === self::VERSION) {
             return;
         }
-        update_option(self::SEEDED_OPTION, gmdate('Y-m-d H:i:s'), false);
-        update_option(self::VERSION_OPTION, self::VERSION, false);
-        $order = 0;
-        foreach (StarterTips::all() as $category => $tips) {
-            $term = term_exists($category, self::TAXONOMY);
-            $termId = $term ? (int) (is_array($term) ? $term['term_id'] : $term) : (int) (wp_insert_term($category, self::TAXONOMY)['term_id'] ?? 0);
-            foreach ($tips as [$title, $body]) {
-                $id = wp_insert_post(['post_type' => self::POST_TYPE, 'post_status' => 'publish', 'post_title' => $title, 'post_content' => $body, 'menu_order' => $order++], true);
-                if (! is_wp_error($id) && $termId > 0) {
-                    wp_set_object_terms((int) $id, [$termId], self::TAXONOMY);
+        if (! \Bootspruefung\Learning\Infrastructure\Lock::acquire(self::SEED_LOCK, 300)) {
+            return; // ein anderer Lauf legt gerade an
+        }
+        try {
+            // Stand nach dem Warten auf die Sperre frisch lesen (ein paralleler Lauf kann fertig sein).
+            wp_cache_delete(self::SEEDED_OPTION, 'options');
+            wp_cache_delete(self::VERSION_OPTION, 'options');
+            wp_cache_delete('notoptions', 'options');
+            if (get_option(self::SEEDED_OPTION)) {
+                if (get_option(self::VERSION_OPTION) !== self::VERSION) {
+                    update_option(self::VERSION_OPTION, self::VERSION, false);
+                    self::updateDefaults();
+                }
+
+                return;
+            }
+            update_option(self::SEEDED_OPTION, gmdate('Y-m-d H:i:s'), false);
+            update_option(self::VERSION_OPTION, self::VERSION, false);
+            $order = 0;
+            foreach (StarterTips::all() as $category => $tips) {
+                $term = term_exists($category, self::TAXONOMY);
+                $termId = $term ? (int) (is_array($term) ? $term['term_id'] : $term) : (int) (wp_insert_term($category, self::TAXONOMY)['term_id'] ?? 0);
+                foreach ($tips as [$title, $body]) {
+                    $position = $order++;
+                    if (self::exists((string) $title)) {
+                        continue; // schon vorhanden (auch im Papierkorb): nicht doppelt anlegen
+                    }
+                    $id = wp_insert_post(['post_type' => self::POST_TYPE, 'post_status' => 'publish', 'post_title' => $title, 'post_content' => $body, 'menu_order' => $position], true);
+                    if (! is_wp_error($id) && $termId > 0) {
+                        wp_set_object_terms((int) $id, [$termId], self::TAXONOMY);
+                    }
                 }
             }
+        } finally {
+            \Bootspruefung\Learning\Infrastructure\Lock::release(self::SEED_LOCK);
         }
+    }
+
+    /** Gibt es schon einen Tipp mit diesem Titel (jeder Status außer automatischem Entwurf)? */
+    private static function exists(string $title): bool
+    {
+        global $wpdb;
+
+        return (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_title = %s AND post_status <> 'auto-draft' LIMIT 1",
+            self::POST_TYPE,
+            $title
+        ));
     }
 
     /**
