@@ -32,6 +32,7 @@ final class Menu
         (new ExamGuidePages())->register();
         (new FaqAdmin())->register();
         (new CustomerFaqAdmin())->register();
+        (new GoLiveNotice())->register();
     }
 
     public function addPages(): void

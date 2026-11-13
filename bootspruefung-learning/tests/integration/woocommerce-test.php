@@ -1164,6 +1164,27 @@ update_option('woocommerce_terms_page_id', $termsBefore);
 wp_delete_post($termsPage, true);
 $mailOrder->delete(true);
 
+echo "Livegang-Warnung „Zugang ohne Shop“ (T15)\n";
+$soonBak = get_option('woocommerce_coming_soon');
+$mapped = (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->productIds();
+$probe = (int) ($mapped[0] ?? 0);
+$probeStatus = $probe ? get_post_status($probe) : '';
+if ($probe) {
+    wp_update_post(['ID' => $probe, 'post_status' => 'publish']);
+}
+update_option(Settings::OPTION, array_merge(Settings::all(), ['default_access' => 'logged_in']));
+update_option('woocommerce_coming_soon', 'yes');
+$check(! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop noch „Demnächst verfügbar“: keine Warnung');
+update_option('woocommerce_coming_soon', 'no');
+$check($probe > 0 && \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Shop sichtbar, Lernprodukt veröffentlicht, Zugang für alle Angemeldeten: Warnung');
+\Bootspruefung\Learning\Admin\GoLiveNotice::apply();
+$check(Settings::get('default_access') === 'entitled_only' && ! \Bootspruefung\Learning\Admin\GoLiveNotice::shouldWarn(), 'Umstellen: nur kostenlose Regeln und Freischaltungen, Warnung weg');
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bp_audit_log WHERE action = 'settings_default_access'") > 0, 'Umstellung im Audit-Log');
+update_option('woocommerce_coming_soon', $soonBak);
+if ($probe && $probeStatus) {
+    wp_update_post(['ID' => $probe, 'post_status' => $probeStatus]);
+}
+
 foreach (array_column($rows, 'product_id') as $pid) {
     (new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb))->save((int) $pid, 0, [], null, 'extend', 'revoke_on_full_refund');
     wp_delete_post((int) $pid, true);
