@@ -21,7 +21,7 @@ namespace Bootspruefung\Learning\Infrastructure;
  * Anfrage an den Hauptserver geschickt (send_reads_to_masters(), falls vorhanden).
  *
  * Wer NamedLock nutzt (T83, T115): Gruppenbeitritt und Einladungen (GroupService), Prüfungsstart je Nutzer
- * (ExamService), Kursgutschein-Bestellung je Code (Extensions\Vouchers).
+ * (ExamService), Kursgutschein-Bestellung je Code (Extensions\Vouchers), Geld-zurück-Anfrage je Bestellung (MoneyBackWoo).
  */
 final class NamedLock
 {

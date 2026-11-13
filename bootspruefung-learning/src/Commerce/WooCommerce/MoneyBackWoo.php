@@ -264,11 +264,10 @@ final class MoneyBackWoo
      */
     public static function submitRequest(\WC_Order $order, int $userId): array
     {
-        global $wpdb;
         $orderId = (int) $order->get_id();
-        $lock = 'bp_money_back_'.$orderId.'_'.substr(md5((string) $wpdb->prefix), 0, 8);
-        // GET_LOCK liefert 1 (erhalten), 0 (Zeitüberschreitung) oder NULL (Fehler) – nur mit Sperre weiter.
-        if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock, self::LOCK_WAIT)) !== '1') {
+        // Sperre je Bestellung (T115: NamedLock – Name je Datenbank/Präfix; GET_LOCK nicht verfügbar blockiert nicht dauerhaft).
+        $lock = 'money_back:'.$orderId;
+        if (! \Bootspruefung\Learning\Infrastructure\NamedLock::acquire($lock, self::LOCK_WAIT)) {
             return ['result' => 'busy', 'message' => __('Deine Anfrage wird gerade bearbeitet. Bitte lade die Seite in einem Moment neu.', 'bootspruefung-learning'), 'request' => null];
         }
         try {
@@ -285,7 +284,7 @@ final class MoneyBackWoo
             }
             $request = self::record($order, $userId, $status);
         } finally {
-            $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            \Bootspruefung\Learning\Infrastructure\NamedLock::release($lock);
         }
         $parts = self::breakdown($order);
 
