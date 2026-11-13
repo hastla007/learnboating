@@ -53,6 +53,11 @@ $check(str_contains(kurswasser_operator_fill('[[Betreiber: Anschrift]]', $half),
 $xss = $data;
 $xss['firma'] = '<script>alert(1)</script>';
 $check(! str_contains(kurswasser_operator_fill('[[Betreiber: Firmenname]]', $xss), '<script>'), 'Werte werden HTML-maskiert');
+$garant = $data;
+$garant['erstattungsfrist'] = '14 Tage';
+$note = kurswasser_operator_fill('[kurswasser_page_hero note="Garantiegeber: &#91;&#91;Betreiber: Firma, Anschrift, E-Mail&#93;&#93;"] spätestens [[Betreiber: Erstattungsfrist]]', $garant);
+$check(str_contains($note, 'Garantiegeber: Wasser &amp; Wind GmbH, Hafenstraße 1, 20457 Hamburg, info@example.org') && str_contains($note, 'spätestens 14 Tage'), 'Garantie: Garantiegeber im Seitenkopf (maskierte Klammern) und Erstattungsfrist');
+$check(kurswasser_content_template(['file' => '09-geld-zurueck-garantie-bootsfuehrerschein.html']) !== null, 'Inhaltsseiten-Vorlage wird mit Betreiberangaben gelesen');
 $clean = kurswasser_operator_sanitize(['firma' => '  <b>Firma</b>  ', 'email' => 'kein@mail', 'support_email' => 'support@example.org']);
 $check($clean['firma'] === 'Firma' && $clean['email'] === '' && $clean['support_email'] === 'support@example.org', 'Speichern bereinigt Text und E-Mail');
 

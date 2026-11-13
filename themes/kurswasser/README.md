@@ -189,7 +189,7 @@ Seiten (`/impressum/` usw.).
 
 **Betreiberangaben** (Design › Betreiberangaben, `inc/operator.php`): Firmenname, Anschrift, Kontakt, Register,
 Steuernummern, Dienstleister, Fristen einmal eintragen – sie ersetzen die passenden `[[Betreiber: …]]`-Platzhalter
-der Rechtstext-Vorlagen beim Übernehmen (56 von 81; der Rest sind Entscheidungen bzw. Prüfungen). Geänderte Angaben
+der Rechtstext-Vorlagen beim Übernehmen (57 von 82; der Rest sind Entscheidungen bzw. Prüfungen) und dieselben Platzhalter in den Inhaltsseiten (z. B. Garantiegeber, Erstattungsfrist, Support-E-Mail). Geänderte Angaben
 aktualisieren unbearbeitete Entwürfe automatisch, bearbeitete Seiten nie. Ausfüll-Liste: `docs/rechtstexte-platzhalter.md`.
 
 ## Muster (Editor › Muster › Kurswasser)

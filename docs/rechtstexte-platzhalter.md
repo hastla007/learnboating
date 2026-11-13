@@ -1,12 +1,12 @@
 # Rechtstexte: Platzhalter ausfüllen (To-do T11)
 
-Die fünf Rechtstext-Vorlagen (`themes/kurswasser/legal/`) enthalten 81 Platzhalter `[[Betreiber: …]]`:
+Die fünf Rechtstext-Vorlagen (`themes/kurswasser/legal/`) enthalten 82 Platzhalter `[[Betreiber: …]]`:
 
 | Text | Platzhalter |
 |---|---|
 | Impressum | 27 |
 | Datenschutzerklärung | 30 |
-| AGB | 15 |
+| AGB | 16 |
 | Widerrufsbelehrung | 7 |
 | Kontakt | 6 |
 
@@ -14,7 +14,7 @@ Die Zahl 52 aus der früheren Liste ist überholt.
 
 **Keine Rechtsberatung.** Alle Texte vor der Veröffentlichung von einer Anwältin bzw. einem Anwalt prüfen lassen.
 
-## 1. Angaben einmal eintragen (56 Platzhalter)
+## 1. Angaben einmal eintragen (57 Platzhalter)
 
 Unter **Design › Betreiberangaben** trägst du diese Daten einmal ein; sie ersetzen beim Übernehmen der Vorlagen
 die passenden Platzhalter in allen fünf Texten:
@@ -29,6 +29,7 @@ die passenden Platzhalter in allen fünf Texten:
 - Hoster (Name, Anschrift), E-Mail-Versand, Bank, Steuerberatung
 - Speicherdauer der Server-Logfiles, Löschfristen für Kontaktanfragen und Bewerbungen, Bewerbungsweg
 - Stand der AGB
+- Erstattungsfrist der Geld-zurück-Garantie (AGB Nr. 9 und Garantie-Seite)
 
 Der Markenname kommt aus den Einstellungen bzw. dem Namen der Website.
 
@@ -37,6 +38,9 @@ Rechtsseiten sofort aktualisiert. Veröffentlichte, unbearbeitete Seiten überni
 „Vorlagen übernehmen“. Seiten, die du selbst bearbeitet hast, ändert das Theme nie.
 
 Die Seite zeigt unten, was danach je Text noch offen ist.
+
+Dieselben Angaben füllen beim Abgleich der Inhaltsseiten auch dort die passenden Platzhalter, zum Beispiel
+Garantiegeber, Erstattungsfrist und E-Mail auf der Seite „Geld-zurück-Garantie“ oder die Support-E-Mail.
 
 ## 2. Entscheidungen und Prüfungen (25 Platzhalter, direkt auf der Seite)
 

@@ -3,7 +3,8 @@
  * Betreiberangaben: Firmenname, Anschrift, Kontakt, Register, Steuernummern, Dienstleister usw. einmal
  * eintragen (Design › Betreiberangaben) – sie ersetzen beim Übernehmen der Rechtstext-Vorlagen
  * (inc/legal.php) die passenden [[Betreiber: …]]-Platzhalter in Impressum, Datenschutz, AGB, Widerruf
- * und Kontakt.
+ * und Kontakt und beim Abgleich der Inhaltsseiten (inc/content-pages.php) dieselben Platzhalter dort,
+ * z. B. Garantiegeber, Erstattungsfrist, Support-E-Mail.
  *
  * Ersetzt wird nur, wofür ein Wert eingetragen ist; alles andere bleibt als markierter Platzhalter stehen.
  * Platzhalter, die eine Entscheidung oder Prüfung verlangen (Varianten wählen, Abschnitt löschen, „prüfen“),
@@ -59,6 +60,7 @@ function kurswasser_operator_fields(): array
         'frist_bewerbung' => [__('Löschfrist Bewerbungen', 'kurswasser'), __('z. B. 6 Monate nach Abschluss des Verfahrens', 'kurswasser'), 'text'],
         'bewerbungsweg' => [__('Bewerbungsweg', 'kurswasser'), __('z. B. E-Mail-Adresse oder Formular mit verschlüsselter Übermittlung', 'kurswasser'), 'text'],
         'stand_agb' => [__('Stand der AGB', 'kurswasser'), __('Datum der Veröffentlichung, z. B. 1. Dezember 2026', 'kurswasser'), 'text'],
+        'erstattungsfrist' => [__('Erstattungsfrist der Geld-zurück-Garantie', 'kurswasser'), __('z. B. 14 Tage – spätestens so lange nach Eingang der Anfrage wird erstattet (AGB Nr. 9, Garantie-Seite)', 'kurswasser'), 'text'],
     ];
 }
 
@@ -121,6 +123,10 @@ function kurswasser_operator_replacements(?array $data = null): array
         'Frist, üblich etwa 6 Monate nach Abschluss des Verfahrens' => $d['frist_bewerbung'],
         'Bewerbungsweg, z. B. E-Mail-Adresse oder Formular mit verschlüsselter Übermittlung' => $d['bewerbungsweg'],
         'Datum der Veröffentlichung' => $d['stand_agb'],
+        // Garantie (AGB Nr. 9, Inhaltsseite „Geld-zurück-Garantie“): Garantiegeber = Anbieter.
+        'Erstattungsfrist' => $d['erstattungsfrist'],
+        'E-Mail-Adresse' => $d['email'],
+        'Firma, Anschrift, E-Mail' => $d['firma'] !== '' && $d['strasse'] !== '' && $d['plz_ort'] !== '' && $d['email'] !== '' ? $d['firma'].', '.$address.', '.$d['email'] : '',
     ];
 
     return array_filter($map, static fn ($v) => trim((string) $v) !== '');
@@ -130,9 +136,15 @@ function kurswasser_operator_replacements(?array $data = null): array
 function kurswasser_operator_fill(string $html, ?array $data = null): string
 {
     $map = kurswasser_operator_replacements($data);
-    if ($map === [] || ! str_contains($html, '[[Betreiber:')) {
+    if ($map === [] || (! str_contains($html, '[[Betreiber:') && ! str_contains($html, '&#91;&#91;Betreiber:'))) {
         return $html;
     }
+    // In Shortcode-Attributen (z. B. Hinweis im Seitenkopf) stehen die Klammern maskiert als &#91;&#91; … &#93;&#93;.
+    $html = (string) preg_replace_callback('/&#91;&#91;Betreiber:\s*(.+?)\s*&#93;&#93;/u', static function (array $m) use ($map): string {
+        $key = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return isset($map[$key]) ? esc_html($map[$key]) : $m[0];
+    }, $html);
 
     return (string) preg_replace_callback('/\[\[Betreiber:\s*([^\]]+?)\s*\]\]/u', static function (array $m) use ($map): string {
         // Vorlagen enthalten „&amp;“ in Platzhaltern (z. B. „Tipps &amp; Tricks“) – für den Vergleich entschlüsseln.

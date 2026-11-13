@@ -66,7 +66,13 @@ function kurswasser_content_template(array $entry, ?string $dir = null): ?string
     }
     $content = trim((string) file_get_contents($file));
 
-    return $content === '' ? null : kurswasser_content_tokens($content);
+    if ($content === '') {
+        return null;
+    }
+    $content = kurswasser_content_tokens($content);
+
+    // Betreiberangaben (Design › Betreiberangaben) auch hier einsetzen, z. B. Garantiegeber und Erstattungsfrist.
+    return function_exists('kurswasser_operator_fill') ? kurswasser_operator_fill($content) : $content;
 }
 
 /** Vorhandene Seite zum Manifest-Pfad (auch Entwurf und Papierkorb) oder null. */
