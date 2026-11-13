@@ -1022,6 +1022,31 @@ if ($vlId > 0) {
     $check(false, 'Videolektionen importiert');
 }
 
+echo "Export entitlements für das Laravel-Original (T46)\n";
+$exUser = $user('bp_export_kunde');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $exUser));
+$day = static fn (int $d): string => gmdate('Y-m-d H:i:s', time() + $d * DAY_IN_SECONDS);
+$exNow = $entitlements->grantManual($exUser, 'SBF-SEE', ['question_bank'], $day(30), 'Export: läuft');
+$exNext = $entitlements->grantManual($exUser, 'SBF-SEE', ['question_bank'], $day(400), 'Export: Verlängerung');
+$wpdb->update($p.'entitlement', ['valid_from' => $day(30)], ['id' => $exNext[0]]);
+$exSusp = $entitlements->grantManual($exUser, 'SRC', ['question_bank'], $day(60), 'Export: gesperrt');
+$wpdb->update($p.'entitlement', ['status' => 'suspended'], ['id' => $exSusp[0]]);
+$exOld = $entitlements->grantManual($exUser, 'UBI', ['question_bank'], $day(10), 'Export: abgelaufen');
+$wpdb->update($p.'entitlement', ['valid_from' => $day(-40), 'valid_until' => $day(-5)], ['id' => $exOld[0]]);
+$exSim = $entitlements->grantManual($exUser, 'SRC', ['device_simulation'], $day(14), 'Export: Simulator');
+$exGrp = $entitlements->grantManual($exUser, 'SKN', ['question_bank'], $day(90), 'Export: Gruppe');
+$wpdb->update($p.'entitlement', ['source' => 'group', 'reference_key' => 'group:4711:9', 'order_id' => 912345], ['id' => $exGrp[0]]);
+$export = \Bootspruefung\Learning\Cli\Commands::entitlementExport('test-schule');
+$mine = array_values(array_filter($export['entitlements'], static fn ($e) => $e['email'] === get_userdata($exUser)->user_email));
+$keys = array_map(static fn ($e) => $e['course_code'].'|'.$e['status'], $mine);
+$check($export['format_version'] === 2 && count($mine) === 4 && in_array('SRC|suspended', $keys, true) && ! in_array('UBI|active', $keys, true), 'Export: laufende, spätere (Verlängerung) und gesperrte Zugänge, keine abgelaufenen');
+$check(count(array_filter($mine, static fn ($e) => $e['course_code'] === 'SBF-SEE')) === 2, 'Export: Verlängerung mit späterem Beginn ist dabei');
+$grpRow = array_values(array_filter($mine, static fn ($e) => $e['course_code'] === 'SKN'))[0] ?? [];
+$check(($grpRow['source'] ?? '') === 'group' && ($grpRow['group_id'] ?? null) === 4711 && ($grpRow['order_id'] ?? null) === 912345, 'Export: Herkunft Gruppe mit Gruppen-ID und Bestellung');
+$simMine = array_values(array_filter($export['device_simulation_entitlements'], static fn ($e) => $e['email'] === get_userdata($exUser)->user_email));
+$check(count($simMine) === 1 && $simMine[0]['feature_code'] === 'device_simulation' && ! in_array('device_simulation', array_column($mine, 'feature_code'), true), 'Export: Simulator-Zugänge getrennt (device_simulation_entitlements)');
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $exUser));
+
 // Aufräumen.
 $wpdb->query("DELETE FROM {$p}entitlement WHERE user_id IN ({$all}) OR order_id >= 910000");
 $wpdb->query("DELETE FROM {$p}access_rule WHERE course_code IN ('SBF-SEE','SRC')");

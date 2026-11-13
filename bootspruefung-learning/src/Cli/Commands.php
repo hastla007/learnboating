@@ -772,44 +772,69 @@ final class Commands
         if ($tenantSlug === '' || $output === '') {
             WP_CLI::error('Aufruf: wp bootspruefung export entitlements <tenant-slug> --output=<datei.json>');
         }
+        $payload = self::entitlementExport($tenantSlug);
+        self::writeMobileExport($output, $payload);
+        WP_CLI::success(sprintf('%d Kurszugänge und %d Simulator-Zugänge exportiert: %s', count($payload['entitlements']), count($payload['device_simulation_entitlements']), $output));
+    }
+
+    /**
+     * Daten des Entitlement-Exports (T46): alle noch nicht abgelaufenen Zugänge mit Status aktiv oder gesperrt –
+     * auch Verlängerungen, die erst später beginnen – samt Herkunft (Kauf, Gruppe, manuell, Gutschein).
+     * Simulator-Zugänge (device_simulation) getrennt, damit ein Importer ohne Simulator sie überspringen kann.
+     *
+     * @return array<string,mixed>
+     */
+    public static function entitlementExport(string $tenantSlug): array
+    {
         global $wpdb;
         $table = $wpdb->prefix.'bp_entitlement';
-        $features = "'all','question_bank','learning_explanations','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads'";
+        $features = "'all','question_bank','learning_explanations','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','downloads','device_simulation'";
         $rows = $wpdb->get_results(
-            "SELECT e.id, e.course_code, e.feature_code, e.valid_from, e.valid_until,
+            "SELECT e.id, e.course_code, e.feature_code, e.status, e.valid_from, e.valid_until, e.source, e.reference_key, e.order_id,
                     u.user_email, u.user_registered
              FROM {$table} e
              INNER JOIN {$wpdb->users} u ON u.ID = e.user_id
-             WHERE e.status = 'active'
-               AND (e.valid_from IS NULL OR e.valid_from <= UTC_TIMESTAMP())
+             WHERE e.status IN ('active','suspended')
                AND (e.valid_until IS NULL OR e.valid_until >= UTC_TIMESTAMP())
                AND e.feature_code IN ({$features})
-             ORDER BY u.user_email, e.course_code, e.feature_code, e.id",
+             ORDER BY u.user_email, e.course_code, e.feature_code, e.valid_from, e.id",
             ARRAY_A
         );
         if ($wpdb->last_error !== '') {
-            WP_CLI::error('Kurszugänge konnten nicht gelesen werden: '.$wpdb->last_error);
+            throw new \RuntimeException('Kurszugänge konnten nicht gelesen werden: '.$wpdb->last_error);
         }
-
         $entitlements = [];
+        $simulator = [];
         foreach ((array) $rows as $row) {
-            $entitlements[] = [
+            $source = (string) $row['source'];
+            $groupId = $source === \Bootspruefung\Learning\Commerce\GroupService::SOURCE && preg_match('/^group:(\d+):/', (string) $row['reference_key'], $m) === 1 ? (int) $m[1] : null;
+            $item = [
                 'email' => strtolower(trim((string) $row['user_email'])),
                 'course_code' => (string) $row['course_code'],
                 'feature_code' => (string) $row['feature_code'],
-                'status' => 'active',
+                'status' => (string) $row['status'],
                 'valid_from' => self::mobileExportUtc($row['valid_from'] ?? null),
                 'valid_until' => self::mobileExportUtc($row['valid_until'] ?? null),
                 'user_registered' => self::mobileExportUtc($row['user_registered'] ?? null),
+                'source' => $source,
+                'group_id' => $groupId,
+                'order_id' => $row['order_id'] !== null ? (int) $row['order_id'] : null,
                 'source_key' => 'wp:entitlement:'.(int) $row['id'],
             ];
+            if ($item['feature_code'] === 'device_simulation') {
+                $simulator[] = $item;
+            } else {
+                $entitlements[] = $item;
+            }
         }
-        self::writeMobileExport($output, [
+
+        return [
+            'format_version' => 2,
             'tenant_slug' => $tenantSlug,
             'default_access' => \Bootspruefung\Learning\Settings\Settings::get('default_access'),
             'entitlements' => $entitlements,
-        ]);
-        WP_CLI::success(sprintf('%d aktive Kurszugänge exportiert: %s', count($entitlements), $output));
+            'device_simulation_entitlements' => $simulator,
+        ];
     }
 
     private static function mobileExportUtc(?string $value): ?string

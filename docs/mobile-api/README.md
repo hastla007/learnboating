@@ -198,10 +198,14 @@ wp bootspruefung export customer-faqs --output=/tmp/mobile-faqs.json
 ```
 
 Der Access-Export enthält auch den WP-Standard `default_access` und die
-Zeitfenster der Regeln. Der Entitlement-Export enthält aktuell gültige Zugänge
-und E-Mail-Adressen bestehender WP-Nutzer; er enthält keine Passwörter und muss
-als personenbezogene Datei geschützt übertragen werden. Geräte-Simulator-Freigaben
-sind WP-seitige Einstellungen und werden nicht als Lernzugang exportiert.
+Zeitfenster der Regeln. Der Entitlement-Export (`format_version` 2, seit T46) enthält alle noch nicht
+abgelaufenen Zugänge mit Status `active` oder `suspended`, auch Verlängerungen, die erst später beginnen
+(`valid_from` in der Zukunft). Je Zugang stehen dazu `source` (`woocommerce`, `group`, `manual`, `voucher`),
+`group_id` (bei Gruppenplätzen) und `order_id`. Simulator-Zugänge (`device_simulation`) stehen getrennt unter
+`device_simulation_entitlements`, damit ein Importer ohne Simulator sie überspringen kann. **Für den
+Laravel-Importer:** gesperrte Zugänge nicht freischalten und spätere Zugänge erst ab `valid_from`. Der Export enthält
+E-Mail-Adressen bestehender WP-Nutzer, aber keine Passwörter, und muss als personenbezogene Datei geschützt
+übertragen werden.
 Video-Drip-Regeln enthalten Kapiteltitel und Reihenfolge,
 damit der Laravel-Importer die WP-Quell-ID dem passenden nativen Videokapitel
 zuordnet. Der Datei-Export kopiert geschützte Anhänge ins Staging-Verzeichnis
