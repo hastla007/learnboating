@@ -30,6 +30,7 @@ require_once ABSPATH.'wp-admin/includes/user.php';
 use Bootspruefung\Learning\Commerce\EntitlementService;
 use Bootspruefung\Learning\Commerce\MoneyBack;
 use Bootspruefung\Learning\Commerce\ProductAccessRepository;
+use Bootspruefung\Learning\Commerce\WooCommerce\CouponField;
 use Bootspruefung\Learning\Commerce\WooCommerce\Integration;
 use Bootspruefung\Learning\Commerce\WooCommerce\MemberDiscounts;
 use Bootspruefung\Learning\Commerce\WooCommerce\MoneyBackWoo;
@@ -289,6 +290,61 @@ if ($woo) {
         wp_set_current_user(0);
     }
     $discountsBefore === '__none__' ? delete_option(MemberDiscounts::OPTION) : update_option(MemberDiscounts::OPTION, $discountsBefore, false);
+
+    echo "Gutscheinfeld in Warenkorb und Kasse (T58)\n";
+    $CF = CouponField::class;
+    $enableBefore = get_option('woocommerce_enable_coupons', null);
+    update_option('woocommerce_enable_coupons', 'yes');
+    // Vorhandene Gutscheine der Test-Datenbank vorübergehend als Entwurf, damit „kein Gutschein“ prüfbar ist.
+    $parked = array_map('intval', get_posts(['post_type' => 'shop_coupon', 'post_status' => 'publish', 'numberposts' => -1, 'fields' => 'ids']));
+    foreach ($parked as $cid) {
+        wp_update_post(['ID' => $cid, 'post_status' => 'draft']);
+    }
+    if ($CF::externalVouchers()) {
+        $check(wc_coupons_enabled(), 'Gutschein-Plugin ohne shop_coupon aktiv (z. B. Voucher Captain): Feld bleibt sichtbar');
+    } else {
+        $check(! $CF::hasActiveCoupon() && ! wc_coupons_enabled(), 'kein Gutschein: Feld aus (klassisch und Block lesen wc_coupons_enabled)');
+        $check(wc_get_template_html('checkout/form-coupon.php') === '', 'klassische Kasse: kein „Gutschein einlösen?“');
+        $fieldPlugin = static fn ($result, $code) => $code === 'FELD-AUS-1' ? ['product_id' => $productId, 'voucher_order_id' => 0] : $result;
+        add_filter('bootspruefung_voucher_redeem', $fieldPlugin, 10, 2);
+        $fieldWeb = Vouchers::submitWeb($userB, 'FELD-AUS-1');
+        remove_filter('bootspruefung_voucher_redeem', $fieldPlugin, 10);
+        $cleanupOrders[] = (int) ($fieldWeb['order_id'] ?? 0);
+        $check($fieldWeb['result'] === 'redeemed' && (new AccessService())->full($userB, 'SKN', AccessService::QUESTION_BANK), 'Kursgutschein unter „Mein Lernen“ bleibt einlösbar');
+        $shopCoupon = new WC_Coupon();
+        $shopCoupon->set_code('t58-feld-'.wp_generate_password(6, false, false));
+        $shopCoupon->set_amount(5);
+        $shopCouponId = (int) $shopCoupon->save();
+        $check($CF::hasActiveCoupon() && wc_coupons_enabled() && wc_get_template_html('checkout/form-coupon.php') !== '', 'veröffentlichter Gutschein: Feld da');
+        $shopCoupon = new WC_Coupon($shopCouponId);
+        $shopCoupon->set_date_expires(time() - DAY_IN_SECONDS);
+        $shopCoupon->save();
+        $check(! wc_coupons_enabled(), 'nur abgelaufener Gutschein: Feld aus');
+        update_option($CF::OPTION, 'no');
+        $check(wc_coupons_enabled(), 'Schalter (Option „no“): Feld immer da');
+        delete_option($CF::OPTION);
+        add_filter('bootspruefung_hide_coupon_field', '__return_false');
+        $check(wc_coupons_enabled(), 'Filter bootspruefung_hide_coupon_field = false: Feld immer da');
+        remove_filter('bootspruefung_hide_coupon_field', '__return_false');
+        $virtual = static fn ($data) => $data;
+        add_filter('woocommerce_get_shop_coupon_data', $virtual);
+        $check(wc_coupons_enabled(), 'Gutscheine eines Plugins ohne shop_coupon (woocommerce_get_shop_coupon_data): Feld da');
+        remove_filter('woocommerce_get_shop_coupon_data', $virtual);
+        require_once ABSPATH.'wp-admin/includes/class-wp-screen.php';
+        require_once ABSPATH.'wp-admin/includes/screen.php';
+        $GLOBALS['current_screen'] = WP_Screen::get('edit-shop_coupon');
+        $check(is_admin() && wc_coupons_enabled(), 'Admin (Gutscheine verwalten): unverändert an');
+        unset($GLOBALS['current_screen']);
+        update_option('woocommerce_enable_coupons', 'no');
+        update_option($CF::OPTION, 'no');
+        $check(! wc_coupons_enabled(), 'WooCommerce-Einstellung „Gutscheine aus“ bleibt maßgeblich');
+        delete_option($CF::OPTION);
+        wp_delete_post($shopCouponId, true);
+    }
+    foreach ($parked as $cid) {
+        wp_update_post(['ID' => $cid, 'post_status' => 'publish']);
+    }
+    $enableBefore === null ? delete_option('woocommerce_enable_coupons') : update_option('woocommerce_enable_coupons', $enableBefore);
 
     echo "Garantie: bezahlter Betrag, Gutscheinanteil, Produkte ohne Garantie\n";
     $ticketProduct = new WC_Product_Simple();

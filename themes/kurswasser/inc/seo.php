@@ -3,7 +3,7 @@
  * SEO-Grundausstattung ohne Plugin (Review 4, Abschnitt „Technische Empfehlung“):
  * SEO-Titel, Meta-Description, noindex, Canonical und Prüfdatum als Post-Meta (Metabox im Editor),
  * Ausgabe von <title>, Description, Robots und Canonical (noindex-Seiten: Canonical auf sich selbst), Open-Graph-
- * und Twitter-Tags (Bild = Hero-Foto der Seite), noindex-Seiten nicht in der Core-Sitemap,
+ * und Twitter-Tags (Bild = Hero-Foto der Seite), noindex-Seiten weder in der Core- noch in der Yoast-Sitemap,
  * JSON-LD BreadcrumbList (aus der Seitenhierarchie bzw. den Brotkrumen der Inhaltsseiten), Article
  * (Seiten mit Schema „Article“) und Organization/WebSite (nur Startseite).
  *
@@ -414,7 +414,26 @@ function kurswasser_seo_shop_private_ids(): array
     return array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
 }
 
-add_filter('wpseo_exclude_from_sitemap_by_post_ids', static fn ($ids) => array_values(array_unique(array_merge(array_map('intval', (array) $ids), kurswasser_seo_shop_private_ids()))));
+/**
+ * Seiten mit eigenem noindex („Nicht in Suchmaschinen“, _kw_noindex), deren Yoast-Feld leer ist (To-do T58). Mit Yoast
+ * und SEO-Ziel „Theme“ steht noindex nur im Theme-Feld: Yoast gibt es im Kopf aus (wpseo_robots_array unten), führt
+ * die Seite aber sonst in seiner Sitemap. Steht im Yoast-Feld selbst ein Wert, entscheidet Yoast.
+ * @return list<int>
+ */
+function kurswasser_seo_noindex_ids(): array
+{
+    global $wpdb;
+    $ids = $wpdb->get_col($wpdb->prepare(
+        "SELECT n.post_id FROM {$wpdb->postmeta} n LEFT JOIN {$wpdb->postmeta} y ON y.post_id = n.post_id AND y.meta_key = %s
+         WHERE n.meta_key = '_kw_noindex' AND n.meta_value = '1' AND (y.meta_value IS NULL OR y.meta_value = '')",
+        '_yoast_wpseo_meta-robots-noindex'
+    ));
+
+    return array_values(array_unique(array_map('intval', $ids)));
+}
+
+// Yoast-Sitemap: ohne Warenkorb, Kasse, Mein Konto und ohne Seiten mit eigenem noindex.
+add_filter('wpseo_exclude_from_sitemap_by_post_ids', static fn ($ids) => array_values(array_unique(array_merge(array_map('intval', (array) $ids), kurswasser_seo_shop_private_ids(), kurswasser_seo_noindex_ids()))));
 
 // Core-Sitemap: keine noindex-Seiten (und Beiträge).
 add_filter('wp_sitemaps_posts_query_args', static function (array $args): array {

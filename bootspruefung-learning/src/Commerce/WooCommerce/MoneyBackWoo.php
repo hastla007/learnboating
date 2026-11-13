@@ -342,8 +342,8 @@ final class MoneyBackWoo
             self::deadlineLabel($status['deadline']),
             $order->get_edit_order_url(),
             $scope
-        ));
-        // Bestätigung an den Kunden
+        ), [], footer: false); // interne Mail an den Betreiber: ohne Anbieter-Fuß
+        // Bestätigung an den Kunden (mit Anbieter-Angaben im Fuß, Support\Mail)
         \Bootspruefung\Learning\Support\Mail::send((string) $order->get_billing_email(), sprintf(__('Deine Geld-zurück-Anfrage zu Bestellung #%d', 'bootspruefung-learning'), $orderId), sprintf(
             __("Hallo,\n\ndeine Anfrage zur Geld-zurück-Garantie für Bestellung #%1\$d ist eingegangen. Wir erstatten %2\$s in Kürze über deine ursprüngliche Zahlungsart; mit der Erstattung endet der Lernzugang zu den erstatteten Kursen.%3\$s\n\nDie Garantie gilt zusätzlich zum gesetzlichen Widerrufsrecht (siehe Widerrufsbelehrung).", 'bootspruefung-learning'),
             $orderId,

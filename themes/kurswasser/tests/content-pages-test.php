@@ -268,6 +268,16 @@ update_post_meta($p3->ID, '_kw_noindex', '1');
 $args = apply_filters('wp_sitemaps_posts_query_args', ['post_type' => 'page', 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids'], 'page');
 $ids = (new WP_Query($args))->posts;
 $check(! in_array($p3->ID, $ids, true) && in_array($p1->ID, $ids, true), 'Sitemap ohne noindex-Seiten');
+$sitemapLocs = array_column((new WP_Sitemaps_Posts())->get_url_list(1, 'page'), 'loc');
+$privateLocs = array_map('get_permalink', function_exists('kurswasser_seo_shop_private_ids') ? kurswasser_seo_shop_private_ids() : []);
+$learnBase = class_exists(\Bootspruefung\Learning\Frontend\Router::class) ? \Bootspruefung\Learning\Frontend\Router::url() : home_url('/bootsscheine/');
+$check(in_array(get_permalink($p1), $sitemapLocs, true) && ! in_array(get_permalink($p3), $sitemapLocs, true) && array_intersect($privateLocs, $sitemapLocs) === []
+    && array_filter($sitemapLocs, static fn ($loc) => str_starts_with((string) $loc, $learnBase)) === [], 'wp-sitemap.xml (Seiten): Inhaltsseite drin; noindex, Warenkorb/Kasse/Konto und Lernbereich nicht (T58)');
+$yoastExcluded = apply_filters('wpseo_exclude_from_sitemap_by_post_ids', []);
+$check(in_array($p3->ID, $yoastExcluded, true) && ! in_array($p1->ID, $yoastExcluded, true), 'Yoast-Sitemap: Seite mit eigenem noindex ausgeschlossen, Inhaltsseite nicht (T58)');
+update_post_meta($p3->ID, '_yoast_wpseo_meta-robots-noindex', '2');
+$check(! in_array($p3->ID, apply_filters('wpseo_exclude_from_sitemap_by_post_ids', []), true), 'Yoast-Feld „index“ gesetzt: Yoast entscheidet');
+delete_post_meta($p3->ID, '_yoast_wpseo_meta-robots-noindex');
 update_post_meta($p3->ID, '_kw_canonical', 'beispiel-ratgeber');
 ob_start();
 rel_canonical();

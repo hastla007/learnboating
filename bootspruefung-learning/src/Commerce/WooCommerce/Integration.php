@@ -118,6 +118,7 @@ final class Integration
         (new VideoUpgrade())->register();
         (new CartRelationHint())->register();
         (new CartDuplicateHint())->register(); // Hinweis gegen Doppelkäufe (schon gekauft bzw. bestellt, Verlängerung)
+        (new CouponField())->register(); // Gutscheinfeld nur, wenn es einen gültigen Gutschein gibt (T58)
         (new BankDetails())->register(); // Bankdaten bei offener Überweisung auch in der Bestellansicht (T50)
         (new PriceNote())->register();
         (new ContractSummary())->register(); // Laufzeit je Position und Garantie-Erklärung in der Bestellmail (T52)

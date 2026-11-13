@@ -359,6 +359,61 @@ ob_start();
 $ms::render();
 $check(str_contains((string) ob_get_clean(), 'E-Mail-Versand'), 'Abschnitt im Systemstatus');
 delete_option($ms::OPTION_TEST);
+
+echo "Pflichtangaben in Plugin-Mails (T58)\n";
+$mail = \Bootspruefung\Learning\Support\Mail::class;
+$storeKeys = ['woocommerce_store_address', 'woocommerce_store_address_2', 'woocommerce_store_postcode', 'woocommerce_store_city'];
+$storeBefore = [];
+foreach ($storeKeys as $key) {
+    $storeBefore[$key] = get_option($key, null);
+}
+update_option('woocommerce_store_address', 'Hafenstraße 1');
+update_option('woocommerce_store_address_2', '');
+update_option('woocommerce_store_postcode', '20457');
+update_option('woocommerce_store_city', 'Hamburg');
+$siteName = wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES);
+$sent = [];
+add_filter('pre_wp_mail', $catchMail, 10, 2);
+// Standard des Plugins (Website-Name, Shop-Adresse, Absender) – vor einem möglichen Theme-Filter abgegriffen.
+$defaultFooter = null;
+$grabDefault = static function ($value) use (&$defaultFooter) {
+    $defaultFooter = (string) $value;
+
+    return $value;
+};
+add_filter('bootspruefung_mail_footer', $grabDefault, 1);
+$footer = $mail::footer();
+remove_filter('bootspruefung_mail_footer', $grabDefault, 1);
+$check(is_string($defaultFooter) && str_starts_with($defaultFooter, $siteName."\nHafenstraße 1, 20457 Hamburg") && str_ends_with($defaultFooter, "\nE-Mail: kurse@example.test") && substr_count($defaultFooter, "\n") === 2, 'Standard-Fuß: Website-Name, Shop-Adresse, E-Mail ('.str_replace("\n", ' | ', (string) $defaultFooter).')');
+$mail::send('kunde@example.test', 'Test', "Hallo,\n\nText.\n");
+$check(count($sent) === 1 && $sent[0]['message'] === "Hallo,\n\nText.\n\n-- \n".$footer, 'Mail an Kunden endet mit Trenner und Anbieter-Angaben');
+$mail::send('betreiber@example.test', 'Intern', 'Interne Nachricht', [], footer: false);
+$check($sent[1]['message'] === 'Interne Nachricht', 'interne Mail (footer: false) ohne Fuß');
+$ownFooter = static fn () => "Wasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nE-Mail: info@example.test";
+add_filter('bootspruefung_mail_footer', $ownFooter, 99);
+$mail::send('kunde@example.test', 'Test', 'Text');
+$check(str_ends_with($sent[2]['message'], "Text\n\n-- \nWasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nE-Mail: info@example.test"), 'Filter bootspruefung_mail_footer ersetzt den Fuß (Klartext, & bleibt &)');
+remove_filter('bootspruefung_mail_footer', $ownFooter, 99);
+add_filter('bootspruefung_mail_footer', '__return_empty_string', 99);
+$mail::send('kunde@example.test', 'Test', 'Text');
+$check($sent[3]['message'] === 'Text', 'leerer Filterwert: kein Fuß');
+remove_filter('bootspruefung_mail_footer', '__return_empty_string', 99);
+$once = $mail::withFooter('Text', $footer);
+$check($mail::withFooter($once, $footer) === $once, 'Fuß nie doppelt (schon enthalten → unverändert)');
+// Ablauf-Erinnerung: eigener Abschnitt nach „-- “ (Abmeldehinweis) und Kopfzeile List-Unsubscribe bleiben; kein zweiter Trenner.
+$remUser = get_userdata($user('bp_ops_mail_footer'));
+[$remSubject, $remBody] = \Bootspruefung\Learning\Commerce\ExpiryReminder::mail($remUser, [(string) $courses[0]->code => gmdate('Y-m-d H:i:s', time() + 5 * DAY_IN_SECONDS)]);
+$optOut = \Bootspruefung\Learning\Commerce\ReminderOptOut::url((int) $remUser->ID);
+$mail::send((string) $remUser->user_email, $remSubject, $remBody, ['List-Unsubscribe: <'.$optOut.'>']);
+$rem = $sent[4] ?? ['message' => '', 'headers' => []];
+$check(substr_count($rem['message'], "\n-- \n") === 1 && str_ends_with($rem['message'], "„Mein Lernen“.\n\n".$footer) && str_contains($rem['message'], 'Abbestellen: '.$optOut), 'Ablauf-Erinnerung: Abmeldelink bleibt, Fuß am Ende, nur ein Trenner');
+$check(in_array('List-Unsubscribe: <'.$optOut.'>', (array) $rem['headers'], true), 'Kopfzeile List-Unsubscribe bleibt erhalten');
+remove_filter('pre_wp_mail', $catchMail, 10);
+require_once ABSPATH.'wp-admin/includes/user.php';
+wp_delete_user((int) $remUser->ID);
+foreach ($storeBefore as $key => $value) {
+    $value === null ? delete_option($key) : update_option($key, $value);
+}
 $fromBefore === null ? delete_option('woocommerce_email_from_address') : update_option('woocommerce_email_from_address', $fromBefore);
 $nameBefore === null ? delete_option('woocommerce_email_from_name') : update_option('woocommerce_email_from_name', $nameBefore);
 

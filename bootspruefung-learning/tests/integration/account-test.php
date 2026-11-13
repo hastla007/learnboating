@@ -116,6 +116,10 @@ $notes = array_filter(wc_get_order_notes(['order_id' => $order->get_id()]), stat
 $check($r1['result'] === 'requested' && $r2['result'] === 'already_requested' && $r2['request'] !== null && $r2['request']['at'] === $r1['request']['at'], 'zweiter Aufruf liefert die bestehende Anfrage zurück');
 $check($audits === 1 && count($notes) === 1 && count($mails) === 2, "genau eine Anfrage, eine Notiz, zwei Mails (Betreiber + Kunde) – {$audits} Protokoll, ".count($notes).' Notiz(en), '.count($mails).' Mail(s)');
 $check(MoneyBackWoo::status(wc_get_order($order->get_id()))['reason'] === 'requested', 'Bestellung zeigt „angefragt“');
+$mbFooter = \Bootspruefung\Learning\Support\Mail::footer();
+$mbCustomer = array_values(array_filter($mails, static fn ($m) => str_starts_with($m['subject'], 'Deine Geld-zurück-Anfrage')));
+$mbAdmin = array_values(array_filter($mails, static fn ($m) => str_starts_with($m['subject'], 'Geld-zurück-Anfrage')));
+$check($mbFooter !== '' && count($mbCustomer) === 1 && str_ends_with($mbCustomer[0]['message'], "\n-- \n".$mbFooter) && count($mbAdmin) === 1 && ! str_contains($mbAdmin[0]['message'], "\n-- \n"), 'Bestätigung an den Kunden mit Anbieter-Angaben, interne Mail an den Betreiber ohne (T58)');
 wp_set_current_user($mbUser);
 $order2 = $buy($mbUser);
 ob_start();

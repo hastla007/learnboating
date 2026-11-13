@@ -12,6 +12,13 @@ Spam, fehlen Kunden Zugang, Belege und Fristen. Prüfen unter **Bootsprüfung �
 - **Systemstatus „E-Mail-Versand“:** Absender, Absender-Domain (Warnung, wenn sie von der Website-Domain abweicht),
   Versandweg (SMTP-Plugin, Mail-Dienst oder PHP `mail()`), SPF- und DMARC-Eintrag aus dem DNS, letzte Testmail.
 - **Knopf „Testmail senden“** an die eigene Adresse, mit Fehlermeldung, falls der Versand scheitert.
+- **Anbieter-Angaben im Fuß (T58):** Die Mails des Lern-Plugins an Kunden (Gruppeneinladung, Ablauf-Erinnerung,
+  Bestätigung der Geld-zurück-Anfrage, Testmail) enden mit einem einheitlichen Fuß nach „-- “: Name bzw. Firma,
+  Anschrift, E-Mail. Mit dem Theme Kurswasser kommen die Werte aus **Design › Betreiberangaben** (Firma, Straße,
+  PLZ/Ort, Land; dazu Vertretung und Register, wenn eingetragen). Ohne vollständige Betreiberangaben: Website-Name,
+  Shop-Adresse (WooCommerce › Einstellungen › Allgemein) und Absenderadresse. Interne Mails an den Betreiber haben
+  keinen Fuß. Anpassen über den Filter `bootspruefung_mail_footer`. Die Bestellmails von WooCommerce haben ihren
+  eigenen Fuß (WooCommerce › Einstellungen › E-Mails › „Fußzeilentext“) – dort dieselben Angaben eintragen.
 
 ## Schritte vor dem Livegang (Betreiber bzw. Hoster)
 

@@ -146,6 +146,41 @@ add_filter('bootspruefung_guarantor', static function ($default) {
     return implode(', ', $parts);
 });
 
+/**
+ * Fuß der Plugin-Mails (Lern-Plugin, Filter bootspruefung_mail_footer; To-do T58): Anbieter-Angaben aus den
+ * Betreiberangaben – Name bzw. Firma, Anschrift, vertretungsberechtigte Person und Register (nur, wenn eingetragen),
+ * E-Mail. Ohne Firma, Straße und Ort bleibt der Standard des Plugins (Website-Name, Shop-Adresse, Absender).
+ */
+function kurswasser_operator_mail_footer(?array $data = null): string
+{
+    $d = $data ?? kurswasser_operator_data();
+    if ($d['firma'] === '' || $d['strasse'] === '' || $d['plz_ort'] === '') {
+        return '';
+    }
+    $lines = [$d['firma'], implode(', ', array_filter([$d['strasse'], $d['plz_ort'], $d['land']], static fn ($v) => $v !== ''))];
+    if ($d['vertretung'] !== '') {
+        /* translators: %s: Name(n) */
+        $lines[] = sprintf(__('Vertreten durch: %s', 'kurswasser'), $d['vertretung']);
+    }
+    if ($d['register'] !== '') {
+        /* translators: %s: Registergericht und -nummer */
+        $lines[] = sprintf(__('Registereintrag: %s', 'kurswasser'), $d['register']);
+    }
+    $email = $d['email'] !== '' ? $d['email'] : $d['support_email'];
+    if ($email !== '') {
+        /* translators: %s: E-Mail-Adresse */
+        $lines[] = sprintf(__('E-Mail: %s', 'kurswasser'), $email);
+    }
+
+    return implode("\n", $lines);
+}
+
+add_filter('bootspruefung_mail_footer', static function ($default) {
+    $own = kurswasser_operator_mail_footer();
+
+    return $own !== '' ? $own : $default;
+});
+
 /** Platzhalter einer Vorlage mit den eingetragenen Angaben ersetzen (Werte HTML-maskiert). */
 function kurswasser_operator_fill(string $html, ?array $data = null): string
 {

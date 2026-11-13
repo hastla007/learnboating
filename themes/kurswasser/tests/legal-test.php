@@ -61,6 +61,32 @@ $check(kurswasser_content_template(['file' => '09-geld-zurueck-garantie-bootsfue
 $clean = kurswasser_operator_sanitize(['firma' => '  <b>Firma</b>  ', 'email' => 'kein@mail', 'support_email' => 'support@example.org']);
 $check($clean['firma'] === 'Firma' && $clean['email'] === '' && $clean['support_email'] === 'support@example.org', 'Speichern bereinigt Text und E-Mail');
 
+echo "Fuß der Plugin-Mails (T58)\n";
+$footerData = $data;
+$footerData['vertretung'] = 'Erika Muster';
+$footerData['register'] = 'Amtsgericht Hamburg, HRB 12345';
+$mailFooter = kurswasser_operator_mail_footer($footerData);
+$check($mailFooter === "Wasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nVertreten durch: Erika Muster\nRegistereintrag: Amtsgericht Hamburg, HRB 12345\nE-Mail: info@example.org", 'Firma, Anschrift, Vertretung, Register und E-Mail (Klartext, nicht maskiert)');
+$check(kurswasser_operator_mail_footer($half) === '', 'ohne vollständige Anschrift: kein eigener Fuß');
+update_option(KURSWASSER_OPERATOR_OPTION, $data, false);
+$check(str_starts_with((string) apply_filters('bootspruefung_mail_footer', 'Standard'), "Wasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg"), 'Filter bootspruefung_mail_footer liefert die Betreiberangaben');
+update_option(KURSWASSER_OPERATOR_OPTION, $half, false);
+$check(apply_filters('bootspruefung_mail_footer', 'Standard') === 'Standard', 'unvollständige Angaben: Standard des Plugins bleibt');
+if (class_exists(\Bootspruefung\Learning\Support\Mail::class)) {
+    update_option(KURSWASSER_OPERATOR_OPTION, $data, false);
+    $sentMails = [];
+    $catchMail = static function ($short, $atts) use (&$sentMails) {
+        $sentMails[] = $atts;
+
+        return true;
+    };
+    add_filter('pre_wp_mail', $catchMail, 10, 2);
+    \Bootspruefung\Learning\Support\Mail::send('kunde@example.test', 'Test', "Hallo,\n\nText.");
+    remove_filter('pre_wp_mail', $catchMail, 10);
+    $check(count($sentMails) === 1 && str_ends_with((string) $sentMails[0]['message'], "Text.\n\n-- \nWasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nE-Mail: info@example.org"), 'Plugin-Mail endet mit den Betreiberangaben');
+}
+$backup === null ? delete_option(KURSWASSER_OPERATOR_OPTION) : update_option(KURSWASSER_OPERATOR_OPTION, $backup, false);
+
 echo "Alle Vorlagen\n";
 $before = array_sum(array_map('count', kurswasser_operator_open_placeholders()));
 $all = array_fill_keys(array_keys(kurswasser_operator_fields()), 'Testwert');

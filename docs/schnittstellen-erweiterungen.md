@@ -33,6 +33,7 @@ Code im Lern-Plugin: `src/Extensions/Vouchers.php`, `src/Extensions/Tickets.php`
 | `bootspruefung_voucher_money_back` | Filter | Lern (Betreiber) | Garantie für Gutschein-Bestellungen (Standard `false`) |
 | `bootspruefung_user_owns_course` | Filter | Gutschein → Lern | Hat der Nutzer vollen Zugang zum Kurs? |
 | `bootspruefung_coupon_allow_with_member_discount` | Filter | Gutschein → Lern | Shop-Gutschein zusätzlich zu einem Mitgliederrabatt erlaubt? |
+| `bootspruefung_hide_coupon_field` | Filter | Lern (Betreiber/Gutschein) | Gutscheinfeld in Warenkorb und Kasse ausblenden, wenn es keinen gültigen Gutschein gibt (T58) |
 | `_bp_paid_by_voucher` | Bestell-Meta | Gutschein → Lern | per Gutschein bezahlter Betrag einer Bestellung (Garantie) |
 | `bootspruefung_money_back_cash_amount` | Filter | Lern (Betreiber/Gutschein) | als Geld zu erstattender Garantiebetrag |
 | `bootspruefung_ticket_issued` | Aktion | Ticket → Lern | Ticket ausgegeben |
@@ -207,6 +208,24 @@ add_filter('woocommerce_coupon_is_valid', function ($valid, WC_Coupon $coupon) {
     return $valid;
 }, 10, 2);
 ```
+
+### Gutscheinfeld in Warenkorb und Kasse (`bootspruefung_hide_coupon_field`)
+
+Das Lern-Plugin blendet das WooCommerce-Gutscheinfeld (klassischer Warenkorb, klassische Kasse, Warenkorb- und
+Kassen-Block, Store API) über `woocommerce_coupons_enabled` aus, solange es **keinen veröffentlichten, nicht
+abgelaufenen** WooCommerce-Gutschein gibt – ein leeres Feld lädt zur Suche nach Rabattcodes ein (T58). Das Feld
+bleibt sichtbar, wenn ein Plugin Gutscheine ohne eigenen Beitrag `shop_coupon` bereitstellt (Filter
+`woocommerce_get_shop_coupon_data`) oder Voucher Captain aktiv ist (`vcap()`), damit Wertgutscheine mit Kanal „Shop“
+einlösbar bleiben. Im Admin ändert sich nichts. Kursgutscheine werden unter „Mein Lernen“ bzw. in der App eingelöst
+und sind nicht betroffen.
+
+Abschalten: Option `bp_learning_hide_unused_coupon_field = 'no'` oder
+
+```php
+add_filter('bootspruefung_hide_coupon_field', '__return_false'); // Feld nie ausblenden
+```
+
+Die WooCommerce-Einstellung „Gutscheincodes aktivieren“ bleibt maßgeblich: Ist sie aus, bleibt das Feld aus.
 
 ### Geld-zurück-Garantie: bezahlter Betrag und `_bp_paid_by_voucher`
 
