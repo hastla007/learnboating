@@ -297,6 +297,21 @@ if (function_exists('wc_get_product_id_by_sku')) {
     $repo->save($id, 0, array_map(static fn ($r) => ['course_code' => $r->course_code, 'feature_code' => $r->feature_code], $rowsBefore), (int) $rowsBefore[0]->duration_days, 'extend', 'revoke_on_full_refund');
     $third = array_column(ShopCatalog::applyProducts(), null, 'sku');
     $check($third['BP-SKN']['skipped'] === [], 'auf Katalogwert zurückgesetzt: wieder vom Katalog verwaltet');
+
+    echo "Ergänzung FKN → SKN vorerst nicht im Verkauf\n";
+    $skus = array_column(ShopCatalog::products(), 'sku');
+    $check(! array_intersect(['BP-ADD-FKN-TO-SKN', 'BP-ADD-FKN-TO-SKN-KOMPLETT', 'BP-ADD-FKN-TO-SKN-VIDEO'], $skus) && in_array('BP-ADD-SEE-TO-BIN', $skus, true) && in_array('BP-SKN', $skus, true), 'kein Produkt für Ergänzung FKN → SKN, andere Ergänzungen bleiben');
+    $legacy = new WC_Product_Simple();
+    $legacy->set_sku('BP-ADD-FKN-TO-SKN');
+    $legacy->set_name('Ergänzung FKN → SKN (alt)');
+    $legacy->set_status('publish');
+    $legacyId = (int) $legacy->save();
+    $preview = array_column(ShopCatalog::applyProducts(true), null, 'sku');
+    $check(($preview['BP-ADD-FKN-TO-SKN']['action'] ?? '') === 'deaktiviert (Vorschau)' && get_post_status($legacyId) === 'publish', 'Vorschau nennt die Deaktivierung, ändert nichts');
+    $applied = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $check(($applied['BP-ADD-FKN-TO-SKN']['action'] ?? '') === 'deaktiviert (Entwurf)' && get_post_status($legacyId) === 'draft', 'vorhandenes Produkt auf Entwurf gesetzt (nicht gelöscht)');
+    $check(\Bootspruefung\Learning\Commerce\CourseRelations::evaluate(['FKN'], ['ADD-FKN-TO-SKN', 'SKN'])['ADD-FKN-TO-SKN']['recommended_for'] === [], 'keine Empfehlung für FKN-Inhaber');
+    wp_delete_post($legacyId, true);
     wp_delete_term($extraId, 'product_cat');
 }
 

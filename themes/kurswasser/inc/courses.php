@@ -53,7 +53,8 @@ function kurswasser_courses(): array
             'main' => 'BP-SKN', 'mark' => 'SKN', 'title' => 'SKN', 'name' => 'Sachkundenachweis Seenotsignalmittel', 'eyebrow' => 'Seenotsignalmittel', 'code' => 'SKN', 'icon' => 'flare', 'tone' => 'signal',
             'teaser' => 'Sachkunde für Seenotsignalmittel – Fragen und Praxiskarten zur Handhabung.',
             'lead' => 'Bereite dich auf die Sachkundeprüfung für Seenotsignalmittel vor: alle Prüfungsfragen im Smarttrainer und Praxiskarten zu Erkennen, Handhabung und sicherem Auslösen.',
-            'offers' => ['BP-SKN', 'BP-ADD-FKN-TO-SKN'], 'featured' => 'BP-SKN', 'compare' => [],
+            'offers' => ['BP-SKN'], 'featured' => 'BP-SKN', // Ergänzung FKN → SKN vorerst nicht im Verkauf (ShopCatalog::DISABLED_COURSES)
+            'compare' => [],
         ],
         'fkn' => [
             'main' => 'BP-FKN', 'mark' => 'FKN', 'title' => 'FKN', 'name' => 'Fachkundenachweis Seenotsignalmittel', 'eyebrow' => 'Seenotsignalmittel', 'code' => 'FKN', 'icon' => 'flare', 'tone' => 'signal',
@@ -102,9 +103,9 @@ function kurswasser_special_tiles(): array
             'facts' => [['sail', __('Binnen unter Segel', 'kurswasser')], ['flare', __('SKN und FKN', 'kurswasser')]],
             'url' => kurswasser_url('kurse'), 'price' => $min(['BP-SBF-BIN-SEGEL', 'BP-SKN', 'BP-FKN', 'BP-PASS-1M']), 'from' => true, 'cta' => __('Alle Kurse', 'kurswasser')],
         'ergaenzung' => ['title' => __('Ergänzungen', 'kurswasser'), 'name' => __('Ergänzungskurse', 'kurswasser'), 'eyebrow' => __('Schon einen Schein?', 'kurswasser'), 'icon' => 'plus',
-            'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI – und FKN → SKN mit dem ganzen SKN-Katalog.', 'kurswasser'),
+            'teaser' => __('Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI.', 'kurswasser'),
             'facts' => [['clock', __('6 Monate Zugang', 'kurswasser')]],
-            'url' => kurswasser_url('ergaenzung'), 'price' => $min(['BP-ADD-SEE-TO-BIN', 'BP-ADD-BIN-TO-SEE', 'BP-ADD-BIN-SEGEL', 'BP-ADD-UBI-TO-SRC', 'BP-ADD-FKN-TO-SKN']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
+            'url' => kurswasser_url('ergaenzung'), 'price' => $min(['BP-ADD-SEE-TO-BIN', 'BP-ADD-BIN-TO-SEE', 'BP-ADD-BIN-SEGEL', 'BP-ADD-UBI-TO-SRC']), 'from' => true, 'cta' => __('Ansehen', 'kurswasser')],
         'paesse' => ['title' => __('Pässe', 'kurswasser'), 'name' => __('1- und 3-Monats-Pass', 'kurswasser'), 'eyebrow' => __('Alle Inhalte', 'kurswasser'), 'icon' => 'clock',
             'teaser' => __('Voller Zugriff auf alle Kurse für 30 oder 90 Tage.', 'kurswasser'),
             'facts' => [['check', __('Alle Kurse und Trainer', 'kurswasser')]],

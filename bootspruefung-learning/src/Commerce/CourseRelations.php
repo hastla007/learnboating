@@ -31,7 +31,8 @@ final class CourseRelations
         'UBI' => ['hide' => ['SRC-UBI', 'ADD-UBI-TO-SRC'], 'recommend' => ['SRC']],
         'SRC-UBI' => ['hide' => ['SRC', 'UBI', 'ADD-UBI-TO-SRC'], 'recommend' => []],
         'ADD-UBI-TO-SRC' => ['hide' => ['UBI', 'SRC-UBI'], 'recommend' => []],
-        'FKN' => ['hide' => [], 'recommend' => ['ADD-FKN-TO-SKN']],
+        // Ergänzung FKN → SKN vorerst nicht im Verkauf (ShopCatalog::DISABLED_COURSES) – keine Empfehlung.
+        'FKN' => ['hide' => [], 'recommend' => []],
         'SKN' => ['hide' => ['ADD-FKN-TO-SKN'], 'recommend' => []],
     ];
 

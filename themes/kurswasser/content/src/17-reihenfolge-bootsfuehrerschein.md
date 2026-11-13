@@ -73,7 +73,7 @@ Unterschrift: Welche Prüfungsteile angerechnet werden, bestätigt dein Prüfung
 | SBF See → SBF Binnen (Motor) | 23 Binnen-Fragen | wird in der Regel angerechnet – frag nach | Ergänzung See → Binnen |
 | SBF Binnen (Motor) → unter Segel | 7 Segelfragen | praktische Prüfung unter Segel | Ergänzung Binnen → Segeln |
 | SRC → UBI | Ergänzungsprüfung UBI | nennt dein Ausschuss | Ergänzung SRC → UBI |
-| FKN → SKN | SKN-Prüfung, die Anrechnung nennt dein Ausschuss | – | Ergänzung FKN → SKN |
+| FKN → SKN | SKN-Prüfung, die Anrechnung nennt dein Ausschuss | – | SKN Vollkurs |
 
 Ein durch Prüfung erworbener Sportbootführerschein ersetzt beim nächsten Antrag den ärztlichen Tauglichkeitsnachweis, wenn er bei Antragstellung nicht älter als ein Jahr ist.
 

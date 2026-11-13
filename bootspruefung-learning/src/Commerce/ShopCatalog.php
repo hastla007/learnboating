@@ -89,10 +89,37 @@ final class ShopCatalog
      * Katalog mit den Preisen des Betreibers (falls gesetzt); 'catalog_price' = festgelegter Katalogpreis.
      * @return list<array{sku:string,name:string,price:string,catalog_price:string,days:int,courses:list<string>,group:string,seats?:int}>
      */
+    /**
+     * Vorerst nicht verkaufte Kurse (Entscheidung Betreiber 13.11.2026): „Ergänzung FKN → SKN“ hat denselben Inhalt und
+     * Preis wie der SKN Vollkurs; bis zur fachlichen Klärung (T37) kein eigenes Produkt. Der Kurs bleibt im Lernbereich
+     * (z. B. in Pässen). Wieder einschalten: Filter bootspruefung_catalog_disabled_courses.
+     */
+    public const DISABLED_COURSES = ['ADD-FKN-TO-SKN'];
+
+    /** @return list<string> */
+    public static function disabledCourses(): array
+    {
+        return array_values(array_map('strval', (array) apply_filters('bootspruefung_catalog_disabled_courses', self::DISABLED_COURSES)));
+    }
+
+    /** SKUs der deaktivierten Kurse (Theorie, Komplett, Video-Upgrade). @return list<string> */
+    public static function disabledSkus(): array
+    {
+        $out = [];
+        foreach (self::disabledCourses() as $code) {
+            $base = 'BP-'.$code;
+            array_push($out, $base, self::komplettSku($base), self::videoSku($base));
+        }
+
+        return array_values(array_unique($out));
+    }
+
     public static function products(): array
     {
         $own = self::ownPrices();
-        $list = self::catalogProducts();
+        $disabled = self::disabledCourses();
+        // Einzelprodukte deaktivierter Kurse weglassen (Pässe und Bundle mit allen Kursen bleiben).
+        $list = array_values(array_filter(self::catalogProducts(), static fn (array $def): bool => array_diff(array_unique($def['courses']), $disabled) !== []));
         foreach ($list as $i => $def) {
             $list[$i]['catalog_price'] = $def['price'];
             if (isset($own[$def['sku']])) {
@@ -456,6 +483,19 @@ final class ShopCatalog
                 update_post_meta($id, '_bp_catalog_text', md5($text['short'].'|'.$text['long']));
             }
             $report[] = ['sku' => $def['sku'], 'product_id' => $id, 'action' => $action, 'skipped' => $skipped];
+        }
+        // Deaktivierte Kurse: vorhandene Produkte auf Entwurf (nicht löschen – Bestellungen verweisen darauf).
+        foreach (self::disabledSkus() as $sku) {
+            $id = (int) wc_get_product_id_by_sku($sku);
+            $product = $id ? wc_get_product($id) : null;
+            if (! $product || $product->get_status() === 'draft') {
+                continue;
+            }
+            if (! $dryRun) {
+                $product->set_status('draft');
+                $product->save();
+            }
+            $report[] = ['sku' => $sku, 'product_id' => $id, 'action' => $dryRun ? 'deaktiviert (Vorschau)' : 'deaktiviert (Entwurf)', 'skipped' => []];
         }
         if (! $dryRun) {
             $skippedTotal = array_filter(array_column($report, 'skipped', 'sku'));

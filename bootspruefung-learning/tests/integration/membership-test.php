@@ -562,7 +562,8 @@ $taster = $user('bp_taster');
 $check($access->limit($taster, 'SKN', 'question_bank') === 10 && $access->limit($taster, 'SKN', 'exam_simulation') === 1 && ! $access->full($taster, 'SKN', 'question_bank'), 'ohne Kauf: 10 Fragen je Modul, 1 Prüfungsbogen');
 $wpdb->query("DELETE FROM {$p}access_rule WHERE id > {$ruleMax}");
 $catalog = \Bootspruefung\Learning\Commerce\ShopCatalog::products();
-$check(count($catalog) === 62, 'Katalog: 17 Einzelprodukte + 12 Komplett-Stufen + 12 Video-Upgrades + 17 Gruppenpakete + 4 Simulator-Zugänge');
+// Ergänzung FKN → SKN vorerst nicht im Verkauf (ShopCatalog::DISABLED_COURSES): je eine Theorie-, Komplett- und Video-Stufe weniger.
+$check(count($catalog) === 59, 'Katalog: 16 Einzelprodukte + 11 Komplett-Stufen + 11 Video-Upgrades + 17 Gruppenpakete + 4 Simulator-Zugänge');
 $bySku = array_column($catalog, null, 'sku');
 $check(! in_array('video_course', $bySku['BP-SBF-SEE']['features'], true) && ! in_array('all', $bySku['BP-SBF-SEE']['features'], true) && in_array('question_bank', $bySku['BP-SBF-SEE']['features'], true), 'Theorie-Stufe ohne Videokurs');
 $check($bySku['BP-SBF-SEE-KOMPLETT']['price'] === '40.80' && in_array('all', $bySku['BP-SBF-SEE-KOMPLETT']['features'], true), 'Komplett-Stufe mit Videokurs, 40,80 €');
