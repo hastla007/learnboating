@@ -17,6 +17,8 @@ Der stündliche Wartungslauf räumt auf (`src/Content/Import/Retention.php`):
 - Das Import-Protokoll enthält Inhalte (Fragen-IDs, Aktion, Meldung), keine Kundendaten. Wer einen Import
   angelegt und freigegeben hat, steht im Import selbst (Benutzer-ID), nicht im Protokoll.
 - Speicherbedarf der Paketkopien: höchstens rund 3 × 17 MB, dazu Importe in Arbeit.
+- Die Löschläufe für Import-Protokoll und Audit-Log (4 Jahre, `PersonalData::pruneAuditLog()`) suchen über einen
+  Index auf `created_at` (seit Schema 1.15.0, T86) und lesen nicht mehr die ganze Tabelle.
 
 **Frage:** Passen 2 frühere Pakete, 14 Tage für „unverändert“ und 180 Tage für das übrige Protokoll? Müssen
 Inhaltsänderungen länger nachweisbar sein (z. B. für Rechte an Fragen oder Bildern)?

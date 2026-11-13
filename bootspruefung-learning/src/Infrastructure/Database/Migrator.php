@@ -14,7 +14,11 @@ use wpdb;
  */
 final class Migrator
 {
-    public const SCHEMA_VERSION = '1.14.0';
+    /**
+     * Schema-Version. 1.15.0: Indizes auf created_at für audit_log und import_item_log (stündliche Löschläufe,
+     * PersonalData::pruneAuditLog(), Retention::pruneLogs()).
+     */
+    public const SCHEMA_VERSION = '1.15.0';
     public const OPTION_VERSION = 'bp_learning_schema_version';
     private const OPTION_LOCK = 'bp_learning_migration_lock';
     private const LOCK_TTL = 300;

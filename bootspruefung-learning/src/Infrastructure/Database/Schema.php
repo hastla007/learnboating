@@ -457,7 +457,9 @@ final class Schema
   created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY  (id),
   KEY batch_entity (batch_id,entity),
-  KEY action (action)",
+  KEY action (action),
+  KEY action_created (action,created_at),
+  KEY created_at (created_at)",
             'audit_log' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   actor_user_id bigint(20) unsigned NULL,
@@ -470,7 +472,8 @@ final class Schema
   PRIMARY KEY  (id),
   KEY actor (actor_user_id),
   KEY object (object_type,object_id(64)),
-  KEY action (action)",
+  KEY action (action),
+  KEY created_at (created_at)",
             'override' => "
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   object_type varchar(32) NOT NULL,

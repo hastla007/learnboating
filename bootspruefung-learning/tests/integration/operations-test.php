@@ -222,6 +222,26 @@ foreach ([$newUpload, $foreign] as $dir) {
 }
 $wpdb->query("DELETE FROM {$p}import_batch WHERE package_id LIKE 'ops-test-%'");
 
+echo "Indizes für die stündlichen Löschläufe (T86)\n";
+$indexes = static fn (string $table): array => array_unique(array_map(static fn ($r) => (string) $r->Key_name, (array) $wpdb->get_results("SHOW INDEX FROM {$p}{$table}")));
+$check(in_array('created_at', $indexes('audit_log'), true), 'audit_log: Index auf created_at');
+$check(in_array('created_at', $indexes('import_item_log'), true) && in_array('action_created', $indexes('import_item_log'), true), 'import_item_log: Indizes created_at und (action, created_at)');
+// Bestehende Installation (Schema 1.14.0 ohne die Indizes): die Migration ergänzt sie.
+$wpdb->query("ALTER TABLE {$p}audit_log DROP INDEX created_at");
+$wpdb->query("ALTER TABLE {$p}import_item_log DROP INDEX created_at, DROP INDEX action_created");
+update_option(\Bootspruefung\Learning\Infrastructure\Database\Migrator::OPTION_VERSION, '1.14.0');
+$migratorT86 = new \Bootspruefung\Learning\Infrastructure\Database\Migrator($wpdb);
+$check($migratorT86->needsMigration() && $migratorT86->migrate() && ! $migratorT86->needsMigration(), 'Update von 1.14.0: Migration läuft über den Migrationsmechanismus');
+$check(in_array('created_at', $indexes('audit_log'), true) && in_array('created_at', $indexes('import_item_log'), true) && in_array('action_created', $indexes('import_item_log'), true), 'Update von 1.14.0: Indizes ergänzt');
+$explainKey = static function (string $sql) use ($wpdb): string {
+    $row = $wpdb->get_row('EXPLAIN '.$sql);
+
+    return (string) ($row->key ?? '');
+};
+$keyAudit = $explainKey($wpdb->prepare("DELETE FROM {$p}audit_log WHERE created_at < %s LIMIT 5000", '2000-01-01 00:00:00'));
+$keyLog = $explainKey($wpdb->prepare("DELETE FROM {$p}import_item_log WHERE batch_id <> %d AND created_at < %s LIMIT 5000", 0, '2000-01-01 00:00:00'));
+$check($keyAudit === 'created_at' && in_array($keyLog, ['created_at', 'action_created'], true), 'Löschabfragen nutzen den Index (audit_log: '.$keyAudit.', import_item_log: '.$keyLog.')');
+
 echo "Inhalts-Cache und Kursübersicht (ARC-07)\n";
 ContentCache::invalidate();
 $before = $wpdb->num_queries;
