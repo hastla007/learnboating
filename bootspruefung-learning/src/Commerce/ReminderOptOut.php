@@ -129,31 +129,30 @@ final class ReminderOptOut
     /** Inhalt der Bestätigungsseite (im Lernbereich, auch ohne Anmeldung). */
     public static function page(): string
     {
-        $d = 'bootspruefung-learning';
         $uid = (int) ($_REQUEST[self::ARG_USER] ?? 0); // phpcs:ignore WordPress.Security.NonceVerification -- signierter Link
         $sig = sanitize_text_field(wp_unslash((string) ($_REQUEST[self::ARG_SIG] ?? ''))); // phpcs:ignore WordPress.Security.NonceVerification
         $done = sanitize_key((string) ($_GET[self::ARG_DONE] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification
         $account = Integration::accountUrl();
-        $accountLink = $account !== null ? '<p><a href="'.esc_url($account).'">'.esc_html__('Zu „Mein Lernen“ in deinem Konto', $d).'</a></p>' : '';
-        $html = '<div class="bp-card bp-reminder-optout"><h1>'.esc_html__('Erinnerungen vor Ablauf', $d).'</h1>';
+        $accountLink = $account !== null ? '<p><a href="'.esc_url($account).'">'.esc_html__('Zu „Mein Lernen“ in deinem Konto', 'bootspruefung-learning').'</a></p>' : '';
+        $html = '<div class="bp-card bp-reminder-optout"><h1>'.esc_html__('Erinnerungen vor Ablauf', 'bootspruefung-learning').'</h1>';
         if (! self::verify($uid, $sig)) {
-            return $html.'<p>'.esc_html__('Dieser Link ist ungültig oder unvollständig. Du kannst die Erinnerungen auch in deinem Konto unter „Mein Lernen“ abbestellen.', $d).'</p>'.$accountLink.'</div>';
+            return $html.'<p>'.esc_html__('Dieser Link ist ungültig oder unvollständig. Du kannst die Erinnerungen auch in deinem Konto unter „Mein Lernen“ abbestellen.', 'bootspruefung-learning').'</p>'.$accountLink.'</div>';
         }
         $off = self::optedOut($uid);
         if ($done === 'off' && $off) {
-            $html .= '<p role="status">'.esc_html__('Erledigt: Du bekommst keine E-Mail-Erinnerungen mehr, bevor ein Lernzugang abläuft. Mails zu deinen Bestellungen bekommst du weiter.', $d).'</p>';
+            $html .= '<p role="status">'.esc_html__('Erledigt: Du bekommst keine E-Mail-Erinnerungen mehr, bevor ein Lernzugang abläuft. Mails zu deinen Bestellungen bekommst du weiter.', 'bootspruefung-learning').'</p>';
         } elseif ($done === 'on' && ! $off) {
-            $html .= '<p role="status">'.esc_html__('Erledigt: Wir erinnern dich wieder per E-Mail, bevor ein Lernzugang abläuft.', $d).'</p>';
+            $html .= '<p role="status">'.esc_html__('Erledigt: Wir erinnern dich wieder per E-Mail, bevor ein Lernzugang abläuft.', 'bootspruefung-learning').'</p>';
         } elseif ($off) {
-            $html .= '<p>'.esc_html__('Du bekommst derzeit keine Erinnerungen, bevor ein Lernzugang abläuft.', $d).'</p>';
+            $html .= '<p>'.esc_html__('Du bekommst derzeit keine Erinnerungen, bevor ein Lernzugang abläuft.', 'bootspruefung-learning').'</p>';
         } else {
-            $html .= '<p>'.esc_html__('Wir schicken dir eine E-Mail, kurz bevor ein Lernzugang abläuft. Möchtest du diese Erinnerungen nicht mehr bekommen?', $d).'</p>';
+            $html .= '<p>'.esc_html__('Wir schicken dir eine E-Mail, kurz bevor ein Lernzugang abläuft. Möchtest du diese Erinnerungen nicht mehr bekommen?', 'bootspruefung-learning').'</p>';
         }
         $html .= '<form method="post" action="'.esc_url(self::url($uid)).'"><input type="hidden" name="'.self::ARG_USER.'" value="'.esc_attr((string) $uid).'"><input type="hidden" name="'.self::ARG_SIG.'" value="'.esc_attr($sig).'">'
             .'<input type="hidden" name="bp_reminder" value="'.($off ? 'on' : 'off').'">'
-            .'<p><button type="submit" class="bp-button'.($off ? '' : ' bp-button-primary').'">'.esc_html($off ? __('Erinnerungen wieder einschalten', $d) : __('Erinnerungen abbestellen', $d)).'</button></p></form>';
+            .'<p><button type="submit" class="bp-button'.($off ? '' : ' bp-button-primary').'">'.esc_html($off ? __('Erinnerungen wieder einschalten', 'bootspruefung-learning') : __('Erinnerungen abbestellen', 'bootspruefung-learning')).'</button></p></form>';
 
-        return $html.'<p class="bp-muted">'.esc_html__('Du kannst diese Einstellung jederzeit in deinem Konto unter „Mein Lernen“ ändern.', $d).'</p>'.$accountLink.'</div>';
+        return $html.'<p class="bp-muted">'.esc_html__('Du kannst diese Einstellung jederzeit in deinem Konto unter „Mein Lernen“ ändern.', 'bootspruefung-learning').'</p>'.$accountLink.'</div>';
     }
 
     /** Schalter unter „Mein Konto“ › „Mein Lernen“ (nur, wenn die Erinnerung eingeschaltet ist). */
@@ -162,11 +161,10 @@ final class ReminderOptOut
         if ($userId <= 0 || ! ExpiryReminder::enabled()) {
             return;
         }
-        $d = 'bootspruefung-learning';
-        echo '<section class="bp-reminder-pref"><h2>'.esc_html__('E-Mail-Erinnerungen', $d).'</h2>'
+        echo '<section class="bp-reminder-pref"><h2>'.esc_html__('E-Mail-Erinnerungen', 'bootspruefung-learning').'</h2>'
             .'<form method="post" action=""><p><label><input type="checkbox" name="'.esc_attr(self::FORM_FIELD).'" value="1"'.(self::optedOut($userId) ? '' : ' checked').'> '
-            .esc_html__('Erinnere mich per E-Mail, bevor ein Lernzugang abläuft.', $d).'</label></p>'
+            .esc_html__('Erinnere mich per E-Mail, bevor ein Lernzugang abläuft.', 'bootspruefung-learning').'</label></p>'
             .wp_nonce_field(self::NONCE_ACTION, '_bp_reminder_nonce', true, false)
-            .'<p><button type="submit" class="button" name="'.esc_attr(self::FORM_FIELD).'_save" value="1">'.esc_html__('Speichern', $d).'</button></p></form></section>'; // phpcs:ignore WordPress.Security.EscapeOutput
+            .'<p><button type="submit" class="button" name="'.esc_attr(self::FORM_FIELD).'_save" value="1">'.esc_html__('Speichern', 'bootspruefung-learning').'</button></p></form></section>'; // phpcs:ignore WordPress.Security.EscapeOutput
     }
 }

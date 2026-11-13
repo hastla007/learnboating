@@ -331,45 +331,44 @@ final class ExpiryReminder
      */
     public static function mail(\WP_User $user, array $courses): array
     {
-        $d = 'bootspruefung-learning';
         $userId = (int) $user->ID;
         $states = AccessStatus::forUser($userId);
         $name = trim((string) $user->first_name);
         /* translators: %s: first name */
-        $lines = [$name !== '' ? sprintf(__('Hallo %s,', $d), $name) : __('Hallo,', $d), ''];
+        $lines = [$name !== '' ? sprintf(__('Hallo %s,', 'bootspruefung-learning'), $name) : __('Hallo,', 'bootspruefung-learning'), ''];
         if (count($courses) === 1) {
             $code = (string) array_key_first($courses);
             $course = Labels::course($code);
             /* translators: 1: course name, 2: date */
-            $subject = sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab', $d), $course, self::date($courses[$code]));
+            $subject = sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab', 'bootspruefung-learning'), $course, self::date($courses[$code]));
             /* translators: 1: course name, 2: date */
-            $lines[] = sprintf(__('dein Zugang zu %1$s läuft am %2$s ab.', $d), $course, self::date($courses[$code]));
-            $lines[] = __('Dein Lernstand bleibt erhalten.', $d);
+            $lines[] = sprintf(__('dein Zugang zu %1$s läuft am %2$s ab.', 'bootspruefung-learning'), $course, self::date($courses[$code]));
+            $lines[] = __('Dein Lernstand bleibt erhalten.', 'bootspruefung-learning');
             $lines[] = '';
             /* translators: %s: link */
-            $lines[] = sprintf(__('Verlängern: %s', $d), self::renewUrl($code, $userId, $states));
+            $lines[] = sprintf(__('Verlängern: %s', 'bootspruefung-learning'), self::renewUrl($code, $userId, $states));
         } else {
-            $subject = __('Deine Lernzugänge laufen bald ab', $d);
-            $lines[] = __('diese Zugänge laufen bald ab:', $d);
+            $subject = __('Deine Lernzugänge laufen bald ab', 'bootspruefung-learning');
+            $lines[] = __('diese Zugänge laufen bald ab:', 'bootspruefung-learning');
             $lines[] = '';
             foreach ($courses as $code => $until) {
                 /* translators: 1: course name, 2: date */
-                $lines[] = '- '.sprintf(__('%1$s: läuft am %2$s ab', $d), Labels::course($code), self::date($until));
+                $lines[] = '- '.sprintf(__('%1$s: läuft am %2$s ab', 'bootspruefung-learning'), Labels::course($code), self::date($until));
                 /* translators: %s: link */
-                $lines[] = '  '.sprintf(__('Verlängern: %s', $d), self::renewUrl($code, $userId, $states));
+                $lines[] = '  '.sprintf(__('Verlängern: %s', 'bootspruefung-learning'), self::renewUrl($code, $userId, $states));
             }
             $lines[] = '';
-            $lines[] = __('Dein Lernstand bleibt erhalten.', $d);
+            $lines[] = __('Dein Lernstand bleibt erhalten.', 'bootspruefung-learning');
         }
         $lines[] = '';
         /* translators: %s: link */
-        $lines[] = sprintf(__('Zum Lernbereich: %s', $d), Router::url());
+        $lines[] = sprintf(__('Zum Lernbereich: %s', 'bootspruefung-learning'), Router::url());
         $lines[] = '';
         $lines[] = '-- ';
-        $lines[] = __('Du bekommst diese Erinnerung, weil du bei uns einen Lernzugang gekauft hast.', $d);
+        $lines[] = __('Du bekommst diese Erinnerung, weil du bei uns einen Lernzugang gekauft hast.', 'bootspruefung-learning');
         /* translators: %s: link */
-        $lines[] = sprintf(__('Du kannst diesen Erinnerungen jederzeit widersprechen, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen. Abbestellen: %s', $d), ReminderOptOut::url($userId));
-        $lines[] = __('Oder in deinem Konto unter „Mein Lernen“.', $d);
+        $lines[] = sprintf(__('Du kannst diesen Erinnerungen jederzeit widersprechen, ohne dass dir dafür andere als die Übermittlungskosten nach den Basistarifen entstehen. Abbestellen: %s', 'bootspruefung-learning'), ReminderOptOut::url($userId));
+        $lines[] = __('Oder in deinem Konto unter „Mein Lernen“.', 'bootspruefung-learning');
 
         return [$subject, implode("\n", $lines)];
     }

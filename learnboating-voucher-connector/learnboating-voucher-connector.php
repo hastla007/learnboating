@@ -8,6 +8,7 @@
  * Requires Plugins:  bootspruefung-learning, voucher-captain
  * Update URI:        false
  * Text Domain:       learnboating-voucher-connector
+ * Domain Path:       /languages
  * License:           proprietary
  */
 
@@ -24,3 +25,8 @@ require_once __DIR__.'/src/Connector.php';
 
 add_action('plugins_loaded', [\LearnBoating\VoucherConnector\Connector::class, 'boot'], 30);
 register_deactivation_hook(__FILE__, [\LearnBoating\VoucherConnector\Connector::class, 'deactivate']);
+
+// Übersetzungen (languages/learnboating-voucher-connector-<locale>.mo bzw. wp-content/languages/plugins/).
+add_action('init', static function (): void {
+    load_plugin_textdomain('learnboating-voucher-connector', false, dirname(plugin_basename(__FILE__)).'/languages');
+});

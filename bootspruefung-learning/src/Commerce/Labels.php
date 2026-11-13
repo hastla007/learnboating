@@ -14,18 +14,17 @@ final class Labels
 
     public static function feature(string $code): string
     {
-        $d = 'bootspruefung-learning';
         $labels = [
-            'all' => __('Alle Funktionen', $d),
-            'question_bank' => __('Fragen lernen', $d),
-            'learning_explanations' => __('Erklärungen', $d),
-            'exam_simulation' => __('Prüfungssimulation', $d),
-            'navigation_trainer' => __('Navigationstrainer', $d),
-            'praxis_trainer' => __('Praxistrainer', $d),
-            'video_course' => __('Videokurs', $d),
-            'radio_training' => __('Funktraining', $d),
-            'device_simulation' => __('Gerätesimulation', $d),
-            'downloads' => __('Downloads (PDF)', $d),
+            'all' => __('Alle Funktionen', 'bootspruefung-learning'),
+            'question_bank' => __('Fragen lernen', 'bootspruefung-learning'),
+            'learning_explanations' => __('Erklärungen', 'bootspruefung-learning'),
+            'exam_simulation' => __('Prüfungssimulation', 'bootspruefung-learning'),
+            'navigation_trainer' => __('Navigationstrainer', 'bootspruefung-learning'),
+            'praxis_trainer' => __('Praxistrainer', 'bootspruefung-learning'),
+            'video_course' => __('Videokurs', 'bootspruefung-learning'),
+            'radio_training' => __('Funktraining', 'bootspruefung-learning'),
+            'device_simulation' => __('Gerätesimulation', 'bootspruefung-learning'),
+            'downloads' => __('Downloads (PDF)', 'bootspruefung-learning'),
         ];
 
         return $labels[$code] ?? $code;
@@ -33,10 +32,9 @@ final class Labels
 
     public static function status(string $status): string
     {
-        $d = 'bootspruefung-learning';
         $labels = [
-            'active' => __('aktiv', $d), 'pending' => __('wartet auf Zahlung', $d), 'suspended' => __('ausgesetzt', $d),
-            'revoked' => __('beendet', $d), 'expired' => __('abgelaufen', $d),
+            'active' => __('aktiv', 'bootspruefung-learning'), 'pending' => __('wartet auf Zahlung', 'bootspruefung-learning'), 'suspended' => __('ausgesetzt', 'bootspruefung-learning'),
+            'revoked' => __('beendet', 'bootspruefung-learning'), 'expired' => __('abgelaufen', 'bootspruefung-learning'),
         ];
 
         return $labels[$status] ?? $status;
@@ -63,14 +61,13 @@ final class Labels
     /** Laufzeit wie in den Produkttexten (ShopCatalog): „12 Monate“, „6 Monate“, „3 Monate“, sonst Tage. */
     public static function duration(int $days): string
     {
-        $d = 'bootspruefung-learning';
 
         return match (true) {
-            $days >= 360 => __('12 Monate', $d),
-            $days >= 180 => __('6 Monate', $d),
-            $days >= 90 => __('3 Monate', $d),
+            $days >= 360 => __('12 Monate', 'bootspruefung-learning'),
+            $days >= 180 => __('6 Monate', 'bootspruefung-learning'),
+            $days >= 90 => __('3 Monate', 'bootspruefung-learning'),
             /* translators: %d: number of days */
-            default => sprintf(_n('%d Tag', '%d Tage', $days, $d), $days),
+            default => sprintf(_n('%d Tag', '%d Tage', $days, 'bootspruefung-learning'), $days),
         };
     }
 

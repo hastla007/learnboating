@@ -23,7 +23,25 @@ const SELECT_SCREENS = {
     'ic-m423': ['menu', 'ackChoice', 'editor', 'callChannel'],
     'ic-m330': ['menu', 'dscForm', 'distressMenu', 'editor', 'channelSelect'],
 };
-const SELECT_TEXT = 'Menüauswahl im Display: Pfeiltasten bewegen die Markierung';
+// Texte kommen übersetzbar aus dem Plugin (Strings.php, sim_aria_*); die deutschen Werte sind nur Ersatz.
+const FALLBACK = {
+    sim_aria_select: 'Menüauswahl im Display: Pfeiltasten bewegen die Markierung',
+    sim_aria_channel: 'Kanal {channel}',
+    sim_aria_channel_group: 'Kanal {channel} ({group})',
+    sim_aria_volume: 'Lautstärke {value} von {max}',
+    sim_aria_squelch: 'Rauschsperre {value} von {max}',
+    sim_aria_off: ', Gerät aus',
+};
+
+function t(key, vars = {}) {
+    const strings = (typeof window !== 'undefined' && window.bpLearning && window.bpLearning.i18n) || {};
+    let text = strings[key] || FALLBACK[key] || key;
+    Object.keys(vars).forEach((name) => {
+        text = text.split('{' + name + '}').join(String(vars[name]));
+    });
+
+    return text;
+}
 
 function setAttrs(node, attrs) {
     Object.entries(attrs).forEach(([name, value]) => {
@@ -42,14 +60,14 @@ function channelRange(groups, group) {
 function channelText(state) {
     const number = String(state.channel).padStart(2, '0');
 
-    return state.group && state.group !== 'INT' ? `Kanal ${number} (${state.group})` : `Kanal ${number}`;
+    return state.group && state.group !== 'INT' ? t('sim_aria_channel_group', { channel: number, group: state.group }) : t('sim_aria_channel', { channel: number });
 }
 
 function values(deviceKey, knob, state, groups) {
-    const off = state.power ? '' : ', Gerät aus';
+    const off = state.power ? '' : t('sim_aria_off');
     const volMax = VOL_MAX[deviceKey] ?? 20;
-    const vol = { now: state.vol, min: 0, max: volMax, text: `Lautstärke ${state.vol} von ${volMax}${off}` };
-    const sql = { now: state.sql, min: 0, max: SQL_MAX, text: `Rauschsperre ${state.sql} von ${SQL_MAX}${off}` };
+    const vol = { now: state.vol, min: 0, max: volMax, text: t('sim_aria_volume', { value: state.vol, max: volMax }) + off };
+    const sql = { now: state.sql, min: 0, max: SQL_MAX, text: t('sim_aria_squelch', { value: state.sql, max: SQL_MAX }) + off };
     const channel = () => {
         const range = channelRange(groups, state.group);
         if (typeof state.channel !== 'number' || ! range) return null;
@@ -78,7 +96,7 @@ export function apply(svg, deviceKey, state, groups) {
         const knob = node.dataset.knob;
         if (selecting && (knob === 'channel' || knob === 'dial')) {
             ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].forEach((name) => node.removeAttribute(name));
-            setAttrs(node, { 'aria-valuetext': SELECT_TEXT });
+            setAttrs(node, { 'aria-valuetext': t('sim_aria_select') });
 
             return;
         }

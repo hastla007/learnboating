@@ -8,6 +8,7 @@
  * Requires Plugins:  bootspruefung-learning, wp-affiliate-captain
  * Update URI:        false
  * Text Domain:       learnboating-affiliate-connector
+ * Domain Path:       /languages
  * License:           proprietary
  */
 
@@ -23,3 +24,8 @@ define('LBAC_FILE', __FILE__);
 require_once __DIR__.'/src/Connector.php';
 
 add_action('plugins_loaded', [\LearnBoating\AffiliateConnector\Connector::class, 'boot'], 20);
+
+// Übersetzungen (languages/learnboating-affiliate-connector-<locale>.mo bzw. wp-content/languages/plugins/).
+add_action('init', static function (): void {
+    load_plugin_textdomain('learnboating-affiliate-connector', false, dirname(plugin_basename(__FILE__)).'/languages');
+});

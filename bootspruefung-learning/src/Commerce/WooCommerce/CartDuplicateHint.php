@@ -201,7 +201,6 @@ final class CartDuplicateHint
     /** @return array{flag:string,title:string,text:string} Texte des Hinweises */
     public static function message(array $hint): array
     {
-        $d = 'bootspruefung-learning';
         $course = Labels::course((string) $hint['course']);
         $date = static fn (?string $mysql): string => $mysql !== null ? ExpiryReminder::date($mysql) : '';
         switch ($hint['kind']) {
@@ -210,72 +209,72 @@ final class CartDuplicateHint
                 $number = $order['number'] ?? (string) ($hint['order_id'] ?? '');
 
                 return [
-                    'flag' => __('Schon bestellt', $d),
-                    'title' => __('Diesen Kurs hast du schon bestellt', $d),
+                    'flag' => __('Schon bestellt', 'bootspruefung-learning'),
+                    'title' => __('Diesen Kurs hast du schon bestellt', 'bootspruefung-learning'),
                     /* translators: 1: order number, 2: course name */
-                    'text' => sprintf(__('Deine Bestellung #%1$s für %2$s wartet noch auf deine Zahlung. Sobald sie eingegangen ist, wird dein Zugang automatisch freigeschaltet – ein zweiter Kauf ist dafür nicht nötig.', $d), $number, $course),
+                    'text' => sprintf(__('Deine Bestellung #%1$s für %2$s wartet noch auf deine Zahlung. Sobald sie eingegangen ist, wird dein Zugang automatisch freigeschaltet – ein zweiter Kauf ist dafür nicht nötig.', 'bootspruefung-learning'), $number, $course),
                 ];
             case self::OWNED_UNLIMITED:
                 return [
-                    'flag' => __('Schon in deinem Konto', $d),
-                    'title' => __('Diesen Kurs hast du schon', $d),
+                    'flag' => __('Schon in deinem Konto', 'bootspruefung-learning'),
+                    'title' => __('Diesen Kurs hast du schon', 'bootspruefung-learning'),
                     /* translators: %s: course name */
-                    'text' => sprintf(__('Du hast %s schon unbefristet freigeschaltet – ein weiterer Kauf ist dafür nicht nötig.', $d), $course)
-                        .($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', $d) : ''),
+                    'text' => sprintf(__('Du hast %s schon unbefristet freigeschaltet – ein weiterer Kauf ist dafür nicht nötig.', 'bootspruefung-learning'), $course)
+                        .($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', 'bootspruefung-learning') : ''),
                 ];
             case self::OVERLAP:
                 $names = implode(', ', array_map([Labels::class, 'course'], (array) $hint['parts']));
 
                 return [
-                    'flag' => __('Teilweise schon in deinem Konto', $d),
-                    'title' => ! empty($hint['all_parts']) ? __('Alle enthaltenen Kurse hast du schon', $d) : __('Einen Teil davon hast du schon', $d),
+                    'flag' => __('Teilweise schon in deinem Konto', 'bootspruefung-learning'),
+                    'title' => ! empty($hint['all_parts']) ? __('Alle enthaltenen Kurse hast du schon', 'bootspruefung-learning') : __('Einen Teil davon hast du schon', 'bootspruefung-learning'),
                     /* translators: %s: course names */
-                    'text' => sprintf(__('Diese Kurse aus dem Angebot hast du schon: %s.', $d), $names).' '
+                    'text' => sprintf(__('Diese Kurse aus dem Angebot hast du schon: %s.', 'bootspruefung-learning'), $names).' '
                         .(($hint['renewal'] ?? 'extend') === 'extend'
-                            ? __('Mit dem Kauf verlängert sich ihr Zugang. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', $d)
-                            : __('Du bezahlst sie mit diesem Angebot noch einmal. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', $d)),
+                            ? __('Mit dem Kauf verlängert sich ihr Zugang. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', 'bootspruefung-learning')
+                            : __('Du bezahlst sie mit diesem Angebot noch einmal. Brauchst du nur die übrigen Kurse, wähle sie einzeln.', 'bootspruefung-learning')),
                 ];
             case self::OWNED:
                 $text = $hint['new_until'] !== null
                     /* translators: 1: course name, 2: end date, 3: new end date */
-                    ? sprintf(__('Dein Zugang zu %1$s läuft noch bis %2$s. Kaufst du ihn noch einmal, verlängert sich dein Zugang bis %3$s.', $d), $course, $date($hint['until']), $date($hint['new_until']))
+                    ? sprintf(__('Dein Zugang zu %1$s läuft noch bis %2$s. Kaufst du ihn noch einmal, verlängert sich dein Zugang bis %3$s.', 'bootspruefung-learning'), $course, $date($hint['until']), $date($hint['new_until']))
                     /* translators: 1: course name, 2: end date */
-                    : sprintf(__('Dein Zugang zu %1$s läuft noch bis %2$s.', $d), $course, $date($hint['until']));
+                    : sprintf(__('Dein Zugang zu %1$s läuft noch bis %2$s.', 'bootspruefung-learning'), $course, $date($hint['until']));
 
                 return [
-                    'flag' => __('Schon in deinem Konto', $d),
-                    'title' => __('Diesen Kurs hast du schon', $d),
-                    'text' => $text.($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', $d) : '').self::videoLostText($hint),
+                    'flag' => __('Schon in deinem Konto', 'bootspruefung-learning'),
+                    'title' => __('Diesen Kurs hast du schon', 'bootspruefung-learning'),
+                    'text' => $text.($hint['video_hint'] ? ' '.__('Für den Videokurs allein reicht das Video-Upgrade.', 'bootspruefung-learning') : '').self::videoLostText($hint),
                 ];
             case self::RENEW_SOON:
                 return [
-                    'flag' => __('Verlängerung', $d),
-                    'title' => __('Du verlängerst deinen Zugang', $d),
+                    'flag' => __('Verlängerung', 'bootspruefung-learning'),
+                    'title' => __('Du verlängerst deinen Zugang', 'bootspruefung-learning'),
                     'text' => ($hint['new_until'] !== null
                         /* translators: 1: course name, 2: end date, 3: new end date */
-                        ? sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn bis %3$s; dein Lernstand bleibt erhalten.', $d), $course, $date($hint['until']), $date($hint['new_until']))
+                        ? sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn bis %3$s; dein Lernstand bleibt erhalten.', 'bootspruefung-learning'), $course, $date($hint['until']), $date($hint['new_until']))
                         /* translators: 1: course name, 2: end date */
-                        : sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn; dein Lernstand bleibt erhalten.', $d), $course, $date($hint['until'])))
+                        : sprintf(__('Dein Zugang zu %1$s läuft am %2$s ab. Mit diesem Kauf verlängerst du ihn; dein Lernstand bleibt erhalten.', 'bootspruefung-learning'), $course, $date($hint['until'])))
                         .self::videoLostText($hint),
                 ];
             case self::RENEW_EXPIRED:
                 $term = $hint['days'] !== null
                     /* translators: %s: duration, e.g. "12 Monate" */
-                    ? ' '.sprintf(__('Der neue Zugang läuft %s ab Zahlungseingang.', $d), Labels::duration((int) $hint['days']))
+                    ? ' '.sprintf(__('Der neue Zugang läuft %s ab Zahlungseingang.', 'bootspruefung-learning'), Labels::duration((int) $hint['days']))
                     : '';
 
                 return [
-                    'flag' => __('Verlängerung', $d),
-                    'title' => __('Du verlängerst deinen Zugang', $d),
+                    'flag' => __('Verlängerung', 'bootspruefung-learning'),
+                    'title' => __('Du verlängerst deinen Zugang', 'bootspruefung-learning'),
                     /* translators: 1: course name, 2: date */
-                    'text' => sprintf(__('Dein Zugang zu %1$s ist am %2$s abgelaufen. Mit diesem Kauf schaltest du ihn wieder frei; dein Lernstand ist noch gespeichert.', $d), $course, $date($hint['until'])).$term,
+                    'text' => sprintf(__('Dein Zugang zu %1$s ist am %2$s abgelaufen. Mit diesem Kauf schaltest du ihn wieder frei; dein Lernstand ist noch gespeichert.', 'bootspruefung-learning'), $course, $date($hint['until'])).$term,
                 ];
             default: // gesperrt
                 return [
-                    'flag' => __('Hinweis', $d),
-                    'title' => __('Dein Zugang ist gesperrt', $d),
+                    'flag' => __('Hinweis', 'bootspruefung-learning'),
+                    'title' => __('Dein Zugang ist gesperrt', 'bootspruefung-learning'),
                     /* translators: %s: course name */
-                    'text' => sprintf(__('Dein Zugang zu %s ist derzeit gesperrt, zum Beispiel wegen einer Rückbuchung. Bitte melde dich bei uns, bevor du den Kurs noch einmal kaufst.', $d), $course),
+                    'text' => sprintf(__('Dein Zugang zu %s ist derzeit gesperrt, zum Beispiel wegen einer Rückbuchung. Bitte melde dich bei uns, bevor du den Kurs noch einmal kaufst.', 'bootspruefung-learning'), $course),
                 ];
         }
     }

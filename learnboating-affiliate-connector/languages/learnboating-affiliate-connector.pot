@@ -1,0 +1,127 @@
+# Copyright (C) 2026 
+# This file is distributed under the proprietary.
+msgid ""
+msgstr ""
+"Project-Id-Version: LearnBoating Partnerprogramm-Connector 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-13T21:16:10+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: learnboating-affiliate-connector\n"
+
+#. Plugin Name of the plugin
+#: learnboating-affiliate-connector.php
+msgid "LearnBoating Partnerprogramm-Connector"
+msgstr ""
+
+#. Description of the plugin
+#: learnboating-affiliate-connector.php
+msgid "Verbindet die Bootsprüfung-Lernplattform mit WP Affiliate Captain: Partnercode aus der App bis in den Shop, Ausschluss von Gruppenpaketen und Upgrades, Haltefrist aus Geld-zurück-Garantie und Widerrufsfrist."
+msgstr ""
+
+#: src/Connector.php:58
+msgid "WP Affiliate Captain ist nicht aktiv."
+msgstr ""
+
+#. translators: 1: installierte Vertragsversion, 2: unterstützte Version
+#: src/Connector.php:62
+#, php-format
+msgid "WP Affiliate Captain meldet Vertragsversion %1$s; unterstützt wird %2$s.x."
+msgstr ""
+
+#: src/Connector.php:65
+msgid "Die Bootsprüfung-Lernplattform ist nicht aktiv oder zu alt."
+msgstr ""
+
+#. translators: %s: benötigte Version der Lernplattform
+#: src/Connector.php:69
+#, php-format
+msgid "Die Bootsprüfung-Lernplattform ist zu alt oder inkompatibel (benötigt ab Version %s)."
+msgstr ""
+
+#: src/Connector.php:290
+msgid "LearnBoating-Partnerprogramm-Connector inaktiv:"
+msgstr ""
+
+#: src/Connector.php:290
+msgid "Bestellungen werden weiter von Affiliate Captain erfasst, aber ohne LearnBoating-Regeln."
+msgstr ""
+
+#: src/Connector.php:295
+#: src/Connector.php:301
+msgid "LearnBoating-Partnerprogramm"
+msgstr ""
+
+#: src/Connector.php:295
+msgid "LearnBoating-Partner"
+msgstr ""
+
+#: src/Connector.php:302
+msgid "Verbunden mit WP Affiliate Captain (Vertrag 1.x)."
+msgstr ""
+
+#: src/Connector.php:306
+msgid "Keine Provision auf"
+msgstr ""
+
+#: src/Connector.php:306
+msgid "Gruppenpakete (Produkte mit Plätzen)"
+msgstr ""
+
+#: src/Connector.php:306
+msgid "Upgrades im Checkout (Videokurs-Upgrade, Simulator-Upgrade)"
+msgstr ""
+
+#: src/Connector.php:307
+msgid "Weitere Artikelnummern ausschließen"
+msgstr ""
+
+#: src/Connector.php:307
+msgid "Kommagetrennt, * am Ende als Platzhalter, z. B. BP-ADD-*, BP-PASS-1M"
+msgstr ""
+
+#: src/Connector.php:308
+msgid "Widerrufsfrist"
+msgstr ""
+
+#: src/Connector.php:308
+#: src/Connector.php:309
+msgid "Tage"
+msgstr ""
+
+#: src/Connector.php:308
+msgid "Die Provision bleibt bis zum späteren Ende von Widerrufsfrist und Geld-zurück-Garantie des Produkts offen."
+msgstr ""
+
+#: src/Connector.php:309
+msgid "Puffer für späte Rückbuchungen"
+msgstr ""
+
+#: src/Connector.php:310
+msgid "App-Übergabe"
+msgstr ""
+
+#: src/Connector.php:310
+msgid "Partnercode aus der App an Kauf-Links anhängen"
+msgstr ""
+
+#: src/Connector.php:310
+msgid "Die App schickt den Code aus dem Deep Link als Parameter „partner“ oder Header „X-Partner-Code“ an die Mobile-API."
+msgstr ""
+
+#: src/Connector.php:311
+msgid "Kampagne für App-Käufe"
+msgstr ""
+
+#: src/Connector.php:311
+msgid "Erscheint in den Kampagnenberichten von Affiliate Captain; leer = keine Kampagne."
+msgstr ""
+
+#: src/Connector.php:321
+msgid "Keine Berechtigung."
+msgstr ""

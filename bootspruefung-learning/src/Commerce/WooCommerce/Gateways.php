@@ -15,37 +15,36 @@ final class Gateways
     /** @return array<string,array{label:string,payment:string,dispute:string}> Präfix => Profil */
     public static function profiles(): array
     {
-        $d = 'bootspruefung-learning';
         $profiles = [
             'bacs' => [
-                'label' => __('Überweisung', $d),
-                'payment' => __('Bestellung bleibt „In Wartestellung“ (Zugang: wartet auf Zahlung), bis der Zahlungseingang durch Statuswechsel auf „In Bearbeitung“/„Abgeschlossen“ bestätigt wird; optional manuelle Freigabe vorab.', $d),
-                'dispute' => __('Keine Rückbuchung über das Gateway; Erstattung/Storno in WooCommerce widerruft.', $d),
+                'label' => __('Überweisung', 'bootspruefung-learning'),
+                'payment' => __('Bestellung bleibt „In Wartestellung“ (Zugang: wartet auf Zahlung), bis der Zahlungseingang durch Statuswechsel auf „In Bearbeitung“/„Abgeschlossen“ bestätigt wird; optional manuelle Freigabe vorab.', 'bootspruefung-learning'),
+                'dispute' => __('Keine Rückbuchung über das Gateway; Erstattung/Storno in WooCommerce widerruft.', 'bootspruefung-learning'),
             ],
             'stripe' => [
                 'label' => 'Stripe',
-                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', $d),
-                'dispute' => __('Dispute setzt die Bestellung auf „In Wartestellung“ → Zugang wird automatisch ausgesetzt; gewonnener Dispute (zurück auf bezahlt) aktiviert wieder.', $d),
+                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', 'bootspruefung-learning'),
+                'dispute' => __('Dispute setzt die Bestellung auf „In Wartestellung“ → Zugang wird automatisch ausgesetzt; gewonnener Dispute (zurück auf bezahlt) aktiviert wieder.', 'bootspruefung-learning'),
             ],
             'ppcp' => [
                 'label' => 'PayPal',
-                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', $d),
-                'dispute' => __('Erstattungen werden als WooCommerce-Erstattung gebucht und widerrufen. Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', $d),
+                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', 'bootspruefung-learning'),
+                'dispute' => __('Erstattungen werden als WooCommerce-Erstattung gebucht und widerrufen. Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', 'bootspruefung-learning'),
             ],
             'paypal' => [
                 'label' => 'PayPal',
-                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', $d),
-                'dispute' => __('Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', $d),
+                'payment' => __('Freischaltung bei bestätigter Zahlung (is_paid).', 'bootspruefung-learning'),
+                'dispute' => __('Disputes automatisch über den PayPal-Webhook des Plugins (Einstellungen › Zahlungskonflikte), sonst manuell „Lernzugang aussetzen“.', 'bootspruefung-learning'),
             ],
             'klarna' => [
                 'label' => 'Klarna',
-                'payment' => __('Freischaltung, sobald Klarna die Bestellung bestätigt und WooCommerce sie als bezahlt führt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“.', $d),
-                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft. Konflikte über den allgemeinen Dispute-Webhook (Einstellungen › Zahlungskonflikte, z. B. Weiterleitung der Klarna-Benachrichtigung) oder von Hand in der Bestellung mit der Aktion „Klarna-Konflikt melden“ (eröffnet, gewonnen, verloren).', $d),
+                'payment' => __('Freischaltung, sobald Klarna die Bestellung bestätigt und WooCommerce sie als bezahlt führt; Bestellungen in Prüfung bleiben „wartet auf Zahlung“.', 'bootspruefung-learning'),
+                'dispute' => __('Stornierung/Erstattung in WooCommerce widerruft. Konflikte über den allgemeinen Dispute-Webhook (Einstellungen › Zahlungskonflikte, z. B. Weiterleitung der Klarna-Benachrichtigung) oder von Hand in der Bestellung mit der Aktion „Klarna-Konflikt melden“ (eröffnet, gewonnen, verloren).', 'bootspruefung-learning'),
             ],
             'kco' => [
                 'label' => 'Klarna Checkout',
-                'payment' => __('Wie Klarna.', $d),
-                'dispute' => __('Wie Klarna.', $d),
+                'payment' => __('Wie Klarna.', 'bootspruefung-learning'),
+                'dispute' => __('Wie Klarna.', 'bootspruefung-learning'),
             ],
         ];
 

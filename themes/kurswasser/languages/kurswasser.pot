@@ -1,0 +1,2544 @@
+# Copyright (C) 2026 XXXX
+# This file is distributed under the GNU General Public License v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Kurswasser 2.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-13T21:16:10+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: kurswasser\n"
+
+#. Theme Name of the theme
+#: style.css
+#: functions.php:69
+msgid "Kurswasser"
+msgstr ""
+
+#. Theme URI of the theme
+#: style.css
+msgid "https://github.com/hastla007/learnboating"
+msgstr ""
+
+#. Description of the theme
+#: style.css
+msgid "Maritimes Block-Theme für die Online-Lernplattform zu Bootsführerscheinen und Funkzeugnissen: Startseite, Kurs- und Produktseiten, Block-Checkout, Kundenkonto und Lernbereich (Plugin „Bootsprüfung – Lernplattform“). Lokale Schrift, keine externen Abrufe."
+msgstr ""
+
+#. Author of the theme
+#: style.css
+msgid "XXXX"
+msgstr ""
+
+#: functions.php:70
+msgid "Signalgelb"
+msgstr ""
+
+#: functions.php:71
+msgid "Umriss hell (auf dunkel)"
+msgstr ""
+
+#: functions.php:72
+msgid "Karte"
+msgstr ""
+
+#: functions.php:73
+msgid "Karte dunkel"
+msgstr ""
+
+#: functions.php:74
+msgid "Häkchenliste"
+msgstr ""
+
+#: functions.php:86
+#: inc/legal.php:22
+msgid "Impressum"
+msgstr ""
+
+#: functions.php:87
+#: inc/consent.php:166
+#: inc/legal.php:23
+msgid "Datenschutzerklärung"
+msgstr ""
+
+#: functions.php:88
+msgid "Allgemeine Geschäftsbedingungen"
+msgstr ""
+
+#: functions.php:89
+#: inc/legal.php:25
+msgid "Widerrufsbelehrung"
+msgstr ""
+
+#: functions.php:90
+#: inc/legal.php:26
+msgid "Kontakt"
+msgstr ""
+
+#: functions.php:98
+msgid "Platzhalter – hier den geprüften Text einfügen. Diese Seite ist ein Entwurf und erst nach dem Veröffentlichen sichtbar."
+msgstr ""
+
+#: functions.php:201
+msgid "Lernbereich"
+msgstr ""
+
+#: functions.php:204
+msgid "Anmelden"
+msgstr ""
+
+#: functions.php:228
+msgid "In den Warenkorb"
+msgstr ""
+
+#: functions.php:229
+msgid "Jetzt Kurs kaufen"
+msgstr ""
+
+#: functions.php:326
+msgid "Vertrag hier widerrufen"
+msgstr ""
+
+#: inc/consent.php:96
+msgid "Deine Auswahl ist gespeichert."
+msgstr ""
+
+#: inc/consent.php:161
+msgid "Cookies & Datenschutz"
+msgstr ""
+
+#. translators: %s: Link zur Datenschutzerklärung
+#: inc/consent.php:165
+#, php-format
+msgid "Wir nutzen notwendige Cookies, damit Anmeldung und Warenkorb funktionieren. Mit deiner Einwilligung speichern wir zusätzlich, über welchen Weg du zu uns gekommen bist (Statistik). Du kannst deine Wahl jederzeit ändern. Mehr in der %s."
+msgstr ""
+
+#: inc/consent.php:171
+msgid "Cookie-Kategorien"
+msgstr ""
+
+#: inc/consent.php:174
+msgid "Notwendig"
+msgstr ""
+
+#: inc/consent.php:174
+msgid "(immer aktiv)"
+msgstr ""
+
+#: inc/consent.php:175
+msgid "Anmeldung, Warenkorb und das Speichern dieser Einstellung."
+msgstr ""
+
+#: inc/consent.php:179
+msgid "Statistik"
+msgstr ""
+
+#: inc/consent.php:180
+msgid "WooCommerce-Bestellzuordnung: Herkunft deines Besuchs (z. B. Suchmaschine oder Link) und Sitzungsdauer, gespeichert in sbjs_*-Cookies. Keine Weitergabe an Dritte."
+msgstr ""
+
+#: inc/consent.php:185
+msgid "Externe Medien"
+msgstr ""
+
+#. translators: %s: Hostnamen, z. B. videos.example.com
+#: inc/consent.php:188
+#, php-format
+msgid "Videos werden von einem externen Dienst geladen (%s). Dabei erhält der Anbieter deine IP-Adresse. Ohne Einwilligung lädst du ein Video mit einem Klick einzeln."
+msgstr ""
+
+#: inc/consent.php:195
+msgid "Alle akzeptieren"
+msgstr ""
+
+#: inc/consent.php:196
+msgid "Nur notwendige"
+msgstr ""
+
+#: inc/consent.php:197
+#: inc/setup-shop.php:957
+msgid "Einstellungen"
+msgstr ""
+
+#: inc/consent.php:198
+msgid "Auswahl speichern"
+msgstr ""
+
+#: inc/consent.php:213
+msgid "Cookie-Einstellungen"
+msgstr ""
+
+#: inc/content-pages.php:202
+msgid "Kostenlos testen"
+msgstr ""
+
+#: inc/content-pages.php:479
+#, php-format
+msgid "Rechtstext „%s“: Inhalt aus der Vorlage legal/%s.html (inc/legal.php), keine eigene Seite"
+msgstr ""
+
+#: inc/content-pages.php:481
+msgid "Seite noch nicht angelegt"
+msgstr ""
+
+#: inc/content-pages.php:484
+#: inc/legal.php:384
+msgid "enthält [[Betreiber: …]]-Platzhalter"
+msgstr ""
+
+#: inc/content-pages.php:487
+msgid "enthält einen „Offen“-Kasten"
+msgstr ""
+
+#: inc/content-pages.php:546
+#: inc/content-yoast.php:72
+#: inc/seo.php:533
+msgid "SEO-Titel"
+msgstr ""
+
+#: inc/content-pages.php:546
+#: inc/seo.php:534
+msgid "Meta-Description"
+msgstr ""
+
+#: inc/content-pages.php:546
+#: inc/content-yoast.php:74
+msgid "noindex"
+msgstr ""
+
+#: inc/content-pages.php:547
+#: inc/content-yoast.php:75
+#: inc/seo.php:535
+msgid "Canonical"
+msgstr ""
+
+#: inc/content-pages.php:547
+msgid "Stand"
+msgstr ""
+
+#: inc/content-pages.php:547
+msgid "Schema"
+msgstr ""
+
+#: inc/content-pages.php:552
+msgid "Inhalt bzw. Titel von dir geändert – wird durch die Vorlage ersetzt"
+msgstr ""
+
+#: inc/content-pages.php:554
+msgid "Seite gab es schon (nicht aus dem Theme) – Inhalt wird durch die Vorlage ersetzt"
+msgstr ""
+
+#: inc/content-pages.php:557
+#, php-format
+msgid "SEO-Felder (Kurswasser) von dir geändert: %s"
+msgstr ""
+
+#: inc/content-pages.php:560
+#, php-format
+msgid "Yoast-Felder von dir gesetzt: %s"
+msgstr ""
+
+#: inc/content-pages.php:574
+msgid "neu (noch nicht angelegt)"
+msgstr ""
+
+#: inc/content-pages.php:575
+msgid "neuer Vorlagenstand, Seite unverändert"
+msgstr ""
+
+#: inc/content-pages.php:576
+msgid "angelegt"
+msgstr ""
+
+#: inc/content-pages.php:577
+msgid "aktualisiert"
+msgstr ""
+
+#: inc/content-pages.php:578
+msgid "aktuell"
+msgstr ""
+
+#: inc/content-pages.php:579
+msgid "von dir bearbeitet (Vorlage unverändert)"
+msgstr ""
+
+#: inc/content-pages.php:580
+msgid "neuer Vorlagenstand nicht übernommen – von dir bearbeitet"
+msgstr ""
+
+#: inc/content-pages.php:581
+msgid "Seite mit diesem Slug gab es schon – nicht angetastet"
+msgstr ""
+
+#: inc/content-pages.php:582
+msgid "nicht aktualisiert – Seite ist live und die neue Vorlage enthält Platzhalter"
+msgstr ""
+
+#: inc/content-pages.php:583
+msgid "übersprungen – ersetzt einen Rechtstext (inc/legal.php)"
+msgstr ""
+
+#: inc/content-pages.php:584
+msgid "im Papierkorb – nicht neu angelegt"
+msgstr ""
+
+#: inc/content-pages.php:585
+msgid "Elternseite fehlt"
+msgstr ""
+
+#: inc/content-pages.php:586
+msgid "Vorlagendatei fehlt"
+msgstr ""
+
+#: inc/content-pages.php:587
+msgid "Fehler beim Speichern"
+msgstr ""
+
+#: inc/content-pages.php:588
+msgid "Yoast-Felder zu übernehmen"
+msgstr ""
+
+#: inc/content-pages.php:589
+msgid "Yoast-Felder übernommen"
+msgstr ""
+
+#: inc/content-pages.php:590
+msgid "Yoast-Felder von dir gesetzt – nicht überschrieben"
+msgstr ""
+
+#: inc/content-pages.php:646
+#: inc/content-pages.php:736
+msgid "Auf dieser Seite"
+msgstr ""
+
+#: inc/content-pages.php:672
+msgid "So entstehen unsere Inhalte"
+msgstr ""
+
+#: inc/content-pages.php:674
+msgid "Stand:"
+msgstr ""
+
+#: inc/content-pages.php:981
+msgid "Inhaltsseiten abgeglichen:"
+msgstr ""
+
+#: inc/content-pages.php:995
+msgid "Inhaltsseiten nach dem Theme-Update automatisch abgeglichen"
+msgstr ""
+
+#: inc/content-pages.php:1002
+msgid "Von dir bearbeitete Seiten haben den neuen Stand nicht bekommen. Bitte prüfen, ob dort veraltete Angaben stehen (z. B. Lernregeln, Preise, Fristen), und die Seite anpassen oder „Alles aus dem Theme übernehmen“ wählen."
+msgstr ""
+
+#: inc/content-pages.php:1023
+msgid "Inhaltsseiten aus dem Theme"
+msgstr ""
+
+#: inc/content-pages.php:1024
+msgid "Info- und Marketingseiten aus content/. Unveränderte Seiten übernehmen neue Vorlagenstände; von dir bearbeitete Seiten und SEO-Felder bleiben, außer du wählst ausdrücklich „Alles aus dem Theme übernehmen“."
+msgstr ""
+
+#: inc/content-pages.php:1036
+msgid "Inhaltsseiten einrichten"
+msgstr ""
+
+#: inc/content-pages.php:1037
+msgid "(Yoast SEO ist aktiv – wähle, ob die SEO-Daten in Yoast oder im Theme stehen sollen)"
+msgstr ""
+
+#: inc/content-pages.php:1040
+msgid "Inhaltsseiten anlegen bzw. aktualisieren"
+msgstr ""
+
+#: inc/content-pages.php:1041
+#, php-format
+msgid "(%d Seiten; nur unveränderte – Seiten mit Platzhaltern als Entwurf)"
+msgstr ""
+
+#: inc/content-pages.php:1042
+msgid "SEO-Daten: Yoast – ändern"
+msgstr ""
+
+#: inc/content-pages.php:1042
+msgid "SEO-Daten: Theme – ändern"
+msgstr ""
+
+#: inc/content-pages.php:1046
+msgid "SEO-Daten in Yoast übernehmen …"
+msgstr ""
+
+#: inc/content-pages.php:1047
+msgid "Yoast SEO ist aktiv. Du kannst Titel, Beschreibung, noindex und Canonical der Inhaltsseiten in die Yoast-Felder schreiben lassen."
+msgstr ""
+
+#: inc/content-pages.php:1050
+#, php-format
+msgid "Offene Punkte je Seite (%d Seiten)"
+msgstr ""
+
+#: inc/content-pages.php:1064
+#: inc/legal.php:436
+#: inc/operator.php:250
+#: inc/setup-shop.php:797
+#: inc/setup.php:361
+#: inc/setup.php:372
+#: inc/setup.php:382
+#: inc/setup.php:398
+msgid "Keine Berechtigung."
+msgstr ""
+
+#: inc/content-yoast.php:73
+msgid "Meta-Beschreibung"
+msgstr ""
+
+#: inc/content-yoast.php:76
+msgid "Artikeltyp"
+msgstr ""
+
+#: inc/content-yoast.php:77
+msgid "Seitentyp"
+msgstr ""
+
+#: inc/content-yoast.php:78
+msgid "Fokus-Keyword"
+msgstr ""
+
+#: inc/courses.php:101
+#: inc/courses.php:577
+#: inc/courses.php:578
+#: inc/courses.php:596
+msgid "Weitere Kurse"
+msgstr ""
+
+#: inc/courses.php:101
+msgid "Segeln, Seenotsignalmittel & mehr"
+msgstr ""
+
+#: inc/courses.php:101
+#: inc/courses.php:578
+msgid "Mehr Kurse"
+msgstr ""
+
+#: inc/courses.php:102
+msgid "Alle Kurse im Überblick – auch Binnen unter Segel, SKN, FKN, Ergänzungen, Pässe und Gruppen."
+msgstr ""
+
+#: inc/courses.php:103
+msgid "Binnen unter Segel"
+msgstr ""
+
+#: inc/courses.php:103
+msgid "SKN und FKN"
+msgstr ""
+
+#: inc/courses.php:104
+#: inc/courses.php:557
+#: inc/courses.php:558
+#: inc/courses.php:589
+#: inc/courses.php:591
+msgid "Alle Kurse"
+msgstr ""
+
+#: inc/courses.php:105
+msgid "Ergänzungen"
+msgstr ""
+
+#: inc/courses.php:105
+msgid "Ergänzungskurse"
+msgstr ""
+
+#: inc/courses.php:105
+msgid "Schon einen Schein?"
+msgstr ""
+
+#: inc/courses.php:106
+msgid "Nur die zusätzlichen Inhalte: See → Binnen, Binnen → See, Binnen → Segeln, SRC → UBI."
+msgstr ""
+
+#: inc/courses.php:107
+msgid "6 Monate Zugang"
+msgstr ""
+
+#: inc/courses.php:108
+#: inc/courses.php:112
+#: inc/courses.php:116
+msgid "Ansehen"
+msgstr ""
+
+#: inc/courses.php:109
+msgid "Pässe"
+msgstr ""
+
+#: inc/courses.php:109
+msgid "1- und 3-Monats-Pass"
+msgstr ""
+
+#: inc/courses.php:109
+msgid "Alle Inhalte"
+msgstr ""
+
+#: inc/courses.php:110
+msgid "Voller Zugriff auf alle Kurse für 30 oder 90 Tage."
+msgstr ""
+
+#: inc/courses.php:111
+msgid "Alle Kurse und Trainer"
+msgstr ""
+
+#: inc/courses.php:113
+msgid "Gruppen"
+msgstr ""
+
+#: inc/courses.php:113
+msgid "Gruppen & Vereine"
+msgstr ""
+
+#: inc/courses.php:113
+msgid "2 bis 50 Personen"
+msgstr ""
+
+#: inc/courses.php:114
+msgid "Ein Kauf, Plätze per Link oder E-Mail vergeben – jede Person lernt mit eigenem Konto."
+msgstr ""
+
+#: inc/courses.php:115
+msgid "Paare, Familien, Crews, Vereine"
+msgstr ""
+
+#: inc/courses.php:132
+msgid "Kurs ansehen"
+msgstr ""
+
+#: inc/courses.php:145
+#, php-format
+msgid "Du sparst %s gegenüber den Einzelkursen"
+msgstr ""
+
+#: inc/courses.php:151
+msgid "ab"
+msgstr ""
+
+#: inc/courses.php:204
+#, php-format
+msgid "%d Prüfungsfragen"
+msgstr ""
+
+#: inc/courses.php:207
+#, php-format
+msgid "%d Navigationsaufgaben"
+msgstr ""
+
+#: inc/courses.php:210
+#, php-format
+msgid "%d Praxiskarten"
+msgstr ""
+
+#: inc/courses.php:213
+#, php-format
+msgid "%d Video-Lektionen"
+msgstr ""
+
+#: inc/courses.php:216
+#, php-format
+msgid "%d Prüfungsbögen"
+msgstr ""
+
+#: inc/courses.php:368
+msgid "Fragen & Antworten"
+msgstr ""
+
+#: inc/courses.php:416
+#: inc/courses.php:533
+#: inc/courses.php:557
+#: inc/courses.php:577
+#: inc/seo.php:223
+msgid "Brotkrumen"
+msgstr ""
+
+#: inc/courses.php:416
+#: inc/courses.php:533
+#: inc/courses.php:557
+#: inc/courses.php:577
+#: inc/seo.php:186
+msgid "Start"
+msgstr ""
+
+#: inc/courses.php:416
+#: inc/courses.php:533
+#: inc/courses.php:577
+msgid "Kurse"
+msgstr ""
+
+#: inc/courses.php:418
+#, php-format
+msgid "%s online lernen"
+msgstr ""
+
+#: inc/courses.php:419
+#, php-format
+msgid "Ab %s – Angebote ansehen"
+msgstr ""
+
+#: inc/courses.php:419
+msgid "Angebote ansehen"
+msgstr ""
+
+#: inc/courses.php:419
+msgid "Kostenlos reinschnuppern"
+msgstr ""
+
+#: inc/courses.php:421
+msgid "Prüfungsfragen"
+msgstr ""
+
+#: inc/courses.php:421
+msgid "Prüfungsbögen"
+msgstr ""
+
+#: inc/courses.php:421
+#: inc/courses.php:433
+msgid "Navigationsaufgaben"
+msgstr ""
+
+#: inc/courses.php:421
+#: inc/courses.php:436
+msgid "Praxiskarten"
+msgstr ""
+
+#: inc/courses.php:421
+msgid "Video-Lektionen"
+msgstr ""
+
+#: inc/courses.php:429
+msgid "Im Kurs enthalten"
+msgstr ""
+
+#: inc/courses.php:429
+msgid "Alles, was du für die Prüfung brauchst."
+msgstr ""
+
+#: inc/courses.php:430
+msgid "Smarttrainer"
+msgstr ""
+
+#: inc/courses.php:430
+#, php-format
+msgid "Alle %d Prüfungsfragen mit Erklärungen. Zuerst neue, dann falsch beantwortete und unsichere Fragen – bis alles sitzt."
+msgstr ""
+
+#: inc/courses.php:431
+msgid "Prüfungssimulation"
+msgstr ""
+
+#: inc/courses.php:431
+#, php-format
+msgid "Prüfung mit Zeitlimit und Auswertung – als Zufallsprüfung oder mit %d festen Bögen."
+msgstr ""
+
+#: inc/courses.php:431
+msgid "Prüfung mit Zeitlimit und Auswertung, inklusive Rückblick auf jede Frage."
+msgstr ""
+
+#: inc/courses.php:433
+#, php-format
+msgid "%d Kartenaufgaben zur Übungskarte D49 (gedruckte Karte nötig) mit Musterlösungen und Selbsteinschätzung."
+msgstr ""
+
+#: inc/courses.php:436
+#, php-format
+msgid "%d Karten zum Einprägen für den praktischen Teil."
+msgstr ""
+
+#: inc/courses.php:440
+msgid "Videokurs"
+msgstr ""
+
+#: inc/courses.php:441
+#, php-format
+msgid "%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen – in der Komplett-Stufe oder als Upgrade; erste Lektion kostenlos."
+msgstr ""
+
+#: inc/courses.php:442
+#, php-format
+msgid "%d kurze Lektionen mit Schritt-für-Schritt-Ansichten und Fragen."
+msgstr ""
+
+#: inc/courses.php:445
+msgid "Funktraining"
+msgstr ""
+
+#: inc/courses.php:446
+msgid "Funktexte, Vokabeln, Buchstabiertafel, Praxisszenarien und der Funkgerät-Simulator mit Prüfungsmodus."
+msgstr ""
+
+#: inc/courses.php:447
+msgid "Funktexte, Vokabeln, Buchstabiertafel und Praxisszenarien. Funkgerät-Simulator kostenlos testen, Vollversion als Upgrade."
+msgstr ""
+
+#: inc/courses.php:449
+msgid "Überall lernen"
+msgstr ""
+
+#: inc/courses.php:449
+msgid "Im Browser auf Rechner, Tablet und Smartphone – dein Fortschritt bleibt gespeichert."
+msgstr ""
+
+#: inc/courses.php:460
+msgid "Preise"
+msgstr ""
+
+#: inc/courses.php:460
+#, php-format
+msgid "Starte mit %s"
+msgstr ""
+
+#: inc/courses.php:460
+msgid "Einmal zahlen, sofort lernen. Mit der Kombi sparst du gegenüber dem Einzelkauf."
+msgstr ""
+
+#: inc/courses.php:461
+#: inc/offers.php:228
+msgid "Unsere Empfehlung"
+msgstr ""
+
+#: inc/courses.php:461
+msgid "Dein Kurs"
+msgstr ""
+
+#: inc/courses.php:476
+msgid "Ärztliches Attest"
+msgstr ""
+
+#: inc/courses.php:476
+msgid "Mindestalter"
+msgstr ""
+
+#: inc/courses.php:477
+msgid "Kosten"
+msgstr ""
+
+#: inc/courses.php:477
+msgid "Praxis und Prüfung vor Ort"
+msgstr ""
+
+#: inc/courses.php:486
+msgid "Vor der Prüfung wissen:"
+msgstr ""
+
+#: inc/courses.php:500
+msgid "Die Prüfung"
+msgstr ""
+
+#: inc/courses.php:500
+msgid "So laufen die Prüfungen ab."
+msgstr ""
+
+#: inc/courses.php:500
+msgid "So läuft die Prüfung ab."
+msgstr ""
+
+#: inc/courses.php:501
+msgid "Die amtliche Prüfung legst du bei einem Prüfungsausschuss ab. Hier siehst du, wie sie abläuft und was dich erwartet."
+msgstr ""
+
+#: inc/courses.php:504
+msgid "Theorie"
+msgstr ""
+
+#: inc/courses.php:506
+msgid "Bestanden"
+msgstr ""
+
+#: inc/courses.php:509
+msgid "Zeit"
+msgstr ""
+
+#: inc/courses.php:509
+#, php-format
+msgid "%d Minuten"
+msgstr ""
+
+#: inc/courses.php:513
+msgid "Angaben laut amtlichem Prüfungsrahmen; maßgeblich ist dein Prüfungsausschuss."
+msgstr ""
+
+#: inc/courses.php:533
+#: inc/courses.php:534
+#: inc/courses.php:544
+#: inc/courses.php:596
+#: inc/offers.php:22
+msgid "Pakete & Pässe"
+msgstr ""
+
+#: inc/courses.php:534
+msgid "Sparen mit Kombis und Paketen"
+msgstr ""
+
+#: inc/courses.php:534
+msgid "Mehrere Scheine auf einmal? Mit Kombi, Kapitäns-Bundle oder einem Pass für alle Inhalte lernst du alles an einem Ort – und sparst gegenüber dem Einzelkauf."
+msgstr ""
+
+#: inc/courses.php:544
+msgid "Mehrere Scheine auf einmal oder alle Inhalte für eine feste Zeit – günstiger als einzeln."
+msgstr ""
+
+#: inc/courses.php:545
+msgid "Sportbootführerscheine"
+msgstr ""
+
+#: inc/courses.php:545
+msgid "Für Küste und Binnengewässer, unter Motor oder Segel – einzeln oder als Kombi."
+msgstr ""
+
+#: inc/courses.php:546
+msgid "Funkzeugnisse"
+msgstr ""
+
+#: inc/courses.php:546
+msgid "Seefunk (SRC) und Binnenfunk (UBI) mit Funktexten, Vokabeln und Praxisszenarien – dazu der Funkgerät-Simulator."
+msgstr ""
+
+#: inc/courses.php:547
+msgid "Seenotsignalmittel"
+msgstr ""
+
+#: inc/courses.php:547
+msgid "Sach- und Fachkundenachweis für den Umgang mit Seenotsignalmitteln."
+msgstr ""
+
+#: inc/courses.php:548
+msgid "Ergänzungen & Gruppen"
+msgstr ""
+
+#: inc/courses.php:548
+msgid "Schon einen Schein? Nur die zusätzlichen Inhalte lernen. Oder gemeinsam als Paar, Familie, Crew oder Verein."
+msgstr ""
+
+#: inc/courses.php:558
+msgid "Kursübersicht"
+msgstr ""
+
+#: inc/courses.php:558
+msgid "Sportbootführerscheine, Funkzeugnisse, Seenotsignalmittel, Ergänzungskurse, Pakete und Gruppen – jeder Kurs mit allen Prüfungsfragen, Prüfungssimulation und den passenden Trainern."
+msgstr ""
+
+#: inc/courses.php:559
+msgid "Bereiche"
+msgstr ""
+
+#: inc/courses.php:578
+msgid "Segeln auf Binnengewässern, Seenotsignalmittel, Ergänzungskurse für Scheininhaber, Pässe für alle Inhalte und Pakete für Gruppen."
+msgstr ""
+
+#: inc/courses.php:649
+msgid "Praxis am Funkgerät"
+msgstr ""
+
+#: inc/courses.php:650
+msgid "Funkgerät-Simulator für die praktische Prüfung"
+msgstr ""
+
+#: inc/courses.php:651
+msgid "Kostenlos testen: Gerät bedienen, Kanäle wählen und einen Routineanruf üben. Die Vollversion schaltet Notalarm (DISTRESS), Dringlichkeits- und Sicherheitsverkehr, alle Lektionen und den Prüfungsmodus frei."
+msgstr ""
+
+#: inc/courses.php:652
+msgid "Empfehlung"
+msgstr ""
+
+#: inc/courses.php:653
+msgid "Läuft im Browser – ohne Installation"
+msgstr ""
+
+#: inc/courses.php:653
+msgid "Ein Login für PC, Tablet und Smartphone"
+msgstr ""
+
+#: inc/courses.php:653
+msgid "Einmalzahlung, kein Abo"
+msgstr ""
+
+#: inc/courses.php:654
+msgid "Beim Kauf eines Funkkurses gibt es den Simulator im Checkout als günstiges Upgrade. Für Simulator-Zugänge gilt keine Geld-zurück-Garantie."
+msgstr ""
+
+#: inc/learning.php:86
+msgid "Bootsprüfung:"
+msgstr ""
+
+#. translators: 1: benötigte Version, 2: vorhandene Version
+#: inc/learning.php:106
+#, php-format
+msgid "Kurswasser braucht das Plugin „Bootsprüfung Lernplattform“ ab Version %1$s (vorhanden: %2$s). Bis zum Update zeigt das Theme Kurse, Preise und Prüfungsanmeldung ohne Plugin-Daten an."
+msgstr ""
+
+#: inc/learning.php:109
+msgid "Plugins aktualisieren"
+msgstr ""
+
+#: inc/legal.php:24
+msgid "AGB"
+msgstr ""
+
+#: inc/legal.php:329
+msgid "Rechtstext-Vorlagen in Entwürfe übernommen:"
+msgstr ""
+
+#: inc/legal.php:331
+msgid "Bitte die geänderten Seiten prüfen."
+msgstr ""
+
+#: inc/legal.php:335
+msgid "Neue Rechtstext-Vorlagen für veröffentlichte Seiten:"
+msgstr ""
+
+#: inc/legal.php:337
+msgid "Die Seiten sind live und wurden deshalb nicht automatisch geändert. Bitte die Vorlagen prüfen und dann übernehmen (nur unbearbeitete Seiten werden ersetzt)."
+msgstr ""
+
+#: inc/legal.php:338
+msgid "Vorlagen übernehmen"
+msgstr ""
+
+#: inc/legal.php:341
+msgid "Neue Rechtstext-Vorlagen nicht übernommen"
+msgstr ""
+
+#: inc/legal.php:342
+msgid "(von dir bearbeitete Seiten bleiben unverändert – bitte mit den Vorlagen im Theme-Ordner legal/ abgleichen):"
+msgstr ""
+
+#: inc/legal.php:378
+msgid "Seite fehlt"
+msgstr ""
+
+#: inc/legal.php:381
+msgid "noch nicht veröffentlicht"
+msgstr ""
+
+#: inc/legal.php:387
+msgid "enthält den Vorlagen-Hinweis"
+msgstr ""
+
+#: inc/legal.php:420
+#: inc/setup-shop.php:533
+msgid "Betreiberangaben ausfüllen"
+msgstr ""
+
+#: inc/legal.php:423
+msgid "Vorlagen in leere Seiten einfügen (bearbeitete Seiten bleiben unverändert)"
+msgstr ""
+
+#: inc/legal.php:427
+msgid "Rechtstexte noch nicht fertig"
+msgstr ""
+
+#: inc/legal.php:428
+msgid "Bitte die Betreiberangaben ausfüllen (sie ersetzen beim Übernehmen der Vorlagen die [[Betreiber: …]]-Platzhalter), restliche Platzhalter ersetzen, prüfen lassen, den Vorlagen-Hinweis löschen und die Seiten veröffentlichen:"
+msgstr ""
+
+#: inc/offers.php:20
+msgid "SBF"
+msgstr ""
+
+#: inc/offers.php:20
+msgid "Sportbootführerschein"
+msgstr ""
+
+#: inc/offers.php:20
+msgid "Auch: SBF Binnen unter Segel"
+msgstr ""
+
+#: inc/offers.php:21
+msgid "Funk"
+msgstr ""
+
+#: inc/offers.php:21
+msgid "Funkzeugnis"
+msgstr ""
+
+#: inc/offers.php:21
+msgid "Auch: SKN und FKN (Seenotsignalmittel)"
+msgstr ""
+
+#: inc/offers.php:22
+msgid "Pakete"
+msgstr ""
+
+#: inc/offers.php:22
+msgid "Schon einen Schein? Ergänzungskurse"
+msgstr ""
+
+#: inc/offers.php:116
+msgid "14 Tage Geld-zurück-Garantie"
+msgstr ""
+
+#: inc/offers.php:116
+msgid "bei weniger als 20 % genutzt"
+msgstr ""
+
+#: inc/offers.php:116
+msgid "Zugang direkt nach Zahlungseingang"
+msgstr ""
+
+#: inc/offers.php:116
+msgid "Kein Abo – einmal zahlen"
+msgstr ""
+
+#: inc/offers.php:139
+#, php-format
+msgid "%d Monat Zugang"
+msgid_plural "%d Monate Zugang"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/offers.php:139
+#, php-format
+msgid "%d Tage Zugang"
+msgstr ""
+
+#: inc/offers.php:147
+msgid "einmalig"
+msgstr ""
+
+#: inc/offers.php:151
+#, php-format
+msgid "entspricht ≈ %s pro Monat, kein Abo"
+msgstr ""
+
+#: inc/offers.php:155
+#, php-format
+msgid "Einzeln gekauft: %1$s – du sparst %2$s gegenüber den Einzelkursen"
+msgstr ""
+
+#: inc/offers.php:176
+#, php-format
+msgid "Komplett mit Videokurs: %s"
+msgstr ""
+
+#: inc/offers.php:179
+msgid "Theorie starten"
+msgstr ""
+
+#: inc/offers.php:179
+msgid "Jetzt starten"
+msgstr ""
+
+#: inc/offers.php:181
+msgid "Mit Videokurs starten"
+msgstr ""
+
+#: inc/offers.php:184
+msgid "Bald verfügbar"
+msgstr ""
+
+#: inc/offers.php:187
+msgid "Details ansehen"
+msgstr ""
+
+#: inc/offers.php:214
+msgid "Angebote"
+msgstr ""
+
+#: inc/offers.php:228
+msgid "Alles in einem Paket"
+msgstr ""
+
+#: inc/operator.php:35
+msgid "Name bzw. Firma"
+msgstr ""
+
+#: inc/operator.php:35
+msgid "wie im Register bzw. Vor- und Nachname bei Einzelunternehmen"
+msgstr ""
+
+#: inc/operator.php:36
+msgid "Rechtsform"
+msgstr ""
+
+#: inc/operator.php:36
+msgid "z. B. Einzelunternehmen, GmbH, UG (haftungsbeschränkt)"
+msgstr ""
+
+#: inc/operator.php:37
+msgid "Vertretungsberechtigte Person(en)"
+msgstr ""
+
+#: inc/operator.php:37
+msgid "z. B. Geschäftsführer/in; bei Einzelunternehmen leer lassen"
+msgstr ""
+
+#: inc/operator.php:38
+#: inc/setup-shop.php:295
+#: inc/setup-shop.php:863
+msgid "Straße und Hausnummer"
+msgstr ""
+
+#: inc/operator.php:39
+msgid "PLZ und Ort"
+msgstr ""
+
+#: inc/operator.php:40
+#: inc/setup-shop.php:844
+msgid "Land"
+msgstr ""
+
+#: inc/operator.php:41
+msgid "E-Mail (allgemein, Impressum, Widerruf)"
+msgstr ""
+
+#: inc/operator.php:42
+msgid "Telefon"
+msgstr ""
+
+#: inc/operator.php:43
+msgid "Support-E-Mail"
+msgstr ""
+
+#: inc/operator.php:43
+msgid "für die Kontaktseite"
+msgstr ""
+
+#: inc/operator.php:44
+msgid "E-Mail für Datenschutzanfragen"
+msgstr ""
+
+#: inc/operator.php:45
+msgid "Telefonische Erreichbarkeit"
+msgstr ""
+
+#: inc/operator.php:45
+msgid "z. B. Mo–Fr 10–16 Uhr – nur, was eingehalten wird"
+msgstr ""
+
+#: inc/operator.php:46
+msgid "Registergericht und Registernummer"
+msgstr ""
+
+#: inc/operator.php:46
+msgid "z. B. Amtsgericht Musterstadt, HRB 12345; ohne Eintragung leer lassen"
+msgstr ""
+
+#: inc/operator.php:47
+msgid "USt-IdNr."
+msgstr ""
+
+#: inc/operator.php:47
+msgid "leer lassen, wenn nicht vorhanden"
+msgstr ""
+
+#: inc/operator.php:48
+msgid "Wirtschafts-IdNr."
+msgstr ""
+
+#: inc/operator.php:48
+msgid "nur, falls erteilt"
+msgstr ""
+
+#: inc/operator.php:49
+msgid "Verantwortlich für den Inhalt (Vor- und Nachname)"
+msgstr ""
+
+#: inc/operator.php:49
+msgid "§ 18 Abs. 2 MStV"
+msgstr ""
+
+#: inc/operator.php:50
+msgid "Anschrift der verantwortlichen Person"
+msgstr ""
+
+#: inc/operator.php:51
+msgid "Verbraucherschlichtungsstelle"
+msgstr ""
+
+#: inc/operator.php:51
+msgid "Name, Anschrift und Website – nur nach rechtlicher Prüfung"
+msgstr ""
+
+#: inc/operator.php:52
+msgid "Datenschutz-Aufsichtsbehörde"
+msgstr ""
+
+#: inc/operator.php:52
+msgid "Name und Anschrift der zuständigen Behörde"
+msgstr ""
+
+#: inc/operator.php:53
+msgid "Hoster (Name)"
+msgstr ""
+
+#: inc/operator.php:54
+msgid "Hoster (Anschrift)"
+msgstr ""
+
+#: inc/operator.php:55
+msgid "E-Mail-Versand (Dienst)"
+msgstr ""
+
+#: inc/operator.php:55
+msgid "z. B. Mailserver des Hosters"
+msgstr ""
+
+#: inc/operator.php:56
+msgid "Bank (für Überweisungen)"
+msgstr ""
+
+#: inc/operator.php:56
+msgid "Name der Bank, wie in der Datenschutzerklärung genannt"
+msgstr ""
+
+#: inc/operator.php:57
+msgid "Steuerberatung bzw. Buchhaltungsdienst"
+msgstr ""
+
+#: inc/operator.php:57
+msgid "leer lassen, wenn keine"
+msgstr ""
+
+#: inc/operator.php:58
+msgid "Speicherdauer der Server-Logfiles"
+msgstr ""
+
+#: inc/operator.php:58
+msgid "z. B. 7 Tage – beim Hoster nachfragen"
+msgstr ""
+
+#: inc/operator.php:59
+msgid "Löschfrist Kontaktanfragen"
+msgstr ""
+
+#: inc/operator.php:59
+msgid "z. B. 6 Monate"
+msgstr ""
+
+#: inc/operator.php:60
+msgid "Löschfrist Bewerbungen"
+msgstr ""
+
+#: inc/operator.php:60
+msgid "z. B. 6 Monate nach Abschluss des Verfahrens"
+msgstr ""
+
+#: inc/operator.php:61
+msgid "Bewerbungsweg"
+msgstr ""
+
+#: inc/operator.php:61
+msgid "z. B. E-Mail-Adresse oder Formular mit verschlüsselter Übermittlung"
+msgstr ""
+
+#: inc/operator.php:62
+msgid "Stand der AGB"
+msgstr ""
+
+#: inc/operator.php:62
+msgid "Datum der Veröffentlichung, z. B. 1. Dezember 2026"
+msgstr ""
+
+#: inc/operator.php:63
+msgid "Erstattungsfrist der Geld-zurück-Garantie"
+msgstr ""
+
+#: inc/operator.php:63
+msgid "z. B. 14 Tage – spätestens so lange nach Eingang der Anfrage wird erstattet (AGB Nr. 9, Garantie-Seite)"
+msgstr ""
+
+#. translators: %s: Name(n)
+#: inc/operator.php:163
+#, php-format
+msgid "Vertreten durch: %s"
+msgstr ""
+
+#. translators: %s: Registergericht und -nummer
+#: inc/operator.php:167
+#, php-format
+msgid "Registereintrag: %s"
+msgstr ""
+
+#. translators: %s: E-Mail-Adresse
+#: inc/operator.php:172
+#, php-format
+msgid "E-Mail: %s"
+msgstr ""
+
+#: inc/operator.php:245
+#: inc/operator.php:268
+msgid "Betreiberangaben"
+msgstr ""
+
+#: inc/operator.php:271
+msgid "Gespeichert. Unbearbeitete Entwürfe der Rechtsseiten sind aktualisiert; veröffentlichte Seiten übernimmst du über den Hinweis „Vorlagen übernehmen“."
+msgstr ""
+
+#: inc/operator.php:273
+msgid "Diese Angaben ersetzen die passenden [[Betreiber: …]]-Platzhalter in Impressum, Datenschutzerklärung, AGB, Widerrufsbelehrung und Kontakt. Leere Felder bleiben als Platzhalter stehen. Platzhalter, die eine Entscheidung oder rechtliche Prüfung verlangen, ersetzt du direkt auf der jeweiligen Seite. Keine Rechtsberatung – die Texte vor der Veröffentlichung rechtlich prüfen lassen."
+msgstr ""
+
+#: inc/operator.php:288
+msgid "Speichern und Rechtsseiten abgleichen"
+msgstr ""
+
+#: inc/operator.php:292
+msgid "Noch offen in den Vorlagen"
+msgstr ""
+
+#: inc/seo.php:514
+msgid "SEO (Kurswasser)"
+msgstr ""
+
+#: inc/seo.php:521
+msgid "Ein SEO-Plugin ist aktiv: Es gibt Titel, Beschreibung und Robots aus. Diese Felder gelten nur, wo das Feld des Plugins leer ist."
+msgstr ""
+
+#: inc/seo.php:533
+msgid "Leer = Seitentitel. {{brand}} = Website-Name; die Marke wird angehängt, wenn sie fehlt und noch passt."
+msgstr ""
+
+#: inc/seo.php:534
+msgid "Kurzbeschreibung für Suchergebnisse."
+msgstr ""
+
+#: inc/seo.php:535
+msgid "Leer = diese Seite. Sonst Slug, /pfad/ oder URL der Hauptseite."
+msgstr ""
+
+#: inc/seo.php:536
+msgid "Stand (zuletzt fachlich geprüft)"
+msgstr ""
+
+#: inc/seo.php:536
+msgid "Für „Stand“ und dateModified – nicht bei jedem Tippfehler ändern."
+msgstr ""
+
+#: inc/seo.php:537
+msgid "Nicht in Suchmaschinen (noindex, follow; nicht in der Sitemap)"
+msgstr ""
+
+#: inc/seo.php:539
+msgid "Strukturierte Daten"
+msgstr ""
+
+#: inc/seo.php:540
+msgid "keine (nur Brotkrumen)"
+msgstr ""
+
+#: inc/setup-shop.php:123
+msgid "Bitte das Land des Shops wählen."
+msgstr ""
+
+#: inc/setup-shop.php:131
+msgid "Bitte einen Weg für die Mehrwertsteuer wählen."
+msgstr ""
+
+#: inc/setup-shop.php:135
+msgid "Das OSS-Verfahren gibt es nur für Shops in der EU. Bitte „eigener Satz“ oder „Kleinunternehmer“ wählen."
+msgstr ""
+
+#: inc/setup-shop.php:143
+msgid "Bitte einen Steuersatz zwischen 0 und 30 % angeben, z. B. 19."
+msgstr ""
+
+#: inc/setup-shop.php:243
+msgid "an"
+msgstr ""
+
+#: inc/setup-shop.php:243
+msgid "aus"
+msgstr ""
+
+#: inc/setup-shop.php:250
+#: inc/setup-shop.php:284
+msgid "(leer)"
+msgstr ""
+
+#: inc/setup-shop.php:252
+msgid "links (€99,99)"
+msgstr ""
+
+#: inc/setup-shop.php:252
+msgid "rechts (99,99€)"
+msgstr ""
+
+#: inc/setup-shop.php:252
+msgid "links mit Leerzeichen (€ 99,99)"
+msgstr ""
+
+#: inc/setup-shop.php:252
+msgid "rechts mit Leerzeichen (99,99 €)"
+msgstr ""
+
+#: inc/setup-shop.php:260
+msgid "inklusive Steuer (brutto)"
+msgstr ""
+
+#: inc/setup-shop.php:260
+msgid "ohne Steuer (netto)"
+msgstr ""
+
+#: inc/setup-shop.php:262
+msgid "Rechnungsadresse"
+msgstr ""
+
+#: inc/setup-shop.php:262
+msgid "Lieferadresse"
+msgstr ""
+
+#: inc/setup-shop.php:262
+msgid "Shop-Adresse"
+msgstr ""
+
+#: inc/setup-shop.php:265
+msgid "inkl. Steuer"
+msgstr ""
+
+#: inc/setup-shop.php:265
+msgid "zzgl. Steuer"
+msgstr ""
+
+#: inc/setup-shop.php:267
+#: inc/setup-shop.php:273
+#: inc/setup-shop.php:470
+#: inc/setup-shop.php:650
+#: inc/setup-shop.php:1003
+msgid "alle Länder"
+msgstr ""
+
+#: inc/setup-shop.php:267
+msgid "alle Länder außer …"
+msgstr ""
+
+#: inc/setup-shop.php:267
+#: inc/setup-shop.php:273
+msgid "bestimmte Länder"
+msgstr ""
+
+#: inc/setup-shop.php:271
+msgid "(keine)"
+msgstr ""
+
+#: inc/setup-shop.php:271
+#, php-format
+msgid "%1$d Land (%2$s)"
+msgid_plural "%1$d Länder (%2$s)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup-shop.php:273
+msgid "an alle Verkaufsländer"
+msgstr ""
+
+#: inc/setup-shop.php:273
+msgid "kein Versand, keine Lieferadresse"
+msgstr ""
+
+#: inc/setup-shop.php:275
+msgid "ja – gleicher Bruttopreis in allen EU-Ländern"
+msgstr ""
+
+#: inc/setup-shop.php:275
+msgid "nein – WooCommerce passt den Bruttopreis an den Satz des Kundenlands an"
+msgstr ""
+
+#: inc/setup-shop.php:277
+msgid "(kein Hinweis)"
+msgstr ""
+
+#: inc/setup-shop.php:279
+msgid "„Demnächst verfügbar“ – Gäste sehen den Shop nicht"
+msgstr ""
+
+#: inc/setup-shop.php:279
+msgid "sichtbar für alle"
+msgstr ""
+
+#: inc/setup-shop.php:281
+msgid "Englisch (USA)"
+msgstr ""
+
+#: inc/setup-shop.php:281
+msgid "Deutsch"
+msgstr ""
+
+#: inc/setup-shop.php:281
+msgid "Deutsch (Sie)"
+msgstr ""
+
+#: inc/setup-shop.php:281
+msgid "Deutsch (Österreich)"
+msgstr ""
+
+#: inc/setup-shop.php:281
+msgid "Deutsch (Schweiz)"
+msgstr ""
+
+#: inc/setup-shop.php:294
+#: inc/setup-shop.php:297
+msgid "Shop-Anschrift"
+msgstr ""
+
+#: inc/setup-shop.php:294
+msgid "Land / Region"
+msgstr ""
+
+#: inc/setup-shop.php:294
+msgid "Sitz des Shops; Grundlage für Steuer und Preisanzeige."
+msgstr ""
+
+#: inc/setup-shop.php:295
+#: inc/setup-shop.php:863
+msgid "PLZ"
+msgstr ""
+
+#: inc/setup-shop.php:295
+#: inc/setup-shop.php:863
+msgid "Ort"
+msgstr ""
+
+#: inc/setup-shop.php:300
+msgid "Währung und Preise"
+msgstr ""
+
+#: inc/setup-shop.php:301
+msgid "Währung"
+msgstr ""
+
+#: inc/setup-shop.php:301
+msgid "Die Preise der Preis-Seite sind Euro-Preise."
+msgstr ""
+
+#: inc/setup-shop.php:302
+msgid "Position des Währungssymbols"
+msgstr ""
+
+#: inc/setup-shop.php:303
+msgid "Tausender-Trennzeichen"
+msgstr ""
+
+#: inc/setup-shop.php:304
+msgid "Dezimal-Trennzeichen"
+msgstr ""
+
+#: inc/setup-shop.php:305
+msgid "Nachkommastellen"
+msgstr ""
+
+#: inc/setup-shop.php:306
+msgid "Steuer"
+msgstr ""
+
+#: inc/setup-shop.php:307
+msgid "Steuerberechnung"
+msgstr ""
+
+#: inc/setup-shop.php:307
+msgid "Kleinunternehmer: keine Steuer."
+msgstr ""
+
+#: inc/setup-shop.php:308
+msgid "Eingegebene Preise"
+msgstr ""
+
+#: inc/setup-shop.php:308
+msgid "Die Preise der Preis-Seite sind Bruttopreise."
+msgstr ""
+
+#: inc/setup-shop.php:310
+msgid "Steuer berechnen nach"
+msgstr ""
+
+#: inc/setup-shop.php:310
+msgid "Digitale Leistungen: Ort des Kunden = Rechnungsadresse."
+msgstr ""
+
+#: inc/setup-shop.php:311
+msgid "Preise im Shop anzeigen"
+msgstr ""
+
+#: inc/setup-shop.php:312
+msgid "Preise in Warenkorb und Kasse"
+msgstr ""
+
+#: inc/setup-shop.php:315
+msgid "Gleicher Bruttopreis für alle EU-Kunden"
+msgstr ""
+
+#: inc/setup-shop.php:315
+msgid "Der Preis der Preis-Seite gilt überall; nur der enthaltene MwSt.-Anteil ändert sich. Ohne diese Einstellung rechnet WooCommerce den Nettopreis des Shop-Lands mit dem Satz des Kundenlands hoch (z. B. 29,90 € in DE, 30,15 € in AT)."
+msgstr ""
+
+#: inc/setup-shop.php:318
+msgid "Hinweis zum Preis (Lern-Plugin)"
+msgstr ""
+
+#: inc/setup-shop.php:319
+msgid "Steht an allen Preisen, in Warenkorb und Kasse („Alle Preise …“) und in den Bestellmails. Später änderbar unter Bootsprüfung › Einstellungen › Hinweis zum Preis."
+msgstr ""
+
+#: inc/setup-shop.php:321
+msgid "Verkauf und Versand"
+msgstr ""
+
+#: inc/setup-shop.php:322
+#: inc/setup-shop.php:890
+msgid "Verkauf an"
+msgstr ""
+
+#: inc/setup-shop.php:327
+msgid "Verkaufsländer"
+msgstr ""
+
+#: inc/setup-shop.php:327
+msgid "Die 27 EU-Länder und die Schweiz."
+msgstr ""
+
+#: inc/setup-shop.php:329
+msgid "Versand"
+msgstr ""
+
+#: inc/setup-shop.php:329
+msgid "Nur digitale Produkte: kein Versand, an der Kasse keine Lieferadresse."
+msgstr ""
+
+#: inc/setup-shop.php:330
+msgid "Konten und Sprache"
+msgstr ""
+
+#: inc/setup-shop.php:332
+msgid "Kundenkonto auf „Mein Konto“ anlegen"
+msgstr ""
+
+#: inc/setup-shop.php:332
+msgid "Damit „Kostenlos testen“ für Gäste funktioniert: Der Lernbereich zeigt dann „Konto anlegen“."
+msgstr ""
+
+#: inc/setup-shop.php:335
+msgid "Sichtbarkeit"
+msgstr ""
+
+#: inc/setup-shop.php:335
+msgid "Shop für Kunden sichtbar"
+msgstr ""
+
+#: inc/setup-shop.php:335
+msgid "Schaltet den WooCommerce-Modus „Demnächst verfügbar“ aus: Gäste sehen Shop, Produkte, Warenkorb und Kasse. Erst einschalten, wenn Preise und Rechtstexte stehen."
+msgstr ""
+
+#: inc/setup-shop.php:338
+msgid "Sprache der Website"
+msgstr ""
+
+#: inc/setup-shop.php:338
+msgid "Lädt das deutsche Sprachpaket von wordpress.org (und die Übersetzungen der Plugins)."
+msgstr ""
+
+#: inc/setup-shop.php:351
+msgid "Warenkorb"
+msgstr ""
+
+#: inc/setup-shop.php:352
+msgid "Kasse"
+msgstr ""
+
+#: inc/setup-shop.php:353
+msgid "Mein Konto"
+msgstr ""
+
+#: inc/setup-shop.php:447
+msgid "Produkte und Schnupper-Paket legt das Lern-Plugin an – es ist nicht aktiv (Schritt 1)."
+msgstr ""
+
+#: inc/setup-shop.php:464
+msgid "Im Lern-Plugin dürfen derzeit alle angemeldeten Nutzer alles lernen (Bootsprüfung › Einstellungen › Zugang ohne Shop). Vor dem Verkaufsstart auf „Nur kostenlose Regeln und Freischaltungen“ umstellen – erst dann gelten Käufe und das Schnupper-Paket. Der Assistent ändert das nicht."
+msgstr ""
+
+#: inc/setup-shop.php:467
+msgid "Den Kleinunternehmer-Hinweis an den Preisen zeigt das Lern-Plugin. Es ist nicht aktiv – nach dem Aktivieren diesen Schritt bitte erneut ausführen."
+msgstr ""
+
+#: inc/setup-shop.php:471
+#, php-format
+msgid "Weitere Steuersätze in der Standard-Klasse bleiben bestehen und gelten weiter: %s. Bei Bedarf unter WooCommerce › Einstellungen › Steuer › Standard entfernen."
+msgstr ""
+
+#: inc/setup-shop.php:474
+msgid "Für manche Länder gibt es schon einen anderen Satz. Der Assistent legt dort keinen zweiten an und löscht nichts – bitte den vorhandenen Satz prüfen."
+msgstr ""
+
+#: inc/setup-shop.php:477
+#, php-format
+msgid "Produkte werden nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter Bootsprüfung › Preise abgleichen."
+msgstr ""
+
+#: inc/setup-shop.php:481
+msgid "Der Shop ist im WooCommerce-Modus „Demnächst verfügbar“: Gäste sehen Shop, Produkte, Warenkorb und Kasse nicht. Zum Livegang hier „Shop für Kunden sichtbar machen“ wählen oder unter WooCommerce › Einstellungen › Sichtbarkeit umstellen."
+msgstr ""
+
+#: inc/setup-shop.php:532
+msgid "Rechtstexte veröffentlicht, ohne Platzhalter"
+msgstr ""
+
+#: inc/setup-shop.php:534
+msgid "Produkte veröffentlicht"
+msgstr ""
+
+#: inc/setup-shop.php:534
+msgid "Noch kein Produkt veröffentlicht."
+msgstr ""
+
+#: inc/setup-shop.php:535
+#: inc/setup-shop.php:1027
+#: inc/setup-shop.php:1064
+msgid "Produkte"
+msgstr ""
+
+#: inc/setup-shop.php:536
+msgid "Lern-Plugin aktiv"
+msgstr ""
+
+#: inc/setup-shop.php:537
+msgid "Ohne das Plugin „Bootsprüfung Lernplattform“ gibt es keine Lernzugänge, Prüfungsregelwerke und kein Schnupper-Paket."
+msgstr ""
+
+#: inc/setup-shop.php:538
+msgid "Plugins"
+msgstr ""
+
+#: inc/setup-shop.php:562
+msgid "erfüllt:"
+msgstr ""
+
+#: inc/setup-shop.php:562
+msgid "offen:"
+msgstr ""
+
+#: inc/setup-shop.php:564
+msgid "Zur Stelle"
+msgstr ""
+
+#: inc/setup-shop.php:594
+msgid "WooCommerce ist nicht aktiv."
+msgstr ""
+
+#: inc/setup-shop.php:609
+#, php-format
+msgid "%1$s: schon %2$s."
+msgstr ""
+
+#: inc/setup-shop.php:613
+#, php-format
+msgid "%1$s: nicht übernommen, bleibt %2$s."
+msgstr ""
+
+#: inc/setup-shop.php:617
+#, php-format
+msgid "%s: wurde seit der Vorschau geändert – nicht überschrieben. Bitte die Vorschau neu laden."
+msgstr ""
+
+#: inc/setup-shop.php:628
+#, php-format
+msgid "%1$s: nicht umgestellt – die Livegang-Ampel hat offene Punkte (%2$s). Zum Sichtbarmachen trotzdem „Trotzdem sichtbar machen“ ankreuzen bzw. in WP-CLI --force-live angeben."
+msgstr ""
+
+#: inc/setup-shop.php:632
+#, php-format
+msgid "Shop trotz offener Punkte der Livegang-Ampel sichtbar gemacht: %s."
+msgstr ""
+
+#: inc/setup-shop.php:634
+msgid "Shop trotz offener Punkte der Livegang-Ampel sichtbar gemacht"
+msgstr ""
+
+#: inc/setup-shop.php:645
+#: inc/setup-shop.php:735
+#, php-format
+msgid "%1$s: %2$s → %3$s."
+msgstr ""
+
+#: inc/setup-shop.php:653
+msgid "Steuersätze: nicht angelegt (nicht ausgewählt)."
+msgstr ""
+
+#: inc/setup-shop.php:662
+#, php-format
+msgid "Steuersatz %1$s %2$s nicht angelegt: Es gibt schon %3$s – bitte prüfen."
+msgstr ""
+
+#: inc/setup-shop.php:672
+#, php-format
+msgid "Steuersatz %s konnte nicht angelegt werden."
+msgstr ""
+
+#: inc/setup-shop.php:677
+#, php-format
+msgid "%1$d Steuersatz angelegt: %2$s."
+msgid_plural "%1$d Steuersätze angelegt: %2$s."
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup-shop.php:680
+#, php-format
+msgid "%d Steuersatz war schon vorhanden."
+msgid_plural "%d Steuersätze waren schon vorhanden."
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup-shop.php:686
+msgid "Shop-Seiten: nicht umbenannt (nicht ausgewählt)."
+msgstr ""
+
+#: inc/setup-shop.php:691
+#, php-format
+msgid "Seite „%s“ konnte nicht umbenannt werden."
+msgstr ""
+
+#: inc/setup-shop.php:694
+#, php-format
+msgid "Seite „%1$s“ (/%2$s/) → „%3$s“ (/%4$s/)."
+msgstr ""
+
+#: inc/setup-shop.php:702
+msgid "Produkte: nicht angelegt (nicht ausgewählt)."
+msgstr ""
+
+#: inc/setup-shop.php:704
+#, php-format
+msgid "Produkte nicht abgeglichen: Bei %s ist der reguläre Preis nicht höher als der Angebotspreis im Shop. Bitte unter Bootsprüfung › Preise abgleichen."
+msgstr ""
+
+#: inc/setup-shop.php:710
+#, php-format
+msgid "Produktkatalog abgeglichen: %1$d Produkte, davon %2$d neu (als Entwurf). Veröffentlichen unter Produkte bzw. Bootsprüfung › Kostenlose Bereiche."
+msgstr ""
+
+#: inc/setup-shop.php:713
+#, php-format
+msgid "Bei %d Produkt blieben von Hand geänderte Felder erhalten."
+msgid_plural "Bei %d Produkten blieben von Hand geänderte Felder erhalten."
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup-shop.php:720
+msgid "Schnupper-Paket: nicht angelegt (nicht ausgewählt)."
+msgstr ""
+
+#: inc/setup-shop.php:724
+#, php-format
+msgid "Schnupper-Paket: %d Regel(n) angelegt."
+msgstr ""
+
+#: inc/setup-shop.php:725
+msgid "Schnupper-Paket: schon vollständig vorhanden."
+msgstr ""
+
+#: inc/setup-shop.php:728
+msgid "Produkte und Schnupper-Paket nicht angelegt: Das Lern-Plugin ist nicht aktiv."
+msgstr ""
+
+#: inc/setup-shop.php:759
+msgid "WordPress darf bzw. kann hier keine Sprachdateien schreiben (DISALLOW_FILE_MODS oder fehlende Schreibrechte für wp-content/languages)."
+msgstr ""
+
+#: inc/setup-shop.php:761
+msgid "wordpress.org ist nicht erreichbar oder lieferte das Paket nicht."
+msgstr ""
+
+#: inc/setup-shop.php:764
+#, php-format
+msgid "Das deutsche Sprachpaket konnte nicht geladen werden: %s Die Website-Sprache bleibt unverändert; alle anderen Punkte wurden trotzdem ausgeführt. Nachholen unter Einstellungen › Allgemein › Sprache der Website."
+msgstr ""
+
+#: inc/setup-shop.php:779
+#, php-format
+msgid "%d Übersetzung(en) für Plugins und Themes geladen."
+msgstr ""
+
+#: inc/setup-shop.php:782
+msgid "Übersetzungen der Plugins konnten nicht geladen werden (später unter Dashboard › Aktualisierungen)."
+msgstr ""
+
+#: inc/setup-shop.php:785
+msgid "Sprachpaket war schon installiert."
+msgstr ""
+
+#: inc/setup-shop.php:785
+msgid "Sprachpaket geladen."
+msgstr ""
+
+#: inc/setup-shop.php:839
+msgid "3. Shop einrichten"
+msgstr ""
+
+#: inc/setup-shop.php:840
+msgid "Grundeinstellungen für WooCommerce: Anschrift, Euro-Preise im deutschen Format, Mehrwertsteuer, Verkauf ohne Versand (nur digitale Produkte), Kundenkonten und Sprache. Zuerst siehst du eine Vorschau „aktuell → neu“; geändert wird erst nach deiner Bestätigung. Was du in WooCommerce schon anders eingestellt hast, bleibt, solange du es nicht anhakst."
+msgstr ""
+
+#: inc/setup-shop.php:850
+msgid "Region (optional)"
+msgstr ""
+
+#: inc/setup-shop.php:850
+msgid "– keine Angabe –"
+msgstr ""
+
+#: inc/setup-shop.php:867
+msgid "Mehrwertsteuer"
+msgstr ""
+
+#: inc/setup-shop.php:869
+msgid "OSS: Satz des Kundenlands (EU)"
+msgstr ""
+
+#: inc/setup-shop.php:870
+msgid "Für Shops, die am OSS-Verfahren (One-Stop-Shop) teilnehmen – Pflicht, sobald die Verkäufe an Privatkunden in anderen EU-Ländern 10.000 € im Jahr übersteigen. Es werden die Normalsätze aller 27 EU-Länder angelegt; WooCommerce berechnet die Steuer nach der Rechnungsadresse. Kunden außerhalb der EU zahlen keine Mehrwertsteuer."
+msgstr ""
+
+#: inc/setup-shop.php:871
+msgid "Nur eigener Satz für alle Kunden"
+msgstr ""
+
+#: inc/setup-shop.php:872
+msgid "Ein Satz für alle Kunden, z. B. 19 % in Deutschland oder 20 % in Österreich – solange du nicht am OSS teilnimmst (unter der EU-Lieferschwelle)."
+msgstr ""
+
+#: inc/setup-shop.php:873
+msgid "Kleinunternehmer: keine Mehrwertsteuer"
+msgstr ""
+
+#: inc/setup-shop.php:874
+msgid "Keine Steuerberechnung. Unter den Preisen, in Warenkorb und Kasse und in den Bestellmails steht ein Hinweis – in Deutschland nach § 19 UStG, in Österreich nach der Kleinunternehmerregelung (§ 6 Abs. 1 Z 27 UStG)."
+msgstr ""
+
+#: inc/setup-shop.php:880
+msgid "Satz in %:"
+msgstr ""
+
+#: inc/setup-shop.php:880
+msgid "Vorschlag nach Land: DE 19, AT 20."
+msgstr ""
+
+#: inc/setup-shop.php:884
+msgid "Hinweistext:"
+msgstr ""
+
+#: inc/setup-shop.php:884
+msgid "Steht hinter jedem Preis und in Warenkorb und Kasse als „Alle Preise …“ (höchstens 80 Zeichen). Später änderbar unter Bootsprüfung › Einstellungen › Hinweis zum Preis."
+msgstr ""
+
+#: inc/setup-shop.php:888
+msgid "Welcher Weg für dich gilt, klärst du im Zweifel mit deinem Steuerberater."
+msgstr ""
+
+#: inc/setup-shop.php:888
+msgid "Bestehende Steuersätze werden nie gelöscht; Sätze und Einstellungen kannst du später unter WooCommerce › Einstellungen › Steuer ändern."
+msgstr ""
+
+#: inc/setup-shop.php:891
+msgid "Kunden in der EU und der Schweiz (empfohlen)"
+msgstr ""
+
+#: inc/setup-shop.php:892
+msgid "Kunden in allen Ländern"
+msgstr ""
+
+#: inc/setup-shop.php:893
+msgid "Nur digitale Produkte: Versand und Lieferadresse werden abgeschaltet."
+msgstr ""
+
+#: inc/setup-shop.php:894
+msgid "Außerdem"
+msgstr ""
+
+#: inc/setup-shop.php:896
+msgid "Produkte als Entwurf anlegen (Katalog des Lern-Plugins, Preise von der Preis-Seite; nichts wird veröffentlicht)"
+msgstr ""
+
+#: inc/setup-shop.php:897
+msgid "Schnupper-Paket anlegen (kostenloser Teilumfang je Kurs für „Kostenlos testen“)"
+msgstr ""
+
+#: inc/setup-shop.php:899
+msgid "Produkte und Schnupper-Paket: erst mit aktivem Lern-Plugin (Schritt 1)."
+msgstr ""
+
+#: inc/setup-shop.php:901
+msgid "Kunden-Registrierung einschalten (Konto anlegen auf „Mein Konto“)"
+msgstr ""
+
+#: inc/setup-shop.php:902
+msgid "Website-Sprache Deutsch (lädt das Sprachpaket von wordpress.org)"
+msgstr ""
+
+#: inc/setup-shop.php:903
+msgid "Shop für Kunden sichtbar machen (WooCommerce-Modus „Demnächst verfügbar“ aus) – erst zum Livegang; die Vorschau zeigt vorher die Livegang-Ampel"
+msgstr ""
+
+#: inc/setup-shop.php:905
+msgid "Vorschau anzeigen"
+msgstr ""
+
+#: inc/setup-shop.php:905
+msgid "Es wird noch nichts geändert."
+msgstr ""
+
+#: inc/setup-shop.php:918
+#: inc/setup.php:550
+msgid "Zurück zur Einrichtung"
+msgstr ""
+
+#: inc/setup-shop.php:921
+msgid "WooCommerce ist nicht aktiv – bitte zuerst in Schritt 1 installieren und aktivieren."
+msgstr ""
+
+#: inc/setup-shop.php:936
+#: inc/setup-shop.php:1036
+msgid "Eingaben ändern"
+msgstr ""
+
+#: inc/setup-shop.php:941
+msgid "Dein Benutzerkonto darf die WooCommerce-Einstellungen nicht ändern (manage_woocommerce)."
+msgstr ""
+
+#: inc/setup-shop.php:947
+msgid "Shop einrichten – Vorschau"
+msgstr ""
+
+#: inc/setup-shop.php:948
+msgid "Noch ist nichts geändert. Angehakt ist, was neu gesetzt wird: leere Felder und WooCommerce-Werkseinstellungen. Gelb markiert und nicht angehakt sind Werte, die du schon anders eingestellt hast – sie bleiben, außer du hakst sie an."
+msgstr ""
+
+#: inc/setup-shop.php:957
+msgid "Einstellung"
+msgstr ""
+
+#: inc/setup-shop.php:957
+msgid "Aktuell"
+msgstr ""
+
+#: inc/setup-shop.php:957
+msgid "Neu"
+msgstr ""
+
+#: inc/setup-shop.php:968
+msgid "schon so"
+msgstr ""
+
+#: inc/setup-shop.php:969
+msgid "von dir eingestellt – bleibt ohne Häkchen"
+msgstr ""
+
+#: inc/setup-shop.php:970
+msgid "leer"
+msgstr ""
+
+#: inc/setup-shop.php:970
+msgid "Werkseinstellung"
+msgstr ""
+
+#: inc/setup-shop.php:981
+msgid "Livegang-Ampel: Ist alles bereit, damit Kunden den Shop sehen?"
+msgstr ""
+
+#: inc/setup-shop.php:984
+msgid "Alle Punkte sind grün. „Shop für Kunden sichtbar“ oben anhaken, um den Shop sichtbar zu machen."
+msgstr ""
+
+#: inc/setup-shop.php:986
+msgid "Es sind noch Punkte offen. Du kannst den Shop trotzdem sichtbar machen – dann bitte zusätzlich bestätigen:"
+msgstr ""
+
+#: inc/setup-shop.php:987
+msgid "Trotzdem sichtbar machen (ich habe die offenen Punkte gesehen)"
+msgstr ""
+
+#: inc/setup-shop.php:995
+msgid "Steuersätze (Standard-Klasse)"
+msgstr ""
+
+#: inc/setup-shop.php:997
+#, php-format
+msgid "Normalsätze der 27 EU-Länder, Stand %s. Bitte vor dem Livegang prüfen – Sätze ändern sich (z. B. bei der EU-Kommission unter „VAT rates“ oder mit dem Steuerberater). Regionale Sätze (z. B. Madeira, Azoren, griechische Inseln) sind nicht enthalten."
+msgstr ""
+
+#: inc/setup-shop.php:1005
+msgid "vorhanden"
+msgstr ""
+
+#: inc/setup-shop.php:1006
+#, php-format
+msgid "vorhanden: %s – wird nicht angelegt"
+msgstr ""
+
+#: inc/setup-shop.php:1007
+msgid "neu"
+msgstr ""
+
+#: inc/setup-shop.php:1013
+#, php-format
+msgid "%d fehlenden Steuersatz anlegen"
+msgid_plural "%d fehlende Steuersätze anlegen"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup-shop.php:1013
+msgid "Bestehende Sätze werden nicht verändert oder gelöscht."
+msgstr ""
+
+#: inc/setup-shop.php:1015
+msgid "Keine Steuersätze anzulegen."
+msgstr ""
+
+#: inc/setup-shop.php:1019
+msgid "Shop-Seiten"
+msgstr ""
+
+#: inc/setup-shop.php:1019
+msgid "WooCommerce hat diese Seiten mit englischem Namen angelegt. Neuer Titel und neue Adresse; WooCommerce verlinkt automatisch die neuen Adressen, die bisherigen gelten danach nicht mehr."
+msgstr ""
+
+#: inc/setup-shop.php:1023
+msgid "Shop-Seiten auf Deutsch umbenennen"
+msgstr ""
+
+#: inc/setup-shop.php:1027
+#, php-format
+msgid "%1$d Produkte aus dem Katalog des Lern-Plugins: %2$d neu (als Entwurf), %3$d schon vorhanden (Status bleibt; Preise kommen von der Preis-Seite, von Hand geänderte Felder bleiben)."
+msgstr ""
+
+#: inc/setup-shop.php:1029
+msgid "Produkte anlegen bzw. abgleichen (neue als Entwurf)"
+msgstr ""
+
+#: inc/setup-shop.php:1033
+msgid "Schnupper-Paket"
+msgstr ""
+
+#: inc/setup-shop.php:1034
+#, php-format
+msgid "%1$d Regeln für %2$d Kurse anlegen (10 Fragen je Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe)"
+msgstr ""
+
+#: inc/setup-shop.php:1034
+msgid "schon vollständig vorhanden – nichts anzulegen"
+msgstr ""
+
+#: inc/setup-shop.php:1036
+msgid "Ausgewählte übernehmen"
+msgstr ""
+
+#: inc/setup-shop.php:1044
+msgid "Kein Ergebnis vorhanden."
+msgstr ""
+
+#: inc/setup-shop.php:1049
+msgid "Shop einrichten – Ergebnis"
+msgstr ""
+
+#: inc/setup-shop.php:1050
+msgid "Fehler"
+msgstr ""
+
+#: inc/setup-shop.php:1050
+msgid "Erledigt"
+msgstr ""
+
+#: inc/setup-shop.php:1050
+msgid "Übersprungen bzw. unverändert"
+msgstr ""
+
+#: inc/setup-shop.php:1064
+msgid "Artikelnummer"
+msgstr ""
+
+#: inc/setup-shop.php:1064
+msgid "Ergebnis"
+msgstr ""
+
+#: inc/setup-shop.php:1064
+msgid "Von Hand geändert, nicht überschrieben"
+msgstr ""
+
+#: inc/setup-shop.php:1071
+msgid "Steuersätze in WooCommerce ansehen"
+msgstr ""
+
+#: inc/setup-shop.php:1072
+msgid "Produkt-Entwürfe ansehen"
+msgstr ""
+
+#: inc/setup.php:82
+#: inc/setup.php:400
+msgid "Kurswasser einrichten"
+msgstr ""
+
+#: inc/setup.php:99
+msgid "Shop, Warenkorb und Kasse. Das Lern-Plugin schaltet Kurse nach dem Kauf frei."
+msgstr ""
+
+#: inc/setup.php:103
+msgid "Optional. Mit Yoast kannst du in Schritt 2 wählen, dass die SEO-Daten der Inhaltsseiten in Yoast stehen."
+msgstr ""
+
+#: inc/setup.php:107
+msgid "Unser Lern-Plugin: Fragen, Prüfungssimulation, Trainer, FAQ und Freischaltung. Nicht auf wordpress.org."
+msgstr ""
+
+#: inc/setup.php:160
+msgid "Auf dieser Website dürfen keine Plugins installiert werden (DISALLOW_FILE_MODS). Bitte die Plugins über dein Hosting bzw. dein Deployment einspielen."
+msgstr ""
+
+#: inc/setup.php:163
+msgid "Dein Benutzerkonto darf keine Plugins installieren."
+msgstr ""
+
+#: inc/setup.php:171
+msgid "WordPress kann nicht direkt in den Plugin-Ordner schreiben, und es sind keine FTP-Zugangsdaten hinterlegt. Installiere die Plugins über Plugins › Installieren (dort fragt WordPress nach den Zugangsdaten)."
+msgstr ""
+
+#: inc/setup.php:203
+#, php-format
+msgid "wordpress.org ist nicht erreichbar oder kennt das Plugin nicht (%s)."
+msgstr ""
+
+#: inc/setup.php:207
+msgid "wordpress.org lieferte keinen Download-Link."
+msgstr ""
+
+#: inc/setup.php:233
+msgid "Keine Schreibrechte bzw. Zugangsdaten für den Plugin-Ordner."
+msgstr ""
+
+#: inc/setup.php:237
+msgid "In der ZIP-Datei wurde kein Plugin gefunden."
+msgstr ""
+
+#: inc/setup.php:261
+#, php-format
+msgid "%1$s nicht installiert: %2$s"
+msgstr ""
+
+#: inc/setup.php:266
+#, php-format
+msgid "%s nicht installiert: Es ist keine Installationsquelle hinterlegt. Lade die ZIP-Datei über „Plugin hochladen“ hoch."
+msgstr ""
+
+#: inc/setup.php:271
+#, php-format
+msgid "%1$s konnte nicht installiert werden: %2$s"
+msgstr ""
+
+#: inc/setup.php:275
+#, php-format
+msgid "%1$s wurde im Ordner „%2$s“ installiert (erwartet: „%3$s“)."
+msgstr ""
+
+#: inc/setup.php:277
+#, php-format
+msgid "%s installiert."
+msgstr ""
+
+#: inc/setup.php:280
+#, php-format
+msgid "%s nicht aktiviert: Dein Benutzerkonto darf keine Plugins aktivieren."
+msgstr ""
+
+#: inc/setup.php:285
+#, php-format
+msgid "%1$s konnte nicht aktiviert werden: %2$s"
+msgstr ""
+
+#: inc/setup.php:289
+#, php-format
+msgid "%s aktiviert."
+msgstr ""
+
+#: inc/setup.php:292
+msgid "Keine Plugins ausgewählt bzw. alle ausgewählten sind schon aktiv."
+msgstr ""
+
+#: inc/setup.php:321
+msgid "Es wurden keine Inhaltsseiten angelegt. Du kannst das hier oder über den Hinweis im Dashboard jederzeit nachholen."
+msgstr ""
+
+#: inc/setup.php:324
+msgid "Bitte eine Möglichkeit auswählen."
+msgstr ""
+
+#: inc/setup.php:327
+msgid "Yoast SEO ist nicht aktiv – die SEO-Daten können nicht in Yoast geschrieben werden."
+msgstr ""
+
+#: inc/setup.php:332
+#: inc/setup.php:348
+msgid "Gerade läuft schon ein Abgleich der Inhaltsseiten. Bitte in einer Minute erneut versuchen."
+msgstr ""
+
+#: inc/setup.php:336
+msgid "Inhaltsseiten abgeglichen. SEO-Daten stehen in Yoast (und weiter in den Theme-Feldern für einen späteren Wechsel)."
+msgstr ""
+
+#: inc/setup.php:337
+msgid "Inhaltsseiten abgeglichen. Die SEO-Daten gibt das Theme aus."
+msgstr ""
+
+#: inc/setup.php:344
+msgid "Nichts geändert: Bitte bestätige, dass deine Änderungen überschrieben werden dürfen."
+msgstr ""
+
+#: inc/setup.php:351
+msgid "Alle Inhaltsseiten wurden aus dem Theme übernommen."
+msgstr ""
+
+#: inc/setup.php:428
+msgid "Drei Schritte: die passenden Plugins installieren, die Info- und Marketingseiten des Themes anlegen und den Shop einrichten. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen."
+msgstr ""
+
+#: inc/setup.php:429
+msgid "Zwei Schritte: die passenden Plugins installieren und die Info- und Marketingseiten des Themes anlegen. Du kannst diese Seite jederzeit wieder unter Design › Kurswasser einrichten öffnen. Schritt 3 „Shop einrichten“ erscheint, sobald WooCommerce aktiv ist."
+msgstr ""
+
+#: inc/setup.php:441
+msgid "aktiv"
+msgstr ""
+
+#: inc/setup.php:442
+msgid "installiert, nicht aktiv"
+msgstr ""
+
+#: inc/setup.php:443
+msgid "nicht installiert"
+msgstr ""
+
+#: inc/setup.php:452
+msgid "1. Plugins"
+msgstr ""
+
+#: inc/setup.php:458
+msgid "Plugin"
+msgstr ""
+
+#: inc/setup.php:458
+msgid "Status"
+msgstr ""
+
+#: inc/setup.php:465
+msgid "Häkchen = aktivieren"
+msgstr ""
+
+#: inc/setup.php:469
+msgid "Häkchen = von wordpress.org installieren und aktivieren"
+msgstr ""
+
+#: inc/setup.php:470
+#, php-format
+msgid "Häkchen = installieren und aktivieren aus %s"
+msgstr ""
+
+#: inc/setup.php:473
+msgid "In der Plugin-Suche öffnen"
+msgstr ""
+
+#: inc/setup.php:474
+msgid "Auf wordpress.org ansehen"
+msgstr ""
+
+#: inc/setup.php:476
+msgid "Dieses Plugin liegt nicht auf wordpress.org. Lade die ZIP-Datei (bootspruefung-learning.zip) über „Plugin hochladen“ hoch – oder hinterlege die Quelle in wp-config.php: define( 'KURSWASSER_LEARNING_PLUGIN_ZIP', 'https://…/bootspruefung-learning.zip' ); (URL oder Pfad)."
+msgstr ""
+
+#: inc/setup.php:478
+msgid "Plugin hochladen"
+msgstr ""
+
+#: inc/setup.php:487
+msgid "Ausgewählte installieren und aktivieren"
+msgstr ""
+
+#: inc/setup.php:488
+msgid "Reihenfolge: WooCommerce, Yoast SEO, Lern-Plugin. Das kann eine Minute dauern."
+msgstr ""
+
+#: inc/setup.php:490
+msgid "Alle Plugins sind aktiv."
+msgstr ""
+
+#: inc/setup.php:497
+msgid "2. Inhaltsseiten"
+msgstr ""
+
+#: inc/setup.php:500
+msgid "Im Theme liegen keine Inhaltsseiten (content/pages.php fehlt)."
+msgstr ""
+
+#: inc/setup.php:508
+#, php-format
+msgid "Das Theme bringt %d Info- und Marketingseiten mit (Ratgeber, Angebote, Über uns, FAQ …). Seiten mit offenen Angaben des Betreibers entstehen als Entwurf."
+msgstr ""
+
+#: inc/setup.php:518
+msgid "Du hattest „SEO-Daten in Yoast“ gewählt, Yoast SEO ist aber nicht aktiv. Bis dahin gibt das Theme die SEO-Daten aus."
+msgstr ""
+
+#: inc/setup.php:523
+msgid "Inhaltsseiten anlegen, SEO-Daten in Yoast (empfohlen)"
+msgstr ""
+
+#: inc/setup.php:524
+msgid "Die Seiten werden angelegt. Titel, Beschreibung, noindex und Canonical stehen direkt in den Yoast-Feldern jeder Seite – im Yoast-Kasten, in der Snippet-Vorschau und in der Yoast-Sitemap. Bei Artikeln wird der Yoast-Artikeltyp „Article“ gesetzt. Ein Fokus-Keyword nur, wenn die Vorlage eines vorgibt. Yoast-Felder, die du schon ausgefüllt hast, werden nicht überschrieben."
+msgstr ""
+
+#: inc/setup.php:525
+msgid "Inhaltsseiten anlegen, SEO-Daten im Theme"
+msgstr ""
+
+#: inc/setup.php:526
+msgid "Wie ohne Yoast: Die SEO-Daten stehen in der Box „SEO (Kurswasser)“. Yoast nutzt sie nur, wo sein eigenes Feld leer ist; im Yoast-Kasten erscheinen sie nicht."
+msgstr ""
+
+#: inc/setup.php:528
+msgid "Inhaltsseiten anlegen (SEO-Daten gibt das Theme aus)"
+msgstr ""
+
+#: inc/setup.php:529
+msgid "Titel, Beschreibung, noindex, Canonical und strukturierte Daten gibt das Theme selbst aus (Box „SEO (Kurswasser)“ an jeder Seite)."
+msgstr ""
+
+#: inc/setup.php:531
+msgid "Vorerst nicht anlegen"
+msgstr ""
+
+#: inc/setup.php:532
+msgid "Es passiert nichts. Der Hinweis im Dashboard und diese Seite bleiben – du kannst später wählen."
+msgstr ""
+
+#: inc/setup.php:538
+msgid "Später gilt: Ein neuer Vorlagenstand aus dem Theme ersetzt nur, was du in WordPress nicht verändert hast – Seiteninhalt und SEO-Felder. Von dir geänderte Seiten und Felder bleiben."
+msgstr ""
+
+#: inc/setup.php:539
+msgid "Auswahl übernehmen"
+msgstr ""
+
+#: inc/setup.php:541
+#: inc/setup.php:551
+msgid "Alles aus dem Theme übernehmen (überschreibt deine Änderungen)"
+msgstr ""
+
+#: inc/setup.php:542
+msgid "Setzt alle Inhaltsseiten und ihre SEO-Felder (auch die Yoast-Felder, wenn du Yoast gewählt hast) auf den Stand der Vorlagen zurück – auch Seiten und Felder, die du geändert hast. Vorher siehst du, welche Seiten betroffen sind."
+msgstr ""
+
+#: inc/setup.php:543
+msgid "Betroffene Seiten anzeigen …"
+msgstr ""
+
+#: inc/setup.php:552
+msgid "Achtung:"
+msgstr ""
+
+#: inc/setup.php:553
+msgid "Alle Inhaltsseiten aus dem Theme werden auf den Vorlagenstand gesetzt. Was du an den unten aufgeführten Seiten geändert hast – Text, Titel, SEO-Felder und Yoast-Felder –, geht verloren. Ältere Fassungen des Seitentexts findest du danach in den Revisionen der Seite; SEO- und Yoast-Felder haben keine Revisionen."
+msgstr ""
+
+#: inc/setup.php:556
+msgid "SEO-Daten: Theme-Felder und Yoast."
+msgstr ""
+
+#: inc/setup.php:556
+msgid "SEO-Daten: Theme-Felder (Yoast-Felder bleiben unberührt)."
+msgstr ""
+
+#: inc/setup.php:558
+msgid "Keine von dir geänderten Seiten oder Felder gefunden – es würden nur unveränderte Seiten auf den neuesten Vorlagenstand gebracht."
+msgstr ""
+
+#: inc/setup.php:560
+#, php-format
+msgid "Betroffen: %d Seite"
+msgid_plural "Betroffen: %d Seiten"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/setup.php:568
+msgid "Nicht betroffen: Rechtstexte (Impressum, Kontakt usw.), Seiten im Papierkorb und veröffentlichte Seiten, deren neue Vorlage noch Platzhalter enthält."
+msgstr ""
+
+#: inc/setup.php:571
+msgid "Ich habe verstanden: Meine Änderungen an diesen Seiten werden überschrieben."
+msgstr ""
+
+#: inc/setup.php:572
+msgid "Alles aus dem Theme übernehmen"
+msgstr ""
+
+#: inc/setup.php:572
+msgid "Abbrechen"
+msgstr ""
+
+#: patterns/courses.php
+msgctxt "Pattern title"
+msgid "Kurse (Kacheln mit Preis)"
+msgstr ""
+
+#: patterns/cta.php
+msgctxt "Pattern title"
+msgid "Abschluss-Aufruf"
+msgstr ""
+
+#: patterns/faq.php
+msgctxt "Pattern title"
+msgid "Häufige Fragen"
+msgstr ""
+
+#: patterns/faq.php:25
+msgid "Geld-zurück-Garantie"
+msgstr ""
+
+#: patterns/faq.php:26
+msgid "Gruppenangebote"
+msgstr ""
+
+#: patterns/features.php
+msgctxt "Pattern title"
+msgid "Funktionen der Lernplattform"
+msgstr ""
+
+#: patterns/groups.php
+msgctxt "Pattern title"
+msgid "Gruppen und Vereine"
+msgstr ""
+
+#: patterns/guarantee.php
+msgctxt "Pattern title"
+msgid "Geld-zurück-Garantie"
+msgstr ""
+
+#: patterns/guide-tiles.php
+msgctxt "Pattern title"
+msgid "Ratgeber (Kacheln)"
+msgstr ""
+
+#: patterns/hero.php
+msgctxt "Pattern title"
+msgid "Hero mit Foto"
+msgstr ""
+
+#: patterns/popular.php
+msgctxt "Pattern title"
+msgid "Beliebte Kurse (Shop)"
+msgstr ""
+
+#: patterns/steps.php
+msgctxt "Pattern title"
+msgid "Ablauf in drei Schritten"
+msgstr ""
+
+#: patterns/usp.php
+msgctxt "Pattern title"
+msgid "Vorteilsleiste"
+msgstr ""

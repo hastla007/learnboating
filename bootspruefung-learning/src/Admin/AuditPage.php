@@ -24,17 +24,16 @@ final class AuditPage
     /** Bereiche für den Filter „Ereignis“: Schlüssel => [Bezeichnung, SQL-LIKE-Muster der Aktion …] */
     private static function areas(): array
     {
-        $d = 'bootspruefung-learning';
 
         return [
-            'entitlement' => [__('Zugänge (alle Ereignisse)', $d), 'entitlement\_%', 'expiry\_reminder\_%'],
-            'group' => [__('Gruppenlizenzen (alle Ereignisse)', $d), 'group\_%'],
-            'shop' => [__('Shop, Bestellungen, Garantie', $d), 'order\_%', 'money\_back\_%', 'product\_access\_%', 'shop\_%', 'member\_discount\_%', 'voucher\_%', 'free\_tier\_%'],
-            'dispute' => [__('Zahlungskonflikte', $d), 'dispute\_%'],
-            'content' => [__('Inhalte, Rechte und Regelwerke', $d), 'override\_%', 'chart\_%', 'file\_%', 'free\_rule\_%', 'drip\_rule\_%', 'exam\_committee\_%'],
-            'import' => [__('Importe', $d), 'import\_%'],
-            'privacy' => [__('Datenschutz und Konten', $d), 'privacy\_%', 'account\_%', 'entitlements\_closed\_%'],
-            'settings' => [__('Einstellungen', $d), 'settings\_%', 'mobile\_%'],
+            'entitlement' => [__('Zugänge (alle Ereignisse)', 'bootspruefung-learning'), 'entitlement\_%', 'expiry\_reminder\_%'],
+            'group' => [__('Gruppenlizenzen (alle Ereignisse)', 'bootspruefung-learning'), 'group\_%'],
+            'shop' => [__('Shop, Bestellungen, Garantie', 'bootspruefung-learning'), 'order\_%', 'money\_back\_%', 'product\_access\_%', 'shop\_%', 'member\_discount\_%', 'voucher\_%', 'free\_tier\_%'],
+            'dispute' => [__('Zahlungskonflikte', 'bootspruefung-learning'), 'dispute\_%'],
+            'content' => [__('Inhalte, Rechte und Regelwerke', 'bootspruefung-learning'), 'override\_%', 'chart\_%', 'file\_%', 'free\_rule\_%', 'drip\_rule\_%', 'exam\_committee\_%'],
+            'import' => [__('Importe', 'bootspruefung-learning'), 'import\_%'],
+            'privacy' => [__('Datenschutz und Konten', 'bootspruefung-learning'), 'privacy\_%', 'account\_%', 'entitlements\_closed\_%'],
+            'settings' => [__('Einstellungen', 'bootspruefung-learning'), 'settings\_%', 'mobile\_%'],
         ];
     }
 
@@ -64,15 +63,14 @@ final class AuditPage
     /** @param array<string,string> $filter */
     private function renderFilter(array $filter): void
     {
-        $d = 'bootspruefung-learning';
         echo '<form method="get" class="bp-filter" style="margin:12px 0"><input type="hidden" name="page" value="'.esc_attr(self::SLUG).'">';
-        printf('<label for="bp-audit-from">%s</label> <input type="date" id="bp-audit-from" name="from" value="%s"> ', esc_html__('von', $d), esc_attr($filter['from']));
-        printf('<label for="bp-audit-to">%s</label> <input type="date" id="bp-audit-to" name="to" value="%s"> ', esc_html__('bis', $d), esc_attr($filter['to']));
-        echo '<label for="bp-audit-event">'.esc_html__('Ereignis', $d).'</label> <select id="bp-audit-event" name="event"><option value="">'.esc_html__('alle Ereignisse', $d).'</option><optgroup label="'.esc_attr__('Bereiche', $d).'">';
+        printf('<label for="bp-audit-from">%s</label> <input type="date" id="bp-audit-from" name="from" value="%s"> ', esc_html__('von', 'bootspruefung-learning'), esc_attr($filter['from']));
+        printf('<label for="bp-audit-to">%s</label> <input type="date" id="bp-audit-to" name="to" value="%s"> ', esc_html__('bis', 'bootspruefung-learning'), esc_attr($filter['to']));
+        echo '<label for="bp-audit-event">'.esc_html__('Ereignis', 'bootspruefung-learning').'</label> <select id="bp-audit-event" name="event"><option value="">'.esc_html__('alle Ereignisse', 'bootspruefung-learning').'</option><optgroup label="'.esc_attr__('Bereiche', 'bootspruefung-learning').'">';
         foreach (self::areas() as $key => $area) {
             printf('<option value="%s" %s>%s</option>', esc_attr('area:'.$key), selected($filter['event'], 'area:'.$key, false), esc_html($area[0]));
         }
-        echo '</optgroup><optgroup label="'.esc_attr__('Einzelne Ereignisse', $d).'">';
+        echo '</optgroup><optgroup label="'.esc_attr__('Einzelne Ereignisse', 'bootspruefung-learning').'">';
         global $wpdb;
         $actions = $wpdb->get_col("SELECT DISTINCT action FROM {$wpdb->prefix}bp_audit_log ORDER BY action LIMIT 300");
         $options = [];
@@ -84,14 +82,14 @@ final class AuditPage
             printf('<option value="%s" %s>%s</option>', esc_attr('action:'.$action), selected($filter['event'], 'action:'.$action, false), esc_html($label));
         }
         echo '</optgroup></select> ';
-        printf('<label for="bp-audit-user">%s</label> <input type="text" id="bp-audit-user" name="user" value="%s" placeholder="%s" size="18"> ', esc_html__('Nutzer', $d), esc_attr($filter['user_input']), esc_attr__('Nummer, E-Mail oder Login', $d));
-        echo '<label for="bp-audit-object">'.esc_html__('Bezug', $d).'</label> <select id="bp-audit-object" name="object">';
-        foreach (['' => __('beliebig', $d), 'entitlement' => __('Zugang Nr.', $d), 'group' => __('Gruppe Nr.', $d), 'order' => __('Bestellung Nr.', $d)] as $value => $label) {
+        printf('<label for="bp-audit-user">%s</label> <input type="text" id="bp-audit-user" name="user" value="%s" placeholder="%s" size="18"> ', esc_html__('Nutzer', 'bootspruefung-learning'), esc_attr($filter['user_input']), esc_attr__('Nummer, E-Mail oder Login', 'bootspruefung-learning'));
+        echo '<label for="bp-audit-object">'.esc_html__('Bezug', 'bootspruefung-learning').'</label> <select id="bp-audit-object" name="object">';
+        foreach (['' => __('beliebig', 'bootspruefung-learning'), 'entitlement' => __('Zugang Nr.', 'bootspruefung-learning'), 'group' => __('Gruppe Nr.', 'bootspruefung-learning'), 'order' => __('Bestellung Nr.', 'bootspruefung-learning')] as $value => $label) {
             printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($filter['object'], $value, false), esc_html($label));
         }
-        printf('</select> <input type="number" min="1" name="object_id" value="%s" aria-label="%s" style="width:100px"> ', esc_attr($filter['object_id'] ? (string) $filter['object_id'] : ''), esc_attr__('Nummer des Bezugs', $d));
-        submit_button(__('Filtern', $d), 'secondary', '', false);
-        echo ' <a href="'.esc_url(Ui::url(self::SLUG)).'">'.esc_html__('zurücksetzen', $d).'</a></form>';
+        printf('</select> <input type="number" min="1" name="object_id" value="%s" aria-label="%s" style="width:100px"> ', esc_attr($filter['object_id'] ? (string) $filter['object_id'] : ''), esc_attr__('Nummer des Bezugs', 'bootspruefung-learning'));
+        submit_button(__('Filtern', 'bootspruefung-learning'), 'secondary', '', false);
+        echo ' <a href="'.esc_url(Ui::url(self::SLUG)).'">'.esc_html__('zurücksetzen', 'bootspruefung-learning').'</a></form>';
     }
 
     /**
@@ -287,15 +285,14 @@ final class AuditPage
     /** Aufklappbarer „Verlauf“ (Zugang, Gruppe) mit Link zum vollständigen Protokoll für Administratoren. */
     public static function historyBox(array $rows, string $object, int $id): void
     {
-        $d = 'bootspruefung-learning';
         echo '<details class="bp-history"><summary><strong>'.esc_html(sprintf(
             /* translators: %d: Anzahl Einträge */
-            _n('Verlauf (%d Eintrag)', 'Verlauf (%d Einträge)', count($rows), $d),
+            _n('Verlauf (%d Eintrag)', 'Verlauf (%d Einträge)', count($rows), 'bootspruefung-learning'),
             count($rows)
         )).'</strong></summary>';
         self::table($rows, false);
         if (current_user_can(self::CAPABILITY)) {
-            echo '<p><a href="'.esc_url(Ui::url(self::SLUG, ['object' => $object, 'object_id' => $id])).'">'.esc_html__('Im Protokoll öffnen', $d).'</a></p>';
+            echo '<p><a href="'.esc_url(Ui::url(self::SLUG, ['object' => $object, 'object_id' => $id])).'">'.esc_html__('Im Protokoll öffnen', 'bootspruefung-learning').'</a></p>';
         }
         echo '</details>';
     }
@@ -303,7 +300,6 @@ final class AuditPage
     /** @param list<object> $rows */
     public static function table(array $rows, bool $withObject): void
     {
-        $d = 'bootspruefung-learning';
         $out = [];
         foreach ($rows as $r) {
             $cells = [
@@ -318,12 +314,12 @@ final class AuditPage
             $cells[] = esc_html(self::details($r));
             $out[] = $cells;
         }
-        $headers = [__('Zeit', $d), __('Wer', $d), __('Ereignis', $d)];
+        $headers = [__('Zeit', 'bootspruefung-learning'), __('Wer', 'bootspruefung-learning'), __('Ereignis', 'bootspruefung-learning')];
         if ($withObject) {
-            $headers[] = __('Bezug', $d);
+            $headers[] = __('Bezug', 'bootspruefung-learning');
         }
-        array_push($headers, __('Begründung', $d), __('Details', $d));
-        Ui::table($headers, $out, __('Keine Einträge.', $d));
+        array_push($headers, __('Begründung', 'bootspruefung-learning'), __('Details', 'bootspruefung-learning'));
+        Ui::table($headers, $out, __('Keine Einträge.', 'bootspruefung-learning'));
     }
 
     public static function actorLabel(?int $userId): string
@@ -340,24 +336,23 @@ final class AuditPage
     /** Bezug als Text bzw. Link (Zugang, Gruppe, Bestellung) – escaptes HTML. */
     public static function objectLink(string $type, string $id): string
     {
-        $d = 'bootspruefung-learning';
         $num = ctype_digit($id) ? (int) $id : 0;
         switch ($type) {
             case 'entitlement':
-                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::SLUG, ['entitlement' => $num])).'">'.esc_html(sprintf(__('Zugang %d', $d), $num)).'</a>' : '–';
+                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::SLUG, ['entitlement' => $num])).'">'.esc_html(sprintf(__('Zugang %d', 'bootspruefung-learning'), $num)).'</a>' : '–';
             case 'group':
-                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::GROUP_SLUG, ['group' => $num])).'">'.esc_html(sprintf(__('Gruppe %d', $d), $num)).'</a>' : esc_html__('alle Gruppen', $d);
+                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::GROUP_SLUG, ['group' => $num])).'">'.esc_html(sprintf(__('Gruppe %d', 'bootspruefung-learning'), $num)).'</a>' : esc_html__('alle Gruppen', 'bootspruefung-learning');
             case 'order':
-                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::SLUG, ['order' => $num])).'">'.esc_html(sprintf(__('Bestellung %d', $d), $num)).'</a>' : '–';
+                return $num > 0 ? '<a href="'.esc_url(Ui::url(AccessPages::SLUG, ['order' => $num])).'">'.esc_html(sprintf(__('Bestellung %d', 'bootspruefung-learning'), $num)).'</a>' : '–';
             case 'user':
                 // Gelöschte Konten stehen nur als Prüfwert im Protokoll – nicht anzeigen.
-                return esc_html($num > 0 ? sprintf(__('Nutzer %d', $d), $num) : __('Nutzer (gelöscht)', $d));
+                return esc_html($num > 0 ? sprintf(__('Nutzer %d', 'bootspruefung-learning'), $num) : __('Nutzer (gelöscht)', 'bootspruefung-learning'));
         }
         $labels = [
-            'import_batch' => __('Import %s', $d), 'access_rule' => __('Regel %s', $d), 'product' => __('Produkt %s', $d),
-            'attachment' => __('Datei %s', $d), 'chart' => __('Seekarte %s', $d), 'user_request' => __('Datenschutz-Antrag %s', $d),
-            'exam_committee' => __('Prüfungsausschuss %s', $d), 'webhook' => __('Benachrichtigung von %s', $d), 'grant' => __('Gutschein-Freischaltung %s', $d),
-            'settings' => __('Einstellungen', $d),
+            'import_batch' => __('Import %s', 'bootspruefung-learning'), 'access_rule' => __('Regel %s', 'bootspruefung-learning'), 'product' => __('Produkt %s', 'bootspruefung-learning'),
+            'attachment' => __('Datei %s', 'bootspruefung-learning'), 'chart' => __('Seekarte %s', 'bootspruefung-learning'), 'user_request' => __('Datenschutz-Antrag %s', 'bootspruefung-learning'),
+            'exam_committee' => __('Prüfungsausschuss %s', 'bootspruefung-learning'), 'webhook' => __('Benachrichtigung von %s', 'bootspruefung-learning'), 'grant' => __('Gutschein-Freischaltung %s', 'bootspruefung-learning'),
+            'settings' => __('Einstellungen', 'bootspruefung-learning'),
         ];
         if ($type === '' && $id === '') {
             return '–';
@@ -369,126 +364,124 @@ final class AuditPage
         $count = $id === '' ? 0 : count(explode(',', $id));
 
         /* translators: 1: Inhaltsart, 2: Anzahl */
-        return esc_html($count > 1 ? sprintf(__('%1$s (%2$d Einträge)', $d), $entity, $count) : trim($entity.' '.$id));
+        return esc_html($count > 1 ? sprintf(__('%1$s (%2$d Einträge)', 'bootspruefung-learning'), $entity, $count) : trim($entity.' '.$id));
     }
 
     public static function actionLabel(string $action): string
     {
-        $d = 'bootspruefung-learning';
         $labels = [
             // Zugänge
-            'entitlement_create' => __('Zugang angelegt (Bestellung)', $d),
-            'entitlement_status' => __('Zugangsstatus geändert (Bestellung)', $d),
-            'entitlement_user' => __('Zugang auf anderes Kundenkonto umgestellt', $d),
-            'entitlement_manual_grant' => __('Zugang manuell freigeschaltet', $d),
-            'entitlement_manual_active' => __('Zugang manuell aktiviert', $d),
-            'entitlement_manual_suspended' => __('Zugang manuell ausgesetzt', $d),
-            'entitlement_manual_revoked' => __('Zugang manuell widerrufen', $d),
-            'entitlement_manual_released' => __('Manuelle Entscheidung aufgehoben (Shop-Status gilt)', $d),
-            'entitlement_extended' => __('Enddatum geändert', $d),
-            'entitlement_restacked' => __('Verlängerung neu angeschlossen', $d),
-            'entitlement_voucher_grant' => __('Zugang per Kursgutschein freigeschaltet', $d),
-            'entitlement_voucher_revoke' => __('Gutschein-Freischaltung widerrufen', $d),
-            'entitlements_closed_account_deleted' => __('Zugänge eines gelöschten Kontos beendet', $d),
-            'expiry_reminder_optout' => __('Ablauf-Erinnerung abbestellt', $d),
-            'expiry_reminder_optin' => __('Ablauf-Erinnerung wieder bestellt', $d),
+            'entitlement_create' => __('Zugang angelegt (Bestellung)', 'bootspruefung-learning'),
+            'entitlement_status' => __('Zugangsstatus geändert (Bestellung)', 'bootspruefung-learning'),
+            'entitlement_user' => __('Zugang auf anderes Kundenkonto umgestellt', 'bootspruefung-learning'),
+            'entitlement_manual_grant' => __('Zugang manuell freigeschaltet', 'bootspruefung-learning'),
+            'entitlement_manual_active' => __('Zugang manuell aktiviert', 'bootspruefung-learning'),
+            'entitlement_manual_suspended' => __('Zugang manuell ausgesetzt', 'bootspruefung-learning'),
+            'entitlement_manual_revoked' => __('Zugang manuell widerrufen', 'bootspruefung-learning'),
+            'entitlement_manual_released' => __('Manuelle Entscheidung aufgehoben (Shop-Status gilt)', 'bootspruefung-learning'),
+            'entitlement_extended' => __('Enddatum geändert', 'bootspruefung-learning'),
+            'entitlement_restacked' => __('Verlängerung neu angeschlossen', 'bootspruefung-learning'),
+            'entitlement_voucher_grant' => __('Zugang per Kursgutschein freigeschaltet', 'bootspruefung-learning'),
+            'entitlement_voucher_revoke' => __('Gutschein-Freischaltung widerrufen', 'bootspruefung-learning'),
+            'entitlements_closed_account_deleted' => __('Zugänge eines gelöschten Kontos beendet', 'bootspruefung-learning'),
+            'expiry_reminder_optout' => __('Ablauf-Erinnerung abbestellt', 'bootspruefung-learning'),
+            'expiry_reminder_optin' => __('Ablauf-Erinnerung wieder bestellt', 'bootspruefung-learning'),
             // Gruppen
-            'group_created' => __('Gruppenlizenz angelegt', $d),
-            'group_active' => __('Gruppenlizenz aktiviert', $d),
-            'group_suspended' => __('Gruppenlizenz ausgesetzt', $d),
-            'group_revoked' => __('Gruppenlizenz beendet', $d),
-            'group_expired' => __('Gruppenlizenz abgelaufen', $d),
-            'group_pending' => __('Gruppenlizenz wartet auf Zahlung', $d),
-            'group_seats_changed' => __('Anzahl der Plätze geändert', $d),
-            'group_invited' => __('Personen eingeladen', $d),
-            'group_joined' => __('Person beigetreten', $d),
-            'group_member_removed' => __('Person entfernt (Platz frei)', $d),
-            'group_owner_deleted' => __('Konto der verwaltenden Person gelöscht', $d),
-            'group_invites_expired' => __('Abgelaufene Einladungen aufgeräumt', $d),
+            'group_created' => __('Gruppenlizenz angelegt', 'bootspruefung-learning'),
+            'group_active' => __('Gruppenlizenz aktiviert', 'bootspruefung-learning'),
+            'group_suspended' => __('Gruppenlizenz ausgesetzt', 'bootspruefung-learning'),
+            'group_revoked' => __('Gruppenlizenz beendet', 'bootspruefung-learning'),
+            'group_expired' => __('Gruppenlizenz abgelaufen', 'bootspruefung-learning'),
+            'group_pending' => __('Gruppenlizenz wartet auf Zahlung', 'bootspruefung-learning'),
+            'group_seats_changed' => __('Anzahl der Plätze geändert', 'bootspruefung-learning'),
+            'group_invited' => __('Personen eingeladen', 'bootspruefung-learning'),
+            'group_joined' => __('Person beigetreten', 'bootspruefung-learning'),
+            'group_member_removed' => __('Person entfernt (Platz frei)', 'bootspruefung-learning'),
+            'group_owner_deleted' => __('Konto der verwaltenden Person gelöscht', 'bootspruefung-learning'),
+            'group_invites_expired' => __('Abgelaufene Einladungen aufgeräumt', 'bootspruefung-learning'),
             // Shop
-            'order_without_account' => __('Bezahlte Bestellung ohne Kundenkonto', $d),
-            'order_reconcile' => __('Lernzugang der Bestellung abgeglichen', $d),
-            'money_back_requested' => __('Geld-zurück-Garantie angefragt', $d),
-            'product_access_saved' => __('Lernzugang eines Produkts gespeichert', $d),
-            'product_access_orphan_removed' => __('Zuordnung eines gelöschten Produkts entfernt', $d),
-            'shop_prices_changed' => __('Preise geändert', $d),
-            'shop_catalog_applied' => __('Produktkatalog abgeglichen', $d),
-            'free_tier_applied' => __('Schnupper-Paket angelegt', $d),
-            'member_discount_added' => __('Mitgliederrabatt hinzugefügt', $d),
-            'member_discount_deleted' => __('Mitgliederrabatt entfernt', $d),
-            'voucher_redeemed' => __('Kursgutschein eingelöst', $d),
-            'voucher_redeem_failed' => __('Kursgutschein: Einlösung fehlgeschlagen', $d),
-            'voucher_redeem_skipped' => __('Kursgutschein: Einlösung übersprungen', $d),
+            'order_without_account' => __('Bezahlte Bestellung ohne Kundenkonto', 'bootspruefung-learning'),
+            'order_reconcile' => __('Lernzugang der Bestellung abgeglichen', 'bootspruefung-learning'),
+            'money_back_requested' => __('Geld-zurück-Garantie angefragt', 'bootspruefung-learning'),
+            'product_access_saved' => __('Lernzugang eines Produkts gespeichert', 'bootspruefung-learning'),
+            'product_access_orphan_removed' => __('Zuordnung eines gelöschten Produkts entfernt', 'bootspruefung-learning'),
+            'shop_prices_changed' => __('Preise geändert', 'bootspruefung-learning'),
+            'shop_catalog_applied' => __('Produktkatalog abgeglichen', 'bootspruefung-learning'),
+            'free_tier_applied' => __('Schnupper-Paket angelegt', 'bootspruefung-learning'),
+            'member_discount_added' => __('Mitgliederrabatt hinzugefügt', 'bootspruefung-learning'),
+            'member_discount_deleted' => __('Mitgliederrabatt entfernt', 'bootspruefung-learning'),
+            'voucher_redeemed' => __('Kursgutschein eingelöst', 'bootspruefung-learning'),
+            'voucher_redeem_failed' => __('Kursgutschein: Einlösung fehlgeschlagen', 'bootspruefung-learning'),
+            'voucher_redeem_skipped' => __('Kursgutschein: Einlösung übersprungen', 'bootspruefung-learning'),
             // Zahlungskonflikte
-            'dispute_opened' => __('Zahlungskonflikt eröffnet (Zugang ausgesetzt)', $d),
-            'dispute_won' => __('Zahlungskonflikt gewonnen (Zugang wieder frei)', $d),
-            'dispute_lost' => __('Zahlungskonflikt verloren (Zugang bleibt gesperrt)', $d),
-            'dispute_ignored' => __('Zahlungskonflikt: Meldung nicht angewendet (Fall schon abgeschlossen)', $d),
-            'dispute_unmatched' => __('Zahlungskonflikt: keine passende Bestellung', $d),
-            'dispute_webhook_rejected' => __('Zahlungskonflikt: Meldung abgewiesen', $d),
-            'dispute_settings_saved' => __('Einstellungen Zahlungskonflikte gespeichert', $d),
+            'dispute_opened' => __('Zahlungskonflikt eröffnet (Zugang ausgesetzt)', 'bootspruefung-learning'),
+            'dispute_won' => __('Zahlungskonflikt gewonnen (Zugang wieder frei)', 'bootspruefung-learning'),
+            'dispute_lost' => __('Zahlungskonflikt verloren (Zugang bleibt gesperrt)', 'bootspruefung-learning'),
+            'dispute_ignored' => __('Zahlungskonflikt: Meldung nicht angewendet (Fall schon abgeschlossen)', 'bootspruefung-learning'),
+            'dispute_unmatched' => __('Zahlungskonflikt: keine passende Bestellung', 'bootspruefung-learning'),
+            'dispute_webhook_rejected' => __('Zahlungskonflikt: Meldung abgewiesen', 'bootspruefung-learning'),
+            'dispute_settings_saved' => __('Einstellungen Zahlungskonflikte gespeichert', 'bootspruefung-learning'),
             // Inhalte
-            'override_rights_status' => __('Rechte-Status lokal festgelegt', $d),
-            'override_verified' => __('Regelwerk: Prüfung lokal festgelegt', $d),
-            'override_status' => __('Regelwerk: Veröffentlichung lokal festgelegt', $d),
-            'override_valid_from' => __('Regelwerk: Gültig ab lokal festgelegt', $d),
-            'override_valid_until' => __('Regelwerk: Gültig bis lokal festgelegt', $d),
-            'free_rule_added' => __('Kostenlosen Bereich hinzugefügt', $d),
-            'free_rule_deleted' => __('Regel für kostenlosen Bereich entfernt', $d),
-            'drip_rule_added' => __('Zeitversetzte Freischaltung hinzugefügt', $d),
-            'chart_uploaded' => __('Seekarte hochgeladen', $d),
-            'chart_removed' => __('Seekarte gelöscht', $d),
-            'chart_licensed' => __('BSH-Lizenz bestätigt', $d),
-            'chart_unlicensed' => __('BSH-Lizenz zurückgezogen', $d),
-            'file_protected' => __('Datei geschützt', $d),
-            'file_unprotected' => __('Dateischutz aufgehoben', $d),
-            'file_protect_failed' => __('Datei konnte nicht geschützt werden', $d),
-            'exam_committee_created' => __('Prüfungsausschuss angelegt', $d),
-            'exam_committee_saved' => __('Prüfungsausschuss geändert', $d),
-            'exam_committee_deleted' => __('Prüfungsausschuss gelöscht', $d),
+            'override_rights_status' => __('Rechte-Status lokal festgelegt', 'bootspruefung-learning'),
+            'override_verified' => __('Regelwerk: Prüfung lokal festgelegt', 'bootspruefung-learning'),
+            'override_status' => __('Regelwerk: Veröffentlichung lokal festgelegt', 'bootspruefung-learning'),
+            'override_valid_from' => __('Regelwerk: Gültig ab lokal festgelegt', 'bootspruefung-learning'),
+            'override_valid_until' => __('Regelwerk: Gültig bis lokal festgelegt', 'bootspruefung-learning'),
+            'free_rule_added' => __('Kostenlosen Bereich hinzugefügt', 'bootspruefung-learning'),
+            'free_rule_deleted' => __('Regel für kostenlosen Bereich entfernt', 'bootspruefung-learning'),
+            'drip_rule_added' => __('Zeitversetzte Freischaltung hinzugefügt', 'bootspruefung-learning'),
+            'chart_uploaded' => __('Seekarte hochgeladen', 'bootspruefung-learning'),
+            'chart_removed' => __('Seekarte gelöscht', 'bootspruefung-learning'),
+            'chart_licensed' => __('BSH-Lizenz bestätigt', 'bootspruefung-learning'),
+            'chart_unlicensed' => __('BSH-Lizenz zurückgezogen', 'bootspruefung-learning'),
+            'file_protected' => __('Datei geschützt', 'bootspruefung-learning'),
+            'file_unprotected' => __('Dateischutz aufgehoben', 'bootspruefung-learning'),
+            'file_protect_failed' => __('Datei konnte nicht geschützt werden', 'bootspruefung-learning'),
+            'exam_committee_created' => __('Prüfungsausschuss angelegt', 'bootspruefung-learning'),
+            'exam_committee_saved' => __('Prüfungsausschuss geändert', 'bootspruefung-learning'),
+            'exam_committee_deleted' => __('Prüfungsausschuss gelöscht', 'bootspruefung-learning'),
             // Importe
-            'import_uploaded' => __('Inhaltspaket hochgeladen', $d),
-            'import_validated' => __('Inhaltspaket geprüft', $d),
-            'import_validation_failed' => __('Inhaltspaket fehlerhaft', $d),
-            'import_approved' => __('Import freigegeben', $d),
-            'import_started' => __('Import gestartet', $d),
-            'import_published' => __('Import veröffentlicht', $d),
-            'import_rolled_back' => __('Früheres Inhaltspaket wiederhergestellt', $d),
-            'import_rollback_requested' => __('Wiederherstellung angefordert', $d),
-            'import_discarded' => __('Import verworfen', $d),
-            'import_retention' => __('Alte Importe aufgeräumt', $d),
+            'import_uploaded' => __('Inhaltspaket hochgeladen', 'bootspruefung-learning'),
+            'import_validated' => __('Inhaltspaket geprüft', 'bootspruefung-learning'),
+            'import_validation_failed' => __('Inhaltspaket fehlerhaft', 'bootspruefung-learning'),
+            'import_approved' => __('Import freigegeben', 'bootspruefung-learning'),
+            'import_started' => __('Import gestartet', 'bootspruefung-learning'),
+            'import_published' => __('Import veröffentlicht', 'bootspruefung-learning'),
+            'import_rolled_back' => __('Früheres Inhaltspaket wiederhergestellt', 'bootspruefung-learning'),
+            'import_rollback_requested' => __('Wiederherstellung angefordert', 'bootspruefung-learning'),
+            'import_discarded' => __('Import verworfen', 'bootspruefung-learning'),
+            'import_retention' => __('Alte Importe aufgeräumt', 'bootspruefung-learning'),
             // Datenschutz und Konten
-            'privacy_export_sent' => __('Datenexport verschickt', $d),
-            'privacy_export_failed' => __('Datenexport fehlgeschlagen', $d),
-            'account_deleted' => __('Kundenkonto gelöscht', $d),
-            'account_deletion_failed' => __('Kontolöschung fehlgeschlagen', $d),
-            'account_deletion_skipped' => __('Kontolöschung übersprungen', $d),
+            'privacy_export_sent' => __('Datenexport verschickt', 'bootspruefung-learning'),
+            'privacy_export_failed' => __('Datenexport fehlgeschlagen', 'bootspruefung-learning'),
+            'account_deleted' => __('Kundenkonto gelöscht', 'bootspruefung-learning'),
+            'account_deletion_failed' => __('Kontolöschung fehlgeschlagen', 'bootspruefung-learning'),
+            'account_deletion_skipped' => __('Kontolöschung übersprungen', 'bootspruefung-learning'),
             // Einstellungen
-            'settings_default_access' => __('Einstellung „Zugang ohne Shop“ geändert', $d),
-            'mobile_settings_saved' => __('Einstellungen der App gespeichert', $d),
-            'mobile_sessions_revoked' => __('App-Sitzungen eines Kunden beendet', $d),
-            'security_settings_saved' => __('Sicherheitseinstellungen gespeichert', $d),
+            'settings_default_access' => __('Einstellung „Zugang ohne Shop“ geändert', 'bootspruefung-learning'),
+            'mobile_settings_saved' => __('Einstellungen der App gespeichert', 'bootspruefung-learning'),
+            'mobile_sessions_revoked' => __('App-Sitzungen eines Kunden beendet', 'bootspruefung-learning'),
+            'security_settings_saved' => __('Sicherheitseinstellungen gespeichert', 'bootspruefung-learning'),
         ];
         if (isset($labels[$action])) {
             return $labels[$action];
         }
 
         /* translators: %s: interner Name des Ereignisses */
-        return sprintf(__('Sonstiges Ereignis (%s)', $d), $action);
+        return sprintf(__('Sonstiges Ereignis (%s)', 'bootspruefung-learning'), $action);
     }
 
     public static function reasonLabel(string $reason): string
     {
-        $d = 'bootspruefung-learning';
         $known = [
-            'item_removed' => __('Position aus der Bestellung entfernt', $d),
-            'account_deleted' => __('Konto gelöscht', $d),
-            'privacy_request' => __('Datenschutz-Antrag', $d),
-            'protected_account' => __('Konto mit Verwaltungsrechten (wird nie automatisch gelöscht)', $d),
-            'eraser_failed' => __('Löschen der Daten fehlgeschlagen', $d),
-            'wp_delete_user' => __('Konto konnte nicht gelöscht werden', $d),
-            'group_member_removed' => __('Person aus der Gruppe entfernt', $d),
-            'group_seats_reduced' => __('Plätze der Gruppe verringert', $d),
+            'item_removed' => __('Position aus der Bestellung entfernt', 'bootspruefung-learning'),
+            'account_deleted' => __('Konto gelöscht', 'bootspruefung-learning'),
+            'privacy_request' => __('Datenschutz-Antrag', 'bootspruefung-learning'),
+            'protected_account' => __('Konto mit Verwaltungsrechten (wird nie automatisch gelöscht)', 'bootspruefung-learning'),
+            'eraser_failed' => __('Löschen der Daten fehlgeschlagen', 'bootspruefung-learning'),
+            'wp_delete_user' => __('Konto konnte nicht gelöscht werden', 'bootspruefung-learning'),
+            'group_member_removed' => __('Person aus der Gruppe entfernt', 'bootspruefung-learning'),
+            'group_seats_reduced' => __('Plätze der Gruppe verringert', 'bootspruefung-learning'),
         ];
         $reason = trim($reason);
         if ($reason === '') {
@@ -514,7 +507,6 @@ final class AuditPage
     /** Details eines Eintrags als lesbarer Text (kein JSON); Text, noch nicht escaped. */
     public static function details(object $row): string
     {
-        $d = 'bootspruefung-learning';
         $c = self::context($row);
         if ($c === []) {
             return '';
@@ -523,28 +515,28 @@ final class AuditPage
         if (array_key_exists('from', $c) || array_key_exists('to', $c)) {
             $parts[] = sprintf(
                 /* translators: 1: alter Wert, 2: neuer Wert */
-                __('von %1$s auf %2$s', $d),
+                __('von %1$s auf %2$s', 'bootspruefung-learning'),
                 self::value('from', $c['from'] ?? null, (string) $row->action),
                 self::value('to', $c['to'] ?? null, (string) $row->action)
             );
             unset($c['from'], $c['to']);
         }
         $labels = [
-            'course' => __('Kurs', $d), 'feature' => __('Funktion', $d), 'scopes' => __('Umfang', $d), 'user_id' => __('Nutzer', $d),
-            'from_user' => __('vorher Nutzer', $d), 'item_id' => __('Bestellposition', $d), 'order_id' => __('Bestellung', $d),
-            'via' => __('Auslöser', $d), 'value' => __('neuer Wert', $d), 'count' => __('Anzahl', $d), 'days' => __('Tage', $d),
-            'limit' => __('Teilumfang', $d), 'module' => __('Modul', $d), 'type' => __('Art', $d), 'package_id' => __('Inhaltspaket', $d),
-            'errors' => __('Fehler', $d), 'seats' => __('Plätze', $d), 'member' => __('Teilnahme', $d), 'group' => __('Gruppe', $d),
-            'percent' => __('Rabatt in %', $d), 'added' => __('hinzugefügt', $d), 'removed' => __('entfernt', $d), 'unchanged' => __('unverändert', $d),
-            'product_id' => __('Produkt', $d), 'variation_id' => __('Variation', $d), 'valid_until' => __('gültig bis', $d),
-            'voucher_id' => __('Gutschein', $d), 'source' => __('Quelle', $d), 'source_reference' => __('Herkunft', $d),
-            'redeemed_at' => __('eingelöst am', $d), 'manual' => __('von Hand', $d), 'cause' => __('Ursache', $d),
-            'invited' => __('eingeladen', $d), 'skipped' => __('übersprungen', $d), 'expired' => __('abgelaufen', $d),
-            'anonymized' => __('unkenntlich gemacht', $d), 'target_batch' => __('Ziel-Import', $d), 'rollback_of' => __('Wiederherstellung von Import', $d),
-            'actions' => __('Änderungen', $d), 'aborted' => __('abgebrochen', $d), 'event' => __('Meldung', $d), 'event_time' => __('Zeitpunkt', $d),
-            'case_status' => __('Stand des Falls', $d), 'paypal' => __('PayPal eingerichtet', $d), 'mode' => __('Umgebung', $d),
-            'rows' => __('Zeilen', $d), 'deleted' => __('gelöscht', $d), 'revoked' => __('beendet', $d), 'scopes_count' => __('Umfang', $d),
-            'redemption_key' => __('Einlöse-Nr.', $d), 'grant_source' => __('Herkunft', $d), 'action' => __('Ergebnis', $d),
+            'course' => __('Kurs', 'bootspruefung-learning'), 'feature' => __('Funktion', 'bootspruefung-learning'), 'scopes' => __('Umfang', 'bootspruefung-learning'), 'user_id' => __('Nutzer', 'bootspruefung-learning'),
+            'from_user' => __('vorher Nutzer', 'bootspruefung-learning'), 'item_id' => __('Bestellposition', 'bootspruefung-learning'), 'order_id' => __('Bestellung', 'bootspruefung-learning'),
+            'via' => __('Auslöser', 'bootspruefung-learning'), 'value' => __('neuer Wert', 'bootspruefung-learning'), 'count' => __('Anzahl', 'bootspruefung-learning'), 'days' => __('Tage', 'bootspruefung-learning'),
+            'limit' => __('Teilumfang', 'bootspruefung-learning'), 'module' => __('Modul', 'bootspruefung-learning'), 'type' => __('Art', 'bootspruefung-learning'), 'package_id' => __('Inhaltspaket', 'bootspruefung-learning'),
+            'errors' => __('Fehler', 'bootspruefung-learning'), 'seats' => __('Plätze', 'bootspruefung-learning'), 'member' => __('Teilnahme', 'bootspruefung-learning'), 'group' => __('Gruppe', 'bootspruefung-learning'),
+            'percent' => __('Rabatt in %', 'bootspruefung-learning'), 'added' => __('hinzugefügt', 'bootspruefung-learning'), 'removed' => __('entfernt', 'bootspruefung-learning'), 'unchanged' => __('unverändert', 'bootspruefung-learning'),
+            'product_id' => __('Produkt', 'bootspruefung-learning'), 'variation_id' => __('Variation', 'bootspruefung-learning'), 'valid_until' => __('gültig bis', 'bootspruefung-learning'),
+            'voucher_id' => __('Gutschein', 'bootspruefung-learning'), 'source' => __('Quelle', 'bootspruefung-learning'), 'source_reference' => __('Herkunft', 'bootspruefung-learning'),
+            'redeemed_at' => __('eingelöst am', 'bootspruefung-learning'), 'manual' => __('von Hand', 'bootspruefung-learning'), 'cause' => __('Ursache', 'bootspruefung-learning'),
+            'invited' => __('eingeladen', 'bootspruefung-learning'), 'skipped' => __('übersprungen', 'bootspruefung-learning'), 'expired' => __('abgelaufen', 'bootspruefung-learning'),
+            'anonymized' => __('unkenntlich gemacht', 'bootspruefung-learning'), 'target_batch' => __('Ziel-Import', 'bootspruefung-learning'), 'rollback_of' => __('Wiederherstellung von Import', 'bootspruefung-learning'),
+            'actions' => __('Änderungen', 'bootspruefung-learning'), 'aborted' => __('abgebrochen', 'bootspruefung-learning'), 'event' => __('Meldung', 'bootspruefung-learning'), 'event_time' => __('Zeitpunkt', 'bootspruefung-learning'),
+            'case_status' => __('Stand des Falls', 'bootspruefung-learning'), 'paypal' => __('PayPal eingerichtet', 'bootspruefung-learning'), 'mode' => __('Umgebung', 'bootspruefung-learning'),
+            'rows' => __('Zeilen', 'bootspruefung-learning'), 'deleted' => __('gelöscht', 'bootspruefung-learning'), 'revoked' => __('beendet', 'bootspruefung-learning'), 'scopes_count' => __('Umfang', 'bootspruefung-learning'),
+            'redemption_key' => __('Einlöse-Nr.', 'bootspruefung-learning'), 'grant_source' => __('Herkunft', 'bootspruefung-learning'), 'action' => __('Ergebnis', 'bootspruefung-learning'),
         ];
         // Nicht anzeigen: Prüfwerte gelöschter Konten, Fehlermeldungen (können Adressen enthalten).
         unset($c['user'], $c['messages']);
@@ -562,13 +554,12 @@ final class AuditPage
     /** Ein Kontextwert als Text. */
     private static function value(string $key, mixed $v, string $action): string
     {
-        $d = 'bootspruefung-learning';
         if ($v === null || $v === '') {
             return in_array($key, ['from', 'to', 'valid_until'], true) && ! str_starts_with($action, 'group_') && $action !== 'entitlement_status' && $action !== 'entitlement_manual_released'
-                ? __('ohne Ablauf', $d) : '–';
+                ? __('ohne Ablauf', 'bootspruefung-learning') : '–';
         }
         if (is_bool($v)) {
-            return $v ? __('ja', $d) : __('nein', $d);
+            return $v ? __('ja', 'bootspruefung-learning') : __('nein', 'bootspruefung-learning');
         }
         if (is_array($v)) {
             if ($key === 'actions') {
@@ -599,7 +590,7 @@ final class AuditPage
                 return $s;
             case 'user_id':
             case 'from_user':
-                return sprintf(__('Nr. %d', $d), (int) $s);
+                return sprintf(__('Nr. %d', 'bootspruefung-learning'), (int) $s);
             case 'item_id':
             case 'order_id':
             case 'product_id':
@@ -609,24 +600,24 @@ final class AuditPage
             case 'voucher_id':
             case 'target_batch':
             case 'rollback_of':
-                return ctype_digit($s) ? sprintf(__('Nr. %d', $d), (int) $s) : $s;
+                return ctype_digit($s) ? sprintf(__('Nr. %d', 'bootspruefung-learning'), (int) $s) : $s;
             case 'manual':
             case 'aborted':
             case 'paypal':
-                return in_array($s, ['1', 'true'], true) ? __('ja', $d) : __('nein', $d);
+                return in_array($s, ['1', 'true'], true) ? __('ja', 'bootspruefung-learning') : __('nein', 'bootspruefung-learning');
             case 'type':
-                return ['free' => __('ganz kostenlos', $d), 'free_limited' => __('Teilumfang', $d), 'drip' => __('zeitversetzte Freischaltung', $d)][$s] ?? $s;
+                return ['free' => __('ganz kostenlos', 'bootspruefung-learning'), 'free_limited' => __('Teilumfang', 'bootspruefung-learning'), 'drip' => __('zeitversetzte Freischaltung', 'bootspruefung-learning')][$s] ?? $s;
             case 'via':
                 return [
-                    'order_sync' => __('Bestellung geändert', $d), 'manual_release' => __('manuelle Entscheidung aufgehoben', $d),
-                    'admin_order_action' => __('Bestellaktion im Admin', $d), 'cli' => __('Befehlszeile', $d), 'reconcile' => __('Abgleich', $d),
-                    'cron' => __('automatisch', $d), 'web' => __('Website', $d), 'app' => __('App', $d), 'mail' => __('E-Mail-Link', $d),
+                    'order_sync' => __('Bestellung geändert', 'bootspruefung-learning'), 'manual_release' => __('manuelle Entscheidung aufgehoben', 'bootspruefung-learning'),
+                    'admin_order_action' => __('Bestellaktion im Admin', 'bootspruefung-learning'), 'cli' => __('Befehlszeile', 'bootspruefung-learning'), 'reconcile' => __('Abgleich', 'bootspruefung-learning'),
+                    'cron' => __('automatisch', 'bootspruefung-learning'), 'web' => __('Website', 'bootspruefung-learning'), 'app' => __('App', 'bootspruefung-learning'), 'mail' => __('E-Mail-Link', 'bootspruefung-learning'),
                 ][$s] ?? $s;
             case 'cause':
-                return ['seats_reduced' => __('Plätze verringert', $d), 'account_deleted' => __('Konto gelöscht', $d)][$s] ?? $s;
+                return ['seats_reduced' => __('Plätze verringert', 'bootspruefung-learning'), 'account_deleted' => __('Konto gelöscht', 'bootspruefung-learning')][$s] ?? $s;
             case 'value':
                 if ($action === 'override_verified') {
-                    return $s === '1' ? __('geprüft (verifiziert)', $d) : __('nicht geprüft', $d);
+                    return $s === '1' ? __('geprüft (verifiziert)', 'bootspruefung-learning') : __('nicht geprüft', 'bootspruefung-learning');
                 }
 
                 return Ui::label($s);
