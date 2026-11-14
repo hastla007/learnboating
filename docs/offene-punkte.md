@@ -43,6 +43,12 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 | – | Design | Markenname, Logo, Favicon, Farben, Claim (heute Platzhalter „XXXX“), Produktbilder neu erzeugen | 🔴 | Du | `BRAND=… python3 tools/product-images/generate.py` |
 | – | Barrierefreiheit | Simulator-Drehknöpfe: Korrektur im Quell-Repo `boatingschool`, danach Zusatzmodul `device-sim-a11y.js` entfernen | 🔴 | Du | `docs/quellrepo-hinweis-simulator-aria.md` |
 | T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen (Export technisch fertig, Format 2) | 🔴 | Du + Anwalt | `docs/betreiber-schritte.md` T61 |
+| T129 | Prüfung | Prüfungsantworten nach Fristende rückdatierbar (`age_ms`/`answered_at`) – Details unter „Prüfrunde 14.11.2026“ | 🔴 | Entwicklung | unten |
+| T130 | Sicherheit | „Bekanntes Gerät“: Cookie stärker an das Passwort binden | 🔴 | Entwicklung | unten |
+| T131 | Sicherheit | App-Login für Verwaltungskonten sperren bzw. Zwei-Faktor beachten | 🔴 | Entwicklung | unten |
+| T132 | Gruppen | Persönliche Einladung an die E-Mail binden oder bewusst übertragbar lassen | 🔴 | Du entscheidest, dann Entwicklung | unten |
+| T133 | Sicherheit | Geschützte Dateien nur als PDF/Bild/Video inline, sonst Download mit Sandbox | 🔴 | Entwicklung | unten |
+| T134 | Zahlung | Allgemeiner Konflikt-Webhook: Zeitstempel verpflichtend, alte Nachrichten ablehnen | 🔴 | Entwicklung | unten |
 | T75 | Zahlung | Abos (WooCommerce Subscriptions) | ⏸ | Du | `docs/betreiber-schritte.md` T75 |
 | T76 | Prüfungsanmeldung | Seite „Prüfung anmelden“ für Lernende freischalten | ⏸ | Du | `docs/betreiber-schritte.md` T76 |
 
@@ -57,7 +63,7 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 Gezielte Prüfung der sicherheitskritischen Teile: Anmeldung und Login-Begrenzung, App-Tokens, Kontolöschung,
 Paket-Import (Ablageordner, Link), Zahlungskonflikt-Webhooks, Kursgutscheine samt Connector, Gruppen,
 geschützte Dateien, Prüfungssimulation und Theme-Eingaben. Ergebnis: keine kritische Lücke. Sechs Funde, alle
-Entwicklung. Die Nummern T129–T134 sind ein Vorschlag für die führende To-do-Liste.
+Entwicklung. Übernommen als T129–T134 (Status 🔴 offen, siehe auch „Offen, blockiert den Livegang nicht“).
 
 | T | Bereich | Fund | Schwere | Wer | Vorschlag |
 |---|---|---|---|---|---|
