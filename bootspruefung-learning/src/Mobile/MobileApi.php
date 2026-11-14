@@ -54,7 +54,11 @@ final class MobileApi
         // Datenexport im Hintergrund (Action Scheduler bzw. WP-Cron, seit 1.4.0).
         add_action(PrivacyController::GENERATE_HOOK, [PrivacyController::class, 'generate']);
         // Passwortänderung (Reset, Profil, WooCommerce „Konto-Details“) beendet alle App-Sitzungen.
-        add_action('after_password_reset', static fn ($user) => $user instanceof \WP_User ? TokenAuth::revokeAll((int) $user->ID, 'password_change') : null);
+        add_action('after_password_reset', static function ($user): void {
+            if ($user instanceof \WP_User) {
+                TokenAuth::revokeAll((int) $user->ID, 'password_change');
+            }
+        });
         add_action('wp_set_password', [self::class, 'passwordSet'], 10, 3);
         add_action('profile_update', [self::class, 'profileUpdated'], 10, 2);
         // Sitzungsübergabe App → Web (?bp_app_login=…) und Universal/App Links (/.well-known, /app/passwort/).

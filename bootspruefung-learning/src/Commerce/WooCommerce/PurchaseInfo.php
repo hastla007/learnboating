@@ -112,7 +112,7 @@ final class PurchaseInfo
         }
 
         /** Filter: Zeilen des Hinweises zu Zahlungsarten, Verkaufsländern und Lieferung ([] = kein Hinweis). */
-        return array_values(array_filter(array_map('strval', (array) apply_filters('bootspruefung_purchase_info_lines', $lines, $digital)), 'strlen'));
+        return array_values(array_filter(array_map('strval', (array) apply_filters('bootspruefung_purchase_info_lines', $lines, $digital)), static fn (string $s): bool => $s !== ''));
     }
 
     public static function html(bool $digital, string $tag = 'p'): string

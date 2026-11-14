@@ -217,7 +217,7 @@ function kurswasser_shop_factory_defaults(): array
 function kurswasser_shop_norm($value): string
 {
     if (is_array($value)) {
-        $list = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $value), 'strlen'));
+        $list = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $value), static fn ( string $s ): bool => '' !== $s ));
         sort($list);
 
         return implode(',', $list);

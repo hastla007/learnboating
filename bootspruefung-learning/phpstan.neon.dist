@@ -37,6 +37,7 @@ parameters:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
         - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
         - tests/phpstan/wp-cli-stubs.php
+        - tests/phpstan/external-stubs.php
     # WP Affiliate Captain und Voucher Captain liegen nicht in diesem Repo; ihre Funktionen/Klassen sind
     # unbekannt und stehen deshalb in der Baseline.
     reportUnmatchedIgnoredErrors: true

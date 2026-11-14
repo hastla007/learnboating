@@ -26,6 +26,11 @@ Release-Regel in `docs/release-regel.md`. Datenbank-Schema und App-API haben eig
 
 App-API 1.13.0: Login nur für Kundenkonten, Felder `other_account`/`invited_email` in der Einladungsvorschau.
 
+**Technik**
+- Statische Analyse: Platzhalter für Klassen externer Plugins (`tests/phpstan/external-stubs.php`), PHPStan-Baseline
+  201 → 129 Funde; Filter ohne `'strlen'`-Rückruf, Aktionen ohne Rückgabewert.
+- Übersetzungsvorlage (`.pot`) mit den neuen Texten.
+
 ## 0.14.0 – 13.11.2026
 
 Datenbank-Schema 1.15.0, App-API 1.12.0. Seit 0.13.0 rund 120 Änderungen; die wichtigsten:
