@@ -495,11 +495,10 @@ preg_match('#gruppe/(i[0-9a-f]{32})#', (string) $mails[0]['message'], $m);
 $check(str_contains((string) $mails[0]['message'], 'nur an die Person weiter'), 'Einladungsmail: Hinweis zum Weitergeben (T132)');
 $previewOther = $groupsService->describeToken($m[1], $students[2]);
 $check($previewOther['other_account'] === true && $previewOther['invited_email'] === 'n…@example.test', 'Vorschau mit anderem Konto: other_account, Adresse gekürzt ('.var_export($previewOther['invited_email'], true).')');
-$sameUser = (int) wp_insert_user(['user_login' => 'neu_eingeladen_'.wp_generate_password(4, false, false), 'user_pass' => wp_generate_password(), 'user_email' => 'NEU@example.test']);
+$sameUser = get_user_by('email', 'NEU@example.test') ? (int) get_user_by('email', 'NEU@example.test')->ID : (int) wp_insert_user(['user_login' => 'neu_eingeladen', 'user_pass' => wp_generate_password(), 'user_email' => 'NEU@example.test']);
 $previewSame = $groupsService->describeToken($m[1], $sameUser);
 $check($previewSame['other_account'] === false && $previewSame['invited_email'] === null && $groupsService->describeToken($m[1])['invited_email'] === null, 'Vorschau mit eingeladener Adresse (Groß-/Kleinschreibung egal) bzw. ohne Konto: kein Hinweis, keine Adresse');
-require_once ABSPATH.'wp-admin/includes/user.php';
-wp_delete_user($sameUser);
+// Konto bleibt bestehen: Eine Kontolöschung entfernt auch offene Einladungen an dieselbe Adresse (Datenschutz).
 $groupsService->join($m[1], $students[2]);
 $check($access->can($students[2], 'SBF-BIN-MOTOR', 'question_bank'), 'persönliche Einladung angenommen');
 $members = $groupsService->membersOf((int) $group->id);
