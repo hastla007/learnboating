@@ -58,7 +58,7 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 T41–T51, T59, T60: umgesetzt (Version 0.14.0). T52–T58: Technik und Vorlagen umgesetzt, Betreiberanteil siehe oben.
 T61: Anleitung vorhanden, Entscheidung offen. Ursprüngliche Befunde:
 
-Gesamtprüfung mit 5 Experten (Sicherheit, Abläufe, Technik, Bedienung, Recht/Livegang) auf Stand `9a5e533`. Keine kritische Sicherheitslücke; Abläufe Ende-zu-Ende funktionsfähig. Nummern mit „T“ = Nummer in der To-do-Liste „Offene Punkte Lernplattform“ (führende Liste; die Nummern oben in dieser Datei sind ältere, eigene Nummern); Berichte mit Belegen in der Expertenrunde (IDs in Klammern).
+Gesamtprüfung mit 5 Experten (Sicherheit, Abläufe, Technik, Bedienung, Recht/Livegang) auf Stand `9a5e533`. Keine kritische Sicherheitslücke; Abläufe Ende-zu-Ende funktionsfähig. Nummern mit „T“ = Nummer in der To-do-Liste „Offene Punkte Lernplattform“ (führende Liste; die Nummern ohne „T“ im Abschnitt „Verlauf“ sind ältere, eigene Nummern); Berichte mit Belegen in der Expertenrunde (IDs in Klammern).
 
 | # | Bereich | Punkt | Wer | Hinweis |
 |---|---|---|---|---|
