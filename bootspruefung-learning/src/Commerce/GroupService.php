@@ -251,13 +251,22 @@ final class GroupService
         return $this->resolveToken($token);
     }
 
-    /** Infos zum Beitrittslink (Gruppen- oder persönlicher Token). @return array<string,mixed>|null */
-    public function describeToken(string $token): ?array
+    /**
+     * Infos zum Beitrittslink (Gruppen- oder persönlicher Token). Mit $userId (angemeldete Person): Ging eine persönliche
+     * Einladung an eine andere E-Mail-Adresse als die des Kontos, steht sie gekürzt in invited_email und other_account ist
+     * true – die Oberfläche fragt dann vor dem Beitritt nach (T132: Einladungen bleiben bewusst übertragbar).
+     * @return array<string,mixed>|null
+     */
+    public function describeToken(string $token, int $userId = 0): ?array
     {
         [$group, $member] = $this->resolveToken($token);
         if ($group === null) {
             return null;
         }
+        $invited = $member !== null ? strtolower(trim((string) ($member->email ?? ''))) : '';
+        $user = $userId > 0 ? get_userdata($userId) : false;
+        $other = $invited !== '' && $user instanceof \WP_User && strtolower(trim((string) $user->user_email)) !== $invited;
+
         return [
             'name' => $group->name,
             'owner' => self::ownerName((int) $group->owner_user_id),
@@ -266,7 +275,20 @@ final class GroupService
             'status' => $group->status,
             'valid_until' => $group->valid_until,
             'personal' => $member !== null,
+            'other_account' => $other,
+            'invited_email' => $other ? self::maskEmail($invited) : null,
         ];
+    }
+
+    /** E-Mail-Adresse gekürzt für Hinweise an Dritte: „a…@example.de“ (T132). */
+    public static function maskEmail(string $email): string
+    {
+        $at = strrpos($email, '@');
+        if ($at === false || $at === 0) {
+            return '…';
+        }
+
+        return mb_substr($email, 0, 1).'…'.substr($email, $at);
     }
 
     /**
@@ -647,6 +669,7 @@ final class GroupService
             : sprintf(__('Du wurdest zur Lerngruppe „%s“ eingeladen.', 'bootspruefung-learning'), $group->name);
         /* translators: 1: link, 2: date and time */
         $text .= "\n\n".sprintf(__("Zugang annehmen: %1\$s\nDie Einladung gilt bis %2\$s.\n\nFalls du noch kein Konto hast, kannst du dich dort registrieren.", 'bootspruefung-learning'), self::joinUrl($token), $until);
+        $text .= "\n".__('Bitte gib diesen Link nur an die Person weiter, für die der Platz gedacht ist – wer ihn zuerst annimmt, bekommt den Platz.', 'bootspruefung-learning');
         /* translators: %d: days */
         $text .= "\n\n".sprintf(__('Deine E-Mail-Adresse wurde uns von der Person angegeben, die die Gruppe verwaltet, und wird nur für diese Einladung verwendet. Nimmst du die Einladung nicht an, löschen wir sie spätestens %d Tage nach Ablauf.', 'bootspruefung-learning'), self::EXPIRED_RETENTION_DAYS);
         $privacy = function_exists('get_privacy_policy_url') ? (string) get_privacy_policy_url() : '';

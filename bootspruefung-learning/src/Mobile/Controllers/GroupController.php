@@ -128,7 +128,7 @@ final class GroupController extends BaseController
         $user = $this->user();
         RateLimiter::hit('group-preview|'.$user, 60, HOUR_IN_SECONDS);
         $token = self::token((string) $request['token']);
-        $info = $token !== null ? $this->groups->describeToken($token) : null;
+        $info = $token !== null ? $this->groups->describeToken($token, $user) : null;
         [$group] = $token !== null ? $this->groups->resolve($token) : [null];
         if ($info === null || $group === null) {
             throw new ApiException('COUPON_INVALID', __('Dieser Einladungslink ist ungültig oder abgelaufen.', 'bootspruefung-learning'), 422);
@@ -140,6 +140,9 @@ final class GroupController extends BaseController
             'name' => (string) $info['name'],
             'owner_name' => $info['owner'] !== '' ? (string) $info['owner'] : null,
             'personal' => (bool) $info['personal'],
+            // T132: persönliche Einladung an eine andere E-Mail-Adresse – vor dem Beitritt nachfragen.
+            'other_account' => (bool) $info['other_account'],
+            'invited_email' => $info['invited_email'],
             'status' => (string) $info['status'],
             'valid_until' => TokenAuth::iso($info['valid_until']),
             'free_seats' => (int) $info['free_seats'],

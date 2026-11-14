@@ -37,6 +37,8 @@ final class Strings
             'group_inactive' => __('Diese Gruppe ist derzeit nicht aktiv.', 'bootspruefung-learning'),
             'group_full' => __('Alle Plätze dieser Gruppe sind belegt.', 'bootspruefung-learning'),
             'group_join' => __('Gruppe beitreten', 'bootspruefung-learning'),
+            'group_other_account' => __('Diese Einladung ging an {email}. Du bist mit einem anderen Konto angemeldet. Möchtest du den Platz mit deinem Konto übernehmen?', 'bootspruefung-learning'),
+            'group_join_other' => __('Platz mit meinem Konto übernehmen', 'bootspruefung-learning'),
             'group_name' => __('Name der Gruppe', 'bootspruefung-learning'),
             'save' => __('Speichern', 'bootspruefung-learning'),
             'group_status_active' => __('aktiv', 'bootspruefung-learning'),

@@ -637,7 +637,11 @@
 			if (g.status !== 'active' || g.free_seats < 1) {
 				box.appendChild(el('p', { class: 'bp-inline-error', text: g.status !== 'active' ? t('group_inactive') : t('group_full') }));
 			} else {
-				var join = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: t('group_join') });
+				// T132: Persönliche Einladung an eine andere Adresse – Hinweis und eindeutiger Knopftext statt stiller Übernahme.
+				if (g.other_account) {
+					box.appendChild(el('div', { class: 'bp-infobox', role: 'note' }, [el('p', { text: t('group_other_account', { email: g.invited_email || '' }) })]));
+				}
+				var join = el('button', { type: 'button', class: 'bp-button bp-button-primary', text: g.other_account ? t('group_join_other') : t('group_join') });
 				join.addEventListener('click', function () {
 					if (isBusy(join)) { return; }
 					setBusy(join, true); // aria-disabled statt disabled: Fokus bleibt auf dem Knopf (UX-05)

@@ -17,7 +17,14 @@ Release-Regel in `docs/release-regel.md`. Datenbank-Schema und App-API haben eig
 - Allgemeiner Konflikt-Webhook: Nachrichten mit Zeitstempel älter als 60 Tage oder mehr als einen Tag in der Zukunft werden
   abgewiesen (kein erneutes Einspielen, T134).
 - Prüfungssimulation: Kulanz für nachgesendete Offline-Antworten über den Filter `bootspruefung_exam_late_tolerance`
-  einstellbar (Standard 120 s, 0 = streng, nur Eingang beim Server zählt) – siehe T129 in `docs/offene-punkte.md`.
+  einstellbar (Standard 120 s, 0 = streng, nur Eingang beim Server zählt) – Entscheidung des Betreibers: Standard 120 s bleibt (T129).
+
+**Gruppen (T132)**
+- Persönliche Einladungen bleiben übertragbar. Die Einladungsmail bittet, den Link nur an die vorgesehene Person
+  weiterzugeben. Öffnet jemand mit einem anderen Konto die Einladung, nennt der Lernbereich bzw. die App die
+  eingeladene Adresse gekürzt („n…@example.de“) und fragt mit dem Knopf „Platz mit meinem Konto übernehmen“ nach.
+
+App-API 1.13.0: Login nur für Kundenkonten, Felder `other_account`/`invited_email` in der Einladungsvorschau.
 
 ## 0.14.0 – 13.11.2026
 

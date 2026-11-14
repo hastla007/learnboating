@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Bootsprüfung Lernplattform – App-API (boatingschool/v1)
-  version: 1.12.0
+  version: 1.13.0
   summary: REST-API der mobilen Lern-Apps (Flutter, iOS/Android, online-only).
   description: >-
     Umgesetzt im WordPress-Plugin `bootspruefung-learning` (Verzeichnis `src/Mobile/`).
@@ -4088,6 +4088,8 @@ components:
             free_seats: {type: integer, description: 'bei persönlicher Einladung inklusive des reservierten Platzes'}
             already_member: {type: boolean}
             joinable: {type: boolean, description: '„Beitreten“ anbieten (aktiv, nicht abgelaufen, Platz frei – oder schon Mitglied)'}
+            other_account: {type: boolean, description: 'Seit 1.13.0: persönliche Einladung an eine andere E-Mail-Adresse als die des Kontos – vor dem Beitritt nachfragen'}
+            invited_email: {type: [string, 'null'], description: 'Seit 1.13.0: eingeladene Adresse gekürzt (z. B. n…@example.de), nur bei other_account'}
             scopes:
               type: array
               items: {$ref: '#/components/schemas/GroupScope'}
