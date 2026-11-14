@@ -343,6 +343,11 @@ unset($_COOKIE[$kd::COOKIE]);
 // Passwort-Reset setzt die Kontozähler zurück und merkt das Gerät.
 do_action('after_password_reset', get_userdata((int) $userId), $pass);
 $check(! empty($_COOKIE[$kd::COOKIE]) && $kd::valid((string) $_COOKIE[$kd::COOKIE], (int) $userId), 'nach Passwort-Reset: Gerät als bekannt gemerkt');
+// T130: Der Nachweis hängt am ganzen Passwort-Hash – nach einer Passwortänderung ist ein alter Nachweis ungültig.
+$oldProof = $kd::issue((int) $userId);
+wp_set_password($pass.'-neu', (int) $userId);
+$check($kd::valid($oldProof, (int) $userId) === false && $kd::valid($kd::issue((int) $userId), (int) $userId), 'nach Passwortänderung: alter Gerätenachweis ungültig, neuer gültig');
+wp_set_password($pass, (int) $userId);
 unset($_COOKIE[$kd::COOKIE]);
 $check(wp_authenticate($login, $pass) instanceof WP_User, 'nach Passwort-Reset: Kontosperre aufgehoben');
 wp_set_password($pass.'-neu', (int) $userId);

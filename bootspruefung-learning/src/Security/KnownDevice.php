@@ -114,7 +114,9 @@ final class KnownDevice
         if (! $user instanceof WP_User) {
             return null;
         }
-        $fragment = substr((string) $user->user_pass, 8, 4);
+        // An den ganzen Passwort-Hash gebunden (T130): Jede Passwortänderung macht alte Nachweise ungültig. Früher nur
+        // substr(user_pass, 8, 4) – bei den Hashes ab WordPress 6.8 („$wp$2y$10$…“) sind das nur zwei zufällige Zeichen.
+        $fragment = hash('sha256', (string) $user->user_pass);
 
         return hash_hmac('sha256', 'known-device|'.$userId.'|'.$expires.'|'.$fragment, wp_salt('auth'));
     }

@@ -712,6 +712,11 @@ $strictBody = wp_json_encode(['id' => 'K-3', 'event' => 'opened', 'order_id' => 
 $check($req($strictBody, $sign($strictBody))->get_status() === 400 && $statuses($klarna) === ['active'], 'Pflichtfelder an: ohne dispute_id/timestamp 400, Zugang unverändert');
 $strictBody = wp_json_encode(['id' => 'K-4', 'event' => 'opened', 'order_id' => $klarna, 'source' => 'klarna', 'dispute_id' => 'KD-9', 'timestamp' => 'kein Datum']);
 $check($req($strictBody, $sign($strictBody))->get_status() === 400, 'Pflichtfelder an: ungültiger timestamp 400');
+// T134: signierte Nachrichten mit zu altem bzw. zu weit in der Zukunft liegendem Zeitstempel werden abgewiesen (kein Wiedereinspielen).
+$staleBody = wp_json_encode(['id' => 'K-5', 'event' => 'lost', 'order_id' => $klarna, 'source' => 'klarna', 'dispute_id' => 'KD-9', 'timestamp' => gmdate('c', time() - ($dw::MAX_EVENT_AGE + DAY_IN_SECONDS))]);
+$check($req($staleBody, $sign($staleBody))->get_status() === 400 && $statuses($klarna) === ['active'], 'Webhook: Zeitstempel älter als '.(int) ($dw::MAX_EVENT_AGE / DAY_IN_SECONDS).' Tage → 400, Zugang unverändert (T134)');
+$futureBody = wp_json_encode(['id' => 'K-6', 'event' => 'lost', 'order_id' => $klarna, 'source' => 'klarna', 'dispute_id' => 'KD-9', 'timestamp' => gmdate('c', time() + 2 * DAY_IN_SECONDS)]);
+$check($req($futureBody, $sign($futureBody))->get_status() === 400 && $statuses($klarna) === ['active'], 'Webhook: Zeitstempel in der Zukunft → 400 (T134)');
 update_option($dw::OPTION, array_merge($dw::settings(), ['generic_strict' => false]));
 
 echo "Disputes: Reihenfolge nach Ereigniszeit, abgeschlossener Fall endgültig (SEC-04)\n";
@@ -730,6 +735,8 @@ $send = static function (array $data) use ($req, $sign) {
 
     return $req($body, $sign($body));
 };
+// Zeitpunkte relativ zu jetzt: Der Webhook lehnt zu alte Nachrichten ab (T134).
+$ago = static fn (int $seconds): string => gmdate('Y-m-d\TH:i:s\Z', time() - $seconds);
 // Gewonnen kommt vor eröffnet an (Zustellverzögerung): der Zugang bleibt aktiv.
 $k2 = $paidOrder($bob, 'klarna_payments');
 // Ablauf-Erinnerung nur an Käufer (T44): eigene bezahlte Bestellung zählt, 0-€-Bestellung nicht.
@@ -742,21 +749,21 @@ $zeroOrder = wc_get_order($erOrder);
 $zeroOrder->set_total(0);
 $zeroOrder->save();
 $check($ERm::boughtCourses($erUser, [$erCode => '2099-01-01 00:00:00']) === [], 'Erinnerung: 0-€-Bestellung (z. B. Gutschein) zählt nicht als Kauf');
-$r = $send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-10T12:00:00Z']);
+$r = $send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => $ago(2 * DAY_IN_SECONDS)]);
 $check($r->get_status() === 200 && $statuses($k2) === ['active'], '„gewonnen“ vor „eröffnet“: Zugang aktiv');
-$r = $send(['id' => 'K2-open', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-01T12:00:00Z']);
+$r = $send(['id' => 'K2-open', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => $ago(11 * DAY_IN_SECONDS)]);
 $check($statuses($k2) === ['active'] && ($r->get_data()['ignored'] ?? []) === [$k2], 'verspätetes „eröffnet“ (älter) wird ignoriert');
-$send(['id' => 'K2-open-neu', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-11T12:00:00Z']);
+$send(['id' => 'K2-open-neu', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => $ago(DAY_IN_SECONDS)]);
 $check($statuses($k2) === ['active'], 'auch ein neueres „eröffnet“ öffnet den abgeschlossenen Fall nicht wieder');
 $check((bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$p}audit_log WHERE action = 'dispute_ignored' AND object_id = %s", (string) $k2)), 'ignoriertes Ereignis protokolliert');
 // Wiederholung nach Ablauf des Transients (z. B. nicht persistenter Object-Cache): Bestellung kennt das Ereignis.
 delete_transient('bp_dispute_'.md5('klarna|K2-won'));
 $check(! empty($send(['id' => 'K2-won', 'event' => 'won', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1'])->get_data()['duplicate']), 'Ereignis-ID dauerhaft in der Bestellung (nicht nur im Transient)');
 // Ergebnis gegen Ergebnis: das jüngere gilt, ein älteres wird ignoriert.
-$send(['id' => 'K2-lost-alt', 'event' => 'lost', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => '2026-11-05T12:00:00Z']);
+$send(['id' => 'K2-lost-alt', 'event' => 'lost', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-1', 'timestamp' => $ago(7 * DAY_IN_SECONDS)]);
 $check($statuses($k2) === ['active'], 'älteres „verloren“ ändert ein jüngeres „gewonnen“ nicht');
 // Neuer Konfliktfall derselben Bestellung (eigene dispute_id): wird normal ausgewertet.
-$send(['id' => 'K2-open-2', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-2', 'timestamp' => '2026-11-12T08:00:00Z']);
+$send(['id' => 'K2-open-2', 'event' => 'opened', 'order_id' => $k2, 'source' => 'klarna', 'dispute_id' => 'KD-2', 'timestamp' => $ago(6 * HOUR_IN_SECONDS)]);
 $check($statuses($k2) === ['suspended'], 'neuer Fall (andere dispute_id) setzt aus');
 // Unbekanntes Ereignis direkt an handle(): kein Abbruch (UnhandledMatchError), nichts geändert.
 $r = (new $dw())->handle('klarna', 'K2-unknown', 'refunded', $k2, [], 'Test', time(), 'KD-2');

@@ -987,10 +987,24 @@ $res = \Bootspruefung\Learning\Mobile\WebSession::resolveRequest($c8, $simPath, 
 $check($res['user_id'] === $carol, 'gleiches Konto bereits angemeldet → Übergabe klappt');
 unset($_COOKIE[LOGGED_IN_COOKIE]);
 foreach ($staff as $role => $staffId) {
-    $tokS = (string) ($login($role === 'administrator' ? 'mobile_admin_t@example.test' : 'mobile_redaktion_t@example.test', 'Staff-Passwort-321!')['body']['data']['access_token'] ?? '');
+    $staffEmail = $role === 'administrator' ? 'mobile_admin_t@example.test' : 'mobile_redaktion_t@example.test';
+    // T131: Verwaltungskonten melden sich nicht in der App an (App-Login prüft nur das Passwort, kein zweiter Faktor).
+    $denied = $login($staffEmail, 'Staff-Passwort-321!');
+    $check($denied['status'] === 401 && $code($denied) === 'UNAUTHENTICATED' && empty($denied['body']['data']['access_token']), 'Konto mit Rolle '.$role.' → App-Login abgelehnt (401, gleiche Meldung wie falsches Passwort)');
+    // Mit ausdrücklicher Freigabe (Filter) gilt weiterhin: keine Web-Sitzung über ein App-Token.
+    add_filter('bootspruefung_mobile_user_allowed', '__return_true');
+    $tokS = (string) ($login($staffEmail, 'Staff-Passwort-321!')['body']['data']['access_token'] ?? '');
     $r = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokS, ['X-Tenant-Slug' => null]);
-    $check($r['status'] === 403 && $code($r) === 'WEB_SESSION_NOT_ALLOWED', 'Konto mit Rolle '.$role.' → 403 WEB_SESSION_NOT_ALLOWED (keine Admin-Sitzung über App-Token)');
+    remove_filter('bootspruefung_mobile_user_allowed', '__return_true');
+    $check($tokS !== '' && $r['status'] === 403 && $code($r) === 'WEB_SESSION_NOT_ALLOWED', 'Konto mit Rolle '.$role.' (per Filter freigegeben) → 403 WEB_SESSION_NOT_ALLOWED (keine Admin-Sitzung über App-Token)');
+    $check($api('GET', '/me', [], $tokS, ['X-Tenant-Slug' => null])['status'] === 401, 'Konto mit Rolle '.$role.': Token ohne Freigabe sofort ungültig');
 }
+// Kundin wird nachträglich Verwaltungskonto: laufende App-Sitzung endet (T131).
+$tokRole = (string) $login('mobile_kundin_c@example.test', $carolPass, 'Rollenwechsel')['body']['data']['access_token'];
+(new WP_User($carol))->set_role('shop_manager');
+$roleCheck = $api('GET', '/me', [], $tokRole, ['X-Tenant-Slug' => null])['status'];
+(new WP_User($carol))->set_role('customer');
+$check($tokRole !== '' && $roleCheck === 401, 'Rolle nachträglich Shop-Manager → App-Token ungültig');
 [$c6, $v6] = $wsOf($api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]));
 MobileSettings::save(array_merge(MobileSettings::all(), ['web_session_enabled' => false]));
 $r = $api('POST', '/auth/web-session', ['redirect' => $simPath], $tokC, ['X-Tenant-Slug' => null]);

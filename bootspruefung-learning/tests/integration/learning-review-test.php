@@ -226,6 +226,18 @@ try {
     $err = $e;
 }
 $check($err !== null && $err->errorCode() === DomainException::EXAM_EXPIRED, 'nach Fristende keine Markierung mehr');
+// T129: strenger Modus (Kulanz 0) – Gerätezeit zählt nicht, die nachgesendete Antwort wird abgewiesen.
+add_filter('bootspruefung_exam_late_tolerance', '__return_zero');
+$err = null;
+try {
+    $exams->saveAnswer($lea, $sid, 3, $correctIds($rev(3)), null, 90000);
+} catch (DomainException $e) {
+    $err = $e;
+}
+remove_filter('bootspruefung_exam_late_tolerance', '__return_zero');
+$check($err !== null && $err->errorCode() === DomainException::EXAM_EXPIRED && $wpdb->get_var($wpdb->prepare("SELECT answered_at FROM {$p}exam_session_question WHERE session_id = %d AND position = 3", $sid)) === null, 'Kulanz 0 (T129): nachgesendete Antwort mit Gerätezeit abgewiesen');
+// Für die folgenden Schritte (Standard-Kulanz) die dabei ausgewertete Sitzung wieder öffnen.
+$wpdb->update($p.'exam_session', ['status' => 'running', 'submitted_at' => null, 'result' => null, 'score' => null, 'max_score' => null, 'passed' => null], ['id' => $sid]);
 $late = $exams->saveAnswer($lea, $sid, 3, $correctIds($rev(3)), null, 90000);
 $check($late['applied'] && strtotime($late['answered_at'].' UTC') <= time() - 85, 'offline vor Fristende gegebene Antwort (age_ms = 90 s) innerhalb der Kulanz angenommen');
 // Web-REST: Fehler mit Fachcode, gespeicherter Stand in der Antwort.

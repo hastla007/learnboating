@@ -125,8 +125,8 @@ final class TokenAuth
             return 0;
         }
         $user = get_userdata((int) $row->user_id);
-        if (! $user) {
-            return 0;
+        if (! $user || ! Controllers\AuthController::appAllowed($user)) {
+            return 0; // Konto gelöscht bzw. inzwischen Verwaltungskonto (T131)
         }
         if ($now - (int) strtotime($row->last_used_at.' UTC') >= self::TOUCH_INTERVAL) {
             $wpdb->update(self::table(), ['last_used_at' => self::sql($now)], ['id' => (int) $row->id]);
@@ -238,7 +238,12 @@ final class TokenAuth
 
     private static function usable(object $row, int $now): bool
     {
-        return $row->revoked_at === null && strtotime($row->refresh_expires_at.' UTC') > $now && strtotime($row->absolute_expires_at.' UTC') > $now && get_userdata((int) $row->user_id);
+        if ($row->revoked_at !== null || strtotime($row->refresh_expires_at.' UTC') <= $now || strtotime($row->absolute_expires_at.' UTC') <= $now) {
+            return false;
+        }
+        $user = get_userdata((int) $row->user_id);
+
+        return $user instanceof \WP_User && Controllers\AuthController::appAllowed($user);
     }
 
     /** @return array{0:string,1:string,2:int,3:int} [Access, Refresh, Access-Ende, Refresh-Ende] */
