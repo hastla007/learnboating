@@ -1,7 +1,92 @@
-# Offene Punkte (Stand 07.11.2026, Plugin 0.11.0)
+# Offene Punkte (Stand 14.11.2026, Plugin 0.14.0)
 
-Legende Status: 🔴 offen · 🟡 teilweise/zu prüfen · ⏸ bewusst zurückgestellt
-Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code · **Beide** = Test/Abnahme gemeinsam
+Führend ist die To-do-Liste „Offene Punkte Lernplattform“ (Nummern mit „T“). Diese Datei fasst den Stand im
+Repository zusammen. Die Entwicklungspunkte T08–T62, T64–T66, T70, T73 und T77–T128 sind umgesetzt (Änderungen je
+Version in `bootspruefung-learning/CHANGELOG.md`). Offen sind nur noch Schritte, die Entscheidungen, Zugänge oder
+Rechte des Betreibers brauchen; die Technik dafür ist vorhanden.
+
+Legende Status: 🔴 offen · 🟡 Vorlage/Technik fertig, Betreiber muss prüfen oder ausfüllen · ⏸ bewusst zurückgestellt
+Wer: **Du** = Betreiber · **Beide** = Betreiber mit Entwicklung (Fehler aus dem Test gehen an die Entwicklung)
+
+## Offen vor dem Livegang
+
+Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfung › Übersicht › Livegang-Checkliste.
+
+| T | Bereich | Punkt | Status | Wer | Blockiert Livegang | Anleitung |
+|---|---|---|---|---|---|---|
+| T63 | Zahlung | PayPal, Stripe, Klarna in der Sandbox Ende-zu-Ende: Kauf, Teil-/Vollerstattung, Dispute, Abbruch | 🔴 | Beide | ja | `docs/betreiber-schritte.md` T63 |
+| T67 | Betrieb | Staging-Abnahme auf dem echten Server mit Zielversionen, eigenen Drittanbieter-Plugins und `WP_DEBUG` | 🔴 | Beide | ja | `docs/betreiber-schritte.md` T67, `staging/README.md` |
+| T66 | Betrieb | Backup/Restore auf Live einrichten, Restore einmal üben, danach `wp bootspruefung backup-check` | 🔴 | Du/Hoster | ja | `docs/backup-restore.md` |
+| T54 | Betrieb | Mailversand live: SMTP, SPF/DKIM/DMARC, echte Absender, Zustelltest | 🔴 | Du/Hoster | ja | `docs/mailversand.md` |
+| T55 | Betrieb | Server-Betrieb auf Live: echter System-Cron, Proxy-Eintrag, Zeitzone Berlin, Überwachung, HSTS; nginx: Paket-/Schutzordner sperren oder `BOOTSPRUEFUNG_PRIVATE_DIR` | 🔴 | Du/Hoster | ja | `docs/livegang-drehbuch.md` Abschnitt 2, `docs/server-einrichtung.md` |
+| T73 | Shop | WooCommerce-Grundeinstellungen: Deutsch, Bankverbindung, Shop-Adresse, E-Mail-Format, Absender | 🔴 | Du | ja | Systemstatus › Shop › „Grundeinstellungen“ |
+| T68 | Recht & Content | Rechte und Prüfungsregelwerke im Live-System freigeben (Seekarten ausgenommen); Kombi-Regelwerke und Ergänzung FKN → SKN fachlich prüfen | 🔴 | Du | ja | `docs/betreiber-schritte.md` T68, `docs/fachliche-bestaetigungen.md` |
+| T62 | Recht & Content | 449 Platzhaltervideos durch echte Videos mit WebVTT-Untertiteln ersetzen | 🔴 | Du | ja | `docs/videos-untertitel.md` |
+| T71 | Shop | Preise final, Katalog im Live-System anlegen und veröffentlichen | 🟡 | Du | ja | `docs/betreiber-schritte.md` T71, `docs/preise-pruefung.md` |
+| T72 | Recht | Widerrufsfunktion live einschalten; Widerrufs- und Garantietexte rechtlich prüfen lassen | 🟡 | Du | ja | `docs/betreiber-schritte.md` T72 |
+| T52 | Recht | AGB, Datenschutz und Vertragsbestätigung (Vorlagen an die Umsetzung angeglichen) anwaltlich prüfen; Platzhalter `[[Betreiber: …]]` füllen | 🟡 | Du + Anwalt | ja | `docs/anwalt-pruefung.md`, `docs/rechtstexte-platzhalter.md` |
+| T53 | Steuer | Steuerstatus (inkl. MwSt. oder § 19 UStG), Rechnungen/Storno/B2B, E-Rechnung, Verkauf in die Schweiz | 🟡 | Du + Steuerberatung | ja | `docs/steuer-fragen.md`, `docs/rechnungen-steuer.md` |
+| T56 | Recht | Barrierefreiheitsgesetz klären (Erklärung oder Ausnahme Kleinstunternehmen); Rechtstexte Österreich, falls Sitz dort | 🟡 | Du + Anwalt | ja, falls BFSG gilt bzw. Sitz in Österreich | `docs/barrierefreiheit-oesterreich.md` |
+| T57 | Datenschutz | Verarbeitungsverzeichnis, Auftragsverarbeitung (auch Backup-Ziel, Video-Dienst), TOMs, Lösch- und Datenpannenkonzept; App-Datenschutz | 🟡 | Du | App-Teil blockiert den Store-Start | `docs/datenschutz-organisation.md` |
+| T74 | Design | Theme abnehmen (Screenshots im CI-Artefakt), Rechte der Hero-/Kursfotos bestätigen, Rechtstext-Entwürfe veröffentlichen | 🔴 | Du | ja | `docs/betreiber-schritte.md` T74, `docs/theme-livegang.md` |
+| – | Shop | „Zugang ohne Shop“ am Tag des Shopstarts auf „Nur kostenlose Regeln und Freischaltungen“ (Admin-Hinweis mit Knopf) | 🔴 | Du | ja | Bootsprüfung › Einstellungen |
+
+## Offen, blockiert den Livegang nicht
+
+| T | Bereich | Punkt | Status | Wer | Anleitung |
+|---|---|---|---|---|---|
+| T69 | Recht & Content | Seekarte D49: BSH-Lizenz, Datei hochladen, Lizenz bestätigen (bis dahin Hinweis auf gedruckte Karte) | 🔴 | Du | `docs/betreiber-schritte.md` T69 |
+| T70 | Recht & Content | PDFs erzeugen (`tools/pdf-build/`), Rechte der Abbildungen prüfen, hochladen und zuordnen | 🟡 | Du | `docs/pdfs.md` |
+| T64 | Zahlung | PayPal-Webhook mit echter Signaturprüfung (Client-ID/Secret/Webhook-ID eintragen, Sandbox-Dispute) | 🔴 | Beide | `docs/sicherheit-entscheidungen.md` Abschnitt 4 |
+| T65 | Zahlung | Klarna-Konflikte: Bestellaktion vorhanden; automatische Weiterleitung an den allgemeinen Webhook einrichten | 🔴 | Du | `docs/sicherheit-entscheidungen.md` Abschnitt 4 |
+| T58 | Organisation | Support-Textbausteine, Marke, Domain, Versicherungen, Search Console | 🟡 | Du | `docs/support-ablaeufe.md` |
+| – | Design | Markenname, Logo, Favicon, Farben, Claim (heute Platzhalter „XXXX“), Produktbilder neu erzeugen | 🔴 | Du | `BRAND=… python3 tools/product-images/generate.py` |
+| – | Barrierefreiheit | Simulator-Drehknöpfe: Korrektur im Quell-Repo `boatingschool`, danach Zusatzmodul `device-sim-a11y.js` entfernen | 🔴 | Du | `docs/quellrepo-hinweis-simulator-aria.md` |
+| T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen (Export technisch fertig, Format 2) | 🔴 | Du + Anwalt | `docs/betreiber-schritte.md` T61 |
+| T75 | Zahlung | Abos (WooCommerce Subscriptions) | ⏸ | Du | `docs/betreiber-schritte.md` T75 |
+| T76 | Prüfungsanmeldung | Seite „Prüfung anmelden“ für Lernende freischalten | ⏸ | Du | `docs/betreiber-schritte.md` T76 |
+
+## Technik-Restpunkte
+
+- Pull Request `claude/loving-euler-c7h553` → `main` ist noch Entwurf; `main` enthält bisher nur das Konzept.
+- Statische Analyse läuft mit Baselines (PHPStan 199 Funde, PHPCS 704 Funde, alle geprüft, keiner ausnutzbar);
+  schrittweise abbauen.
+- `WC tested up to` beim Wechsel auf WooCommerce 11.3 anheben (CI testet 11.3 Beta bereits informativ).
+
+## Expertenrunde 4 (13.11.2026) – Stand
+
+T41–T51, T59, T60: umgesetzt (Version 0.14.0). T52–T58: Technik und Vorlagen umgesetzt, Betreiberanteil siehe oben.
+T61: Anleitung vorhanden, Entscheidung offen. Ursprüngliche Befunde:
+
+Gesamtprüfung mit 5 Experten (Sicherheit, Abläufe, Technik, Bedienung, Recht/Livegang) auf Stand `9a5e533`. Keine kritische Sicherheitslücke; Abläufe Ende-zu-Ende funktionsfähig. Nummern mit „T“ = Nummer in der To-do-Liste „Offene Punkte Lernplattform“ (führende Liste; die Nummern oben in dieser Datei sind ältere, eigene Nummern); Berichte mit Belegen in der Expertenrunde (IDs in Klammern).
+
+| # | Bereich | Punkt | Wer | Hinweis |
+|---|---|---|---|---|
+| T41 | Sicherheit | Login-Sperre entschärfen: Die Sperre pro IP sperrt alle Konten einer IP inkl. Admin (Proxy, Fahrschul-WLAN, Mobilfunk); fremde Konten aussperrbar; Sperre bleibt nach Passwort-Reset; Reset-Mails gehen still verloren; IPv6 nach /64 | Entwicklung | hoch, durch Runde 3 entstanden (QA4-01/02, ARC-01, SEC-03); Grenzen entscheidet Betreiber (Punkt 35) |
+| T42 | Datenschutz | Kontolöschung erst nach Klick auf „Konto jetzt löschen“ statt beim Aufruf des Mail-Links (Link-Scanner löschen sonst Konten); Mailtext erklären; verwaiste Zugangszeilen entfernen | Entwicklung | hoch, durch Runde 3 entstanden (LIVE-01, QA4-07/08) |
+| T43 | Garantie | Prüfungssimulationen (auch abgebrochene) zählen zur Garantie-Nutzung, Texte sagen das nicht: entweder AGB Nr. 9, FAQ, Garantieseite, Produkttext und Abbruch-Dialog anpassen oder Zählung zurücknehmen | Betreiber + Entwicklung | hoch, durch Runde 3 entstanden (LIVE-02, UX4-01); 1 Simulation SBF See = 10,5 % |
+| T44 | Recht | Ablauf-Erinnerung nur an echte Käufer, nicht an Gruppenmitglieder und manuell Freigeschaltete; Hinweis schon bei Erhebung der E-Mail; Verlängern-Link für Gruppenmitglieder (heute Gruppenpaket) | Entwicklung + Betreiber | hoch (LIVE-03, QA4-03) |
+| T45 | Datenschutz | Anonymisierung bei Kontolöschung: Firma, Land, Rechnungsangaben aufbewahren (B2B, OSS-Nachweis), WooCommerce-Voreinstellung respektieren | Entwicklung + Steuerberatung | hoch (LIVE-04) |
+| T46 | Migration | Export „entitlements“ unvollständig: Verlängerungen, Simulator-Zugänge, Gruppen und gesperrte Zugänge fehlen | Entwicklung (andere KI) | hoch (LIVE-05) |
+| T47 | Betrieb | Nach Plugin-Update geht Lernfortschritt verloren, bis Cron/Admin die Migration ausführt; Statusseite „Wartung“ (letzter Lauf, Fehler, ausstehende Migration, Rückstand Bestellabgleich, Proxy/Client-IP); Bestellabgleich hängt bei > 150 Änderungen pro Sekunde und wiederholt Fehler nicht | Entwicklung | mittel (ARC-02/03/05, QA4-04) |
+| T48 | Betrieb | Plugin-Version erhöhen (steht trotz 42 Commits auf 0.13.0, Browser laden alte app.js), Release-Regel mit Changelog, Downgrade-Weg dokumentieren | Entwicklung | mittel (ARC-04) |
+| T49 | Sicherheit | Anwendungspasswörter für Kunden abschalten; E-Mail-Änderung nur mit Passwort (App-Token → Web-Session); Benutzer-Aufzählung über Autor-Archiv, Registrierung, RSS; Domains im Gruppennamen filtern; CLI-Exporte nicht in den Webroot; Sicherheitsheader, Version aus /health | Entwicklung | mittel (SEC-01/02 und weitere, teils aus Runde 3) |
+| T50 | Shop | Bankdaten bei offener Überweisung jederzeit abrufbar (Bestellansicht zeigt sie nie); Doppelkauf-Hinweis auch bei Kombi, Bundle, Pass; Hinweis, wenn Verlängerung mit Theorie den Videokurs entfallen lässt | Entwicklung | mittel (UX4-02/04, QA4-05/06) |
+| T51 | Lernbereich | Kleinere Bedienfehler: Offline-Hinweis mobil sichtbar, Rückmeldung nach „Prüfung abbrechen“, Kasten „Zahlung offen“ mobil, falsche Meldung im 2. Tab, englische Fehlerseite bei Einladungslink, Kasse ohne Übersicht für Gäste, „Nächster Schritt“ immer Videokurs | Entwicklung | niedrig–mittel (UX4, QA4) |
+| T52 | Recht | AGB und Datenschutz an die Umsetzung angleichen (Kontolöschung, Browser-Speicher, Login-Begrenzung, App); Vertragsbestätigung mit Laufzeit/Enddatum je Position; Garantie-Ausnahme Simulator; Werbetext FKN → SKN | Betreiber + Anwalt | mittel (LIVE-06 bis -10) |
+| T53 | Steuer | Rechnungen mit Nummern, Storno-Belege, B2B-Rechnung, E-Rechnung ab 2027/28, GoBD-Archiv; Steuer bei Verkauf in die Schweiz, OSS-Schwelle überwachen | Betreiber + Steuerberatung | blockiert Livegang (Gruppen an Firmen/Vereine, Schweiz als Verkaufsland) |
+| T54 | Betrieb | Mailversand live: SMTP, SPF/DKIM/DMARC, echte Absender, Zustelltest | Betreiber / Hoster | blockiert Livegang |
+| T55 | Betrieb | Livegang-Drehbuch Staging → Live mit Echtgeld-Testkauf und Rückfallplan; echter System-Cron; Proxy-Eintrag; Zeitzone Europe/Berlin; Überwachung mit Alarm, deutsche Wartungs- und Fehlerseite, HSTS | Betreiber + Entwicklung | blockiert Livegang |
+| T56 | Recht | Barrierefreiheitsgesetz klären (Erklärung oder Ausnahme Kleinstunternehmen); Rechtstexte für Österreich, falls Sitz dort | Betreiber + Anwalt | blockiert Livegang, falls BFSG gilt bzw. Sitz in Österreich |
+| T57 | Datenschutz | Verarbeitungsverzeichnis, Auftragsverarbeitung (auch Backup-Ziel), TOMs, Lösch- und Datenpannenkonzept; App-Datenschutz und Store-Angaben; Minderjährige (Kasse, AGB) | Betreiber | App-Teil blockiert den Store-Start |
+| T58 | Organisation | Support-Abläufe und Textbausteine (Widerruf, Garantie, Datenschutz, Mängel); Pflichtangaben in Plugin-Mails; Marke, Domain, Versicherungen; Search Console und Sitemap; Gutscheinfeld ausblenden | Betreiber + Entwicklung |  |
+| T59 | Inhaltsseiten | Abgleich der Inhaltsseiten fest in Livegang und Updates (Warnung bei veralteten Seiten; 6 Seiten der Vorschau nennen noch die alte Smarttrainer-Regel) | Entwicklung + Betreiber | UX4-08 |
+| T60 | Tests | Browser-Tests für Offline-Puffer, Prüfung abbrechen, „Meine Daten“, Abmeldelink, Login-Sperre mit Reset; Integrationstests eigenständig machen (content-flow, navigation-check) | Entwicklung |  |
+| T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen, Vollständigkeit | Betreiber + Anwalt | vor der Migration |
+
+## Verlauf
+
+Ältere Liste (Stand 07.11.2026, Plugin 0.11.0, eigene Nummern ohne „T“) – zur Nachverfolgung:
 
 | # | Bereich | Punkt | Status | Wer | Blockiert Go-live | Nächster Schritt |
 |---|---|---|---|---|---|---|
@@ -31,31 +116,3 @@ Wer: **Du** = Entscheidung/Lieferung Betreiber · **Dev** = Umsetzung im Code ·
 | 22 | Design | Markenname, Logo, Favicon (ohne eigenen Markennamen gilt der Name der Website; „XXXX“ nur ohne beides), Farben/Schriften, Theme-Name, Du/Sie, Claim, Willkommens- und Kurztext, Support-Absender | 🔴 | Du | nein | Name in den Einstellungen ändern; Bilder mit `BRAND=… python3 tools/product-images/generate.py` neu erzeugen |
 
 Erledigt seit dem letzten Stand: Schreibweisen korrigiert (38) – „Webeleinstek“ im Videokurs, Lautschrift Quebec „KE-BECK“ und Victor „WIK-TAH“, „rwK“ in der Navigationslösung (Konverter, Kennungen unverändert, Lernstände bleiben). Experten-Review (5 Bereiche, 07.11.2026) – Video-Upgrade läuft bis zum Ende des Theoriezugangs und ruht, wenn die Theorie endet/erstattet wird (Simulator-Upgrade entsprechend nur mit Funkkurs); Geld-zurück misst nur die gekauften Inhalte (Upgrade = Lektionen, Theorie = Fragen), Teilerstattung beendet die Garantie der übrigen Positionen nicht; Warenkorb ohne doppelten Videokurs (Komplett ersetzt Theorie/Upgrade); Mitgliederrabatt rechnet mit dem aktuellen Preis; Preis-Seite mit Plausibilitäts- und Sale-Hinweis; Vorschaubilder geschützter PDFs/Karten werden mitgesperrt, REST zeigt keine Dateinamen; Prüfungsfragen nicht nebenbei im Lern-/Videomodus auswertbar, Frage-Token zählt nur einmal, kein doppelter Prüfungsstart, Zugriff auf laufende Prüfung nach Widerruf gesperrt, Zufallsprüfung erst nach Freigabe aller Module; Importe überlappen nicht; Mehrfachauswahl in der Prüfung abwählbar, Fokus beim Fragenwechsel, Vorlese-Knopf verrät keine Lösung, einheitliche Prozentwerte und Begriffe („Favoriten“), Einzahl-Texte; CI-Prüfungen auf PHP-Fehler greifen wieder; Staging mit Cron-Dienst, Test-Postfach (Mailpit), Registrierung, Fehlerprotokoll außerhalb des Webroots; Deinstallation räumt Optionen, Tipps und Medien vollständig auf. Videokurs als eigene Stufe (Festlegung 07.11.2026) – Einzelkurse und Ergänzungen als „Theorie“ (heutiger Preis, ohne Videokurs) und „Komplett mit Videokurs“ (SBF +11,90 €, Funk +7,90 €, SKN/FKN/Ergänzungen +4,90 €), Video-Upgrade zum Aufschlag nur mit Theorie-Stufe (Checkout und Lernbereich, Geld-zurück-Garantie wie der Kurs); Kombis 60,80/46,80 €, Kapitäns-Bundle 88,70 €, Pässe 16,90/34,90 €, Gruppenpakete angehoben; erste Video-Lektion bleibt kostenlos; bestehende Käufe behalten den Videokurs. Preise vorläufig, Prüfung durch den Betreiber offen. Funkgerät-Simulator kostenpflichtig (Festlegung 06.11.2026) – Simulator-Pässe SIM-PASS-14D 9,90 €, SIM-PASS-3M 23,50 €, SIM-PASS-12M 34,50 € (Einmalzahlung, kein Abo, keine Geld-zurück-Garantie), Checkout-Upgrade SIM-UPGRADE-CHECKOUT 13,90 €/12 Monate nur mit Funkkurs im Warenkorb (nicht im Shop gelistet); SRC, UBI, Funk-Kombi, Ergänzung UBI und Funk-Gruppenpakete ohne Simulator, Kapitäns-Bundle und 1-/3-Monats-Pass mit; Testversion für alle (Gerät bedienen, Kanäle, Sendeleistung, MMSI, ein Routineanruf; UBI: ATIS, Verkehrskreise, Begegnung), Sperre bei DISTRESS-Taste, Prüfungsmodus und Freies Üben mit Popup; Texte ohne Vergleich mit anderen Anbietern. Bestehende Käufe behalten ihren Zugang. Lernbereich neu gestaltet (Übersicht, Kursseite, Smarttrainer, Videokurs, Prüfung und Auswertung). Gebühren der Anleitungen geprüft (14) – SBF Binnen 130,78 € und FKN 28,89 € korrigiert, übrige bestätigt, Hinweis „Stand November 2026, Richtwert“; Prüfungsausschüsse nach Zuständigkeit sortiert (15) – eigene Funk-Anschrift bzw. SBF/FKN-Stelle laut DMYV-Liste, übrige allgemein; Bootsschul-Bezug entfernt (16); 17 Gruppenpakete (2–50 Plätze, Bilder, Texte, ohne Geld-zurück-Garantie) im Katalog (17); Tipps & Tricks unter /bootsscheine/tipps/ mit 13 neu geschriebenen Starttexten, im Admin unter „Bootsprüfung › Tipps“ pflegbar (18). Prüfungsregelwerke vorläufig freigegeben (2) – Sammelfreigabe verifiziert alle und veröffentlicht die drei Entwürfe der Quelle per lokalem Override; Produkte mit Bildern (17 eigene Grafiken), Kategorien und Texten aus den Kursinhalten, Veröffentlichung per Haken/`--publish` (27, Ausführung im Live-System offen). Rechtsfragen entschieden (1) – SRC/UBI-Kataloge, 527 Fragen ohne Quellenangabe, ELWIS-Bilder, Funktexte und übrige Inhalte vorläufig freigegeben (Sammelfreigabe mit Begründung im Audit-Log); Seekarte D49 per Upload, für Lernende erst nach bestätigter BSH-Lizenz sichtbar. Zielsystem festgelegt (20) – PHP 8.5.12, WordPress 7.1.4, MariaDB 12.3.3, WooCommerce 11.2.2 (live) und 11.3 Beta (Test), reines Block-Theme mit Checkout-Block; CI testet genau diesen Stack (11.3 Beta informativ, blockiert nicht) plus Untergrenze PHP 8.1/MariaDB 10.11; Browser-Tests erzwingen ein Block-Theme (Twenty Twenty-Five). Katalogstand bestätigt (4); Produktliste mit Preisen, Laufzeit (12 Monate, SKN/FKN/Ergänzungen 6 Monate = 182 Tage, Pässe 30/90 Tage), Kombis/Bundle schalten alle enthaltenen Kurse frei (5); Schnupper-Paket je Kurs: 10 Fragen pro Modul, 1 Prüfungsbogen, erste Video-Lektion, erste Navigations- und Praxisaufgabe (6); Geld-zurück-Garantie 14 Tage / unter 20 % gelernt (Fragen + Video-Lektionen seit Kauf) mit Anfrage unter „Mein Lernen“, Mail an dich, Hinweis in der Bestellung. Davor: Kaufablauf-Browsertest (Block mit Gast-Hinweis und Registrierung, klassisch, Zahlung, „Mein Lernen“) grün in CI (8); Checkout-Block zeigt Gästen mit Lernprodukt Konto-Hinweis mit Anmeldung/Registrierung statt Bestellknopf (26); Rückkehr zur Gruppeneinladung bzw. Kasse nach Registrierung (23); `wp bootspruefung reconcile` zeigt Gruppenänderungen in der Vorschau (24); Ursache „entitled_only“ zwischen CI-Schritten geklärt – der WooCommerce-Integrationstest brach in CI mit einem Fatal Error ab (Testvariable `$post` überschrieb das globale WordPress-`$post`), `| tee` verschluckte den Fehler; CI läuft jetzt mit `pipefail` (25); Backup-Hinweis im Systemstatus.
-
-## Neu aus Expertenrunde 4 (13.11.2026)
-
-Gesamtprüfung mit 5 Experten (Sicherheit, Abläufe, Technik, Bedienung, Recht/Livegang) auf Stand `9a5e533`. Keine kritische Sicherheitslücke; Abläufe Ende-zu-Ende funktionsfähig. Nummern mit „T“ = Nummer in der To-do-Liste „Offene Punkte Lernplattform“ (führende Liste; die Nummern oben in dieser Datei sind ältere, eigene Nummern); Berichte mit Belegen in der Expertenrunde (IDs in Klammern).
-
-| # | Bereich | Punkt | Wer | Hinweis |
-|---|---|---|---|---|
-| T41 | Sicherheit | Login-Sperre entschärfen: Die Sperre pro IP sperrt alle Konten einer IP inkl. Admin (Proxy, Fahrschul-WLAN, Mobilfunk); fremde Konten aussperrbar; Sperre bleibt nach Passwort-Reset; Reset-Mails gehen still verloren; IPv6 nach /64 | Entwicklung | hoch, durch Runde 3 entstanden (QA4-01/02, ARC-01, SEC-03); Grenzen entscheidet Betreiber (Punkt 35) |
-| T42 | Datenschutz | Kontolöschung erst nach Klick auf „Konto jetzt löschen“ statt beim Aufruf des Mail-Links (Link-Scanner löschen sonst Konten); Mailtext erklären; verwaiste Zugangszeilen entfernen | Entwicklung | hoch, durch Runde 3 entstanden (LIVE-01, QA4-07/08) |
-| T43 | Garantie | Prüfungssimulationen (auch abgebrochene) zählen zur Garantie-Nutzung, Texte sagen das nicht: entweder AGB Nr. 9, FAQ, Garantieseite, Produkttext und Abbruch-Dialog anpassen oder Zählung zurücknehmen | Betreiber + Entwicklung | hoch, durch Runde 3 entstanden (LIVE-02, UX4-01); 1 Simulation SBF See = 10,5 % |
-| T44 | Recht | Ablauf-Erinnerung nur an echte Käufer, nicht an Gruppenmitglieder und manuell Freigeschaltete; Hinweis schon bei Erhebung der E-Mail; Verlängern-Link für Gruppenmitglieder (heute Gruppenpaket) | Entwicklung + Betreiber | hoch (LIVE-03, QA4-03) |
-| T45 | Datenschutz | Anonymisierung bei Kontolöschung: Firma, Land, Rechnungsangaben aufbewahren (B2B, OSS-Nachweis), WooCommerce-Voreinstellung respektieren | Entwicklung + Steuerberatung | hoch (LIVE-04) |
-| T46 | Migration | Export „entitlements“ unvollständig: Verlängerungen, Simulator-Zugänge, Gruppen und gesperrte Zugänge fehlen | Entwicklung (andere KI) | hoch (LIVE-05) |
-| T47 | Betrieb | Nach Plugin-Update geht Lernfortschritt verloren, bis Cron/Admin die Migration ausführt; Statusseite „Wartung“ (letzter Lauf, Fehler, ausstehende Migration, Rückstand Bestellabgleich, Proxy/Client-IP); Bestellabgleich hängt bei > 150 Änderungen pro Sekunde und wiederholt Fehler nicht | Entwicklung | mittel (ARC-02/03/05, QA4-04) |
-| T48 | Betrieb | Plugin-Version erhöhen (steht trotz 42 Commits auf 0.13.0, Browser laden alte app.js), Release-Regel mit Changelog, Downgrade-Weg dokumentieren | Entwicklung | mittel (ARC-04) |
-| T49 | Sicherheit | Anwendungspasswörter für Kunden abschalten; E-Mail-Änderung nur mit Passwort (App-Token → Web-Session); Benutzer-Aufzählung über Autor-Archiv, Registrierung, RSS; Domains im Gruppennamen filtern; CLI-Exporte nicht in den Webroot; Sicherheitsheader, Version aus /health | Entwicklung | mittel (SEC-01/02 und weitere, teils aus Runde 3) |
-| T50 | Shop | Bankdaten bei offener Überweisung jederzeit abrufbar (Bestellansicht zeigt sie nie); Doppelkauf-Hinweis auch bei Kombi, Bundle, Pass; Hinweis, wenn Verlängerung mit Theorie den Videokurs entfallen lässt | Entwicklung | mittel (UX4-02/04, QA4-05/06) |
-| T51 | Lernbereich | Kleinere Bedienfehler: Offline-Hinweis mobil sichtbar, Rückmeldung nach „Prüfung abbrechen“, Kasten „Zahlung offen“ mobil, falsche Meldung im 2. Tab, englische Fehlerseite bei Einladungslink, Kasse ohne Übersicht für Gäste, „Nächster Schritt“ immer Videokurs | Entwicklung | niedrig–mittel (UX4, QA4) |
-| T52 | Recht | AGB und Datenschutz an die Umsetzung angleichen (Kontolöschung, Browser-Speicher, Login-Begrenzung, App); Vertragsbestätigung mit Laufzeit/Enddatum je Position; Garantie-Ausnahme Simulator; Werbetext FKN → SKN | Betreiber + Anwalt | mittel (LIVE-06 bis -10) |
-| T53 | Steuer | Rechnungen mit Nummern, Storno-Belege, B2B-Rechnung, E-Rechnung ab 2027/28, GoBD-Archiv; Steuer bei Verkauf in die Schweiz, OSS-Schwelle überwachen | Betreiber + Steuerberatung | blockiert Livegang (Gruppen an Firmen/Vereine, Schweiz als Verkaufsland) |
-| T54 | Betrieb | Mailversand live: SMTP, SPF/DKIM/DMARC, echte Absender, Zustelltest | Betreiber / Hoster | blockiert Livegang |
-| T55 | Betrieb | Livegang-Drehbuch Staging → Live mit Echtgeld-Testkauf und Rückfallplan; echter System-Cron; Proxy-Eintrag; Zeitzone Europe/Berlin; Überwachung mit Alarm, deutsche Wartungs- und Fehlerseite, HSTS | Betreiber + Entwicklung | blockiert Livegang |
-| T56 | Recht | Barrierefreiheitsgesetz klären (Erklärung oder Ausnahme Kleinstunternehmen); Rechtstexte für Österreich, falls Sitz dort | Betreiber + Anwalt | blockiert Livegang, falls BFSG gilt bzw. Sitz in Österreich |
-| T57 | Datenschutz | Verarbeitungsverzeichnis, Auftragsverarbeitung (auch Backup-Ziel), TOMs, Lösch- und Datenpannenkonzept; App-Datenschutz und Store-Angaben; Minderjährige (Kasse, AGB) | Betreiber | App-Teil blockiert den Store-Start |
-| T58 | Organisation | Support-Abläufe und Textbausteine (Widerruf, Garantie, Datenschutz, Mängel); Pflichtangaben in Plugin-Mails; Marke, Domain, Versicherungen; Search Console und Sitemap; Gutscheinfeld ausblenden | Betreiber + Entwicklung |  |
-| T59 | Inhaltsseiten | Abgleich der Inhaltsseiten fest in Livegang und Updates (Warnung bei veralteten Seiten; 6 Seiten der Vorschau nennen noch die alte Smarttrainer-Regel) | Entwicklung + Betreiber | UX4-08 |
-| T60 | Tests | Browser-Tests für Offline-Puffer, Prüfung abbrechen, „Meine Daten“, Abmeldelink, Login-Sperre mit Reset; Integrationstests eigenständig machen (content-flow, navigation-check) | Entwicklung |  |
-| T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen, Vollständigkeit | Betreiber + Anwalt | vor der Migration |
