@@ -4,6 +4,21 @@ Format: je Version die für Betreiber und Kunden sichtbaren Änderungen, danach 
 Release-Regel in `docs/release-regel.md`. Datenbank-Schema und App-API haben eigene Versionen (Systemstatus,
 `docs/mobile-api/README.md`).
 
+## Nächste Version (noch nicht veröffentlicht)
+
+**Sicherheit (Prüfrunde 14.11., T129–T134)**
+- App-Login nur noch für Kundenkonten: Verwaltungskonten (Administration, Redaktion, Shop, Plugin-Rechte) bekommen keine
+  App-Tokens mehr, laufende App-Sitzungen solcher Konten enden sofort (das App-Login kennt keinen zweiten Faktor).
+  Freigabe für Tests über den Filter `bootspruefung_mobile_user_allowed` (T131).
+- „Bekanntes Gerät“ hängt am ganzen Passwort-Hash: Nach einer Passwortänderung gilt kein alter Nachweis mehr. Bestehende
+  Nachweise werden mit dem Update einmalig ungültig; sie entstehen bei der nächsten Anmeldung neu (T130).
+- Geschützte Dateien: nur PDF, Bilder, Audio und Video werden im Browser angezeigt, alles andere als Download; außer bei
+  PDF mit `Content-Security-Policy: sandbox` (T133).
+- Allgemeiner Konflikt-Webhook: Nachrichten mit Zeitstempel älter als 60 Tage oder mehr als einen Tag in der Zukunft werden
+  abgewiesen (kein erneutes Einspielen, T134).
+- Prüfungssimulation: Kulanz für nachgesendete Offline-Antworten über den Filter `bootspruefung_exam_late_tolerance`
+  einstellbar (Standard 120 s, 0 = streng, nur Eingang beim Server zählt) – siehe T129 in `docs/offene-punkte.md`.
+
 ## 0.14.0 – 13.11.2026
 
 Datenbank-Schema 1.15.0, App-API 1.12.0. Seit 0.13.0 rund 120 Änderungen; die wichtigsten:

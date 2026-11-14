@@ -66,7 +66,7 @@ final class AuthController extends BaseController
 
         // E-Mail oder Benutzername (wie das Web-Login von WordPress/WooCommerce).
         $user = LoginGuard::uncounted(static fn () => wp_authenticate($email, $password));
-        if (is_wp_error($user) || ! $user instanceof \WP_User || ! apply_filters('bootspruefung_mobile_user_allowed', true, $user)) {
+        if (is_wp_error($user) || ! $user instanceof \WP_User || ! self::appAllowed($user)) {
             LoginGuard::settle($buckets, $reservation['counts'], false, $email, $ip); // Fehlversuch bleibt gezählt
             throw new ApiException('UNAUTHENTICATED', __('E-Mail-Adresse oder Passwort ist nicht korrekt.', 'bootspruefung-learning'), 401);
         }
@@ -77,6 +77,24 @@ final class AuthController extends BaseController
         do_action('bootspruefung_mobile_login', (int) $user->ID, (int) $tokens['session_id']);
 
         return $this->ok($tokens + AccountController::profile((int) $user->ID) + ['device_token' => \Bootspruefung\Learning\Security\KnownDevice::issue((int) $user->ID)]);
+    }
+
+    /**
+     * Darf sich dieses Konto in der App anmelden? Verwaltungskonten (Administration, Redaktion, Shop, Plugin-Rechte) nicht
+     * (T131): Das App-Login prüft nur das Passwort, Zwei-Faktor-Plugins greifen erst im Login-Formular. Freigabe für
+     * eigene Tests über den Filter bootspruefung_mobile_user_allowed.
+     */
+    public static function appAllowed(\WP_User $user): bool
+    {
+        $allowed = ! \Bootspruefung\Learning\Privacy\AccountDeletion::isProtected($user) && ! \Bootspruefung\Learning\Mobile\WebSession::privileged($user);
+
+        /**
+         * Filter: App-Anmeldung für ein Konto erlauben bzw. verbieten.
+         *
+         * @param bool     $allowed Standard: false für Verwaltungskonten
+         * @param \WP_User $user
+         */
+        return (bool) apply_filters('bootspruefung_mobile_user_allowed', $allowed, $user);
     }
 
     public function refresh(WP_REST_Request $request): WP_REST_Response

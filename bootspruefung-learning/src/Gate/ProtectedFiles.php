@@ -361,16 +361,35 @@ final class ProtectedFiles
         // PDF), und große Dateien landen im Speicher statt direkt beim Browser.
         self::clearOutputBuffers();
         nocache_headers();
-        header('Content-Type: '.($mime !== '' ? $mime : 'application/octet-stream'));
+        $inline = self::inlineMime($mime);
+        header('Content-Type: '.($inline ? $mime : 'application/octet-stream'));
         header('Content-Length: '.filesize($path));
-        header('Content-Disposition: '.self::contentDisposition('inline', wp_basename($path)));
+        header('Content-Disposition: '.self::contentDisposition($inline ? 'inline' : 'attachment', wp_basename($path)));
         header('X-Content-Type-Options: nosniff');
+        // T133: Die Datei läuft auf der eigenen Domain – Skripte darin bleiben ohne Zugriff auf Cookies und Seite. Nicht bei
+        // PDF: Chrome zeigt PDFs unter „sandbox“ gar nicht an (sein Betrachter führt ohnehin keine Seitenskripte aus).
+        if (strtolower(trim(explode(';', $mime)[0])) !== 'application/pdf') {
+            header('Content-Security-Policy: sandbox');
+        }
         header('Cache-Control: private, no-store');
         /** Filter: true, wenn der Webserver X-Sendfile/X-Accel-Redirect übernimmt (nach eigenem Header). */
         if (! apply_filters('bootspruefung_protected_file_sendfile', false, $path)) {
             readfile($path);
         }
         exit;
+    }
+
+    /**
+     * Dateitypen, die im Browser angezeigt werden dürfen (T133): PDF, Rasterbilder, Audio und Video. Alles andere – vor
+     * allem HTML und SVG, die Skripte enthalten können – kommt als Download (application/octet-stream).
+     */
+    public static function inlineMime(string $mime): bool
+    {
+        $mime = strtolower(trim(explode(';', $mime)[0]));
+
+        return $mime === 'application/pdf'
+            || in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'], true)
+            || str_starts_with($mime, 'video/') || str_starts_with($mime, 'audio/');
     }
 
     /** Alle offenen Ausgabepuffer verwerfen (vor einer Dateiauslieferung). Nicht entfernbare Puffer bleiben. */

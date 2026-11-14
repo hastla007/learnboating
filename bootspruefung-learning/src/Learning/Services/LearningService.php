@@ -782,7 +782,7 @@ final class LearningService
                AND ((s.deadline_at IS NOT NULL AND s.deadline_at > %s) OR (s.deadline_at IS NULL AND s.started_at > %s))",
             $userId,
             // Bis zum Ende der Kulanz für nachgesendete Prüfungsantworten gesperrt (nicht nachschlagen und nachreichen).
-            gmdate('Y-m-d H:i:s', $now - \Bootspruefung\Learning\Exams\Services\ExamService::LATE_TOLERANCE_SECONDS),
+            gmdate('Y-m-d H:i:s', $now - \Bootspruefung\Learning\Exams\Services\ExamService::lateTolerance()),
             gmdate('Y-m-d H:i:s', $now - self::OPEN_EXAM_BLOCK_SECONDS)
         )));
     }

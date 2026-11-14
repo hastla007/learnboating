@@ -60,6 +60,10 @@ final class DisputeWebhooks
     public const META_EVENTS = '_bp_dispute_events';
 
     private const MAX_EVENTS = 100;
+    /** Höchstalter eines Ereignisses am allgemeinen Webhook (Sekunden, T134) – kürzer als die 90 Tage der Doppel-Erkennung. */
+    public const MAX_EVENT_AGE = 60 * DAY_IN_SECONDS;
+    /** Erlaubte Abweichung in die Zukunft (Uhren von Gateway bzw. Automatisierung). */
+    public const MAX_EVENT_SKEW = DAY_IN_SECONDS;
 
     /** PayPal-Webhook: größte angenommene Nachricht in Bytes (Konflikt-Ereignisse sind wenige KB groß). */
     public const PAYPAL_MAX_BODY = 262144;
@@ -531,12 +535,31 @@ final class DisputeWebhooks
         if (! empty(self::settings()['generic_strict']) && (trim((string) ($data['dispute_id'] ?? '')) === '' || self::eventTime($data['timestamp'] ?? $data['occurred_at'] ?? null) === null)) {
             return new WP_Error('bp_invalid', 'Expected dispute_id and timestamp.', ['status' => 400]);
         }
+        // Zeitfenster (T134): Die Doppel-Erkennung hält 90 Tage. Ältere bzw. weit in der Zukunft liegende Zeitstempel weisen
+        // wir ab – eine mitgeschnittene, signierte Nachricht lässt sich so nicht später erneut einspielen.
+        $stamp = self::eventTime($data['timestamp'] ?? $data['occurred_at'] ?? null);
+        if ($stamp !== null && ! self::freshEnough($stamp)) {
+            self::logRejected('generic_stale', ['timestamp' => gmdate('c', $stamp)], 'stale');
+
+            return new WP_Error('bp_stale', 'Event timestamp outside the accepted window.', ['status' => 400]);
+        }
         // Ohne ID: Hash über den normalisierten Inhalt (Leerzeichen oder Schlüsselreihenfolge ändern nichts).
         $eventId = (string) ($data['id'] ?? hash('sha256', (string) wp_json_encode(self::normalize($data))));
         $disputeId = (string) ($data['dispute_id'] ?? '');
 
         return self::respond($this->handle((string) ($data['source'] ?? 'generic'), $eventId, $action, empty($data['order_id']) ? null : (int) $data['order_id'],
             empty($data['transaction_id']) ? [] : [(string) $data['transaction_id']], (string) ($data['reason'] ?? ''), self::eventTime($data['timestamp'] ?? $data['occurred_at'] ?? null), $disputeId !== '' ? $disputeId : null));
+    }
+
+    /**
+     * Liegt ein Ereigniszeitpunkt im angenommenen Fenster (T134)? Höchstens MAX_EVENT_AGE alt (kürzer als die 90 Tage der
+     * Doppel-Erkennung) und höchstens MAX_EVENT_SKEW in der Zukunft (Uhrabweichung).
+     */
+    public static function freshEnough(int $eventTime, ?int $now = null): bool
+    {
+        $now ??= time();
+
+        return $eventTime >= $now - self::MAX_EVENT_AGE && $eventTime <= $now + self::MAX_EVENT_SKEW;
     }
 
     /** @param array<mixed> $data @return array<mixed> rekursiv nach Schlüsseln sortiert */
@@ -829,7 +852,7 @@ final class DisputeWebhooks
             $s['generic_secret'] !== '' ? '<p>'.esc_html__('Schlüssel:', 'bootspruefung-learning').' <code>'.esc_html($s['generic_secret']).'</code> <label><input type="checkbox" name="regenerate_secret" value="1"> '.esc_html__('neu erzeugen', 'bootspruefung-learning').'</label></p>' : '<p>'.esc_html__('Der Schlüssel wird beim Speichern erzeugt.', 'bootspruefung-learning').'</p>');
         printf('<tr><th>%s</th><td><label><input type="checkbox" name="generic_strict" value="1" %s> %s</label><p class="description">%s</p></td></tr>', esc_html__('Pflichtfelder', 'bootspruefung-learning'), checked(! empty($s['generic_strict']), true, false),
             esc_html__('dispute_id und timestamp verlangen (sonst 400)', 'bootspruefung-learning'),
-            esc_html__('Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden.', 'bootspruefung-learning'));
+            esc_html__('Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden. Nachrichten mit timestamp älter als 60 Tage oder mehr als einen Tag in der Zukunft werden immer abgewiesen (Schutz vor erneutem Einspielen) – auch deshalb timestamp mitschicken.', 'bootspruefung-learning'));
         echo '</tbody></table>';
         submit_button(__('Konflikt-Einstellungen speichern', 'bootspruefung-learning'));
         echo '</form>';

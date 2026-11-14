@@ -43,12 +43,12 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 | – | Design | Markenname, Logo, Favicon, Farben, Claim (heute Platzhalter „XXXX“), Produktbilder neu erzeugen | 🔴 | Du | `BRAND=… python3 tools/product-images/generate.py` |
 | – | Barrierefreiheit | Simulator-Drehknöpfe: Korrektur im Quell-Repo `boatingschool`, danach Zusatzmodul `device-sim-a11y.js` entfernen | 🔴 | Du | `docs/quellrepo-hinweis-simulator-aria.md` |
 | T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen (Export technisch fertig, Format 2) | 🔴 | Du + Anwalt | `docs/betreiber-schritte.md` T61 |
-| T129 | Prüfung | Prüfungsantworten nach Fristende rückdatierbar (`age_ms`/`answered_at`) – Details unter „Prüfrunde 14.11.2026“ | 🔴 | Entwicklung | unten |
-| T130 | Sicherheit | „Bekanntes Gerät“: Cookie stärker an das Passwort binden | 🔴 | Entwicklung | unten |
-| T131 | Sicherheit | App-Login für Verwaltungskonten sperren bzw. Zwei-Faktor beachten | 🔴 | Entwicklung | unten |
+| T129 | Prüfung | Kulanz für Offline-Antworten nach Fristende: Gerätezeit nicht prüfbar (Designgrenze). Jetzt einstellbar (Filter `bootspruefung_exam_late_tolerance`, Standard 120 s, 0 = streng) | 🟡 | Du entscheidest | unten |
+| T130 | Sicherheit | „Bekanntes Gerät“: Cookie an den ganzen Passwort-Hash gebunden | ✅ | Entwicklung | erledigt |
+| T131 | Sicherheit | App-Login für Verwaltungskonten gesperrt, laufende Sitzungen enden | ✅ | Entwicklung | erledigt |
 | T132 | Gruppen | Persönliche Einladung an die E-Mail binden oder bewusst übertragbar lassen | 🔴 | Du entscheidest, dann Entwicklung | unten |
-| T133 | Sicherheit | Geschützte Dateien nur als PDF/Bild/Video inline, sonst Download mit Sandbox | 🔴 | Entwicklung | unten |
-| T134 | Zahlung | Allgemeiner Konflikt-Webhook: Zeitstempel verpflichtend, alte Nachrichten ablehnen | 🔴 | Entwicklung | unten |
+| T133 | Sicherheit | Geschützte Dateien: nur PDF/Bild/Audio/Video inline, sonst Download; Sandbox außer bei PDF | ✅ | Entwicklung | erledigt |
+| T134 | Zahlung | Allgemeiner Konflikt-Webhook: Zeitstempel älter als 60 Tage bzw. > 1 Tag in der Zukunft → abgewiesen | ✅ | Entwicklung | erledigt |
 | T75 | Zahlung | Abos (WooCommerce Subscriptions) | ⏸ | Du | `docs/betreiber-schritte.md` T75 |
 | T76 | Prüfungsanmeldung | Seite „Prüfung anmelden“ für Lernende freischalten | ⏸ | Du | `docs/betreiber-schritte.md` T76 |
 
@@ -63,11 +63,14 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 Gezielte Prüfung der sicherheitskritischen Teile: Anmeldung und Login-Begrenzung, App-Tokens, Kontolöschung,
 Paket-Import (Ablageordner, Link), Zahlungskonflikt-Webhooks, Kursgutscheine samt Connector, Gruppen,
 geschützte Dateien, Prüfungssimulation und Theme-Eingaben. Ergebnis: keine kritische Lücke. Sechs Funde, alle
-Entwicklung. Übernommen als T129–T134 (Status 🔴 offen, siehe auch „Offen, blockiert den Livegang nicht“).
+Entwicklung. Übernommen als T129–T134. Stand: T130, T131, T133, T134 behoben (CHANGELOG „Nächste Version“); T129 ist
+eine Designgrenze – die Kulanz für Offline-Antworten ist jetzt einstellbar, die Entscheidung liegt beim Betreiber
+(Standard lassen = Funkloch-Antworten bis 2 Minuten nach Fristende zählen, aber auch zurückdatierte; 0 = streng);
+T132 wartet auf die Entscheidung des Betreibers.
 
 | T | Bereich | Fund | Schwere | Wer | Vorschlag |
 |---|---|---|---|---|---|
-| T129 | Prüfung | Antwortzeit aus der App/dem Browser (`age_ms`, `answered_at`) wird ungeprüft übernommen: Innerhalb der 120 s Kulanz nach Fristende lassen sich Antworten zurückdatieren und noch ändern (`ExamService::saveAnswer`) | mittel | Entwicklung | Rückdatierung auf die tatsächliche Wartezeit begrenzen (Zeitpunkt nicht vor dem letzten Serverkontakt der Frage); nach Fristende nur Antworten annehmen, die nachweislich vorher gepuffert wurden |
+| T129 | Prüfung | Antwortzeit aus der App/dem Browser (`age_ms`, `answered_at`) wird ungeprüft übernommen: Innerhalb der 120 s Kulanz nach Fristende lassen sich Antworten zurückdatieren und noch ändern (`ExamService::saveAnswer`). Nicht serverseitig unterscheidbar von echten Funkloch-Antworten | niedrig (Übungsprüfung) | Entwicklung | Rückdatierung auf die tatsächliche Wartezeit begrenzen (Zeitpunkt nicht vor dem letzten Serverkontakt der Frage); nach Fristende nur Antworten annehmen, die nachweislich vorher gepuffert wurden |
 | T130 | Sicherheit | „Bekanntes Gerät“ bindet das Cookie mit `substr(user_pass, 8, 4)` an das Passwort – bei den Hashes ab WordPress 6.8 sind das nur zwei zufällige Zeichen; nach einer Passwortänderung bleibt ein altes Cookie mit ~1:4096 gültig (`KnownDevice::sign`) | niedrig | Entwicklung | Fragment aus dem ganzen Hash ableiten bzw. wie WordPress die letzten 4 Zeichen nehmen |
 | T131 | Sicherheit | App-Login gibt auch Verwaltungskonten Tokens und umgeht Zwei-Faktor-Plugins, die erst im Login-Formular greifen (`AuthController::login`) | niedrig–mittel | Entwicklung | Verwaltungskonten standardmäßig vom App-Login ausnehmen (Filter `bootspruefung_mobile_user_allowed`) oder 2FA-Plugins erkennen |
 | T132 | Gruppen | Persönliche Einladung ist nicht an die eingeladene E-Mail gebunden – wer den Link hat, nimmt den Platz (`GroupService::joinLocked`) | niedrig | Betreiber entscheidet, Entwicklung setzt um | Entweder an die E-Mail binden (Hinweis bei anderem Konto) oder bewusst übertragbar lassen und in der Einladungsmail sagen |

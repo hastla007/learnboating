@@ -44,6 +44,18 @@ final class ExamService
     /** So lange nach Fristende nimmt der Server noch Antworten an, die vor Fristende gegeben wurden (offline gepuffert). */
     public const LATE_TOLERANCE_SECONDS = 120;
 
+    /**
+     * Kulanz für nachgesendete Antworten in Sekunden (Filter bootspruefung_exam_late_tolerance, 0–600; 0 = streng).
+     * Designgrenze (T129): Der Zeitpunkt einer offline gegebenen Antwort stammt vom Gerät und ist nicht prüfbar. Wer
+     * nach Fristende noch antwortet und den Zeitpunkt zurückdatiert, bekommt innerhalb der Kulanz bis zu so viele
+     * Sekunden zusätzlich. Mit 0 zählen nur Antworten, die vor Fristende (+ GRACE_SECONDS) beim Server ankommen –
+     * dann gehen Antworten aus einem Funkloch kurz vor Schluss verloren.
+     */
+    public static function lateTolerance(): int
+    {
+        return max(0, min(600, (int) apply_filters('bootspruefung_exam_late_tolerance', self::LATE_TOLERANCE_SECONDS)));
+    }
+
     private \wpdb $db;
 
     /** @var array<string,array{0:array<string,int>,1:array<int,list<int>>}> Modul-IDs und Fragen je Teil-Modulcodes (je Anfrage) */
@@ -391,6 +403,11 @@ final class ExamService
         $revision = $this->presenter->revision((int) $sq->revision_id);
         $now = time();
         $at = $now;
+        if (self::lateTolerance() === 0) {
+            // Strenger Modus (T129): Zeitpunkt des Geräts nicht übernehmen – es zählt der Eingang beim Server.
+            $ageMs = null;
+            $answeredAt = null;
+        }
         if ($ageMs !== null) {
             $at = $now - intdiv(max(0, $ageMs), 1000);
         } elseif ($answeredAt !== null && $answeredAt !== '' && ($ts = strtotime($answeredAt)) !== false) {
@@ -554,7 +571,7 @@ final class ExamService
     {
         // Erst nach der Kulanz für nachgesendete Antworten auswerten (siehe LATE_TOLERANCE_SECONDS).
         $sql = "SELECT id FROM {$this->t('exam_session')} WHERE status = 'running' AND deadline_at IS NOT NULL AND deadline_at < %s";
-        $args = [gmdate('Y-m-d H:i:s', time() - self::LATE_TOLERANCE_SECONDS)];
+        $args = [gmdate('Y-m-d H:i:s', time() - self::lateTolerance())];
         if ($userId !== null) {
             $sql .= ' AND user_id = %d';
             $args[] = $userId;
@@ -997,7 +1014,7 @@ final class ExamService
     /** Automatisch auszuwerten: Fristende plus Kulanz für nachgesendete Antworten vorbei. */
     private function expired(object $session): bool
     {
-        return $session->deadline_at !== null && time() > strtotime($session->deadline_at.' UTC') + self::LATE_TOLERANCE_SECONDS;
+        return $session->deadline_at !== null && time() > strtotime($session->deadline_at.' UTC') + self::lateTolerance();
     }
 
     /** Nach Fristende (+ GRACE_SECONDS) keine Musterantworten und Markierungen mehr (Sitzung läuft nur noch für Nachzügler). */
