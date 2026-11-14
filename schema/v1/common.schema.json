@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/common.schema.json",
+  "title": "Gemeinsame Definitionen des Content-Pakets",
+  "$defs": {
+    "sourceId": { "type": "string", "minLength": 1, "maxLength": 191 },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableText": { "type": ["string", "null"] },
+    "date": { "type": ["string", "null"], "format": "date" },
+    "editorialStatus": { "enum": ["draft", "review", "approved", "published", "deprecated"] },
+    "rightsStatus": { "enum": ["unknown", "review", "licensed", "public", "restricted"] },
+    "courseCode": { "type": "string", "pattern": "^[A-Z0-9-]+$" },
+    "moduleCode": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+    "sourceFile": { "type": "string", "pattern": "^(database|app|resources|public)/" }
+  }
+}

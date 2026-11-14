@@ -1,0 +1,1336 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Integrationstest Admin/Import: veraltete Freigaben, abgebrochene Importe (Mischstand,
+ * Wiederherstellung), hängengebliebene Importe, Vorschau in Teilschritten, Sammelfreigabe
+ * der Rechte, Preiseingabe. Mit aktivem WooCommerce zusätzlich: Katalog-Abgleich respektiert
+ * Handänderungen je Feld.
+ *
+ *   WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php tests/integration/admin-test.php
+ *
+ * Voraussetzung: Plugin aktiv und Paket bereits einmal importiert (z. B. nach content-flow-test.php).
+ * Ohne PACKAGE_DIR laufen nur die Teile ohne Paket.
+ */
+
+$wpDir = rtrim((string) getenv('WP_DIR'), '/');
+$packageDir = rtrim((string) getenv('PACKAGE_DIR'), '/');
+if (! is_file($wpDir.'/wp-load.php')) {
+    fwrite(STDERR, "WP_DIR angeben.\n");
+    exit(2);
+}
+$_SERVER['HTTP_HOST'] = 'localhost';
+$_SERVER['REQUEST_URI'] = '/';
+require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
+
+use Bootspruefung\Learning\Admin\SystemStatus;
+use Bootspruefung\Learning\Commerce\ShopCatalog;
+use Bootspruefung\Learning\Content\Import\ImportService;
+use Bootspruefung\Learning\Content\Repositories\Overrides;
+use Bootspruefung\Learning\Content\RightsRelease;
+use Bootspruefung\Learning\Plugin;
+
+$failures = 0;
+$check = static function (bool $ok, string $label) use (&$failures): void {
+    echo ($ok ? '  ok   ' : '  FAIL ').$label."\n";
+    if (! $ok) {
+        $failures++;
+    }
+};
+$throws = static function (callable $fn, string $needle = ''): bool {
+    try {
+        $fn();
+    } catch (RuntimeException $e) {
+        return $needle === '' || str_contains($e->getMessage(), $needle);
+    }
+
+    return false;
+};
+global $wpdb;
+$p = $wpdb->prefix.'bp_';
+$service = Plugin::instance()->importService();
+wp_set_current_user(1);
+$setStats = static function (int $id, array $changes) use ($service, $wpdb, $p): void {
+    $stats = array_merge($service->stats($service->batch($id)), $changes);
+    $wpdb->update($p.'import_batch', ['stats' => wp_json_encode($stats)], ['id' => $id]);
+};
+
+if ($packageDir !== '' && is_file($packageDir.'/manifest.json')) {
+    // Ausgangslage: Paket veröffentlicht (sonst einmal importieren).
+    if ($service->activeBatchId() === null) {
+        $first = $service->createFromDirectory($packageDir);
+        $service->preview($first);
+        $service->approve($first, 'Admin-Test: Ausgangsstand');
+        $service->runAll($first);
+    }
+    $activeBefore = $service->activeBatchId();
+    $check($activeBefore !== null, 'Ausgangsstand: veröffentlichtes Paket');
+
+    echo "Veraltete Vorschau und Freigabe\n";
+    $old = $service->createFromDirectory($packageDir);
+    $service->preview($old);
+    $oldApproved = $service->createFromDirectory($packageDir);
+    $service->preview($oldApproved);
+    $service->approve($oldApproved, 'Admin-Test');
+    $newer = $service->createFromDirectory($packageDir);
+    $service->preview($newer);
+    $service->approve($newer, 'Admin-Test');
+    $service->runAll($newer);
+    $check($service->batch($newer)->status === 'published', 'neuerer Import veröffentlicht');
+    $check($service->supersededBy($service->batch($old)) === $newer, 'ältere Vorschau als veraltet erkannt');
+    $check($throws(fn () => $service->approve($old), '#'.$newer), 'Freigabe einer älteren Vorschau abgewiesen');
+    $check($throws(fn () => $service->runStep($oldApproved), '#'.$newer), 'älterer freigegebener Import startet nicht (würde Neueres überschreiben)');
+    $check($service->batch($oldApproved)->status === 'approved', 'älterer Import blieb unverändert freigegeben');
+    $service->discard($old);
+    $service->discard($oldApproved);
+    $check($service->batch($oldApproved)->status === 'discarded', 'veralteter Import verwerfbar');
+
+    echo "Vorschau in Teilschritten\n";
+    $chunked = $service->createFromDirectory($packageDir);
+    $rounds = 0;
+    do {
+        $summary = $service->preview($chunked, 0.0);
+        $rounds++;
+    } while ($summary === null && $rounds < 1000);
+    $full = $service->preview($chunked);
+    $check($rounds > 1 && $summary === $full, "Teilschritte ({$rounds}) ergeben dieselbe Vorschau wie am Stück");
+    $check($service->batch($chunked)->status === 'previewed' && $service->previewProgress($service->batch($chunked)) === null, 'nach letztem Teilschritt: Status previewed');
+    $service->discard($chunked);
+
+    echo "Abgebrochener und hängengebliebener Import\n";
+    $aborted = $service->createFromDirectory($packageDir);
+    $service->preview($aborted);
+    $service->approve($aborted, 'Admin-Test');
+    $step = $service->runStep($aborted, 1);
+    $check(! $step['done'] && $service->batch($aborted)->status === 'importing', 'Import läuft (erster Teilschritt)');
+    $check(! $service->isAborted($service->batch($aborted)) && $throws(fn () => $service->discard($aborted)), 'laufender Import nicht verwerfbar');
+    $blocker = $service->createFromDirectory($packageDir);
+    $service->preview($blocker);
+    $service->approve($blocker, 'Admin-Test');
+    $check($throws(fn () => $service->runStep($blocker), '#'.$aborted), 'zweiter Import wartet auf den laufenden');
+    // Fatal/Timeout simulieren: seit über 10 Minuten kein Schritt.
+    $setStats($aborted, ['heartbeat' => time() - ImportService::STALE_AFTER - 5]);
+    $batch = $service->batch($aborted);
+    $check($service->isStale($batch) && $service->isAborted($batch), 'ohne Schritt seit > 10 min: hängengeblieben');
+    $check($service->abortedImport() === $aborted, 'Mischstand erkannt');
+    $service->discard($blocker);
+    $service->discard($aborted);
+    $check($service->batch($aborted)->status === 'discarded' && $service->abortedImport() === $aborted, 'hängengebliebener Import verworfen, Mischstand bleibt vermerkt');
+    $restore = $service->restoreActive('Admin-Test: Wiederherstellung');
+    $check(is_int($restore) && (int) $service->stats($service->batch($restore))['rollback_of'] === $service->activeBatchId(), 'Rollback auf das aktive Paket angelegt (trotz „bereits aktiv“)');
+    $service->preview($restore);
+    $service->approve($restore, 'Admin-Test');
+    $service->runAll($restore);
+    $check($service->batch($restore)->status === 'published' && $service->abortedImport() === null, 'nach Wiederherstellung kein Mischstand mehr');
+    $check($throws(fn () => $service->rollback((int) $service->activeBatchId(), 'Admin-Test'), 'bereits aktiv'), 'ohne Abbruch: aktives Paket nicht erneut zurücksetzbar');
+
+    echo "Fehler außerhalb der Datensatz-Transaktion\n";
+    $broken = $service->createFromDirectory($packageDir);
+    $service->preview($broken);
+    $service->approve($broken, 'Admin-Test');
+    $dir = \Bootspruefung\Learning\Content\Media\MediaStorage::packagesDir().'/batch-'.$broken;
+    rename($dir, $dir.'-weg');
+    $check($throws(fn () => $service->runStep($broken), (string) $broken), 'fehlende Paketdateien: Schritt bricht ab');
+    $batch = $service->batch($broken);
+    $check($batch->status === 'importing' && (string) $batch->error !== '' && $service->isAborted($batch), 'Fehler festgehalten: sofort als abgebrochen verwerfbar');
+    rename($dir.'-weg', $dir);
+    $service->discard($broken);
+    $restore = $service->restoreActive('Admin-Test: Wiederherstellung');
+    $service->preview($restore);
+    $service->approve($restore, 'Admin-Test');
+    $service->runAll($restore);
+    $check($service->abortedImport() === null, 'wiederhergestellt');
+
+    echo "Medien-Teilschritte nach Bytes\n";
+    $records = [['size' => 40], ['size' => 40], ['size' => 40]];
+    $check(count(ImportService::limitBytes($records, 100)) === 2 && count(ImportService::limitBytes([['size' => 500]], 100)) === 1, 'Teilschritt begrenzt (mindestens eine Datei)');
+}
+
+echo "Sammelfreigabe Rechte\n";
+$type = null;
+$unknown = [];
+foreach (['media' => 'media', 'praxis_task' => 'praxis_task', 'video_module' => 'video_module', 'navigation_task' => 'navigation_task'] as $t => $table) {
+    $unknown = array_map('intval', $wpdb->get_col("SELECT x.id FROM {$p}{$table} x ".Overrides::rightsJoin($t, 'x', 'o')." WHERE o.object_id IS NULL AND x.rights_status = 'unknown' AND x.status <> 'source_archived' ORDER BY x.id LIMIT 3"));
+    if (count($unknown) === 3) {
+        $type = $t;
+        break;
+    }
+}
+if ($type === null) {
+    echo "  (übersprungen: keine Inhalte mit Rechte-Status unknown ohne Override)\n";
+} else {
+    [$restricted, $archived, $free] = $unknown;
+    $archivedStatus = (string) $wpdb->get_var($wpdb->prepare("SELECT status FROM {$p}{$type} WHERE id = %d", $archived));
+    Overrides::set($type, [$restricted], 'rights_status', 'restricted', 'Admin-Test');
+    $wpdb->update($p.$type, ['status' => 'source_archived'], ['id' => $archived]);
+    $before = RightsRelease::releaseAll('Admin-Test', true)[$type];
+    RightsRelease::releaseAll('Admin-Test');
+    $check(Overrides::get($type, $restricted, 'rights_status') === 'restricted', "{$type}: bewusstes restricted bleibt");
+    $check(Overrides::get($type, $archived, 'rights_status') === null, "{$type}: archivierte Inhalte ausgenommen");
+    $check(Overrides::get($type, $free, 'rights_status') === 'licensed' && $before >= 1, "{$type}: unknown ohne Override freigegeben");
+    $check(array_sum(RightsRelease::releaseAll('x', true)) === 0, 'danach nichts mehr offen');
+    $wpdb->update($p.$type, ['status' => $archivedStatus], ['id' => $archived]);
+    $wpdb->delete($p.'override', ['reason' => 'Admin-Test']);
+    wp_cache_flush_group('bootspruefung');
+}
+
+echo "Preise\n";
+$pricesBefore = get_option(ShopCatalog::PRICE_OPTION, null);
+$r = ShopCatalog::saveOwnPrices(['BP-SKN' => '1.299,00', 'BP-FKN' => '1.234', 'BP-SRC' => '12,3,4']);
+$own = ShopCatalog::ownPrices();
+$check(($own['BP-SKN'] ?? '') === '1299.00' && ($own['BP-FKN'] ?? '') === '1234.00' && isset($r['errors']['BP-SRC']), 'Tausenderpunkt toleriert, Unsinn abgewiesen');
+$pricesBefore === null ? delete_option(ShopCatalog::PRICE_OPTION) : update_option(ShopCatalog::PRICE_OPTION, $pricesBefore, false);
+$check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true]) !== null && SystemStatus::taxWarning(['prices_include_tax' => true, 'tax_enabled' => true]) === null && SystemStatus::taxWarning(['prices_include_tax' => null]) === null, 'Warnung bei Nettopreisen in WooCommerce');
+$check(SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'ohne MwSt. – Kleinunternehmer gem. § 19 UStG']) === null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => false, 'price_note' => 'inkl. MwSt.']) !== null && SystemStatus::taxWarning(['prices_include_tax' => false, 'tax_enabled' => true, 'price_note' => 'Kleinunternehmer']) !== null, 'Steuer aus: keine Warnung bei Kleinunternehmer-Hinweis am Preis, sonst Warnung');
+
+echo "Shop-Grundeinstellungen (T73)\n";
+$check(SystemStatus::ibanValid('DE89 3704 0044 0532 0130 00') && ! SystemStatus::ibanValid('DE89370400440532013001') && ! SystemStatus::ibanValid('DE12') && SystemStatus::maskIban('DE89370400440532013000') === 'DE89 … 3000', 'IBAN-Prüfziffer und gekürzte Anzeige');
+$t73Keys = ['woocommerce_bacs_settings', 'woocommerce_bacs_accounts', 'woocommerce_store_address', 'woocommerce_store_postcode', 'woocommerce_store_city', 'woocommerce_default_country', 'woocommerce_email_from_address', 'woocommerce_email_from_name', 'woocommerce_customer_processing_order_settings'];
+$t73Bak = [];
+foreach ($t73Keys as $k) {
+    $t73Bak[$k] = get_option($k, null);
+}
+$langDir = sys_get_temp_dir().'/bp-t73-lang-'.wp_generate_password(6, false);
+wp_mkdir_p($langDir.'/plugins');
+$basics = static fn (string $locale = 'de_DE'): array => array_column(SystemStatus::shopBasics($locale, $langDir), null, 'key');
+update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Überweisung']);
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => '', 'bic' => '']]);
+update_option('woocommerce_store_address', 'Hafenstraße 1');
+update_option('woocommerce_store_postcode', '');
+update_option('woocommerce_store_city', 'Kiel');
+update_option('woocommerce_default_country', 'US:CA');
+update_option('woocommerce_email_from_address', 'keine-adresse');
+update_option('woocommerce_email_from_name', 'Testschule');
+$b = $basics('en_US');
+$check(! $b['language']['ok'] && ! $b['woocommerce_language']['ok'] && str_contains($b['woocommerce_language']['detail'], 'woocommerce-de_DE.mo'), 'Sprache Englisch und fehlende WooCommerce-Sprachdatei gemeldet');
+$check(! $b['bacs_account']['ok'] && str_contains($b['bacs_account']['detail'], 'keine Bankverbindung'), 'Überweisung aktiv ohne IBAN gemeldet');
+$check(! $b['store_address']['ok'] && str_contains($b['store_address']['detail'], 'PLZ') && str_contains($b['store_address']['detail'], 'Land') && ! str_contains($b['store_address']['detail'], 'Ort'), 'unvollständige Shop-Adresse: PLZ und Land fehlen');
+$check(! $b['email_from']['ok'], 'Absender ohne gültige Adresse gemeldet');
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => 'DE89370400440532013001']]);
+$b = $basics();
+$check(! $b['bacs_account']['ok'] && str_contains($b['bacs_account']['detail'], 'ungültig'), 'IBAN mit falscher Prüfziffer gemeldet');
+file_put_contents($langDir.'/plugins/woocommerce-de_DE.mo', 'x');
+update_option('woocommerce_bacs_accounts', [['account_name' => 'Test', 'iban' => 'DE89 3704 0044 0532 0130 00']]);
+update_option('woocommerce_store_postcode', '24103');
+update_option('woocommerce_default_country', 'DE');
+update_option('woocommerce_email_from_address', 'kurse@example.test');
+update_option('woocommerce_customer_processing_order_settings', ['enabled' => 'yes', 'email_type' => 'multipart']);
+$b = $basics();
+$check(count(array_filter($b, static fn ($r) => ! $r['ok'])) === 0 && str_contains($b['bacs_account']['detail'], '3000') && ! str_contains($b['bacs_account']['detail'], '05320130'), 'alles vollständig: keine Hinweise, IBAN nur gekürzt angezeigt');
+if (function_exists('WC')) {
+    update_option('woocommerce_customer_processing_order_settings', ['enabled' => 'yes', 'email_type' => 'plain']);
+    $b = $basics();
+    $check(! $b['email_type']['ok'], 'Kundenmail „nur Text“ gemeldet');
+}
+update_option('woocommerce_bacs_settings', ['enabled' => 'no']);
+$check(! isset($basics()['bacs_account']), 'Überweisung aus: keine Prüfung der Bankverbindung');
+foreach ($t73Bak as $k => $v) {
+    $v === null ? delete_option($k) : update_option($k, $v);
+}
+@unlink($langDir.'/plugins/woocommerce-de_DE.mo');
+@rmdir($langDir.'/plugins');
+@rmdir($langDir);
+
+echo "Admin-Anzeige\n";
+$check(\Bootspruefung\Learning\Admin\Ui::label('draft') === 'Entwurf' && \Bootspruefung\Learning\Admin\Ui::label('single_choice') === 'Einfachauswahl' && str_contains(\Bootspruefung\Learning\Admin\Ui::status('source_archived'), 'archiviert'), 'Status und Typen auf Deutsch');
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview();
+$html = (string) ob_get_clean();
+$sumOk = preg_match_all('#<tr><td>[^<]+</td>((?:<td>\d+</td>){6})</tr>#', $html, $m) > 0;
+foreach ($m[1] ?? [] as $cells) {
+    preg_match_all('#<td>(\d+)</td>#', $cells, $n);
+    $v = array_map('intval', $n[1]);
+    $sumOk = $sumOk && $v[0] === array_sum(array_slice($v, 1));
+}
+$check($sumOk, 'Bestand: Spalten ergeben die Gesamtzahl');
+
+if (function_exists('wc_get_product_id_by_sku')) {
+    echo "Verwaiste Produktzuordnung\n";
+    $orphan = new WC_Product_Simple();
+    $orphan->set_name('Admin-Test verwaist');
+    $orphanId = (int) $orphan->save();
+    $repoO = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $repoO->save($orphanId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund');
+    $check($throws(fn () => \Bootspruefung\Learning\Commerce\MappingCheck::removeOrphan($orphanId, 0)), 'bestehendes Produkt: Zuordnung nicht über die Übersicht entfernbar');
+    wp_delete_post($orphanId, true);
+    $issue = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $orphanId));
+    $check(($issue[0]['deleted'] ?? false) === true, 'gelöschtes Produkt erkannt (kein Bearbeiten-Link)');
+    $check(\Bootspruefung\Learning\Commerce\MappingCheck::removeOrphan($orphanId, 0) === 1 && $repoO->rows($orphanId, 0) === [], 'verwaiste Zuordnung entfernt');
+
+    echo "Katalog-Abgleich respektiert Handänderungen\n";
+    $rows = ShopCatalog::applyProducts();
+    $bySku = array_column($rows, null, 'sku');
+    $id = (int) $bySku['BP-SKN']['product_id'];
+    $product = wc_get_product($id);
+    $check(is_array(get_post_meta($id, ShopCatalog::FIELDS_META, true)) && count(get_post_meta($id, ShopCatalog::FIELDS_META, true)) >= 6, 'Fingerprints je Feld gespeichert');
+    $extra = wp_insert_term('Admin-Test-Kategorie', 'product_cat');
+    $extraId = is_wp_error($extra) ? (int) get_term_by('name', 'Admin-Test-Kategorie', 'product_cat')->term_id : (int) $extra['term_id'];
+    $catalogCats = $product->get_category_ids();
+    $product->set_name('Eigener Name');
+    $product->set_catalog_visibility('search');
+    $product->set_category_ids([$extraId]);
+    $product->save();
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($id, 30, 10.0);
+    $repo = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $rowsBefore = $repo->rows($id, 0);
+    $repo->save($id, 0, array_map(static fn ($r) => ['course_code' => $r->course_code, 'feature_code' => $r->feature_code], $rowsBefore), 180, 'parallel', 'keep');
+    $preview = array_column(ShopCatalog::applyProducts(true), null, 'sku');
+    $check(in_array('name', $preview['BP-SKN']['skipped'], true) && in_array('access', $preview['BP-SKN']['skipped'], true), 'Vorschau nennt übersprungene Felder');
+    $second = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $product = wc_get_product($id);
+    $skipped = $second['BP-SKN']['skipped'];
+    $check($product->get_name() === 'Eigener Name' && $product->get_catalog_visibility() === 'search', 'Name und Sichtbarkeit bleiben');
+    $check(in_array($extraId, $product->get_category_ids(), true) && array_diff($catalogCats, $product->get_category_ids()) === [], 'eigene Kategorie bleibt, Katalog-Kategorie ergänzt');
+    $mb = \Bootspruefung\Learning\Commerce\MoneyBack::policy($id);
+    $accessRows = $repo->rows($id, 0);
+    $check($mb !== null && $mb['days'] === 30 && (int) $accessRows[0]->duration_days === 180 && $accessRows[0]->renewal_mode === 'parallel', 'Garantie und Lernzugang (Laufzeit, Verlängerung) bleiben');
+    $check(array_values(array_intersect(['name', 'visibility', 'categories', 'access', 'money_back'], $skipped)) === ['name', 'visibility', 'categories', 'access', 'money_back'], 'Bericht: übersprungene Felder');
+    $check(($second['BP-FKN']['skipped'] ?? null) === [] && $product->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'andere Produkte unberührt, Preis weiter vom Katalog');
+    // Zurück auf Katalogwerte: danach gleicht der Katalog wieder ab.
+    $product->set_name(ShopCatalog::find('BP-SKN')['name']);
+    $product->set_catalog_visibility('visible');
+    $product->set_category_ids($catalogCats);
+    $product->save();
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($id, ShopCatalog::MONEY_BACK_DAYS, ShopCatalog::MONEY_BACK_MAX_PROGRESS);
+    $repo->save($id, 0, array_map(static fn ($r) => ['course_code' => $r->course_code, 'feature_code' => $r->feature_code], $rowsBefore), (int) $rowsBefore[0]->duration_days, 'extend', 'revoke_on_full_refund');
+    $third = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $check($third['BP-SKN']['skipped'] === [], 'auf Katalogwert zurückgesetzt: wieder vom Katalog verwaltet');
+
+    echo "Ergänzung FKN → SKN vorerst nicht im Verkauf\n";
+    $skus = array_column(ShopCatalog::products(), 'sku');
+    $check(! array_intersect(['BP-ADD-FKN-TO-SKN', 'BP-ADD-FKN-TO-SKN-KOMPLETT', 'BP-ADD-FKN-TO-SKN-VIDEO'], $skus) && in_array('BP-ADD-SEE-TO-BIN', $skus, true) && in_array('BP-SKN', $skus, true), 'kein Produkt für Ergänzung FKN → SKN, andere Ergänzungen bleiben');
+    $legacy = new WC_Product_Simple();
+    $legacy->set_sku('BP-ADD-FKN-TO-SKN');
+    $legacy->set_name('Ergänzung FKN → SKN (alt)');
+    $legacy->set_status('publish');
+    $legacyId = (int) $legacy->save();
+    $preview = array_column(ShopCatalog::applyProducts(true), null, 'sku');
+    $check(($preview['BP-ADD-FKN-TO-SKN']['action'] ?? '') === 'deaktiviert (Vorschau)' && get_post_status($legacyId) === 'publish', 'Vorschau nennt die Deaktivierung, ändert nichts');
+    $applied = array_column(ShopCatalog::applyProducts(), null, 'sku');
+    $check(($applied['BP-ADD-FKN-TO-SKN']['action'] ?? '') === 'deaktiviert (Entwurf)' && get_post_status($legacyId) === 'draft', 'vorhandenes Produkt auf Entwurf gesetzt (nicht gelöscht)');
+    $check(\Bootspruefung\Learning\Commerce\CourseRelations::evaluate(['FKN'], ['ADD-FKN-TO-SKN', 'SKN'])['ADD-FKN-TO-SKN']['recommended_for'] === [], 'keine Empfehlung für FKN-Inhaber');
+    wp_delete_post($legacyId, true);
+    wp_delete_term($extraId, 'product_cat');
+
+    echo "Katalog-Abgleich: von Hand geänderte Preise und zurückgestellte Entwürfe (T98)\n";
+    $sknId = (int) wc_get_product_id_by_sku('BP-SKN');
+    $fknId = (int) wc_get_product_id_by_sku('BP-FKN');
+    // Stand aller Katalogprodukte sichern (der Test veröffentlicht), am Ende wiederherstellen.
+    $statusBak = [];
+    foreach (ShopCatalog::products() as $def) {
+        if ($pid = (int) wc_get_product_id_by_sku($def['sku'])) {
+            $statusBak[$pid] = [get_post_status($pid), get_post_meta($pid, ShopCatalog::STATUS_META, true), get_post_meta($pid, ShopCatalog::MANUAL_STATUS_META, true)];
+        }
+    }
+    $catalogSkn = ShopCatalog::find('BP-SKN')['price'];
+    ShopCatalog::applyProducts();
+    $check(get_post_meta($sknId, ShopCatalog::PRICE_META, true) === number_format((float) $catalogSkn, 2, '.', ''), 'zuletzt geschriebener Katalogpreis gemerkt');
+    $prod = wc_get_product($sknId);
+    $prod->set_regular_price('99.00');
+    $prod->save();
+    $dry = array_column(ShopCatalog::applyProducts(true), null, 'sku')['BP-SKN'];
+    // Betrag im Format des Shops (T128: ShopCatalog::priceText, im deutschen Shop „99,00 €“).
+    $check(in_array('price', $dry['skipped'], true) && str_contains($dry['price'], 'nicht überschrieben') && str_contains($dry['price'], ShopCatalog::priceText('99.00')), 'Vorschau meldet: Preis von Hand geändert, nicht überschrieben');
+    $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === '99.00' && in_array('price', $row['skipped'], true), 'Abgleich überschreibt den Handpreis nicht still');
+    $check(\Bootspruefung\Learning\Admin\PricePage::skippedMessage([$row]) !== '' && ShopCatalog::fieldLabel('price') !== 'price', 'Preis-Seite meldet den übersprungenen Preis');
+    $row = array_column(ShopCatalog::applyProducts(false, false, ['overwrite_prices' => ['BP-SKN']]), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === $catalogSkn && str_contains($row['price'], 'bewusst überschrieben'), 'bewusst überschreiben: Katalogpreis gesetzt');
+    $ownBak = get_option(ShopCatalog::PRICE_OPTION, []);
+    ShopCatalog::saveOwnPrices(['BP-SKN' => '33,90']);
+    $row = array_column(ShopCatalog::applyProducts(), null, 'sku')['BP-SKN'];
+    $check(wc_get_product($sknId)->get_regular_price() === '33.90' && ! in_array('price', $row['skipped'], true), 'neuer eigener Preis der Preis-Seite wird übertragen (keine Handänderung)');
+    update_option(ShopCatalog::PRICE_OPTION, $ownBak, false);
+    ShopCatalog::applyProducts();
+    $check(wc_get_product($sknId)->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'eigener Preis zurück: Katalogpreis wieder im Shop');
+    delete_post_meta($sknId, ShopCatalog::PRICE_META);
+    $prod = wc_get_product($sknId);
+    $prod->set_regular_price('77.00');
+    $prod->save();
+    $check(ShopCatalog::priceChangedByHand(wc_get_product($sknId), ShopCatalog::find('BP-SKN')), 'ältere Produkte ohne Vermerk: abweichender Preis gilt als Handänderung');
+    ShopCatalog::applyProducts(false, false, ['overwrite_prices' => true]);
+    $check(wc_get_product($sknId)->get_regular_price() === ShopCatalog::find('BP-SKN')['price'], 'alle bewusst überschrieben: wieder Katalogpreis');
+
+    // Entwurf von Hand zurückgestellt (Statuswechsel außerhalb des Katalogs).
+    wp_update_post(['ID' => $fknId, 'post_status' => 'publish']);
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    $check(get_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META, true) === 'draft', 'Statuswechsel von Hand gemerkt');
+    $dry = array_column(ShopCatalog::applyProducts(true, true), null, 'sku');
+    $check(str_contains($dry['BP-FKN']['status'], 'zurückgestellt') && in_array('status', $dry['BP-FKN']['skipped'], true), 'Vorschau mit Veröffentlichen: zurückgestellter Entwurf bleibt Entwurf');
+    ShopCatalog::applyProducts(false, true);
+    $check(get_post_status($fknId) === 'draft', 'Veröffentlichen lässt den zurückgestellten Entwurf Entwurf');
+    ShopCatalog::applyProducts(false, true, ['publish_held' => ['BP-FKN']]);
+    $check(get_post_status($fknId) === 'publish', 'bewusst gewählt: zurückgestellter Entwurf veröffentlicht');
+    // Vom Katalog als Entwurf angelegt (kein Statuswechsel von Hand): wird veröffentlicht.
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    delete_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META);
+    update_post_meta($fknId, ShopCatalog::STATUS_META, 'draft');
+    $check(! ShopCatalog::heldBack(wc_get_product($fknId)), 'Katalog-Entwurf gilt nicht als zurückgestellt');
+    ShopCatalog::applyProducts(false, true);
+    $check(get_post_status($fknId) === 'publish' && get_post_meta($fknId, ShopCatalog::STATUS_META, true) === 'publish', 'Katalog-Entwurf wird veröffentlicht');
+    // Ältere Produkte ohne Vermerk: im Editor bearbeitet (_edit_last) = zurückgestellt.
+    wp_update_post(['ID' => $fknId, 'post_status' => 'draft']);
+    delete_post_meta($fknId, ShopCatalog::MANUAL_STATUS_META);
+    delete_post_meta($fknId, ShopCatalog::STATUS_META);
+    update_post_meta($fknId, '_edit_last', 1);
+    $check(ShopCatalog::heldBack(wc_get_product($fknId)), 'älterer Entwurf, im Editor bearbeitet: zurückgestellt');
+    delete_post_meta($fknId, '_edit_last');
+    $check(! ShopCatalog::heldBack(wc_get_product($fknId)), 'älterer Entwurf ohne Bearbeitung: wird veröffentlicht');
+    // Deaktivierter Kurs: bleibt immer Entwurf.
+    $legacy = new WC_Product_Simple();
+    $legacy->set_sku('BP-ADD-FKN-TO-SKN');
+    $legacy->set_name('Ergänzung FKN → SKN (alt)');
+    $legacy->set_status('draft');
+    $legacyId = (int) $legacy->save();
+    $dry = array_column(ShopCatalog::applyProducts(true, true), null, 'sku');
+    $check(str_contains((string) ($dry['BP-ADD-FKN-TO-SKN']['status'] ?? ''), 'deaktiviert'), 'Vorschau: deaktivierter Kurs bleibt Entwurf');
+    ShopCatalog::applyProducts(false, true, ['publish_held' => true]);
+    $check(get_post_status($legacyId) === 'draft', 'deaktivierter Kurs wird auch mit „veröffentlichen“ nicht veröffentlicht');
+    wp_delete_post($legacyId, true);
+    foreach ($statusBak as $pid => [$st, $catalogMeta, $manualMeta]) {
+        if (get_post_status($pid) !== $st) {
+            wp_update_post(['ID' => $pid, 'post_status' => $st]);
+        }
+        foreach ([ShopCatalog::STATUS_META => $catalogMeta, ShopCatalog::MANUAL_STATUS_META => $manualMeta] as $key => $value) {
+            $value === '' ? delete_post_meta($pid, $key) : update_post_meta($pid, $key, $value);
+        }
+    }
+}
+
+echo "Laufzeit vorbelegt, ohne Ablauf nur ausdrücklich (T101)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$dd = \Bootspruefung\Learning\Commerce\DefaultDuration::class;
+$check($dd::forCourse('SBF-SEE') === 365 && $dd::forCourse('SKN') === 182 && $dd::forCourse('GIBT-ES-NICHT') === $dd::MANUAL_DAYS && $dd::MANUAL_DAYS === 182, 'Laufzeit je Kurs aus dem Katalog (Vollkurs 365, SKN 182), sonst 182 Tage');
+$check($dd::forSku('BP-PASS-1M') === 30 && $dd::forSku('') === 365 && $dd::forSku('EIGENES-PRODUKT') === $dd::PRODUCT_DAYS, 'Produkt: Katalog-Laufzeit der SKU, sonst 365 Tage');
+$pp = \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::class;
+$check($pp::duration(['duration' => ''], 365) === 365 && $pp::duration([], 182) === 182 && $pp::duration(['duration' => '90'], 365) === 90 && $pp::duration(['duration' => '90', 'unlimited' => '1'], 365) === null, 'Formular: leer = Vorbelegung, dauerhaft nur mit „ohne Ablauf“');
+$check(\Bootspruefung\Learning\Admin\AccessPages::defaultUntil(182) === wp_date('Y-m-d', time() + 182 * DAY_IN_SECONDS), 'Enddatum der manuellen Freischaltung vorbelegt');
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+if (\Bootspruefung\Learning\Commerce\Labels::courses() !== []) {
+    $check(str_contains($html, 'name="unlimited"') && str_contains($html, 'data-bp-until="') && ! str_contains($html, 'leer = dauerhaft') && preg_match('#id="bp-grant-until" type="date" name="valid_until" value="\d{4}-\d{2}-\d{2}"#', $html) === 1, 'Formular „Zugang manuell freischalten“: Datum vorbelegt, Checkbox „ohne Ablauf“');
+}
+if (function_exists('wc_get_product')) {
+    $durProduct = new WC_Product_Simple();
+    $durProduct->set_name('Admin-Test Laufzeit');
+    $durId = (int) $durProduct->save();
+    $repoD = new \Bootspruefung\Learning\Commerce\ProductAccessRepository($wpdb);
+    $renderPanel = static function (int $id): string {
+        $GLOBALS['post'] = get_post($id);
+        ob_start();
+        (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->panel();
+
+        return (string) ob_get_clean();
+    };
+    $panel = $renderPanel($durId);
+    $check(str_contains($panel, 'name="bp_access[duration]" value="365"') && preg_match('#name="bp_access\[unlimited\]" value="1"\s*>#', $panel) === 1, 'neues Produkt: 365 Tage vorbelegt, „ohne Ablauf“ nicht angekreuzt');
+    $repoD->save($durId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], null, 'extend', 'revoke_on_full_refund');
+    $panel = $renderPanel($durId);
+    $check(preg_match('#name="bp_access\[unlimited\]" value="1"\s+checked#', $panel) === 1 && str_contains($panel, 'name="bp_access[duration]" value=""'), 'gespeichert „dauerhaft“: bleibt so angezeigt (keine stille Änderung)');
+    $check((int) $repoD->rows($durId, 0)[0]->duration_days === 0, 'gespeicherter Wert unverändert');
+    $durIssues = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $durId && str_contains($i['problem'], 'ohne Ablauf')));
+    $check(count($durIssues) === 1 && $durIssues[0]['severity'] === 'warning', 'Produktzuordnungen: Hinweis bei Zugang ohne Ablauf');
+    $repoD->save($durId, 0, [['course_code' => 'SBF-SEE', 'feature_code' => 'question_bank']], 365, 'extend', 'revoke_on_full_refund');
+    $check(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $durId && str_contains($i['problem'], 'ohne Ablauf')) === [], 'mit Laufzeit: kein Hinweis');
+    $repoD->save($durId, 0, [], null, 'extend', 'revoke_on_full_refund');
+    wp_delete_post($durId, true);
+    unset($GLOBALS['post']);
+}
+
+echo "Geld-zurück-Garantie am Produkt (T107)\n";
+$mbIn = [\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::class, 'moneyBackFromInput'];
+$mbCat = [ShopCatalog::MONEY_BACK_DAYS, ShopCatalog::MONEY_BACK_MAX_PROGRESS];
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '14', 'mb_progress' => '']);
+$check($r['days'] === 14 && $r['max_progress'] === $mbCat[1] && count($r['notes']) === 1, 'leeres %-Feld bei gesetzten Tagen: AGB-Wert statt 0 %, mit Meldung');
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '30', 'mb_progress' => '0']);
+$check($r['max_progress'] === $mbCat[1] && $r['notes'] !== [], '0 % wird nie stillschweigend gespeichert');
+$r = $mbIn(['mb_days' => '30', 'mb_progress' => '']);
+$check($r['days'] === 30 && $r['max_progress'] === $mbCat[1], 'auch ohne neues Formular: leeres % = AGB-Wert');
+$r = $mbIn(['mb_form' => '1', 'mb_days' => '', 'mb_progress' => '12,5']);
+$check($r['days'] === $mbCat[0] && $r['max_progress'] === 12.5 && count($r['notes']) === 1, 'leere Tage = AGB-Tage, Komma als Dezimalzeichen');
+$check($mbIn(['mb_form' => '1', 'mb_none' => '1', 'mb_days' => '14', 'mb_progress' => '20'])['days'] === null && $mbIn(['mb_days' => ''])['days'] === null, '„keine Garantie“ nur per Checkbox (altes Formular: Tage leer)');
+$check(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => $mbCat[0], 'max_progress' => $mbCat[1]]) === ''
+    && str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => 30, 'max_progress' => 10.0]), 'weicht von den AGB-Werten ab')
+    && str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::moneyBackWarning(['days' => 14, 'max_progress' => 0.0]), '0 %'), 'Hinweis bei Abweichung von den AGB-Werten bzw. bei 0 %');
+if (function_exists('wc_get_product')) {
+    $renderMb = static function (int $id): string {
+        $GLOBALS['post'] = get_post($id);
+        ob_start();
+        (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->panel();
+
+        return (string) ob_get_clean();
+    };
+    $newId = (int) wp_insert_post(['post_type' => 'product', 'post_status' => 'auto-draft', 'post_title' => 'Admin-Test T107 neu']);
+    $panel = $renderMb($newId);
+    $check(str_contains($panel, 'name="bp_access[mb_days]" value="'.$mbCat[0].'"') && str_contains($panel, 'name="bp_access[mb_progress]" value="20"') && preg_match('#name="bp_access\[mb_none\]" value="1"\s*>#', $panel) === 1, 'neues Produkt: 14 Tage / 20 % vorbelegt, „keine Garantie“ nicht angekreuzt');
+    wp_delete_post($newId, true);
+    $mbProduct = new WC_Product_Simple();
+    $mbProduct->set_name('Admin-Test T107');
+    $mbId = (int) $mbProduct->save();
+    $panel = $renderMb($mbId);
+    $check(preg_match('#name="bp_access\[mb_none\]" value="1"\s+checked#', $panel) === 1, 'bestehendes Produkt ohne Garantie: bleibt „keine Garantie“ (keine stille Änderung)');
+    // Altbestand: Tage gesetzt, Grenze 0 % (aus dem früheren leeren Feld).
+    update_post_meta($mbId, \Bootspruefung\Learning\Commerce\MoneyBack::META, ['days' => 14, 'max_progress' => 0.0]);
+    $mbIssues = array_values(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $mbId && str_contains($i['problem'], 'Grenze 0 %')));
+    $check(count($mbIssues) === 1 && $mbIssues[0]['severity'] === 'warning', 'Produktzuordnungen prüfen: Warnung bei Garantie mit 0 %');
+    $panel = $renderMb($mbId);
+    $check(str_contains($panel, 'bp-money-back-warning') && str_contains($panel, 'Gespeichert ist die Grenze 0') && str_contains($panel, 'name="bp_access[mb_progress]" value="20"'), 'Produkt zeigt Warnung und schlägt den AGB-Wert vor');
+    $_POST['bp_access'] = ['present' => '1', 'mb_form' => '1', 'mb_days' => '14', 'mb_progress' => ''];
+    (new \Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel())->save($mbId);
+    unset($_POST['bp_access']);
+    $saved = \Bootspruefung\Learning\Commerce\MoneyBack::policy($mbId);
+    $check($saved !== null && $saved['max_progress'] === $mbCat[1] && ! \Bootspruefung\Learning\Commerce\MoneyBack::limitReached(['percent' => 0.0, 'exact' => 0.0], $saved['max_progress']), 'Speichern mit leerem %-Feld: AGB-Grenze, Garantie wieder nutzbar');
+    $check(array_filter(\Bootspruefung\Learning\Commerce\MappingCheck::issues(), static fn ($i) => $i['product_id'] === $mbId && str_contains($i['problem'], 'Grenze 0 %')) === [], 'danach keine Warnung mehr');
+    \Bootspruefung\Learning\Commerce\MoneyBack::setPolicy($mbId, 30, 10.0);
+    $check(str_contains($renderMb($mbId), 'weicht von den AGB-Werten ab'), 'Produkt mit abweichenden Werten: Hinweis');
+    $check(str_contains(\Bootspruefung\Learning\Commerce\WooCommerce\ProductPanel::variationMoneyBackNote($mbId), 'wie beim Produkt (30 Tage, unter 10 %)'), 'Variationen zeigen die Garantie des Produkts');
+    wp_delete_post($mbId, true);
+    unset($GLOBALS['post']);
+}
+
+echo "Protokoll im Admin (T102)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+require_once ABSPATH.'wp-admin/includes/user.php';
+$audit = \Bootspruefung\Learning\Admin\AuditPage::class;
+$t102Mail = 't102-'.wp_generate_password(6, false, false).'@example.test';
+$t102User = (int) wp_insert_user(['user_login' => 't102-'.wp_generate_password(6, false, false), 'user_email' => $t102Mail, 'user_pass' => wp_generate_password(), 'role' => 'subscriber']);
+$t102Course = (string) (array_key_first(\Bootspruefung\Learning\Commerce\Labels::courses()) ?? 'SBF-SEE');
+$ents = new \Bootspruefung\Learning\Commerce\EntitlementService($wpdb);
+$t102Ids = $ents->grantManual($t102User, $t102Course, ['question_bank'], gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS), 'Admin-Test T102');
+$t102Id = (int) $t102Ids[0];
+$ents->extend($t102Id, null, 'Admin-Test T102 verlängert');
+$ents->setStatusManual($t102Id, 'suspended', 'Admin-Test T102 ausgesetzt');
+$history = $audit::forEntitlementId($t102Id);
+$actions = array_map(static fn ($r) => $r->action, $history);
+$check(in_array('entitlement_manual_grant', $actions, true) && in_array('entitlement_extended', $actions, true) && in_array('entitlement_manual_suspended', $actions, true), 'Verlauf je Zugang: Freischaltung, Enddatum, Aussetzen');
+$extended = array_values(array_filter($history, static fn ($r) => $r->action === 'entitlement_extended'))[0] ?? null;
+$text = $extended ? $audit::details($extended) : '';
+$check(str_contains($text, 'ohne Ablauf') && ! str_contains($text, '{') && ! str_contains($text, '"'), 'Details als Klartext („von … auf ohne Ablauf“), kein JSON');
+$grant = array_values(array_filter($history, static fn ($r) => $r->action === 'entitlement_manual_grant'))[0] ?? null;
+$check($grant !== null && str_contains($audit::details($grant), \Bootspruefung\Learning\Commerce\Labels::course($t102Course)) && str_contains($audit::details($grant), 'Fragen lernen'), 'Kurs und Funktion mit Namen');
+$check($audit::actionLabel('entitlement_manual_suspended') === 'Zugang manuell ausgesetzt' && str_contains($audit::actionLabel('gibt_es_nicht'), 'gibt_es_nicht'), 'Ereignisse auf Deutsch, Unbekanntes mit internem Namen');
+$check($audit::reasonLabel('{"manual":"Kulanz"}') === 'Kulanz' && $audit::reasonLabel('item_removed') === 'Position aus der Bestellung entfernt', 'Begründungen lesbar');
+$byUser = $audit::query($audit::filterFromRequest(['user' => $t102Mail]));
+$check($byUser['total'] >= 3, 'Filter Nutzer (E-Mail)');
+$byArea = $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'event' => 'area:entitlement']));
+$check($byArea['total'] >= 3 && array_filter($byArea['rows'], static fn ($r) => ! str_starts_with($r->action, 'entitlement')) === [], 'Filter Bereich „Zugänge“');
+$byAction = $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'event' => 'action:entitlement_extended']));
+$check($byAction['total'] === 1, 'Filter einzelnes Ereignis');
+$future = wp_date('Y-m-d', time() + 5 * DAY_IN_SECONDS);
+$check($audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'from' => $future]))['total'] === 0 && $audit::query($audit::filterFromRequest(['user' => (string) $t102User, 'from' => wp_date('Y-m-d'), 'to' => $future]))['total'] >= 3, 'Filter Zeitraum');
+$check($audit::query($audit::filterFromRequest(['object' => 'entitlement', 'object_id' => (string) $t102Id]))['total'] === count($history), 'Filter Zugang Nr.');
+$check($audit::query($audit::filterFromRequest(['user' => 'niemand-'.wp_generate_password(5, false).'@example.test']))['total'] === 0 && $audit::filterFromRequest(['user' => 'niemand@example.invalid'])['error'] !== '', 'unbekannter Nutzer: keine Treffer, Hinweis');
+$check($audit::filterFromRequest(['event' => "action:x' OR 1=1"])['event'] === '' && $audit::filterFromRequest(['event' => 'area:gibtsnicht'])['event'] === '', 'ungültiger Ereignis-Filter verworfen');
+$page2 = $audit::query(['user_id' => $t102User, 'user_input' => (string) $t102User], 2, 2);
+$check(count($page2['rows']) >= 1 && $page2['total'] >= 3, 'seitenweise');
+$gid = 900000 + wp_rand(1, 99999);
+\Bootspruefung\Learning\Audit\AuditLog::record('group_created', 'order', '424242', 'Admin-Test T102', ['group' => $gid, 'seats' => 5]);
+\Bootspruefung\Learning\Audit\AuditLog::record('group_suspended', 'group', (string) $gid, 'Admin-Test T102', ['from' => 'active', 'manual' => true]);
+$groupLog = $audit::forGroup($gid);
+$check(count($groupLog) === 2 && str_contains($audit::details($groupLog[0]), 'von aktiv auf') && str_contains($audit::details($groupLog[0]), 'von Hand: ja'), 'Verlauf je Gruppe (inkl. Anlage aus der Bestellung), Klartext');
+$check(\Bootspruefung\Learning\Admin\AuditPage::CAPABILITY === 'manage_options', 'Protokollseite nur für Administratoren');
+ob_start();
+(new \Bootspruefung\Learning\Admin\AuditPage())->render();
+$html = (string) ob_get_clean();
+$check(str_contains($html, 'Protokoll') && str_contains($html, 'Zugang manuell ausgesetzt') && ! str_contains($html, '{&quot;') && ! str_contains($html, $t102Mail), 'Seite: Klartext, keine E-Mail-Adressen');
+$_GET['entitlement'] = $t102Id;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+unset($_GET['entitlement']);
+$check(str_contains($html, 'class="bp-history"') && str_contains($html, 'Zugang manuell freigeschaltet') && str_contains($html, 'page=bootspruefung-audit'), 'Zugang: Verlauf aufklappbar mit Link zum Protokoll');
+$editor = (int) wp_insert_user(['user_login' => 't102-ed-'.wp_generate_password(6, false, false), 'user_email' => 't102-ed-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'editor']);
+(new WP_User($editor))->add_cap(\Bootspruefung\Learning\Security\Capabilities::MANAGE_ENTITLEMENTS);
+wp_set_current_user($editor);
+$dieHandler = static fn () => static function (): void {
+    throw new RuntimeException('wp_die');
+};
+add_filter('wp_die_handler', $dieHandler);
+$denied = $throws(static function (): void {
+    ob_start();
+    try {
+        (new \Bootspruefung\Learning\Admin\AuditPage())->render();
+    } finally {
+        ob_end_clean();
+    }
+}, 'wp_die');
+remove_filter('wp_die_handler', $dieHandler);
+wp_set_current_user(1);
+$check($denied, 'ohne Administratorrechte: Protokollseite gesperrt');
+$wpdb->query("DELETE FROM {$p}audit_log WHERE reason LIKE 'Admin-Test T102%'");
+$wpdb->delete($p.'entitlement', ['user_id' => $t102User]);
+wp_delete_user($t102User);
+wp_delete_user($editor);
+
+echo "Protokoll: alle Ereignisse mit Bezeichnung, Werte im Klartext (T119)\n";
+// Alle Aktionen, die Plugin, Theme und Add-ons ins Protokoll schreiben (AuditLog::record bzw. direkter Eintrag).
+$repoRoot = dirname(__DIR__, 3);
+$auditFiles = [];
+foreach (['bootspruefung-learning/src', 'themes/kurswasser', 'learnboating-affiliate-connector', 'learnboating-voucher-connector'] as $dir) {
+    if (! is_dir($repoRoot.'/'.$dir)) {
+        continue;
+    }
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($repoRoot.'/'.$dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+        if ($f->getExtension() === 'php' && ! str_contains($f->getPathname(), '/tests/') && ! str_contains($f->getPathname(), '/vendor/')) {
+            $auditFiles[] = $f->getPathname();
+        }
+    }
+}
+// Zusammengesetzte Namen ('prefix_'.$wert): alle möglichen Werte (neue Präfixe hier ergänzen).
+$auditDynamic = [
+    'entitlement_' => ['create', 'status', 'user'],
+    'entitlement_manual_' => ['active', 'suspended', 'revoked'],
+    'dispute_' => ['opened', 'won', 'lost'],
+    'group_' => ['active', 'suspended', 'revoked'],
+    'override_' => array_values(array_unique(array_merge(...array_values(\Bootspruefung\Learning\Content\Repositories\Overrides::FIELDS)))),
+];
+$auditActions = [];
+$auditUnknownPrefix = [];
+foreach ($auditFiles as $f) {
+    $src = (string) file_get_contents($f);
+    preg_match_all('/AuditLog::record\(\s*((?:[^,()]|\([^()]*\))+)/', $src, $mm);
+    foreach ($mm[1] as $arg) {
+        preg_match_all("/(?<!\[)'([a-z0-9_]+)'(\s*\.)?/", $arg, $lits, PREG_SET_ORDER); // ohne Array-Schlüssel wie $x['type']
+        foreach ($lits as $lit) {
+            if (! empty($lit[2])) {
+                isset($auditDynamic[$lit[1]]) ? array_push($auditActions, ...array_map(static fn ($v) => $lit[1].$v, $auditDynamic[$lit[1]])) : $auditUnknownPrefix[] = $lit[1].' ('.basename($f).')';
+            } else {
+                $auditActions[] = $lit[1];
+            }
+        }
+    }
+    if (preg_match_all("/insert\(\s*\\\$wpdb->prefix\s*\.\s*'bp_audit_log'.*?'action'\s*=>\s*'([a-z0-9_]+)'/s", $src, $mm)) {
+        array_push($auditActions, ...$mm[1]);
+    }
+}
+$auditActions = array_values(array_unique($auditActions));
+sort($auditActions);
+$unlabeled = array_values(array_filter($auditActions, static fn ($a) => str_starts_with($audit::actionLabel($a), 'Sonstiges Ereignis')));
+$check(count($auditActions) > 60 && in_array('golive_checklist_done', $auditActions, true) && in_array('shop_live_confirmed', $auditActions, true) && in_array('personal_data_erased', $auditActions, true), 'Suche findet die Protokoll-Aktionen ('.count($auditActions).', auch Theme und direkte Einträge)');
+$check($auditUnknownPrefix === [], 'keine unbekannten zusammengesetzten Aktionen'.($auditUnknownPrefix !== [] ? ': '.implode(', ', $auditUnknownPrefix) : ''));
+$check($unlabeled === [], 'jede geschriebene Aktion hat eine Bezeichnung (kein „Sonstiges Ereignis“)'.($unlabeled !== [] ? ': '.implode(', ', $unlabeled) : ''));
+// Bereichsfilter decken jede Aktion ab.
+$areaPatterns = [];
+foreach ((new ReflectionMethod($audit, 'areas'))->invoke(null) as $area) {
+    array_push($areaPatterns, ...array_slice($area, 1));
+}
+$likeToRegex = static fn (string $like): string => '/^'.str_replace(['\\_', '%'], ['_', '.*'], $like).'$/';
+$noArea = array_values(array_filter($auditActions, static function ($a) use ($areaPatterns, $likeToRegex) {
+    foreach ($areaPatterns as $like) {
+        if (preg_match($likeToRegex($like), $a) === 1) {
+            return false;
+        }
+    }
+
+    return true;
+}));
+$check($noArea === [], 'jede Aktion liegt in einem Bereich des Filters'.($noArea !== [] ? ': '.implode(', ', $noArea) : ''));
+$row = static fn (string $action, array $context, string $type = 'settings', string $id = '') => (object) ['action' => $action, 'context' => wp_json_encode($context), 'object_type' => $type, 'object_id' => $id];
+$t = $audit::details($row('settings_default_access', ['from' => 'logged_in', 'to' => 'entitled_only']));
+$check(str_contains($t, 'Alle angemeldeten Nutzer') && str_contains($t, 'Nur kostenlose Regeln') && ! str_contains($t, 'logged_in'), '„Zugang ohne Shop“: Bezeichnungen statt logged_in/entitled_only');
+$t = $audit::details($row('dispute_settings_saved', ['paypal' => true, 'mode' => 'sandbox']));
+$check(str_contains($t, 'Testumgebung') && ! str_contains($t, 'sandbox') && str_contains($audit::details($row('dispute_settings_saved', ['mode' => 'live'])), 'Echtbetrieb'), 'PayPal-Umgebung im Klartext');
+$t = $audit::details($row('entitlement_voucher_grant', ['source' => 'voucher-captain', 'voucher_id' => 7], 'user', '5')).' '.$audit::details($row('dispute_opened', ['source' => 'paypal'], 'order', '5'));
+$check(str_contains($t, 'Kursgutschein (captain)') && str_contains($t, 'Quelle: PayPal'), 'Quelle im Klartext');
+$check(str_contains($audit::objectLink('settings', 'tax'), 'Livegang-Checkliste: Steuer') && $audit::objectLink('settings', 'default_access') === 'Einstellungen', 'Bezug: Punkt der Livegang-Checkliste');
+
+echo "Zugänge: Eingaben behalten, Import-Ergebnis lesbar (T121), weniger Abfragen (T124), keine Sackgassen (T126)\n";
+$AP = \Bootspruefung\Learning\Admin\AccessPages::class;
+$stopRedirect = static function (string $location): string {
+    throw new RuntimeException('redirect:'.$location);
+};
+$postGrant = static function (array $post) use ($stopRedirect): string {
+    $_POST = $post + ['action' => 'bp_access_grant'];
+    $_REQUEST['_wpnonce'] = wp_create_nonce('bp_access_grant');
+    add_filter('wp_redirect', $stopRedirect, 1);
+    try {
+        (new \Bootspruefung\Learning\Admin\AccessPages())->handleGrant();
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    } finally {
+        remove_filter('wp_redirect', $stopRedirect, 1);
+        $_POST = [];
+        unset($_REQUEST['_wpnonce']);
+    }
+
+    return '';
+};
+$grantCourse = (string) (array_key_first(\Bootspruefung\Learning\Commerce\Labels::courses()) ?? '');
+if ($grantCourse !== '') {
+    $ghost = 'niemand-'.wp_generate_password(6, false, false).'@example.test';
+    $to = $postGrant(['user' => $ghost, 'course' => $grantCourse, 'features' => ['question_bank', 'exam_simulation'], 'valid_until' => '2031-05-04', 'reason' => 'Admin-Test T121']);
+    $flash = get_transient('bp_learning_flash_'.get_current_user_id());
+    $check(str_contains($to, '#bp-grant') && is_array($flash) && $flash['type'] === 'error' && str_contains($flash['message'], 'Nutzer nicht gefunden') && ! str_contains($flash['message'], 'Benutzer'), 'unbekannter Nutzer: Meldung „Nutzer nicht gefunden“ (Glossar), zurück zum Formular');
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    $check(str_contains($html, 'value="'.esc_attr($ghost).'"') && str_contains($html, 'value="Admin-Test T121"') && str_contains($html, 'value="2031-05-04"')
+        && preg_match('#value="question_bank"\s+checked#', $html) === 1 && preg_match('#value="exam_simulation"\s+checked#', $html) === 1, 'Eingaben bleiben nach dem Fehler erhalten (Nutzer, Funktionen, Datum, Begründung)');
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    $check(! str_contains($html, 'value="'.esc_attr($ghost).'"'), 'nur einmal (danach wieder leeres Formular)');
+}
+$check(\Bootspruefung\Learning\Admin\ImportPage::actionLabel('skipped') === 'übersprungen' && \Bootspruefung\Learning\Admin\ImportPage::actionLabel('archive') === 'archiviert'
+    && str_contains(\Bootspruefung\Learning\Admin\ImportPage::countsText(['create' => 2, 'unchanged' => 5]), 'neu</span>: 2') && ! str_contains(wp_strip_all_tags(\Bootspruefung\Learning\Admin\ImportPage::countsText(['create' => 2])), 'create'), 'Import-Ergebnis mit deutschen Bezeichnungen (wie das Protokoll)');
+$check(\Bootspruefung\Learning\Admin\ImportPage::warningLabel('image_missing') === 'Pflichtbild fehlt' && \Bootspruefung\Learning\Admin\ImportPage::warningLabel('gibt_es_nicht') === 'Hinweis', 'Warnungscodes des Pakets lesbar (Code nur im Tooltip)');
+// Sackgassen: Zugang, Import und Gruppe nicht gefunden – mit Weg zurück.
+$_GET['entitlement'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->render();
+$html = (string) ob_get_clean();
+unset($_GET['entitlement']);
+$check(str_contains($html, 'nicht gefunden') && str_contains($html, 'Zurück zu allen Zugängen'), 'Zugang nicht gefunden: Hinweis mit Zurück-Link');
+$_GET['batch'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\ImportPage())->render();
+$html = (string) ob_get_clean();
+unset($_GET['batch']);
+$check(str_contains($html, 'Import #999999999 nicht gefunden') && str_contains($html, 'Zurück zu allen Importen'), 'Import nicht gefunden: Hinweis mit Zurück-Link');
+$_GET['group'] = 999999999;
+ob_start();
+(new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups();
+$html = (string) ob_get_clean();
+unset($_GET['group']);
+$check(str_contains($html, 'Gruppe Nr. 999999999 nicht gefunden'), 'Gruppe nicht gefunden: Hinweis über der Liste');
+$gs = new \Bootspruefung\Learning\Commerce\GroupService($wpdb);
+$wpdb->insert($p.'learning_group', ['owner_user_id' => 1, 'name' => 'Admin-Test T126', 'seats' => 2, 'status' => 'revoked', 'join_token' => wp_generate_password(20, false, false), 'scopes' => wp_json_encode([]), 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')]);
+$endedGroup = (int) $wpdb->insert_id;
+if ($endedGroup > 0) {
+    $_GET['group'] = $endedGroup;
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups();
+    $html = (string) ob_get_clean();
+    unset($_GET['group']);
+    $check(str_contains($html, 'Gruppe ist beendet – nicht mehr änderbar') && ! str_contains($html, 'name="op" value="status"'), 'beendete Gruppe: Satz statt leerem Formular');
+    $wpdb->delete($p.'learning_group', ['id' => $endedGroup]);
+} else {
+    $check(false, 'Testgruppe angelegt ('.$wpdb->last_error.')');
+}
+// T124: Liste „Zugänge“ – Abfragen wachsen nicht mit der Zahl der Zeilen (Bestell-Link ohne Laden der Bestellung, Nutzer vorab).
+$qUser = (int) wp_insert_user(['user_login' => 't124-'.wp_generate_password(6, false, false), 'user_email' => 't124-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'subscriber']);
+$granters = [];
+for ($i = 0; $i < 12; $i++) {
+    $granters[] = (int) wp_insert_user(['user_login' => 't124g-'.$i.'-'.wp_generate_password(6, false, false), 'user_email' => 't124g-'.$i.'-'.wp_generate_password(6, false, false).'@example.test', 'user_pass' => wp_generate_password(), 'role' => 'editor']);
+}
+$addRows = static function (int $from, int $to) use ($wpdb, $p, $qUser, $granters): void {
+    for ($i = $from; $i < $to; $i++) {
+        $wpdb->insert($p.'entitlement', ['user_id' => $qUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'question_bank', 'status' => 'active', 'source' => 'woocommerce', 'reference_key' => 't124:order:'.$qUser.':'.$i, 'order_id' => 880000 + $i, 'order_item_id' => 1]);
+        $wpdb->insert($p.'entitlement', ['user_id' => $qUser, 'course_code' => 'SBF-SEE', 'feature_code' => 'exam', 'status' => 'active', 'source' => 'manual', 'reference_key' => 't124:manual:'.$qUser.':'.$i, 'granted_by' => $granters[$i]]);
+    }
+};
+$countQueries = static function () use ($qUser): int {
+    wp_cache_flush();
+    $n = 0;
+    $counter = static function (string $q) use (&$n): string {
+        $n++;
+
+        return $q;
+    };
+    add_filter('query', $counter);
+    $_GET['s'] = (string) $qUser;
+    ob_start();
+    (new \Bootspruefung\Learning\Admin\AccessPages())->render();
+    $html = (string) ob_get_clean();
+    unset($_GET['s']);
+    remove_filter('query', $counter);
+
+    return str_contains($html, 'Bestellung #88') ? $n : -1;
+};
+$addRows(0, 2);
+$few = $countQueries();
+$addRows(2, 12);
+$many = $countQueries();
+$check($few > 0 && $many > 0 && $many - $few <= 2, "Liste „Zugänge“: Abfragen unabhängig von der Zeilenzahl ({$few} bei 4 Zeilen, {$many} bei 24 Zeilen)");
+$check((function_exists('wc_get_order') ? str_contains($AP::orderEditUrl(880001), '880001') : $AP::orderEditUrl(880001) === '') && $AP::orderEditUrl(0) === '', 'Bestell-Link ohne Laden der Bestellung (ohne WooCommerce kein Link)');
+$auditRows = [];
+foreach ($granters as $g) {
+    $auditRows[] = (object) ['id' => 0, 'created_at' => gmdate('Y-m-d H:i:s'), 'actor_user_id' => $g, 'action' => 'entitlement_extended', 'object_type' => 'entitlement', 'object_id' => '1', 'reason' => null, 'context' => null];
+}
+$countTable = static function (array $rows): int {
+    wp_cache_flush();
+    $n = 0;
+    $counter = static function (string $q) use (&$n): string {
+        $n++;
+
+        return $q;
+    };
+    add_filter('query', $counter);
+    ob_start();
+    \Bootspruefung\Learning\Admin\AuditPage::table($rows, true);
+    ob_end_clean();
+    remove_filter('query', $counter);
+
+    return $n;
+};
+$fewA = $countTable(array_slice($auditRows, 0, 2));
+$manyA = $countTable($auditRows);
+$check($manyA - $fewA <= 2, "Protokoll: Namen der Handelnden vorab geladen ({$fewA} bei 2 Zeilen, {$manyA} bei 12 Zeilen)");
+$wpdb->query($wpdb->prepare("DELETE FROM {$p}entitlement WHERE user_id = %d", $qUser));
+wp_delete_user($qUser);
+foreach ($granters as $g) {
+    wp_delete_user($g);
+}
+
+echo "Rechte- und Regelwerk-Freigabe mit Rückfrage (T103)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$cp = \Bootspruefung\Learning\Admin\ContentPages::class;
+$check(str_contains($cp::releaseConfirmMessage(7), '7 Inhalte') && str_contains($cp::rulesConfirmMessage(1), '1 Regelwerk') && str_contains($cp::overrideConfirmMessage(12), '12 Einträge'), 'Rückfrage nennt die Anzahl');
+$sum = $cp::overrideSummary('media', 'rights_status', 'licensed', 5);
+$check(str_contains($sum, '5 Einträge') && str_contains($sum, 'Medien') && str_contains($sum, 'lizenziert') && str_contains($cp::overrideSummary('exam_rule', 'verified', '', 1), 'importierter Wert gilt'), 'Rückfrage im Klartext: Anzahl, Art und neuer Wert');
+$check($cp::overrideText(['verified' => '1', 'status' => 'published']) === 'verifiziert: ja · Status: veröffentlicht' && $cp::overrideText([]) === '–', 'Lokale Abweichung eines Regelwerks als Text statt JSON');
+$_POST = [];
+$check(! \Bootspruefung\Learning\Admin\Ui::confirmed(), 'ohne Bestätigung: nicht ausführen');
+$_POST['bp_confirmed'] = '1';
+$check(\Bootspruefung\Learning\Admin\Ui::confirmed(), 'mit Bestätigung (Dialog oder Zwischenschritt): ausführen');
+$_POST = [];
+$back = \Bootspruefung\Learning\Admin\Ui::rememberConfirm('bp_override', 'bp_override', ['type' => 'media', 'value' => 'licensed', 'reason' => 'T103 Grund', 'ids' => '1,2'], 'T103: 2 Einträge ändern?', admin_url('admin.php?page=bootspruefung-rights'));
+$check(str_contains($back, 'bp_confirm=1'), 'ohne JavaScript: Rücksprung zum Zwischenschritt');
+$_GET['bp_confirm'] = '1';
+ob_start();
+\Bootspruefung\Learning\Admin\Ui::confirmBox();
+$box = (string) ob_get_clean();
+unset($_GET['bp_confirm']);
+$check(str_contains($box, 'T103: 2 Einträge ändern?') && str_contains($box, 'name="bp_confirmed" value="1"') && str_contains($box, 'name="ids" value="1,2"') && str_contains($box, 'T103 Grund') && str_contains($box, 'Abbrechen') && str_contains($box, '_wpnonce'), 'Zwischenschritt: Rückfrage, gemerkte Werte, Nonce, Abbrechen');
+delete_transient('bp_learning_confirm_'.get_current_user_id());
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderRights();
+$html = (string) ob_get_clean();
+$check(! str_contains($html, 'value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::DEFAULT_REASON).'"'), 'Rechte: Begründung nicht vorbelegt');
+$preselectOk = preg_match_all('#name="effective" value="([a-z]*)".*?<select name="value"[^>]*>(.*?)</select>#s', $html, $forms, PREG_SET_ORDER) > 0;
+foreach ($forms as $f) {
+    $preselectOk = $preselectOk && preg_match('#<option value="'.preg_quote($f[1], '#').'"\s+selected#', $f[2]) === 1;
+}
+$check($preselectOk, 'Rechte je Gruppe: aktueller (wirksamer) Status vorausgewählt');
+$check(preg_match_all('#data-bp-confirm="Wert für \d+ Eintr#', $html) === count($forms) && str_contains($html, 'name="bp_confirmed" value=""'), 'jede Änderung mit Rückfrage und Anzahl');
+$check(! str_contains($html, '<code>{') && ! str_contains($html, '{&quot;'), 'Letzte Freigaben ohne JSON');
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderRules();
+$html = (string) ob_get_clean();
+$check(! str_contains($html, 'value="'.esc_attr(\Bootspruefung\Learning\Content\RightsRelease::RULES_REASON).'"') && ! str_contains($html, '{&quot;'), 'Regelwerke: Begründung nicht vorbelegt, Abweichung ohne JSON');
+$rulesOk = true;
+foreach ($wpdb->get_results("SELECT id FROM {$p}exam_rule") as $rule) {
+    $current = \Bootspruefung\Learning\Content\Repositories\Overrides::get('exam_rule', (int) $rule->id, 'verified') ?? '';
+    $rulesOk = $rulesOk && preg_match('#name="ids" value="'.(int) $rule->id.'".*?<option value="'.preg_quote($current, '#').'"\s+selected#s', $html) === 1;
+}
+$check($rulesOk, 'Regelwerk: aktueller Stand vorausgewählt');
+
+echo "Einheitliche Begriffe im Admin (T100)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+$terms = \Bootspruefung\Learning\Admin\Glossary::terms();
+$check(count(array_intersect(['Zugang', 'Funktion', 'Umfang', 'Freischalten', 'Freigeben', 'Aussetzen', 'Widerrufen', 'Zeitversetzte Freischaltung', 'Lokale Abweichung', 'Inhaltspaket', 'Protokoll'], array_keys($terms))) === 11, 'Glossar: feste Begriffsliste');
+$check(is_file(dirname(__DIR__, 3).'/docs/glossar.md') && str_contains((string) file_get_contents(dirname(__DIR__, 3).'/docs/glossar.md'), '**Zeitversetzte Freischaltung**'), 'Glossar auch in docs/glossar.md');
+$t100Pages = [
+    'Übersicht' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview(),
+    'Kurse' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderCourses(),
+    'Fragen' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions(),
+    'Prüfungsregeln' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRules(),
+    'Rechte' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRights(),
+    'Zugänge' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->render(),
+    'Kostenlose Bereiche' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderFree(),
+    'Gruppenlizenzen' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups(),
+    'Protokoll' => static fn () => (new \Bootspruefung\Learning\Admin\AuditPage())->render(),
+    'Inhaltspakete' => static fn () => (new \Bootspruefung\Learning\Admin\ImportPage())->render(),
+];
+if (($lastBatch = (int) $wpdb->get_var("SELECT id FROM {$p}import_batch WHERE status = 'published' ORDER BY id DESC LIMIT 1")) > 0) {
+    $t100Pages['Import'] = static function () use ($lastBatch): void {
+        $_GET['batch'] = $lastBatch;
+        (new \Bootspruefung\Learning\Admin\ImportPage())->render();
+        unset($_GET['batch']);
+    };
+}
+$firstQuestion = (int) $wpdb->get_var("SELECT id FROM {$p}question ORDER BY id LIMIT 1");
+if ($firstQuestion > 0) {
+    $t100Pages['Frage'] = static function () use ($firstQuestion): void {
+        $_GET['question'] = $firstQuestion;
+        (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions();
+        unset($_GET['question']);
+    };
+}
+$overviewHtml = '';
+foreach ($t100Pages as $name => $renderPage) {
+    ob_start();
+    $renderPage();
+    $html = (string) ob_get_clean();
+    $overviewHtml = $name === 'Übersicht' ? $html : $overviewHtml;
+    // Nur sichtbarer Text (ohne Attribute und Skripte).
+    $visible = html_entity_decode(wp_strip_all_tags($html), ENT_QUOTES, 'UTF-8');
+    $found = preg_match_all('/\b(Entitlements?|Scopes?|Features?|Drip|Packages?|Releases?|Overrides?|Content-Pakete?|Audit-Log|live geschaltet|Live-Modus|Dry-Run|Rollback(?:-Import)?|Commit|Fragenrevisionen?)\b|Kap\.\s*\d|Kapitel\s+\d|docs\/|tools\/content-build|\((?:unknown|restricted)\)/u', $visible, $hits);
+    $check($found === 0, "{$name}: keine englischen Fachwörter, Kapitel- oder docs-Verweise".($found ? ' ('.implode(', ', array_unique($hits[0])).')' : ''));
+}
+$check(str_contains($overviewHtml, 'class="bp-glossary"') && str_contains($overviewHtml, 'Zeitversetzte Freischaltung'), 'Übersicht: Glossar aufklappbar');
+
+echo "Einstellungen, Menü und Barrierefreiheit (T104)\n";
+require_once ABSPATH.'wp-admin/includes/template.php';
+// Kontrast der Badge-Farben mit weißer Schrift (WCAG AA ≥ 4,5:1).
+$lum = static function (string $hex): float {
+    $c = array_map(static fn ($x) => hexdec($x) / 255, str_split(ltrim($hex, '#'), 2));
+    $c = array_map(static fn ($x) => $x <= 0.03928 ? $x / 12.92 : (($x + 0.055) / 1.055) ** 2.4, $c);
+
+    return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+};
+$minContrast = min(array_map(static fn ($hex) => 1.05 / ($lum($hex) + 0.05), \Bootspruefung\Learning\Admin\Ui::BADGE_COLORS));
+$check($minContrast >= 4.5, sprintf('Badges: Kontrast mindestens 4,5:1 (kleinster Wert %.2f)', $minContrast));
+$badgeOk = true;
+foreach (['published', 'draft', 'unknown', 'review', 'licensed', 'failed', 'gibt-es-nicht'] as $st) {
+    preg_match('#background:(\#[0-9a-f]{6})#i', \Bootspruefung\Learning\Admin\Ui::status($st), $bg);
+    $badgeOk = $badgeOk && isset($bg[1]) && 1.05 / ($lum($bg[1]) + 0.05) >= 4.5;
+}
+$check($badgeOk && str_contains(\Bootspruefung\Learning\Admin\Ui::status('unknown'), 'ungeklärt'), 'Status-Badges nutzen die Kontrastfarben und zeigen Text');
+$check(\Bootspruefung\Learning\Admin\Ui::yesNo(true) === 'ja' && \Bootspruefung\Learning\Admin\Ui::yesNo(false) === 'nein', 'ja/nein statt ✓/✗');
+
+// Menü-Reihenfolge
+$menu = \Bootspruefung\Learning\Admin\Menu::class;
+$entries = array_map(static fn ($slug) => ['x', 'cap', $slug], ['bootspruefung', 'bootspruefung-status', 'bootspruefung-settings', 'bootspruefung-access', 'bootspruefung-mobile', 'unbekannt-1', 'bootspruefung-audit', 'bootspruefung-import', 'bootspruefung-prices', 'bootspruefung-groups']);
+$sorted = array_map(static fn ($e) => $e[2], $menu::sortEntries($entries));
+$pos = array_flip($sorted);
+$check($sorted[0] === 'bootspruefung' && $pos['bootspruefung-import'] < $pos['bootspruefung-access'] && $pos['bootspruefung-access'] < $pos['bootspruefung-groups'] && $pos['bootspruefung-groups'] < $pos['bootspruefung-prices']
+    && $pos['bootspruefung-prices'] < $pos['bootspruefung-audit'] && $pos['bootspruefung-audit'] < $pos['bootspruefung-settings'] && $pos['bootspruefung-settings'] < $pos['bootspruefung-mobile'] && end($sorted) === 'bootspruefung-status',
+    'Menü: Übersicht, Inhalte, Zugänge, Gruppen, Preise, Protokoll, Einstellungen, Mobile App, Systemstatus');
+$check($pos['unbekannt-1'] < $pos['bootspruefung-audit'] && $pos['unbekannt-1'] > $pos['bootspruefung-prices'], 'unbekannte Seiten werden vor „Protokoll“ eingeordnet');
+
+// Einstellungen: Bereich „Sicherheit“ mit den vertrauenswürdigen Proxys (Option unverändert)
+$mobileBak = get_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, null);
+update_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, array_merge(\Bootspruefung\Learning\Mobile\MobileSettings::all(), ['tenant_slug' => 't104-schule', 'trusted_proxies' => '']));
+$count = $menu::saveTrustedProxies("10.0.0.0/8\nkein-proxy\n192.0.2.7");
+$ms = \Bootspruefung\Learning\Mobile\MobileSettings::all();
+$check($count === 2 && $ms['trusted_proxies'] === "10.0.0.0/8\n192.0.2.7" && $ms['tenant_slug'] === 't104-schule', 'Sicherheit: Proxys gespeichert (gleicher Schlüssel), übrige App-Einstellungen unverändert');
+ob_start();
+(new \Bootspruefung\Learning\Admin\Menu(\Bootspruefung\Learning\Plugin::instance()))->renderSettings();
+$html = (string) ob_get_clean();
+$secPos = strpos($html, 'id="bp-set-security"');
+$check($secPos !== false && strpos($html, 'name="trusted_proxies"', (int) $secPos) !== false && str_contains($html, '10.0.0.0/8'), 'Einstellungen: Bereich „Sicherheit“ mit „Vertrauenswürdige Proxys“');
+foreach (['bp-set-access', 'bp-set-display', 'bp-set-privacy', 'bp-set-disputes'] as $sec) {
+    $check(str_contains($html, 'id="'.$sec.'"'), "Einstellungen: Bereich {$sec}");
+}
+$check(str_contains($html, 'name="bp_learning_settings[default_access]"') && str_contains($html, 'name="bp_learning_settings[expiry_reminder_days]"') && str_contains($html, 'name="bp_learning_settings[delete_data_on_uninstall]"'), 'Option-Schlüssel unverändert');
+// Jedes Formularfeld hat eine Beschriftung (label for, umschließendes label oder aria-label).
+$unlabeled = static function (string $html): array {
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="utf-8"?><div>'.$html.'</div>');
+    libxml_clear_errors();
+    $xp = new DOMXPath($doc);
+    $ids = [];
+    foreach ($xp->query('//label[@for]') as $l) {
+        $ids[$l->getAttribute('for')] = true;
+    }
+    $missing = [];
+    foreach ($xp->query('//input[not(@type="hidden") and not(@type="submit") and not(@type="button")] | //select | //textarea') as $el) {
+        if ($el->getAttribute('aria-label') !== '' || $el->getAttribute('aria-labelledby') !== '' || isset($ids[$el->getAttribute('id')]) || $xp->query('ancestor::label', $el)->length > 0
+            || ($xp->query('ancestor::*[@role="group"][@aria-labelledby]', $el)->length > 0 && $xp->query('ancestor::label', $el)->length > 0)) {
+            continue;
+        }
+        $missing[] = $el->nodeName.'['.$el->getAttribute('name').']';
+    }
+
+    return $missing;
+};
+$settingsUnlabeled = array_values(array_filter($unlabeled($html), static fn ($n) => ! str_contains($n, 'paypal') && ! str_contains($n, 'generic') && ! str_contains($n, 'dispute')));
+$check($settingsUnlabeled === [], 'Einstellungen (Plugin-Felder): alle Felder beschriftet'.($settingsUnlabeled ? ' – fehlt: '.implode(', ', $settingsUnlabeled) : ''));
+$t104Pages = [
+    'Zugänge' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->render(),
+    'Kostenlose Bereiche' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderFree(),
+    'Gruppenlizenzen' => static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderGroups(),
+    'Fragen' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderQuestions(),
+    'Prüfungsregeln' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRules(),
+    'Rechte' => static fn () => (new \Bootspruefung\Learning\Admin\ContentPages())->renderRights(),
+    'Protokoll' => static fn () => (new \Bootspruefung\Learning\Admin\AuditPage())->render(),
+];
+if (function_exists('wc_format_localized_decimal')) {
+    $t104Pages['Mitgliederrabatte'] = static fn () => (new \Bootspruefung\Learning\Admin\AccessPages())->renderDiscounts();
+}
+$freeHtml = '';
+foreach ($t104Pages as $name => $renderPage) {
+    ob_start();
+    $renderPage();
+    $page = (string) ob_get_clean();
+    $freeHtml = $name === 'Kostenlose Bereiche' ? $page : $freeHtml;
+    $missing = $unlabeled($page);
+    $check($missing === [], "{$name}: alle Formularfelder beschriftet".($missing ? ' – fehlt: '.implode(', ', array_slice($missing, 0, 5)) : ''));
+    $check(! preg_match('/[✓✗]/u', wp_strip_all_tags(preg_replace('#<span aria-hidden="true">.*?</span>#su', '', $page))), "{$name}: kein ✓/✗ ohne Text");
+}
+$check(! str_contains($freeHtml, 'value="products"') && (! function_exists('wc_get_product_id_by_sku') || str_contains($freeHtml, 'page=bootspruefung-prices')), 'Katalog-Abgleich nur unter „Preise“ (Kostenlose Bereiche verlinkt dorthin)');
+ob_start();
+(new \Bootspruefung\Learning\Mobile\Admin\MobileAdminPage())->render();
+$mobileHtml = (string) ob_get_clean();
+$check(! str_contains($mobileHtml, 'bp_mobile[trusted_proxies]') && str_contains($mobileHtml, 'bp-set-security'), 'Mobile App: verweist auf Einstellungen › Sicherheit');
+$mobileBak === null ? delete_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION) : update_option(\Bootspruefung\Learning\Mobile\MobileSettings::OPTION, $mobileBak);
+$wpdb->delete($p.'audit_log', ['action' => 'security_settings_saved', 'object_id' => \Bootspruefung\Learning\Mobile\MobileSettings::OPTION]);
+$check(is_file(dirname(__DIR__, 2).'/assets/admin/admin.css'), 'Admin-CSS vorhanden');
+
+echo "Paket-Import: Upload-Grenze, Vorprüfung vor dem Entpacken, Ablageordner (T96/T88)\n";
+use Bootspruefung\Learning\Content\Import\ImportSources;
+use Bootspruefung\Learning\Content\Media\MediaStorage;
+use Bootspruefung\Learning\Content\Package\Package;
+
+$work = sys_get_temp_dir().'/bp-t96-'.getmypid();
+wp_mkdir_p($work);
+$makeZip = static function (string $name, array $files, array $links = []) use ($work): string {
+    $path = $work.'/'.$name;
+    $zip = new ZipArchive();
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    foreach ($files as $entry => $content) {
+        $zip->addFromString($entry, $content);
+    }
+    foreach ($links as $entry => $target) {
+        $zip->addFromString($entry, $target);
+        $zip->setExternalAttributesName($entry, ZipArchive::OPSYS_UNIX, (0120777 << 16));
+    }
+    $zip->close();
+
+    return $path;
+};
+$manifest = ['manifest.json' => '{}'];
+$rejects = [
+    'Pfad außerhalb' => [$makeZip('traversal.zip', $manifest + ['media/../../evil.php' => 'x']), 'Unzulässiger Pfad'],
+    'PHP-Datei in media/' => [$makeZip('php.zip', $manifest + ['media/shell.php' => '<?php']), 'Medium nicht erlaubt'],
+    'Doppelendung .php.png' => [$makeZip('double.zip', $manifest + ['media/bild.php.png' => 'x']), 'Doppelte Endung'],
+    'versteckte Datei' => [$makeZip('hidden.zip', $manifest + ['media/.htaccess' => 'x']), 'Medium nicht erlaubt'],
+    'fremde Datei oben' => [$makeZip('extra.zip', $manifest + ['index.php' => '<?php']), 'Unerwartete Datei'],
+    'symbolischer Link' => [$makeZip('link.zip', $manifest, ['media/link.png' => '/etc/passwd']), 'Symbolischer Link'],
+    'ZIP-Bombe' => [$makeZip('bomb.zip', $manifest + ['data/questions.json' => str_repeat('0', 8 * 1024 * 1024)]), 'ZIP-Bombe'],
+    'ohne manifest.json' => [$makeZip('nomanifest.zip', ['data/courses.json' => '[]']), 'manifest.json fehlt'],
+];
+foreach ($rejects as $label => [$zipPath, $needle]) {
+    $target = $work.'/x-'.md5($label);
+    $check($throws(static fn () => Package::extract($zipPath, $target), $needle) && ! is_dir($target), "abgelehnt vor dem Entpacken, nichts entpackt: {$label}");
+}
+$ok = $makeZip('ok.zip', $manifest + ['data/courses.json' => '[]', 'media/elwis/bild.png' => 'png']);
+$check(Package::inspect($ok) instanceof ZipArchive, 'gültige Struktur besteht die Vorprüfung');
+$before = glob(MediaStorage::packagesDir().'/upload-*') ?: [];
+$check($throws(static fn () => $service->createFromZip($rejects['PHP-Datei in media/'][0]), 'Medium nicht erlaubt') && (glob(MediaStorage::packagesDir().'/upload-*') ?: []) === $before, 'createFromZip: abgelehntes Paket hinterlässt keine Teilentpackung');
+$dirPkg = $work.'/dirpkg';
+wp_mkdir_p($dirPkg.'/media');
+file_put_contents($dirPkg.'/manifest.json', '{}');
+file_put_contents($dirPkg.'/media/x.phtml', '<?php');
+$check(! $throws(static fn () => Package::inspectDirectory($dirPkg)), 'Paketordner mit .phtml: Vorprüfung lässt die Paketprüfung entscheiden (Protokolleintrag „abgelehnt“)');
+unlink($dirPkg.'/media/x.phtml');
+file_put_contents($dirPkg.'/index.php', '<?php');
+$check($throws(static fn () => Package::inspectDirectory($dirPkg), 'Unerwartete Datei'), 'Paketordner mit fremder Datei oben abgelehnt');
+unlink($dirPkg.'/index.php');
+symlink('/etc/passwd', $dirPkg.'/media/link.png');
+$check($throws(static fn () => Package::inspectDirectory($dirPkg), 'Symbolischer Link'), 'Paketordner mit symbolischem Link abgelehnt');
+unlink($dirPkg.'/media/link.png');
+
+$limit = ImportSources::uploadLimit();
+$check($limit > 0 && $limit <= Package::MAX_ZIP_BYTES && $limit <= (int) wp_max_upload_size(), 'Upload-Grenze = kleinster Wert (PHP, WordPress, 200 MB)');
+$check(ImportSources::postTooLarge(20 * 1024 * 1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(1024, 8 * 1024 * 1024) && ! ImportSources::postTooLarge(20 * 1024 * 1024, 0), 'zu große Anfrage (CONTENT_LENGTH > post_max_size) erkannt');
+$msg = (string) ImportSources::uploadErrorMessage(UPLOAD_ERR_INI_SIZE, 11 * 1024 * 1024);
+$check(str_contains($msg, 'zu groß') && str_contains($msg, ImportSources::dropDirLabel()) && str_contains($msg, 'wp bootspruefung import') && str_contains($msg, 'post_max_size'), 'Meldung „zu groß“ nennt Ablageordner, WP-CLI und Servergrenze');
+$check(ImportSources::uploadErrorMessage(UPLOAD_ERR_FORM_SIZE) === ImportSources::tooLargeMessage() && ImportSources::uploadErrorMessage(UPLOAD_ERR_OK) === null && str_contains((string) ImportSources::uploadErrorMessage(UPLOAD_ERR_PARTIAL), 'teilweise'), 'Upload-Fehlercodes verständlich');
+
+$drop = ImportSources::dropDir();
+$check(is_dir($drop) && is_file($drop.'/.htaccess') && is_file($drop.'/index.php'), 'Ablageordner angelegt und für Besucher gesperrt');
+copy($ok, $drop.'/t96-paket.zip');
+file_put_contents($drop.'/notizen.txt', 'x');
+symlink($ok, $drop.'/t96-link.zip');
+$names = array_column(ImportSources::dropItems(), 'name');
+$check(in_array('t96-paket.zip', $names, true) && ! in_array('notizen.txt', $names, true) && ! in_array('t96-link.zip', $names, true), 'Liste: nur ZIP-Dateien und Paketordner, keine Links');
+$check(ImportSources::resolveDrop('t96-paket.zip') === realpath($drop.'/t96-paket.zip'), 'Paket im Ablageordner auflösbar');
+foreach (['../wp-config.php', '../../wp-config.php', 'sub/../t96-paket.zip', 'notizen.txt', 't96-link.zip', '.htaccess', 'fehlt.zip', ''] as $bad) {
+    $check($throws(static fn () => ImportSources::resolveDrop($bad)), 'Ablageordner: abgelehnt „'.$bad.'“');
+}
+unlink($drop.'/t96-paket.zip');
+unlink($drop.'/notizen.txt');
+unlink($drop.'/t96-link.zip');
+
+echo "Ablageordner im privaten Paketordner, Umzug, Löschen nach Übernahme, Systemdateien (T108)\n";
+$check($drop === MediaStorage::packagesDir().'/'.ImportSources::DROP_FOLDER && preg_match('#/packages-[A-Za-z0-9_-]+/import$#', $drop) === 1, 'Ablageordner liegt im Paketordner mit Geheimnis: '.ImportSources::dropDirLabel());
+$check(! str_contains(ImportSources::dropDirLabel(), 'uploads/'.ImportSources::LEGACY_DROP_FOLDER), 'Anzeige für SFTP nennt den neuen Pfad');
+// Früherer Ordner mit Inhalt: einmaliger Umzug in den neuen Ordner, Schutzdateien und Systemdateien weg, Ordner gelöscht.
+$legacy = ImportSources::legacyDropDir();
+wp_mkdir_p($legacy.'/alt-ordner/data');
+file_put_contents($legacy.'/alt-ordner/manifest.json', '{}');
+file_put_contents($legacy.'/alt.zip', 'x');
+file_put_contents($legacy.'/index.php', "<?php\n// Silence is golden.\n");
+file_put_contents($legacy.'/.htaccess', "Require all denied\n");
+file_put_contents($legacy.'/.DS_Store', 'x');
+file_put_contents($drop.'/doppelt.zip', 'neu');
+file_put_contents($legacy.'/doppelt.zip', 'alt');
+delete_option(ImportSources::MOVED_OPTION);
+$moved = ImportSources::migrateLegacy(true);
+$check($moved !== null && $moved['moved'] === ['alt-ordner', 'alt.zip'] && $moved['left'] === ['doppelt.zip'], 'Umzug: Pakete verschoben, gleichnamige Datei bleibt liegen');
+$check(is_file($drop.'/alt.zip') && is_file($drop.'/alt-ordner/manifest.json') && (string) file_get_contents($drop.'/doppelt.zip') === 'neu', 'Umzug: Dateien im neuen Ordner, vorhandene nicht überschrieben');
+$notice = ImportSources::migrationNotice();
+$check($notice !== null && $notice['type'] === 'warning' && str_contains($notice['text'], 'doppelt.zip') && is_file($legacy.'/.htaccess') && ! is_file($legacy.'/.DS_Store'), 'Rest im früheren Ordner: Warnung nennt die Datei, Ordner bleibt für Apache gesperrt');
+unlink($legacy.'/doppelt.zip');
+$moved = ImportSources::migrateLegacy(true);
+$check($moved !== null && $moved['moved'] === [] && $moved['left'] === [] && ! is_dir($legacy), 'früherer Ordner ohne Pakete: gelöscht');
+update_option(ImportSources::MOVED_OPTION, ['at' => time(), 'moved' => ['alt-ordner', 'alt.zip'], 'left' => []], false);
+$notice = ImportSources::migrationNotice();
+$check($notice !== null && $notice['type'] === 'info' && str_contains($notice['text'], '2 Einträge') && str_contains($notice['text'], ImportSources::dropDirLabel()), 'nach dem Umzug: Hinweis mit neuem Pfad');
+$check(ImportSources::migrateLegacy(true) === null, 'kein früherer Ordner: nichts zu tun');
+update_option(ImportSources::MOVED_OPTION, ['at' => time() - 31 * DAY_IN_SECONDS, 'moved' => ['x'], 'left' => []], false);
+$check(ImportSources::migrationNotice() === null, 'Hinweis zum Umzug verschwindet nach 30 Tagen');
+delete_option(ImportSources::MOVED_OPTION);
+foreach (['alt.zip', 'doppelt.zip', 'alt-ordner'] as $name) {
+    MediaStorage::removePath($drop.'/'.$name);
+}
+
+// Systemdateien: in ZIP und Paketordner stillschweigend übersprungen.
+$check(Package::isJunk('.DS_Store') && Package::isJunk('media/elwis/.DS_Store') && Package::isJunk('media/Thumbs.db') && Package::isJunk('__MACOSX/') && Package::isJunk('__MACOSX/media/._bild.png') && ! Package::isJunk('media/bild.png') && ! Package::isJunk('manifest.json'), 'Systemdateien erkannt (.DS_Store, Thumbs.db, __MACOSX/)');
+$junkZip = $makeZip('junk.zip', $manifest + ['data/courses.json' => '[]', 'media/elwis/bild.png' => 'png', '.DS_Store' => 'x', 'media/.DS_Store' => 'x', 'media/elwis/Thumbs.db' => 'x', '__MACOSX/._manifest.json' => 'x', '__MACOSX/media/._bild.png' => 'x']);
+$check(! $throws(static fn () => Package::inspect($junkZip)->close()), 'ZIP mit .DS_Store, Thumbs.db, __MACOSX/: Vorprüfung besteht');
+$junkTarget = $work.'/junk-extract';
+Package::extract($junkZip, $junkTarget);
+$check(is_file($junkTarget.'/media/elwis/bild.png') && ! file_exists($junkTarget.'/.DS_Store') && ! file_exists($junkTarget.'/media/.DS_Store') && ! file_exists($junkTarget.'/media/elwis/Thumbs.db') && ! file_exists($junkTarget.'/__MACOSX'), 'Systemdateien werden nicht entpackt');
+file_put_contents($dirPkg.'/.DS_Store', 'x');
+file_put_contents($dirPkg.'/media/Thumbs.db', 'x');
+wp_mkdir_p($dirPkg.'/__MACOSX/media');
+file_put_contents($dirPkg.'/__MACOSX/media/._x.png', 'x');
+$check(! $throws(static fn () => Package::inspectDirectory($dirPkg)), 'Paketordner mit .DS_Store, Thumbs.db, __MACOSX/: Vorprüfung besteht');
+$listed = [];
+foreach (Package::files($dirPkg) as $f) {
+    $listed[] = substr($f->getPathname(), strlen($dirPkg) + 1);
+}
+sort($listed);
+$check($listed === ['manifest.json', 'media'], 'Paketordner: Systemdateien werden nicht mit kopiert ('.implode(', ', $listed).')');
+MediaStorage::removePath($dirPkg.'/.DS_Store');
+MediaStorage::removePath($dirPkg.'/media/Thumbs.db');
+MediaStorage::removePath($dirPkg.'/__MACOSX');
+
+// Übernehmen aus dem Ablageordner: Dateiname unverändert (sanitize_file_name änderte ihn), danach gelöscht.
+$runImportHandler = static function (string $handler, string $nonceAction, array $post): array {
+    $_POST = $post + ['_wpnonce' => wp_create_nonce($nonceAction)];
+    $_REQUEST = $_POST;
+    $catch = static function ($location): void {
+        throw new RuntimeException('REDIRECT:'.$location);
+    };
+    add_filter('wp_redirect', $catch, 0);
+    $location = null;
+    try {
+        (new \Bootspruefung\Learning\Admin\ImportPage())->{$handler}();
+    } catch (RuntimeException $e) {
+        $location = str_starts_with($e->getMessage(), 'REDIRECT:') ? substr($e->getMessage(), 9) : throw $e;
+    } finally {
+        remove_filter('wp_redirect', $catch, 0);
+        $_POST = [];
+        $_REQUEST = [];
+    }
+    $flash = get_transient('bp_learning_flash_'.get_current_user_id());
+    delete_transient('bp_learning_flash_'.get_current_user_id());
+
+    return [$location, is_array($flash) ? (string) $flash['message'] : '', is_array($flash) ? (string) $flash['type'] : ''];
+};
+wp_set_current_user(1);
+foreach (['Paket (1).zip', 'inhalt.final.zip'] as $zipName) {
+    copy($rejects['PHP-Datei in media/'][0], $drop.'/'.$zipName);
+    $check(ImportSources::resolveDrop($zipName) === realpath($drop.'/'.$zipName), 'Dateiname „'.$zipName.'“ auflösbar');
+    [, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => $zipName]);
+    $check($type === 'error' && str_contains($message, 'Paket abgelehnt') && ! str_contains($message, 'nicht im Ablageordner gefunden') && ! file_exists($drop.'/'.$zipName), 'Übernehmen „'.$zipName.'“: Datei gefunden und geprüft (hier abgelehnt), danach gelöscht');
+}
+if ($packageDir !== '' && is_dir($packageDir)) {
+    // Gültiges Paket als Ordner mit Punkt im Namen und Systemdateien: übernommen, Ordner danach gelöscht.
+    $pkgCopy = $drop.'/inhalt.final';
+    wp_mkdir_p($pkgCopy);
+    foreach (Package::files($packageDir) as $f) {
+        $rel = substr($f->getPathname(), strlen($packageDir) + 1);
+        $f->isDir() ? wp_mkdir_p($pkgCopy.'/'.$rel) : copy($f->getPathname(), $pkgCopy.'/'.$rel);
+    }
+    file_put_contents($pkgCopy.'/.DS_Store', 'x');
+    file_put_contents($pkgCopy.'/media/Thumbs.db', 'x');
+    wp_mkdir_p($pkgCopy.'/__MACOSX');
+    file_put_contents($pkgCopy.'/__MACOSX/._manifest.json', 'x');
+    [$location, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => 'inhalt.final']);
+    parse_str((string) wp_parse_url((string) $location, PHP_URL_QUERY), $query);
+    $dirBatch = (int) ($query['batch'] ?? 0);
+    $check($dirBatch > 0 && $type === 'success' && str_contains($message, 'übernommen und geprüft') && str_contains($message, 'Paketordner wurde aus dem Ablageordner gelöscht') && ! file_exists($pkgCopy), 'Paketordner „inhalt.final“ übernommen, danach aus dem Ablageordner gelöscht (Meldung sagt es)');
+    $batchDir = $dirBatch > 0 ? $service->packageDir($dirBatch) : '';
+    $check($batchDir !== '' && is_file($batchDir.'/manifest.json') && ! file_exists($batchDir.'/.DS_Store') && ! file_exists($batchDir.'/media/Thumbs.db') && ! file_exists($batchDir.'/__MACOSX'), 'beim Import keine Systemdateien mitkopiert');
+    $check(in_array($service->batch($dirBatch)->status, ['validated', 'uploaded'], true), 'Paket mit Systemdateien besteht die Prüfung (Status '.$service->batch($dirBatch)->status.')');
+    $service->discard($dirBatch);
+} else {
+    echo "  (PACKAGE_DIR fehlt: Übernahme eines gültigen Pakets übersprungen)\n";
+}
+// Abgelehnter Paketordner bleibt zum Nachbessern liegen.
+wp_mkdir_p($drop.'/kaputt.ordner');
+file_put_contents($drop.'/kaputt.ordner/manifest.json', '{}');
+file_put_contents($drop.'/kaputt.ordner/index.php', '<?php');
+[, $message, $type] = $runImportHandler('handleServer', 'bp_import_server', ['file' => 'kaputt.ordner']);
+$check($type === 'error' && str_contains($message, 'Paket abgelehnt') && is_dir($drop.'/kaputt.ordner'), 'abgelehnter Paketordner bleibt zum Nachbessern liegen');
+MediaStorage::removePath($drop.'/kaputt.ordner');
+$check(! ImportSources::removeDropped('/etc/hosts') && is_file('/etc/hosts'), 'Löschen nur direkt im Ablageordner');
+
+$check($throws(static fn () => ImportSources::download('http://example.com/paket.zip'), 'https') && $throws(static fn () => ImportSources::download('https://127.0.0.1/paket.zip')) && $throws(static fn () => ImportSources::download('file:///etc/passwd'), 'https'), 'Link: nur https, keine internen Adressen');
+
+echo "Link-Import: Weiterleitungen nur auf https, höchstens drei; SHA-256-Prüfsumme (T125)\n";
+$zipBody = (string) file_get_contents($ok);
+$httpLog = [];
+// Öffentliche IP-Adressen statt Namen: wp_http_validate_url prüft Namen per DNS (in der Sandbox nicht erreichbar).
+$fakeHttp = static function ($pre, $args, $url) use (&$httpLog, $zipBody) {
+    $httpLog[] = [$url, (int) $args['redirection']];
+    $path = (string) wp_parse_url($url, PHP_URL_PATH);
+    $redirect = static fn (string $to): array => ['headers' => ['location' => $to], 'body' => '', 'response' => ['code' => 302, 'message' => 'Found'], 'cookies' => [], 'filename' => $args['filename'] ?? null];
+    if (preg_match('#^/hop(\d+)$#', $path, $m)) {
+        return (int) $m[1] > 0 ? $redirect('/hop'.((int) $m[1] - 1)) : $redirect('https://93.184.216.35/paket.zip');
+    }
+    if ($path === '/to-http') {
+        return $redirect('http://93.184.216.35/paket.zip');
+    }
+    if ($path === '/to-internal') {
+        return $redirect('https://127.0.0.1/paket.zip');
+    }
+    if (! empty($args['filename'])) {
+        file_put_contents($args['filename'], $zipBody);
+    }
+
+    return ['headers' => ['content-type' => 'application/zip'], 'body' => '', 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => $args['filename'] ?? null];
+};
+add_filter('pre_http_request', $fakeHttp, 10, 3);
+$file = ImportSources::download('https://93.184.216.34/hop2');
+$check(is_file($file) && (string) file_get_contents($file) === $zipBody && count($httpLog) === 4 && array_unique(array_column($httpLog, 1)) === [0] && $httpLog[3][0] === 'https://93.184.216.35/paket.zip', 'Weiterleitungen selbst verfolgt (redirection 0), relative Ziele aufgelöst');
+unlink($file);
+$httpLog = [];
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/hop3'), 'mehr als 3 Weiterleitungen') && count($httpLog) === 4, 'mehr als drei Weiterleitungen: abgebrochen');
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/to-http'), 'ohne https'), 'Weiterleitung auf http: abgebrochen');
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/to-internal'), 'interne Adresse'), 'Weiterleitung auf eine interne Adresse: abgebrochen');
+$sum = hash('sha256', $zipBody);
+$file = ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, ' '.strtoupper($sum).' ');
+$check(is_file($file), 'passende SHA-256-Prüfsumme (Groß-/Kleinschreibung, Leerzeichen egal): übernommen');
+unlink($file);
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, str_repeat('0', 64)), 'Prüfsumme'), 'falsche SHA-256-Prüfsumme: verworfen');
+$httpLog = [];
+$check($throws(static fn () => ImportSources::download('https://93.184.216.34/paket.zip', ImportSources::MAX_DOWNLOAD_BYTES, 'abc'), '64 Zeichen') && $httpLog === [], 'ungültige Prüfsumme: Meldung, kein Download');
+[, $message, $type] = $runImportHandler('handleUrl', 'bp_import_url', ['url' => 'https://93.184.216.34/paket.zip', 'sha256' => str_repeat('f', 64)]);
+$check($type === 'error' && str_contains($message, 'Prüfsumme'), 'Formular: Prüfsumme wird an den Download übergeben');
+remove_filter('pre_http_request', $fakeHttp, 10);
+$check((glob(MediaStorage::packagesDir().'/download-*') ?: []) === [], 'Link: keine temporären Dateien liegen geblieben');
+
+ob_start();
+require_once ABSPATH.'wp-admin/includes/template.php';
+(new \Bootspruefung\Learning\Admin\ImportPage())->render();
+$html = (string) ob_get_clean();
+$check(str_contains($html, 'Höchstgröße zum Hochladen auf diesem Server: '.size_format($limit)) && str_contains($html, 'data-max-bytes="'.$limit.'"') && str_contains($html, 'action=bp_import_upload'), 'Seite zeigt die Upload-Grenze, Formular trägt die Aktion in der Adresse');
+$check(str_contains($html, 'Ohne Hochladen importieren') && str_contains($html, esc_html(ImportSources::dropDirLabel())) && str_contains($html, 'bp_import_url') && str_contains($html, 'wp bootspruefung import'), 'Seite bietet Ablageordner, Link und WP-CLI an');
+$check(str_contains($html, 'name="sha256"') && str_contains($html, 'SHA-256-Prüfsumme'), 'Link-Formular: freiwilliges Feld für die SHA-256-Prüfsumme');
+$js = (string) file_get_contents(dirname(__DIR__, 2).'/assets/admin/import.js');
+$check(str_contains($js, 'data-max-bytes') && str_contains($js, 'AbortController') && str_contains($js, 'text.http') && ! preg_match('/[\'"](Error|Import running|failed)[\'"]/', $js), 'import.js: Größenprüfung, Zeitüberschreitung, HTTP-Fehler; Texte aus PHP (deutsch)');
+ImportService::removeDir($work);
+
+echo "Admin-Hinweise: einheitlich, gebündelt, wegklickbar; Livegang-Checkliste (T99)\n";
+use Bootspruefung\Learning\Admin\Notices;
+
+wp_set_current_user(1);
+delete_user_meta(1, Notices::META);
+$flushed = static function (): string {
+    ob_start();
+    Notices::flush();
+
+    return (string) ob_get_clean();
+};
+Notices::add(['key' => 't99_info', 'type' => 'info', 'title' => 'Titel A', 'text' => 'Text A', 'buttons' => [['Knopf', admin_url('themes.php?page=kurswasser-operator'), true]]]);
+$one = $flushed();
+$check(str_contains($one, '<strong>Bootsprüfung:</strong>') && str_contains($one, 'Titel A') && str_contains($one, 'button-primary') && str_contains($one, '>Ausblenden<') && str_contains($one, 'data-bp-notice="t99_info"'), 'ein Hinweis: Absender „Bootsprüfung:“, Knopf, dauerhaft ausblendbar');
+Notices::add(['key' => 't99_warn', 'type' => 'warning', 'text' => 'Warnung']);
+Notices::add(['key' => 't99_err', 'type' => 'error', 'dismiss' => 'forever', 'text' => 'Fehler']);
+Notices::add(['key' => 't99_none', 'type' => 'warning', 'dismiss' => 'none', 'text' => 'Fest']);
+$many = $flushed();
+$check(str_contains($many, 'Bootsprüfung: 3 Hinweise') && substr_count($many, 'class="notice ') === 1 && strpos($many, 'Fehler') < strpos($many, 'Warnung'), 'mehrere Hinweise: ein Sammel-Hinweis, Fehler zuerst');
+$check(str_contains($many, 'Für 7 Tage ausblenden') && str_contains($many, 'Für 1 Tag ausblenden') && ! preg_match('/data-bp-notice="t99_none".*?bp-notice-dismiss.*?data-bp-notice/s', $many.'data-bp-notice'), 'Warnung vertagbar, Fehler nur vertagbar (nicht dauerhaft), „none“ ohne Ausblenden');
+$check($flushed() === '', 'nach der Ausgabe ist die Sammlung leer');
+// T126: Zähler und Farbe nach dem Wegklicken (Skript), Ausblenden-Link nennt den Hinweis.
+Notices::add(['key' => 't126_a', 'type' => 'warning', 'title' => 'Titel B', 'text' => 'Text B']);
+Notices::add(['key' => 't126_b', 'type' => 'error', 'text' => 'Fehlertext C']);
+(new ReflectionProperty(Notices::class, 'scriptPrinted'))->setValue(null, false); // Skript wird je Anfrage nur einmal ausgegeben
+$t126 = $flushed();
+$check(str_contains($t126, 'data-bp-type="error"') && str_contains($t126, 'data-bp-type="warning"') && str_contains($t126, 'class="bp-notices-count"') && str_contains($t126, 'data-bp-one="Bootsprüfung: 1 Hinweis"') && str_contains($t126, 'data-bp-many="Bootsprüfung: %d Hinweise"'), 'Sammel-Hinweis: Art je Hinweis und Vorlagen für den Zähler');
+$check(str_contains($t126, 'aria-label="Für 7 Tage ausblenden: Titel B"') && str_contains($t126, 'aria-label="Für 1 Tag ausblenden: Fehlertext C"'), '„Ausblenden“ mit Hinweistitel für Bildschirmleser');
+$check(str_contains($t126, 'function bpRecount(') && str_contains($t126, 'bpRecount(outer)'), 'Skript setzt Zähler und Art nach dem Wegklicken neu');
+Notices::dismiss('t99_info');
+Notices::add(['key' => 't99_info', 'type' => 'info', 'text' => 'Text A']);
+$check(Notices::isDismissed('t99_info') && ! isset(Notices::queued()['t99_info']), 'dauerhaft ausgeblendet (Nutzer-Meta je Schlüssel)');
+Notices::add(['key' => 't99_info', 'type' => 'info', 'text' => 'neu', 'version' => 'v2']);
+$check(isset(Notices::queued()['t99_info']), 'neue Version des Hinweises erscheint wieder');
+$flushed();
+Notices::dismiss('t99_warn', 7);
+$meta = get_user_meta(1, Notices::META, true);
+$check(Notices::isDismissed('t99_warn') && (int) $meta['t99_warn']['until'] > time() + 6 * DAY_IN_SECONDS, 'vertagt um 7 Tage');
+$meta['t99_warn']['until'] = time() - 1;
+update_user_meta(1, Notices::META, $meta);
+$check(! Notices::isDismissed('t99_warn'), 'nach Ablauf der Vertagung wieder sichtbar');
+$check(! Notices::isDismissed('t99_warn', '', 2), 'Ausblenden gilt je Nutzer');
+delete_user_meta(1, Notices::META);
+
+echo "Hinweise wegklicken: nur signierte Links, Fehler mindestens 1 Tag, höchstens 50 Einträge (T125)\n";
+$errHtml = Notices::render(['key' => 't125_err', 'type' => 'error', 'text' => 'Fehler', 'version' => 'v1']);
+preg_match('/data-days="(\d+)" data-v="([^"]*)" data-sig="([a-z0-9]+)"/', $errHtml, $m);
+$check(($m[1] ?? '') === '1' && ($m[2] ?? '') === 'v1' && strlen($m[3] ?? '') === 24 && str_contains($errHtml, 'sig='.($m[3] ?? 'x')), 'Ausblenden-Link trägt Signatur (Link und JavaScript), Fehler: 1 Tag');
+$sig = $m[3] ?? '';
+$check(! Notices::dismissFromRequest(['key' => 't125_err', 'days' => '0', 'v' => 'v1', 'sig' => $sig]) && ! Notices::isDismissed('t125_err', 'v1'), 'Fehler-Hinweis: days=0 (dauerhaft) mit derselben Signatur abgelehnt');
+$check(! Notices::dismissFromRequest(['key' => 'erfunden', 'days' => '0', 'v' => '', 'sig' => $sig]) && ! Notices::dismissFromRequest(['key' => 'erfunden', 'days' => '0', 'v' => '']) && get_user_meta(1, Notices::META, true) === '', 'unbekannter Schlüssel bzw. ohne Signatur: nichts gespeichert');
+$check(Notices::signature('t125_err', 1, 'v1', 2) !== $sig, 'Signatur gilt nur für den Nutzer, dem der Hinweis gezeigt wurde');
+$check(Notices::dismissFromRequest(['key' => 't125_err', 'days' => '1', 'v' => 'v1', 'sig' => $sig]) && Notices::isDismissed('t125_err', 'v1'), 'gültiger Link: für 1 Tag ausgeblendet');
+$meta = get_user_meta(1, Notices::META, true);
+$check((int) $meta['t125_err']['until'] > time() && (int) $meta['t125_err']['until'] <= time() + DAY_IN_SECONDS, 'Fehler-Hinweis nur vertagt, nicht dauerhaft');
+// Höchstens 50 Einträge: abgelaufene Vertagungen zuerst, dann die ältesten.
+$many = [];
+for ($i = 0; $i < 60; $i++) {
+    $many['t125_k'.$i] = ['until' => 0, 'v' => '', 'at' => time() - 1000 + $i];
+}
+$many['t125_abgelaufen'] = ['until' => time() - 10, 'v' => '', 'at' => time()];
+update_user_meta(1, Notices::META, $many);
+Notices::dismiss('t125_neu');
+$meta = get_user_meta(1, Notices::META, true);
+$check(is_array($meta) && count($meta) === Notices::MAX_ENTRIES && isset($meta['t125_neu'], $meta['t125_k59']) && ! isset($meta['t125_abgelaufen']) && ! isset($meta['t125_k0']), 'Nutzer-Meta auf 50 Einträge begrenzt (neuester bleibt, abgelaufene und älteste fallen weg)');
+delete_user_meta(1, Notices::META);
+$check(str_contains((string) file_get_contents(dirname(__DIR__, 2).'/src/Admin/Notices.php'), 'd.append("sig",a.dataset.sig'), 'Wegklicken ohne Neuladen schickt die Signatur mit');
+$check(has_action('admin_notices', [Notices::class, 'flush']) !== false && has_action('wp_ajax_'.Notices::ACTION) !== false, 'Sammel-Ausgabe und Wegklicken registriert');
+
+$GL = \Bootspruefung\Learning\Admin\GoLiveChecklist::class;
+$tickBak = get_option($GL::OPTION, null);
+delete_option($GL::OPTION);
+$items = array_column($GL::items(), null, 'key');
+$check(isset($items['legal'], $items['exam_rules'], $items['package']) && $items['legal']['auto'] && isset($items['tax'], $items['payments'], $items['backup'], $items['prices']) && ! $items['tax']['auto'] && ! $items['tax']['ok'], 'Checkliste: automatisch geprüfte und abhakbare Punkte (Drehbuch Abschnitt 1)');
+$GL::tick('tax', true);
+$items = array_column($GL::items(), null, 'key');
+ob_start();
+$GL::render();
+$cl = (string) ob_get_clean();
+$check($items['tax']['ok'] && (int) $items['tax']['by'] === 1 && str_contains($cl, 'abgehakt von') && str_contains($cl, 'Livegang-Checkliste') && str_contains($cl, 'name="action" value="'.$GL::ACTION.'"'), 'abgehakt mit Name und Datum, Knopf zum Abhaken');
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}audit_log WHERE action = 'golive_checklist_done'") > 0, 'Abhaken im Protokoll');
+$GL::tick('tax', false);
+$check(! array_column($GL::items(), null, 'key')['tax']['ok'], 'zurückgenommen');
+$tickBak === null ? delete_option($GL::OPTION) : update_option($GL::OPTION, $tickBak, false);
+ob_start();
+(new \Bootspruefung\Learning\Admin\ContentPages())->renderOverview();
+$ov = (string) ob_get_clean();
+$check(str_contains($ov, 'id="bp-golive-checklist"') && ! str_contains($ov, 'docs/livegang-drehbuch'), 'Übersicht zeigt die Livegang-Checkliste (statt Verweis auf docs/)');
+// T126: geprüfter Zustand neben dem Haken, Inhaltsseiten automatisch, Knöpfe mit Namen, keine Überschrift in summary.
+$mailBak = get_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, null);
+update_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, ['at' => time(), 'to' => 'x@example.test', 'ok' => false, 'error' => 'Test'], false);
+delete_transient('bp_golive_backup_state');
+$items = array_column($GL::items(), null, 'key');
+$check(($items['mail']['checked']['ok'] ?? null) === false && str_contains($items['mail']['checked']['text'], 'fehlgeschlagen') && isset($items['backup']['checked']['text']) && str_starts_with($items['backup']['checked']['text'], 'Geprüft:'), 'Mail und Backup: geprüfter Zustand (Testmail, Prüfung nach dem Wiederherstellen) am Punkt');
+$mailBak === null ? delete_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST) : update_option(\Bootspruefung\Learning\Admin\MailStatus::OPTION_TEST, $mailBak, false);
+if (function_exists('kurswasser_content_open_items')) {
+    $check(isset($items['content_pages']) && $items['content_pages']['auto'] === true && $items['content_pages']['ok'] === (kurswasser_content_open_items() === []), 'Inhaltsseiten ohne Warnung: automatisch geprüft (Theme aktiv)');
+} else {
+    $check(! isset($items['content_pages']), 'ohne Theme Kurswasser: kein Punkt „Inhaltsseiten“');
+}
+$check(str_contains((string) $GL::label('content_pages'), 'Inhaltsseiten') && $GL::label('tax') !== null, 'Bezeichnungen für das Protokoll (auch früher abhakbare Punkte)');
+ob_start();
+$GL::render();
+$cl = (string) ob_get_clean();
+$check(preg_match('#<summary[^>]*>(?:(?!</summary>).)*<h[1-6]#s', $cl) === 0 && preg_match('#aria-label="Abhaken: [^"]+"#', $cl) === 1 && str_contains($cl, 'class="bp-checked"'), 'keine Überschrift in summary, Knöpfe mit Punkt im Namen, geprüfter Zustand sichtbar');
+
+echo "Markenname (T10)\n";
+$settingsBak = get_option(\Bootspruefung\Learning\Settings\Settings::OPTION);
+$blogBak = get_option('blogname');
+update_option('blogname', 'Wassertest');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => 'XXXX']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'Wassertest' && ! \Bootspruefung\Learning\Settings\Settings::brandIsSet(), 'alter Platzhalter „XXXX“ gespeichert: Name der Website statt XXXX');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => 'Kurswasser']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'Kurswasser' && \Bootspruefung\Learning\Settings\Settings::brandIsSet(), 'eigener Markenname gewinnt');
+$check(\Bootspruefung\Learning\Settings\Settings::sanitize(['brand_name' => 'XXXX'])['brand_name'] === '' && \Bootspruefung\Learning\Settings\Settings::sanitize(['brand_name' => ''])['brand_name'] === '', 'Speichern: leer bzw. XXXX = nicht festgelegt');
+update_option('blogname', '');
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, array_merge(\Bootspruefung\Learning\Settings\Settings::all(), ['brand_name' => '']));
+$check(\Bootspruefung\Learning\Settings\Settings::brand() === 'XXXX', 'ohne Markenname und Website-Namen: Platzhalter');
+update_option('blogname', $blogBak);
+update_option(\Bootspruefung\Learning\Settings\Settings::OPTION, $settingsBak);
+
+echo $failures === 0 ? "Alle Prüfungen bestanden.\n" : "{$failures} Prüfung(en) fehlgeschlagen.\n";
+exit($failures === 0 ? 0 : 1);

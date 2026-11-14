@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/exam_committees.schema.json",
+  "title": "Prüfungsausschüsse (DMYV-Liste) (data/exam_committees.json, ab 1.3)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "commission", "location_type", "contact_person", "street", "postal_code", "city", "phone", "fax", "email", "website", "office_hours", "note", "source_url", "course_codes", "sort_order", "rights_status", "source_file", "hash"],
+    "properties": {
+      "source_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+      "commission": { "type": "string", "minLength": 1 },
+      "location_type": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "contact_person": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "street": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "postal_code": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "city": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "phone": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "fax": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "email": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "website": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "office_hours": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "note": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "source_url": { "$ref": "common.schema.json#/$defs/nullableText" },
+      "course_codes": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "sort_order": { "type": "integer" },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

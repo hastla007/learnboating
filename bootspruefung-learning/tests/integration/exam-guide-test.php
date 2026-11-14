@@ -1,0 +1,179 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Integrationstest „Prüfung anmelden“ (Anleitung + Prüfungsausschüsse, Selbstanmeldung):
+ * Import aus dem Paket, Freischaltung, Seiten je Kurs, Umfang/Bestehensgrenze wie
+ * ExamBooking der Quelle, Prüfungsausschüsse, Schutz lokaler Änderungen.
+ *
+ *   WP_DIR=/pfad/zu/wordpress PACKAGE_DIR=build/<package_id> php tests/integration/exam-guide-test.php
+ */
+
+$wpDir = rtrim((string) getenv('WP_DIR'), '/');
+$packageDir = rtrim((string) getenv('PACKAGE_DIR'), '/');
+$_SERVER['HTTP_HOST'] = 'localhost';
+$_SERVER['REQUEST_URI'] = '/';
+require $wpDir.'/wp-load.php';
+require __DIR__.'/support/guard.php';
+
+use Bootspruefung\Learning\Content\Import\EntityImporter;
+use Bootspruefung\Learning\Content\Package\Package;
+use Bootspruefung\Learning\ExamGuide\ExamGuideService;
+use Bootspruefung\Learning\Settings\Settings;
+
+$failures = 0;
+$check = static function (bool $ok, string $label) use (&$failures): void {
+    echo ($ok ? '  ok   ' : '  FAIL ').$label."\n";
+    if (! $ok) {
+        $failures++;
+    }
+};
+global $wpdb;
+$p = $wpdb->prefix.'bp_';
+wp_set_current_user(1);
+$settingsBefore = get_option(Settings::OPTION);
+update_option(Settings::OPTION, array_merge(Settings::all(), ['exam_guide_enabled' => false]));
+$service = new ExamGuideService();
+
+echo "Inhalte\n";
+// Tipps & Tricks (Starttexte)
+\Bootspruefung\Learning\Tips\Tips::maybeSeed();
+$tips = \Bootspruefung\Learning\Tips\Tips::payload();
+$tipText = wp_json_encode($tips, JSON_UNESCAPED_UNICODE);
+$check(array_column($tips, 'name') === ['Lernen mit der Plattform', 'Prüfungsvorbereitung', 'Anmeldung und Prüfungstag'] && array_sum(array_map(static fn ($g) => count($g['tips']), $tips)) === 13, 'Tipps: 3 Kategorien, 13 Starttexte');
+$check(! preg_match('/€|\bEuro\b|\d+\s*(Jahre|Tage vor|Wochen vor)|Bootsschule/u', $tipText), 'Tipps ohne Gebühren, Altersgrenzen, Fristen oder Bootsschul-Bezug');
+// Neuer Textstand: unbearbeitete Starttexte werden nachgezogen, bearbeitete bleiben.
+$smartTip = get_posts(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'title' => 'Mit dem Smarttrainer starten', 'numberposts' => 1])[0] ?? null;
+$oldBody = \Bootspruefung\Learning\Tips\StarterTips::previous()['Mit dem Smarttrainer starten'][0];
+$newBody = \Bootspruefung\Learning\Tips\StarterTips::all()['Lernen mit der Plattform'][0][1];
+$keepTip = (int) wp_insert_post(['post_type' => \Bootspruefung\Learning\Tips\Tips::POST_TYPE, 'post_status' => 'draft', 'post_title' => 'Mit dem Smarttrainer starten', 'post_content' => $oldBody.' Eigener Zusatz.']);
+wp_update_post(['ID' => $smartTip->ID, 'post_content' => $oldBody]);
+update_option(\Bootspruefung\Learning\Tips\Tips::VERSION_OPTION, '1', false);
+\Bootspruefung\Learning\Tips\Tips::maybeSeed();
+$check(get_post_field('post_content', $smartTip->ID) === $newBody && get_option(\Bootspruefung\Learning\Tips\Tips::VERSION_OPTION) === \Bootspruefung\Learning\Tips\Tips::VERSION, 'Tipps: unbearbeiteter alter Starttext wird beim neuen Textstand nachgezogen');
+$check(str_ends_with((string) get_post_field('post_content', $keepTip), 'Eigener Zusatz.'), 'Tipps: vom Betreiber bearbeiteter Tipp bleibt unverändert');
+wp_delete_post($keepTip, true);
+$prevUser = get_current_user_id();
+wp_set_current_user(0);
+$check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/tips'))->get_status() === 401, 'Tipps nur angemeldet');
+wp_set_current_user($prevUser);
+$check(count($service->guides()) === 6, '6 Anleitungen (SRC, UBI, SBF See, SBF Binnen, FKN, SKN)');
+$check(count($service->committees()) === 18, '18 Prüfungsausschüsse');
+// FACH-09: Die Liste enthält nur einen Teil der Ausschüsse (DMYV) – Hinweis in Web und App.
+$check(str_starts_with((string) ($service->payload('SBF-SEE')['committees_note'] ?? ''), 'Die Liste ist nicht vollständig') && \Bootspruefung\Learning\Frontend\Strings::all()['guide_committee_incomplete'] === ExamGuideService::committeesNote(), 'Hinweis „Liste nicht vollständig“ (Seite und App)');
+
+echo "Freischaltung\n";
+$check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see/pruefung-anmelden'))->get_status() === 404, 'deaktiviert: REST 404');
+$check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see'))->get_data()['exam_guide'] === null, 'deaktiviert: keine Kachel');
+update_option(Settings::OPTION, array_merge(Settings::all(), ['exam_guide_enabled' => true]));
+$check(rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see'))->get_data()['exam_guide']['tabs'] === ['SBF See'], 'freigeschaltet: Kachel mit Reiter');
+
+echo "Seiten und Prüfungsformen\n";
+$combo = rest_do_request(new WP_REST_Request('GET', '/bootspruefung/v1/courses/sbf-see-bin/pruefung-anmelden'))->get_data();
+$check(array_column($combo['tabs'], 'key') === ['SBF-SEE', 'SBF-BIN'], 'Kombikurs: Reiter SBF See und SBF Binnen');
+$check($combo['tabs'][1]['variants'][0]['key'] === 'combo', 'Binnen-Reiter beginnt mit der Kombi-Variante');
+$see = $service->payload('SBF-SEE')['tabs'][0];
+$full = $see['variants'][0];
+$check($full['key'] === 'full' && $full['scope'] === '30 Fragen: 7 Basisfragen aus 72, 23 See-Fragen aus 213', 'Umfang wie die Quelle (ohne freie Kartenaufgaben): '.$full['scope']);
+$check($full['pass_text'] === 'Basisfragen mind. 5 von 7 und See-Fragen mind. 18 von 23', 'Bestehensgrenze mehrteilig');
+$check($service->payload('ADD-BIN-TO-SEE')['tabs'][0]['variants'][0]['key'] === 'addon', 'Ergänzungskurs: Ergänzungsprüfung zuerst');
+// FACH-04: Der Kombikurs SRC & UBI übt die UBI-Ergänzung (8 von 10) – die Anleitung zeigt sie zuerst, mit Kombi-Hinweis.
+$srcUbi = $service->payload('SRC-UBI')['tabs'];
+$ubiTab = $srcUbi[1] ?? [];
+$check(array_column($srcUbi, 'key') === ['SRC', 'UBI'] && $srcUbi[0]['variants'][0]['key'] === 'full', 'Kombi SRC & UBI: Reiter SRC (Vollprüfung) und UBI');
+$check(($ubiTab['variants'][0]['key'] ?? '') === 'addon' && $ubiTab['variants'][0]['scope'] === '10 Fragen aus '.$service->catalogSize('UBI_ERG') && $ubiTab['variants'][0]['pass_text'] === 'ab 8 richtigen (max. 2 Fehler)', 'Kombi SRC & UBI: UBI-Ergänzungsprüfung zuerst (10 Fragen, ab 8 richtigen)');
+$check(str_starts_with((string) $ubiTab['variants'][0]['note'], 'Im Kombikurs übst du für die UBI') && ($ubiTab['variants'][1]['key'] ?? '') === 'full', 'Kombi-Hinweis statt „Du hast schon das SRC“, Vollprüfung bleibt als zweite Variante');
+$ubiOnly = $service->payload('UBI')['tabs'][0]['variants'];
+$check($ubiOnly[0]['key'] === 'full' && str_starts_with((string) $ubiOnly[1]['note'], 'Du hast schon das SRC'), 'UBI-Kurs unverändert: Vollprüfung zuerst, Hinweis der Quelle');
+$src = $service->payload('SRC')['tabs'][0]['variants'][0];
+$check($src['pass_text'] === 'ab 19 richtigen (max. 5 Fehler)' && $src['scope'] === '24 Fragen aus 180', 'SRC: 24 Fragen aus 180, ab 19 richtigen');
+$fkn = $service->payload('FKN')['tabs'][0];
+$check($fkn['key'] === 'FKN' && str_starts_with($fkn['variants'][0]['pass_text'], 'mind. 24 von 30 Punkten'), 'FKN: Punkteregel der Quelle');
+$skn = $service->payload('ADD-FKN-TO-SKN')['tabs'][0]['variants'][0];
+$check($skn['key'] === 'addon' && $skn['pass_text'] === null && str_starts_with($skn['scope'], 'Fragen aus dem amtlichen Katalog'), 'SKN für FKN-Inhaber: ohne Bestehensgrenze');
+$check(count($see['faq']) >= 5 && $see['fee'] === '148,38 €' && count($see['providers']) === 2, 'FAQ, Gebühr, DSV/DMYV');
+$bin = $service->payload('SBF-BIN-MOTOR')['tabs'][0];
+$fknTab = $service->payload('FKN')['tabs'][0];
+$allText = wp_json_encode(array_map(static fn ($g) => $g['faq'], $service->guides()), JSON_UNESCAPED_UNICODE);
+$check($bin['fee'] === '130,78 €' && str_contains(wp_json_encode($bin['faq'], JSON_UNESCAPED_UNICODE), 'ca. 130,78 €') && $fknTab['fee'] === '28,89 €', 'Gebühren korrigiert: SBF Binnen 130,78 €, FKN 28,89 €');
+$docs = wp_json_encode($see['documents'] ?? [], JSON_UNESCAPED_UNICODE);
+$check(str_contains($docs, 'durch Prüfung erworbenen Sportbootführerscheins') && str_contains($docs, 'nicht älter als ein Jahr, ersetzt er das ärztliche Zeugnis') && ! str_contains($docs, 'ersetzt ggf.'), 'Unterlagen: Ersatz des ärztlichen Zeugnisses nur durch geprüften SBF, nicht älter als ein Jahr');
+$check(! str_contains($allText, 'Bootsschule') && str_contains($allText, 'nicht über diese Lernplattform') && str_contains((string) $see['fee_note'], 'Stand November 2026'), 'kein Bootsschul-Bezug, Gebühr mit Stand');
+$funk = $service->committees('SRC');
+$funkIdx = array_search('Postanschrift Funk (UBI/SRC/LRC)', array_column($funk, 'location_type'), true);
+$sbfIdx = array_search('Geschäftsstelle SBF/SKS/FKN', array_column($funk, 'location_type'), true);
+$check($funkIdx === 0 && $sbfIdx === count($funk) - 1, 'SRC: Funk-Anschrift zuerst, SBF/FKN-Stelle zuletzt');
+
+echo "Prüfungsausschüsse\n";
+$first = $service->committees()[3];
+$wpdb->update($p.'exam_committee', ['course_codes' => 'SBF-SEE'], ['id' => $first['id']]);
+$list = $service->committees('SBF-SEE');
+$check($list[0]['id'] === $first['id'] && $list[0]['matches'], 'für den Kurs gepflegte Ausschüsse zuerst');
+$check($service->committees('SRC')[0]['id'] !== $first['id'], 'andere Kurse unverändert sortiert');
+$wpdb->update($p.'exam_committee', ['phone' => '+49 000 LOKAL', 'locally_modified' => 1], ['id' => $first['id']]);
+$package = new Package($packageDir);
+$sourceId = $wpdb->get_var($wpdb->prepare("SELECT source_id FROM {$p}exam_committee WHERE id = %d", $first['id']));
+$record = array_values(array_filter($package->entities('exam_committees'), static fn ($c) => $c['source_id'] === $sourceId))[0];
+$record['hash'] = 'sha256:'.str_repeat('0', 64);
+$importer = new EntityImporter($wpdb, $package, 'test', false);
+$check($importer->import('exam_committees', $record) === 'unchanged' && $wpdb->get_var("SELECT phone FROM {$p}exam_committee WHERE id = {$first['id']}") === '+49 000 LOKAL', 'lokale Änderung übersteht Reimport');
+$wpdb->update($p.'exam_committee', ['phone' => $record['phone'], 'course_codes' => '', 'locally_modified' => 0], ['id' => $first['id']]);
+
+update_option(Settings::OPTION, $settingsBefore);
+echo "Bundesländer der Prüfungsausschüsse (Karte)\n";
+$check(\Bootspruefung\Learning\ExamGuide\ExamGuideService::statesFor('Prüfungszentrum Brandenburg, Sachsen, Sachsen-Anhalt und Thüringen Nord') === ['DE-BB', 'DE-ST', 'DE-SN', 'DE-TH'], 'Brandenburg … Thüringen Nord: 4 Länder, Sachsen und Sachsen-Anhalt getrennt');
+$check(\Bootspruefung\Learning\ExamGuide\ExamGuideService::statesFor('Prüfungsausschuss Mannheim-Darmstadt/Saar-Mosel') === ['DE-BW', 'DE-RP', 'DE-HE', 'DE-SL'], 'Mannheim-Darmstadt/Saar-Mosel: BW, RP, HE, SL');
+$allStates = [];
+foreach ((new \Bootspruefung\Learning\ExamGuide\ExamGuideService())->committees() as $cm) {
+    $allStates = array_merge($allStates, $cm['states']);
+}
+$check(count(array_unique($allStates)) === 16, 'alle 16 Bundesländer haben mindestens einen Prüfungsausschuss');
+echo "Eigene Prüfungsausschüsse (T26)\n";
+$pages = new \Bootspruefung\Learning\Admin\ExamGuidePages();
+$redirectTo = null;
+$stopRedirect = static function ($location) use (&$redirectTo) {
+    $redirectTo = $location;
+    throw new RuntimeException('redirect');
+};
+add_filter('wp_redirect', $stopRedirect, 1);
+$post = static function (string $action, array $fields) use ($pages): void {
+    $_POST = $_REQUEST = array_merge($fields, ['_wpnonce' => wp_create_nonce($action)]);
+    try {
+        $action === 'bp_exam_committee' ? $pages->save() : $pages->delete();
+    } catch (RuntimeException) {
+    }
+    $_POST = $_REQUEST = [];
+};
+require_once ABSPATH."wp-admin/includes/template.php";
+$_GET = ['new' => '1'];
+ob_start();
+$pages->render();
+$form = (string) ob_get_clean();
+$_GET = [];
+$check(str_contains($form, 'Neuer Prüfungsausschuss') && preg_match('/name="source_url" value=""\s*required/', $form) === 1 && str_contains($form, 'Prüfungsausschuss hinzufügen'), 'Admin: Knopf „hinzufügen“ und leeres Formular mit Pflichtfeld Quelle');
+$countBefore = count((new ExamGuideService())->committees());
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt']);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'ohne Quelle wird kein eigener Eintrag angelegt');
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt', 'source_url' => 'javascript:alert(1)']);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'Quelle muss eine http(s)-Adresse sein');
+$post('bp_exam_committee', ['id' => 0, 'commission' => 'Testausschuss T26', 'city' => 'Teststadt', 'source_url' => 'https://example.org/ausschuesse', 'course_codes' => ['SBF-SEE', 'GIBT-ES-NICHT']]);
+$own = $wpdb->get_row("SELECT * FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'");
+$check($own !== null && $own->source_system === 'local' && $own->status === 'published' && $own->source_url === 'https://example.org/ausschuesse' && $own->course_codes === 'SBF-SEE' && (int) $own->locally_modified === 1, 'eigener Eintrag mit Quelle angelegt (Quelle „local“, sichtbar, nur gültige Kurse)');
+$check(count((new ExamGuideService())->committees()) === $countBefore + 1 && in_array('Testausschuss T26', array_column((new ExamGuideService())->committees('SBF-SEE'), 'commission'), true), 'erscheint in der Liste für Lernende');
+if (isset($importer, $package)) {
+    foreach ($package->entities('exam_committees') as $rec) {
+        $importer->import('exam_committees', $rec);
+    }
+}
+$check($wpdb->get_var("SELECT status FROM {$p}exam_committee WHERE id = ".(int) ($own->id ?? 0)) === 'published', 'eigener Eintrag übersteht den Content-Import');
+$imported = (int) $wpdb->get_var("SELECT id FROM {$p}exam_committee WHERE source_system <> 'local' ORDER BY id LIMIT 1");
+$post('bp_exam_committee_delete', ['id' => $imported]);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE id = {$imported}") === 1, 'Einträge aus dem Content-Paket lassen sich nicht löschen');
+$post('bp_exam_committee_delete', ['id' => (int) ($own->id ?? 0)]);
+$check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'") === 0, 'eigener Eintrag gelöscht');
+remove_filter('wp_redirect', $stopRedirect, 1);
+$wpdb->query("DELETE FROM {$p}exam_committee WHERE commission = 'Testausschuss T26'");
+
+echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
+exit($failures === 0 ? 0 : 1);

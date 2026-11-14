@@ -1,0 +1,164 @@
+modul;fragen_nr;reihenfolge;datei;paketnummer;groesse;elwis_beschreibung;quelle
+SBF_BASIS;4;1;sbf_basis_004_1.png;neu gezeichnet (Vorlage Paket 79);64x64;Ein kurzer Ton, Dauer etwa 1 Sekunde;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-II/Schallsignal-723.gif?__blob=normal&v=2
+SBF_BASIS;5;1;sbf_basis_005_1.png;neu gezeichnet (Vorlage Paket 80);128x64;Ein langer Ton, Dauer etwa 4 - 6 Sekunden;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-II/Schallsignal-728.gif?__blob=normal&v=2
+SBF_BASIS;16;1;sbf_basis_016_1.png;3;460x72;Bleib-weg-Signal, Gefahrenbereich sofort verlassen;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Basisfragen/Schallzeichen-Frage-16.gif?__blob=normal&v=1
+SBF_BASIS;17;1;sbf_basis_017_1.png;4;240x356;Verbotszeichen A.2 - Überholverbot, allgemein;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A02.gif?__blob=normal&v=2
+SBF_BASIS;18;1;sbf_basis_018_1.png;5;240x364;Verbotszeichen A.4 - Verbot des Begegnens und Überholverbot;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A04.gif?__blob=normal&v=2
+SBF_BASIS;19;1;sbf_basis_019_1.png;6;240x244;Sog und Wellenschlag vermeiden;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-I/Gebotszeichen-A04a.gif?__blob=normal&v=2
+SBF_BASIS;20;1;sbf_basis_020_1.png;7;364x240;"Einschränkungszeichen C.5 - Das Fahrwasser ist am rechten Ufer eingeengt; die Zahl auf dem Zeichen gibt den Abstand in Metern an, in dem sich ein Fahrzeug vom Tafelzeichen entfernt halten muss.";https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Einschraenkungszeichen-C5.gif?__blob=normal&v=2
+SBF_BASIS;21;1;sbf_basis_021_1.png;8;240x244;Gebotszeichen B.5 - Gebot, unter bestimmten Bedingungen anzuhalten;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Gebotszeichen-B05.gif?__blob=normal&v=2
+SBF_BASIS;22;1;sbf_basis_022_1.png;9;240x364;Verbotszeichen A.6 - Ankerverbot und Verbot des Schleifenlassens von Ankern, Trossen und Ketten;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A06.gif?__blob=normal&v=2
+SBF_BASIS;23;1;sbf_basis_023_1.png;10;240x240;Verbotszeichen A.7 - Verbot, am Ufer festzumachen;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A07.gif?__blob=normal&v=2
+SBF_BASIS;23;2;sbf_basis_023_2.png;11;240x240;Verbotszeichen A.5 - Stilliegeverbot (Ankerverbot und Verbot des Festmachens am Ufer);https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A05.gif?__blob=normal&v=2
+SBF_BASIS;24;1;sbf_basis_024_1.png;12;240x328;Schild - Ergänzende Erklärungen oder Hinweise. (Beispiel: Einen langen Ton geben);https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Schild-10.gif?__blob=normal&v=2
+SBF_BASIS;25;1;sbf_basis_025_1.png;13;248x248;Hinweiszeichen E.17 - Wasserskistrecke;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E17.gif?__blob=normal&v=2
+SBF_BASIS;25;2;sbf_basis_025_2.png;14;240x232;Hinweiszeichen E.22 - Fahrerlaubnis für ein Wassermotorrad (Waterscooter, Jetski, usw.);https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E22.gif?__blob=normal&v=2
+SBF_BASIS;26;1;sbf_basis_026_1.png;15;240x364;Hinweiszeichen E.11 - Ende des Verbots oder eines Gebots, das nur in einer Verkehrsrichtung gilt, oder Ende einer Einschränkung;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E11.gif?__blob=normal&v=2
+SBF_BASIS;27;1;sbf_basis_027_1.png;16;240x168;Verbotszeichen A.1 Tafelzeichen - Verbot der Durchfahrt;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01-Tafeln.gif?__blob=normal&v=2
+SBF_BASIS;28;1;sbf_basis_028_1.png;17;328x144;Brücke, Sperrwerk oder Schleuse geschlossen;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-I/Gebotszeichen-A19aa.gif?__blob=normal&v=2
+SBF_BASIS;29;1;sbf_basis_029_1.png;18;140x344;Anlage dauerhaft gesperrt;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-I/Gebotszeichen-A19d.gif?__blob=normal&v=2
+SBF_BASIS;30;1;sbf_basis_030_1.png;19;336x140;Einfahrt frei, Gegenverkehr gesperrt;https://www.elwis.de/DE/Schifffahrtsrecht/Seeschifffahrtsrecht/SeeSchStrO/Anlagen/Anlage-I/Gebotszeichen-A23bb.gif?__blob=normal&v=2
+SBF_BINNEN;107;1;sbf_binnen_107_1.png;20;240x236;Hinweiszeichen E.5.7 - Liegestelle für ein Fahrzeug der Schubschifffahrt, das die Bezeichnung nach § 3.14 Nummer 3 führen muss;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E057.gif?__blob=normal&v=2
+SBF_BINNEN;108;1;sbf_binnen_108_1.png;21;240x244;Hinweiszeichen E.5.12 - Liegestelle für ein Fahrzeug, das keine Bezeichnung nach § 3.14 führen muss;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E0512.gif?__blob=normal&v=2
+SBF_BINNEN;108;2;sbf_binnen_108_2.png;22;240x240;Hinweiszeichen E.5.8 - Liegestelle für ein anderes Fahrzeug als ein Fahrzeug der Schubschifffahrt, das nicht die Bezeichnung nach § 3.14 führen muss;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E058.gif?__blob=normal&v=2
+SBF_BINNEN;110;1;sbf_binnen_110_1.png;23;1148x552;Empfohlene Durchfahrtsöffnung, Durchfahrt in beide Richtungen erlaubt;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Tafelzeichen-Frage-110.gif?__blob=normal&v=1
+SBF_BINNEN;111;1;sbf_binnen_111_1.png;24;664x244;Empfehlungszeichen D.1b - Empfohlene Durchfahrtsöffnung für Verkehr nur in Richtung in der die Zeichen sichtbar sind (in der anderen Richtung untersagt);https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Empfehlungszeichen-D1b-Rhein-Mosel.jpg?__blob=normal&v=2
+SBF_BINNEN;112;1;sbf_binnen_112_1.png;25;500x300;Verbotszeichen A.10 - Verbot, außerhalb der angezeigten Begrenzung zu fahren;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A10.gif?__blob=normal&v=2
+SBF_BINNEN;113;1;sbf_binnen_113_1.png;26;500x272;Empfehlungszeichen D.2 - Empfehlung, sich in dem durch die Tafeln begrenzten Raum zu halten;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Empfehlungszeichen-D2.gif?__blob=normal&v=2
+SBF_BINNEN;114;1;sbf_binnen_114_1.png;27;316x304;Empfohlene Durchfahrt mit Gegenverkehr;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Tafelzeichen-Frage-114.gif?__blob=normal&v=1
+SBF_BINNEN;115;1;sbf_binnen_115_1.png;28;616x316;Empfohlene Durchfahrt ohne Gegenverkehr;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Tafelzeichen-Frage-115.gif?__blob=normal&v=1
+SBF_BINNEN;116;1;sbf_binnen_116_1.png;29;240x168;Verbotszeichen A.1 Tafelzeichen - Verbot der Durchfahrt;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01-Tafeln.gif?__blob=normal&v=2
+SBF_BINNEN;120;1;sbf_binnen_120_1.png;30;612x412;Fahrzeug mit Maschinenantrieb länger als 110 m;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-120.gif?__blob=normal&v=1
+SBF_BINNEN;121;1;sbf_binnen_121_1.png;31;640x460;Anlage 3 Tagbezeichnung Bild 4;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-004-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;122;1;sbf_binnen_122_1.png;32;640x464;Anlage 3 Tagbezeichnung Bild 6;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-006-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;123;1;sbf_binnen_123_1.png;33;560x364;Schubverband in Fahrt von vorne;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-123.gif?__blob=normal&v=1
+SBF_BINNEN;124;1;sbf_binnen_124_1.png;34;576x372;Nicht frei fahrende Fähre;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-124.gif?__blob=normal&v=1
+SBF_BINNEN;125;1;sbf_binnen_125_1.png;35;548x372;Frei fahrende Fähre;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-125.gif?__blob=normal&v=1
+SBF_BINNEN;127;1;sbf_binnen_127_1.png;36;640x472;Anlage 3 Tagbezeichnung Bild 27a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-027a-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;129;1;sbf_binnen_129_1.png;37;676x496;Anlage 3 Tagbezeichnung Bild 28a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-028a-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;131;1;sbf_binnen_131_1.png;38;640x484;Anlage 3 Tagbezeichnung Bild 29a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-029a-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;132;1;sbf_binnen_132_1.png;39;640x472;Anlage 3 Tagbezeichnung Bild 37;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-037-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;145;1;sbf_binnen_145_1.png;40;640x460;Anlage 3 Nachtbezeichnung Bild 51;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-051-Nacht.gif?__blob=normal&v=2
+SBF_BINNEN;146;1;sbf_binnen_146_1.png;41;640x484;Anlage 3 Tagbezeichnung Bild 51;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-051-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;147;1;sbf_binnen_147_1.png;42;640x464;Anlage 3 Nachtbezeichnung Bild 52;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-052-Nacht.gif?__blob=normal&v=2
+SBF_BINNEN;148;1;sbf_binnen_148_1.png;43;640x488;Anlage 3 Tagbezeichnung Bild 52;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-052-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;149;1;sbf_binnen_149_1.png;44;640x460;Anlage 3 Nachtbezeichnung Bild 50a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-050a-Nacht.gif?__blob=normal&v=2
+SBF_BINNEN;150;1;sbf_binnen_150_1.png;45;640x468;Anlage 3 Tagbezeichnung Bild 50b;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-050b-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;151;1;sbf_binnen_151_1.png;46;640x468;Anlage 3 Tagbezeichnung Bild 50a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-050a-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;152;1;sbf_binnen_152_1.png;47;640x468;Anlage 3 Nachtbezeichnung Bild 49a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-049a-Nacht.gif?__blob=normal&v=2
+SBF_BINNEN;153;1;sbf_binnen_153_1.png;48;640x468;Anlage 3 Tagbezeichnung Bild 49b;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-049b-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;154;1;sbf_binnen_154_1.png;49;640x464;Anlage 3 Tagbezeichnung Bild 49a;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-049a-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;155;1;sbf_binnen_155_1.png;50;640x488;Anlage 3 Tagbezeichnung Bild 58;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-058-Tag.gif?__blob=normal&v=2
+SBF_BINNEN;155;2;sbf_binnen_155_2.png;51;640x492;Anlage 3 Nachtbezeichnung Bild 58;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-03/Bild-058-Nacht.gif?__blob=normal&v=2
+SBF_BINNEN;156;1;sbf_binnen_156_1.png;52;172x172;Verbotszeichen A.1a - Gesperrte Wasserfläche, jedoch für Kleinfahrzeuge ohne Antriebsmaschine befahrbar;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01a.gif?__blob=normal&v=2
+SBF_BINNEN;157;1;sbf_binnen_157_1.png;53;240x236;Verbotszeichen A.12 - Fahrverbot für Fahrzeuge mit Maschinenantrieb;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A12.gif?__blob=normal&v=2
+SBF_BINNEN;162;1;sbf_binnen_162_1.png;54;152x76;Wenden über Steuerbord;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-162.gif?__blob=normal&v=1
+SBF_BINNEN;163;1;sbf_binnen_163_1.png;55;204x80;Wenden über Backbord;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-163.gif?__blob=normal&v=1
+SBF_BINNEN;164;1;sbf_binnen_164_1.png;56;224x76;Überholen an der Steuerbordseite des Vorausfahrenden;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-164.gif?__blob=normal&v=1
+SBF_BINNEN;165;1;sbf_binnen_165_1.png;57;288x80;Überholen an der Backbordseite des Vorausfahrenden;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-165.gif?__blob=normal&v=1
+SBF_BINNEN;166;1;sbf_binnen_166_1.png;58;284x84;"Hafen oder Nebenwasserstraße; Ein- oder Ausfahrt mit Kursänderung nach Steuerbord";https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-166.gif?__blob=normal&v=1
+SBF_BINNEN;167;1;sbf_binnen_167_1.png;59;344x88;"Hafen oder Nebenwasserstraße; Ein- oder Ausfahrt mit Kursänderung nach Backbord";https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Schallsignal-Frage-167.gif?__blob=normal&v=1
+SBF_BINNEN;180;1;sbf_binnen_180_1.png;60;708x376;Das Fahrzeug unter Segel ist ausweichpflichtig;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-180.gif?__blob=normal&v=1
+SBF_BINNEN;183;1;sbf_binnen_183_1.png;61;680x364;Fahrzeug A ist ausweichpflichtig;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-183.gif?__blob=normal&v=1
+SBF_BINNEN;185;1;sbf_binnen_185_1.png;62;648x376;A ist ausweichpflichtig. Segelfahrzeuge mit Wind von Backbord müssen Segelfahrzeugen mit Wind von Steuerbord ausweichen;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-185.gif?__blob=normal&v=1
+SBF_BINNEN;186;1;sbf_binnen_186_1.png;63;528x360;B ist ausweichpflichtig. Das luvseitige Boot muss dem leeseitigen ausweichen;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-186.gif?__blob=normal&v=1
+SBF_BINNEN;188;1;sbf_binnen_188_1.png;64;580x368;Boot A, weil leeseitig;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-188.gif?__blob=normal&v=1
+SBF_BINNEN;189;1;sbf_binnen_189_1.png;65;604x368;A gegenüber B und C, B gegenüber C;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-189.gif?__blob=normal&v=1
+SBF_BINNEN;192;1;sbf_binnen_192_1.png;66;608x352;Kleinfahrzeug mit Maschinenantrieb;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-192.gif?__blob=normal&v=1
+SBF_BINNEN;193;1;sbf_binnen_193_1.png;67;608x352;Kleinfahrzeug mit Maschinenantrieb;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-192.gif?__blob=normal&v=1
+SBF_BINNEN;196;1;sbf_binnen_196_1.png;68;416x348;Sog und Wellenschlag vermeiden;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Lichter-Frage-196.gif?__blob=normal&v=1
+SBF_BINNEN;198;1;sbf_binnen_198_1.png;69;360x240;Vorgeschriebene Fahrtrichtung;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Tafelzeichen-Frage-198.gif?__blob=normal&v=1
+SBF_BINNEN;199;1;sbf_binnen_199_1.png;70;240x260;Verbotszeichen - Verbot der Einfahrt in einen Hafen oder eine Nebenwasserstraße;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01-Pfeil.gif?__blob=normal&v=2
+SBF_BINNEN;200;1;sbf_binnen_200_1.png;71;344x328;10 km/h Höchstgeschwindigkeit gegenüber dem Ufer;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Tafelzeichen-Frage-200.gif?__blob=normal&v=1
+SBF_BINNEN;201;1;sbf_binnen_201_1.png;72;240x244;Gebotszeichen B.8 - Gebot, besondere Vorsicht walten lassen;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Gebotszeichen-B08.gif?__blob=normal&v=2
+SBF_BINNEN;202;1;sbf_binnen_202_1.png;73;240x236;Verbotszeichen A.8 - Wendeverbot;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A08.gif?__blob=normal&v=2
+SBF_BINNEN;203;1;sbf_binnen_203_1.png;74;240x244;Hinweiszeichen E.8 - Hinweis auf eine Wendestelle;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E08.gif?__blob=normal&v=2
+SBF_BINNEN;204;1;sbf_binnen_204_1.png;75;360x240;Hinweiszeichen E.3 - Hinweis auf ein Wehr;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Hinweiszeichen-E03.gif?__blob=normal&v=2
+SBF_BINNEN;243;1;sbf_binnen_243_1.png;76;788x352;Empfohlene Durchfahrt mit Gegenverkehr und seitlicher Begrenzung der erlaubten Brückendurchfahrt;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-243.gif?__blob=normal&v=1
+SBF_BINNEN;244;1;sbf_binnen_244_1.png;77;240x168;Verbotszeichen A.1 Tafelzeichen - Verbot der Durchfahrt;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01-Tafeln.gif?__blob=normal&v=2
+SBF_BINNEN_SEGELN;295;1;sbf_binnen_segeln_295_1.png;78;744x568;1 Wende, 2 Halse, 3 Q-Wende;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Segeln/Bild-Frage-295.gif?__blob=normal&v=1
+SBF_SEE;91;1;sbf_see_pdfbild_021.png;PDF-Bild 21;528x408;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 27
+SBF_SEE;92;1;sbf_see_pdfbild_022.png;PDF-Bild 22;516x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 27
+SBF_SEE;93;1;sbf_see_pdfbild_023.png;PDF-Bild 23;704x384;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 28
+SBF_SEE;94;1;sbf_see_pdfbild_024.png;PDF-Bild 24;820x344;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 28
+SBF_SEE;97;1;sbf_see_pdfbild_025.png;PDF-Bild 25 (4x neu erzeugt, im Paket leer);716x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 29
+SBF_SEE;98;1;sbf_see_pdfbild_026.png;PDF-Bild 26;724x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 29
+SBF_SEE;99;1;sbf_see_pdfbild_027.png;PDF-Bild 27;856x472;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 30
+SBF_SEE;102;1;sbf_see_pdfbild_028.png;PDF-Bild 28;860x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 30
+SBF_SEE;103;1;sbf_see_pdfbild_029.png;PDF-Bild 29;528x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 31
+SBF_SEE;104;1;sbf_see_pdfbild_030.png;PDF-Bild 30;520x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 31
+SBF_SEE;105;1;sbf_see_pdfbild_031.png;PDF-Bild 31;620x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;106;1;sbf_see_pdfbild_032.png;PDF-Bild 32;844x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;107;1;sbf_see_pdfbild_033.png;PDF-Bild 33;852x440;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;108;1;sbf_see_pdfbild_034.png;PDF-Bild 34;840x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;109;1;sbf_see_pdfbild_035.png;PDF-Bild 35;844x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;110;1;sbf_see_pdfbild_036.png;PDF-Bild 36;860x444;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;111;1;sbf_see_pdfbild_037.png;PDF-Bild 37;848x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 34
+SBF_SEE;112;1;sbf_see_pdfbild_038.png;PDF-Bild 38;852x420;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 34
+SBF_SEE;115;1;sbf_see_pdfbild_039.png;PDF-Bild 39;844x420;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 35
+SBF_SEE;116;1;sbf_see_pdfbild_003.png;neu gezeichnet (Vorlage PDF-Bild 3);128x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 35
+SBF_SEE;117;1;sbf_see_pdfbild_040.png;neu gezeichnet (Vorlage PDF-Bild 40);256x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;118;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;119;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;119;2;sbf_see_pdfbild_042.png;PDF-Bild 42;280x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;120;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;120;2;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;120;3;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;121;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;121;2;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;121;3;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;122;1;sbf_see_pdfbild_045.png;PDF-Bild 45;320x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;123;1;sbf_see_pdfbild_045.png;PDF-Bild 45;320x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;123;2;sbf_see_pdfbild_046.png;PDF-Bild 46;308x440;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;124;1;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;124;2;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;124;3;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;133;1;sbf_see_pdfbild_047.png;PDF-Bild 47;856x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 41
+SBF_SEE;134;1;sbf_see_pdfbild_048.png;PDF-Bild 48;816x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 41
+SBF_SEE;140;1;sbf_see_pdfbild_049.png;neu gezeichnet (Vorlage PDF-Bild 49);270x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 43
+SBF_SEE;141;1;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;148;1;sbf_see_pdfbild_050.png;PDF-Bild 50;840x460;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 45
+SBF_SEE;149;1;sbf_see_pdfbild_051.png;PDF-Bild 51;824x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 46
+SBF_SEE;150;1;sbf_see_pdfbild_052.png;PDF-Bild 52;860x464;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 46
+SBF_SEE;151;1;sbf_see_pdfbild_053.png;PDF-Bild 53;828x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 47
+SBF_SEE;154;1;sbf_see_pdfbild_054.png;PDF-Bild 54;840x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 48
+SBF_SEE;162;1;sbf_see_pdfbild_055.png;PDF-Bild 55;332x148;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 50
+SBF_SEE;176;1;sbf_see_pdfbild_056.png;PDF-Bild 56;240x236;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;177;1;sbf_see_pdfbild_057.png;PDF-Bild 57;284x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;177;2;sbf_see_pdfbild_058.png;PDF-Bild 58;276x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;178;1;sbf_see_pdfbild_059.png;PDF-Bild 59;252x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;179;1;sbf_see_pdfbild_060.png;PDF-Bild 60;264x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;180;1;sbf_see_pdfbild_061.png;PDF-Bild 61;308x232;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;182;1;sbf_see_pdfbild_062.png;PDF-Bild 62;924x584;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 56
+SBF_SEE;184;1;sbf_see_pdfbild_063.png;PDF-Bild 63;316x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;184;2;sbf_see_pdfbild_064.png;PDF-Bild 64;324x480;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;184;3;sbf_see_pdfbild_065.png;PDF-Bild 65;544x436;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;185;1;sbf_see_pdfbild_066.png;PDF-Bild 66;508x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;186;1;sbf_see_pdfbild_067.png;PDF-Bild 67;272x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;187;1;sbf_see_pdfbild_068.png;PDF-Bild 68;280x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;187;2;sbf_see_pdfbild_069.png;PDF-Bild 69 (4x neu erzeugt, im Paket leer);280x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;188;1;sbf_see_pdfbild_070.png;PDF-Bild 70;596x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;189;1;sbf_see_pdfbild_071.png;PDF-Bild 71;284x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;189;2;sbf_see_pdfbild_072.png;PDF-Bild 72;280x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;190;1;sbf_see_pdfbild_073.png;PDF-Bild 73;368x564;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;191;1;sbf_see_pdfbild_074.png;PDF-Bild 74;340x600;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 60
+SBF_SEE;192;1;sbf_see_pdfbild_075.png;PDF-Bild 75;436x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 60
+SBF_SEE;193;1;sbf_see_pdfbild_076.png;PDF-Bild 76;852x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;194;1;sbf_see_pdfbild_077.png;PDF-Bild 77;1264x548;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;195;1;sbf_see_pdfbild_078.png;PDF-Bild 78;484x632;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;196;1;sbf_see_pdfbild_079.png;PDF-Bild 79;464x620;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 62
+SBF_SEE;200;1;sbf_see_pdfbild_080.png;PDF-Bild 80 (4x neu erzeugt, im Paket leer);944x556;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 63
+SBF_SEE;201;1;sbf_see_pdfbild_081.png;PDF-Bild 81;932x540;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 63
+SBF_SEE;202;1;sbf_see_pdfbild_082.png;PDF-Bild 82;948x548;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 64
+SBF_SEE;203;1;sbf_see_pdfbild_083.png;PDF-Bild 83;896x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 64
+SBF_SEE;204;1;sbf_see_pdfbild_084.png;PDF-Bild 84;1076x268;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;205;1;sbf_see_pdfbild_085.png;PDF-Bild 85;1072x304;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;206;1;sbf_see_pdfbild_086.png;PDF-Bild 86;1120x292;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;207;1;sbf_see_pdfbild_087.png;PDF-Bild 87;1096x304;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 66
+SBF_SEE;208;1;sbf_see_pdfbild_088.png;PDF-Bild 88;932x560;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 66
+SBF_SEE;260;1;sbf_see_pdfbild_089.png;PDF-Bild 89;364x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 79
+SBF_SEE;265;1;sbf_see_pdfbild_090.png;PDF-Bild 90;892x580;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 80
+SBF_SEE;266;1;sbf_see_pdfbild_091.png;PDF-Bild 91;828x576;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 81
+SBF_SEE;282;1;sbf_see_pdfbild_092.png;PDF-Bild 92;584x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 84
+SBF_SEE;284;1;sbf_see_pdfbild_094.png;PDF-Bild 94;336x688;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 86
+SBF_SEE;285;1;sbf_see_pdfbild_095.png;PDF-Bild 95;660x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 86

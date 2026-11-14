@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/manifest.schema.json",
+  "title": "Manifest des Content-Pakets (manifest.json)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["package_id", "schema_version", "converter_version", "source", "built_at", "previous_package_id", "content_sha256", "languages", "catalogs", "counts", "files", "warnings", "skipped", "not_converted"],
+  "properties": {
+    "package_id": { "type": "string", "pattern": "^boatingschool-[0-9a-f]{7}-[0-9a-f]{12}$" },
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+    "converter_version": { "type": "string" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "branch", "commit_sha", "commit_date"],
+      "properties": {
+        "repository": { "type": "string" },
+        "branch": { "type": ["string", "null"] },
+        "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "commit_date": { "type": ["string", "null"] }
+      }
+    },
+    "built_at": { "type": "string", "format": "date-time" },
+    "previous_package_id": { "type": ["string", "null"] },
+    "content_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+    "languages": { "type": "array", "items": { "type": "string" } },
+    "catalogs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["catalog", "version", "questions"],
+        "properties": {
+          "catalog": { "type": ["string", "null"] },
+          "version": { "type": ["string", "null"] },
+          "questions": { "type": "integer" }
+        }
+      }
+    },
+    "counts": { "type": "object" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "mime_type", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "size": { "type": "integer", "minimum": 0 },
+          "mime_type": { "type": "string" },
+          "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "entity", "source_id", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "entity": { "type": "string" },
+          "source_id": { "type": ["string", "null"] },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entity", "source_file", "line", "source_id", "reason"],
+        "properties": {
+          "entity": { "type": "string" },
+          "source_file": { "type": "string" },
+          "line": { "type": ["integer", "null"] },
+          "source_id": { "type": ["string", "null"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "not_converted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entity", "source", "reason"],
+        "properties": {
+          "entity": { "type": "string" },
+          "source": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

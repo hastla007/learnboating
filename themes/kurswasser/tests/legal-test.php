@@ -1,0 +1,208 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Integrationstest Rechtstext-Vorlagen und Betreiberangaben (To-do T11): Angaben aus „Design › Betreiberangaben“
+ * ersetzen die passenden [[Betreiber: …]]-Platzhalter beim Übernehmen der Vorlagen (maskiert), leere Angaben und
+ * Platzhalter mit Entscheidung bleiben, geänderte Angaben aktualisieren unbearbeitete Entwürfe, bearbeitete
+ * Seiten bleiben unberührt.
+ *
+ *   WP_DIR=/pfad/zu/wordpress php themes/kurswasser/tests/legal-test.php
+ */
+
+$wpDir = rtrim((string) getenv('WP_DIR'), '/');
+if (! is_file($wpDir.'/wp-load.php')) {
+    fwrite(STDERR, "WP_DIR angeben.\n");
+    exit(2);
+}
+$_SERVER['HTTP_HOST'] = 'localhost';
+$_SERVER['REQUEST_URI'] = '/';
+require $wpDir.'/wp-load.php';
+require dirname(__DIR__, 3).'/bootspruefung-learning/tests/integration/support/guard.php';
+
+$theme = dirname(__DIR__);
+if (! function_exists('kurswasser_operator_fill')) {
+    require_once $theme.'/functions.php';
+}
+
+$failures = 0;
+$check = static function (bool $ok, string $label) use (&$failures): void {
+    echo ($ok ? '  ok   ' : '  FAIL ').$label."\n";
+    if (! $ok) {
+        $failures++;
+    }
+};
+wp_set_current_user(1);
+$backup = get_option(KURSWASSER_OPERATOR_OPTION, null);
+$created = [];
+
+echo "Platzhalter ersetzen\n";
+$data = array_fill_keys(array_keys(kurswasser_operator_fields()), '');
+$data['firma'] = 'Wasser & Wind GmbH';
+$data['strasse'] = 'Hafenstraße 1';
+$data['plz_ort'] = '20457 Hamburg';
+$data['email'] = 'info@example.org';
+$html = '<p>[[Betreiber: Firmenname]] · [[Betreiber: Anschrift]] · [[Betreiber: E-Mail]] · [[Betreiber: Telefon]] · [[Betreiber: ja/nein – zutreffende Variante wählen, die andere löschen.]]</p>';
+$filled = kurswasser_operator_fill($html, $data);
+$check(str_contains($filled, 'Wasser &amp; Wind GmbH') && str_contains($filled, 'Hafenstraße 1, 20457 Hamburg') && str_contains($filled, 'info@example.org'), 'Firmenname, Anschrift und E-Mail eingesetzt (maskiert)');
+$check(str_contains($filled, '[[Betreiber: Telefon]]') && str_contains($filled, '[[Betreiber: ja/nein'), 'leere Angabe und Entscheidungs-Platzhalter bleiben stehen');
+$half = $data;
+$half['plz_ort'] = '';
+$check(str_contains(kurswasser_operator_fill('[[Betreiber: Anschrift]]', $half), '[[Betreiber: Anschrift]]'), 'unvollständige Anschrift wird nicht halb eingesetzt');
+$xss = $data;
+$xss['firma'] = '<script>alert(1)</script>';
+$check(! str_contains(kurswasser_operator_fill('[[Betreiber: Firmenname]]', $xss), '<script>'), 'Werte werden HTML-maskiert');
+$garant = $data;
+$garant['erstattungsfrist'] = '14 Tage';
+$note = kurswasser_operator_fill('[kurswasser_page_hero note="Garantiegeber: &#91;&#91;Betreiber: Firma, Anschrift, E-Mail&#93;&#93;"] spätestens [[Betreiber: Erstattungsfrist]]', $garant);
+$check(str_contains($note, 'Garantiegeber: Wasser &amp; Wind GmbH, Hafenstraße 1, 20457 Hamburg, info@example.org') && str_contains($note, 'spätestens 14 Tage'), 'Garantie: Garantiegeber im Seitenkopf (maskierte Klammern) und Erstattungsfrist');
+$check(kurswasser_content_template(['file' => '09-geld-zurueck-garantie-bootsfuehrerschein.html']) !== null, 'Inhaltsseiten-Vorlage wird mit Betreiberangaben gelesen');
+$clean = kurswasser_operator_sanitize(['firma' => '  <b>Firma</b>  ', 'email' => 'kein@mail', 'support_email' => 'support@example.org']);
+$check($clean['firma'] === 'Firma' && $clean['email'] === '' && $clean['support_email'] === 'support@example.org', 'Speichern bereinigt Text und E-Mail');
+
+echo "Fuß der Plugin-Mails (T58)\n";
+$footerData = $data;
+$footerData['vertretung'] = 'Erika Muster';
+$footerData['register'] = 'Amtsgericht Hamburg, HRB 12345';
+$mailFooter = kurswasser_operator_mail_footer($footerData);
+$check($mailFooter === "Wasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nVertreten durch: Erika Muster\nRegistereintrag: Amtsgericht Hamburg, HRB 12345\nE-Mail: info@example.org", 'Firma, Anschrift, Vertretung, Register und E-Mail (Klartext, nicht maskiert)');
+$check(kurswasser_operator_mail_footer($half) === '', 'ohne vollständige Anschrift: kein eigener Fuß');
+update_option(KURSWASSER_OPERATOR_OPTION, $data, false);
+$check(str_starts_with((string) apply_filters('bootspruefung_mail_footer', 'Standard'), "Wasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg"), 'Filter bootspruefung_mail_footer liefert die Betreiberangaben');
+update_option(KURSWASSER_OPERATOR_OPTION, $half, false);
+$check(apply_filters('bootspruefung_mail_footer', 'Standard') === 'Standard', 'unvollständige Angaben: Standard des Plugins bleibt');
+if (class_exists(\Bootspruefung\Learning\Support\Mail::class)) {
+    update_option(KURSWASSER_OPERATOR_OPTION, $data, false);
+    $sentMails = [];
+    $catchMail = static function ($short, $atts) use (&$sentMails) {
+        $sentMails[] = $atts;
+
+        return true;
+    };
+    add_filter('pre_wp_mail', $catchMail, 10, 2);
+    \Bootspruefung\Learning\Support\Mail::send('kunde@example.test', 'Test', "Hallo,\n\nText.");
+    remove_filter('pre_wp_mail', $catchMail, 10);
+    $check(count($sentMails) === 1 && str_ends_with((string) $sentMails[0]['message'], "Text.\n\n-- \nWasser & Wind GmbH\nHafenstraße 1, 20457 Hamburg\nE-Mail: info@example.org"), 'Plugin-Mail endet mit den Betreiberangaben');
+}
+$backup === null ? delete_option(KURSWASSER_OPERATOR_OPTION) : update_option(KURSWASSER_OPERATOR_OPTION, $backup, false);
+
+echo "Alle Vorlagen\n";
+$before = array_sum(array_map('count', kurswasser_operator_open_placeholders()));
+$all = array_fill_keys(array_keys(kurswasser_operator_fields()), 'Testwert');
+foreach (['email', 'support_email', 'privacy_email'] as $mailKey) {
+    $all[$mailKey] = 'test@example.org';
+}
+update_option(KURSWASSER_OPERATOR_OPTION, $all, false);
+$open = kurswasser_operator_open_placeholders();
+$after = array_sum(array_map('count', $open));
+$check($before >= 70 && $after < $before && $after > 0, "alle Angaben eingetragen: offene Platzhalter von {$before} auf {$after} (Rest = Entscheidungen/Prüfungen)");
+$check(! in_array('Firmenname', array_merge(...array_values($open)), true) && ! in_array('E-Mail', array_merge(...array_values($open)), true), 'Firmenname und E-Mail sind in keiner Vorlage mehr offen');
+
+echo "Rechtsseiten übernehmen\n";
+foreach (array_keys(kurswasser_legal_pages()) as $slug) {
+    $page = kurswasser_legal_page($slug);
+    if (! $page) {
+        $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_name' => $slug, 'post_title' => ucfirst($slug), 'post_content' => ''], true);
+        if (! is_wp_error($id)) {
+            $created[] = (int) $id;
+        }
+    }
+}
+$imp = kurswasser_legal_page('impressum');
+$agb = kurswasser_legal_page('agb');
+$impBak = $imp ? $imp->post_content : '';
+$agbBak = $agb ? $agb->post_content : '';
+if ($imp && $agb) {
+    wp_update_post(['ID' => $imp->ID, 'post_content' => '']);
+    wp_update_post(['ID' => $agb->ID, 'post_content' => '<!-- wp:paragraph --><p>Vom Betreiber geschrieben.</p><!-- /wp:paragraph -->']);
+    delete_post_meta($agb->ID, '_kurswasser_legal_hash');
+    $result = kurswasser_fill_legal_pages(false, false);
+    $impNow = (string) get_post_field('post_content', $imp->ID);
+    $check(in_array($result['impressum'] ?? '', ['filled', 'updated'], true) && str_contains($impNow, 'Testwert') && ! str_contains($impNow, '[[Betreiber: Name bzw. Firma]]'), 'leere Seite: Vorlage mit Betreiberangaben übernommen');
+    $check(($result['agb'] ?? '') === 'edited' && str_contains((string) get_post_field('post_content', $agb->ID), 'Vom Betreiber geschrieben.'), 'bearbeitete Seite bleibt unberührt');
+    $hashBefore = kurswasser_legal_templates_hash();
+    $all['firma'] = 'Neue Firma';
+    update_option(KURSWASSER_OPERATOR_OPTION, $all, false);
+    $check(kurswasser_legal_templates_hash() !== $hashBefore, 'geänderte Angaben ändern die Vorlagen-Prüfsumme (Abgleich wird ausgelöst)');
+    $result = kurswasser_fill_legal_pages(false, false);
+    $check(($result['impressum'] ?? '') === 'updated' && str_contains((string) get_post_field('post_content', $imp->ID), 'Neue Firma'), 'unbearbeitete Seite bekommt die geänderte Angabe');
+} else {
+    $check(false, 'Rechtsseiten impressum/agb vorhanden');
+}
+
+// Aufräumen
+if ($imp) {
+    wp_update_post(['ID' => $imp->ID, 'post_content' => $impBak]);
+}
+if ($agb) {
+    wp_update_post(['ID' => $agb->ID, 'post_content' => $agbBak]);
+}
+foreach ($created as $id) {
+    wp_delete_post($id, true);
+}
+if ($backup === null) {
+    delete_option(KURSWASSER_OPERATOR_OPTION);
+} else {
+    update_option(KURSWASSER_OPERATOR_OPTION, $backup, false);
+}
+
+echo "Admin-Hinweis Rechtstexte (T99)\n";
+wp_set_current_user(1);
+require_once ABSPATH.'wp-admin/includes/admin.php';
+delete_user_meta(1, 'bp_notices_dismissed');
+$open = kurswasser_legal_open_issues();
+set_current_screen('dashboard'); // wie im echten Admin (WooCommerce-Hinweise erwarten einen Bildschirm)
+ob_start();
+do_action('admin_notices');
+$adminNotice = (string) ob_get_clean();
+if ($open !== []) {
+    $check(str_contains($adminNotice, 'Bootsprüfung:') && str_contains($adminNotice, 'Rechtstexte noch nicht fertig') && str_contains($adminNotice, 'Betreiberangaben ausfüllen') && str_contains($adminNotice, 'page=kurswasser-operator'), 'Rechtstext-Hinweis: Absender „Bootsprüfung:“, Knopf „Betreiberangaben ausfüllen“');
+    $check(! class_exists('\\Bootspruefung\\Learning\\Admin\\Notices') || str_contains($adminNotice, 'Für 7 Tage ausblenden'), 'Rechtstext-Hinweis vertagbar (mit Lern-Plugin)');
+} else {
+    $check(! str_contains($adminNotice, 'Rechtstexte noch nicht fertig'), 'keine offenen Rechtstexte: kein Hinweis');
+}
+
+echo "Ergebnis „Vorlagen einfügen“ und ungültige E-Mail in den Betreiberangaben (T126)\n";
+$msg = kurswasser_legal_fill_message(['impressum' => 'filled', 'agb' => 'edited', 'kontakt' => 'unchanged']);
+$check($msg['type'] === 'success' && str_contains($msg['title'], '1 Seite') && in_array('Impressum: Vorlage übernommen', $msg['items'], true) && in_array('AGB: von Hand bearbeitet – unverändert gelassen', $msg['items'], true), 'Ergebnis je Seite als Meldung');
+$check(kurswasser_legal_fill_message(['impressum' => 'error'])['type'] === 'error' && kurswasser_legal_fill_message('locked')['type'] === 'warning' && kurswasser_legal_fill_message(['agb' => 'edited'])['title'] === 'Keine Seite geändert.', 'Fehler, laufender Abgleich und „nichts geändert“ klar benannt');
+set_transient('kurswasser_legal_fill_result_1', ['impressum' => 'updated', 'datenschutz' => 'edited'], 300);
+ob_start();
+do_action('admin_notices');
+$fillNotice = (string) ob_get_clean();
+$check(str_contains($fillNotice, 'Vorlage in 1 Seite übernommen.') && str_contains($fillNotice, 'Datenschutzerklärung: von Hand bearbeitet') && get_transient('kurswasser_legal_fill_result_1') === false, 'Meldung erscheint nach dem Einfügen einmal im Admin');
+$check(kurswasser_operator_invalid(['email' => 'kein@mail', 'support_email' => 'support@example.org', 'privacy_email' => '', 'firma' => 'x@y']) === ['email'], 'ungültige E-Mail erkannt (leer und Textfelder zählen nicht)');
+$opBak = get_option(KURSWASSER_OPERATOR_OPTION, null);
+update_option(KURSWASSER_OPERATOR_OPTION, ['firma' => 'Alte Firma', 'email' => 'alt@example.org'], false);
+$opStop = static function (string $location): string {
+    throw new RuntimeException('redirect:'.$location);
+};
+$_POST = ['kw_operator' => ['firma' => 'Neue Firma GmbH', 'email' => 'falsch@', 'support_email' => 'support@example.org']];
+$_REQUEST['_wpnonce'] = wp_create_nonce('kurswasser_operator_save');
+add_filter('wp_redirect', $opStop, 1);
+$opTo = '';
+try {
+    do_action('admin_post_kurswasser_operator_save');
+} catch (RuntimeException $e) {
+    $opTo = $e->getMessage();
+}
+remove_filter('wp_redirect', $opStop, 1);
+$_POST = [];
+unset($_REQUEST['_wpnonce']);
+$stored = get_option(KURSWASSER_OPERATOR_OPTION);
+$check(str_contains($opTo, 'error=1') && ! str_contains($opTo, 'saved=1') && ($stored['firma'] ?? '') === 'Alte Firma' && ($stored['email'] ?? '') === 'alt@example.org', 'ungültige E-Mail: nichts gespeichert, kein „Gespeichert.“');
+$_GET['saved'] = '1'; // auch wenn „saved“ in der Adresse stünde
+ob_start();
+kurswasser_operator_page();
+$opPage = (string) ob_get_clean();
+unset($_GET['saved']);
+$check(str_contains($opPage, 'Nicht gespeichert.') && ! str_contains($opPage, 'Gespeichert. Unbearbeitete') && str_contains($opPage, 'value="Neue Firma GmbH"') && str_contains($opPage, 'value="falsch@"') && str_contains($opPage, 'aria-invalid="true"'), 'Fehlermeldung, Eingaben bleiben im Formular, Feld markiert');
+$opBak === null ? delete_option(KURSWASSER_OPERATOR_OPTION) : update_option(KURSWASSER_OPERATOR_OPTION, $opBak, false);
+if (class_exists('\\Bootspruefung\\Learning\\Admin\\GoLiveChecklist')) {
+    $glItems = array_column(\Bootspruefung\Learning\Admin\GoLiveChecklist::items(), null, 'key');
+    $check(isset($glItems['content_pages']) && $glItems['content_pages']['auto'] === true && $glItems['content_pages']['ok'] === (kurswasser_content_open_items() === []), 'Livegang-Checkliste: „Inhaltsseiten ohne Warnung“ automatisch geprüft');
+}
+
+echo $failures === 0 ? "\nAlle Prüfungen bestanden.\n" : "\n{$failures} Prüfung(en) fehlgeschlagen.\n";
+exit($failures === 0 ? 0 : 1);

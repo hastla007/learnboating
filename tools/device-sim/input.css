@@ -1,0 +1,9 @@
+@tailwind components;
+@tailwind utilities;
+
+/* Kleine Grundlage statt Preflight, nur im Gerätebereich. */
+#bp-device-sim { box-sizing: border-box; }
+#bp-device-sim *, #bp-device-sim *::before, #bp-device-sim *::after { box-sizing: inherit; border-width: 0; border-style: solid; border-color: currentColor; }
+#bp-device-sim button { font: inherit; cursor: pointer; background: none; }
+#bp-device-sim input, #bp-device-sim select, #bp-device-sim textarea { font: inherit; color: inherit; border: 1px solid #cbd5e1; padding: 0.4rem 0.6rem; }
+#bp-device-sim svg { max-width: 100%; height: auto; }

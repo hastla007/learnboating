@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.learnboating.invalid/v1/device_simulation.schema.json",
+  "title": "Gerätesimulation: Geräte, Übungsschiff, Lektionen, Prüfungsreihen (data/device_simulation.json)",
+  "type": "array",
+  "maxItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["source_id", "ship", "address_book", "directory", "devices", "exams", "exam_meta", "lessons", "course_codes", "rights_status", "source_file", "hash"],
+    "properties": {
+      "source_id": { "const": "geraetesimulation" },
+      "ship": { "type": "object", "required": ["callsign"] },
+      "address_book": { "type": "array" },
+      "directory": { "type": "array" },
+      "devices": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["key", "name"], "properties": { "key": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "name": { "type": "string" } } } },
+      "exams": { "type": "object" },
+      "exam_meta": { "type": "object" },
+      "lessons": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["key", "title", "steps"],
+          "properties": {
+            "key": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "title": { "type": "string" },
+            "catalog": { "enum": ["SRC", "UBI"] },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "speech": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["checks", "solution"],
+                    "properties": {
+                      "checks": { "$ref": "radio_practice.schema.json#/$defs/checks" },
+                      "solution": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "course_codes": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/courseCode" } },
+      "rights_status": { "$ref": "common.schema.json#/$defs/rightsStatus" },
+      "source_file": { "$ref": "common.schema.json#/$defs/sourceFile" },
+      "hash": { "$ref": "common.schema.json#/$defs/hash" }
+    }
+  }
+}

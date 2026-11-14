@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Commerce;
+
+defined('ABSPATH') || exit;
+
+/**
+ * Prüft Produktzuordnungen und Shop-Zustände für die Admin-Übersicht (Kap. 9):
+ * unbekannte Kurse, gelöschte/unveröffentlichte/nicht kaufbare Produkte,
+ * nicht virtuelle Lernprodukte, uneinheitliche Regeln, Bestellungen ohne Konto,
+ * überbuchte Gruppen.
+ */
+final class MappingCheck
+{
+    /**
+     * @return list<array{product_id:int,variation_id:int,problem:string,severity:string,deleted:bool}>
+     */
+    public static function issues(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}bp_product_access WHERE active = 1 ORDER BY product_id, variation_id");
+        $courses = Labels::courses();
+        $woo = function_exists('wc_get_product');
+        $out = [];
+        $byProduct = [];
+        foreach ($rows as $row) {
+            $byProduct[(int) $row->product_id.'|'.(int) $row->variation_id][] = $row;
+        }
+        foreach ($byProduct as $key => $group) {
+            [$productId, $variationId] = array_map('intval', explode('|', $key));
+            $add = static function (string $problem, string $severity = 'error', bool $deleted = false) use (&$out, $productId, $variationId): void {
+                $out[] = ['product_id' => $productId, 'variation_id' => $variationId, 'problem' => $problem, 'severity' => $severity, 'deleted' => $deleted];
+            };
+            foreach ($group as $row) {
+                if (! isset($courses[$row->course_code])) {
+                    $add(sprintf(__('Kurs „%s“ ist nicht (mehr) veröffentlicht – Käufe schalten nichts Sichtbares frei.', 'bootspruefung-learning'), $row->course_code));
+                }
+            }
+            $signatures = array_unique(array_map(static fn ($r) => $r->duration_days.'|'.$r->renewal_mode.'|'.$r->refund_rule.'|'.$r->seats, $group));
+            if (count($signatures) > 1) {
+                $add(__('Uneinheitliche Dauer/Verlängerung/Erstattung/Plätze innerhalb der Zuordnung – bitte im Produkt neu speichern.', 'bootspruefung-learning'), 'warning');
+            }
+            // T101: Zugänge ohne Ablauf nur bewusst – in der Liste als Hinweis zeigen (nicht bei gelöschten Produkten).
+            $unlimited = static function () use ($group, $add): void {
+                if (array_filter($group, static fn ($r) => empty($r->duration_days)) !== []) {
+                    $add(__('Laufzeit „ohne Ablauf“: Käufe schalten dauerhaft frei. Bitte prüfen, ob das gewollt ist (sonst im Produkt unter „Lernzugang“ eine Laufzeit eintragen).', 'bootspruefung-learning'), 'warning');
+                }
+            };
+            if (! $woo) {
+                $unlimited();
+                continue;
+            }
+            $product = wc_get_product($variationId ?: $productId);
+            $parent = $variationId ? wc_get_product($productId) : $product;
+            if (self::isOrphan($productId, $variationId)) {
+                $add(__('Produkt gelöscht – bestehende Zugänge bleiben, die Zuordnung kann entfernt werden.', 'bootspruefung-learning'), 'warning', true);
+                continue;
+            }
+            $unlimited();
+            if ($parent->get_status() !== 'publish') {
+                $add(sprintf(__('Produkt ist nicht veröffentlicht (Status: %s).', 'bootspruefung-learning'), $parent->get_status()), 'warning');
+            }
+            if (! $product->is_purchasable()) {
+                $add(__('Produkt ist nicht kaufbar (kein Preis oder deaktiviert).', 'bootspruefung-learning'));
+            }
+            if (! $product->is_virtual()) {
+                $add(__('Lernprodukt ist nicht als virtuell markiert – Checkout verlangt Versanddaten.', 'bootspruefung-learning'), 'warning');
+            }
+        }
+
+        return array_merge($out, self::moneyBackIssues());
+    }
+
+    /**
+     * T107: gespeicherte Geld-zurück-Garantien mit Tagen, aber Grenze 0 % (früher entstanden aus einem leeren
+     * %-Feld). MoneyBack::limitReached() wäre dann immer erreicht – Kunden könnten die Garantie nie nutzen.
+     * @return list<array{product_id:int,variation_id:int,problem:string,severity:string,deleted:bool}>
+     */
+    public static function moneyBackIssues(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT pm.post_id, pm.meta_value, p.post_type, p.post_parent FROM {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE pm.meta_key = %s AND p.post_status NOT IN ('trash', 'auto-draft') ORDER BY pm.post_id",
+            MoneyBack::META
+        ));
+        $out = [];
+        foreach ($rows as $row) {
+            $raw = maybe_unserialize($row->meta_value);
+            if (! is_array($raw) || (int) ($raw['days'] ?? 0) < 1 || (float) ($raw['max_progress'] ?? 0) > 0) {
+                continue;
+            }
+            $variation = $row->post_type === 'product_variation';
+            $out[] = [
+                'product_id' => $variation ? (int) $row->post_parent : (int) $row->post_id,
+                'variation_id' => $variation ? (int) $row->post_id : 0,
+                'problem' => sprintf(
+                    /* translators: 1: Tage, 2: Prozent laut AGB */
+                    __('Geld-zurück-Garantie mit %1$d Tagen, aber Grenze 0 %%: Jede Anfrage gilt sofort als überschritten. Bitte im Produkt unter „Lernzugang“ die Grenze eintragen (AGB: unter %2$d %%) und speichern.', 'bootspruefung-learning'),
+                    (int) $raw['days'],
+                    (int) ShopCatalog::MONEY_BACK_MAX_PROGRESS
+                ),
+                'severity' => 'warning',
+                'deleted' => false,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Zuordnung gehört zu einem gelöschten (oder im Papierkorb liegenden) Produkt bzw. einer gelöschten Variation. */
+    public static function isOrphan(int $productId, int $variationId): bool
+    {
+        if (! function_exists('wc_get_product')) {
+            return false;
+        }
+        $product = wc_get_product($variationId ?: $productId);
+        $parent = $variationId ? wc_get_product($productId) : $product;
+
+        return ! $product || ! $parent || $parent->get_status() === 'trash';
+    }
+
+    /**
+     * Entfernt die Zugangszuordnung eines gelöschten Produkts (bestehende Zugänge bleiben).
+     * @return int entfernte Zeilen
+     */
+    public static function removeOrphan(int $productId, int $variationId): int
+    {
+        if (! self::isOrphan($productId, $variationId)) {
+            throw new \RuntimeException(__('Das Produkt existiert noch – die Zuordnung bitte im Produkt bearbeiten.', 'bootspruefung-learning'));
+        }
+        global $wpdb;
+        $n = (int) $wpdb->delete($wpdb->prefix.'bp_product_access', ['product_id' => $productId, 'variation_id' => $variationId]);
+        \Bootspruefung\Learning\Audit\AuditLog::record('product_access_orphan_removed', 'product', (string) ($variationId ?: $productId), null, ['product_id' => $productId, 'variation_id' => $variationId, 'rows' => $n]);
+
+        return $n;
+    }
+
+    /** @return array{orders_without_account:int,overbooked_groups:int,mapping_errors:int,mapping_warnings:int} */
+    public static function summary(): array
+    {
+        global $wpdb;
+        $issues = self::issues();
+        $since = gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS);
+
+        return [
+            'mapping_errors' => count(array_filter($issues, static fn ($i) => $i['severity'] === 'error')),
+            'mapping_warnings' => count(array_filter($issues, static fn ($i) => $i['severity'] !== 'error')),
+            // Bezahlte Bestellungen ohne Kundenkonto (letzte 30 Tage), für die noch kein Zugang existiert.
+            'orders_without_account' => (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT a.object_id) FROM {$wpdb->prefix}bp_audit_log a WHERE a.action = 'order_without_account' AND a.created_at >= %s
+                 AND NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}bp_entitlement e WHERE e.order_id = a.object_id)
+                 AND NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}bp_learning_group g WHERE g.order_id = a.object_id)",
+                $since
+            )),
+            // Gleiche Belegungsregel wie GroupService (abgelaufene Einladungen belegen keinen Platz).
+            'overbooked_groups' => (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}bp_learning_group g WHERE g.status = 'active'
+                 AND (SELECT COUNT(*) FROM {$wpdb->prefix}bp_learning_group_member m WHERE m.group_id = g.id AND ".GroupService::occupying('m').') > g.seats',
+                GroupService::inviteCutoff()
+            )),
+        ];
+    }
+
+    public static function editUrl(int $productId): string
+    {
+        return admin_url('post.php?post='.$productId.'&action=edit');
+    }
+}

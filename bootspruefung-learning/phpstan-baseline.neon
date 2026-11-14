@@ -1,0 +1,907 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Function wpac_resolve_partner_code not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../learnboating-affiliate-connector/src/Connector.php
+
+		-
+			message: '#^Right side of \|\| is always false\.$#'
+			identifier: booleanOr.rightAlwaysFalse
+			count: 1
+			path: ../learnboating-affiliate-connector/src/Connector.php
+
+		-
+			message: '#^Access to constant STATE_COMMITTED on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 4
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to constant STATE_RELEASED on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 2
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to constant STATE_RESERVED on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 5
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to property \$code on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 3
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to property \$expires_at on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to property \$id on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 11
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Access to property \$order_item_id on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 2
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method check\(\) on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method commit\(\) on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method get\(\) on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 2
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method is_multi_use\(\) on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method product\(\) on an unknown class VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method release\(\) on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 3
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to method reserve\(\) on an unknown class VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Class VCAP\\API\\V1\\RedemptionService not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Class VCAP\\Voucher not found\.$#'
+			identifier: class.notFound
+			count: 3
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Function vcap not found\.$#'
+			identifier: function.notFound
+			count: 10
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Method LearnBoating\\VoucherConnector\\Connector\:\:find\(\) has invalid return type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Method LearnBoating\\VoucherConnector\\Connector\:\:resolve\(\) has invalid return type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$redemptions of method LearnBoating\\VoucherConnector\\Connector\:\:__construct\(\) has invalid type VCAP\\API\\V1\\RedemptionService\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:attempt\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:finish\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:key\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:redeemLocked\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:target\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Parameter \$voucher of method LearnBoating\\VoucherConnector\\Connector\:\:voucherData\(\) has invalid type VCAP\\Voucher\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Property LearnBoating\\VoucherConnector\\Connector\:\:\$redemptions has unknown class VCAP\\API\\V1\\RedemptionService as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: ../learnboating-voucher-connector/src/Connector.php
+
+		-
+			message: '#^Call to function is_wp_error\(\) with int\<1, max\> will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: ../themes/kurswasser/functions.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''Bootspruefung\\\\Learning\\\\Commerce\\\\WooCommerce\\\\WithdrawalFunction'' and ''endpointUrl'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: ../themes/kurswasser/functions.php
+
+		-
+			message: '#^Action callback returns array\|null but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: ../themes/kurswasser/inc/content-pages.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: ../themes/kurswasser/inc/content-pages.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>label" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: ../themes/kurswasser/inc/content-pages.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''WPSEO_Sitemaps_Cache'' and ''invalidate_post'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: ../themes/kurswasser/inc/content-yoast.php
+
+		-
+			message: '#^Call to function is_wp_error\(\) with int\<1, max\> will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: ../themes/kurswasser/inc/courses.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''\\\\Bootspruefung…'' and ''url'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: ../themes/kurswasser/inc/learning.php
+
+		-
+			message: '#^Offset ''version'' on array\{version\: string, contract\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: ../themes/kurswasser/inc/learning.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: ../themes/kurswasser/inc/legal.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: ../themes/kurswasser/inc/legal.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between non\-empty\-string and '''' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: ../themes/kurswasser/inc/legal.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: ../themes/kurswasser/inc/operator.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: ../themes/kurswasser/inc/setup-shop.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../themes/kurswasser/inc/setup-shop.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: ../themes/kurswasser/inc/setup-shop.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int\<1, max\> and 0 will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: ../themes/kurswasser/inc/setup-shop.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''WPSEO_Options'' and ''set'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: ../themes/kurswasser/inc/setup.php
+
+		-
+			message: '#^Offset ''package'' on array\{name\: string, dir\: string, file\: string, source\: ''zip'', description\: string, checked\: bool\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: ../themes/kurswasser/inc/setup.php
+
+		-
+			message: '#^Parameter \#4 \$context of function request_filesystem_credentials expects string, false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../themes/kurswasser/inc/setup.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 1
+			path: bootspruefung-learning.php
+
+		-
+			message: '#^Right side of \|\| is always false\.$#'
+			identifier: booleanOr.rightAlwaysFalse
+			count: 1
+			path: src/Admin/ExamGuidePages.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Admin/FaqAdmin.php
+
+		-
+			message: '#^Instanceof between WC_Email and WC_Email will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Admin/SystemStatus.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: src/Admin/SystemStatus.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between bool\|float\|int\|non\-empty\-string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Admin/Ui.php
+
+		-
+			message: '#^Offset ''basedir'' on array\{path\: string, url\: string, subdir\: string, basedir\: string, baseurl\: string, error\: string\|false\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Cli/Commands.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>changes" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Cli/Commands.php
+
+		-
+			message: '#^Action callback returns array\|null but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Commerce/Disputes/DisputeWebhooks.php
+
+		-
+			message: '#^Cannot cast WC_Order to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: src/Commerce/Disputes/DisputeWebhooks.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_values contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Commerce/EntitlementService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Commerce/ExpiryReminder.php
+
+		-
+			message: '#^Call to function array_key_exists\(\) with ''refunded'' and array\{product_id\: int, variation_id\: int\} will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: src/Commerce/MoneyBack.php
+
+		-
+			message: '#^Offset ''id'' on array\{id\: int, user_id\: int, status\: string, date_paid\: string\|null, refunded\: bool, items\: list\<array\{product_id\: int, variation_id\: int\}\>, usage\?\: mixed, voucher\: true\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/MoneyBack.php
+
+		-
+			message: '#^Offset ''refunded'' on array\{product_id\: int, variation_id\: int\} in empty\(\) does not exist\.$#'
+			identifier: empty.offset
+			count: 1
+			path: src/Commerce/MoneyBack.php
+
+		-
+			message: '#^Offset 0 on non\-empty\-list\<array\{product_id\: int, variation_id\: int\}\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/MoneyBack.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: src/Commerce/MoneyBack.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{product_id\: int, variation_id\: int\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Commerce/ProductAccessRepository.php
+
+		-
+			message: '#^Offset ''exam_simulation''\|''navigation_trainer''\|''praxis_trainer''\|''question_bank''\|''video_course'' on array\{question_bank\: ''questions_per_module'', exam_simulation\: ''exam_papers'', navigation_trainer\: ''first_items'', praxis_trainer\: ''first_items'', video_course\: ''first_items'', radio_training\: ''first_items'', downloads\: ''first_items''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/ShopCatalog.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''exam_papers''\|''first_items''\|''questions_per_module'' and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Commerce/ShopCatalog.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: src/Commerce/WooCommerce/BankDetails.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/CartDuplicateHint.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: src/Commerce/WooCommerce/CartRelationHint.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between WC_Payment_Gateways and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/Gateways.php
+
+		-
+			message: '#^Action callback returns Bootspruefung\\Learning\\Commerce\\Plan\|null but should not return anything\.$#'
+			identifier: return.void
+			count: 2
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^Action callback returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^Offset ''duration_days'' on array\{course\: string, feature\: string, status\: string, valid_until\: string\|null\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^Offset ''order_id'' on array\{course\: string, feature\: string, status\: ''pending'', valid_until\: string\|null\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^Offset ''order_id'' on array\{course\: string, feature\: string, status\: string, valid_until\: string\|null\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Commerce/WooCommerce/Integration.php
+
+		-
+			message: '#^Action callback returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Commerce/WooCommerce/MoneyBackWoo.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Commerce/WooCommerce/MoneyBackWoo.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, WC_Payment_Gateway\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Call to function is_object\(\) with WC_Payment_Gateway will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Call to function method_exists\(\) with WC_Cart and ''needs_payment'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Call to function property_exists\(\) with WC_Payment_Gateway and ''order_button_text'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Property WC_Payment_Gateway\:\:\$order_button_text \(string\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 2
+			path: src/Commerce/WooCommerce/OrderButton.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/OssMonitor.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 2
+			path: src/Commerce/WooCommerce/OssMonitor.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/PurchaseInfo.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Commerce/WooCommerce/PurchaseInfo.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between WC_Payment_Gateways and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/PurchaseInfo.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Commerce/WooCommerce/ShopCache.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/SimUpgrade.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/VideoUpgrade.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<int, array\{name\: string, value\: string\}\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Call to method change_feature_enable\(\) on an unknown class Automattic\\WooCommerce\\Internal\\Features\\FeaturesController\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Class Automattic\\WooCommerce\\Internal\\Features\\FeaturesController not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order_Refund will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/WithdrawalFunction.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order_Refund will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 1
+			path: src/Commerce/WooCommerce/WooOrderSource.php
+
+		-
+			message: '#^Right side of && is always false\.$#'
+			identifier: booleanAnd.rightAlwaysFalse
+			count: 1
+			path: src/Content/Media/MediaStorage.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Content/Package/Package.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Content/Package/SchemaValidator.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{0\: int, 1\: int, 2\?\: int\<min, \-1\>\|int\<1, max\>\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Exams/Services/ExamService.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Extensions/Extensions.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Extensions/Tickets.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Extensions/Vouchers.php
+
+		-
+			message: '#^Instanceof between WC_Cart and WC_Cart will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Extensions/Vouchers.php
+
+		-
+			message: '#^Instanceof between WC_Customer and WC_Customer will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Extensions/Vouchers.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between array\|WP_Error and false will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Extensions/Vouchers.php
+
+		-
+			message: '#^Instanceof between WP_Term and WP_Term will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Faq/CustomerFaqImporter.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Faq/CustomerFaqImporter.php
+
+		-
+			message: '#^PHPDoc tag @var for constant Bootspruefung\\Learning\\Faq\\DefaultFaqs\:\:ADDED with type array\<string, list\<int\>\> is incompatible with value array\{3\: array\{93, 94, 95, 96, 97, 98, 99\}\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: src/Faq/DefaultFaqs.php
+
+		-
+			message: '#^PHPDoc tag @var for constant Bootspruefung\\Learning\\Faq\\DefaultFaqs\:\:RUBRICS with type list\<array\{key\: string, name\: string, slug\: string, subcategories\: list\<array\{name\: string, slug\: string, faqs\: list\<array\{ref\: int, theme\: bool, question\: string, answer\: string, note\: string\|null\}\>\}\>\}\> is not subtype of value array\{array\{key\: ''allgemein'', name\: ''Allgemeine Fragen'', slug\: ''allgemein'', subcategories\: array\{array\{name\: ''Scheinwahl und…'', slug\: ''allgemein…'', faqs\: array\{array\{ref\: 1, theme\: false, question\: ''Welchen…'', answer\: ''Das hängt davon ab,…'', note\: null\}, array\{ref\: 2, theme\: false, question\: ''Was ist der…'', answer\: ''Der SBF Binnen gilt…'', note\: null\}, array\{ref\: 3, theme\: false, question\: ''Kann ich mit meinem…'', answer\: ''Das entscheidet…'', note\: null\}, array\{ref\: 93, theme\: false, question\: ''Brauche ich für…'', answer\: ''Nicht immer\. Auf…'', note\: null\}, array\{ref\: 98, theme\: false, question\: ''Ich wohne in…'', answer\: ''Für Gewässer in…'', note\: ''erst…''\}\}\}, array\{name\: ''Voraussetzungen'', slug\: ''allgemein…'', faqs\: array\{array\{ref\: 4, theme\: false, question\: ''Welche…'', answer\: ''Für den…'', note\: null\}, array\{ref\: 5, theme\: false, question\: ''Wie alt muss ich…'', answer\: ''Unter…'', note\: null\}, array\{ref\: 6, theme\: false, question\: ''Brauche ich…'', answer\: ''In der Regel kannst…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''allgemein\-lernen'', faqs\: array\{array\{ref\: 7, theme\: false, question\: ''Kann ich mich…'', answer\: ''Ja\. Mit unseren…'', note\: null\}, array\{ref\: 8, theme\: false, question\: ''Wie lange dauert…'', answer\: ''Das ist individuell…'', note\: null\}\}\}, array\{name\: ''Kursinhalt und…'', slug\: ''allgemein…'', faqs\: array\{array\{ref\: 9, theme\: false, question\: ''Was ist im…'', answer\: ''Je nach Kurs\: alle…'', note\: null\}, array\{ref\: 95, theme\: false, question\: ''Was ist der…'', answer\: ''Beide Stufen…'', note\: null\}, array\{ref\: 96, theme\: false, question\: ''Ich habe schon…'', answer\: ''Nein\. Für Inhaber…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''allgemein…'', faqs\: array\{array\{ref\: 11, theme\: false, question\: ''Gibt es gedruckte…'', answer\: ''Nein\. Alle unsere…'', note\: null\}\}\}, array\{name\: ''Lernplattform und…'', slug\: ''allgemein…'', faqs\: array\{array\{ref\: 10, theme\: true, question\: ''Wie lange habe ich…'', answer\: ''Sportbootführersche…'', note\: null\}, array\{ref\: 88, theme\: true, question\: ''Kann ich den Kurs…'', answer\: ''Ja\. Mit einem…'', note\: null\}, array\{ref\: 89, theme\: true, question\: ''Brauche ich eine…'', answer\: ''Nein\. Du lernst…'', note\: null\}, array\{ref\: 90, theme\: true, question\: ''Wann kann ich nach…'', answer\: ''Sobald die Zahlung…'', note\: null\}, array\{ref\: 97, theme\: false, question\: ''Erinnert ihr mich,…'', answer\: ''Ja\. 14 Tage vor…'', note\: null\}\}\}, array\{name\: ''Prüfung und…'', slug\: ''allgemein\-pruefung…'', faqs\: array\{array\{ref\: 12, theme\: false, question\: ''Wo findet die…'', answer\: ''Fahrstunden auf dem…'', note\: null\}, array\{ref\: 14, theme\: false, question\: ''Wo lege ich die…'', answer\: ''Bei einem…'', note\: null\}, array\{ref\: 15, theme\: false, question\: ''Kann ich die…'', answer\: ''Nein\. Online lernst…'', note\: null\}, array\{ref\: 16, theme\: false, question\: ''Was passiert, wenn…'', answer\: ''Dann kannst du die…'', note\: null\}, array\{ref\: 17, theme\: false, question\: ''Wann bekomme ich…'', answer\: ''Nach bestandener…'', note\: null\}, array\{ref\: 18, theme\: false, question\: ''Wie lange ist mein…'', answer\: ''Der…'', note\: null\}, array\{ref\: 20, theme\: false, question\: ''Sind die…'', answer\: ''Nein\. Die…'', note\: null\}, array\{ref\: 92, theme\: true, question\: ''Ist die amtliche…'', answer\: ''Nein\. Der Kurs…'', note\: null\}, \.\.\.\}\}, array\{name\: ''Kosten, Gutscheine…'', slug\: ''allgemein\-kosten…'', faqs\: array\{array\{ref\: 19, theme\: false, question\: ''Was kostet der Kurs\?'', answer\: ''Den aktuellen Preis…'', note\: null\}, array\{ref\: 21, theme\: false, question\: ''Kann ich einen Kurs…'', answer\: ''Gutscheine bieten…'', note\: null\}, array\{ref\: 22, theme\: true, question\: ''Gibt es eine Geld…'', answer\: ''Eine…'', note\: null\}, array\{ref\: 99, theme\: false, question\: ''Gibt es Rabatte…'', answer\: ''Rabattcodes und…'', note\: null\}\}\}, \.\.\.\}\}, array\{key\: ''SBF\-SEE'', name\: ''SBF See'', slug\: ''sbf\-see'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''sbf\-see\-kursinhalt'', faqs\: array\{array\{ref\: 24, theme\: true, question\: ''Was lerne ich im…'', answer\: ''Du übst alle…'', note\: null\}, array\{ref\: 30, theme\: true, question\: ''Ist eine praktische…'', answer\: ''Der Kurs bereitet…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''sbf\-see\-lernen'', faqs\: array\{array\{ref\: 27, theme\: false, question\: ''Wie gehe ich bei…'', answer\: ''Lies zuerst die…'', note\: null\}, array\{ref\: 28, theme\: false, question\: ''Was mache ich, wenn…'', answer\: ''Schau dir die…'', note\: null\}, array\{ref\: 29, theme\: false, question\: ''Wie gehe ich mit…'', answer\: ''Arbeite die Angaben…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''sbf\-see\-lernmaterial'', faqs\: array\{array\{ref\: 25, theme\: true, question\: ''Brauche ich für die…'', answer\: ''Ja\. Für die…'', note\: null\}\}\}, array\{name\: ''Prüfung'', slug\: ''sbf\-see\-pruefung'', faqs\: array\{array\{ref\: 26, theme\: true, question\: ''Kann ich die SBF…'', answer\: ''Ja\. Die…'', note\: null\}, array\{ref\: 31, theme\: false, question\: ''Gilt meine…'', answer\: ''Nein\. Die…'', note\: null\}\}\}\}\}, array\{key\: ''SBF\-BIN\-MOTOR'', name\: ''SBF Binnen –…'', slug\: ''sbf\-bin\-motor'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''sbf\-bin\-motor…'', faqs\: array\{array\{ref\: 32, theme\: true, question\: ''Welche Inhalte…'', answer\: ''Der Kurs bereitet…'', note\: null\}, array\{ref\: 33, theme\: true, question\: ''Ist der Segelteil…'', answer\: ''Der hier…'', note\: null\}, array\{ref\: 37, theme\: true, question\: ''Enthält der…'', answer\: ''Nein\. Der Kurs ist…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''sbf\-bin\-motor\-lernen'', faqs\: array\{array\{ref\: 36, theme\: false, question\: ''Soll ich alle…'', answer\: ''Konzentriere dich…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''sbf\-bin\-motor…'', faqs\: array\{array\{ref\: 35, theme\: false, question\: ''Wie kann ich…'', answer\: ''Übe sie in kleinen…'', note\: null\}\}\}, array\{name\: ''Prüfung'', slug\: ''sbf\-bin\-motor…'', faqs\: array\{array\{ref\: 34, theme\: true, question\: ''Gibt es eine…'', answer\: ''Ja\. Du kannst mit…'', note\: null\}, array\{ref\: 38, theme\: false, question\: ''Welche Unterlagen…'', answer\: ''Zur Anmeldung…'', note\: null\}, array\{ref\: 39, theme\: false, question\: ''Kann ich einzelne…'', answer\: ''Das ist möglich\.…'', note\: null\}\}\}\}\}, array\{key\: ''SBF\-BIN\-SEGEL'', name\: ''SBF Binnen unter…'', slug\: ''sbf\-bin\-segel'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''sbf\-bin\-segel…'', faqs\: array\{array\{ref\: 40, theme\: true, question\: ''Was kommt im SBF…'', answer\: ''Der Kurs verbindet…'', note\: null\}, array\{ref\: 41, theme\: false, question\: ''Was bedeutet…'', answer\: ''Trimm beschreibt,…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''sbf\-bin\-segel\-lernen'', faqs\: array\{array\{ref\: 42, theme\: true, question\: ''Kann ich die…'', answer\: ''Ja\. Die Fragen…'', note\: null\}, array\{ref\: 44, theme\: false, question\: ''Wie kann ich mir…'', answer\: ''Lerne die Abläufe…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''sbf\-bin\-segel…'', faqs\: array\{array\{ref\: 43, theme\: true, question\: ''Wie bereite ich…'', answer\: ''Praxiskarten helfen…'', note\: null\}\}\}, array\{name\: ''Prüfung'', slug\: ''sbf\-bin\-segel…'', faqs\: array\{array\{ref\: 45, theme\: false, question\: ''Ist die…'', answer\: ''Teilweise\. Im…'', note\: null\}\}\}\}\}, array\{key\: ''SRC'', name\: ''SRC – Seefunkzeugnis'', slug\: ''src'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''src\-kursinhalt'', faqs\: array\{array\{ref\: 46, theme\: true, question\: ''Was lerne ich im…'', answer\: ''Der Kurs behandelt…'', note\: null\}, array\{ref\: 47, theme\: true, question\: ''Was ist der…'', answer\: ''Das SRC ist das…'', note\: null\}, array\{ref\: 48, theme\: false, question\: ''Wofür brauche ich…'', answer\: ''Mit der…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''src\-lernen'', faqs\: array\{array\{ref\: 50, theme\: false, question\: ''Wie bereite ich…'', answer\: ''Übe regelmäßig mit…'', note\: null\}\}\}, array\{name\: ''Funkübungen und…'', slug\: ''src\-funkuebungen…'', faqs\: array\{array\{ref\: 49, theme\: true, question\: ''Kann ich Funktexte…'', answer\: ''Ja\. Die englischen…'', note\: null\}, array\{ref\: 51, theme\: true, question\: ''Gibt es im SRC\-Kurs…'', answer\: ''Im SRC\-Kurs ist die…'', note\: null\}\}\}, array\{name\: ''Prüfung'', slug\: ''src\-pruefung'', faqs\: array\{array\{ref\: 52, theme\: false, question\: ''Welches Funkgerät…'', answer\: ''Das hängt vom…'', note\: null\}, array\{ref\: 53, theme\: false, question\: ''Ist der Funkgerät…'', answer\: ''Ein Simulator hilft…'', note\: null\}\}\}\}\}, array\{key\: ''UBI'', name\: ''UBI –…'', slug\: ''ubi'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''ubi\-kursinhalt'', faqs\: array\{array\{ref\: 54, theme\: true, question\: ''Was lerne ich im…'', answer\: ''Der Kurs bereitet…'', note\: null\}, array\{ref\: 55, theme\: true, question\: ''Ist das UBI…'', answer\: ''Nein\. Das UBI…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''ubi\-lernen'', faqs\: array\{array\{ref\: 59, theme\: true, question\: ''Gibt es eine…'', answer\: ''Ja\. Mit der…'', note\: null\}\}\}, array\{name\: ''Funkübungen'', slug\: ''ubi\-funkuebungen'', faqs\: array\{array\{ref\: 56, theme\: true, question\: ''Kann ich…'', answer\: ''Ja\. Der Kurs…'', note\: null\}, array\{ref\: 57, theme\: false, question\: ''Wie übe ich…'', answer\: ''Trainiere beide…'', note\: null\}, array\{ref\: 58, theme\: false, question\: ''Wie bereite ich…'', answer\: ''Gehe jedes Szenario…'', note\: null\}\}\}, array\{name\: ''Prüfung'', slug\: ''ubi\-pruefung'', faqs\: array\{array\{ref\: 60, theme\: false, question\: ''Was mache ich, wenn…'', answer\: ''Prüfe, welcher…'', note\: null\}\}\}\}\}, array\{key\: ''SKN'', name\: ''SKN –…'', slug\: ''skn'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''skn\-kursinhalt'', faqs\: array\{array\{ref\: 61, theme\: true, question\: ''Worum geht es im…'', answer\: ''Der Kurs bereitet…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''skn\-lernen'', faqs\: array\{array\{ref\: 63, theme\: true, question\: ''Wie kann ich meine…'', answer\: ''Der Smarttrainer…'', note\: null\}, array\{ref\: 64, theme\: false, question\: ''Wie kann ich die…'', answer\: ''Lerne die Mittel…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''skn\-lernmaterial'', faqs\: array\{array\{ref\: 62, theme\: true, question\: ''Was trainieren die…'', answer\: ''Die Praxiskarten…'', note\: null\}\}\}, array\{name\: ''Sicherheit und…'', slug\: ''skn\-sicherheit\-und…'', faqs\: array\{array\{ref\: 65, theme\: false, question\: ''Was sollte ich bei…'', answer\: ''Orientiere dich an…'', note\: null\}\}\}\}\}, array\{key\: ''FKN'', name\: ''FKN –…'', slug\: ''fkn'', subcategories\: array\{array\{name\: ''Kursinhalt'', slug\: ''fkn\-kursinhalt'', faqs\: array\{array\{ref\: 66, theme\: true, question\: ''Was behandelt der…'', answer\: ''Der Kurs bereitet…'', note\: null\}\}\}, array\{name\: ''Lernen'', slug\: ''fkn\-lernen'', faqs\: array\{array\{ref\: 68, theme\: true, question\: ''Kann ich einzelne…'', answer\: ''Ja\. Im Smarttrainer…'', note\: null\}\}\}, array\{name\: ''Lernmaterial'', slug\: ''fkn\-lernmaterial'', faqs\: array\{array\{ref\: 67, theme\: true, question\: ''Wie kann ich die…'', answer\: ''Mit den…'', note\: null\}\}\}, array\{name\: ''Prüfung und…'', slug\: ''fkn\-pruefung\-und…'', faqs\: array\{array\{ref\: 69, theme\: false, question\: ''Welchen…'', answer\: ''Nutze die…'', note\: null\}\}\}, array\{name\: ''Sicherheit'', slug\: ''fkn\-sicherheit'', faqs\: array\{array\{ref\: 70, theme\: false, question\: ''Kann ich die…'', answer\: ''Für praktische…'', note\: null\}\}\}\}\}, \.\.\.\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: src/Faq/DefaultFaqs.php
+
+		-
+			message: '#^Instanceof between WP_Term and WP_Term will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Faq/FaqImporter.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Faq/FaqImporter.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Frontend/Router.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: src/Frontend/Router.php
+
+		-
+			message: '#^Parameter \#2 \$args of function register_block_type expects array\{api_version\?\: string, title\?\: string, category\?\: string\|null, parent\?\: array\<string\>\|null, ancestor\?\: array\<string\>\|null, allowed_blocks\?\: array\<string\>\|null, icon\?\: string\|null, description\?\: string, \.\.\.\}, array\{api_version\: 3, editor_script\: ''bp\-restricted\-block'', attributes\: array\{course\: array\{type\: ''string'', default\: ''''\}, feature\: array\{type\: ''string'', default\: ''any''\}, message\: array\{type\: ''string'', default\: ''''\}\}, render_callback\: Closure\(array, string\)\: string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Gate/ContentGate.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 1
+			path: src/Infrastructure/Requirements.php
+
+		-
+			message: '#^Parameter &\$items by\-ref type of method Bootspruefung\\Learning\\Learning\\Services\\QuestionPresenter\:\:shuffle\(\) expects list\<int\>, non\-empty\-array\<int\<0, max\>, int\> given\.$#'
+			identifier: parameterByRef.type
+			count: 2
+			path: src/Learning/Services/QuestionPresenter.php
+
+		-
+			message: '#^Instanceof between WP_User and WP_User will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Mobile/Controllers/AuthController.php
+
+		-
+			message: '#^Offset ''course'' on array\{course\: string, feature\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Mobile/Controllers/CouponController.php
+
+		-
+			message: '#^Offset ''course'' on array\{course\: string, feature\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 3
+			path: src/Mobile/Controllers/GroupController.php
+
+		-
+			message: '#^Offset ''feature'' on array\{course\: string, feature\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Mobile/Controllers/GroupController.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Mobile/Controllers/GroupController.php
+
+		-
+			message: '#^Offset ''full'' on array\{full\: bool, limit\: int\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Mobile/Mapper/CourseMapper.php
+
+		-
+			message: '#^Offset ''price'' on array\{name\: string, url\: string, price\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Mobile/Mapper/CourseMapper.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Mobile/Mapper/QuestionMapper.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Mobile/Mapper/QuestionMapper.php
+
+		-
+			message: '#^Action callback returns int\|null but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Mobile/MobileApi.php
+
+		-
+			message: '#^Action callback returns bool but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Action callback returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 2
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to function is_object\(\) with WC_Query will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to function method_exists\(\) with WC_Query and ''get_endpoints_mask'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Property WC_Query\:\:\$query_vars \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Property WooCommerce\:\:\$query \(WC_Query\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 2
+			path: src/Plugin.php
+
+		-
+			message: '#^Action callback returns bool but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: src/Privacy/AccountDeletion.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Privacy/AccountDeletion.php
+
+		-
+			message: '#^Instanceof between WP_User and WP_User will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Privacy/SelfService.php
+
+		-
+			message: '#^Instanceof between WC_Countries and WC_Countries will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Support/Mail.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\{term_id\: string, term_taxonomy_id\: string\} will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Tips/Tips.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{term\: WP_Term\|null, name\: string, order\: int, tips\: non\-empty\-list\<array\{id\: int\<0, max\>, title\: string, html\: string\}\>\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Tips/Tips.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Trainers/RadioPracticeService.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_values contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: src/Trainers/RadioPracticeService.php
+
+		-
+			message: '#^Parameter \#1 \$array of function uksort contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: src/Trainers/RadioPracticeService.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_values contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: src/Trainers/RadioService.php

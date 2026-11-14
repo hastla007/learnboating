@@ -1,0 +1,62 @@
+# LearnBoating Kursgutschein-Connector
+
+Separat installierbares Add-on, das die **Bootsprüfung-Lernplattform** (`bootspruefung-learning`) mit **Voucher
+Captain** verbindet: Kursgutscheine im Shop verkaufen und in „Mein Lernen“ einlösen. Voucher Captain bleibt frei von
+LearnBoating-Logik (nur öffentliche Filter und die Einlöse-API), die Lernplattform frei von Gutscheinlogik (nur der
+Grant-Vertrag `bootspruefung_voucher_grants_v1`). Vertrag, Regeln und Fehlercodes: [`docs/kursgutscheine.md`](../docs/kursgutscheine.md).
+
+## Einrichtung
+
+1. Kursprodukt in WooCommerce mit Reiter „Lernzugang“ (Kurse, Bereiche, Laufzeit, Verlängerungs- und Erstattungsregel).
+2. Gutscheinprodukt in Voucher Captain: Option „Gutschein“, Typ „Kursgutschein (LearnBoating)“, Feld
+   **„Kursprodukt (LearnBoating)“** wählen. Angeboten werden nur Kursprodukte mit aktivem Lernzugang (keine
+   Gruppenlizenzen, keine Upgrades). Das Gutscheinprodukt selbst darf keinen Lernzugang haben.
+3. Fertig: Der Gutschein wird verkauft und zugestellt wie jeder Voucher-Captain-Gutschein.
+
+## Was der Connector macht
+
+| Thema | Umsetzung |
+|---|---|
+| Einlösung | App `POST /vouchers/redeem` und Gutschein-Einlöseseite `[vcap_redeem]` (angemeldet): reservieren (`learnboating:grant:{Gutschein-ID}`, 24 h) → Grant → verbuchen. |
+| Wiederholung | Gleicher Gutschein → dieselbe Freischaltung. Vorübergehender Fehler: Reservierung bleibt, Warteschlange `lbvc_pending` (stündlich und vor jeder Einlösung) schaltet frei und verbucht, oder gibt frei, wenn kein Zugang mehr möglich ist bzw. die Reservierung abläuft. |
+| Kanal | `learnboating`: Kursgutscheine nur in „Mein Lernen“, nicht im Warenkorb oder an der Kasse – außer „Shop“ ist am Produkt angehakt. Warenkorb und Kurseinlösung nutzen denselben Gutscheinstatus: eine offene Bestellung oder Reservierung sperrt den anderen Weg. |
+| Ziel | beim Kauf in der Bestellposition festgehalten; beim Speichern des Produkts und beim Einlösen gegen die Lernplattform geprüft; Admin-Hinweis für Gutscheinprodukte, deren Kursprodukt fehlt oder keinen Lernzugang mehr hat (wird nach jeder Produktänderung sofort neu geprüft, sonst spätestens nach 10 Minuten). |
+| Gleichzeitigkeit | Einlösung und Warteschlange bearbeiten einen Gutschein nur unter einer Sperre je Gutschein (MySQL `GET_LOCK`, endet mit der Verbindung). Eine zweite Einlösung wartet bis zu 10 Sekunden (Filter `lbvc_lock_timeout`), sonst `vcap_reserved` („wird gerade eingelöst“); die Warteschlange überspringt gesperrte Gutscheine. `lbvc_pending` wird nur unter eigener Sperre geändert: Ist sie belegt, wird nichts geschrieben, sondern die Änderung per WP-Cron in 60 Sekunden nachgeholt (`lbvc_queue_edit`, höchstens 5 Versuche, danach Eintrag im Fehlerprotokoll); nur wenn die Datenbank keine benannten Sperren kann (`GET_LOCK` = NULL), wird ohne Sperre geschrieben. Sperrnamen enthalten Datenbank und Tabellenpräfix; mit HyperDB/LudicrousDB laufen Sperren über den Hauptserver. |
+| Limits | Einlöseseite `[vcap_redeem]`: höchstens 30 Versuche je IP und Stunde und 10 je Konto und Stunde – jeweils derselbe Zähler wie App und „Mein Lernen“ (IP-Limit über alle Wege gemeinsam, Filter `bootspruefung_voucher_redeem_per_ip` der Lernplattform, IPv6 je /64-Netz). Gezählt wird vor dem Nachschlagen des Codes. Warenkorb: die eindeutige Meldung „Das ist ein Kursgutschein …“ nur angemeldet und nach bestandener Limitprüfung, sonst neutral. |
+| Widerruf | Gutschein ungültig gemacht (z. B. Kauf erstattet) → Zugang nach Erstattungsregel widerrufen (Filter `lbvc_revoke_on_void`). |
+| Verlauf | Gutscheinverlauf in Voucher Captain: „Kurs freigeschaltet“ mit Nutzer, Kursprodukt, Einlöse-ID; Zugang in der Lernplattform mit Gutschein-ID, Einlöse-ID, Herkunft, Zeitpunkt und Link zum Gutschein. |
+
+Filter: `lbvc_voucher_target` (Ziel für Gutscheine ohne Produkt, z. B. importierte Codes), `lbvc_reservation_minutes`,
+`lbvc_learning_url` (Link „Jetzt lernen“), `lbvc_revoke_on_void`, `lbvc_lock_timeout`; IP-Limit über
+`bootspruefung_voucher_redeem_per_ip` (Lernplattform, ersetzt `lbvc_redeem_per_ip`). Aktion: `lbvc_course_granted`.
+
+## Voraussetzungen
+
+- Bootsprüfung-Lernplattform mit Grant-Vertrag 1.x (ab der Version mit `VoucherGrants`)
+- Voucher Captain mit Einlöse-API v1 (`vcap()->redemptions`), WooCommerce, PHP 8.1+
+
+## Test
+
+Im CI-Job „Kursgutscheine mit Voucher Captain – Connector-Abnahme“ (echtes WordPress, WooCommerce, Voucher Captain
+aus `hastla007/wp-couponmaster` zum festen Commit `VCAP_SHA`; informativ, siehe `docs/kursgutscheine.md`):
+
+```bash
+WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/setup.php
+```
+
+```bash
+WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/connector-integration-test.php
+```
+
+Sperren und Limits (ohne Voucher Captain, nur die Lernplattform muss aktiv sein):
+
+```bash
+WP_DIR=/pfad/zu/wordpress php learnboating-voucher-connector/tests/locks-test.php
+```
+
+## Deinstallation
+
+`uninstall.php` löscht offene Wiederholungen (Option `lbvc_pending`), den Zwischenspeicher `lbvc_broken_targets`
+und das Cron-Ereignis `lbvc_retry`, bei Multisite je Website. Es bleiben die Zuordnung Gutschein-Produkt → Kurs
+(Produkt-Meta `_lbvc_target`, für eine erneute Installation), Gutscheine und Verlauf (Voucher Captain) und
+freigeschaltete Zugänge (Lernplattform).

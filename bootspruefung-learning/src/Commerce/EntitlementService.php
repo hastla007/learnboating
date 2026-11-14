@@ -1,0 +1,520 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bootspruefung\Learning\Commerce;
+
+defined('ABSPATH') || exit;
+
+use Bootspruefung\Learning\Audit\AuditLog;
+
+/**
+ * Schreibt Zugänge (bp_entitlement, Kap. 7.3). Schlüssel je Bestellposition:
+ * reference_key = "wc_item:<id>" + Kurs + Feature, damit wiederholte
+ * Zahlungsereignisse keine Doppelzugänge erzeugen. Manuelle Zugänge
+ * erhalten eine eigene Referenz ("manual:<uuid>").
+ */
+final class EntitlementService
+{
+    public const SOURCE_WOO = 'woocommerce';
+    public const SOURCE_MANUAL = 'manual';
+    /** Kursgutschein (externe Einlösung, z. B. Voucher Captain) – siehe VoucherGrants. */
+    public const SOURCE_VOUCHER = 'voucher';
+
+    private string $table;
+
+    public function __construct(private readonly \wpdb $db)
+    {
+        $this->table = $db->prefix.'bp_entitlement';
+    }
+
+    public static function itemReference(int $itemId): string
+    {
+        return 'wc_item:'.$itemId;
+    }
+
+    /** @return list<object> */
+    public function forOrder(int $orderId): array
+    {
+        return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->table} WHERE source = %s AND order_id = %d ORDER BY order_item_id, course_code, feature_code", self::SOURCE_WOO, $orderId));
+    }
+
+    /** @return list<object> */
+    public function forItem(int $itemId): array
+    {
+        return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->table} WHERE reference_key = %s ORDER BY course_code, feature_code", self::itemReference($itemId)));
+    }
+
+    /** @return list<object> */
+    public function forUser(int $userId): array
+    {
+        return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->table} WHERE user_id = %d ORDER BY course_code, feature_code, id", $userId));
+    }
+
+    /** @return list<int> */
+    public function orderIds(?string $since = null): array
+    {
+        $sql = "SELECT DISTINCT order_id FROM {$this->table} WHERE source = %s AND order_id IS NOT NULL".($since !== null ? ' AND created_at >= %s' : '').' ORDER BY order_id DESC';
+
+        return array_map('intval', $this->db->get_col($since !== null ? $this->db->prepare($sql, self::SOURCE_WOO, $since) : $this->db->prepare($sql, self::SOURCE_WOO)));
+    }
+
+    public function find(int $id): ?object
+    {
+        return $this->db->get_row($this->db->prepare("SELECT * FROM {$this->table} WHERE id = %d", $id)) ?: null;
+    }
+
+    /**
+     * Wendet einen Plan an. Jede Änderung wird protokolliert (ohne Zahlungsdaten).
+     *
+     * @return int Anzahl angewendeter Änderungen
+     */
+    public function apply(Plan $plan, string $source = 'order_sync'): int
+    {
+        $applied = 0;
+        foreach ($plan->changes as $change) {
+            $done = match ($change['type']) {
+                'create' => $this->create($plan->orderId, $change),
+                'status' => $this->transition((int) $change['id'], (string) $change['to'], (string) $change['reason'], $change),
+                'user' => (bool) $this->db->update($this->table, ['user_id' => $change['user_id']], ['id' => $change['id']]),
+                default => false,
+            };
+            if ($done) {
+                $applied++;
+                AuditLog::record('entitlement_'.$change['type'], 'order', (string) $plan->orderId, $change['reason'] ?? null, array_intersect_key($change, array_flip(['item_id', 'course', 'feature', 'from', 'to', 'user_id', 'from_user'])) + ['via' => $source]);
+            }
+        }
+        if ($applied > 0) {
+            do_action('bootspruefung_entitlements_changed', $plan->orderId, $plan);
+        }
+
+        return $applied;
+    }
+
+    /** @param array<string,mixed> $c */
+    private function create(int $orderId, array $c): bool
+    {
+        $now = self::now();
+        $data = [
+            'user_id' => $c['user_id'], 'course_code' => $c['course'], 'feature_code' => $c['feature'], 'status' => $c['to'],
+            'source' => self::SOURCE_WOO, 'reference_key' => self::itemReference((int) $c['item_id']),
+            'order_id' => $orderId, 'order_item_id' => $c['item_id'], 'product_id' => $c['product_id'] ?: null, 'variation_id' => $c['variation_id'] ?: null,
+            'sku_snapshot' => $c['sku'] !== '' ? substr((string) $c['sku'], 0, 100) : null,
+            'idempotency_key' => substr(hash('sha256', $orderId.'|'.$c['item_id'].'|'.$c['course'].'|'.$c['feature']), 0, 64),
+            'meta' => wp_json_encode(['duration_days' => $c['duration_days'], 'renewal_mode' => $c['renewal_mode'], 'refund_rule' => $c['refund_rule']]),
+            'reason' => $c['reason'], 'created_at' => $now, 'updated_at' => $now,
+        ];
+        $suppress = $this->db->suppress_errors(true);
+        $ok = $this->db->insert($this->table, $data);
+        $this->db->suppress_errors($suppress);
+        if (! $ok) {
+            return false; // gleichzeitig angelegt (eindeutiger Schlüssel) – nichts doppelt.
+        }
+        if ($c['to'] === EntitlementPlanner::ACTIVE) {
+            $this->setValidity((int) $this->db->insert_id, $c['date_paid'] ?? null);
+        }
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $c */
+    private function transition(int $id, string $to, string $reason, array $c = []): bool
+    {
+        $row = $this->find($id);
+        if ($row === null || $row->status === $to) {
+            return false;
+        }
+        $this->db->update($this->table, ['status' => $to, 'reason' => $reason, 'updated_at' => self::now()], ['id' => $id]);
+        if ($to === EntitlementPlanner::ACTIVE && $row->valid_from === null) {
+            $this->setValidity($id, $c['date_paid'] ?? null);
+        }
+        $this->restackIfNeeded($row, $to);
+
+        return true;
+    }
+
+    /**
+     * Gültigkeit bei erster Freischaltung: ab Zahldatum, Dauer aus der Produktregel.
+     * renewal_mode "extend": Beginn = spätestes Ende eines bestehenden befristeten Zugangs.
+     */
+    private function setValidity(int $id, ?string $datePaid): void
+    {
+        $row = $this->find($id);
+        $meta = EntitlementPlanner::meta($row);
+        $start = $datePaid ?? self::now();
+        $until = null;
+        $days = isset($meta['duration_days']) ? (int) $meta['duration_days'] : 0;
+        if ($days > 0) {
+            if (($meta['renewal_mode'] ?? 'extend') === 'extend') {
+                $latest = $this->db->get_var($this->db->prepare(
+                    "SELECT MAX(valid_until) FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND id <> %d AND valid_until IS NOT NULL",
+                    $row->user_id, $row->course_code, $row->feature_code, $id
+                ));
+                if ($latest !== null && $latest > $start) {
+                    $start = $latest;
+                }
+            }
+            $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $days * DAY_IN_SECONDS);
+        }
+        $meta['paid_at'] = $datePaid ?? self::now(); // für die Neu-Verkettung von Verlängerungen
+        $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'meta' => wp_json_encode($meta)], ['id' => $id]);
+        $this->alignVideoUpgrades($row);
+    }
+
+    /** Befristeter Zugang wird (nicht mehr) nutzbar → Verlängerungskette neu berechnen (in beide Richtungen). */
+    private function restackIfNeeded(object $row, string $to): void
+    {
+        $was = $row->status === EntitlementPlanner::ACTIVE;
+        $now = $to === EntitlementPlanner::ACTIVE;
+        if ($row->valid_until !== null && $was !== $now) {
+            $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
+        }
+    }
+
+    /**
+     * Noch nicht begonnene Verlängerungen (renewal_mode extend) neu verketten: Beginn = Ende der vorher
+     * gültigen aktiven Zugänge bzw. jetzt, Laufzeit bleibt gleich – nach vorn (Erstattung) wie nach hinten
+     * (Erstattung zurückgenommen), damit keine bezahlte Zeit verloren geht oder doppelt läuft.
+     */
+    private function restackExtensions(int $userId, string $course, string $feature): void
+    {
+        $now = self::now();
+        // Kette in Kaufreihenfolge: jede Verlängerung beginnt am Ende der vorher gekauften aktiven Zugänge,
+        // frühestens beim eigenen Zahlungszeitpunkt; die gekaufte Laufzeit bleibt gleich.
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_from IS NOT NULL AND valid_until IS NOT NULL ORDER BY id",
+            $userId, $course, $feature
+        ));
+        $anchor = null;
+        foreach ($rows as $row) {
+            $meta = EntitlementPlanner::meta($row);
+            if (($meta['renewal_mode'] ?? null) !== 'extend' || ! isset($meta['paid_at'])) {
+                $anchor = $anchor === null ? (string) $row->valid_until : max($anchor, (string) $row->valid_until);
+                continue;
+            }
+            $paidAt = (string) $meta['paid_at'];
+            $start = $anchor === null ? $paidAt : max($anchor, $paidAt);
+            if ($start !== $row->valid_from) {
+                $length = strtotime($row->valid_until.' UTC') - strtotime($row->valid_from.' UTC');
+                $until = gmdate('Y-m-d H:i:s', strtotime($start.' UTC') + $length);
+                $this->db->update($this->table, ['valid_from' => $start, 'valid_until' => $until, 'updated_at' => $now], ['id' => (int) $row->id]);
+                AuditLog::record('entitlement_restacked', 'entitlement', (string) $row->id, null, ['from' => $row->valid_from, 'to' => $start]);
+                $row->valid_until = $until;
+            }
+            $anchor = max($anchor, (string) $row->valid_until);
+        }
+    }
+
+    /**
+     * Video-Upgrade läuft so lange wie der Theoriekurs (Festlegung 07.11.2026), nicht eigene Tage ab Kauf.
+     * Ausgelöst beim Freischalten des Upgrades und beim Freischalten der Theorie in derselben Bestellung
+     * (Reihenfolge der Positionen egal, auch bei Verlängerung Theorie + Upgrade).
+     */
+    private function alignVideoUpgrades(object $row): void
+    {
+        $isUpgrade = $row->feature_code === \Bootspruefung\Learning\Learning\Services\AccessService::VIDEO
+            && str_ends_with((string) $row->sku_snapshot, ShopCatalog::VIDEO_SUFFIX);
+        if ($isUpgrade) {
+            $ids = [(int) $row->id];
+        } elseif ($row->feature_code === \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK && $row->order_id) {
+            $ids = array_map('intval', $this->db->get_col($this->db->prepare(
+                "SELECT id FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND order_id = %d AND status = 'active' AND sku_snapshot LIKE %s",
+                $row->user_id, $row->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::VIDEO, $row->order_id, '%'.$this->db->esc_like(ShopCatalog::VIDEO_SUFFIX)
+            )));
+        } else {
+            return;
+        }
+        if ($ids === []) {
+            return;
+        }
+        $theoryEnd = $this->db->get_var($this->db->prepare(
+            "SELECT MAX(valid_until) FROM {$this->table} WHERE user_id = %d AND course_code = %s AND feature_code = %s AND status = 'active' AND valid_until IS NOT NULL",
+            $row->user_id, $row->course_code, \Bootspruefung\Learning\Learning\Services\AccessService::QUESTION_BANK
+        ));
+        if ($theoryEnd === null) {
+            return; // keine aktive Theorie: Laufzeit aus der Produktregel bleibt
+        }
+        foreach ($ids as $id) {
+            $upgrade = $this->find($id);
+            if ($upgrade !== null && $upgrade->valid_from !== null && $theoryEnd > $upgrade->valid_from) {
+                $this->db->update($this->table, ['valid_until' => $theoryEnd], ['id' => $id]);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ Zugänge aus externen Einlösungen (Kursgutscheine)
+
+    /** @return list<object> Zugänge mit dieser Referenz (eine Einlösung = eine Referenz, je Kurs/Bereich ein Zugang) */
+    public function forReference(string $reference): array
+    {
+        return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->table} WHERE reference_key = %s ORDER BY course_code, feature_code", $reference));
+    }
+
+    /**
+     * Legt je Zuordnungszeile („Lernzugang“ des Kursprodukts) einen aktiven Zugang mit derselben Referenz an.
+     * Idempotent über den eindeutigen Schlüssel reference_scope: eine Wiederholung legt nichts doppelt an.
+     * Laufzeit wie beim Kauf: ab $start, Dauer und Verlängerungsregel aus der Zuordnung (setValidity()).
+     *
+     * @param list<object>        $mappings Zeilen aus ProductAccessRepository::forItem()
+     * @param array<string,mixed> $context  zusätzliche Angaben für meta (voucher_id, redemption_key, …)
+     * @return array{ids:list<int>,created:int}
+     */
+    public function grantFromReference(string $source, string $reference, int $userId, array $mappings, int $productId, int $variationId, string $sku, string $start, array $context, string $reason): array
+    {
+        $ids = [];
+        $created = 0;
+        $now = self::now();
+        foreach ($mappings as $m) {
+            $data = [
+                'user_id' => $userId, 'course_code' => $m->course_code, 'feature_code' => $m->feature_code, 'status' => EntitlementPlanner::ACTIVE,
+                'source' => $source, 'reference_key' => $reference, 'order_id' => null, 'order_item_id' => null,
+                'product_id' => $productId ?: null, 'variation_id' => $variationId ?: null, 'sku_snapshot' => $sku !== '' ? substr($sku, 0, 100) : null,
+                'idempotency_key' => substr(hash('sha256', $reference.'|'.$m->course_code.'|'.$m->feature_code), 0, 64),
+                'meta' => wp_json_encode(['duration_days' => $m->duration_days !== null ? (int) $m->duration_days : null, 'renewal_mode' => (string) $m->renewal_mode, 'refund_rule' => (string) $m->refund_rule] + $context),
+                'reason' => $reason, 'created_at' => $now, 'updated_at' => $now,
+            ];
+            $suppress = $this->db->suppress_errors(true);
+            $ok = $this->db->insert($this->table, $data);
+            $this->db->suppress_errors($suppress);
+            if ($ok) {
+                $id = (int) $this->db->insert_id;
+                $this->setValidity($id, $start);
+                $created++;
+                $ids[] = $id;
+                continue;
+            }
+            // Gleichzeitig oder früher angelegt (eindeutiger Schlüssel): den vorhandenen Zugang zurückgeben.
+            $existing = $this->db->get_var($this->db->prepare(
+                "SELECT id FROM {$this->table} WHERE reference_key = %s AND course_code = %s AND feature_code = %s",
+                $reference, $m->course_code, $m->feature_code
+            ));
+            if ($existing !== null) {
+                $ids[] = (int) $existing;
+            }
+        }
+
+        return ['ids' => $ids, 'created' => $created];
+    }
+
+    /**
+     * Widerruft die Zugänge einer Referenz nach ihrer Erstattungsregel: „keep“ bleibt bestehen, sonst widerrufen.
+     *
+     * @return array{revoked:int,kept:int}
+     */
+    public function revokeReference(string $reference, string $reason): array
+    {
+        $revoked = 0;
+        $kept = 0;
+        foreach ($this->forReference($reference) as $row) {
+            if ((EntitlementPlanner::meta($row)['refund_rule'] ?? '') === 'keep') {
+                $kept++;
+                continue;
+            }
+            if ($row->status === EntitlementPlanner::REVOKED) {
+                continue;
+            }
+            $this->db->update($this->table, ['status' => EntitlementPlanner::REVOKED, 'reason' => $reason, 'updated_at' => self::now()], ['id' => (int) $row->id]);
+            $this->restackIfNeeded($row, EntitlementPlanner::REVOKED);
+            $revoked++;
+        }
+
+        return ['revoked' => $revoked, 'kept' => $kept];
+    }
+
+    // ------------------------------------------------------------ manuelle Aktionen (Kap. 7.6)
+
+    /**
+     * Manueller Zugang mit Pflichtbegründung und optionalem Enddatum.
+     *
+     * @param list<string> $features
+     * @return list<int> neue IDs
+     */
+    public function grantManual(int $userId, string $courseCode, array $features, ?string $validUntil, string $reason): array
+    {
+        $reason = self::requireReason($reason);
+        if (get_userdata($userId) === false) {
+            throw new \InvalidArgumentException(__('Benutzer nicht gefunden.', 'bootspruefung-learning'));
+        }
+        self::assertFuture($validUntil);
+        $ids = [];
+        $reference = 'manual:'.wp_generate_uuid4();
+        $now = self::now();
+        foreach (array_unique($features) as $feature) {
+            $this->db->insert($this->table, [
+                'user_id' => $userId, 'course_code' => $courseCode, 'feature_code' => $feature, 'status' => EntitlementPlanner::ACTIVE,
+                'valid_from' => $now, 'valid_until' => $validUntil, 'source' => self::SOURCE_MANUAL, 'reference_key' => $reference,
+                'granted_by' => get_current_user_id() ?: null, 'reason' => $reason, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $ids[] = (int) $this->db->insert_id;
+            AuditLog::record('entitlement_manual_grant', 'user', (string) $userId, $reason, ['course' => $courseCode, 'feature' => $feature, 'valid_until' => $validUntil]);
+        }
+
+        return $ids;
+    }
+
+    /** Enddatum muss in der Zukunft liegen (sonst „aktiv“ angezeigt, aber wirkungslos). */
+    private static function assertFuture(?string $validUntil): void
+    {
+        if ($validUntil !== null && $validUntil <= self::now()) {
+            throw new \InvalidArgumentException(__('Das Enddatum liegt in der Vergangenheit. Bitte ein künftiges Datum wählen oder „dauerhaft“.', 'bootspruefung-learning'));
+        }
+    }
+
+    /** Enddatum setzen/verlängern (null = dauerhaft). */
+    public function extend(int $id, ?string $validUntil, string $reason): void
+    {
+        $reason = self::requireReason($reason);
+        $row = $this->mustFind($id);
+        $this->db->update($this->table, ['valid_until' => $validUntil, 'updated_at' => self::now()], ['id' => $id]);
+        // Enddatum in der Vergangenheit = sofort beenden: als abgelaufen kennzeichnen statt „aktiv“ anzuzeigen.
+        if ($validUntil !== null && $validUntil <= self::now() && $row->status === EntitlementPlanner::ACTIVE) {
+            $this->db->update($this->table, ['status' => EntitlementPlanner::EXPIRED], ['id' => $id]);
+        }
+        if ($row->status === EntitlementPlanner::EXPIRED && ($validUntil === null || $validUntil > self::now())) {
+            $this->db->update($this->table, ['status' => EntitlementPlanner::ACTIVE], ['id' => $id]);
+        }
+        $this->restackExtensions((int) $row->user_id, (string) $row->course_code, (string) $row->feature_code);
+        AuditLog::record('entitlement_extended', 'entitlement', (string) $id, $reason, ['from' => $row->valid_until, 'to' => $validUntil]);
+    }
+
+    /**
+     * Manueller Statuswechsel. Bei Shop-Zugängen bleibt die Entscheidung als
+     * Sperre gespeichert, bis sie aufgehoben wird ("release").
+     */
+    public function setStatusManual(int $id, string $to, string $reason): void
+    {
+        $reason = self::requireReason($reason);
+        if (! in_array($to, [EntitlementPlanner::ACTIVE, EntitlementPlanner::SUSPENDED, EntitlementPlanner::REVOKED], true)) {
+            throw new \InvalidArgumentException('Ungültiger Status.');
+        }
+        $row = $this->mustFind($id);
+        $meta = EntitlementPlanner::meta($row);
+        $meta['manual'] = ['status' => $to, 'by' => get_current_user_id(), 'at' => self::now(), 'reason' => $reason];
+        $this->db->update($this->table, ['status' => $to, 'reason' => $reason, 'meta' => wp_json_encode($meta), 'updated_at' => self::now()], ['id' => $id]);
+        if ($to === EntitlementPlanner::ACTIVE && $row->valid_from === null) {
+            $this->setValidity($id, null);
+        }
+        $this->restackIfNeeded($row, $to);
+        AuditLog::record('entitlement_manual_'.$to, 'entitlement', (string) $id, $reason, ['from' => $row->status, 'order_id' => $row->order_id]);
+    }
+
+    /** Hebt eine manuelle Entscheidung auf; der Shop-Status gilt wieder (Neuabgleich durch Aufrufer). */
+    public function releaseManual(int $id, string $reason): void
+    {
+        $reason = self::requireReason($reason);
+        $row = $this->mustFind($id);
+        $meta = EntitlementPlanner::meta($row);
+        unset($meta['manual']);
+        $this->db->update($this->table, ['meta' => wp_json_encode($meta), 'updated_at' => self::now()], ['id' => $id]);
+        // Manuell suspendiert/widerrufen → zurück auf "pending", der Abgleich setzt den Shop-Stand.
+        if ($row->status !== EntitlementPlanner::ACTIVE && $row->source === self::SOURCE_WOO) {
+            $this->db->update($this->table, ['status' => EntitlementPlanner::PENDING], ['id' => $id]);
+        }
+        AuditLog::record('entitlement_manual_released', 'entitlement', (string) $id, $reason, ['order_id' => $row->order_id]);
+    }
+
+    /** Markiert abgelaufene Zugänge (stündlicher Cron). @return int Anzahl */
+    public function expireDue(): int
+    {
+        return (int) $this->db->query($this->db->prepare(
+            "UPDATE {$this->table} SET status = 'expired', updated_at = %s WHERE status = 'active' AND valid_until IS NOT NULL AND valid_until < %s",
+            self::now(), self::now()
+        ));
+    }
+
+    /**
+     * Suche für die Adminliste.
+     *
+     * @param array{search?:string,course?:string,status?:string,source?:string,order?:int} $filter
+     * @return array{rows:list<object>,total:int}
+     */
+    public function search(array $filter, int $page = 1, int $perPage = 50): array
+    {
+        $users = $this->db->users;
+        $where = ['1=1'];
+        $args = [];
+        if (($filter['search'] ?? '') !== '') {
+            $like = '%'.$this->db->esc_like($filter['search']).'%';
+            // Auch nach Referenz (z. B. Einlöse-ID eines Kursgutscheins „voucher:…“) für den Support.
+            $where[] = '(u.user_email LIKE %s OR u.user_login LIKE %s OR u.display_name LIKE %s OR e.sku_snapshot LIKE %s OR e.reference_key LIKE %s OR e.user_id = %d)';
+            array_push($args, $like, $like, $like, $like, $like, (int) $filter['search']);
+        }
+        foreach (['course' => 'e.course_code', 'status' => 'e.status', 'source' => 'e.source'] as $key => $col) {
+            if (($filter[$key] ?? '') !== '') {
+                $where[] = "{$col} = %s";
+                $args[] = $filter[$key];
+            }
+        }
+        if (! empty($filter['order'])) {
+            $where[] = 'e.order_id = %d';
+            $args[] = (int) $filter['order'];
+        }
+        $sqlWhere = implode(' AND ', $where);
+        $from = "{$this->table} e LEFT JOIN {$users} u ON u.ID = e.user_id";
+        $count = "SELECT COUNT(*) FROM {$from} WHERE {$sqlWhere}";
+        $list = "SELECT e.*, u.user_email, u.display_name FROM {$from} WHERE {$sqlWhere} ORDER BY e.id DESC LIMIT %d OFFSET %d";
+
+        return [
+            'total' => (int) $this->db->get_var($args === [] ? $count : $this->db->prepare($count, ...$args)),
+            'rows' => $this->db->get_results($this->db->prepare($list, ...array_merge($args, [$perPage, max(0, ($page - 1) * $perPage)]))),
+        ];
+    }
+
+    /**
+     * Zusammenfassung je Kurs/Feature für "Mein Lernen": ein Eintrag je Zugang,
+     * auch bei mehreren Bestellungen (Kap. 7.6 Doppelkäufe).
+     *
+     * @return list<array{course:string,feature:string,status:string,valid_until:?string}>
+     */
+    public function summaryForUser(int $userId): array
+    {
+        $now = self::now();
+        $out = [];
+        $rank = [EntitlementPlanner::ACTIVE => 5, EntitlementPlanner::PENDING => 4, EntitlementPlanner::SUSPENDED => 3, EntitlementPlanner::EXPIRED => 2, EntitlementPlanner::REVOKED => 1];
+        foreach ($this->forUser($userId) as $row) {
+            // Nie freigeschaltet und beendet (z. B. unbezahlte Bestellung storniert): für den Kunden kein Zugang, nicht anzeigen.
+            if ($row->status === EntitlementPlanner::REVOKED && $row->valid_from === null) {
+                continue;
+            }
+            $status = $row->status === EntitlementPlanner::ACTIVE && $row->valid_until !== null && $row->valid_until < $now ? EntitlementPlanner::EXPIRED : $row->status;
+            $key = $row->course_code.'|'.$row->feature_code;
+            $cur = $out[$key] ?? null;
+            if ($cur === null || $rank[$status] > $rank[$cur['status']]) {
+                $days = (int) (EntitlementPlanner::meta($row)['duration_days'] ?? 0);
+                // Offene Zahlung: Laufzeit ab Zahlungseingang und Bestellung (statt „dauerhaft“, das Ende steht noch nicht fest).
+                $out[$key] = ['course' => $row->course_code, 'feature' => $row->feature_code, 'status' => $status, 'valid_until' => $row->valid_until,
+                    'duration_days' => $days > 0 ? $days : null, 'order_id' => $row->order_id !== null ? (int) $row->order_id : null];
+            } elseif ($status === $cur['status'] && $cur['valid_until'] !== null) {
+                // Gleicher Status: spätestes Ende; dauerhaft (NULL) gewinnt.
+                $out[$key]['valid_until'] = $row->valid_until === null ? null : max($cur['valid_until'], $row->valid_until);
+            }
+        }
+
+        return array_values($out);
+    }
+
+    private function mustFind(int $id): object
+    {
+        $row = $this->find($id);
+        if ($row === null) {
+            throw new \InvalidArgumentException(__('Zugang nicht gefunden.', 'bootspruefung-learning'));
+        }
+
+        return $row;
+    }
+
+    private static function requireReason(string $reason): string
+    {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new \InvalidArgumentException(__('Bitte eine Begründung angeben.', 'bootspruefung-learning'));
+        }
+
+        return $reason;
+    }
+
+    public static function now(): string
+    {
+        return current_time('mysql', true);
+    }
+}
