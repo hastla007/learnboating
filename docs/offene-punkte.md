@@ -48,10 +48,31 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 
 ## Technik-Restpunkte
 
-- Pull Request `claude/loving-euler-c7h553` → `main` ist noch Entwurf; `main` enthält bisher nur das Konzept.
 - Statische Analyse läuft mit Baselines (PHPStan 199 Funde, PHPCS 704 Funde, alle geprüft, keiner ausnutzbar);
   schrittweise abbauen.
 - `WC tested up to` beim Wechsel auf WooCommerce 11.3 anheben (CI testet 11.3 Beta bereits informativ).
+
+## Prüfrunde 14.11.2026 (Stand `main` nach Version 0.14.0)
+
+Gezielte Prüfung der sicherheitskritischen Teile: Anmeldung und Login-Begrenzung, App-Tokens, Kontolöschung,
+Paket-Import (Ablageordner, Link), Zahlungskonflikt-Webhooks, Kursgutscheine samt Connector, Gruppen,
+geschützte Dateien, Prüfungssimulation und Theme-Eingaben. Ergebnis: keine kritische Lücke. Sechs Funde, alle
+Entwicklung. Die Nummern T129–T134 sind ein Vorschlag für die führende To-do-Liste.
+
+| T | Bereich | Fund | Schwere | Wer | Vorschlag |
+|---|---|---|---|---|---|
+| T129 | Prüfung | Antwortzeit aus der App/dem Browser (`age_ms`, `answered_at`) wird ungeprüft übernommen: Innerhalb der 120 s Kulanz nach Fristende lassen sich Antworten zurückdatieren und noch ändern (`ExamService::saveAnswer`) | mittel | Entwicklung | Rückdatierung auf die tatsächliche Wartezeit begrenzen (Zeitpunkt nicht vor dem letzten Serverkontakt der Frage); nach Fristende nur Antworten annehmen, die nachweislich vorher gepuffert wurden |
+| T130 | Sicherheit | „Bekanntes Gerät“ bindet das Cookie mit `substr(user_pass, 8, 4)` an das Passwort – bei den Hashes ab WordPress 6.8 sind das nur zwei zufällige Zeichen; nach einer Passwortänderung bleibt ein altes Cookie mit ~1:4096 gültig (`KnownDevice::sign`) | niedrig | Entwicklung | Fragment aus dem ganzen Hash ableiten bzw. wie WordPress die letzten 4 Zeichen nehmen |
+| T131 | Sicherheit | App-Login gibt auch Verwaltungskonten Tokens und umgeht Zwei-Faktor-Plugins, die erst im Login-Formular greifen (`AuthController::login`) | niedrig–mittel | Entwicklung | Verwaltungskonten standardmäßig vom App-Login ausnehmen (Filter `bootspruefung_mobile_user_allowed`) oder 2FA-Plugins erkennen |
+| T132 | Gruppen | Persönliche Einladung ist nicht an die eingeladene E-Mail gebunden – wer den Link hat, nimmt den Platz (`GroupService::joinLocked`) | niedrig | Betreiber entscheidet, Entwicklung setzt um | Entweder an die E-Mail binden (Hinweis bei anderem Konto) oder bewusst übertragbar lassen und in der Einladungsmail sagen |
+| T133 | Sicherheit | Geschützte Dateien werden mit dem gespeicherten Dateityp inline auf der eigenen Domain ausgeliefert – eine geschützte HTML-/SVG-Datei könnte Skripte ausführen (`ProtectedFiles::stream`) | niedrig | Entwicklung | Nur PDF, Bilder und Video inline, sonst als Download; Kopfzeile `Content-Security-Policy: sandbox` |
+| T134 | Zahlung | Allgemeiner Konflikt-Webhook ohne Zeitfenster: Eine signierte Nachricht lässt sich nach Ablauf der Doppel-Erkennung (90 Tage) erneut einspielen (`DisputeWebhooks::generic`) | niedrig | Entwicklung | `timestamp` verpflichtend, Nachrichten älter als 24 h ablehnen („dispute_id und timestamp verlangen“ standardmäßig an) |
+
+Geprüft und ohne Fund: Token-Rotation der App, Begrenzung der Bearer-Tokens auf die App-Schnittstelle, Login-Zähler
+(atomar, Proxy/IPv6), „Passwort vergessen“, Kontolöschung erst nach Knopfdruck, Link-Import (nur https, interne
+Adressen gesperrt, Prüfsumme), Ablageordner (Pfadprüfung), PayPal-Signaturprüfung, Kursgutschein-Grant
+(idempotent, Sperre) und Connector-Warteschlange, Gruppenplätze unter Sperre, Frage-Tokens (HMAC, Konto, Ablauf),
+Theme-Eingaben (Nonce, Bereinigung).
 
 ## Expertenrunde 4 (13.11.2026) – Stand
 
