@@ -44,7 +44,7 @@ final class GroupController
     /** @return array<string,mixed> */
     public function describe(WP_REST_Request $request): array
     {
-        $info = $this->groups->describeToken((string) $request['token']);
+        $info = $this->groups->describeToken((string) $request['token'], get_current_user_id());
         if ($info === null) {
             throw new \InvalidArgumentException(__('Dieser Einladungslink ist ungültig oder abgelaufen.', 'bootspruefung-learning'));
         }

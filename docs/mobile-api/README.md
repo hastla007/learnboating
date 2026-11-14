@@ -396,7 +396,7 @@ einen geschützten Übertragungsweg legen.
        Anmeldung bzw. Registrierung zeigen (Registrierung über die Website im Systembrowser – danach
        anmelden), danach mit dem gemerkten Token weiter.
     3. `GET /groups/join/{token}` → Vorschau (Name, verwaltende Person, Kurse, `free_seats`,
-       `personal`, `already_member`, `joinable`). 422 `COUPON_INVALID` = ungültig, abgelaufen, bereits
+       `personal`, `already_member`, `joinable`, seit 1.13.0 `other_account`/`invited_email`). 422 `COUPON_INVALID` = ungültig, abgelaufen, bereits
        angenommen oder ersetzt → Hinweis „Bitte neuen Link anfordern“.
     4. „Beitreten“ (nur bei `joinable`) → `POST /coupons/redeem` mit `{"code": "<token>"}` (der ganze
        Link geht auch) und `Idempotency-Key` → 200 mit `courses` → Kursliste neu laden.
@@ -695,6 +695,19 @@ beibehalten, wo es passt. Abweichungen:
 ---
 
 ## 8. Änderungsprotokoll
+
+### 1.13.0
+
+- **Nur Kundenkonten:** `POST /auth/login` lehnt Verwaltungskonten (Administration, Redaktion, Shop, Plugin-Rechte) mit
+  401 `UNAUTHENTICATED` ab – dieselbe Meldung wie bei falschem Passwort. Laufende Tokens solcher Konten (auch nach
+  einem späteren Rollenwechsel) gelten nicht mehr; der Refresh antwortet 401. Grund: Das App-Login kennt keinen
+  zweiten Faktor (T131). Für Tests: Filter `bootspruefung_mobile_user_allowed`.
+- **Gruppeneinladung an eine andere Adresse (additiv):** `GET /groups/join/{token}` liefert `other_account` und
+  `invited_email` (gekürzt, z. B. `n…@example.de`). Ist `other_account` true, zeigt die App vor dem Beitritt: „Diese
+  Einladung ging an … Möchtest du den Platz mit deinem Konto übernehmen?“ und als Knopf „Platz mit meinem Konto
+  übernehmen“. Einladungen bleiben übertragbar (T132).
+- Bekanntes Gerät: Der `device_token` hängt jetzt am ganzen Passwort-Hash (T130); vorhandene Tokens werden mit dem
+  Update einmalig ungültig – die App schickt den neuen aus der nächsten Anmeldung.
 
 ### 1.12.0 (additiv)
 

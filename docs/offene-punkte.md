@@ -43,10 +43,10 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 | – | Design | Markenname, Logo, Favicon, Farben, Claim (heute Platzhalter „XXXX“), Produktbilder neu erzeugen | 🔴 | Du | `BRAND=… python3 tools/product-images/generate.py` |
 | – | Barrierefreiheit | Simulator-Drehknöpfe: Korrektur im Quell-Repo `boatingschool`, danach Zusatzmodul `device-sim-a11y.js` entfernen | 🔴 | Du | `docs/quellrepo-hinweis-simulator-aria.md` |
 | T61 | Migration | Umzug zum Laravel-Original: Rechtsgrundlage, Kundeninformation, Lizenzen (Export technisch fertig, Format 2) | 🔴 | Du + Anwalt | `docs/betreiber-schritte.md` T61 |
-| T129 | Prüfung | Kulanz für Offline-Antworten nach Fristende: Gerätezeit nicht prüfbar (Designgrenze). Jetzt einstellbar (Filter `bootspruefung_exam_late_tolerance`, Standard 120 s, 0 = streng) | 🟡 | Du entscheidest | unten |
+| T129 | Prüfung | Kulanz für Offline-Antworten: entschieden 14.11. – Standard 120 s bleibt (Übungsprüfung, Funkloch wichtiger); bei Bedarf Filter `bootspruefung_exam_late_tolerance` | ✅ | Betreiber | erledigt |
 | T130 | Sicherheit | „Bekanntes Gerät“: Cookie an den ganzen Passwort-Hash gebunden | ✅ | Entwicklung | erledigt |
 | T131 | Sicherheit | App-Login für Verwaltungskonten gesperrt, laufende Sitzungen enden | ✅ | Entwicklung | erledigt |
-| T132 | Gruppen | Persönliche Einladung an die E-Mail binden oder bewusst übertragbar lassen | 🔴 | Du entscheidest, dann Entwicklung | unten |
+| T132 | Gruppen | Entschieden 14.11.: übertragbar lassen; Hinweis in der Mail und Rückfrage bei anderem Konto (Web und App) | ✅ | Entwicklung | erledigt |
 | T133 | Sicherheit | Geschützte Dateien: nur PDF/Bild/Audio/Video inline, sonst Download; Sandbox außer bei PDF | ✅ | Entwicklung | erledigt |
 | T134 | Zahlung | Allgemeiner Konflikt-Webhook: Zeitstempel älter als 60 Tage bzw. > 1 Tag in der Zukunft → abgewiesen | ✅ | Entwicklung | erledigt |
 | T75 | Zahlung | Abos (WooCommerce Subscriptions) | ⏸ | Du | `docs/betreiber-schritte.md` T75 |
@@ -63,10 +63,9 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 Gezielte Prüfung der sicherheitskritischen Teile: Anmeldung und Login-Begrenzung, App-Tokens, Kontolöschung,
 Paket-Import (Ablageordner, Link), Zahlungskonflikt-Webhooks, Kursgutscheine samt Connector, Gruppen,
 geschützte Dateien, Prüfungssimulation und Theme-Eingaben. Ergebnis: keine kritische Lücke. Sechs Funde, alle
-Entwicklung. Übernommen als T129–T134. Stand: T130, T131, T133, T134 behoben (CHANGELOG „Nächste Version“); T129 ist
-eine Designgrenze – die Kulanz für Offline-Antworten ist jetzt einstellbar, die Entscheidung liegt beim Betreiber
-(Standard lassen = Funkloch-Antworten bis 2 Minuten nach Fristende zählen, aber auch zurückdatierte; 0 = streng);
-T132 wartet auf die Entscheidung des Betreibers.
+Entwicklung. Übernommen als T129–T134 – alle erledigt (CHANGELOG „Nächste Version“). T129 ist eine Designgrenze; der
+Betreiber hat am 14.11. entschieden, die Kulanz von 120 s zu behalten (einstellbar per Filter). T132: Einladungen
+bleiben übertragbar, mit Hinweis in der Mail und Rückfrage bei anderem Konto.
 
 | T | Bereich | Fund | Schwere | Wer | Vorschlag |
 |---|---|---|---|---|---|
