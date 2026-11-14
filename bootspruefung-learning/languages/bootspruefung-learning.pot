@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T23:14:09+00:00\n"
+"POT-Creation-Date: 2026-11-14T16:46:11+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: bootspruefung-learning\n"
@@ -62,7 +62,7 @@ msgstr ""
 #: src/Admin/Notices.php:258
 #: src/Admin/PricePage.php:43
 #: src/Admin/PricePage.php:213
-#: src/Commerce/Disputes/DisputeWebhooks.php:770
+#: src/Commerce/Disputes/DisputeWebhooks.php:793
 #: src/Commerce/WooCommerce/MoneyBackWoo.php:248
 #: src/Commerce/WooCommerce/WithdrawalFunction.php:480
 #: src/Mobile/Admin/MobileAdminPage.php:41
@@ -491,8 +491,8 @@ msgstr ""
 #: src/Admin/ContentPages.php:208
 #: src/Admin/Menu.php:55
 #: src/Admin/Ui.php:197
-#: src/Frontend/Strings.php:143
-#: src/Frontend/Strings.php:269
+#: src/Frontend/Strings.php:145
+#: src/Frontend/Strings.php:271
 msgid "Fragen"
 msgstr ""
 
@@ -618,7 +618,7 @@ msgid "Bestellung"
 msgstr ""
 
 #: src/Admin/AccessPages.php:556
-#: src/Frontend/Strings.php:46
+#: src/Frontend/Strings.php:48
 msgid "Einladungslink"
 msgstr ""
 
@@ -637,19 +637,19 @@ msgstr ""
 
 #: src/Admin/AccessPages.php:563
 #: src/Commerce/Labels.php:38
-#: src/Frontend/Strings.php:42
-#: src/Frontend/Strings.php:57
+#: src/Frontend/Strings.php:44
+#: src/Frontend/Strings.php:59
 msgid "aktiv"
 msgstr ""
 
 #: src/Admin/AccessPages.php:563
 #: src/Admin/AuditPage.php:552
-#: src/Frontend/Strings.php:58
+#: src/Frontend/Strings.php:60
 msgid "eingeladen"
 msgstr ""
 
 #: src/Admin/AccessPages.php:563
-#: src/Frontend/Strings.php:59
+#: src/Frontend/Strings.php:61
 msgid "Einladung abgelaufen"
 msgstr ""
 
@@ -659,7 +659,7 @@ msgid "entfernt"
 msgstr ""
 
 #: src/Admin/AccessPages.php:567
-#: src/Frontend/Strings.php:53
+#: src/Frontend/Strings.php:55
 msgid "Teilnehmende"
 msgstr ""
 
@@ -672,7 +672,7 @@ msgid "seit"
 msgstr ""
 
 #: src/Admin/AccessPages.php:568
-#: src/Frontend/Strings.php:54
+#: src/Frontend/Strings.php:56
 msgid "Noch niemand eingeladen."
 msgstr ""
 
@@ -799,7 +799,7 @@ msgstr ""
 
 #: src/Admin/AuditPage.php:34
 #: src/Admin/Menu.php:248
-#: src/Commerce/Disputes/DisputeWebhooks.php:226
+#: src/Commerce/Disputes/DisputeWebhooks.php:230
 msgid "Zahlungskonflikte"
 msgstr ""
 
@@ -1575,7 +1575,7 @@ msgid "PayPal eingerichtet"
 msgstr ""
 
 #: src/Admin/AuditPage.php:555
-#: src/Commerce/Disputes/DisputeWebhooks.php:825
+#: src/Commerce/Disputes/DisputeWebhooks.php:848
 msgid "Umgebung"
 msgstr ""
 
@@ -1589,7 +1589,7 @@ msgstr ""
 
 #: src/Admin/AuditPage.php:556
 #: src/Commerce/Labels.php:39
-#: src/Frontend/Strings.php:44
+#: src/Frontend/Strings.php:46
 msgid "beendet"
 msgstr ""
 
@@ -1601,7 +1601,7 @@ msgstr ""
 #: src/Admin/ImportPage.php:378
 #: src/Admin/ImportPage.php:383
 #: src/Admin/SystemStatus.php:379
-#: src/Frontend/Strings.php:495
+#: src/Frontend/Strings.php:497
 msgid "Ergebnis"
 msgstr ""
 
@@ -1676,7 +1676,7 @@ msgstr ""
 
 #: src/Admin/AuditPage.php:633
 #: src/Admin/ExamGuidePages.php:94
-#: src/Frontend/Strings.php:88
+#: src/Frontend/Strings.php:90
 msgid "Website"
 msgstr ""
 
@@ -1864,14 +1864,14 @@ msgstr ""
 #: src/Admin/ContentPages.php:188
 #: src/Admin/ContentPages.php:401
 #: src/Admin/Ui.php:154
-#: src/Frontend/Strings.php:362
-#: src/Frontend/Strings.php:623
+#: src/Frontend/Strings.php:364
+#: src/Frontend/Strings.php:625
 msgid "Prüfungsmodus"
 msgstr ""
 
 #: src/Admin/ContentPages.php:188
 #: src/Admin/ContentPages.php:401
-#: src/Frontend/Strings.php:363
+#: src/Frontend/Strings.php:365
 msgid "Übungsmodus"
 msgstr ""
 
@@ -1977,7 +1977,7 @@ msgid "Frage nicht gefunden."
 msgstr ""
 
 #: src/Admin/ContentPages.php:294
-#: src/Frontend/Strings.php:499
+#: src/Frontend/Strings.php:501
 msgid "Alle Fragen"
 msgstr ""
 
@@ -2119,7 +2119,7 @@ msgid "Zeitlimit"
 msgstr ""
 
 #: src/Admin/ContentPages.php:405
-#: src/Exams/Services/ExamService.php:994
+#: src/Exams/Services/ExamService.php:1011
 #, php-format
 msgid "%d Minuten"
 msgstr ""
@@ -2162,8 +2162,8 @@ msgstr ""
 #: src/Admin/ContentPages.php:423
 #: src/Admin/ContentPages.php:732
 #: src/Commerce/ReminderOptOut.php:170
-#: src/Frontend/Strings.php:41
-#: src/Frontend/Strings.php:310
+#: src/Frontend/Strings.php:43
+#: src/Frontend/Strings.php:312
 msgid "Speichern"
 msgstr ""
 
@@ -2566,7 +2566,7 @@ msgid "Mindestalter"
 msgstr ""
 
 #: src/Admin/ExamGuidePages.php:64
-#: src/Frontend/Strings.php:75
+#: src/Frontend/Strings.php:77
 msgid "Prüfungsformen"
 msgstr ""
 
@@ -2574,7 +2574,7 @@ msgstr ""
 #: src/Admin/ExamGuidePages.php:82
 #: src/Admin/ExamGuidePages.php:98
 #: src/Admin/Ui.php:195
-#: src/Frontend/Strings.php:117
+#: src/Frontend/Strings.php:119
 msgid "Kurse"
 msgstr ""
 
@@ -2599,7 +2599,7 @@ msgid "Adresse"
 msgstr ""
 
 #: src/Admin/ExamGuidePages.php:82
-#: src/Frontend/Strings.php:186
+#: src/Frontend/Strings.php:188
 msgid "Kontakt"
 msgstr ""
 
@@ -3171,9 +3171,9 @@ msgid "grün"
 msgstr ""
 
 #: src/Admin/GoLiveChecklist.php:221
-#: src/Frontend/Strings.php:163
-#: src/Frontend/Strings.php:170
-#: src/Frontend/Strings.php:589
+#: src/Frontend/Strings.php:165
+#: src/Frontend/Strings.php:172
+#: src/Frontend/Strings.php:591
 msgid "erledigt"
 msgstr ""
 
@@ -3182,10 +3182,10 @@ msgid "rot"
 msgstr ""
 
 #: src/Admin/GoLiveChecklist.php:222
-#: src/Frontend/Strings.php:158
-#: src/Frontend/Strings.php:165
-#: src/Frontend/Strings.php:377
-#: src/Frontend/Strings.php:555
+#: src/Frontend/Strings.php:160
+#: src/Frontend/Strings.php:167
+#: src/Frontend/Strings.php:379
+#: src/Frontend/Strings.php:557
 msgid "offen"
 msgstr ""
 
@@ -4096,7 +4096,7 @@ msgstr ""
 
 #: src/Admin/Menu.php:248
 #: src/Admin/Menu.php:354
-#: src/Frontend/Strings.php:664
+#: src/Frontend/Strings.php:666
 msgid "Sicherheit"
 msgstr ""
 
@@ -4576,8 +4576,8 @@ msgstr ""
 #: src/Admin/SiteHealth.php:134
 #: src/Admin/SystemStatus.php:369
 #: src/Admin/Ui.php:160
-#: src/Frontend/Strings.php:92
-#: src/Frontend/Strings.php:166
+#: src/Frontend/Strings.php:94
+#: src/Frontend/Strings.php:168
 msgid "gesperrt"
 msgstr ""
 
@@ -5044,12 +5044,12 @@ msgid "verworfen"
 msgstr ""
 
 #: src/Admin/Ui.php:170
-#: src/Frontend/Strings.php:246
+#: src/Frontend/Strings.php:248
 msgid "Vollkurs"
 msgstr ""
 
 #: src/Admin/Ui.php:171
-#: src/Frontend/Strings.php:252
+#: src/Frontend/Strings.php:254
 msgid "Kombikurs"
 msgstr ""
 
@@ -5082,7 +5082,7 @@ msgid "Prüfungsbögen"
 msgstr ""
 
 #: src/Admin/Ui.php:203
-#: src/Frontend/Strings.php:503
+#: src/Frontend/Strings.php:505
 msgid "Navigationsaufgaben"
 msgstr ""
 
@@ -5138,7 +5138,7 @@ msgstr ""
 
 #: src/Admin/Ui.php:217
 #: src/Commerce/Labels.php:28
-#: src/Frontend/Strings.php:612
+#: src/Frontend/Strings.php:614
 msgid "Gerätesimulation"
 msgstr ""
 
@@ -5160,207 +5160,207 @@ msgid "weiter"
 msgstr ""
 
 #. translators: %s: fehlende Angaben, z. B. „Client-ID, Webhook-ID“
-#: src/Commerce/Disputes/DisputeWebhooks.php:174
+#: src/Commerce/Disputes/DisputeWebhooks.php:178
 #, php-format
 msgid "Signatur nicht geprüft – es fehlt: %s. Der PayPal-Webhook nimmt bis dahin keine Nachrichten an (Antwort 503). PayPal-Konflikte bitte von Hand mit „Lernzugang aussetzen“ behandeln."
 msgstr ""
 
 #. translators: %s: Live oder Sandbox
-#: src/Commerce/Disputes/DisputeWebhooks.php:180
+#: src/Commerce/Disputes/DisputeWebhooks.php:184
 #, php-format
 msgid "Signatur wird bei PayPal geprüft (%s)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:184
+#: src/Commerce/Disputes/DisputeWebhooks.php:188
 msgid "Noch keine Nachricht geprüft. Zum Test in der PayPal-Sandbox einen Konflikt auslösen."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:187
+#: src/Commerce/Disputes/DisputeWebhooks.php:191
 msgid "erfolgreich"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:188
+#: src/Commerce/Disputes/DisputeWebhooks.php:192
 msgid "abgelehnt (FAILURE)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:189
+#: src/Commerce/Disputes/DisputeWebhooks.php:193
 msgid "PayPal nicht erreichbar oder Zugangsdaten falsch"
 msgstr ""
 
 #. translators: 1: Datum und Uhrzeit, 2: Ergebnis, 3: Live oder Sandbox
-#: src/Commerce/Disputes/DisputeWebhooks.php:194
+#: src/Commerce/Disputes/DisputeWebhooks.php:198
 #, php-format
 msgid "Letzte Prüfung: %1$s – %2$s (%3$s)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:228
+#: src/Commerce/Disputes/DisputeWebhooks.php:232
 msgid "PayPal: Signatur nicht geprüft."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:229
+#: src/Commerce/Disputes/DisputeWebhooks.php:233
 msgid "PayPal ist als Zahlungsart aktiv, aber die Zugangsdaten für die Signaturprüfung fehlen. Konflikte kommen so nicht automatisch an. Einrichten unter Bootsprüfung › Einstellungen › Zahlungskonflikte."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:232
+#: src/Commerce/Disputes/DisputeWebhooks.php:236
 msgid "PayPal-Webhook"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:233
+#: src/Commerce/Disputes/DisputeWebhooks.php:237
 msgid "Allgemeiner Dispute-Webhook"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:234
+#: src/Commerce/Disputes/DisputeWebhooks.php:238
 msgid "eingerichtet (Signatur mit Schlüssel, HMAC-SHA256)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:235
+#: src/Commerce/Disputes/DisputeWebhooks.php:239
 msgid "nicht eingerichtet – nimmt nichts an (Antwort 503)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:236
+#: src/Commerce/Disputes/DisputeWebhooks.php:240
 msgid "Klarna"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:236
+#: src/Commerce/Disputes/DisputeWebhooks.php:240
 msgid "Klarna meldet Konflikte nicht an WooCommerce. Weiterleitung an den allgemeinen Webhook oder von Hand in der Bestellung: Aktion „Klarna-Konflikt melden“."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:237
+#: src/Commerce/Disputes/DisputeWebhooks.php:241
 msgid "(Klarna ist derzeit nicht als Zahlungsart aktiv.)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:579
+#: src/Commerce/Disputes/DisputeWebhooks.php:602
 msgid "Klarna-Konflikt melden: eröffnet (Lernzugang aussetzen)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:580
+#: src/Commerce/Disputes/DisputeWebhooks.php:603
 msgid "Klarna-Konflikt melden: gewonnen (Lernzugang wiederherstellen)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:581
+#: src/Commerce/Disputes/DisputeWebhooks.php:604
 msgid "Klarna-Konflikt melden: verloren (Lernzugang widerrufen)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:593
+#: src/Commerce/Disputes/DisputeWebhooks.php:616
 msgid "Klarna-Fall-ID"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:593
+#: src/Commerce/Disputes/DisputeWebhooks.php:616
 msgid "Klarna-Fall-ID (optional, für Klarna-Konflikt)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:611
+#: src/Commerce/Disputes/DisputeWebhooks.php:634
 msgid "Klarna-Konflikt: Bitte eine Begründung angeben."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:619
+#: src/Commerce/Disputes/DisputeWebhooks.php:642
 msgid "Klarna-Konflikt: Die Bestellung wird gerade bearbeitet. Bitte gleich noch einmal versuchen."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:621
+#: src/Commerce/Disputes/DisputeWebhooks.php:644
 msgid "Klarna-Konflikt: nicht angewendet – die WooCommerce-Anbindung des Lern-Plugins ist nicht aktiv."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:626
+#: src/Commerce/Disputes/DisputeWebhooks.php:649
 msgid "Klarna-Konflikt: nicht angewendet – dieser Konfliktfall ist bereits abgeschlossen (siehe Bestellnotiz). Für einen neuen Konflikt bitte die Klarna-Fall-ID angeben."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:627
+#: src/Commerce/Disputes/DisputeWebhooks.php:650
 msgid "Klarna-Konflikt: Dieser Stand ist bereits gemeldet – nichts geändert."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:711
+#: src/Commerce/Disputes/DisputeWebhooks.php:734
 #: src/Commerce/WooCommerce/Integration.php:672
 msgid "Lernzugang:"
 msgstr ""
 
 #. translators: 1: Ereignis, z. B. „PayPal-Konflikt eröffnet“, 2: Stand des Falls, z. B. „gewonnen“
-#: src/Commerce/Disputes/DisputeWebhooks.php:720
+#: src/Commerce/Disputes/DisputeWebhooks.php:743
 #, php-format
 msgid "Lernzugang: %1$s nicht angewendet – der Konfliktfall ist bereits %2$s (neuerer Stand)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:807
+#: src/Commerce/Disputes/DisputeWebhooks.php:830
 msgid "Zahlungskonflikte (Disputes)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:808
+#: src/Commerce/Disputes/DisputeWebhooks.php:831
 msgid "Stripe meldet Disputes als „In Wartestellung“ – das erkennt das Plugin ohne Einrichtung. Für PayPal und Klarna hier die Benachrichtigungen einrichten; ein eröffneter Konflikt setzt den Zugang aus, ein gewonnener hebt das auf, ein verlorener widerruft."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:812
+#: src/Commerce/Disputes/DisputeWebhooks.php:835
 msgid "PayPal-Webhook-URL"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:813
+#: src/Commerce/Disputes/DisputeWebhooks.php:836
 msgid "Im PayPal-Developer-Dashboard bei der App als Webhook eintragen, Ereignisse: Customer dispute created, updated, resolved."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:815
+#: src/Commerce/Disputes/DisputeWebhooks.php:838
 msgid "Signaturprüfung PayPal"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:820
+#: src/Commerce/Disputes/DisputeWebhooks.php:843
 msgid "Festgelegt in wp-config.php."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:821
+#: src/Commerce/Disputes/DisputeWebhooks.php:844
 msgid "PayPal Client-ID"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:822
+#: src/Commerce/Disputes/DisputeWebhooks.php:845
 msgid "PayPal Secret"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:822
+#: src/Commerce/Disputes/DisputeWebhooks.php:845
 msgid "gespeichert – leer lassen zum Behalten"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:823
+#: src/Commerce/Disputes/DisputeWebhooks.php:846
 msgid "PayPal Webhook-ID"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:825
+#: src/Commerce/Disputes/DisputeWebhooks.php:848
 msgid "PayPal-Zugangsdaten löschen"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:826
+#: src/Commerce/Disputes/DisputeWebhooks.php:849
 msgid "Sandbox = Testkonto aus dem PayPal-Developer-Dashboard, Live = echtes Händlerkonto. Client-ID, Secret und Webhook-ID müssen zur gewählten Umgebung gehören. Statt hier können sie auch in wp-config.php stehen: BOOTSPRUEFUNG_PAYPAL_CLIENT_ID, BOOTSPRUEFUNG_PAYPAL_SECRET, BOOTSPRUEFUNG_PAYPAL_WEBHOOK_ID, BOOTSPRUEFUNG_PAYPAL_MODE (live oder sandbox)."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:827
+#: src/Commerce/Disputes/DisputeWebhooks.php:850
 msgid "Allgemeiner Dispute-Webhook (Klarna u. a.)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:828
+#: src/Commerce/Disputes/DisputeWebhooks.php:851
 msgid "POST mit JSON {\"event\":\"opened|won|lost\",\"order_id\":123 oder \"transaction_id\":\"…\",\"id\":\"eindeutige Ereignis-ID\",\"source\":\"klarna\",\"dispute_id\":\"Fall-ID\",\"timestamp\":\"2026-11-12T10:00:00Z\"} und Header X-Bootspruefung-Signature: sha256=HMAC-SHA256(Rohtext, Schlüssel). dispute_id und timestamp sind optional, aber empfohlen: Ein gewonnener oder verlorener Fall ist endgültig, ein später eintreffendes „opened“ desselben Falls wird ignoriert. Geeignet für Benachrichtigungen aus dem Klarna-Händlerportal über eine Automatisierung (z. B. E-Mail-/Webhook-Weiterleitung). Ohne Automatisierung: in der Klarna-Bestellung die Bestellaktion „Klarna-Konflikt melden“ nutzen – sie wirkt genauso."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:829
+#: src/Commerce/Disputes/DisputeWebhooks.php:852
 msgid "Schlüssel:"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:829
+#: src/Commerce/Disputes/DisputeWebhooks.php:852
 msgid "neu erzeugen"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:829
+#: src/Commerce/Disputes/DisputeWebhooks.php:852
 msgid "Der Schlüssel wird beim Speichern erzeugt."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:830
+#: src/Commerce/Disputes/DisputeWebhooks.php:853
 msgid "Pflichtfelder"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:831
+#: src/Commerce/Disputes/DisputeWebhooks.php:854
 msgid "dispute_id und timestamp verlangen (sonst 400)"
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:832
-msgid "Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden."
+#: src/Commerce/Disputes/DisputeWebhooks.php:855
+msgid "Empfohlen, sobald die Automatisierung beide Felder mitschickt. Ohne dispute_id gilt ein Fall je Quelle und Bestellung: Ein zweiter Konflikt zur selben Bestellung nach einem abgeschlossenen würde nicht erkannt. Ohne timestamp zählt die Eingangszeit, verspätete Nachrichten können dann falsch einsortiert werden. Nachrichten mit timestamp älter als 60 Tage oder mehr als einen Tag in der Zukunft werden immer abgewiesen (Schutz vor erneutem Einspielen) – auch deshalb timestamp mitschicken."
 msgstr ""
 
-#: src/Commerce/Disputes/DisputeWebhooks.php:834
+#: src/Commerce/Disputes/DisputeWebhooks.php:857
 msgid "Konflikt-Einstellungen speichern"
 msgstr ""
 
@@ -5458,65 +5458,65 @@ msgstr ""
 msgid "Einladung zum Lernzugang: %s"
 msgstr ""
 
-#: src/Commerce/GroupService.php:287
+#: src/Commerce/GroupService.php:309
 msgid "Bitte zuerst anmelden."
 msgstr ""
 
-#: src/Commerce/GroupService.php:291
-#: src/Commerce/GroupService.php:305
+#: src/Commerce/GroupService.php:313
+#: src/Commerce/GroupService.php:327
 #: src/Frontend/Router.php:56
 #: src/Mobile/Controllers/GroupController.php:134
 #: src/Rest/Controllers/GroupController.php:49
 msgid "Dieser Einladungslink ist ungültig oder abgelaufen."
 msgstr ""
 
-#: src/Commerce/GroupService.php:322
+#: src/Commerce/GroupService.php:344
 msgid "Gerade nehmen mehrere Personen gleichzeitig einen Platz in dieser Gruppe. Bitte versuche es in einem Moment noch einmal."
 msgstr ""
 
-#: src/Commerce/GroupService.php:329
+#: src/Commerce/GroupService.php:351
 #: src/Frontend/Router.php:73
 #: src/Frontend/Strings.php:37
 msgid "Diese Gruppe ist derzeit nicht aktiv."
 msgstr ""
 
-#: src/Commerce/GroupService.php:344
+#: src/Commerce/GroupService.php:366
 msgid "Diese Einladung ist abgelaufen oder wurde bereits angenommen."
 msgstr ""
 
-#: src/Commerce/GroupService.php:349
-#: src/Commerce/GroupService.php:361
+#: src/Commerce/GroupService.php:371
+#: src/Commerce/GroupService.php:383
 #: src/Frontend/Router.php:74
 #: src/Frontend/Strings.php:38
 msgid "Alle Plätze dieser Gruppe sind belegt."
 msgstr ""
 
-#: src/Commerce/GroupService.php:376
+#: src/Commerce/GroupService.php:398
 #: src/Mobile/Controllers/GroupController.php:102
 msgid "Mitglied nicht gefunden."
 msgstr ""
 
 #. translators: 1: date, 2: time
-#: src/Commerce/GroupService.php:642
+#: src/Commerce/GroupService.php:664
 #: src/Commerce/WooCommerce/MoneyBackWoo.php:186
 #, php-format
 msgid "%1$s, %2$s Uhr"
 msgstr ""
 
 #. translators: 1: inviting person, 2: group name
-#: src/Commerce/GroupService.php:645
+#: src/Commerce/GroupService.php:667
 #, php-format
 msgid "%1$s hat dich zur Lerngruppe „%2$s“ eingeladen."
 msgstr ""
 
 #. translators: %s: group name
-#: src/Commerce/GroupService.php:647
+#: src/Commerce/GroupService.php:669
 #, php-format
 msgid "Du wurdest zur Lerngruppe „%s“ eingeladen."
 msgstr ""
 
 #. translators: 1: link, 2: date and time
-#: src/Commerce/GroupService.php:649
+#: src/Commerce/GroupService.php:671
 #, php-format
 msgid ""
 "Zugang annehmen: %1$s\n"
@@ -5525,20 +5525,24 @@ msgid ""
 "Falls du noch kein Konto hast, kannst du dich dort registrieren."
 msgstr ""
 
+#: src/Commerce/GroupService.php:672
+msgid "Bitte gib diesen Link nur an die Person weiter, für die der Platz gedacht ist – wer ihn zuerst annimmt, bekommt den Platz."
+msgstr ""
+
 #. translators: %d: days
-#: src/Commerce/GroupService.php:651
+#: src/Commerce/GroupService.php:674
 #, php-format
 msgid "Deine E-Mail-Adresse wurde uns von der Person angegeben, die die Gruppe verwaltet, und wird nur für diese Einladung verwendet. Nimmst du die Einladung nicht an, löschen wir sie spätestens %d Tage nach Ablauf."
 msgstr ""
 
 #. translators: %s: link
-#: src/Commerce/GroupService.php:655
+#: src/Commerce/GroupService.php:678
 #, php-format
 msgid "Datenschutzerklärung: %s"
 msgstr ""
 
-#: src/Commerce/GroupService.php:710
-#: src/Mobile/Controllers/GroupController.php:181
+#: src/Commerce/GroupService.php:733
+#: src/Mobile/Controllers/GroupController.php:184
 #: src/Rest/Controllers/GroupController.php:110
 msgid "Gruppe nicht gefunden."
 msgstr ""
@@ -5556,7 +5560,7 @@ msgid "Erklärungen"
 msgstr ""
 
 #: src/Commerce/Labels.php:23
-#: src/Frontend/Strings.php:389
+#: src/Frontend/Strings.php:391
 msgid "Prüfungssimulation"
 msgstr ""
 
@@ -5565,18 +5569,18 @@ msgid "Navigationstrainer"
 msgstr ""
 
 #: src/Commerce/Labels.php:25
-#: src/Frontend/Strings.php:505
+#: src/Frontend/Strings.php:507
 msgid "Praxistrainer"
 msgstr ""
 
 #: src/Commerce/Labels.php:26
-#: src/Frontend/Strings.php:507
+#: src/Frontend/Strings.php:509
 #: src/Privacy/PersonalData.php:146
 msgid "Videokurs"
 msgstr ""
 
 #: src/Commerce/Labels.php:27
-#: src/Frontend/Strings.php:509
+#: src/Frontend/Strings.php:511
 #: src/Privacy/PersonalData.php:147
 msgid "Funktraining"
 msgstr ""
@@ -5590,7 +5594,7 @@ msgid "wartet auf Zahlung"
 msgstr ""
 
 #: src/Commerce/Labels.php:38
-#: src/Frontend/Strings.php:43
+#: src/Frontend/Strings.php:45
 msgid "ausgesetzt"
 msgstr ""
 
@@ -5769,8 +5773,8 @@ msgid "Texte"
 msgstr ""
 
 #: src/Commerce/ShopCatalog.php:387
-#: src/Frontend/Strings.php:174
-#: src/Frontend/Strings.php:547
+#: src/Frontend/Strings.php:176
+#: src/Frontend/Strings.php:549
 msgid "Kategorien"
 msgstr ""
 
@@ -6307,7 +6311,7 @@ msgid "Bestellung #%s ansehen"
 msgstr ""
 
 #: src/Commerce/WooCommerce/CartDuplicateHint.php:336
-#: src/Frontend/Strings.php:138
+#: src/Frontend/Strings.php:140
 msgid "Kontakt aufnehmen"
 msgstr ""
 
@@ -7568,38 +7572,38 @@ msgstr ""
 msgid "%1$s mind. %2$d von %3$d"
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:156
+#: src/Exams/Services/ExamService.php:168
 msgid "Im kostenlosen Umfang sind nur die ersten Prüfungsbögen enthalten."
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:171
+#: src/Exams/Services/ExamService.php:183
 msgid "Die Prüfung wird gerade gestartet. Bitte versuche es in einem Moment erneut."
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:202
+#: src/Exams/Services/ExamService.php:214
 #, php-format
 msgid "Dieser Prüfungsbogen wird am %s freigeschaltet, wenn alle seine Module freigegeben sind."
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:214
+#: src/Exams/Services/ExamService.php:226
 msgid "Die Zufallsprüfung ist verfügbar, sobald alle Module freigegeben sind."
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:404
+#: src/Exams/Services/ExamService.php:421
 msgid "Die Prüfungszeit ist abgelaufen. Diese Antwort wurde nicht mehr gespeichert."
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:843
+#: src/Exams/Services/ExamService.php:860
 #: src/Faq/FaqShortcode.php:55
 msgid "Weitere Fragen"
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:992
+#: src/Exams/Services/ExamService.php:1009
 #, php-format
 msgid "Bestanden ab %1$d von %2$d richtigen Antworten"
 msgstr ""
 
-#: src/Exams/Services/ExamService.php:1007
+#: src/Exams/Services/ExamService.php:1024
 msgid "Die Prüfungszeit ist abgelaufen."
 msgstr ""
 
@@ -7852,7 +7856,7 @@ msgid "AGB"
 msgstr ""
 
 #: src/Faq/FaqShortcode.php:74
-#: src/Frontend/Strings.php:89
+#: src/Frontend/Strings.php:91
 msgid "Häufige Fragen"
 msgstr ""
 
@@ -7982,2336 +7986,2344 @@ msgid "Gruppe beitreten"
 msgstr ""
 
 #: src/Frontend/Strings.php:40
+msgid "Diese Einladung ging an {email}. Du bist mit einem anderen Konto angemeldet. Möchtest du den Platz mit deinem Konto übernehmen?"
+msgstr ""
+
+#: src/Frontend/Strings.php:41
+msgid "Platz mit meinem Konto übernehmen"
+msgstr ""
+
+#: src/Frontend/Strings.php:42
 msgid "Name der Gruppe"
 msgstr ""
 
-#: src/Frontend/Strings.php:45
+#: src/Frontend/Strings.php:47
 msgid "{used} von {total} Plätzen belegt"
 msgstr ""
 
-#: src/Frontend/Strings.php:47
+#: src/Frontend/Strings.php:49
 msgid "Jede angemeldete Person mit diesem Link belegt einen freien Platz."
 msgstr ""
 
-#: src/Frontend/Strings.php:48
+#: src/Frontend/Strings.php:50
 msgid "Kopieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:49
+#: src/Frontend/Strings.php:51
 msgid "Neuen Link erzeugen"
 msgstr ""
 
-#: src/Frontend/Strings.php:50
+#: src/Frontend/Strings.php:52
 msgid "Per E-Mail einladen"
 msgstr ""
 
-#: src/Frontend/Strings.php:51
+#: src/Frontend/Strings.php:53
 msgid "Einladungen senden"
 msgstr ""
 
-#: src/Frontend/Strings.php:52
+#: src/Frontend/Strings.php:54
 msgid "Nicht eingeladen (ungültig, doppelt oder kein Platz frei): {list}"
 msgstr ""
 
-#: src/Frontend/Strings.php:55
+#: src/Frontend/Strings.php:57
 msgid "Platz freigeben"
 msgstr ""
 
-#: src/Frontend/Strings.php:56
+#: src/Frontend/Strings.php:58
 msgid "Platz von {name} freigeben? Der Zugang endet sofort. Grund (optional):"
 msgstr ""
 
-#: src/Frontend/Strings.php:60
+#: src/Frontend/Strings.php:62
 msgid "Wird am {date} freigeschaltet."
 msgstr ""
 
-#: src/Frontend/Strings.php:61
+#: src/Frontend/Strings.php:63
 msgid "Prüfung anmelden"
 msgstr ""
 
-#: src/Frontend/Strings.php:62
+#: src/Frontend/Strings.php:64
 msgid "So meldest du dich selbst beim Prüfungsausschuss an – mit Gebühren, Unterlagen, Fristen und einer Liste von Prüfungsausschüssen."
 msgstr ""
 
-#: src/Frontend/Strings.php:63
+#: src/Frontend/Strings.php:65
 msgid "Zur Anleitung"
 msgstr ""
 
-#: src/Frontend/Strings.php:64
+#: src/Frontend/Strings.php:66
 msgid "Prüfungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:65
+#: src/Frontend/Strings.php:67
 msgid "Prüfungsgebühr:"
 msgstr ""
 
-#: src/Frontend/Strings.php:66
+#: src/Frontend/Strings.php:68
 msgid "ca. {value}"
 msgstr ""
 
-#: src/Frontend/Strings.php:67
+#: src/Frontend/Strings.php:69
 msgid "Anmeldung:"
 msgstr ""
 
-#: src/Frontend/Strings.php:68
+#: src/Frontend/Strings.php:70
 msgid "Mindestalter:"
 msgstr ""
 
-#: src/Frontend/Strings.php:69
+#: src/Frontend/Strings.php:71
 msgid "So meldest du dich an"
 msgstr ""
 
-#: src/Frontend/Strings.php:70
+#: src/Frontend/Strings.php:72
 msgid "Antrag stellen"
 msgstr ""
 
-#: src/Frontend/Strings.php:71
+#: src/Frontend/Strings.php:73
 msgid "Unterlagen zusammenstellen"
 msgstr ""
 
-#: src/Frontend/Strings.php:72
+#: src/Frontend/Strings.php:74
 msgid "Rechtzeitig einreichen"
 msgstr ""
 
-#: src/Frontend/Strings.php:73
+#: src/Frontend/Strings.php:75
 msgid "Am Prüfungstag"
 msgstr ""
 
-#: src/Frontend/Strings.php:74
+#: src/Frontend/Strings.php:76
 msgid "Bring deinen Personalausweis oder Reisepass mit, dazu die Originale der eingereichten Nachweise."
 msgstr ""
 
-#: src/Frontend/Strings.php:76
+#: src/Frontend/Strings.php:78
 msgid "{n} Minuten"
 msgstr ""
 
-#: src/Frontend/Strings.php:77
+#: src/Frontend/Strings.php:79
 msgid "Bestanden: {pass}"
 msgstr ""
 
-#: src/Frontend/Strings.php:78
+#: src/Frontend/Strings.php:80
 msgid "Das wird geprüft"
 msgstr ""
 
-#: src/Frontend/Strings.php:79
+#: src/Frontend/Strings.php:81
 msgid "Jetzt üben"
 msgstr ""
 
-#: src/Frontend/Strings.php:80
+#: src/Frontend/Strings.php:82
 msgid "Termin buchen"
 msgstr ""
 
-#: src/Frontend/Strings.php:81
+#: src/Frontend/Strings.php:83
 msgid "Die Prüfung nimmt ein Prüfungsausschuss des Deutschen Segler-Verbands (DSV) oder des Deutschen Motoryachtverbands (DMYV) ab. Such dir einen Ausschuss in deiner Nähe aus und stimme den Termin direkt mit ihm ab."
 msgstr ""
 
-#: src/Frontend/Strings.php:82
+#: src/Frontend/Strings.php:84
 msgid "Zum {name}"
 msgstr ""
 
-#: src/Frontend/Strings.php:83
+#: src/Frontend/Strings.php:85
 msgid "Prüfungsausschüsse ({n})"
 msgstr ""
 
-#: src/Frontend/Strings.php:84
+#: src/Frontend/Strings.php:86
 msgid "Nach Ort, PLZ oder Name filtern"
 msgstr ""
 
-#: src/Frontend/Strings.php:85
+#: src/Frontend/Strings.php:87
 msgid "Kein Prüfungsausschuss passt zur Suche."
 msgstr ""
 
-#: src/Frontend/Strings.php:87
+#: src/Frontend/Strings.php:89
 msgid "Tel. {v}"
 msgstr ""
 
-#: src/Frontend/Strings.php:90
+#: src/Frontend/Strings.php:92
 msgid "Gebühren, Fristen und Abläufe sind Richtwerte; maßgeblich sind die Angaben deines Prüfungsausschusses."
 msgstr ""
 
-#: src/Frontend/Strings.php:91
+#: src/Frontend/Strings.php:93
 msgid "Downloads"
 msgstr ""
 
-#: src/Frontend/Strings.php:93
+#: src/Frontend/Strings.php:95
 msgid "Im kostenlosen Umfang nicht enthalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:94
+#: src/Frontend/Strings.php:96
 msgid "{n} weitere Einträge sind im kostenlosen Umfang nicht enthalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:95
+#: src/Frontend/Strings.php:97
 msgid "Kostenloser Umfang: die ersten {n} Fragen je Modul."
 msgstr ""
 
-#: src/Frontend/Strings.php:96
+#: src/Frontend/Strings.php:98
 msgid "Kostenloser Umfang: die ersten {n} Prüfungsbögen. Die Prüfungssimulation mit Zufallsfragen gehört zum Vollzugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:97
+#: src/Frontend/Strings.php:99
 msgid "Kostenloser Umfang: der erste Prüfungsbogen. Die Prüfungssimulation mit Zufallsfragen gehört zum Vollzugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:98
+#: src/Frontend/Strings.php:100
 msgid "Meine Lernzugänge ansehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:99
+#: src/Frontend/Strings.php:101
 msgid "Zur Übersicht"
 msgstr ""
 
-#: src/Frontend/Strings.php:100
+#: src/Frontend/Strings.php:102
 msgid "Zurück zum Kurs"
 msgstr ""
 
-#: src/Frontend/Strings.php:101
+#: src/Frontend/Strings.php:103
 msgid "Brotkrümelnavigation"
 msgstr ""
 
-#: src/Frontend/Strings.php:103
+#: src/Frontend/Strings.php:105
 msgid "Hallo {name}! Wähle einen Schein, um zu lernen oder eine Prüfung zu simulieren."
 msgstr ""
 
-#: src/Frontend/Strings.php:104
+#: src/Frontend/Strings.php:106
 msgid "Derzeit sind keine Kurse verfügbar."
 msgstr ""
 
-#: src/Frontend/Strings.php:105
+#: src/Frontend/Strings.php:107
 msgid "Öffnen"
 msgstr ""
 
-#: src/Frontend/Strings.php:106
+#: src/Frontend/Strings.php:108
 msgid "Dein Lernbereich"
 msgstr ""
 
-#: src/Frontend/Strings.php:107
+#: src/Frontend/Strings.php:109
 msgid "Hallo {name}!"
 msgstr ""
 
-#: src/Frontend/Strings.php:108
+#: src/Frontend/Strings.php:110
 msgid "Lerne mit dem Smarttrainer, simuliere die Prüfung und behalte deinen Fortschritt im Blick – auf jedem Gerät."
 msgstr ""
 
-#: src/Frontend/Strings.php:109
+#: src/Frontend/Strings.php:111
 msgid "Kurse freigeschaltet"
 msgstr ""
 
-#: src/Frontend/Strings.php:110
+#: src/Frontend/Strings.php:112
 msgid "Kurs freigeschaltet"
 msgstr ""
 
-#: src/Frontend/Strings.php:111
+#: src/Frontend/Strings.php:113
 msgid "Weiter, wo du stehst"
 msgstr ""
 
-#: src/Frontend/Strings.php:112
-#: src/Frontend/Strings.php:271
+#: src/Frontend/Strings.php:114
+#: src/Frontend/Strings.php:273
 msgid "Weiterlernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:113
+#: src/Frontend/Strings.php:115
 msgid "Meine Kurse"
 msgstr ""
 
-#: src/Frontend/Strings.php:114
+#: src/Frontend/Strings.php:116
 msgid "Kombikurse"
 msgstr ""
 
-#: src/Frontend/Strings.php:115
+#: src/Frontend/Strings.php:117
 msgid "Ergänzungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:116
+#: src/Frontend/Strings.php:118
 msgid "Weitere Kurse"
 msgstr ""
 
-#: src/Frontend/Strings.php:118
+#: src/Frontend/Strings.php:120
 msgid "Noch nicht freigeschaltet – im Shop erhältlich."
 msgstr ""
 
-#: src/Frontend/Strings.php:119
+#: src/Frontend/Strings.php:121
 msgid "Empfohlen"
 msgstr ""
 
-#: src/Frontend/Strings.php:120
+#: src/Frontend/Strings.php:122
 msgid "Passt zu deinem Kurs {name}"
 msgstr ""
 
-#: src/Frontend/Strings.php:121
+#: src/Frontend/Strings.php:123
 msgid "Dein Zugang zu {name} endet am {date}. Dein Lernstand bleibt erhalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:122
+#: src/Frontend/Strings.php:124
 msgid "Jetzt verlängern"
 msgstr ""
 
-#: src/Frontend/Strings.php:124
+#: src/Frontend/Strings.php:126
 msgid "Zahlung noch offen"
 msgstr ""
 
-#: src/Frontend/Strings.php:125
+#: src/Frontend/Strings.php:127
 msgid "Deine Bestellung #{number} für {name} ist eingegangen. Wir warten auf deine Zahlung – danach wird dein Zugang automatisch freigeschaltet. Einen Zugangscode brauchst du nicht."
 msgstr ""
 
-#: src/Frontend/Strings.php:126
+#: src/Frontend/Strings.php:128
 msgid "Deine Bestellung für {name} ist eingegangen. Wir warten auf deine Zahlung – danach wird dein Zugang automatisch freigeschaltet. Einen Zugangscode brauchst du nicht."
 msgstr ""
 
-#: src/Frontend/Strings.php:127
+#: src/Frontend/Strings.php:129
 msgid "Laufzeit: {term} ab Zahlungseingang."
 msgstr ""
 
-#: src/Frontend/Strings.php:128
+#: src/Frontend/Strings.php:130
 msgid "Bis dahin kannst du den kostenlosen Teil nutzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:129
+#: src/Frontend/Strings.php:131
 msgid "Bestellung und Zahlungsdaten ansehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:130
+#: src/Frontend/Strings.php:132
 msgid "Zahlung offen – Freischaltung nach Zahlungseingang"
 msgstr ""
 
-#: src/Frontend/Strings.php:131
+#: src/Frontend/Strings.php:133
 msgid "Kurszugang abgelaufen"
 msgstr ""
 
-#: src/Frontend/Strings.php:132
+#: src/Frontend/Strings.php:134
 msgid "Dein Zugang zu {name} ist am {date} abgelaufen. Dein Lernstand bleibt in deinem Konto gespeichert."
 msgstr ""
 
-#: src/Frontend/Strings.php:133
+#: src/Frontend/Strings.php:135
 msgid "Abgelaufen am {date}"
 msgstr ""
 
-#: src/Frontend/Strings.php:134
+#: src/Frontend/Strings.php:136
 msgid "Kurszugang verlängern"
 msgstr ""
 
-#: src/Frontend/Strings.php:135
 #: src/Frontend/Strings.php:137
+#: src/Frontend/Strings.php:139
 msgid "Zugang gesperrt"
 msgstr ""
 
-#: src/Frontend/Strings.php:136
+#: src/Frontend/Strings.php:138
 msgid "Dein Zugang zu {name} ist derzeit gesperrt, zum Beispiel wegen einer Rückbuchung. Bitte melde dich bei uns, damit wir das klären können."
 msgstr ""
 
-#: src/Frontend/Strings.php:139
+#: src/Frontend/Strings.php:141
 msgid "Lernstrategien und Hinweise rund um die Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:140
+#: src/Frontend/Strings.php:142
 msgid "Plätze verwalten und Mitglieder einladen"
 msgstr ""
 
-#: src/Frontend/Strings.php:141
+#: src/Frontend/Strings.php:143
 msgid "gefestigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:142
+#: src/Frontend/Strings.php:144
 msgid "Lernen starten"
 msgstr ""
 
-#: src/Frontend/Strings.php:144
+#: src/Frontend/Strings.php:146
 msgid "Falsch beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:145
+#: src/Frontend/Strings.php:147
 msgid "{mastered} von {total} Fragen gefestigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:146
+#: src/Frontend/Strings.php:148
 msgid "Dein Lernbereich: Wähle einen Bereich und leg los."
 msgstr ""
 
-#: src/Frontend/Strings.php:147
+#: src/Frontend/Strings.php:149
 msgid "Dein Lernbereich · {percent} % gefestigt ({mastered} von {total} Fragen)"
 msgstr ""
 
-#: src/Frontend/Strings.php:148
+#: src/Frontend/Strings.php:150
 msgid "Kurs freischalten"
 msgstr ""
 
-#: src/Frontend/Strings.php:149
+#: src/Frontend/Strings.php:151
 msgid "Du nutzt den kostenlosen Teil"
 msgstr ""
 
-#: src/Frontend/Strings.php:150
+#: src/Frontend/Strings.php:152
 msgid "Dein nächster Schritt"
 msgstr ""
 
-#: src/Frontend/Strings.php:151
+#: src/Frontend/Strings.php:153
 msgid "{new} neue und {wrong} falsch beantwortete Fragen warten auf dich."
 msgstr ""
 
-#: src/Frontend/Strings.php:152
+#: src/Frontend/Strings.php:154
 msgid "Alle Fragen sind beantwortet – wiederhole, bis jede Frage gefestigt ist."
 msgstr ""
 
-#: src/Frontend/Strings.php:153
+#: src/Frontend/Strings.php:155
 msgid "Knoten"
 msgstr ""
 
-#: src/Frontend/Strings.php:154
+#: src/Frontend/Strings.php:156
 msgid "{done} von {total} Knoten angesehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:155
+#: src/Frontend/Strings.php:157
 msgid "Alle Knoten aus dem Videokurs: je Knoten ein Video und eine Anleitung Schritt für Schritt. Üben solltest du sie mit einem echten Tau – so lange, bis sie ohne Hinsehen sitzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:156
+#: src/Frontend/Strings.php:158
 msgid "{n} Schritte"
 msgstr ""
 
-#: src/Frontend/Strings.php:157
+#: src/Frontend/Strings.php:159
 msgid "angesehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:159
+#: src/Frontend/Strings.php:161
 msgid "In diesem Kurs gibt es keine Knoten-Lektionen."
 msgstr ""
 
-#: src/Frontend/Strings.php:160
+#: src/Frontend/Strings.php:162
 msgid "{percent} % gefestigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:161
+#: src/Frontend/Strings.php:163
 msgid "Lernen · Üben · Prüfen"
 msgstr ""
 
-#: src/Frontend/Strings.php:162
+#: src/Frontend/Strings.php:164
 msgid "{percent} %"
 msgstr ""
 
-#: src/Frontend/Strings.php:164
+#: src/Frontend/Strings.php:166
 msgid "begonnen"
 msgstr ""
 
-#: src/Frontend/Strings.php:167
+#: src/Frontend/Strings.php:169
 msgid "Aufgaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:168
+#: src/Frontend/Strings.php:170
 msgid "vollständig gelöst"
 msgstr ""
 
-#: src/Frontend/Strings.php:169
+#: src/Frontend/Strings.php:171
 msgid "Teilaufgaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:171
+#: src/Frontend/Strings.php:173
 msgid "Karten für die praktische Prüfung: Frage lesen, Antwort überlegen, aufdecken und ehrlich einschätzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:172
+#: src/Frontend/Strings.php:174
 msgid "Karten"
 msgstr ""
 
-#: src/Frontend/Strings.php:173
-#: src/Frontend/Strings.php:553
+#: src/Frontend/Strings.php:175
+#: src/Frontend/Strings.php:555
 msgid "sicher"
 msgstr ""
 
-#: src/Frontend/Strings.php:175
+#: src/Frontend/Strings.php:177
 msgid "Funkpraxis-Aufgaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:176
+#: src/Frontend/Strings.php:178
 msgid "Funktexte erledigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:177
+#: src/Frontend/Strings.php:179
 msgid "Vokabeln gelernt"
 msgstr ""
 
-#: src/Frontend/Strings.php:178
+#: src/Frontend/Strings.php:180
 msgid "{n} Tipps"
 msgstr ""
 
-#: src/Frontend/Strings.php:179
+#: src/Frontend/Strings.php:181
 msgid "1 Tipp"
 msgstr ""
 
-#: src/Frontend/Strings.php:180
+#: src/Frontend/Strings.php:182
 #: src/Tips/Tips.php:39
 #: src/Tips/Tips.php:41
 msgid "Tipps"
 msgstr ""
 
-#: src/Frontend/Strings.php:181
-#: src/Frontend/Strings.php:270
+#: src/Frontend/Strings.php:183
+#: src/Frontend/Strings.php:272
 msgid "Themen"
 msgstr ""
 
-#: src/Frontend/Strings.php:182
+#: src/Frontend/Strings.php:184
 msgid "Gruppen"
 msgstr ""
 
-#: src/Frontend/Strings.php:183
+#: src/Frontend/Strings.php:185
 msgid "Plätze belegt"
 msgstr ""
 
-#: src/Frontend/Strings.php:184
+#: src/Frontend/Strings.php:186
 msgid "Gemeinsam lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:185
+#: src/Frontend/Strings.php:187
 msgid "Gruppenpakete ansehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:187
+#: src/Frontend/Strings.php:189
 msgid "Kontakt zu {name} anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:188
+#: src/Frontend/Strings.php:190
 msgid "E-Mail schreiben"
 msgstr ""
 
-#: src/Frontend/Strings.php:189
+#: src/Frontend/Strings.php:191
 msgid "{n} Prüfungsausschüsse"
 msgstr ""
 
-#: src/Frontend/Strings.php:190
+#: src/Frontend/Strings.php:192
 msgid "{n} von {total} Treffern"
 msgstr ""
 
-#: src/Frontend/Strings.php:191
+#: src/Frontend/Strings.php:193
 msgid "Bundesland wählen"
 msgstr ""
 
-#: src/Frontend/Strings.php:192
+#: src/Frontend/Strings.php:194
 msgid "Alle anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:193
+#: src/Frontend/Strings.php:195
 msgid "{state}: {n} Prüfungsausschüsse"
 msgstr ""
 
-#: src/Frontend/Strings.php:194
+#: src/Frontend/Strings.php:196
 msgid "Zahl = Prüfungsausschüsse im Bundesland"
 msgstr ""
 
-#: src/Frontend/Strings.php:195
+#: src/Frontend/Strings.php:197
 msgid "Klicke auf dein Bundesland. Die Zuordnung ergibt sich aus den Namen der Prüfungsausschüsse (z. B. „Thüringen Nord“) – im Zweifel frag direkt beim Ausschuss nach. Kartendaten: Natural Earth."
 msgstr ""
 
-#: src/Frontend/Strings.php:196
+#: src/Frontend/Strings.php:198
 msgid "Dein Teilkurs"
 msgstr ""
 
-#: src/Frontend/Strings.php:197
+#: src/Frontend/Strings.php:199
 msgid "Dein Videokurs für {name}"
 msgstr ""
 
-#: src/Frontend/Strings.php:198
+#: src/Frontend/Strings.php:200
 msgid "Kursfortschritt {percent} %"
 msgstr ""
 
-#: src/Frontend/Strings.php:199
+#: src/Frontend/Strings.php:201
 msgid "Erste Lektion kostenlos ansehen"
 msgstr ""
 
-#: src/Frontend/Strings.php:200
+#: src/Frontend/Strings.php:202
 msgid "Videokurs freischalten"
 msgstr ""
 
-#: src/Frontend/Strings.php:201
+#: src/Frontend/Strings.php:203
 msgid "Weiterschauen"
 msgstr ""
 
-#: src/Frontend/Strings.php:202
+#: src/Frontend/Strings.php:204
 msgid "Videokurs starten"
 msgstr ""
 
-#: src/Frontend/Strings.php:203
+#: src/Frontend/Strings.php:205
 msgid "Bereit für die Prüfung?"
 msgstr ""
 
-#: src/Frontend/Strings.php:204
+#: src/Frontend/Strings.php:206
 msgid "Letzte Simulation: {score} von {max} – {verdict}"
 msgstr ""
 
-#: src/Frontend/Strings.php:205
+#: src/Frontend/Strings.php:207
 msgid "Übe unter Prüfungsbedingungen: mit Zeitlimit, ohne Lösungen, mit Auswertung nach Themen."
 msgstr ""
 
-#: src/Frontend/Strings.php:206
+#: src/Frontend/Strings.php:208
 msgid "Zur Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:207
+#: src/Frontend/Strings.php:209
 msgid "Dein Fortschritt"
 msgstr ""
 
-#: src/Frontend/Strings.php:208
+#: src/Frontend/Strings.php:210
 msgid "Offen"
 msgstr ""
 
-#: src/Frontend/Strings.php:209
+#: src/Frontend/Strings.php:211
 msgid "Noch {n} Fragen, bis alles gefestigt ist."
 msgstr ""
 
-#: src/Frontend/Strings.php:210
+#: src/Frontend/Strings.php:212
 msgid "Noch 1 Frage, bis alles gefestigt ist."
 msgstr ""
 
-#: src/Frontend/Strings.php:211
+#: src/Frontend/Strings.php:213
 msgid "Alle Fragen gefestigt – stark! Teste dich in der Prüfungssimulation."
 msgstr ""
 
-#: src/Frontend/Strings.php:212
+#: src/Frontend/Strings.php:214
 msgid "Lernbereiche"
 msgstr ""
 
-#: src/Frontend/Strings.php:213
+#: src/Frontend/Strings.php:215
 msgid "Wähle einen Bereich und leg los."
 msgstr ""
 
-#: src/Frontend/Strings.php:214
+#: src/Frontend/Strings.php:216
 msgid "Wählt die nächste Frage für dich"
 msgstr ""
 
-#: src/Frontend/Strings.php:215
+#: src/Frontend/Strings.php:217
 msgid "Fragen nach Themen"
 msgstr ""
 
-#: src/Frontend/Strings.php:216
+#: src/Frontend/Strings.php:218
 msgid "{n} Themen · neue, falsche und favorisierte Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:217
+#: src/Frontend/Strings.php:219
 msgid "1 Thema · neue, falsche und favorisierte Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:218
+#: src/Frontend/Strings.php:220
 msgid "Zufallsprüfung und {n} feste Prüfungsbögen"
 msgstr ""
 
-#: src/Frontend/Strings.php:219
+#: src/Frontend/Strings.php:221
 msgid "Zufallsprüfung und 1 fester Prüfungsbogen"
 msgstr ""
 
-#: src/Frontend/Strings.php:220
+#: src/Frontend/Strings.php:222
 msgid "Prüfung mit Zeitlimit und Auswertung"
 msgstr ""
 
-#: src/Frontend/Strings.php:221
+#: src/Frontend/Strings.php:223
 msgid "{n} Dateien zum Herunterladen"
 msgstr ""
 
-#: src/Frontend/Strings.php:222
+#: src/Frontend/Strings.php:224
 msgid "1 Datei zum Herunterladen"
 msgstr ""
 
-#: src/Frontend/Strings.php:223
+#: src/Frontend/Strings.php:225
 msgid "Für diesen Kurs gibt es keine Downloads."
 msgstr ""
 
-#: src/Frontend/Strings.php:224
+#: src/Frontend/Strings.php:226
 msgid "Anmeldung, Unterlagen und Prüfungsausschüsse"
 msgstr ""
 
-#: src/Frontend/Strings.php:226
+#: src/Frontend/Strings.php:228
 msgid "Fragen & Antworten zu deinem Kurs"
 msgstr ""
 
-#: src/Frontend/Strings.php:227
+#: src/Frontend/Strings.php:229
 msgid "Antworten rund um Lernen, Prüfung und Zugang – exklusiv für Kunden dieses Kurses."
 msgstr ""
 
-#: src/Frontend/Strings.php:228
-#: src/Frontend/Strings.php:300
-#: src/Frontend/Strings.php:370
+#: src/Frontend/Strings.php:230
+#: src/Frontend/Strings.php:302
+#: src/Frontend/Strings.php:372
 msgid "{n} Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:229
-#: src/Frontend/Strings.php:301
+#: src/Frontend/Strings.php:231
+#: src/Frontend/Strings.php:303
 msgid "1 Frage"
 msgstr ""
 
-#: src/Frontend/Strings.php:231
+#: src/Frontend/Strings.php:233
 #: src/Privacy/PersonalData.php:259
 msgid "Praxis-Tickets"
 msgstr ""
 
-#: src/Frontend/Strings.php:232
+#: src/Frontend/Strings.php:234
 msgid "Deine gebuchten Praxis-Termine. Die Übersicht ist kein amtlicher Ausbildungsnachweis."
 msgstr ""
 
-#: src/Frontend/Strings.php:233
+#: src/Frontend/Strings.php:235
 msgid "Praxis: {done} von {total} Einheiten absolviert"
 msgstr ""
 
-#: src/Frontend/Strings.php:234
+#: src/Frontend/Strings.php:236
 msgid "Praxis: {done} von 1 Einheit absolviert"
 msgstr ""
 
-#: src/Frontend/Strings.php:235
+#: src/Frontend/Strings.php:237
 msgid "Storniert"
 msgstr ""
 
-#: src/Frontend/Strings.php:236
+#: src/Frontend/Strings.php:238
 msgid "Storniert: {reason}"
 msgstr ""
 
-#: src/Frontend/Strings.php:237
-#: src/Frontend/Strings.php:568
+#: src/Frontend/Strings.php:239
+#: src/Frontend/Strings.php:570
 msgid "Abgeschlossen"
 msgstr ""
 
-#: src/Frontend/Strings.php:238
+#: src/Frontend/Strings.php:240
 msgid "Praxis in deiner Nähe"
 msgstr ""
 
-#: src/Frontend/Strings.php:239
+#: src/Frontend/Strings.php:241
 msgid "Termine für die praktische Ausbildung."
 msgstr ""
 
-#: src/Frontend/Strings.php:240
+#: src/Frontend/Strings.php:242
 msgid "Zum Angebot"
 msgstr ""
 
-#: src/Frontend/Strings.php:241
+#: src/Frontend/Strings.php:243
 msgid "Nach Themen lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:242
+#: src/Frontend/Strings.php:244
 msgid "Neue, falsche und fällige Fragen im Wechsel"
 msgstr ""
 
-#: src/Frontend/Strings.php:243
+#: src/Frontend/Strings.php:245
 msgid "Noch nie beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:244
+#: src/Frontend/Strings.php:246
 msgid "Fehler gezielt wiederholen"
 msgstr ""
 
-#: src/Frontend/Strings.php:245
+#: src/Frontend/Strings.php:247
 msgid "Deine Favoriten"
 msgstr ""
 
-#: src/Frontend/Strings.php:247
+#: src/Frontend/Strings.php:249
 msgid "Kostenlos testen"
 msgstr ""
 
-#: src/Frontend/Strings.php:248
+#: src/Frontend/Strings.php:250
 msgid "Kostenloser Teilumfang – Vollzugang im Shop"
 msgstr ""
 
-#: src/Frontend/Strings.php:249
+#: src/Frontend/Strings.php:251
 msgid "Kostenlos weiterlernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:250
+#: src/Frontend/Strings.php:252
 msgid "Vollzugang freischalten · {price}"
 msgstr ""
 
-#: src/Frontend/Strings.php:251
+#: src/Frontend/Strings.php:253
 msgid "zum kostenlosen Testen"
 msgstr ""
 
-#: src/Frontend/Strings.php:253
+#: src/Frontend/Strings.php:255
 msgid "Ergänzung"
 msgstr ""
 
-#: src/Frontend/Strings.php:254
+#: src/Frontend/Strings.php:256
 msgid "{percent} % gefestigt · {mastered} von {total} Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:255
+#: src/Frontend/Strings.php:257
 msgid "Fortschritt: {mastered} gefestigt, {secure} sicher heute, {learning} in Bearbeitung, {unsure} unsicher von {total} Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:257
+#: src/Frontend/Strings.php:259
 msgid "{n} sicher heute"
 msgstr ""
 
-#: src/Frontend/Strings.php:258
+#: src/Frontend/Strings.php:260
 msgid "Lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:259
+#: src/Frontend/Strings.php:261
 msgid "Der Smarttrainer zeigt dir zuerst neue Fragen, danach falsch beantwortete und unsichere. Nach drei richtigen Antworten in Folge ist eine Frage „sicher heute“; gefestigt ist sie, wenn du sie an einem anderen Tag noch einmal richtig beantwortest. Gefestigte Fragen kommen nach einigen Tagen zur Wiederholung."
 msgstr ""
 
-#: src/Frontend/Strings.php:260
+#: src/Frontend/Strings.php:262
 msgid "Smarttrainer"
 msgstr ""
 
-#: src/Frontend/Strings.php:261
+#: src/Frontend/Strings.php:263
 msgid "Neue Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:262
+#: src/Frontend/Strings.php:264
 msgid "Falsch beantwortete Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:263
-#: src/Frontend/Strings.php:279
+#: src/Frontend/Strings.php:265
+#: src/Frontend/Strings.php:281
 #: src/Privacy/PersonalData.php:139
 msgid "Favoriten"
 msgstr ""
 
-#: src/Frontend/Strings.php:264
+#: src/Frontend/Strings.php:266
 msgid "Modul lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:265
+#: src/Frontend/Strings.php:267
 msgid "Alle Fragen aus „{name}“ lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:266
+#: src/Frontend/Strings.php:268
 msgid "{name}: {mastered} von {total} Fragen gefestigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:267
+#: src/Frontend/Strings.php:269
 msgid "{mastered}/{total} Fragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:268
+#: src/Frontend/Strings.php:270
 msgid "{mastered}/{total} · {percent} %"
 msgstr ""
 
-#: src/Frontend/Strings.php:272
-#: src/Frontend/Strings.php:278
+#: src/Frontend/Strings.php:274
+#: src/Frontend/Strings.php:280
 msgid "Favoriten & Fehler"
 msgstr ""
 
-#: src/Frontend/Strings.php:273
+#: src/Frontend/Strings.php:275
 msgid "Gemerkte Fragen und eigene Sammlungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:274
+#: src/Frontend/Strings.php:276
 msgid "Markiere schwierige Fragen mit „Zu Favoriten“, um sie hier gezielt zu wiederholen."
 msgstr ""
 
-#: src/Frontend/Strings.php:275
+#: src/Frontend/Strings.php:277
 msgid "Öffnen und sortieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:276
+#: src/Frontend/Strings.php:278
 msgid "Zurück zum Smarttrainer"
 msgstr ""
 
-#: src/Frontend/Strings.php:277
+#: src/Frontend/Strings.php:279
 msgid "Weiterlernen mit dem Smarttrainer"
 msgstr ""
 
-#: src/Frontend/Strings.php:280
+#: src/Frontend/Strings.php:282
 msgid "Deine Favoriten in eigenen Sammlungen und deine falsch beantworteten Fragen."
 msgstr ""
 
-#: src/Frontend/Strings.php:281
+#: src/Frontend/Strings.php:283
 msgid "Markiere beim Lernen Fragen mit „Zu Favoriten“. Hier sortierst du deine Favoriten über das Ordner-Symbol in eigene Sammlungen (z. B. „Notverkehr“) und lernst jede Sammlung gezielt."
 msgstr ""
 
-#: src/Frontend/Strings.php:282
+#: src/Frontend/Strings.php:284
 msgid "{n} Favoriten · eigene Sammlungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:283
+#: src/Frontend/Strings.php:285
 msgid "1 Favorit · eigene Sammlungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:284
-#: src/Frontend/Strings.php:285
+#: src/Frontend/Strings.php:286
+#: src/Frontend/Strings.php:287
 #: src/Privacy/PersonalData.php:140
 msgid "Sammlungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:286
+#: src/Frontend/Strings.php:288
 msgid "Alle Favoriten"
 msgstr ""
 
-#: src/Frontend/Strings.php:287
+#: src/Frontend/Strings.php:289
 msgid "Neue Sammlung"
 msgstr ""
 
-#: src/Frontend/Strings.php:288
+#: src/Frontend/Strings.php:290
 msgid "Name der neuen Sammlung"
 msgstr ""
 
-#: src/Frontend/Strings.php:289
+#: src/Frontend/Strings.php:291
 msgid "z. B. Notverkehr"
 msgstr ""
 
-#: src/Frontend/Strings.php:290
+#: src/Frontend/Strings.php:292
 msgid "Anlegen"
 msgstr ""
 
-#: src/Frontend/Strings.php:291
+#: src/Frontend/Strings.php:293
 msgid "Sammlung angelegt."
 msgstr ""
 
-#: src/Frontend/Strings.php:292
+#: src/Frontend/Strings.php:294
 msgid "Name der Sammlung"
 msgstr ""
 
-#: src/Frontend/Strings.php:293
+#: src/Frontend/Strings.php:295
 msgid "Umbenennen"
 msgstr ""
 
-#: src/Frontend/Strings.php:294
+#: src/Frontend/Strings.php:296
 msgid "Sammlung umbenannt."
 msgstr ""
 
-#: src/Frontend/Strings.php:295
+#: src/Frontend/Strings.php:297
 msgid "Sammlung löschen"
 msgstr ""
 
-#: src/Frontend/Strings.php:296
+#: src/Frontend/Strings.php:298
 msgid "Sammlung „{name}“ löschen? Die Fragen bleiben erhalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:297
+#: src/Frontend/Strings.php:299
 msgid "Sammlung gelöscht."
 msgstr ""
 
-#: src/Frontend/Strings.php:298
+#: src/Frontend/Strings.php:300
 msgid "Meine Favoriten"
 msgstr ""
 
-#: src/Frontend/Strings.php:299
+#: src/Frontend/Strings.php:301
 msgid "Meine Fehler"
 msgstr ""
 
-#: src/Frontend/Strings.php:302
+#: src/Frontend/Strings.php:304
 msgid "Diese Fragen lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:303
+#: src/Frontend/Strings.php:305
 msgid "Fehler wiederholen"
 msgstr ""
 
-#: src/Frontend/Strings.php:304
+#: src/Frontend/Strings.php:306
 msgid "Noch keine Favoriten. Markiere im Smarttrainer Fragen mit „Zu Favoriten“."
 msgstr ""
 
-#: src/Frontend/Strings.php:305
+#: src/Frontend/Strings.php:307
 msgid "Diese Sammlung ist noch leer. Sortiere Favoriten über das Ordner-Symbol ein."
 msgstr ""
 
-#: src/Frontend/Strings.php:306
+#: src/Frontend/Strings.php:308
 msgid "Keine offenen Fehler – stark!"
 msgstr ""
 
-#: src/Frontend/Strings.php:307
-#: src/Frontend/Strings.php:308
+#: src/Frontend/Strings.php:309
+#: src/Frontend/Strings.php:310
 msgid "In Sammlungen einsortieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:309
+#: src/Frontend/Strings.php:311
 msgid "Lege oben eine Sammlung an, um Favoriten einzusortieren."
 msgstr ""
 
-#: src/Frontend/Strings.php:311
+#: src/Frontend/Strings.php:313
 msgid "Sammlungen aktualisiert."
 msgstr ""
 
-#: src/Frontend/Strings.php:312
+#: src/Frontend/Strings.php:314
 msgid "Zu den Favoriten hinzugefügt."
 msgstr ""
 
-#: src/Frontend/Strings.php:313
+#: src/Frontend/Strings.php:315
 msgid "Aus den Favoriten entfernt."
 msgstr ""
 
-#: src/Frontend/Strings.php:314
+#: src/Frontend/Strings.php:316
 msgid "falsch beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:315
+#: src/Frontend/Strings.php:317
 msgid "Geschafft!"
 msgstr ""
 
-#: src/Frontend/Strings.php:316
+#: src/Frontend/Strings.php:318
 msgid "In diesem Bereich gibt es gerade keine Fragen."
 msgstr ""
 
-#: src/Frontend/Strings.php:317
+#: src/Frontend/Strings.php:319
 msgid "Du hast alle Fragen mindestens einmal beantwortet."
 msgstr ""
 
-#: src/Frontend/Strings.php:318
+#: src/Frontend/Strings.php:320
 msgid "Keine falsch beantworteten Fragen mehr offen."
 msgstr ""
 
-#: src/Frontend/Strings.php:319
+#: src/Frontend/Strings.php:321
 msgid "Du hast noch keine Favoriten. Markiere Fragen mit „Zu Favoriten“."
 msgstr ""
 
-#: src/Frontend/Strings.php:320
+#: src/Frontend/Strings.php:322
 msgid "In dieser Sammlung sind gerade keine Favoriten. Sortiere Fragen auf der Seite „Favoriten & Fehler“ ein."
 msgstr ""
 
-#: src/Frontend/Strings.php:321
+#: src/Frontend/Strings.php:323
 msgid "Alles gefestigt!"
 msgstr ""
 
-#: src/Frontend/Strings.php:322
+#: src/Frontend/Strings.php:324
 msgid "Du hast alle {n} Fragen in diesem Bereich gefestigt. Wiederhole sie bei Bedarf oder wähle ein anderes Thema."
 msgstr ""
 
-#: src/Frontend/Strings.php:323
+#: src/Frontend/Strings.php:325
 msgid "Trotzdem wiederholen"
 msgstr ""
 
-#: src/Frontend/Strings.php:324
+#: src/Frontend/Strings.php:326
 msgid "Im Smarttrainer weiterlernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:325
+#: src/Frontend/Strings.php:327
 msgid "Zurück zu Favoriten & Fehler"
 msgstr ""
 
-#: src/Frontend/Strings.php:326
+#: src/Frontend/Strings.php:328
 msgid "Nr. {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:327
+#: src/Frontend/Strings.php:329
 msgid "Eine Antwort auswählen"
 msgstr ""
 
-#: src/Frontend/Strings.php:328
+#: src/Frontend/Strings.php:330
 msgid "Mehrere Antworten können richtig sein."
 msgstr ""
 
-#: src/Frontend/Strings.php:329
+#: src/Frontend/Strings.php:331
 msgid "Antwort prüfen"
 msgstr ""
 
-#: src/Frontend/Strings.php:330
+#: src/Frontend/Strings.php:332
 msgid "Nächste Frage"
 msgstr ""
 
-#: src/Frontend/Strings.php:331
+#: src/Frontend/Strings.php:333
 msgid "Richtig!"
 msgstr ""
 
-#: src/Frontend/Strings.php:332
+#: src/Frontend/Strings.php:334
 msgid "Leider falsch."
 msgstr ""
 
-#: src/Frontend/Strings.php:333
-#: src/Frontend/Strings.php:493
-#: src/Frontend/Strings.php:544
+#: src/Frontend/Strings.php:335
+#: src/Frontend/Strings.php:495
+#: src/Frontend/Strings.php:546
 msgid "richtig"
 msgstr ""
 
-#: src/Frontend/Strings.php:334
-#: src/Frontend/Strings.php:546
+#: src/Frontend/Strings.php:336
+#: src/Frontend/Strings.php:548
 msgid "falsch"
 msgstr ""
 
-#: src/Frontend/Strings.php:335
+#: src/Frontend/Strings.php:337
 msgid "Erklärungen sind für dein Konto nicht freigeschaltet."
 msgstr ""
 
-#: src/Frontend/Strings.php:336
+#: src/Frontend/Strings.php:338
 msgid "Neu"
 msgstr ""
 
-#: src/Frontend/Strings.php:337
+#: src/Frontend/Strings.php:339
 msgid "Unsicher"
 msgstr ""
 
-#: src/Frontend/Strings.php:338
+#: src/Frontend/Strings.php:340
 msgid "In Bearbeitung"
 msgstr ""
 
-#: src/Frontend/Strings.php:339
+#: src/Frontend/Strings.php:341
 msgid "Sicher heute"
 msgstr ""
 
-#: src/Frontend/Strings.php:340
+#: src/Frontend/Strings.php:342
 msgid "Gefestigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:341
+#: src/Frontend/Strings.php:343
 msgid "Heute sicher. Beantworte die Frage an einem anderen Tag noch einmal richtig, dann gilt sie als gefestigt."
 msgstr ""
 
-#: src/Frontend/Strings.php:342
+#: src/Frontend/Strings.php:344
 msgid "Gefestigt – diese Frage kommt in einigen Tagen noch einmal zur Wiederholung."
 msgstr ""
 
-#: src/Frontend/Strings.php:343
+#: src/Frontend/Strings.php:345
 msgid "{n} × richtig in Folge"
 msgstr ""
 
-#: src/Frontend/Strings.php:344
+#: src/Frontend/Strings.php:346
 msgid "Zu Favoriten"
 msgstr ""
 
-#: src/Frontend/Strings.php:345
+#: src/Frontend/Strings.php:347
 msgid "Aus Favoriten entfernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:347
+#: src/Frontend/Strings.php:349
 msgid "Merken"
 msgstr ""
 
-#: src/Frontend/Strings.php:348
+#: src/Frontend/Strings.php:350
 msgid "Zählt für die Festigung erst mit etwas Abstand."
 msgstr ""
 
-#: src/Frontend/Strings.php:349
+#: src/Frontend/Strings.php:351
 msgid "Noch {n} Fragen in diesem Modus"
 msgstr ""
 
-#: src/Frontend/Strings.php:350
+#: src/Frontend/Strings.php:352
 msgid "Noch 1 Frage in diesem Modus"
 msgstr ""
 
-#: src/Frontend/Strings.php:351
+#: src/Frontend/Strings.php:353
 msgid "Deine Antwort (nur für dich, wird nicht gespeichert)"
 msgstr ""
 
-#: src/Frontend/Strings.php:352
+#: src/Frontend/Strings.php:354
 msgid "Offene Frage: Formuliere deine Antwort, zeige dann die Musterantwort und schätze dich selbst ein."
 msgstr ""
 
-#: src/Frontend/Strings.php:353
+#: src/Frontend/Strings.php:355
 msgid "Musterantwort anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:354
+#: src/Frontend/Strings.php:356
 msgid "Musterantwort"
 msgstr ""
 
-#: src/Frontend/Strings.php:355
+#: src/Frontend/Strings.php:357
 msgid "Gewusst"
 msgstr ""
 
-#: src/Frontend/Strings.php:356
+#: src/Frontend/Strings.php:358
 msgid "Nicht gewusst"
 msgstr ""
 
-#: src/Frontend/Strings.php:357
+#: src/Frontend/Strings.php:359
 msgid "Selbsteinschätzung"
 msgstr ""
 
-#: src/Frontend/Strings.php:358
+#: src/Frontend/Strings.php:360
 msgid "Selbsteinschätzung: gewusst"
 msgstr ""
 
-#: src/Frontend/Strings.php:359
+#: src/Frontend/Strings.php:361
 msgid "Selbsteinschätzung: nicht gewusst"
 msgstr ""
 
-#: src/Frontend/Strings.php:360
+#: src/Frontend/Strings.php:362
 msgid "Prüfung simulieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:361
+#: src/Frontend/Strings.php:363
 msgid "Für diesen Kurs ist noch keine Prüfungssimulation verfügbar."
 msgstr ""
 
-#: src/Frontend/Strings.php:364
+#: src/Frontend/Strings.php:366
 msgid "Das Regelwerk dieses Kurses ist noch nicht fachlich verifiziert. Ergebnisse sind nur eine Orientierung."
 msgstr ""
 
-#: src/Frontend/Strings.php:365
+#: src/Frontend/Strings.php:367
 msgid "{questions} Fragen · {passing}"
 msgstr ""
 
-#: src/Frontend/Strings.php:366
+#: src/Frontend/Strings.php:368
 msgid "Zufällige Prüfung starten"
 msgstr ""
 
-#: src/Frontend/Strings.php:367
+#: src/Frontend/Strings.php:369
 msgid "Laufende Prüfung fortsetzen"
 msgstr ""
 
-#: src/Frontend/Strings.php:368
+#: src/Frontend/Strings.php:370
 msgid "Feste Prüfungsbögen"
 msgstr ""
 
-#: src/Frontend/Strings.php:369
+#: src/Frontend/Strings.php:371
 msgid "{passed}/{total} bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:371
+#: src/Frontend/Strings.php:373
 msgid "Eine zufällig zusammengestellte Prüfung nach dem Regelwerk des Kurses: mit Zeitlimit, ohne Lösungen, Auswertung am Ende."
 msgstr ""
 
-#: src/Frontend/Strings.php:372
+#: src/Frontend/Strings.php:374
 msgid "Fragen je Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:373
+#: src/Frontend/Strings.php:375
 msgid "Bögen bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:374
+#: src/Frontend/Strings.php:376
 msgid "Prüfungen abgelegt"
 msgstr ""
 
-#: src/Frontend/Strings.php:375
-#: src/Frontend/Strings.php:414
+#: src/Frontend/Strings.php:377
+#: src/Frontend/Strings.php:416
 msgid "bestes Ergebnis"
 msgstr ""
 
-#: src/Frontend/Strings.php:376
+#: src/Frontend/Strings.php:378
 msgid "Bogen {number}: {state}"
 msgstr ""
 
-#: src/Frontend/Strings.php:378
+#: src/Frontend/Strings.php:380
 msgid "läuft"
 msgstr ""
 
-#: src/Frontend/Strings.php:379
-#: src/Frontend/Strings.php:418
+#: src/Frontend/Strings.php:381
+#: src/Frontend/Strings.php:420
 msgid "bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:380
-#: src/Frontend/Strings.php:419
+#: src/Frontend/Strings.php:382
+#: src/Frontend/Strings.php:421
 msgid "nicht bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:381
+#: src/Frontend/Strings.php:383
 msgid "ab {date}"
 msgstr ""
 
-#: src/Frontend/Strings.php:382
+#: src/Frontend/Strings.php:384
 msgid "Verkürzte Übungsprüfung – nicht alle Fragen verfügbar, keine offizielle Wertung."
 msgstr ""
 
-#: src/Frontend/Strings.php:383
+#: src/Frontend/Strings.php:385
 msgid "nicht gewertet"
 msgstr ""
 
-#: src/Frontend/Strings.php:384
+#: src/Frontend/Strings.php:386
 msgid "Aus diesem Teil waren keine Fragen in der Prüfung."
 msgstr ""
 
-#: src/Frontend/Strings.php:385
+#: src/Frontend/Strings.php:387
 msgid "Bogen"
 msgstr ""
 
-#: src/Frontend/Strings.php:386
+#: src/Frontend/Strings.php:388
 msgid "Prüfungsbogen {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:387
+#: src/Frontend/Strings.php:389
 msgid "Bogen {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:388
+#: src/Frontend/Strings.php:390
 msgid "Simulation"
 msgstr ""
 
-#: src/Frontend/Strings.php:390
+#: src/Frontend/Strings.php:392
 msgid "Letzte Ergebnisse"
 msgstr ""
 
-#: src/Frontend/Strings.php:391
+#: src/Frontend/Strings.php:393
 msgid "Prüfungsverlauf"
 msgstr ""
 
-#: src/Frontend/Strings.php:392
+#: src/Frontend/Strings.php:394
 msgid "PDF-Dateien zum Herunterladen"
 msgstr ""
 
-#: src/Frontend/Strings.php:393
+#: src/Frontend/Strings.php:395
 msgid "PDF-Datei zum Herunterladen oder Ausdrucken"
 msgstr ""
 
-#: src/Frontend/Strings.php:394
+#: src/Frontend/Strings.php:396
 msgid "PDF öffnen"
 msgstr ""
 
-#: src/Frontend/Strings.php:395
+#: src/Frontend/Strings.php:397
 msgid "(PDF, öffnet in neuem Fenster)"
 msgstr ""
 
-#: src/Frontend/Strings.php:396
+#: src/Frontend/Strings.php:398
 msgid "(nur mit vollem Zugang)"
 msgstr ""
 
-#: src/Frontend/Strings.php:397
+#: src/Frontend/Strings.php:399
 msgid "Vollzugang"
 msgstr ""
 
-#: src/Frontend/Strings.php:398
+#: src/Frontend/Strings.php:400
 msgid "Die PDF-Dateien gibt es mit dem vollen Zugang zu diesem Bereich."
 msgstr ""
 
-#: src/Frontend/Strings.php:399
+#: src/Frontend/Strings.php:401
 msgid "Ergebnisse filtern"
 msgstr ""
 
-#: src/Frontend/Strings.php:400
+#: src/Frontend/Strings.php:402
 msgid "Von"
 msgstr ""
 
-#: src/Frontend/Strings.php:401
+#: src/Frontend/Strings.php:403
 msgid "Bis"
 msgstr ""
 
-#: src/Frontend/Strings.php:402
+#: src/Frontend/Strings.php:404
 msgid "Test"
 msgstr ""
 
-#: src/Frontend/Strings.php:403
+#: src/Frontend/Strings.php:405
 msgid "Alle Prüfungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:404
+#: src/Frontend/Strings.php:406
 msgid "Zufallsprüfungen"
 msgstr ""
 
-#: src/Frontend/Strings.php:405
+#: src/Frontend/Strings.php:407
 msgid "Filter zurücksetzen"
 msgstr ""
 
-#: src/Frontend/Strings.php:406
+#: src/Frontend/Strings.php:408
 msgid "{n} Ergebnisse im Filter"
 msgstr ""
 
-#: src/Frontend/Strings.php:407
+#: src/Frontend/Strings.php:409
 msgid "1 Ergebnis im Filter"
 msgstr ""
 
-#: src/Frontend/Strings.php:408
+#: src/Frontend/Strings.php:410
 msgid "Im gewählten Zeitraum gibt es für diesen Test keine Ergebnisse."
 msgstr ""
 
-#: src/Frontend/Strings.php:409
+#: src/Frontend/Strings.php:411
 msgid "Ergebnisse blättern"
 msgstr ""
 
-#: src/Frontend/Strings.php:410
-#: src/Frontend/Strings.php:426
+#: src/Frontend/Strings.php:412
+#: src/Frontend/Strings.php:428
 msgid "Zurück"
 msgstr ""
 
-#: src/Frontend/Strings.php:411
-#: src/Frontend/Strings.php:427
+#: src/Frontend/Strings.php:413
+#: src/Frontend/Strings.php:429
 msgid "Weiter"
 msgstr ""
 
-#: src/Frontend/Strings.php:412
+#: src/Frontend/Strings.php:414
 msgid "{from}–{to} von {total}"
 msgstr ""
 
-#: src/Frontend/Strings.php:413
+#: src/Frontend/Strings.php:415
 msgid "Durchschnitt"
 msgstr ""
 
-#: src/Frontend/Strings.php:415
+#: src/Frontend/Strings.php:417
 msgid "zuletzt"
 msgstr ""
 
-#: src/Frontend/Strings.php:416
+#: src/Frontend/Strings.php:418
 msgid "Zeitachse: Datum der Abgabe · Prozent der Punkte"
 msgstr ""
 
-#: src/Frontend/Strings.php:417
+#: src/Frontend/Strings.php:419
 msgid "{kind} vom {date}: {score}/{max} Punkte, {pct} %, {verdict}"
 msgstr ""
 
-#: src/Frontend/Strings.php:420
+#: src/Frontend/Strings.php:422
 msgid "Fragen der Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:421
+#: src/Frontend/Strings.php:423
 msgid "Frage {n}, {state}"
 msgstr ""
 
-#: src/Frontend/Strings.php:422
+#: src/Frontend/Strings.php:424
 msgid "beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:423
+#: src/Frontend/Strings.php:425
 msgid "nicht beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:424
+#: src/Frontend/Strings.php:426
 msgid "Frage {n} von {total}"
 msgstr ""
 
-#: src/Frontend/Strings.php:425
+#: src/Frontend/Strings.php:427
 msgid "Offene Frage: Überlege dir deine Antwort, zeige dann die Musterantwort und schätze ehrlich ein, ob du sie gewusst hättest."
 msgstr ""
 
-#: src/Frontend/Strings.php:428
+#: src/Frontend/Strings.php:430
 msgid "Wird gespeichert …"
 msgstr ""
 
-#: src/Frontend/Strings.php:429
+#: src/Frontend/Strings.php:431
 msgid "Gespeichert"
 msgstr ""
 
-#: src/Frontend/Strings.php:431
+#: src/Frontend/Strings.php:433
 msgid "Offline – {n} Antworten werden gespeichert und nachgesendet."
 msgstr ""
 
-#: src/Frontend/Strings.php:432
+#: src/Frontend/Strings.php:434
 msgid "Offline – 1 Antwort wird gespeichert und nachgesendet."
 msgstr ""
 
-#: src/Frontend/Strings.php:433
+#: src/Frontend/Strings.php:435
 msgid "Keine Verbindung: {n} Antworten sind noch nicht beim Server. Die Prüfung wird abgegeben, sobald sie nachgesendet sind – lass diese Seite geöffnet."
 msgstr ""
 
-#: src/Frontend/Strings.php:434
+#: src/Frontend/Strings.php:436
 msgid "Keine Verbindung: 1 Antwort ist noch nicht beim Server. Die Prüfung wird abgegeben, sobald sie nachgesendet ist – lass diese Seite geöffnet."
 msgstr ""
 
-#: src/Frontend/Strings.php:435
+#: src/Frontend/Strings.php:437
 msgid "Keine Verbindung: Die Prüfung wird abgegeben, sobald die Verbindung wieder da ist – lass diese Seite geöffnet."
 msgstr ""
 
-#: src/Frontend/Strings.php:436
+#: src/Frontend/Strings.php:438
 msgid "{n} Antworten kamen erst nach dem Ende der Prüfungszeit beim Server an und wurden nicht gewertet."
 msgstr ""
 
-#: src/Frontend/Strings.php:437
+#: src/Frontend/Strings.php:439
 msgid "1 Antwort kam erst nach dem Ende der Prüfungszeit beim Server an und wurde nicht gewertet."
 msgstr ""
 
-#: src/Frontend/Strings.php:438
+#: src/Frontend/Strings.php:440
 msgid "Deutsch"
 msgstr ""
 
 #. translators: Bildschirmleser-Text der Drehknöpfe im Funkgeräte-Simulator
-#: src/Frontend/Strings.php:440
+#: src/Frontend/Strings.php:442
 msgid "Menüauswahl im Display: Pfeiltasten bewegen die Markierung"
 msgstr ""
 
 #. translators: {channel} = Kanalnummer
-#: src/Frontend/Strings.php:442
+#: src/Frontend/Strings.php:444
 msgid "Kanal {channel}"
 msgstr ""
 
 #. translators: {channel} = Kanalnummer, {group} = Kanalgruppe (z. B. USA)
-#: src/Frontend/Strings.php:444
+#: src/Frontend/Strings.php:446
 msgid "Kanal {channel} ({group})"
 msgstr ""
 
 #. translators: {value} = eingestellte Stufe, {max} = höchste Stufe
-#: src/Frontend/Strings.php:446
+#: src/Frontend/Strings.php:448
 msgid "Lautstärke {value} von {max}"
 msgstr ""
 
 #. translators: {value} = eingestellte Stufe, {max} = höchste Stufe
-#: src/Frontend/Strings.php:448
+#: src/Frontend/Strings.php:450
 msgid "Rauschsperre {value} von {max}"
 msgstr ""
 
-#: src/Frontend/Strings.php:449
+#: src/Frontend/Strings.php:451
 msgid ", Gerät aus"
 msgstr ""
 
-#: src/Frontend/Strings.php:450
+#: src/Frontend/Strings.php:452
 msgid "{n} Antwort(en) aus diesem Fenster wurden nicht mehr gewertet, weil die Prüfung schon abgegeben war – zum Beispiel in einem anderen Tab."
 msgstr ""
 
-#: src/Frontend/Strings.php:451
+#: src/Frontend/Strings.php:453
 msgid "Diese Prüfung ist auch in einem anderen Tab oder Fenster geöffnet. Bearbeite sie nur an einer Stelle, sonst überschreiben sich deine Antworten."
 msgstr ""
 
-#: src/Frontend/Strings.php:452
+#: src/Frontend/Strings.php:454
 msgid "Prüfung abgeben"
 msgstr ""
 
-#: src/Frontend/Strings.php:453
+#: src/Frontend/Strings.php:455
 msgid "Prüfung jetzt abgeben?"
 msgstr ""
 
-#: src/Frontend/Strings.php:455
+#: src/Frontend/Strings.php:457
 msgid "Prüfung abbrechen"
 msgstr ""
 
-#: src/Frontend/Strings.php:456
+#: src/Frontend/Strings.php:458
 msgid "Prüfung abbrechen? Sie wird nicht gewertet und erscheint nicht in deinen Ergebnissen."
 msgstr ""
 
-#: src/Frontend/Strings.php:457
+#: src/Frontend/Strings.php:459
 msgid "Die Prüfung wurde abgebrochen und nicht gewertet."
 msgstr ""
 
-#: src/Frontend/Strings.php:458
+#: src/Frontend/Strings.php:460
 msgid "{n} Fragen sind noch nicht beantwortet. Trotzdem abgeben?"
 msgstr ""
 
-#: src/Frontend/Strings.php:459
+#: src/Frontend/Strings.php:461
 msgid "1 Frage ist noch nicht beantwortet. Trotzdem abgeben?"
 msgstr ""
 
-#: src/Frontend/Strings.php:461
+#: src/Frontend/Strings.php:463
 msgid "Markieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:462
+#: src/Frontend/Strings.php:464
 msgid "Markiere Fragen, die du dir vor dem Abgeben noch einmal ansehen willst."
 msgstr ""
 
-#: src/Frontend/Strings.php:463
+#: src/Frontend/Strings.php:465
 msgid "markiert"
 msgstr ""
 
-#: src/Frontend/Strings.php:464
+#: src/Frontend/Strings.php:466
 msgid "{n} Fragen markiert"
 msgstr ""
 
-#: src/Frontend/Strings.php:465
+#: src/Frontend/Strings.php:467
 msgid "1 Frage markiert"
 msgstr ""
 
-#: src/Frontend/Strings.php:466
+#: src/Frontend/Strings.php:468
 msgid "Nur markierte Fragen zeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:467
+#: src/Frontend/Strings.php:469
 msgid "Frage {n}, {state}, markiert"
 msgstr ""
 
-#: src/Frontend/Strings.php:468
+#: src/Frontend/Strings.php:470
 msgid "Markierung gespeichert"
 msgstr ""
 
-#: src/Frontend/Strings.php:469
+#: src/Frontend/Strings.php:471
 msgid "Markierung entfernt"
 msgstr ""
 
-#: src/Frontend/Strings.php:470
+#: src/Frontend/Strings.php:472
 msgid "Du hast {n} Fragen markiert."
 msgstr ""
 
-#: src/Frontend/Strings.php:471
+#: src/Frontend/Strings.php:473
 msgid "Du hast 1 Frage markiert."
 msgstr ""
 
-#: src/Frontend/Strings.php:472
+#: src/Frontend/Strings.php:474
 msgid "Du hattest {n} Fragen markiert."
 msgstr ""
 
-#: src/Frontend/Strings.php:473
+#: src/Frontend/Strings.php:475
 msgid "Du hattest 1 Frage markiert."
 msgstr ""
 
-#: src/Frontend/Strings.php:474
+#: src/Frontend/Strings.php:476
 msgid "Nur markierte anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:475
+#: src/Frontend/Strings.php:477
 msgid "Restzeit {time}"
 msgstr ""
 
-#: src/Frontend/Strings.php:476
+#: src/Frontend/Strings.php:478
 msgid "Restzeit"
 msgstr ""
 
-#: src/Frontend/Strings.php:477
+#: src/Frontend/Strings.php:479
 msgid "{n} von {total} beantwortet"
 msgstr ""
 
-#: src/Frontend/Strings.php:478
+#: src/Frontend/Strings.php:480
 msgid "Übersicht der Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:479
+#: src/Frontend/Strings.php:481
 msgid "Prüfungsteile"
 msgstr ""
 
-#: src/Frontend/Strings.php:480
+#: src/Frontend/Strings.php:482
 msgid "Bestehen ab {n} von {of} richtig"
 msgstr ""
 
-#: src/Frontend/Strings.php:481
+#: src/Frontend/Strings.php:483
 msgid "Auswertung"
 msgstr ""
 
-#: src/Frontend/Strings.php:482
+#: src/Frontend/Strings.php:484
 msgid "Noch 5 Minuten."
 msgstr ""
 
-#: src/Frontend/Strings.php:483
+#: src/Frontend/Strings.php:485
 msgid "Noch 1 Minute."
 msgstr ""
 
-#: src/Frontend/Strings.php:484
+#: src/Frontend/Strings.php:486
 msgid "Die Zeit ist abgelaufen. Die Prüfung wird abgegeben."
 msgstr ""
 
-#: src/Frontend/Strings.php:485
+#: src/Frontend/Strings.php:487
 msgid "Ergebnis: {title}"
 msgstr ""
 
-#: src/Frontend/Strings.php:486
+#: src/Frontend/Strings.php:488
 msgid "Bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:487
+#: src/Frontend/Strings.php:489
 msgid "Nicht bestanden"
 msgstr ""
 
-#: src/Frontend/Strings.php:488
+#: src/Frontend/Strings.php:490
 msgid "{score} von {max} Fragen richtig ({percent} %)"
 msgstr ""
 
-#: src/Frontend/Strings.php:489
+#: src/Frontend/Strings.php:491
 msgid "Die Zeit war abgelaufen; die Prüfung wurde automatisch abgegeben."
 msgstr ""
 
-#: src/Frontend/Strings.php:490
+#: src/Frontend/Strings.php:492
 msgid "Übungsmodus: Das Regelwerk ist noch nicht verifiziert."
 msgstr ""
 
-#: src/Frontend/Strings.php:491
+#: src/Frontend/Strings.php:493
 msgid "Offene Fragen werden nach deiner Selbsteinschätzung bewertet: {n} von {total} gewusst."
 msgstr ""
 
-#: src/Frontend/Strings.php:492
+#: src/Frontend/Strings.php:494
 msgid "Teil"
 msgstr ""
 
-#: src/Frontend/Strings.php:494
+#: src/Frontend/Strings.php:496
 msgid "benötigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:496
+#: src/Frontend/Strings.php:498
 msgid "Ergebnis nach Themen"
 msgstr ""
 
-#: src/Frontend/Strings.php:497
+#: src/Frontend/Strings.php:499
 msgid "Falsch beantwortete Fragen lernen"
 msgstr ""
 
-#: src/Frontend/Strings.php:498
+#: src/Frontend/Strings.php:500
 msgid "Fehler aus der Prüfung"
 msgstr ""
 
-#: src/Frontend/Strings.php:500
+#: src/Frontend/Strings.php:502
 msgid "Nur falsch beantwortete anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:501
+#: src/Frontend/Strings.php:503
 msgid "Weitere Trainer"
 msgstr ""
 
-#: src/Frontend/Strings.php:502
+#: src/Frontend/Strings.php:504
 msgid "Quelle: {source}"
 msgstr ""
 
-#: src/Frontend/Strings.php:504
+#: src/Frontend/Strings.php:506
 msgid "{tasks} Aufgaben · {done} von {total} Teilaufgaben erledigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:506
+#: src/Frontend/Strings.php:508
 msgid "{known} von {total} Karten sicher"
 msgstr ""
 
-#: src/Frontend/Strings.php:508
+#: src/Frontend/Strings.php:510
 msgid "{done} von {total} Lektionen abgeschlossen"
 msgstr ""
 
-#: src/Frontend/Strings.php:510
+#: src/Frontend/Strings.php:512
 msgid "{texts} Funktexte · {vocabulary} Vokabeln"
 msgstr ""
 
-#: src/Frontend/Strings.php:511
+#: src/Frontend/Strings.php:513
 msgid "Tipps & Tricks"
 msgstr ""
 
-#: src/Frontend/Strings.php:512
+#: src/Frontend/Strings.php:514
 msgid "Hinweise zum Lernen und zur Prüfungsvorbereitung. Verbindliche Angaben zu Fristen, Gebühren und Unterlagen erhältst du von deinem Prüfungsausschuss."
 msgstr ""
 
-#: src/Frontend/Strings.php:513
+#: src/Frontend/Strings.php:515
 msgid "Noch keine Tipps vorhanden."
 msgstr ""
 
-#: src/Frontend/Strings.php:514
+#: src/Frontend/Strings.php:516
 msgid "Seekarte öffnen: {title}"
 msgstr ""
 
-#: src/Frontend/Strings.php:515
+#: src/Frontend/Strings.php:517
 msgid "{title}: Die digitale Karte wird nach Lizenzierung durch das BSH bereitgestellt. Bis dahin arbeite bitte mit der gedruckten Übungskarte."
 msgstr ""
 
-#: src/Frontend/Strings.php:516
+#: src/Frontend/Strings.php:518
 msgid "Löse die Teilaufgaben mit Seekarte und Kursdreieck, vergleiche mit dem amtlichen Ergebnis und schätze dich selbst ein. In der Prüfung brauchst du mindestens 7 von 9 Punkten."
 msgstr ""
 
-#: src/Frontend/Strings.php:517
+#: src/Frontend/Strings.php:519
 msgid "Navigationsaufgabe {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:518
+#: src/Frontend/Strings.php:520
 msgid "{done} von {total} Teilaufgaben erledigt"
 msgstr ""
 
-#: src/Frontend/Strings.php:519
+#: src/Frontend/Strings.php:521
 msgid "Ausgangslage"
 msgstr ""
 
-#: src/Frontend/Strings.php:520
+#: src/Frontend/Strings.php:522
 msgid "Teilaufgabe {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:521
+#: src/Frontend/Strings.php:523
 msgid "Deine Lösung"
 msgstr ""
 
-#: src/Frontend/Strings.php:522
+#: src/Frontend/Strings.php:524
 msgid "Amtliches Ergebnis anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:523
+#: src/Frontend/Strings.php:525
 msgid "Amtliches Ergebnis"
 msgstr ""
 
-#: src/Frontend/Strings.php:524
+#: src/Frontend/Strings.php:526
 msgid "Vorige Aufgabe"
 msgstr ""
 
-#: src/Frontend/Strings.php:525
+#: src/Frontend/Strings.php:527
 msgid "Nächste Aufgabe"
 msgstr ""
 
-#: src/Frontend/Strings.php:526
+#: src/Frontend/Strings.php:528
 msgid "Alle Aufgaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:527
+#: src/Frontend/Strings.php:529
 msgid "Die weiteren Aufgaben gehören zum Vollzugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:528
+#: src/Frontend/Strings.php:530
 msgid "Die vorige Aufgabe gehört zum Vollzugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:530
+#: src/Frontend/Strings.php:532
 msgid "Automatische Prüfung deiner Werte"
 msgstr ""
 
-#: src/Frontend/Strings.php:531
+#: src/Frontend/Strings.php:533
 msgid "Bei dieser Teilaufgabe prüfen wir deine Werte (z. B. Kurs, Distanz, Position, Uhrzeit) automatisch, sobald du das amtliche Ergebnis aufdeckst."
 msgstr ""
 
-#: src/Frontend/Strings.php:532
+#: src/Frontend/Strings.php:534
 msgid "{label}: {given} – im Toleranzbereich (amtlich {expected}, Toleranz ±{tolerance})"
 msgstr ""
 
-#: src/Frontend/Strings.php:533
+#: src/Frontend/Strings.php:535
 msgid "{label}: {given} – weicht um {deviation} ab (amtlich {expected}, Toleranz ±{tolerance})"
 msgstr ""
 
-#: src/Frontend/Strings.php:534
+#: src/Frontend/Strings.php:536
 msgid "{label}: kein Wert erkannt (amtlich {expected})"
 msgstr ""
 
-#: src/Frontend/Strings.php:535
+#: src/Frontend/Strings.php:537
 msgid "passt"
 msgstr ""
 
-#: src/Frontend/Strings.php:536
+#: src/Frontend/Strings.php:538
 msgid "weicht ab"
 msgstr ""
 
-#: src/Frontend/Strings.php:537
+#: src/Frontend/Strings.php:539
 msgid "Die Prüfung ist nur eine Hilfe. Ob deine Lösung stimmt, entscheidest du mit deiner Selbsteinschätzung."
 msgstr ""
 
-#: src/Frontend/Strings.php:538
+#: src/Frontend/Strings.php:540
 msgid "Das amtliche Ergebnis ist eine Eintragung in der Seekarte. Vergleiche deine Eintragung mit den Kursen, Peilungen und Positionen aus den anderen Teilaufgaben dieser Aufgabe."
 msgstr ""
 
-#: src/Frontend/Strings.php:539
+#: src/Frontend/Strings.php:541
 msgid "Nach deiner Selbsteinschätzung: {points} von {max} Punkten"
 msgstr ""
 
-#: src/Frontend/Strings.php:540
+#: src/Frontend/Strings.php:542
 msgid "In der Prüfung bestanden ab {pass} von {max} Punkten. „Teilweise richtig“ zählt hier nicht als Punkt."
 msgstr ""
 
-#: src/Frontend/Strings.php:541
+#: src/Frontend/Strings.php:543
 msgid "Noch {n} Teilaufgaben einschätzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:542
+#: src/Frontend/Strings.php:544
 msgid "Damit hättest du diese Aufgabe bestanden."
 msgstr ""
 
-#: src/Frontend/Strings.php:543
+#: src/Frontend/Strings.php:545
 msgid "Damit hättest du diese Aufgabe nicht bestanden – übe die Teilaufgaben, die noch nicht sitzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:545
+#: src/Frontend/Strings.php:547
 msgid "teilweise"
 msgstr ""
 
-#: src/Frontend/Strings.php:548
+#: src/Frontend/Strings.php:550
 msgid "Alle"
 msgstr ""
 
-#: src/Frontend/Strings.php:549
+#: src/Frontend/Strings.php:551
 msgid "Karte {n} von {total}"
 msgstr ""
 
-#: src/Frontend/Strings.php:550
+#: src/Frontend/Strings.php:552
 msgid "Antwort zeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:551
+#: src/Frontend/Strings.php:553
 msgid "Kann ich"
 msgstr ""
 
-#: src/Frontend/Strings.php:552
+#: src/Frontend/Strings.php:554
 msgid "Noch üben"
 msgstr ""
 
-#: src/Frontend/Strings.php:554
+#: src/Frontend/Strings.php:556
 msgid "noch üben"
 msgstr ""
 
-#: src/Frontend/Strings.php:556
+#: src/Frontend/Strings.php:558
 msgid "Nur Karten, die ich noch üben muss"
 msgstr ""
 
-#: src/Frontend/Strings.php:557
+#: src/Frontend/Strings.php:559
 msgid "Alle Karten in dieser Auswahl sitzen."
 msgstr ""
 
-#: src/Frontend/Strings.php:558
+#: src/Frontend/Strings.php:560
 msgid "Weiter mit der nächsten Lektion"
 msgstr ""
 
-#: src/Frontend/Strings.php:559
+#: src/Frontend/Strings.php:561
 msgid "abgeschlossen"
 msgstr ""
 
-#: src/Frontend/Strings.php:560
+#: src/Frontend/Strings.php:562
 msgid "Als abgeschlossen markieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:561
+#: src/Frontend/Strings.php:563
 msgid "Quiz zur Lektion"
 msgstr ""
 
-#: src/Frontend/Strings.php:562
+#: src/Frontend/Strings.php:564
 msgid "{n} Quizfragen"
 msgstr ""
 
-#: src/Frontend/Strings.php:563
+#: src/Frontend/Strings.php:565
 msgid "Schritt für Schritt"
 msgstr ""
 
-#: src/Frontend/Strings.php:564
+#: src/Frontend/Strings.php:566
 msgid "Das Video zu dieser Lektion folgt in Kürze."
 msgstr ""
 
-#: src/Frontend/Strings.php:565
+#: src/Frontend/Strings.php:567
 msgid "Für diese Lektion ist kein Video hinterlegt."
 msgstr ""
 
-#: src/Frontend/Strings.php:566
+#: src/Frontend/Strings.php:568
 msgid "{done} / {total} Lektionen"
 msgstr ""
 
-#: src/Frontend/Strings.php:567
+#: src/Frontend/Strings.php:569
 msgid "Noch nicht abgeschlossen"
 msgstr ""
 
-#: src/Frontend/Strings.php:569
+#: src/Frontend/Strings.php:571
 msgid "Zu den Fragen ({n})"
 msgstr ""
 
-#: src/Frontend/Strings.php:570
+#: src/Frontend/Strings.php:572
 msgid "Nächste Lektion"
 msgstr ""
 
-#: src/Frontend/Strings.php:571
+#: src/Frontend/Strings.php:573
 msgid "Die weiteren Lektionen gehören zum Vollzugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:572
+#: src/Frontend/Strings.php:574
 msgid "Kapitel"
 msgstr ""
 
-#: src/Frontend/Strings.php:573
+#: src/Frontend/Strings.php:575
 msgid "Video abspielen: {title}"
 msgstr ""
 
-#: src/Frontend/Strings.php:575
+#: src/Frontend/Strings.php:577
 msgid "Das Video wird von {host} geladen. Dabei erhält der Anbieter deine IP-Adresse."
 msgstr ""
 
-#: src/Frontend/Strings.php:576
+#: src/Frontend/Strings.php:578
 msgid "Video von {host} laden und abspielen: {title}"
 msgstr ""
 
-#: src/Frontend/Strings.php:577
+#: src/Frontend/Strings.php:579
 msgid "Videos von externen Diensten künftig ohne Nachfrage laden"
 msgstr ""
 
-#: src/Frontend/Strings.php:578
+#: src/Frontend/Strings.php:580
 msgid "Kapitel des Videokurses"
 msgstr ""
 
-#: src/Frontend/Strings.php:579
+#: src/Frontend/Strings.php:581
 msgid "Kapitelmenü ein- oder ausblenden"
 msgstr ""
 
-#: src/Frontend/Strings.php:580
+#: src/Frontend/Strings.php:582
 msgid "In diesem Kurs ist noch keine Lektion für dich freigeschaltet."
 msgstr ""
 
-#: src/Frontend/Strings.php:581
+#: src/Frontend/Strings.php:583
 msgid "Übe die mündliche Prüfung: Funktexte mitschreiben und übersetzen, buchstabieren und Vokabeln lernen."
 msgstr ""
 
-#: src/Frontend/Strings.php:582
+#: src/Frontend/Strings.php:584
 msgid "{catalog}-Seefunktexte"
 msgstr ""
 
-#: src/Frontend/Strings.php:583
+#: src/Frontend/Strings.php:585
 msgid "Lass dir den Text vorlesen, schreib mit und übersetze."
 msgstr ""
 
-#: src/Frontend/Strings.php:584
+#: src/Frontend/Strings.php:586
 msgid "{catalog}-Aufnahme"
 msgstr ""
 
-#: src/Frontend/Strings.php:585
+#: src/Frontend/Strings.php:587
 msgid "Lass dir die Meldung vorlesen und schreib sie wortgenau mit."
 msgstr ""
 
-#: src/Frontend/Strings.php:586
+#: src/Frontend/Strings.php:588
 msgid "{catalog}-Abgabe"
 msgstr ""
 
-#: src/Frontend/Strings.php:587
+#: src/Frontend/Strings.php:589
 msgid "Lies die Meldung vor und buchstabiere die markierten Wörter mit der internationalen Buchstabiertafel."
 msgstr ""
 
-#: src/Frontend/Strings.php:588
+#: src/Frontend/Strings.php:590
 msgid "{done} von {total} erledigt."
 msgstr ""
 
-#: src/Frontend/Strings.php:590
+#: src/Frontend/Strings.php:592
 msgid "Als erledigt markieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:591
+#: src/Frontend/Strings.php:593
 msgid "Text {number}: {state}"
 msgstr ""
 
-#: src/Frontend/Strings.php:592
+#: src/Frontend/Strings.php:594
 msgid "Land → See"
 msgstr ""
 
-#: src/Frontend/Strings.php:593
+#: src/Frontend/Strings.php:595
 msgid "See → Land"
 msgstr ""
 
-#: src/Frontend/Strings.php:594
+#: src/Frontend/Strings.php:596
 msgid "Deutsch → Englisch"
 msgstr ""
 
-#: src/Frontend/Strings.php:595
+#: src/Frontend/Strings.php:597
 msgid "Englisch → Deutsch"
 msgstr ""
 
-#: src/Frontend/Strings.php:596
+#: src/Frontend/Strings.php:598
 msgid "Vorlesen"
 msgstr ""
 
-#: src/Frontend/Strings.php:597
+#: src/Frontend/Strings.php:599
 msgid "Text anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:598
+#: src/Frontend/Strings.php:600
 msgid "Text ausblenden"
 msgstr ""
 
-#: src/Frontend/Strings.php:599
+#: src/Frontend/Strings.php:601
 msgid "Mitschrift"
 msgstr ""
 
-#: src/Frontend/Strings.php:600
+#: src/Frontend/Strings.php:602
 msgid "Übersetzung"
 msgstr ""
 
-#: src/Frontend/Strings.php:601
+#: src/Frontend/Strings.php:603
 msgid "Auswerten"
 msgstr ""
 
-#: src/Frontend/Strings.php:602
+#: src/Frontend/Strings.php:604
 msgid "{percent} % der Wörter getroffen"
 msgstr ""
 
-#: src/Frontend/Strings.php:603
+#: src/Frontend/Strings.php:605
 msgid "Fehlt: {words}"
 msgstr ""
 
-#: src/Frontend/Strings.php:604
+#: src/Frontend/Strings.php:606
 msgid "Vollständig."
 msgstr ""
 
-#: src/Frontend/Strings.php:605
+#: src/Frontend/Strings.php:607
 msgid "Lösung"
 msgstr ""
 
-#: src/Frontend/Strings.php:606
+#: src/Frontend/Strings.php:608
 msgid "Buchstabierung anzeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:607
+#: src/Frontend/Strings.php:609
 msgid "Vokabeln"
 msgstr ""
 
-#: src/Frontend/Strings.php:608
+#: src/Frontend/Strings.php:610
 msgid "{learned} von {total} gelernt"
 msgstr ""
 
-#: src/Frontend/Strings.php:609
+#: src/Frontend/Strings.php:611
 msgid "gelernt"
 msgstr ""
 
-#: src/Frontend/Strings.php:610
+#: src/Frontend/Strings.php:612
 msgid "Üben"
 msgstr ""
 
-#: src/Frontend/Strings.php:611
+#: src/Frontend/Strings.php:613
 msgid "Übersetzung zeigen"
 msgstr ""
 
-#: src/Frontend/Strings.php:613
+#: src/Frontend/Strings.php:615
 msgid "{lessons} Lektionen am UKW-Funkgerät · {mastered} allein geschafft"
 msgstr ""
 
-#: src/Frontend/Strings.php:614
+#: src/Frontend/Strings.php:616
 msgid "Funkgerät öffnen"
 msgstr ""
 
-#: src/Frontend/Strings.php:615
+#: src/Frontend/Strings.php:617
 msgid "Vollversion: alle Lektionen und Prüfungsreihen"
 msgstr ""
 
-#: src/Frontend/Strings.php:616
+#: src/Frontend/Strings.php:618
 msgid "Testversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:617
+#: src/Frontend/Strings.php:619
 msgid "Kostenlos testen · Vollversion als Upgrade"
 msgstr ""
 
-#: src/Frontend/Strings.php:618
+#: src/Frontend/Strings.php:620
 msgid "Kostenlose Testversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:619
+#: src/Frontend/Strings.php:621
 msgid "Gerät einschalten, Lautstärke und Rauschsperre einstellen, Kanäle wählen und einen Beispiel-Routineanruf üben. Notalarm, weitere Szenarien, Freies Üben und den Prüfungsmodus schaltest du mit der Vollversion frei."
 msgstr ""
 
-#: src/Frontend/Strings.php:620
+#: src/Frontend/Strings.php:622
 msgid "Vollversion freischalten"
 msgstr ""
 
-#: src/Frontend/Strings.php:621
+#: src/Frontend/Strings.php:623
 msgid "In der Vollversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:622
+#: src/Frontend/Strings.php:624
 msgid "{lessons} weitere Lektionen und {tasks} Prüfungsaufgaben in {series} Prüfungsreihen"
 msgstr ""
 
-#: src/Frontend/Strings.php:624
+#: src/Frontend/Strings.php:626
 msgid "{title}: {n} Aufgaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:625
+#: src/Frontend/Strings.php:627
 msgid "Praktische Prüfungssimulation gesperrt"
 msgstr ""
 
-#: src/Frontend/Strings.php:626
+#: src/Frontend/Strings.php:628
 msgid "Mehr üben mit der Vollversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:627
+#: src/Frontend/Strings.php:629
 msgid "Um echte Notrufe (Distress Alerts), Dringlichkeits- und Sicherheitsmeldungen zu simulieren und alle {tasks} Prüfungsaufgaben der praktischen Prüfung freizuschalten, benötigst du den Premium-Zugang."
 msgstr ""
 
-#: src/Frontend/Strings.php:628
+#: src/Frontend/Strings.php:630
 msgid "Wähle deinen Zugang – sofort freigeschaltet auf allen Geräten:"
 msgstr ""
 
-#: src/Frontend/Strings.php:629
+#: src/Frontend/Strings.php:631
 msgid "Perfekt für Last-Minute-Lerner vor der praktischen Prüfung. Endet automatisch."
 msgstr ""
 
-#: src/Frontend/Strings.php:630
+#: src/Frontend/Strings.php:632
 msgid "Unsere Empfehlung für die reguläre Kurszeit."
 msgstr ""
 
-#: src/Frontend/Strings.php:631
+#: src/Frontend/Strings.php:633
 msgid "Für alle, die sich Zeit lassen oder bis zur Prüfung immer wieder üben wollen."
 msgstr ""
 
-#: src/Frontend/Strings.php:632
+#: src/Frontend/Strings.php:634
 msgid "Oder 12 Monate für {price}"
 msgstr ""
 
-#: src/Frontend/Strings.php:633
+#: src/Frontend/Strings.php:635
 msgid "Nur {price}"
 msgstr ""
 
-#: src/Frontend/Strings.php:634
+#: src/Frontend/Strings.php:636
 msgid "Empfehlung"
 msgstr ""
 
-#: src/Frontend/Strings.php:635
+#: src/Frontend/Strings.php:637
 msgid "Einmalzahlung, kein Abo – der Zugang endet automatisch."
 msgstr ""
 
-#: src/Frontend/Strings.php:636
+#: src/Frontend/Strings.php:638
 msgid "Dein Vorteil: Web-App statt Download"
 msgstr ""
 
-#: src/Frontend/Strings.php:639
+#: src/Frontend/Strings.php:641
 msgid "Die Vollversion ist in Kürze im Shop erhältlich."
 msgstr ""
 
-#: src/Frontend/Strings.php:640
+#: src/Frontend/Strings.php:642
 msgid "Schließen"
 msgstr ""
 
-#: src/Frontend/Strings.php:641
+#: src/Frontend/Strings.php:643
 msgid "Vollversion"
 msgstr ""
 
-#: src/Frontend/Strings.php:642
+#: src/Frontend/Strings.php:644
 msgid "{title} starten"
 msgstr ""
 
-#: src/Frontend/Strings.php:643
+#: src/Frontend/Strings.php:645
 msgid "Aufgaben wie in der praktischen Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung."
 msgstr ""
 
-#: src/Frontend/Strings.php:644
+#: src/Frontend/Strings.php:646
 msgid "Der Prüfungsmodus mit {tasks} Aufgaben gehört zur Vollversion."
 msgstr ""
 
-#: src/Frontend/Strings.php:645
+#: src/Frontend/Strings.php:647
 msgid "Löse Ereignisse aus und reagiere frei darauf: Notalarme, Einzel- und Gebietsanrufe, Sicherheitsmeldungen und Sprechfunk der Gegenstationen."
 msgstr ""
 
-#: src/Frontend/Strings.php:646
+#: src/Frontend/Strings.php:648
 msgid "Freies Üben mit allen Ereignissen gehört zur Vollversion."
 msgstr ""
 
-#: src/Frontend/Strings.php:647
+#: src/Frontend/Strings.php:649
 msgid "Bediene ein UKW-Funkgerät wie in der praktischen Prüfung: Lektionen mit Hilfe, nur mit Hinweis oder allein, Prüfungsreihen und freies Üben. Gegenstationen sprechen mit der Stimme deines Browsers."
 msgstr ""
 
-#: src/Frontend/Strings.php:648
+#: src/Frontend/Strings.php:650
 msgid "{catalog}-Funkpraxis"
 msgstr ""
 
-#: src/Frontend/Strings.php:649
+#: src/Frontend/Strings.php:651
 msgid "Lies die Lage, trage Verkehrsart, Bedienung und Funkspruch ein und lass alles gegen die Prüfpunkte auswerten."
 msgstr ""
 
-#: src/Frontend/Strings.php:650
+#: src/Frontend/Strings.php:652
 msgid "Aufgabe {number} ({kind}): {state}"
 msgstr ""
 
-#: src/Frontend/Strings.php:651
+#: src/Frontend/Strings.php:653
 msgid "{catalog}-Funkpraxis {number}"
 msgstr ""
 
-#: src/Frontend/Strings.php:652
+#: src/Frontend/Strings.php:654
 msgid "Lage"
 msgstr ""
 
-#: src/Frontend/Strings.php:653
+#: src/Frontend/Strings.php:655
 msgid "Lage auf Englisch"
 msgstr ""
 
-#: src/Frontend/Strings.php:654
+#: src/Frontend/Strings.php:656
 msgid "Lage auf Deutsch"
 msgstr ""
 
-#: src/Frontend/Strings.php:655
+#: src/Frontend/Strings.php:657
 msgid "Einsprechen"
 msgstr ""
 
-#: src/Frontend/Strings.php:656
+#: src/Frontend/Strings.php:658
 msgid "Höre zu …"
 msgstr ""
 
-#: src/Frontend/Strings.php:657
+#: src/Frontend/Strings.php:659
 msgid "Spracherkennung deines Browsers; an den Server geht nur der Text."
 msgstr ""
 
-#: src/Frontend/Strings.php:658
+#: src/Frontend/Strings.php:660
 msgid "{passed} von {total} Prüfpunkten erfüllt"
 msgstr ""
 
-#: src/Frontend/Strings.php:659
+#: src/Frontend/Strings.php:661
 msgid "Notverkehr"
 msgstr ""
 
-#: src/Frontend/Strings.php:660
+#: src/Frontend/Strings.php:662
 msgid "Weiterleitung"
 msgstr ""
 
-#: src/Frontend/Strings.php:661
+#: src/Frontend/Strings.php:663
 msgid "Bestätigung"
 msgstr ""
 
-#: src/Frontend/Strings.php:662
+#: src/Frontend/Strings.php:664
 msgid "Fehlalarm"
 msgstr ""
 
-#: src/Frontend/Strings.php:663
+#: src/Frontend/Strings.php:665
 msgid "Dringlichkeit"
 msgstr ""
 
-#: src/Frontend/Strings.php:665
+#: src/Frontend/Strings.php:667
 msgid "Routine"
 msgstr ""
 
-#: src/Frontend/Strings.php:666
+#: src/Frontend/Strings.php:668
 msgid "Aufhebung Dringlichkeit"
 msgstr ""
 
-#: src/Frontend/Strings.php:667
+#: src/Frontend/Strings.php:669
 msgid "Muster-Funksprüche"
 msgstr ""
 
-#: src/Frontend/Strings.php:668
+#: src/Frontend/Strings.php:670
 msgid "Je Meldungsart ein vollständiges Beispiel"
 msgstr ""
 
-#: src/Frontend/Strings.php:669
+#: src/Frontend/Strings.php:671
 msgid "Vollständige Beispiele für die praktische Prüfung: Situation, Bedienung des Funkgeräts und die Meldung im Wortlaut."
 msgstr ""
 
-#: src/Frontend/Strings.php:670
+#: src/Frontend/Strings.php:672
 msgid "Die Beispiele stammen aus den Funkpraxis-Übungen (erfundene Fahrzeuge, Rufzeichen und Positionen). Übe danach die passende Aufgabe selbst."
 msgstr ""
 
-#: src/Frontend/Strings.php:671
+#: src/Frontend/Strings.php:673
 msgid "Beispiele"
 msgstr ""
 
-#: src/Frontend/Strings.php:672
+#: src/Frontend/Strings.php:674
 msgid "Weitere Muster-Funksprüche gibt es mit dem vollen Zugang zum Funktraining."
 msgstr ""
 
-#: src/Frontend/Strings.php:673
+#: src/Frontend/Strings.php:675
 msgid "Dieses Beispiel ist im kostenlosen Umfang nicht enthalten."
 msgstr ""
 
-#: src/Frontend/Strings.php:674
+#: src/Frontend/Strings.php:676
 msgid "Situation:"
 msgstr ""
 
-#: src/Frontend/Strings.php:675
+#: src/Frontend/Strings.php:677
 msgid "Meldung im Wortlaut"
 msgstr ""
 
-#: src/Frontend/Strings.php:676
+#: src/Frontend/Strings.php:678
 msgid "Als Übung lösen (Aufgabe {number})"
 msgstr ""
 
-#: src/Frontend/Strings.php:677
+#: src/Frontend/Strings.php:679
 msgid "Notalarm und Notmeldung (MAYDAY)"
 msgstr ""
 
-#: src/Frontend/Strings.php:678
+#: src/Frontend/Strings.php:680
 msgid "Bestätigung einer Notmeldung"
 msgstr ""
 
-#: src/Frontend/Strings.php:679
+#: src/Frontend/Strings.php:681
 msgid "Weiterleitung einer Notmeldung (MAYDAY RELAY)"
 msgstr ""
 
-#: src/Frontend/Strings.php:680
+#: src/Frontend/Strings.php:682
 msgid "Widerruf eines Fehlalarms"
 msgstr ""
 
-#: src/Frontend/Strings.php:681
+#: src/Frontend/Strings.php:683
 msgid "Dringlichkeitsmeldung (PAN PAN)"
 msgstr ""
 
-#: src/Frontend/Strings.php:682
+#: src/Frontend/Strings.php:684
 msgid "Aufhebung einer Dringlichkeitsmeldung"
 msgstr ""
 
-#: src/Frontend/Strings.php:683
+#: src/Frontend/Strings.php:685
 msgid "Sicherheitsmeldung (SECURITE)"
 msgstr ""
 
-#: src/Frontend/Strings.php:684
+#: src/Frontend/Strings.php:686
 msgid "Routineverkehr"
 msgstr ""
 
-#: src/Frontend/Strings.php:685
+#: src/Frontend/Strings.php:687
 msgid "Internationale Buchstabiertafel"
 msgstr ""
 
-#: src/Frontend/Strings.php:686
+#: src/Frontend/Strings.php:688
 msgid "NATO-Alphabet und Ziffern zum Nachschlagen und Anhören"
 msgstr ""
 
-#: src/Frontend/Strings.php:687
+#: src/Frontend/Strings.php:689
 msgid "Buchstaben und Ziffern, wie sie im Sprechfunk buchstabiert werden – mit Aussprachehilfe zum Anhören."
 msgstr ""
 
-#: src/Frontend/Strings.php:688
+#: src/Frontend/Strings.php:690
 msgid "Buchstaben"
 msgstr ""
 
-#: src/Frontend/Strings.php:689
+#: src/Frontend/Strings.php:691
 msgid "Ziffern"
 msgstr ""
 
-#: src/Frontend/Strings.php:690
+#: src/Frontend/Strings.php:692
 msgid "Buchstaben (NATO-Alphabet)"
 msgstr ""
 
-#: src/Frontend/Strings.php:691
+#: src/Frontend/Strings.php:693
 msgid "Ziffern ({catalog})"
 msgstr ""
 
-#: src/Frontend/Strings.php:692
+#: src/Frontend/Strings.php:694
 msgid "Im Seefunk (SRC) werden Ziffern einzeln auf Englisch gesprochen."
 msgstr ""
 
-#: src/Frontend/Strings.php:693
+#: src/Frontend/Strings.php:695
 msgid "Im Binnenschifffahrtsfunk (UBI) werden Ziffern einzeln auf Deutsch gesprochen."
 msgstr ""
 
-#: src/Frontend/Strings.php:694
+#: src/Frontend/Strings.php:696
 msgid "gesprochen: {hint}"
 msgstr ""
 
-#: src/Frontend/Strings.php:695
+#: src/Frontend/Strings.php:697
 msgid "Selbst ausprobieren"
 msgstr ""
 
-#: src/Frontend/Strings.php:696
+#: src/Frontend/Strings.php:698
 msgid "Wort eingeben, z. B. Rufzeichen"
 msgstr ""
 
-#: src/Frontend/Strings.php:697
+#: src/Frontend/Strings.php:699
 msgid "{text} anhören"
 msgstr ""
 
-#: src/Frontend/Strings.php:698
+#: src/Frontend/Strings.php:700
 msgid "Eine Vokabel gilt nach {n} × „Gewusst“ in Folge als gelernt."
 msgstr ""
 
@@ -11051,31 +11063,31 @@ msgstr ""
 msgid "E-Mail-Adresse oder Passwort ist nicht korrekt."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:105
+#: src/Mobile/Controllers/AuthController.php:123
 msgid "Bitte gib eine gültige E-Mail-Adresse ein."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:156
+#: src/Mobile/Controllers/AuthController.php:174
 msgid "Die Anmeldung in der Webansicht ist bei dieser Bootsschule abgeschaltet. Bitte öffne die Seite im Browser."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:160
+#: src/Mobile/Controllers/AuthController.php:178
 msgid "Für Konten mit Verwaltungsrechten ist die Anmeldung in der Webansicht über die App nicht möglich. Bitte melde dich im Browser an."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:165
+#: src/Mobile/Controllers/AuthController.php:183
 msgid "Erlaubt sind nur Seiten im Lernbereich dieser Website, z. B. /bootsscheine/src/funk/geraet/."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:181
+#: src/Mobile/Controllers/AuthController.php:199
 msgid "Das Passwort muss mindestens 12 Zeichen lang sein."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:184
+#: src/Mobile/Controllers/AuthController.php:202
 msgid "Die Passwörter stimmen nicht überein."
 msgstr ""
 
-#: src/Mobile/Controllers/AuthController.php:197
+#: src/Mobile/Controllers/AuthController.php:215
 msgid "Der Link zum Zurücksetzen ist ungültig oder abgelaufen. Bitte fordere einen neuen an."
 msgstr ""
 
@@ -11196,7 +11208,7 @@ msgstr ""
 msgid "Zu viele Einladungen in kurzer Zeit. Bitte warte eine Stunde und versuche es dann erneut."
 msgstr ""
 
-#: src/Mobile/Controllers/GroupController.php:191
+#: src/Mobile/Controllers/GroupController.php:194
 msgid "Diese Gruppe ist derzeit nicht aktiv. Einladen und neue Links sind erst wieder möglich, wenn sie aktiv ist."
 msgstr ""
 
