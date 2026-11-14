@@ -54,8 +54,10 @@ Reihenfolge am Livegang-Tag: `docs/livegang-drehbuch.md`. Im Admin: Bootsprüfun
 
 ## Technik-Restpunkte
 
-- Statische Analyse läuft mit Baselines (PHPStan 199 Funde, PHPCS 704 Funde, alle geprüft, keiner ausnutzbar);
-  schrittweise abbauen.
+- Statische Analyse läuft mit Baselines: PHPStan 129 Funde (14.11. von 201 gesenkt – Platzhalter für Voucher Captain,
+  WP Affiliate Captain und WooCommerce-Interna in `tests/phpstan/external-stubs.php`, kleine Korrekturen). Der Rest sind
+  überwiegend bewusste Schutzprüfungen gegen unerwartete Rückgaben von WordPress/WooCommerce/Filtern und Fehlalarme
+  der Stubs; nicht blind entfernen. PHPCS 704 Funde (Sicherheitsregeln, alle geprüft, keiner ausnutzbar).
 - `WC tested up to` beim Wechsel auf WooCommerce 11.3 anheben (CI testet 11.3 Beta bereits informativ).
 
 ## Prüfrunde 14.11.2026 (Stand `main` nach Version 0.14.0)

@@ -89,7 +89,7 @@ final class SchemaValidator
             [$refFile, $pointer] = array_pad(explode('#', (string) $schema['$ref'], 2), 2, '');
             $refFile = $refFile === '' ? $file : $refFile;
             $target = $this->load($refFile);
-            foreach (array_filter(explode('/', ltrim($pointer, '/')), 'strlen') as $part) {
+            foreach (array_filter(explode('/', ltrim($pointer, '/')), static fn (string $s): bool => $s !== '') as $part) {
                 $part = str_replace(['~1', '~0'], ['/', '~'], $part);
                 if (! is_array($target) || ! array_key_exists($part, $target)) {
                     throw new RuntimeException("Ungültige Referenz {$schema['$ref']}");

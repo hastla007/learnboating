@@ -46,7 +46,7 @@ final class Router
      */
     public static function guestInvite(string $path): ?string
     {
-        $parts = array_values(array_filter(explode('/', trim($path, '/')), 'strlen'));
+        $parts = array_values(array_filter(explode('/', trim($path, '/')), static fn (string $s): bool => $s !== ''));
         if (($parts[0] ?? '') !== 'gruppe' || ! isset($parts[1])) {
             return null;
         }

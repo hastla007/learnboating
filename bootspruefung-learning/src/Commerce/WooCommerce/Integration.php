@@ -63,7 +63,9 @@ final class Integration
         add_action('woocommerce_order_status_changed', $sync, 20, 1);
         add_action('woocommerce_payment_complete', $sync, 20, 1);
         add_action('woocommerce_order_refunded', $sync, 20, 1);
-        add_action('woocommerce_refund_deleted', static fn ($refundId, $orderId) => self::sync()->sync((int) $orderId), 20, 2);
+        add_action('woocommerce_refund_deleted', static function ($refundId, $orderId): void {
+            self::sync()->sync((int) $orderId);
+        }, 20, 2);
         add_action('woocommerce_process_shop_order_meta', $sync, 60, 1);
         // Bestellung endgültig gelöscht: Zugänge und Gruppen widerrufen (der Abgleich findet sie danach nicht mehr).
         $deleted = static function ($orderId): void {
@@ -82,8 +84,12 @@ final class Integration
         }, 10, 1);
 
         // Öffentliche Hooks für Gateway-spezifische Ereignisse (z. B. Dispute-Webhooks).
-        add_action('bootspruefung_suspend_order', static fn ($orderId, $reason = '') => self::sync()->suspendOrder((int) $orderId, (string) ($reason ?: __('Zahlungskonflikt gemeldet', 'bootspruefung-learning'))), 10, 2);
-        add_action('bootspruefung_reactivate_order', static fn ($orderId, $reason = '') => self::sync()->releaseOrder((int) $orderId, (string) ($reason ?: __('Zahlungskonflikt geklärt', 'bootspruefung-learning'))), 10, 2);
+        add_action('bootspruefung_suspend_order', static function ($orderId, $reason = ''): void {
+            self::sync()->suspendOrder((int) $orderId, (string) ($reason ?: __('Zahlungskonflikt gemeldet', 'bootspruefung-learning')));
+        }, 10, 2);
+        add_action('bootspruefung_reactivate_order', static function ($orderId, $reason = ''): void {
+            self::sync()->releaseOrder((int) $orderId, (string) ($reason ?: __('Zahlungskonflikt geklärt', 'bootspruefung-learning')));
+        }, 10, 2);
         add_action('bootspruefung_entitlements_changed', [$self, 'orderNote'], 10, 2);
 
         // Checkout: Konto erforderlich, Lernprodukte nur einzeln.

@@ -203,7 +203,9 @@ final class Plugin
     {
         add_action('init', [$this, 'loadTextDomain']);
         add_action('plugins_loaded', [$this, 'maybeMigrate'], 5);
-        add_action(self::MIGRATE_HOOK, static fn () => \Bootspruefung\Learning\Infrastructure\Cron::run('migrate', [self::class, 'cronMigration']));
+        add_action(self::MIGRATE_HOOK, static function (): void {
+            \Bootspruefung\Learning\Infrastructure\Cron::run('migrate', [self::class, 'cronMigration']);
+        });
         add_action('admin_init', [Settings::class, 'register']);
         // Multisite: beim Löschen einer Website auch die eigenen Tabellen löschen (T82).
         add_filter('wpmu_drop_tables', [self::class, 'dropTablesOnSiteDelete'], 10, 2);
